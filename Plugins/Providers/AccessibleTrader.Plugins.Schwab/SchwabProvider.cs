@@ -660,7 +660,7 @@ namespace AccessibleTrader.Plugins.Schwab
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var order = BuildSchwabOrder(signal);
                     if (order == null) return "ORDER_FAILED:Unsupported order type";

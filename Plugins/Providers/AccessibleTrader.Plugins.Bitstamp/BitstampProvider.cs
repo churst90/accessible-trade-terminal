@@ -635,7 +635,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
             if (!IsTradeConfigured) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var pair   = signal.Symbol.Replace("/", "").ToLower();
                     bool isMkt = signal.Type == OrderType.Market;

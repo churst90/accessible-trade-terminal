@@ -278,7 +278,9 @@
                             @if (_reviewArmed)
                             {
                                 <div class="entry-row" role="group" aria-label="Confirm live order">
-                                    <button class="submit-btn @(_orderSide.ToLower())" @onclick="SubmitOrder">Confirm @_orderSide</button>
+                                    @* Disabled while a submit is in flight, same as the plain button:
+                                       this is the LIVE-money one, and it was the one with no gate at all. *@
+                                    <button class="submit-btn @(_orderSide.ToLower())" disabled="@_orderInFlight" @onclick="SubmitOrder">Confirm @_orderSide</button>
                                     <button type="button" @onclick="CancelReview">Cancel</button>
                                 </div>
                             }
@@ -328,7 +330,7 @@
                                         <label for="oco-stop">Stop trigger (the protective side):</label>
                                         <input id="oco-stop" type="number" step="any" min="0" @bind="_ocoStopPrice" />
                                     </div>
-                                    <button class="submit-btn" disabled="@(!CanSubmitOco)" @onclick="SubmitOcoPair"
+                                    <button class="submit-btn" disabled="@(!CanSubmitOco || _orderInFlight)" @onclick="SubmitOcoPair"
                                             aria-label="Place the OCO pair: limit and stop, one cancels the other">
                                         Place OCO pair
                                     </button>
@@ -434,7 +436,7 @@
                                                     <td>@RenderProtective(p, ProtectiveLevel.TakeProfit)</td>
                                                     <td>@p.Leverage.ToString("0.##")×</td>
                                                     <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
-                                                    <td><button aria-label="@($"Close {p.Symbol} position")" @onclick="() => ClosePosition(p)">Close</button></td>
+                                                    <td><button aria-label="@($"Close {p.Symbol} position")" disabled="@_orderInFlight" @onclick="() => ClosePosition(p)">Close</button></td>
                                                 </tr>
                                             }
                                             @if (!_positions.Any())
@@ -467,7 +469,7 @@
                                                     <td>@PriceFormatter.FormatQuantity(o.Quantity)</td>
                                                     <td>@PriceFormatter.FormatPrice(o.Price)</td>
                                                     <td>@o.Status</td>
-                                                    <td><button aria-label="@($"Cancel {o.Side} {o.Type} order for {o.Symbol}")" @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td>
+                                                    <td><button aria-label="@($"Cancel {o.Side} {o.Type} order for {o.Symbol}")" disabled="@_orderInFlight" @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td>
                                                 </tr>
                                             }
                                             @if (!_openOrders.Any())
@@ -784,7 +786,48 @@
     private bool CanSubmit =>
         _orderQty > 0
         && !string.IsNullOrEmpty(Store.State.Identity.Symbol)
-        && !string.IsNullOrEmpty(Store.State.Identity.Provider);
+        && !string.IsNullOrEmpty(Store.State.Identity.Provider)
+        && !_orderInFlight;
+
+    // ── The in-flight latch ──────────────────────────────────────────────────
+    // Set for the whole duration of any call that PLACES or CANCELS something,
+    // and cleared in a finally. Without it the submit button stayed enabled
+    // across the await, so a second Enter re-entered the handler and placed a
+    // second live order — and pressing Enter twice on a button is not an exotic
+    // slip for a screen-reader user, it is Tuesday.
+    //
+    // One latch rather than one per control, deliberately: the terminal has a
+    // single keyboard focus, so there is no real workflow where a user cancels
+    // an order *while* an order is being submitted, and one flag can be read
+    // correctly at a glance. It is a UI guard, not the safety net —
+    // GeneralOrderService's dedup gate is what catches a double-fire this
+    // component never sees (a keyboard macro, a second tab, a strategy).
+    private bool _orderInFlight;
+
+    /// <summary>
+    /// Claims the latch, or speaks the refusal and returns false.
+    ///
+    /// <para>A silent return is the defect: the user pressed a button and the terminal
+    /// did nothing, which is indistinguishable from a dead control.</para>
+    /// </summary>
+    private bool BeginOrderAction(string what)
+    {
+        if (_orderInFlight)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"Still working on the previous order. {what} was not sent — wait for the result.", true));
+            return false;
+        }
+        _orderInFlight = true;
+        StateHasChanged();
+        return true;
+    }
+
+    private void EndOrderAction()
+    {
+        _orderInFlight = false;
+        StateHasChanged();
+    }
 
     // Which optional fields the chosen order type needs. Stop/TP types use a
     // Trigger Price and are the order itself; Market/Limit are "entry" types that
@@ -1156,6 +1199,15 @@
             ArmLiveReview();
             return;
         }
+        // Direction check on the attached bracket, BEFORE anything is sent. A stop on
+        // the wrong side of the market is not caught by every venue: several accept it
+        // and trigger it immediately, so the entry closes itself at market having paid
+        // two fees. ProtectiveLevelValidator has held this rule since it was written and
+        // had exactly one caller — the position table's inline editor — so the ticket,
+        // the one place a bracket is typed from scratch, was never checked.
+        if (!ValidateTicketProtectiveLevels()) return;
+
+        if (!BeginOrderAction($"{_orderSide} {Store.State.Identity.Symbol}")) return;
         _reviewArmed = false;
         _orderStatus = "Submitting…";
         _orderError  = false;
@@ -1246,17 +1298,73 @@
             _orderStatus = $"Order failed: {ex.Message}";
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _orderStatus, true));
         }
+        finally
+        {
+            EndOrderAction();
+        }
+    }
+
+    /// <summary>
+    /// Checks the ticket's typed stop loss and take profit against the direction of the
+    /// order and the current price, speaking the refusal and leaving the field for the
+    /// user to correct.
+    ///
+    /// <para>
+    /// Only entry types carry a bracket, and only a positive value is a value: the two
+    /// fields are otherwise ignored (matching how <c>sl</c>/<c>tp</c> are built below).
+    /// With no current price the validator declines to judge, and that is reported as
+    /// such rather than silently letting the order through.
+    /// </para>
+    /// </summary>
+    private bool ValidateTicketProtectiveLevels()
+    {
+        if (!IsEntryType) return true;
+        if (_stopLoss <= 0 && _takeProfit <= 0) return true;
+
+        bool isLong = _orderSide != "Sell";
+        // A limit entry is judged against ITS OWN price — that is the level the position
+        // will be opened at, and a stop 5% below spot can still be above a limit entry
+        // placed 10% lower. Market entries are judged against the live price.
+        double reference = NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
+
+        foreach (var (value, level) in new[]
+        {
+            (_stopLoss,   ProtectiveLevel.StopLoss),
+            (_takeProfit, ProtectiveLevel.TakeProfit),
+        })
+        {
+            if (value <= 0) continue;
+            var check = ProtectiveLevelValidator.Validate(
+                value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                level, isLong, reference);
+            if (check.Ok) continue;
+
+            _orderError  = true;
+            _orderStatus = $"Order not sent. {check.Message}";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, _orderStatus, true));
+            StateHasChanged();
+            return false;
+        }
+        return true;
     }
 
     private async Task CancelOrder(string orderId, string symbol)
     {
         var provider = Store.State.Identity.Provider;
         if (string.IsNullOrEmpty(provider)) return;
+        if (!BeginOrderAction($"Cancel {symbol}")) return;
 
-        bool ok = await OrderService.CancelOrderAsync(provider, orderId, symbol);
-        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order canceled. {symbol}." : $"Cancel failed for {symbol}.", true));
+        try
+        {
+            bool ok = await OrderService.CancelOrderAsync(provider, orderId, symbol);
+            EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order canceled. {symbol}." : $"Cancel failed for {symbol}.", true));
 
-        if (ok) await LoadAccountDataAsync();
+            if (ok) await LoadAccountDataAsync();
+        }
+        finally
+        {
+            EndOrderAction();
+        }
     }
 
     // Derive order quantity from a risk budget: risk a percentage of the quote
@@ -1265,17 +1373,48 @@
     private void SizeFromRisk()
     {
         double price  = NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
-        double equity = _balances.Select(b => b.Free).DefaultIfEmpty(0).Max();
+
+        // The account's CASH, in the currency this instrument is quoted in — not the
+        // largest balance of any asset, which is what this line used to be. An account
+        // holding 50,000 DOGE and 300 USDT sized every trade from 50,000: roughly 166×
+        // too large, silently, from a button labelled "Size from risk". If the quote
+        // currency is not held, fall back to the largest single cash line rather than to
+        // a made-up number, and say which currency was used.
+        string quote = SymbolAssets.QuoteOf(Store.State.Identity.Symbol ?? "") ?? "";
+        var cash = _balances
+            .Where(b => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.IsCashAsset(b.Asset))
+            .Select(b => (b.Asset, Amount: b.Free))
+            .ToList();
+        var chosen = cash.FirstOrDefault(c => string.Equals(c.Asset, quote, StringComparison.OrdinalIgnoreCase));
+        if (chosen.Amount <= 0 && cash.Count > 0)
+            chosen = cash.OrderByDescending(c => c.Amount).ThenBy(c => c.Asset, StringComparer.Ordinal).First();
+        double equity = chosen.Amount;
+
         double perUnit = Math.Abs(price - _stopLoss);
         if (_stopLoss <= 0 || price <= 0 || equity <= 0 || _riskPct <= 0 || perUnit <= 0)
         {
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                "Set a stop loss, a price, and a risk percent first.", true));
+            // Say which input is missing. "Set a stop loss, a price, and a risk percent"
+            // sent a user to check three fields that were all fine when the real reason
+            // was an account holding no cash the sizer recognises.
+            string why = equity <= 0 && _stopLoss > 0 && price > 0 && _riskPct > 0
+                ? "No cash balance to size from — the account holds no currency this sizer recognises."
+                : "Set a stop loss, a price, and a risk percent first.";
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, why, true));
             return;
         }
-        _orderQty = Math.Round(equity * _riskPct / 100.0 / perUnit, 6);
+        // Round DOWN, not to nearest: rounding half-away-from-zero can put the sized
+        // quantity above the risk budget the user just asked to stay inside.
+        _orderQty = Math.Floor(equity * _riskPct / 100.0 / perUnit * 1e6) / 1e6;
+        if (_orderQty <= 0)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"{_riskPct} percent of {PriceFormatter.FormatPrice(equity)} {chosen.Asset} over that stop distance "
+                + "is less than the smallest size this sizer can express. Widen the risk or move the stop closer.", true));
+            return;
+        }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Sized {PriceFormatter.FormatQuantity(_orderQty)} from {_riskPct} percent risk.", true));
+            $"Sized {PriceFormatter.FormatQuantity(_orderQty)} from {_riskPct} percent risk on "
+            + $"{PriceFormatter.FormatPrice(equity)} {chosen.Asset}.", true));
     }
 
     // ── OCO pair state + submit ─────────────────────────────────────────────
@@ -1298,10 +1437,20 @@
         var provider = Store.State.Identity.Provider;
         var symbol = Store.State.Identity.Symbol;
         if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;
+        if (!BeginOrderAction($"OCO pair for {symbol}")) return;
 
         var side = _ocoSide == "Buy" ? OrderSide.Buy : OrderSide.Sell;
-        var (ok, message) = await OrderService.PlaceOcoPairAsync(
-            provider, symbol, side, _ocoQty, _ocoLimitPrice, _ocoStopPrice);
+        bool ok;
+        string message;
+        try
+        {
+            (ok, message) = await OrderService.PlaceOcoPairAsync(
+                provider, symbol, side, _ocoQty, _ocoLimitPrice, _ocoStopPrice);
+        }
+        finally
+        {
+            EndOrderAction();
+        }
 
         _ocoError = !ok;
         _ocoStatus = ok
@@ -1331,17 +1480,34 @@
     {
         var provider = Store.State.Identity.Provider;
         if (string.IsNullOrEmpty(provider) || Math.Abs(p.Quantity) < 1e-12) return;
+        if (!BeginOrderAction($"Close {p.Symbol}")) return;
 
         var side = p.Quantity > 0 ? OrderSide.Sell : OrderSide.Buy;
         string? subType = null;
         var marketKey = Store.State.Identity.Market ?? "";
         if (marketKey.Contains("|")) subType = marketKey.Split('|')[1];
 
+        // ReduceOnly is UNCONDITIONAL here, and is not gated on the capability flag
+        // the way the ticket's checkbox is. `p` is a snapshot from a timer-refreshed
+        // list: hold 1.0 BTC with a stop, let the stop fire down to 0.4, press Close
+        // on the stale row, and a plain sell 1.0 closes 0.4 and OPENS A 0.6 SHORT —
+        // while the user hears "Closing BTC/USDT. Sell 1.0." A button called Close
+        // must never be able to open a position. On a venue that ignores the flag the
+        // order is unchanged; on one that honours it the overshoot is clipped, which
+        // is the entire point.
         var signal = new TradeSignal(
             Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
-            Type: OrderType.Market, SubType: subType);
+            Type: OrderType.Market, SubType: subType, ReduceOnly: true);
 
-        string result = await OrderService.PlaceOrderAsync(provider, signal);
+        string result;
+        try
+        {
+            result = await OrderService.PlaceOrderAsync(provider, signal);
+        }
+        finally
+        {
+            EndOrderAction();
+        }
         bool err = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
         EventBus.Publish(new FeedbackRequestEvent(err ? FeedbackType.Error : FeedbackType.Info,
             // Say WHY, not just that it failed. The provider returns a reason after the colon

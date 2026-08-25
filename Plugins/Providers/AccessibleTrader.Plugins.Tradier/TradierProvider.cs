@@ -825,7 +825,7 @@ namespace AccessibleTrader.Plugins.Tradier
                      + "Round the quantity and place the order again";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     bool isOption = string.Equals(signal.SubType, "Options", StringComparison.OrdinalIgnoreCase);
 
@@ -1010,6 +1010,10 @@ namespace AccessibleTrader.Plugins.Tradier
                 p[$"stop[{leg}]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
             }
 
+            // No limiter wrapper here on purpose: the only caller is PlaceOrderAsync,
+            // from inside its ExecuteOnceAsync lambda, so the rate slot is already
+            // held and the no-retry rule (see RateLimiter.ExecuteOnceAsync) already
+            // covers this POST. Wrapping it again would double-charge the budget.
             var content = new FormUrlEncodedContent(p);
             var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
             var respStr = await response.Content.ReadAsStringAsync();

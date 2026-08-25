@@ -40,6 +40,24 @@ next scan guard: the first draft floored the *violation* count, which shrinks as
 get fixed, so it went red for doing its job twice in one minute. Floor the population,
 never the violations.
 
+**Status 2026-08-24 (the money path, batch one):** **534 open.** Ten items closed, all of them on
+the path a real order takes from the button to the wire. The wire end first: **an order the venue
+accepted but whose reply was lost was re-sent up to three more times**, because every
+`PlaceOrderAsync` ran inside `RateLimiter.ExecuteAsync` and `ShouldRetry` deliberately retries the
+`OperationCanceledException` that an `HttpClient` timeout raises. Four of those venues put no client
+order id on the wire at all. New `RateLimiter.ExecuteOnceAsync` (a named method, not `maxRetries: 0`
+— see the item for why), eleven sites converted including Kraken's `WithdrawAsync`, and Coinbase's
+idempotency key hoisted out of the retried lambda where it was regenerating itself. At the button
+end: the **duplicate-order gate keyed on a GUID it minted itself**, so it had never once matched;
+it now keys on the order's identity, backed by an in-flight latch on all four order-placing
+handlers. **"Close position" was not reduce-only**, so closing a stale row opened an opposite
+position while announcing a close. An entry's **stop and target were never checked against the
+market** — a stop above a long's entry triggers on the next bar and the trade closes itself having
+paid two fees. A **strategy signal with no size placed 1.0 units** of whatever it was: one whole
+BTC, from a strategy that simply did not set the field, in auto mode. And equity **summed different
+currencies** — ¥1,000,000 plus $2,000 reported 1,002,000 — in two places. Suite **4549 green**
+(+36). Every guard proven red by reintroducing its own bug; six sabotage runs.
+
 **Status 2026-08-24 (last-mile pass, batch four — table closed):** **544 open.** The quick-win
 table is exhausted: `ProfileRenderLayer` is dependency-free (all three injections were unused,
 which also freed `ChartRenderer` from an `IProfileService` it only forwarded), `RenderStepLine`'s
@@ -278,7 +296,7 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
 
 ### Health audit — trading, orders, paper broker, credentials (grade C+)
 
-- [ ] **The duplicate-order dedup gate is dead code in production — no caller ever sets `ClientOid`
+- [x] **The duplicate-order dedup gate is dead code in production — no caller ever sets `ClientOid`
   (`GeneralOrderService.cs:263`, `:271`).** `PlaceOrderAsync` mints `ClientOid = "atc-" + a fresh
   GUID` when the caller supplies none, then keys `_recentOrders` on
   `$"{providerName}|{signal.ClientOid}"` — so every submit gets a unique key and the map never
@@ -291,7 +309,18 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   double-click and post-network-flap retries") is false and **TODO:4380 records the feature as
   shipped**. Fix: hash the order identity (provider|symbol|side|type|qty|price|trigger) into the
   key when `ClientOid` is absent, plus a `_submitting` guard on the modal. CONFIRMED. CRITICAL.
-- [ ] **"Close position" is not reduce-only, so a close can open an opposite position
+  **CLOSED 2026-08-24.** The dedup key is now the order's IDENTITY when the caller supplies no
+  `ClientOid` — `provider|symbol|side|type|qty|price|trigger|reduceOnly|subType`, round-trip
+  formatted — and stays the `ClientOid` when one IS supplied (an explicit id is an explicit
+  statement that these are two different orders). `ClientOid` is still minted for the wire: several
+  venues reject a repeat of it, and that exchange-side check is the only thing that catches a
+  duplicate this process never saw. Plus `_orderInFlight` on the modal, claimed by all four
+  order-placing handlers and released in a `finally`, wired into `CanSubmit` and into the four
+  other buttons' `disabled` bindings — including the live Confirm button, which had no gate at
+  all. A held latch SPEAKS its refusal rather than returning silently. The refusal message now
+  names the order ("Buy 0.01 BTC/USD was already submitted 3 seconds ago") instead of "same
+  client id", which meant nothing to a user who never chose one.
+- [x] **"Close position" is not reduce-only, so a close can open an opposite position
   (`TradingDashboardModal.razor:1340-1342`).** The signal is
   `new TradeSignal(p.Symbol, side, Math.Abs(p.Quantity), OrderType.Market, SubType: subType)` —
   `ReduceOnly` left at default `false`, unlike the ticket path at `:1217` which at least gates on
@@ -301,7 +330,11 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   opened on collateral**, and the user hears "Closing BTC/USDT. Sell 1.0." On a live venue the
   signal reaches the broker with no reduce-only flag. TODO:56-58 schedules `ReduceOnly: true` for
   dashboard Phase 4; the present-day defect is a one-word fix that need not wait. CONFIRMED. CRITICAL.
-- [ ] **An entry's attached stop/take-profit is never checked against the market —
+  **CLOSED 2026-08-24.** `ReduceOnly: true`, and deliberately NOT gated on the capability flag the
+  way the ticket's checkbox is — a venue that ignores the flag behaves exactly as before, one that
+  honours it clips the overshoot. Guarded both ways: the close must carry it unconditionally, the
+  ticket's checkbox must stay capability-gated.
+- [x] **An entry's attached stop/take-profit is never checked against the market —
   `ProtectiveLevelValidator.Validate` has exactly one caller (`TradingDashboardModal.razor:968`).**
   The ticket reads `_stopLoss`/`_takeProfit` raw at `:1178-1179` and puts them on the signal at
   `:1205-1206`; `GeneralOrderService.PlaceOrderAsync` (`:228-410`) validates `Quantity` and limit
@@ -312,6 +345,14 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   open → the position closes itself immediately having paid two fees. The validator's own doc
   (`ProtectiveLevelValidator.cs:30-35`) claims "called by every editor". Fix: call `Validate` in
   `SubmitOrder` and again in `AttachProtectiveLegs` as the choke point. CONFIRMED. HIGH.
+  **CLOSED 2026-08-24.** Two choke points, because the two paths fail differently. (1) The ticket
+  calls `ValidateTicketProtectiveLevels()` BEFORE anything is sent, judging a limit entry against
+  its own limit price and a market entry against the live price — so on a live venue the order
+  never leaves. (2) `PaperTradingProvider.AttachProtectiveLegs` refuses a leg on the wrong side of
+  the FILL and emits a `Rejected` OrderUpdate carrying its reason, which the speech layer already
+  speaks; refusing loudly beats attaching a self-closing order, and beats dropping it silently
+  while the user believes the position is protected. The trailing stop is exempt: anchored at the
+  fill, it is on the right side by construction.
 - [ ] **An alias-resolved ledger key is invisible to the fill engine and to liquidation
   (`PaperTradingProvider.cs:1009-1042` vs `:551`, `:563`, `:571`).** `ResolveLedgerKeyAsync`
   deliberately returns an existing position's spelling ("Existing positions are matched, never
@@ -345,13 +386,18 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   the exact failure `BarFill`'s own doc is written against. Same root cause anchors a fresh trailing
   stop at the whole bar's extreme (`:763`, `:771`). Fix: stamp each `PaperOrder` with its creation
   time and only consider the portion of the bar after it. CONFIRMED. HIGH.
-- [ ] **A strategy signal with no quantity places 1.0 units of the instrument
+- [x] **A strategy signal with no quantity places 1.0 units of the instrument
   (`StrategyEngine.cs:195`).** `Quantity: signal.Quantity ?? 1.0` — on a live venue that is 1 BTC,
   1 ETH or 1 whole contract, from a strategy that simply did not set the field, with no sizing input
   from the account and nobody at the keyboard in auto-execute mode. 1.0 is well under
   `MaxOrderQuantity`, so `GeneralOrderService:233` waves it through. Fix: refuse the signal and speak
   it — a strategy that does not state a size has not stated an order. CONFIRMED. HIGH.
-- [ ] **Quick-trade equity sums different currencies as if they were one
+  **CLOSED 2026-08-24.** Refused and spoken: "produced a Buy signal with no position size, so
+  nothing was placed." Null, zero, negative and NaN all take the same branch. Note the two
+  existing `QuickTradeFailureReportingTests` auto-strategy tests were passing `null` quantity and
+  relying on the 1.0 default; their harness now states a size, which is what they were always
+  about.
+- [x] **Quick-trade equity sums different currencies as if they were one
   (`GeneralOrderService.cs:747-750`).** `balances.Where(QuickTradeEquity.IsCashAsset).Sum(b => b.Free
   + b.Locked)`, where `IsCashAsset` (`QuickTradeEquity.cs:69`) admits USD, USDT, USDC, BUSD, DAI,
   EUR, GBP, CAD, AUD, JPY, CHF. An account holding ¥1,000,000 and $2,000 reports equity 1,002,000 and
@@ -359,12 +405,22 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   (`:742-746`) makes exactly this argument against summing BTC with USDT and then commits the same
   category error one currency class down. Fix: sum only the account's quote currency, or convert.
   CONFIRMED. MEDIUM.
-- [ ] **The dashboard's risk sizer takes the largest balance of *any* asset as account equity
+  **CLOSED 2026-08-24.** `QuickTradeEquity` now keeps each cash line in its own currency
+  (`ReportCashLines`), `Latest` is the LARGEST single cash currency rather than a sum, and
+  `LatestAsset` names it. Multiple lines of the SAME currency still sum, which is correct.
+  **Follow-up filed below:** the sizing seam is `Func<double>` and so cannot see the instrument,
+  so the largest cash line is a proxy for the quote currency, not a derivation of it.
+- [x] **The dashboard's risk sizer takes the largest balance of *any* asset as account equity
   (`TradingDashboardModal.razor:1268`).** `_balances.Select(b => b.Free).DefaultIfEmpty(0).Max()` —
   an account holding 50,000 DOGE and 300 USDT sizes from 50,000, ~166× too large. It ignores
   `QuickTradeEquity.IsCashAsset`, which is public, static and three files away. `Math.Round(..., 6)`
   on the same line rounds half-away-from-zero, so the result can also exceed the risk budget.
   CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-24.** Reads the quote currency's cash line, falling back to the largest cash
+  line (never a non-cash asset), names the currency in the spoken confirmation, and rounds DOWN
+  rather than half-away-from-zero so the size cannot exceed the risk budget just requested. The
+  "set a stop loss, a price, and a risk percent" message now distinguishes the no-cash case,
+  which used to send the user to check three fields that were all fine.
 - [ ] **`PaperAccountHub.ForUser` can construct two accounts over one state file
   (`PaperAccountHub.cs:45-50`).** `ConcurrentDictionary.GetOrAdd(key, factory)` does not serialise
   the factory, so under concurrent first-use (two tabs opening at once — the exact scenario this
@@ -421,18 +477,37 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   `Summary()` (`:341-355`) then appends the real quote asset — "$1,000.00 EUR", "Position value
   $45,700.00 USDT". On a JPY- or EUR-quoted instrument the leading `$` is simply wrong, and this is
   the sentence a screen-reader user makes a sizing decision from. `SymbolAssets.QuoteOf` is already in
-  hand at `:331`. CONFIRMED. LOW.
+  hand at `:331`. CONFIRMED. LOW. **Now bundled with the follow-up below** — both are the same
+  missing fact (which currency is this?) reaching the same sentence.
+- [ ] **Follow-up from the money-path batch: the quick-trade sizing seam cannot see the instrument.**
+  `QuickTradeService` receives equity as a `Func<double>` (`QuickTradeService.cs:81`, wired at
+  `BlazorClient/ServiceCollectionExtensions.cs:429` and `WebHost/ServiceCollectionExtensions.cs:411`
+  as `() => …QuickTradeEquity.Latest`), so it is structurally currency-blind. The 2026-08-24 fix
+  stopped `Latest` being a sum across currencies and gave `QuickTradeEquity` a per-currency map plus
+  `LatestFor(asset)` / `LatestAsset`, but the seam still hands over one number with no label — so
+  `Latest` is the largest cash line as a PROXY for the quote currency, not a derivation of it. An
+  account holding ¥1,000,000 and $2,000 trading a USD-quoted instrument still sizes from the yen.
+  Fix: widen the seam to `Func<string, double>` (quote asset → cash) and have `ResolveEquity`
+  (`:390`) pass `SymbolAssets.QuoteOf(_store.State.Identity.Symbol)`, refusing rather than
+  substituting when that currency is not held. Doing so also hands `Money()` the currency it needs,
+  which closes the "$" item above. Three files plus `QuickTradeEquityFetchTests`. MEDIUM.
 - [ ] **Portfolio pricing is hardcoded to the Crypto market (`MarketDataPriceSource.cs:106`).**
   `new MarketDataRequest("Crypto", symbol, "1d", Limit: 2)` for every asset, so an equities or forex
   balance can never be priced and renders as "no AAPL/USD market on {provider}". Honest rather than
   wrong (the unpriced row is preserved by design, `PortfolioValuation.cs:120`), but the reason given
   names the wrong cause. CONFIRMED. LOW.
-- [ ] **(amends TODO:4380 and the test suite)** `OrderSafetyTests.cs:140`
+- [x] **(amends TODO:4380 and the test suite)** `OrderSafetyTests.cs:140`
   (`PlaceOrder_DedupAllowsDifferentClientOids`) and `:111`
   (`PlaceOrder_AutoGeneratesClientOidWhenAbsent`) together **pin as correct** the behaviour that makes
   the dedup gate useless in production. This is the "test mirrors production logic" shape — it guards
   the implementation, not the property ("a user cannot accidentally submit the same order twice"). No
   test in the suite submits the same order twice without an explicit `ClientOid`. CONFIRMED. HIGH.
+  **CLOSED 2026-08-24.** Both tests keep their pins — auto-generating a `ClientOid` and honouring
+  two distinct ones are both still correct — but each now carries a doc comment saying what it
+  does and does NOT prove. The missing property is covered by
+  `PlaceOrder_DedupSuppressesAccidentalDoubleSubmit_WithNoClientOid`, its six-case complement
+  `PlaceOrder_DedupAllowsAGenuinelyDifferentOrder_WithNoClientOid`, and
+  `PlaceOrder_DedupWindowExpires`.
 
 ---
 
@@ -1024,7 +1099,7 @@ Alpaca/MEXC **B**, Binance/Gemini **B+**. Verified clean across all sixteen: cul
 parsing and formatting (no non-invariant money path remains), zero `DateTime.Now`, WebSocket
 resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
 
-- [ ] **An order the venue accepted but whose response was lost is re-sent up to 3 more times, because
+- [x] **An order the venue accepted but whose response was lost is re-sent up to 3 more times, because
   every `PlaceOrderAsync` runs inside `RateLimiter.ExecuteAsync` (`RateLimiter.cs:90-107`) and 5 venues
   send no idempotency key.** Recounted: 10 of 12 trading providers wrap the order POST in the limiter —
   `AlpacaProvider.cs:726`, `BinanceProvider.cs:863`, `BitstampProvider.cs:638`,
@@ -1042,7 +1117,16 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   cannot see a retry inside one call. Fix: never run a non-idempotent POST under the retrying wrapper —
   call `WaitAsync()` for the rate slot and issue once, or pass `maxRetries: 0` at those 10 sites.
   CONFIRMED. CRITICAL.
-- [ ] **`KrakenProvider.cs:1078` retries a withdrawal.** `WithdrawAsync` runs its
+  **CLOSED 2026-08-24.** New `RateLimiter.ExecuteOnceAsync` — takes the rate slot, runs the action
+  exactly once, never retries, still feeds the backoff counter so a failing venue slows the NEXT
+  call. Eleven sites converted: `PlaceOrderAsync` on all ten wrapping providers, plus Binance's
+  `PlaceOcoPairAsync` and Kraken's `WithdrawAsync`. `maxRetries: 0` was rejected as the fix: it
+  reads as a tuning knob, is silently lost by any refactor that re-wraps the lambda, and is not
+  greppable as an intent. `OrderPostRetrySafetyTests` brace-matches the body of every
+  order-creating method and fails any that contains `.ExecuteAsync(` — a PATH check, not a
+  presence check — with a population floor and a unit pair proving `ExecuteOnceAsync` runs once
+  on the exact exception shape `ShouldRetry` says yes to while `ExecuteAsync` still retries it.
+- [x] **`KrakenProvider.cs:1078` retries a withdrawal.** `WithdrawAsync` runs its
   `POST /0/private/Withdraw` inside `_privateRateLimiter.ExecuteAsync` with the default 3 retries and no
   idempotency key of any kind (a fresh nonce is minted per attempt at `:1181-1193`, so each attempt is a
   *distinct valid* request). A timed-out-but-accepted withdrawal is re-sent. The surrounding design is
@@ -1050,13 +1134,18 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   funds can only go somewhere pre-approved — but the amount can go twice. `GetWithdrawalQuoteAsync`
   (`:1046`) and `GetDepositAddressAsync` (`:926`) are harmlessly idempotent, so the whole file reads as
   if the pattern were safe. CONFIRMED. CRITICAL.
-- [ ] **`CoinbaseProvider.cs:596` generates the idempotency key *inside* the retried lambda.**
+  **CLOSED 2026-08-24.** On `ExecuteOnceAsync`, and its `ct` — previously accepted and ignored —
+  is now threaded through.
+- [x] **`CoinbaseProvider.cs:596` generates the idempotency key *inside* the retried lambda.**
   `string clientOid = signal.ClientOid ?? Guid.NewGuid().ToString();` sits within the
   `_rateLimiter.ExecuteAsync` closure opened at `:592`, so every retry mints a **new**
   `client_order_id` (sent at `:637`) and Coinbase treats the retry as a brand-new order rather than
   rejecting it as a duplicate. When the caller supplies a `ClientOid` the provider is safe; when it does
   not — any path that isn't `GeneralOrderService` — the one mechanism that would have caught the retry
   defeats itself. Fix: hoist the `Guid.NewGuid()` above the lambda. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-24.** Hoisted above the limiter call, with a guard
+  (`Coinbase_mints_its_idempotency_key_outside_the_limiter_call`) asserting the declaration
+  precedes the call site.
 - [ ] **Finnhub and FMP put the API key in every URL and then speak the raw exception message, so a
   failure can read the user's live credential out loud.** Both authenticate by query string —
   `FinnhubProvider.cs:101`, `:131` (`wss://ws.finnhub.io?token={_apiKey}`), `:219`; and

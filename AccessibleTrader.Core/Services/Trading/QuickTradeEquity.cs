@@ -30,22 +30,112 @@ namespace AccessibleTrader.Core.Services.Trading
     public sealed class QuickTradeEquity
     {
         private double _latest;
-
-        /// <summary>Account equity in quote currency, or 0 when nothing has reported one.</summary>
-        public double Latest => System.Threading.Volatile.Read(ref _latest);
+        private string _latestAsset = "";
+        private readonly System.Collections.Generic.Dictionary<string, double> _byAsset =
+            new(System.StringComparer.OrdinalIgnoreCase);
+        private readonly object _gate = new();
 
         /// <summary>
-        /// Record an observed equity. Non-finite and negative values are ignored rather than
-        /// stored: a provider hiccup must not be able to turn into a position size.
+        /// Account equity in ONE cash currency — the largest cash line the account holds — or 0
+        /// when nothing has reported a balance yet. <see cref="LatestAsset"/> names which.
+        ///
+        /// <para>
+        /// This used to be the <i>sum</i> of every cash line, which was a category error one level
+        /// down from the BTC-plus-USDT sum <see cref="IsCashAsset"/> exists to prevent: an account
+        /// holding ¥1,000,000 and $2,000 reported equity 1,002,000, and a 1% quick trade then sized
+        /// a ~$10,020 position against a ~$8,700 account. Currencies are not fungible by addition.
+        /// </para>
+        ///
+        /// <para>
+        /// The largest single line is a proxy for "the currency this account trades in", not a
+        /// derivation of it — the instrument's quote currency is the right answer and this seam
+        /// cannot see the instrument. It is chosen because it is never an invented number: whatever
+        /// it reports is cash that actually exists, in one currency. Callers that DO know the
+        /// instrument should ask <see cref="LatestFor"/> instead.
+        /// </para>
         /// </summary>
-        public void Report(double equity)
+        public double Latest { get { lock (_gate) return _latest; } }
+
+        /// <summary>The cash asset <see cref="Latest"/> is denominated in, or "" when there is none.</summary>
+        public string LatestAsset { get { lock (_gate) return _latestAsset; } }
+
+        /// <summary>
+        /// Cash held in one specific currency, for a caller that knows the instrument's quote
+        /// asset. Returns 0 for an unheld or non-cash asset — which the sizing path already
+        /// refuses on, rather than silently substituting a different currency.
+        /// </summary>
+        public double LatestFor(string? asset)
         {
-            if (double.IsFinite(equity) && equity >= 0)
-                System.Threading.Volatile.Write(ref _latest, equity);
+            if (string.IsNullOrWhiteSpace(asset)) return 0;
+            lock (_gate) return _byAsset.TryGetValue(asset.Trim(), out double v) ? v : 0;
+        }
+
+        /// <summary>
+        /// Record an observed equity in a single currency. Non-finite and negative values are
+        /// ignored rather than stored: a provider hiccup must not be able to turn into a position
+        /// size.
+        /// </summary>
+        public void Report(double equity) => Report(equity, "");
+
+        /// <summary>Record an observed equity, naming the currency it is denominated in.</summary>
+        public void Report(double equity, string asset)
+        {
+            if (!double.IsFinite(equity) || equity < 0) return;
+            lock (_gate)
+            {
+                _latest = equity;
+                _latestAsset = asset ?? "";
+                if (!string.IsNullOrWhiteSpace(asset)) _byAsset[asset.Trim()] = equity;
+            }
+        }
+
+        /// <summary>
+        /// Record the whole cash side of an account at once: each cash line is kept in its own
+        /// currency, and <see cref="Latest"/> becomes the largest of them. Non-cash assets are
+        /// dropped here rather than at each call site.
+        /// </summary>
+        public void ReportCashLines(System.Collections.Generic.IEnumerable<(string Asset, double Amount)> lines)
+        {
+            var cash = new System.Collections.Generic.Dictionary<string, double>(System.StringComparer.OrdinalIgnoreCase);
+            foreach (var (asset, amount) in lines)
+            {
+                if (!IsCashAsset(asset) || !double.IsFinite(amount) || amount < 0) continue;
+                string key = asset.Trim();
+                cash[key] = cash.TryGetValue(key, out double had) ? had + amount : amount;
+            }
+
+            lock (_gate)
+            {
+                _byAsset.Clear();
+                foreach (var kv in cash) _byAsset[kv.Key] = kv.Value;
+
+                _latest = 0;
+                _latestAsset = "";
+                foreach (var kv in cash)
+                {
+                    // Ties broken by name so the chosen currency is stable across refreshes —
+                    // a sizing input that flips between two equal balances is a sizing input
+                    // that cannot be reasoned about.
+                    if (kv.Value > _latest ||
+                        (kv.Value == _latest && string.CompareOrdinal(kv.Key, _latestAsset) < 0))
+                    {
+                        _latest = kv.Value;
+                        _latestAsset = kv.Key;
+                    }
+                }
+            }
         }
 
         /// <summary>Test seam: forget the cached value.</summary>
-        internal void Reset() => System.Threading.Volatile.Write(ref _latest, 0);
+        internal void Reset()
+        {
+            lock (_gate)
+            {
+                _latest = 0;
+                _latestAsset = "";
+                _byAsset.Clear();
+            }
+        }
 
         /// <summary>
         /// Whether a balance line is cash the risk budget can be a percentage of.

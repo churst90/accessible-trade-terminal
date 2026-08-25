@@ -453,15 +453,33 @@ namespace AccessibleTrader.Core.Services
             var exit = entrySide == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
             string bracket = spec.OcoGroupId ?? "bracket-" + entryOrderId;
 
+            // ── The choke point for direction ────────────────────────────────────
+            // A leg on the wrong side of the fill is not protection, it is an order to
+            // close the position on the next bar: Crossed() for a sell stop is
+            // `bar.Low <= trigger`, so a stop of 110 attached to a long filled at 100 is
+            // true immediately and the trade closes itself having paid two fees. The
+            // validator that states this rule (ProtectiveLevelValidator) had exactly one
+            // caller — the position table's inline editor — so a bracket typed into the
+            // ticket, or emitted by a strategy, arrived here unchecked.
+            //
+            // Refuse the leg rather than attach it, and SAY SO. Silently dropping it
+            // would leave the position naked while the user believes it is protected,
+            // which is the worse of the two failures.
+            bool isLong = entrySide == OrderSide.Buy;
+            bool StopIsSane(double level) =>
+                ReportIfCrossed(symbol, exit, level, entryPx, ProtectiveLevel.StopLoss, isLong);
+            bool TargetIsSane(double level) =>
+                ReportIfCrossed(symbol, exit, level, entryPx, ProtectiveLevel.TakeProfit, isLong);
+
             if (spec.TrailStopValue is > 0 && spec.TrailStopMode != null)
                 _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, entryPx, true, false,
                     spec.TrailStopMode, spec.TrailStopValue, entryPx, ocoGroupId: bracket,
-                    reduceOnly: true));    // trailing stop anchored at the fill
-            else if (spec.StopLoss is > 0)
+                    reduceOnly: true));    // trailing stop anchored at the fill — always on the right side by construction
+            else if (spec.StopLoss is > 0 && StopIsSane(spec.StopLoss.Value))
                 _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, spec.StopLoss, true, false,
                     ocoGroupId: bracket, reduceOnly: true));
 
-            if (spec.TakeProfit is > 0)
+            if (spec.TakeProfit is > 0 && TargetIsSane(spec.TakeProfit.Value))
                 _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, spec.TakeProfit, false, true,
                     ocoGroupId: bracket, reduceOnly: true));
 
@@ -470,6 +488,35 @@ namespace AccessibleTrader.Core.Services
                     spec.TrailTpMode, spec.TrailTpValue, null, spec.TrailTpActivation,
                     armed: spec.TrailTpActivation == null, ocoGroupId: bracket,
                     reduceOnly: true));  // trailing take-profit
+        }
+
+        /// <summary>
+        /// True when a protective level sits on the correct side of the entry and may be
+        /// attached; false — having reported WHY — when it would trigger on the next bar.
+        /// </summary>
+        private bool ReportIfCrossed(string symbol, OrderSide exit, double level, double entryPx,
+            ProtectiveLevel which, bool isLong)
+        {
+            var check = ProtectiveLevelValidator.Validate(
+                level.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                which, isLong, entryPx);
+            if (check.Ok) return true;
+
+            bool isStop = which == ProtectiveLevel.StopLoss;
+            string name = isStop ? "stop loss" : "take profit";
+            // A Rejected update carrying its Reason is the channel the speech layer
+            // already speaks (GeneralOrderService.PublishOrderEvent), so this refusal
+            // is heard the same way a venue's refusal would be. The flags name the leg,
+            // and Rejected keeps them out of the "stop hit" branch.
+            Emit(NewId(), symbol, exit, 0, 0, 0, OrderStatus.Rejected, isStop, !isStop,
+                reason: $"the {name} was not attached. {check.Message} "
+                      + $"The {symbol} position is open at "
+                      + $"{entryPx.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture)} "
+                      + $"with no {name}.");
+            _logger.LogWarning(
+                "Paper bracket leg refused on {Symbol}: {Which} {Level} against entry {Entry} ({Message})",
+                symbol, name, level, entryPx, check.Message);
+            return false;
         }
 
         /// <summary>One-cancels-other: after <paramref name="filled"/> executes (or is

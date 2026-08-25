@@ -624,7 +624,7 @@ namespace AccessibleTrader.Plugins.Mexc
             bool isFutures = string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase);
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                     isFutures ? await PlaceFuturesOrderAsync(signal).ConfigureAwait(false)
                               : await PlaceSpotOrderAsync(signal).ConfigureAwait(false)).ConfigureAwait(false);
             }

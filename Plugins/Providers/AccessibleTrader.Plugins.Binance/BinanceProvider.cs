@@ -817,7 +817,7 @@ namespace AccessibleTrader.Plugins.Binance
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var p = new Dictionary<string, string>
                     {
@@ -860,7 +860,7 @@ namespace AccessibleTrader.Plugins.Binance
             bool isFutures = string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase);
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var symbol = CleanSymbol(signal.Symbol);
                     string side = signal.Side == OrderSide.Buy ? "BUY" : "SELL";

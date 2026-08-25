@@ -52,9 +52,23 @@ namespace AccessibleTrader.Core.Services
         private const double MaxOrderQuantity = 10_000_000.0;
 
         // In-memory dedup window: any PlaceOrderAsync attempt with the same
-        // (provider, ClientOid) tuple within DedupWindow is rejected as a probable
-        // double-submit. Covers UI double-click and post-network-flap retries.
+        // (provider, order identity) within DedupWindow is rejected as a probable
+        // double-submit. Covers UI double-Enter and post-network-flap retries.
         // Provider-side ClientOid enforcement (Binance) catches the rest.
+        //
+        // ── Why the key is NOT simply the ClientOid ──────────────────────────────
+        // It used to be, and that made this gate dead code. No production caller
+        // sets ClientOid — not the dashboard ticket, not Close position, not
+        // QuickTradeExecutor, not StrategyEngine — so step 2 below minted a fresh
+        // GUID for every submit and the map could never match itself. The comment
+        // here claimed it "covers UI double-click"; it covered nothing, and two
+        // tests in OrderSafetyTests pinned that as correct behaviour.
+        //
+        // So: when the caller DID supply a ClientOid, honour it — an explicit id is
+        // an explicit statement of identity, and two different ids mean two orders
+        // the caller genuinely wants. When it did not, key on what the order IS
+        // (provider, symbol, side, type, quantity, price, trigger, reduce-only).
+        // Two submits of the same thing inside 30 seconds are a double-fire.
         private static readonly TimeSpan DedupWindow = TimeSpan.FromSeconds(30);
         private readonly Dictionary<string, DateTime> _recentOrders = new();
         private readonly object _recentOrdersLock = new();
@@ -264,11 +278,11 @@ namespace AccessibleTrader.Core.Services
                 ? providedSignal with { ClientOid = "atc-" + Guid.NewGuid().ToString("N").Substring(0, 16) }
                 : providedSignal;
 
-            // ── 3. Dedup gate. A second Submit with the same (provider, ClientOid)
-            //    inside the dedup window is treated as a probable double-fire (UI
-            //    double-click, post-network-flap retry) and refused. The first
+            // ── 3. Dedup gate. A second Submit of the same order inside the dedup
+            //    window is treated as a probable double-fire (screen-reader
+            //    double-Enter, post-network-flap retry) and refused. The first
             //    submission's outcome is whatever it was — we don't second-guess it.
-            string dedupKey = $"{providerName}|{signal.ClientOid}";
+            string dedupKey = DedupKeyFor(providerName, providedSignal, signal);
             DateTime now = DateTime.UtcNow;
             lock (_recentOrdersLock)
             {
@@ -285,10 +299,15 @@ namespace AccessibleTrader.Core.Services
                 if (_recentOrders.TryGetValue(dedupKey, out var ts) && now - ts < DedupWindow)
                 {
                     _logger.LogWarning(
-                        "Duplicate order suppressed: ClientOid {ClientOid} on {Provider} already submitted {SecondsAgo:F1}s ago",
-                        signal.ClientOid, providerName, (now - ts).TotalSeconds);
+                        "Duplicate order suppressed: {DedupKey} already submitted {SecondsAgo:F1}s ago (clientOid={ClientOid})",
+                        dedupKey, (now - ts).TotalSeconds, signal.ClientOid);
+                    // Name the order, not the mechanism. "Same client id" meant nothing
+                    // to a user who never chose one; "this exact order" is the fact they
+                    // need in order to decide whether to wait or to place it again.
                     _errorCoordinator.ReportError(
-                        "Duplicate order suppressed (same client id submitted moments ago).",
+                        $"Duplicate order suppressed: {signal.Side} {signal.Quantity} {signal.Symbol} "
+                        + $"was already submitted {(now - ts).TotalSeconds:F0} seconds ago. "
+                        + "Check your open orders before placing it again.",
                         ErrorSeverity.Medium);
                     return "ORDER_DUPLICATE_SUPPRESSED";
                 }
@@ -407,6 +426,50 @@ namespace AccessibleTrader.Core.Services
                 _errorCoordinator.ReportError($"Order failed: {ex.Message}", ErrorSeverity.High);
                 return $"ORDER_FAILED:{ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// The key the dedup window is measured against.
+        ///
+        /// <para>
+        /// A caller-supplied <c>ClientOid</c> wins: it is an explicit statement of "this is
+        /// order X", and two distinct ids mean two orders that were genuinely both wanted.
+        /// </para>
+        ///
+        /// <para>
+        /// With no id — which is every production caller today — the key is the order's own
+        /// identity. The fields chosen are the ones that make two submissions the SAME order
+        /// to a user: provider, symbol, side, type, quantity, and whichever prices the type
+        /// actually uses, plus reduce-only (a close and an entry of equal size are opposite
+        /// intentions and must not collapse into one). Deliberately excluded: leverage,
+        /// margin type, time-in-force, post-only, position side, and the trailing fields —
+        /// nudging one of those and re-submitting inside 30 seconds is still the same order
+        /// twice, and a user who really means to place both can wait out the window.
+        /// </para>
+        ///
+        /// <para>
+        /// Quantity and price are formatted round-trip ("R") so 0.1 keys identically every
+        /// time; no rounding, because two orders that differ in the ninth decimal are two
+        /// orders the venue will treat differently.
+        /// </para>
+        /// </summary>
+        private static string DedupKeyFor(string providerName, TradeSignal provided, TradeSignal signal)
+        {
+            if (provided.ClientOid is { Length: > 0 } oid)
+                return $"{providerName}|oid:{oid}";
+
+            static string N(double? v) => v?.ToString("R", System.Globalization.CultureInfo.InvariantCulture) ?? "-";
+
+            return string.Join('|',
+                providerName,
+                "id:" + signal.Symbol,
+                signal.Side.ToString(),
+                signal.Type.ToString(),
+                N(signal.Quantity),
+                N(signal.Price),
+                N(signal.TriggerPrice),
+                signal.ReduceOnly ? "ro" : "-",
+                signal.SubType ?? "-");
         }
 
         private static bool IsFinitePositive(double v) =>
@@ -739,15 +802,14 @@ namespace AccessibleTrader.Core.Services
                 // stays unit-testable and can never place an order as a side effect — so whoever
                 // reads one publishes it here.
                 //
-                // CASH ONLY, never the sum of every balance. Balances are per-asset and in their
-                // own units: adding 0.5 BTC to 3000 USDT to 12 ETH produces a number that is not
-                // money in any currency, and it would then be multiplied by a risk percentage to
-                // size a real order. The risk budget is what you could lose in cash, so cash is
-                // what it must be a percentage of.
-                double equity = balances
-                    .Where(b => Trading.QuickTradeEquity.IsCashAsset(b.Asset))
-                    .Sum(b => b.Free + b.Locked);
-                _equity.Report(equity);
+                // CASH ONLY, never the sum of every balance — and never a sum ACROSS
+                // currencies either. Balances are per-asset and in their own units: adding
+                // 0.5 BTC to 3000 USDT to 12 ETH produces a number that is not money in any
+                // currency, and it would then be multiplied by a risk percentage to size a
+                // real order. This line used to make the same mistake one class down by
+                // summing every *cash* line, so ¥1,000,000 plus $2,000 reported 1,002,000.
+                // ReportCashLines keeps each currency separate; the sizer reads one of them.
+                _equity.ReportCashLines(balances.Select(b => (b.Asset, b.Free + b.Locked)));
 
                 return ProviderResult<List<Balance>>.Ok(balances);
             }

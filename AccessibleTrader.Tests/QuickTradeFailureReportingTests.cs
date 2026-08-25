@@ -204,16 +204,53 @@ public class QuickTradeFailureReportingTests
     }
 
     /// <summary>
+    /// A signal with no quantity is refused, out loud, and NOTHING is sent.
+    ///
+    /// <para>
+    /// It used to default to <c>1.0</c> — one whole BTC, one whole ETH, one whole contract,
+    /// chosen by nobody, from a strategy that simply did not set the field, in Auto mode with
+    /// no one at the keyboard. 1.0 is far under <c>MaxOrderQuantity</c>, so the sanity clamp
+    /// in <c>GeneralOrderService</c> waved it straight through. A strategy that has not stated
+    /// a size has not stated an order.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0.0)]
+    [InlineData(-1.0)]
+    [InlineData(double.NaN)]
+    public async Task AnAutoStrategySignalWithNoSizeIsRefusedAndNothingIsPlaced(double? quantity)
+    {
+        var h = new AutoStrategyHarness("paper-9f2c1a4b7e03", quantity);
+
+        await h.FireSignalAsync();
+
+        var spoken = await h.WaitForErrorAsync();
+        Assert.NotNull(spoken);
+        Assert.Contains("no position size", spoken!.Message, StringComparison.OrdinalIgnoreCase);
+        await h.Orders.DidNotReceive().PlaceOrderAsync(
+            Arg.Any<string>(), Arg.Any<AccessibleTrader.Sdk.Plugins.TradeSignal>());
+    }
+
+    /// <summary>
     /// Drives a real StrategyEngine in Auto mode through one bar close, with a scripted answer
     /// from the order service.
     /// </summary>
     private sealed class AutoStrategyHarness
     {
         public readonly SpyEventBus Bus = new();
+        public AccessibleTrader.Core.Services.IOrderExecutionService Orders = null!;
         private readonly AccessibleTrader.Core.Services.Feeds.MarketFeedHub _hub;
         private readonly AccessibleTrader.Core.Services.Feeds.ChartFeed _feed;
 
-        public AutoStrategyHarness(string orderResult)
+        public AutoStrategyHarness(string orderResult) : this(orderResult, 0.25) { }
+
+        /// <param name="quantity">
+        /// The size the strategy states. Null is the "strategy did not set a size" case, which
+        /// the engine refuses outright — these two tests are about what happens to an order that
+        /// was actually attempted, so they state one.
+        /// </param>
+        public AutoStrategyHarness(string orderResult, double? quantity)
         {
             var identity = new ChartIdentity("Spot", "TestProv", "BTC/USD", "1h");
             _hub = new AccessibleTrader.Core.Services.Feeds.MarketFeedHub(
@@ -226,8 +263,8 @@ public class QuickTradeFailureReportingTests
             var store = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IWorkspaceStore>();
             store.State.Returns(WorkspaceState.Initial with { Identity = identity });
 
-            var orders = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IOrderExecutionService>();
-            orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<AccessibleTrader.Sdk.Plugins.TradeSignal>())
+            Orders = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IOrderExecutionService>();
+            Orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<AccessibleTrader.Sdk.Plugins.TradeSignal>())
                   .Returns(Task.FromResult(orderResult));
 
             var strategy = NSubstitute.Substitute.For<AccessibleTrader.Sdk.Strategies.ITradingStrategy>();
@@ -237,10 +274,10 @@ public class QuickTradeFailureReportingTests
                     .Returns(new AccessibleTrader.Sdk.Strategies.StrategySignal(
                         AccessibleTrader.Sdk.Plugins.OrderSide.Buy,
                         AccessibleTrader.Sdk.Plugins.OrderType.Market,
-                        null, null, null, null, "twin test", 0.9));
+                        quantity, null, null, null, "twin test", 0.9));
 
             var engine = new AccessibleTrader.Core.Services.StrategyEngine(
-                Bus, orders,
+                Bus, Orders,
                 NSubstitute.Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>(),
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<AccessibleTrader.Core.Services.StrategyEngine>.Instance,
                 NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IDataManager>(), store,

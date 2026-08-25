@@ -723,7 +723,7 @@ namespace AccessibleTrader.Plugins.Alpaca
             if (!IsConfigured) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var body = new JObject
                     {

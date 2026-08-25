@@ -618,7 +618,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
 
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var orderBody = new JObject
                     {

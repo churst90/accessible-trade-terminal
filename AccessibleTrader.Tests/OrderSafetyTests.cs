@@ -107,6 +107,20 @@ namespace AccessibleTrader.Tests
             await tp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
+        /// <summary>
+        /// Pins the id that goes ON THE WIRE, which is a separate concern from dedup:
+        /// several venues (Binance, Coinbase, Kraken, Alpaca, IBKR, MEXC, Gemini) reject a
+        /// repeat of a client order id, and that exchange-side check is the only thing that
+        /// can catch a duplicate this process never saw.
+        ///
+        /// <para>
+        /// It is emphatically NOT evidence that the terminal-side dedup gate works — for two
+        /// years it was read that way, and because a fresh GUID lands here on every submit,
+        /// the gate keyed on it could never match itself. See
+        /// <see cref="PlaceOrder_DedupSuppressesAccidentalDoubleSubmit_WithNoClientOid"/>
+        /// for the property that actually protects the user.
+        /// </para>
+        /// </summary>
         [Fact]
         public async Task PlaceOrder_AutoGeneratesClientOidWhenAbsent()
         {
@@ -136,6 +150,11 @@ namespace AccessibleTrader.Tests
             await tp.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
+        /// <summary>
+        /// Two DIFFERENT explicit ids are two orders the caller deliberately asked for, and
+        /// both must go. This is the escape hatch for anything that legitimately wants to
+        /// place the same shape of order twice in a row.
+        /// </summary>
         [Fact]
         public async Task PlaceOrder_DedupAllowsDifferentClientOids()
         {
@@ -144,6 +163,86 @@ namespace AccessibleTrader.Tests
 
             await svc.PlaceOrderAsync("Binance", SaneSignal with { ClientOid = "id-a" });
             await svc.PlaceOrderAsync("Binance", SaneSignal with { ClientOid = "id-b" });
+
+            await tp.Received(2).PlaceOrderAsync(Arg.Any<TradeSignal>());
+        }
+
+        /// <summary>
+        /// THE property this gate exists for, stated without reference to the mechanism:
+        /// a user cannot accidentally submit the same order twice.
+        ///
+        /// <para>
+        /// No production caller sets <c>ClientOid</c> — not the dashboard ticket, not
+        /// Close position, not <c>QuickTradeExecutor</c>, not <c>StrategyEngine</c> — so
+        /// this is the ONLY shape the gate ever meets in the field. A screen-reader user
+        /// pressing Enter twice on a submit button is the routine case, not the exotic one.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public async Task PlaceOrder_DedupSuppressesAccidentalDoubleSubmit_WithNoClientOid()
+        {
+            var (svc, tp, _, _) = BuildService();
+            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("ORDER_123"));
+
+            var first  = await svc.PlaceOrderAsync("Binance", SaneSignal);
+            var second = await svc.PlaceOrderAsync("Binance", SaneSignal);
+
+            Assert.Equal("ORDER_123", first);
+            Assert.Equal("ORDER_DUPLICATE_SUPPRESSED", second);
+            await tp.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
+        }
+
+        /// <summary>
+        /// The other half, and the reason the fix is a fingerprint rather than a blanket
+        /// "one order per symbol per 30 seconds": scaling into a position, or changing your
+        /// mind about the size, must still work.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(GenuinelyDifferentOrders))]
+        public async Task PlaceOrder_DedupAllowsAGenuinelyDifferentOrder_WithNoClientOid(TradeSignal other)
+        {
+            var (svc, tp, _, _) = BuildService();
+            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK"));
+
+            await svc.PlaceOrderAsync("Binance", SaneSignal);
+            await svc.PlaceOrderAsync("Binance", other);
+
+            await tp.Received(2).PlaceOrderAsync(Arg.Any<TradeSignal>());
+        }
+
+        public static TheoryData<TradeSignal> GenuinelyDifferentOrders() => new()
+        {
+            SaneSignal with { Quantity = 0.02 },
+            SaneSignal with { Side = OrderSide.Sell },
+            SaneSignal with { Symbol = "ETH/USD" },
+            SaneSignal with { Type = OrderType.Limit, Price = 50_000 },
+            // A close and an entry of equal size are opposite intentions. If these
+            // collapsed into one key, the second — whichever it was — would be eaten.
+            SaneSignal with { ReduceOnly = true },
+            // Spot and futures are different books, so the same numbers are two orders.
+            SaneSignal with { SubType = "Futures" },
+        };
+
+        /// <summary>
+        /// The window is a window, not a lock: after it expires the same order goes again.
+        /// Uses the private field rather than sleeping 30 seconds — the point is that the
+        /// gate is time-bounded, and a test that proved it by waiting would never be run.
+        /// </summary>
+        [Fact]
+        public async Task PlaceOrder_DedupWindowExpires()
+        {
+            var (svc, tp, _, _) = BuildService();
+            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK"));
+
+            await svc.PlaceOrderAsync("Binance", SaneSignal);
+
+            var map = (System.Collections.Generic.Dictionary<string, DateTime>)typeof(GeneralOrderService)
+                .GetField("_recentOrders", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(svc)!;
+            Assert.Single(map);
+            foreach (var k in new List<string>(map.Keys)) map[k] = DateTime.UtcNow.AddMinutes(-5);
+
+            await svc.PlaceOrderAsync("Binance", SaneSignal);
 
             await tp.Received(2).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }

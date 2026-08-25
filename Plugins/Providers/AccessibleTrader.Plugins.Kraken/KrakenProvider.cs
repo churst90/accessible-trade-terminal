@@ -797,7 +797,7 @@ namespace AccessibleTrader.Plugins.Kraken
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _privateRateLimiter.ExecuteAsync(async () =>
+                return await _privateRateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var pair = FormatRestPair(signal.Symbol);
                     var postData = new Dictionary<string, string>
@@ -1075,7 +1075,7 @@ namespace AccessibleTrader.Plugins.Kraken
         {
             if (!IsConnected) throw new InvalidOperationException("Kraken: not connected.");
 
-            return await _privateRateLimiter.ExecuteAsync(async () =>
+            return await _privateRateLimiter.ExecuteOnceAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/Withdraw", new Dictionary<string, string>
                 {
@@ -1093,7 +1093,7 @@ namespace AccessibleTrader.Plugins.Kraken
                     ? throw new InvalidOperationException(
                         "Kraken accepted the withdrawal but returned no reference id — check its status on kraken.com")
                     : new WithdrawalResult(refId!, "initiated");
-            });
+            }, ct).ConfigureAwait(false);
         }
 
         private static double Num(JToken? t) =>

@@ -189,10 +189,29 @@ namespace AccessibleTrader.Core.Services
                 var providerName = state.Identity.Provider;
                 if (string.IsNullOrEmpty(providerName)) return;
 
+                // ── A signal with no size is not an order ────────────────────────
+                // This used to default to 1.0, which on a live venue is one whole BTC,
+                // one whole ETH or one whole contract — chosen by nobody, from a strategy
+                // that simply did not set the field, in Auto mode with nobody at the
+                // keyboard. 1.0 sails under MaxOrderQuantity, so GeneralOrderService's
+                // sanity clamp waves it straight through. Refuse it, out loud: a strategy
+                // that has not stated a size has not stated an order, and the author needs
+                // to hear that rather than discover it in a fill.
+                if (signal.Quantity is not double qty || !double.IsFinite(qty) || qty <= 0)
+                {
+                    _logger.LogError(
+                        $"Auto-execute for strategy '{active.Strategy.Name}' refused: the signal carried no quantity.",
+                        nameof(StrategyEngine));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                        $"{active.Strategy.Name} produced a {signal.Side} signal with no position size, so nothing "
+                        + "was placed. The strategy must set Quantity on the signal.", true));
+                    return;
+                }
+
                 var tradeSignal = new Sdk.Plugins.TradeSignal(
                     Symbol:     state.Identity.Symbol,
                     Side:       signal.Side,
-                    Quantity:   signal.Quantity ?? 1.0,
+                    Quantity:   qty,
                     Type:       signal.OrderType,
                     Price:      signal.LimitPrice,
                     StopLoss:   signal.StopLoss,

@@ -770,7 +770,7 @@ namespace AccessibleTrader.Plugins.Oanda
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
             try
             {
-                return await _rateLimiter.ExecuteAsync(async () =>
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
                     var instrument = FormatInstrument(signal.Symbol);
                     // OANDA uses signed units: positive = buy, negative = sell

@@ -107,6 +107,55 @@ namespace AccessibleTrader.Sdk.Services
         }
 
         /// <summary>
+        /// Takes a rate-limit slot and runs <paramref name="action"/> <b>exactly once</b>. Never
+        /// retries, for any exception, ever.
+        ///
+        /// <para>
+        /// ── Why this exists as its own method ──────────────────────────────────
+        /// <see cref="ExecuteAsync{T}"/> retries on network faults and — deliberately, see
+        /// <c>ShouldRetry</c> — on an <see cref="OperationCanceledException"/> whose token was not
+        /// cancelled, which is exactly the shape of an <see cref="System.Net.Http.HttpClient"/>
+        /// timeout. For a GET that is right. For a POST that <i>creates</i> something — an order, a
+        /// withdrawal — it is the worst possible behaviour: the venue booked the request, the
+        /// response was lost to the timeout, and the retry books it again. The caller hears "Order
+        /// placed" once and holds twice the position. <c>GeneralOrderService</c>'s dedup gate sits
+        /// <i>above</i> <c>PlaceOrderAsync</c> and cannot see a retry that happens inside one call.
+        /// </para>
+        ///
+        /// <para>
+        /// Passing <c>maxRetries: 0</c> to <see cref="ExecuteAsync{T}"/> is equivalent in behaviour
+        /// and was rejected on purpose: it is a magic argument that reads as a tuning knob, it is
+        /// silently lost by any refactor that re-wraps the lambda, and it is not greppable as an
+        /// intent. This name states the rule at the call site, and
+        /// <c>OrderPostRetrySafetyTests</c> enforces that every order- and withdrawal-creating
+        /// method uses it.
+        /// </para>
+        ///
+        /// <para>
+        /// A lost response is still ambiguous — this method makes the ambiguity <i>singular</i>
+        /// rather than multiplying it. Recovering from it is the caller's job
+        /// (<c>GeneralOrderService</c> scans open orders and returns <c>ORDER_UNCERTAIN</c>).
+        /// </para>
+        /// </summary>
+        public async Task<T> ExecuteOnceAsync<T>(Func<Task<T>> action, CancellationToken ct = default)
+        {
+            await WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var result = await action().ConfigureAwait(false);
+                ReportSuccess();
+                return result;
+            }
+            catch
+            {
+                // Still feed the backoff counter: a failing venue should slow the NEXT
+                // call down even though this one will not be repeated.
+                ReportFailure();
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Whether a failed attempt is worth retrying. Client errors (4xx) are NOT
         /// retried — a 400/401/403/404 just hammers the endpoint and delays the real
         /// error reaching the user — EXCEPT 429 (Too Many Requests) and 408 (Request
