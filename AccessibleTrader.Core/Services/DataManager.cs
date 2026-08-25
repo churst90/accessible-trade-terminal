@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Models;

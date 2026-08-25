@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

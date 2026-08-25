@@ -1,4 +1,3 @@
-using System;
 using System.Reactive.Linq;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;

@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Tests.Fakes;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

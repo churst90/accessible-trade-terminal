@@ -1,9 +1,5 @@
-using System;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.WebHost.Services.Push;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost
 {

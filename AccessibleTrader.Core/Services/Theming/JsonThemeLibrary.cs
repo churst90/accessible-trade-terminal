@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AccessibleTrader.Sdk.Theming;
-using AccessibleTrader.Sdk.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Theming

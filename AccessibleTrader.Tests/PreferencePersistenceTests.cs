@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.Reactive.Subjects;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

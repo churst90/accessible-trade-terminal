@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Core.Services.Analysis
 {
     /// <summary>What kind of line a candidate is, so results can be grouped and narrated.</summary>

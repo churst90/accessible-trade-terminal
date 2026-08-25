@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
@@ -14,7 +8,6 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Tests.Mocks;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Models;

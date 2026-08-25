@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.WebHost.Services

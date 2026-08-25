@@ -13,7 +13,6 @@
 //      modals move focus twice: heading, then first field) is an element that
 //      exists and is focusable — tabindex present or natively focusable tag.
 
-using AngleSharp.Dom;
 using Bunit;
 
 namespace AccessibleTrader.Tests.Blazor;

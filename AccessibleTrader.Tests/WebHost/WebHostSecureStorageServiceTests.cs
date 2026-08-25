@@ -1,11 +1,7 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost.Services;
 using Microsoft.AspNetCore.DataProtection;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

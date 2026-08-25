@@ -1,18 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Enums;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

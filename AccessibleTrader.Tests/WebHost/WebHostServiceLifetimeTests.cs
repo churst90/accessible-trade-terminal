@@ -1,9 +1,7 @@
-using System.Linq;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

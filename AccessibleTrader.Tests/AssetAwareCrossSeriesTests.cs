@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using AccessibleTrader.Core.Services.Indicators;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

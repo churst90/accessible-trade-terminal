@@ -1,21 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Reactive.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
-using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Analysis;
-using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Plugins;
-using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Tests.Mocks;
-using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

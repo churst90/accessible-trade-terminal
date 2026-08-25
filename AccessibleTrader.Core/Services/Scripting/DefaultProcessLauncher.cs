@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO;
 
 namespace AccessibleTrader.Core.Services.Scripting;
 

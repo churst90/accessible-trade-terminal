@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AccessibleTrader.Core.Services.Indicators;
 
 namespace AccessibleTrader.Core.Services

@@ -1,8 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Services;
 using Microsoft.Extensions.DependencyInjection;
 

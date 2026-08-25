@@ -1,10 +1,6 @@
-using System;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.StrategyLab;
 using AccessibleTrader.StrategyLab.Catalogue;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

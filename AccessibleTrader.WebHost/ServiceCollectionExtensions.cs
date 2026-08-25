@@ -1,8 +1,4 @@
-using System;
-using System.IO;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Audio;
@@ -16,7 +12,6 @@ using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Strategies;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Persistence;
 using AccessibleTrader.BlazorClient.Services; // RCL services — BlazorInputService, BlazorSpeechManager, GlobalInputService, CanvasRegionProvider
 using AccessibleTrader.WebHost.Services;       // WebHost shim services — WebHostAppLogger, WebHostPathService, etc.

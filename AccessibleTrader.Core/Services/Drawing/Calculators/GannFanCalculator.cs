@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 

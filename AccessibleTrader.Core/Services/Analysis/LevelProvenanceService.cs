@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Models;

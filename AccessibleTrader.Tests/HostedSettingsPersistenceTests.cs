@@ -1,8 +1,6 @@
-using System.IO;
 using AccessibleTrader.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

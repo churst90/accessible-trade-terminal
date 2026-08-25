@@ -1,13 +1,8 @@
-using System;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.AI;
 using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Tests.Fakes;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

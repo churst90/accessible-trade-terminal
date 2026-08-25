@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Sdk.Alerts;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Immutable;
 using AccessibleTrader.Sdk.Analysis;
 
 namespace AccessibleTrader.Sdk.Alerts;

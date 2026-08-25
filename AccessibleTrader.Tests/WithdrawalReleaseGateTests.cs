@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
@@ -12,7 +7,6 @@ using AccessibleTrader.Tests.Blazor;
 using Bunit;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

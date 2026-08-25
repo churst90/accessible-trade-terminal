@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

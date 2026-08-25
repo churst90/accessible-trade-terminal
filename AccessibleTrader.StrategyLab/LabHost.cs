@@ -1,10 +1,8 @@
-using System.Collections.Immutable;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Core.Strategies;
 using AccessibleTrader.Sdk.Interfaces;
-using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.StrategyLab.Catalogue;
 using Microsoft.Extensions.DependencyInjection;

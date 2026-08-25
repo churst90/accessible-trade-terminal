@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -9,7 +6,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

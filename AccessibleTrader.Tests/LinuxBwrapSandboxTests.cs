@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Scripting;
 using AccessibleTrader.ScriptSandbox;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

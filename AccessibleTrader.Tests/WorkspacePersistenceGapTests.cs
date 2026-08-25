@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Strategies;
@@ -11,7 +7,6 @@ using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.StrategyLab.Catalogue;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

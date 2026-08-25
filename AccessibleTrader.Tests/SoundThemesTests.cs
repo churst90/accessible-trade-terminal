@@ -1,7 +1,5 @@
-using System.Linq;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

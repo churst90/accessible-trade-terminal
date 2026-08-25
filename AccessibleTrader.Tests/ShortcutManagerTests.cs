@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 

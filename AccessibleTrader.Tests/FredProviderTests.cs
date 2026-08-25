@@ -1,8 +1,5 @@
-using System;
-using System.Linq;
 using AccessibleTrader.Plugins.Fred;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

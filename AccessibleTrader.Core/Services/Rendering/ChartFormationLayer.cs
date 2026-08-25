@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Services.Analysis;
-using AccessibleTrader.Sdk.Models;
 using SkiaSharp;
 
 namespace AccessibleTrader.Core.Services.Rendering

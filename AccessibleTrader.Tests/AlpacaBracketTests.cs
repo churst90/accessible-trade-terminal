@@ -1,8 +1,6 @@
 using AccessibleTrader.Plugins.Alpaca;
 using AccessibleTrader.Sdk.Plugins;
-using AccessibleTrader.Sdk.Trading;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

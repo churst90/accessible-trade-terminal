@@ -1,16 +1,10 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
-using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
-using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Tests.Mocks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

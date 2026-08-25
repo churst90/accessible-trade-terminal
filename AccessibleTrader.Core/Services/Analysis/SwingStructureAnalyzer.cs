@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Models;
 

@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Tests.Fakes;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

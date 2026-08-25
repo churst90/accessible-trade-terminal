@@ -1,11 +1,7 @@
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
-using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.WebHost.Services
 {

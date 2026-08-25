@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Screening;
@@ -14,7 +8,6 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Screening;
 using AccessibleTrader.Sdk.Strategies;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

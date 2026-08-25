@@ -1,6 +1,4 @@
 using SkiaSharp;
-using System;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Rendering

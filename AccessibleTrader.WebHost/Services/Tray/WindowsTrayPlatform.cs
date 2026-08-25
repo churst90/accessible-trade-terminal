@@ -1,10 +1,6 @@
-using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Threading;
-using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.WebHost.Services.Tray
 {

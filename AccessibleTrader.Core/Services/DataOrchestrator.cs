@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Plugins;
 using Polly;
 using Polly.CircuitBreaker;
-using Polly.Retry;
-using System.Net.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services

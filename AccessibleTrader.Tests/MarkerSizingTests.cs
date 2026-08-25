@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 
 using AccessibleTrader.Core.Services.Rendering;
@@ -8,7 +5,6 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Theming;
 using NSubstitute;
 using SkiaSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,6 +1,4 @@
 using AccessibleTrader.Sdk.Models;
-using Microsoft.Extensions.DependencyInjection;
-using AccessibleTrader.Core.Services.Indicators;
 
 namespace AccessibleTrader.StrategyLab;
 

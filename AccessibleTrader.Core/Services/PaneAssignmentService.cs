@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Interfaces;
 
 namespace AccessibleTrader.Core.Services;

@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.BlazorClient.Services

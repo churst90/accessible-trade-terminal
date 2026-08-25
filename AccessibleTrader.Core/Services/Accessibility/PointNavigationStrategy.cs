@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Accessibility

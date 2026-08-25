@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Core.Models;
 
 namespace AccessibleTrader.Core.Services.Input

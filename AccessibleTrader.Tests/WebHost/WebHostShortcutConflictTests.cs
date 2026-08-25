@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
-using System.IO;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost
 {

@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Plugins.KrakenFutures;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Plugins;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

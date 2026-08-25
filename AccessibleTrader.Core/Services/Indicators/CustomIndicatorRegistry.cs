@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Interfaces;
-using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Indicators
 {

@@ -1,12 +1,9 @@
-using System;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

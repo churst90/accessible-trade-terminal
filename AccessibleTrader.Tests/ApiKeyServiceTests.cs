@@ -1,11 +1,6 @@
-using System;
 using System.Collections.Concurrent;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

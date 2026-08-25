@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.WebHost.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost
 {

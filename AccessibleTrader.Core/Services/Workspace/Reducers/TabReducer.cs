@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Immutable;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Workspace.Reducers

@@ -1,8 +1,3 @@
-using System;
-using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services.Audio;
-
 namespace AccessibleTrader.Core.Services.Accessibility
 {
     public interface IStateFeedbackManager

@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-
 namespace AccessibleTrader.Core.Services.Scripting;
 
 /// <summary>

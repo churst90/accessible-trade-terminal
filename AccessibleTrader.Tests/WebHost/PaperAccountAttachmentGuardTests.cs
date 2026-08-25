@@ -1,12 +1,9 @@
-using System;
-using System.IO;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Tests.Mocks;
 using AccessibleTrader.WebHost.Account;
 using AccessibleTrader.WebHost.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

@@ -1,15 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Subjects;
 using System.Reflection;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Enums;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Tests.Fakes;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;

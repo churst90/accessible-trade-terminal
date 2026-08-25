@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Input;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

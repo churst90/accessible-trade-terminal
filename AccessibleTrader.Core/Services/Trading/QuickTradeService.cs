@@ -1,9 +1,6 @@
-using System;
-using System.Threading.Tasks;
 using System.Globalization;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Trading

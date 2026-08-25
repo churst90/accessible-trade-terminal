@@ -1,17 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
-using AccessibleTrader.Sdk.Trading;
 
 namespace AccessibleTrader.Core.Services.Strategies
 {

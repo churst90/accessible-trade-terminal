@@ -6,7 +6,6 @@ using AccessibleTrader.Core.Models;
 using Bunit;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.Blazor;
 

@@ -1,8 +1,5 @@
-using System;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {

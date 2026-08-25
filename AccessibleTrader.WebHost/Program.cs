@@ -1,16 +1,17 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost;
 using AccessibleTrader.WebHost.Account;
+// Looks unused — it is not. `App` is a Razor component, and the Razor
+// declaration pre-pass compiles this file before the components exist, so the
+// namespace has to be imported explicitly there. An "unused using" sweep that
+// only sees the final compilation will offer to delete this line; don't.
 using AccessibleTrader.WebHost.Components;
 using AccessibleTrader.WebHost.Services;
 

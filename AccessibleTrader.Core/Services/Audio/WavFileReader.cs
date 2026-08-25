@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.Core.Services.Audio
 {
     /// <summary>

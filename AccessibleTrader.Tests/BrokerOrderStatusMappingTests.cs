@@ -2,7 +2,6 @@ using AccessibleTrader.Plugins.Schwab;
 using AccessibleTrader.Plugins.Tradier;
 using AccessibleTrader.Sdk.Plugins;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

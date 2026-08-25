@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.Sdk.Strategies;

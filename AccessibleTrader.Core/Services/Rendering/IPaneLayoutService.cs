@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Core.Services.Rendering
 {
     /// <summary>

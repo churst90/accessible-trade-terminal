@@ -1,10 +1,8 @@
-using System;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
 using NSubstitute;
 using SkiaSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Workspace.Reducers

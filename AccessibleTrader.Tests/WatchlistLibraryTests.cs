@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Screening;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Screening;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

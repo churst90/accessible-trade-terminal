@@ -1,8 +1,5 @@
-using System;
-using System.Linq;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.StrategyLab.Catalogue;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

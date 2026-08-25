@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Sdk.Models
 {
     /// <summary>

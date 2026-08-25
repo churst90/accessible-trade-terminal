@@ -1,14 +1,10 @@
-using System;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Tests.Mocks;
 using AccessibleTrader.WebHost.Services;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost
 {

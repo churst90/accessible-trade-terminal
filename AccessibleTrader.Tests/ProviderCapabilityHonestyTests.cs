@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

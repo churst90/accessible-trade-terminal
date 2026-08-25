@@ -1,6 +1,5 @@
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Core.Services.Indicators;
 
 namespace AccessibleTrader.StrategyLab;

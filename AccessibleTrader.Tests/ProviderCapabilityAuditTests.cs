@@ -1,8 +1,4 @@
-using System;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.StrategyLab;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

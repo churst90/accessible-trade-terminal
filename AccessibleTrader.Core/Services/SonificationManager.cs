@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Sdk.Models;

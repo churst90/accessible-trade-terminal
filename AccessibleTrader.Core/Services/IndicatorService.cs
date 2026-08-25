@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
-using AccessibleTrader.Core.Services.Indicators;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services

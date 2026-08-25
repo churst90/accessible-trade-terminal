@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
 using AccessibleTrader.Core.Services.Indicators;
-using AccessibleTrader.Sdk.Indicators;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Tests

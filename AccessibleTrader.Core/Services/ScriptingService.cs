@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using AccessibleTrader.Sdk.Models;
-using System.Reflection;
 
 namespace AccessibleTrader.Core.Services
 {

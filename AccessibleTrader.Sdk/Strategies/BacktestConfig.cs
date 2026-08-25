@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.Sdk.Strategies;
 
 /// <param name="StartingCapital">Notional account size at bar zero.</param>

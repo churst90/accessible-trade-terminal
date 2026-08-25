@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Alerts;
-using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Sdk.Interfaces;
 

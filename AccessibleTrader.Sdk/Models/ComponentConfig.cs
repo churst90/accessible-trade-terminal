@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AccessibleTrader.Sdk.Models

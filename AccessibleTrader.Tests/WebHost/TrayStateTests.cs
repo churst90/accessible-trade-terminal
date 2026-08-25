@@ -1,8 +1,5 @@
-using System;
-using System.Linq;
 using AccessibleTrader.WebHost.Services;
 using AccessibleTrader.WebHost.Services.Tray;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost
 {

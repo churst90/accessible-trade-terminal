@@ -1,10 +1,6 @@
-using System;
 using System.Net;
 using System.Net.Mail;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Alerts;
-using AccessibleTrader.Sdk.Interfaces;
 
 namespace AccessibleTrader.Core.Services.Alerts;
 

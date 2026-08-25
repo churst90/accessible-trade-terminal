@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using AccessibleTrader.Sdk.Strategies;
-using AccessibleTrader.Core.Services;
 
 namespace AccessibleTrader.Core.Services.Strategies
 {

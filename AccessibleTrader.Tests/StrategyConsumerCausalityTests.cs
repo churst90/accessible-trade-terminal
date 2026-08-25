@@ -1,15 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Core.Strategies;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Sdk.Trading;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

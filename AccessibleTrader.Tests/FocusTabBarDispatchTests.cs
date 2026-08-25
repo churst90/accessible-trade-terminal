@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
@@ -6,9 +5,7 @@ using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Tests.Mocks;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

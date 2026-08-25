@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Strategies;
 
 namespace AccessibleTrader.Sdk.Screening;

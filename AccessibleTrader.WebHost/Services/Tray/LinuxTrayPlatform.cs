@@ -1,7 +1,4 @@
-using System;
 using System.Diagnostics;
-using System.IO;
-using Microsoft.Extensions.Logging;
 using Tmds.DBus;
 
 namespace AccessibleTrader.WebHost.Services.Tray

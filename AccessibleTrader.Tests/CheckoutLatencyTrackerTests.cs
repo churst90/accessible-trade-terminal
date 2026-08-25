@@ -1,6 +1,4 @@
-using System.Linq;
 using AccessibleTrader.Core.Services.Diagnostics;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

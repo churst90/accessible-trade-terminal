@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
 {
     /// <summary>

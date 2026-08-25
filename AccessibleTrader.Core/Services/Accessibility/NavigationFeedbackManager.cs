@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;
 

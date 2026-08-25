@@ -1,9 +1,5 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Reactive.Linq;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Enums;
 

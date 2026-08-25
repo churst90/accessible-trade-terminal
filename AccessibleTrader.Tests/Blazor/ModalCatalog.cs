@@ -10,9 +10,9 @@
 // so a modal that opens through a different mechanism still gets caught as long as
 // it subscribes to an Open* event — the convention every modal follows today.)
 
+using AccessibleTrader.BlazorClient.Components;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
-using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;

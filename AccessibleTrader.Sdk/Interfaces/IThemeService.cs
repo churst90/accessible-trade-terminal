@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Theming;
 

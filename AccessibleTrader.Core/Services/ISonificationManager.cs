@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services

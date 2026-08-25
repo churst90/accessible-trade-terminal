@@ -1,9 +1,6 @@
-using System;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using AccessibleTrader.Core.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.BlazorClient.Services
 {

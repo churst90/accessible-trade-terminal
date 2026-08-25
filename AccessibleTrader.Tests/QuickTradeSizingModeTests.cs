@@ -1,10 +1,7 @@
-using System;
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

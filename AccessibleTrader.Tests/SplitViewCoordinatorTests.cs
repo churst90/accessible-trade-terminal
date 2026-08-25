@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Models;
 using SkiaSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

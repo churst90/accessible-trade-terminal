@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.WebHost.Services;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

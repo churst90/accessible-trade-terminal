@@ -1,6 +1,4 @@
-using System;
 using System.Reflection;
-using Xunit;
 using AccessibleTrader.Core.Services.Input;
 
 namespace AccessibleTrader.Tests

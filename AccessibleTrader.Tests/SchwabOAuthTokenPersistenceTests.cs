@@ -1,13 +1,8 @@
-using System;
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Plugins.Schwab;
 using AccessibleTrader.Sdk.Services;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

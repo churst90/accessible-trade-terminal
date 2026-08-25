@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Sdk.Plugins

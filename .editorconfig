@@ -1,0 +1,54 @@
+# Editor and analyzer configuration for the whole repository.
+#
+# This file deliberately configures ONLY the rules that catch code rot. It sets
+# no formatting preferences (brace style, `var`, spacing, file-scoped
+# namespaces): the codebase is not uniform on those, a repo-wide reformat would
+# destroy blame for no correctness gain, and the existing style is readable.
+#
+# The rules below are the ones that stay green once they are green, and that go
+# red only when something real has decayed. They surface in the IDE always, and
+# in a build run with `-p:EnforceCodeStyleInBuild=true`. That switch is NOT on
+# by default, because the MAUI head (AccessibleTrader.BlazorClient) multi-targets
+# and cannot be analyzed on a machine without the MAUI workloads — turning it on
+# repo-wide would make the build environment-dependent. Run it deliberately:
+#
+#   dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj \
+#     -p:UseRazorSourceGenerator=false -p:EnforceCodeStyleInBuild=true \
+#     -p:GenerateDocumentationFile=true --no-incremental
+#
+# and fix what it finds with:
+#
+#   dotnet format style <project> --diagnostics IDE0005 --severity warn
+#
+# One caveat learned the hard way: IDE0005 analyses the FINAL compilation, and
+# so it cannot see the Razor declaration pre-pass, which compiles plain .cs
+# files before any component type exists. A `using` that only the pre-pass needs
+# looks unnecessary and gets deleted. AccessibleTrader.WebHost/Program.cs carries
+# a comment marking the one such line in this repo.
+
+root = true
+
+[*.cs]
+
+# Dead code. An unread private field or an uncalled private method is either a
+# leftover from a change that was never finished or a dependency the class has
+# stopped needing — both are worth knowing about at the moment they appear.
+dotnet_diagnostic.IDE0051.severity = warning   # unused private member
+dotnet_diagnostic.IDE0052.severity = warning   # private member assigned but never read
+dotnet_diagnostic.IDE0005.severity = warning   # unnecessary using directive
+
+# Documentation that is wrong, rather than documentation that is missing.
+# Missing XML docs (CS1591) are off on purpose: this codebase documents where
+# behaviour is surprising and stays quiet where it is not, and 8,000 stub
+# <summary> tags would bury the comments that matter. But a doc comment that
+# names a parameter which no longer exists, points at a type that has been
+# renamed, or is attached to nothing at all is worse than no comment — it is a
+# confident statement that is false, and the compiler can prove it.
+dotnet_diagnostic.CS1591.severity = none       # missing XML comment — by design
+dotnet_diagnostic.CS1570.severity = warning    # malformed XML in a doc comment
+dotnet_diagnostic.CS1572.severity = warning    # <param> for a parameter that does not exist
+dotnet_diagnostic.CS1573.severity = warning    # documented method with an undocumented parameter
+dotnet_diagnostic.CS1574.severity = warning    # cref that does not resolve
+dotnet_diagnostic.CS1587.severity = warning    # doc comment on something that cannot carry one
+dotnet_diagnostic.CS1734.severity = warning    # paramref naming a parameter that does not exist
+dotnet_diagnostic.CS0419.severity = warning    # ambiguous cref

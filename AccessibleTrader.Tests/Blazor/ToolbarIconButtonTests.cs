@@ -1,5 +1,4 @@
 using Bunit;
-using Xunit;
 using Cmp = AccessibleTrader.BlazorClient.Components;
 
 namespace AccessibleTrader.Tests.Blazor;

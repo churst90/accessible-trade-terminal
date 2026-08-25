@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.StrategyLab;
 

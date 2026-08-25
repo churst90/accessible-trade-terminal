@@ -1,9 +1,7 @@
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

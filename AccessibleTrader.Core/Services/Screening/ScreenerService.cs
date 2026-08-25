@@ -1,9 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Models;

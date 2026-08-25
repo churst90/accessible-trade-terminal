@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 using SoundPatch = AccessibleTrader.Sdk.Models.SoundPatch; // disambiguate from the registry's record
 
 namespace AccessibleTrader.Tests;

@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.WebHost.Services.Tray
 {
     /// <summary>

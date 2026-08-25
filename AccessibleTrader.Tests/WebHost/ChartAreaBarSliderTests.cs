@@ -1,9 +1,7 @@
-using System.Collections.Generic;
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Sdk.Models;
 using Bunit;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

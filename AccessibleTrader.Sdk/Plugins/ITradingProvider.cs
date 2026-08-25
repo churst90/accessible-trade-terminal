@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Trading;
 

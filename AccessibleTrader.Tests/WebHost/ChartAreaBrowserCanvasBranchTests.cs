@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Models;
@@ -8,10 +6,8 @@ using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Tests.Blazor;
 using Bunit;
-using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

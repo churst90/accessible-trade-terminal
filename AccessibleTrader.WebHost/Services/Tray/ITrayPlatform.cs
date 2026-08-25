@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace AccessibleTrader.WebHost.Services.Tray
 {
     /// <summary>One menu entry. Label is evaluated FRESH each time the menu is shown so

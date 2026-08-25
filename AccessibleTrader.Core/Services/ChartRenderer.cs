@@ -1,9 +1,6 @@
 using AccessibleTrader.Sdk.Theming;
 using SkiaSharp;
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Core.Services.Rendering;

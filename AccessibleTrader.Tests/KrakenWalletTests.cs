@@ -1,10 +1,7 @@
-using System;
-using System.Linq;
 using System.Reflection;
 using AccessibleTrader.Plugins.Kraken;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

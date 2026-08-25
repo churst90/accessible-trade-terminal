@@ -1,9 +1,5 @@
-using System;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Alerts;
 

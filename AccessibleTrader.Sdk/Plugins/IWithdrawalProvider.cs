@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Interfaces;
 
 namespace AccessibleTrader.Sdk.Plugins

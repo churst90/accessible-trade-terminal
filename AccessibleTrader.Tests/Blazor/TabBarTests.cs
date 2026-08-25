@@ -2,7 +2,6 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Models;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AccessibleTrader.Tests.Blazor;
 

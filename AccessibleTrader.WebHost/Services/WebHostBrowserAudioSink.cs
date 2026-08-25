@@ -1,5 +1,3 @@
-using System;
-using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
 namespace AccessibleTrader.WebHost.Services

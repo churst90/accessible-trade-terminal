@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

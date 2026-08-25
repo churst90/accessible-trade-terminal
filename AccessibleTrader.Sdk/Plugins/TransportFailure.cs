@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.Sdk.Plugins
 {
     /// <summary>

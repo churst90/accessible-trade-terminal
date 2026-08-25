@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using AccessibleTrader.Core.Services.Security;
 using AccessibleTrader.Sdk.Services;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

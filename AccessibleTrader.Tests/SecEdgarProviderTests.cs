@@ -1,15 +1,10 @@
-using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
-using System.Threading.Tasks;
 using AccessibleTrader.Plugins.SecEdgar;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Fakes;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

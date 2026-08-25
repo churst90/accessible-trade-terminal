@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 

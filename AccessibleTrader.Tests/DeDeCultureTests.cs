@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Threading.Tasks;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

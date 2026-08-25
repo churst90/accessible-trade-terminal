@@ -1,5 +1,4 @@
 using AccessibleTrader.Core.PineScript;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,5 +1,4 @@
 using AccessibleTrader.Core.Services.Trading;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

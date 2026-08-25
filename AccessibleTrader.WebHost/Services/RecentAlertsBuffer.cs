@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace AccessibleTrader.WebHost.Services
 {
     public enum RecentAlertState { Unread, Read, Dismissed }

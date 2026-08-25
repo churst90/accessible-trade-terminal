@@ -1,9 +1,7 @@
-using System;
 using AccessibleTrader.Plugins.Mexc;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using Google.Protobuf;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

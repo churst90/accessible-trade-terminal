@@ -1,11 +1,7 @@
-using System;
-using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

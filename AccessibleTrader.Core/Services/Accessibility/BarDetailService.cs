@@ -1,6 +1,4 @@
-using System;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Analysis;

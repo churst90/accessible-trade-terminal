@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Screening;
 
 namespace AccessibleTrader.Core.Services.Screening

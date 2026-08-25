@@ -1,5 +1,3 @@
-using AccessibleTrader.Sdk.Models;
-
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>

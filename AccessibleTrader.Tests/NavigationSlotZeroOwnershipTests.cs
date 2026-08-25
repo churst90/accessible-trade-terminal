@@ -1,13 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
-using AccessibleTrader.Core.Services.Audio;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

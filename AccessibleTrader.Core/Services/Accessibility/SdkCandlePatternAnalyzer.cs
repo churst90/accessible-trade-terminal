@@ -1,11 +1,10 @@
-using System;
 using AccessibleTrader.Sdk.Models;
 
 // Aliases to avoid ambiguity with AccessibleTrader.Core.Services.CandleAnalysis
-using SdkCA  = AccessibleTrader.Sdk.Analysis.CandleAnalysis;
-using SdkCD  = AccessibleTrader.Sdk.Analysis.CandleDirection;
-using SdkCT  = AccessibleTrader.Sdk.Analysis.CandleType;
-using SdkCP  = AccessibleTrader.Sdk.Analysis.CandlePattern;
+using SdkCA = AccessibleTrader.Sdk.Analysis.CandleAnalysis;
+using SdkCD = AccessibleTrader.Sdk.Analysis.CandleDirection;
+using SdkCT = AccessibleTrader.Sdk.Analysis.CandleType;
+using SdkCP = AccessibleTrader.Sdk.Analysis.CandlePattern;
 using SdkThr = AccessibleTrader.Sdk.Analysis.CandlePatternThresholds;
 
 namespace AccessibleTrader.Core.Services.Accessibility

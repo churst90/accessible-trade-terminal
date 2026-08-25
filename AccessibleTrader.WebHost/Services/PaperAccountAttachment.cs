@@ -1,7 +1,5 @@
-using System;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost.Account;
-using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.WebHost.Services
 {

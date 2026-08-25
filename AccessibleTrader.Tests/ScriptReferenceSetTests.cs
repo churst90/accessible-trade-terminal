@@ -1,12 +1,7 @@
-using System;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Scripting;
 using Microsoft.CodeAnalysis;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

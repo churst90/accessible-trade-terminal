@@ -1,5 +1,3 @@
-using System;
-
 namespace AccessibleTrader.Core.Services.Indicators
 {
     /// <summary>

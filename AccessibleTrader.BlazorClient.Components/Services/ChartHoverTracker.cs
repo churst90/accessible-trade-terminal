@@ -1,6 +1,4 @@
-using System;
 using AccessibleTrader.Core.Services;
-using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.BlazorClient.Services
 {

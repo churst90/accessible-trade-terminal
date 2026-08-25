@@ -1,12 +1,9 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.WebHost.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests.WebHost;
 

@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace AccessibleTrader.StrategyLab;
 
 /// <summary>

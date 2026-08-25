@@ -1,6 +1,5 @@
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Plugins;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

@@ -1,5 +1,4 @@
 using SkiaSharp;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Theming;
 

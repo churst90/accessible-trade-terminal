@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Strategies;

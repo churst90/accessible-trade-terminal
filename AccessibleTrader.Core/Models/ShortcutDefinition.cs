@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Core.Models
 {
     public record ShortcutDefinition(

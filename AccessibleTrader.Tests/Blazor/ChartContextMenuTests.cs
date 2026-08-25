@@ -5,7 +5,6 @@
 // 2-pixel-wide line.
 
 using System.Collections.Immutable;
-using System.Linq;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using SkiaSharp;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;

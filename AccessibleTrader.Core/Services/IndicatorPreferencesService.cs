@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;

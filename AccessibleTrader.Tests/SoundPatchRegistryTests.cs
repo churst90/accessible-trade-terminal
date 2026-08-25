@@ -1,5 +1,3 @@
-using System;
-using Xunit;
 using AccessibleTrader.Core.Services.Audio;
 
 namespace AccessibleTrader.Tests

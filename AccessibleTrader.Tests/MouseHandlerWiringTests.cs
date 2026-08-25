@@ -1,12 +1,8 @@
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Tests.Mocks;
 using Bunit;
-using Microsoft.JSInterop;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Strategies;
 
 namespace AccessibleTrader.Core.Services.Strategies

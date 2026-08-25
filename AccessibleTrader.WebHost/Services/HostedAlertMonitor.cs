@@ -1,5 +1,4 @@
 using AccessibleTrader.Core.Services;
-using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.WebHost.Account;

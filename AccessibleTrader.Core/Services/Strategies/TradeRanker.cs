@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.Core.Services.Strategies

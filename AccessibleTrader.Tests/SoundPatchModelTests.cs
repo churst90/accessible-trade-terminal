@@ -1,6 +1,4 @@
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

@@ -1,11 +1,5 @@
-using System;
-using System.Linq;
-using System.Collections.Generic;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
-using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Interfaces;
 
 namespace AccessibleTrader.Core.Services.Input
 {

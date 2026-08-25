@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Scripting;
 using AccessibleTrader.ScriptSandbox;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

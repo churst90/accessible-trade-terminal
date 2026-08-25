@@ -1,7 +1,5 @@
-using System;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Linq;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Models;

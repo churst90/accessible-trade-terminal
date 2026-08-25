@@ -1,4 +1,3 @@
-using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Models;
 

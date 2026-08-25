@@ -1,9 +1,6 @@
-using System;
 using System.Collections.Immutable;
-using System.Linq;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

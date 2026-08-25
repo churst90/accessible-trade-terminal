@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Theming;
 using SkiaSharp;
 

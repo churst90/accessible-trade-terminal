@@ -1,8 +1,5 @@
-using System.Collections.Generic;
-using Xunit;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
-using AccessibleTrader.Core.Services.Indicators;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 

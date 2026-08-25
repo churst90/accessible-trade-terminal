@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Alerts;
@@ -7,7 +5,6 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

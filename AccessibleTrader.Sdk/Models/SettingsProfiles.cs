@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Sdk.Models
 {
     /// <summary>Visual appearance settings — shareable between users without exposing credentials.</summary>

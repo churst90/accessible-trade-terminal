@@ -1,6 +1,5 @@
 using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Indicators;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using Microsoft.Extensions.DependencyInjection;
 

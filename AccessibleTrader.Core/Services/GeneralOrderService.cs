@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -11,7 +6,6 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Core.Services.Accessibility;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Core.Services
 {

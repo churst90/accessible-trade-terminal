@@ -1,7 +1,5 @@
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using Bunit;
-using Xunit;
 
 namespace AccessibleTrader.Tests.Blazor;
 

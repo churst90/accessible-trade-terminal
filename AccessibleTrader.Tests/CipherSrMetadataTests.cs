@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Core.Services.Indicators;

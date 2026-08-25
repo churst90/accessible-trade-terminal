@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Scripting;
 using AccessibleTrader.Sdk.Models;
@@ -12,7 +7,6 @@ using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.Sdk.Trading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

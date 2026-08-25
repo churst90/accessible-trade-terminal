@@ -1,12 +1,9 @@
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Tests.Mocks;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

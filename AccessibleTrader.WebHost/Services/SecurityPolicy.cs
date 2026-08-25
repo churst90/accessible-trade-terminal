@@ -1,6 +1,4 @@
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace AccessibleTrader.WebHost.Services;
 

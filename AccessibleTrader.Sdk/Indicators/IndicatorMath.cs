@@ -1,4 +1,3 @@
-using System;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Sdk.Indicators

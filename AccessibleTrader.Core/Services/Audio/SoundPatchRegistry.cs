@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Linq;
 
 namespace AccessibleTrader.Core.Services.Audio
 {

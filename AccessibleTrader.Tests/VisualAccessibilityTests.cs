@@ -1,16 +1,13 @@
-using System.Linq;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Rendering;
 using AccessibleTrader.Sdk.Enums;
-using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Tests.Mocks;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using SkiaSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests;
 

@@ -1,13 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using DynamicData;
 using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Core.Models;
 using Microsoft.Extensions.Logging;
 

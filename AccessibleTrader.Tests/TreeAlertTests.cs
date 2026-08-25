@@ -1,17 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Analysis;
-using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 using Newtonsoft.Json;
 using NSubstitute;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

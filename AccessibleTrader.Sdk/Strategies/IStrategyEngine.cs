@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace AccessibleTrader.Sdk.Strategies;
 
 public record ActiveStrategy(

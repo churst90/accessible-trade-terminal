@@ -1,5 +1,4 @@
 using AccessibleTrader.Core.Services.Strategies;
-using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Strategies;
 using Microsoft.Extensions.DependencyInjection;

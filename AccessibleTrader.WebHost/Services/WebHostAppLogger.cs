@@ -1,10 +1,8 @@
-using System;
 using System.Collections.Concurrent;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.WebHost.Services
 {

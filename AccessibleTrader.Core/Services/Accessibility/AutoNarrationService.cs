@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using AccessibleTrader.Core.Models;
-using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;

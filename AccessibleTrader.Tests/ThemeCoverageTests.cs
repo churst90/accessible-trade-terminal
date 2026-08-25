@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Theming;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Theming;
 using NSubstitute;
 using SkiaSharp;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

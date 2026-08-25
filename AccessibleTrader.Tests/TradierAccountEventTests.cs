@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using AccessibleTrader.Plugins.Tradier;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
-using Xunit;
 
 namespace AccessibleTrader.Tests
 {

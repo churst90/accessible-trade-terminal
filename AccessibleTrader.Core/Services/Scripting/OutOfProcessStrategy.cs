@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AccessibleTrader.ScriptSandbox;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;

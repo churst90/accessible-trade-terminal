@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace AccessibleTrader.Tests
 {
     // Defines the "ProviderCredentialBridge" collection so xUnit actually SERIALIZES the
