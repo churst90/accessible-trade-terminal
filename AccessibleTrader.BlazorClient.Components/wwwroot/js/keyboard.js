@@ -561,11 +561,42 @@ window.accessibleTrader = {
         window.accessibleTrader._touchExploreMode = !!on;
     },
 
+    /**
+     * Move keyboard focus to an element by id, waiting for it to exist.
+     *
+     * Callers are almost always a modal that has just set its visibility flag and
+     * yielded once. A single yield does NOT guarantee Blazor's render batch has
+     * reached the DOM: the batch is applied asynchronously, and how long that takes
+     * scales with how much markup the batch contains. Small dialogs won that race and
+     * the largest one — the trading dashboard, with its tab strip, order book and
+     * three data tables — lost it, so Alt+T opened a dialog that never took focus
+     * while every other modal worked. A lookup that returns null then silently does
+     * nothing is indistinguishable from a modal with no focus handling at all.
+     *
+     * So retry across animation frames rather than giving up on the first miss. The
+     * budget is ~10 frames (about 160 ms at 60 Hz) — long enough for any batch this
+     * app produces, short enough that a genuinely absent id costs nothing visible.
+     *
+     * Retrying introduces one hazard of its own: focus landing late, after the user
+     * has already moved it. Guarded by remembering what was focused when the call
+     * started and abandoning the retry if anything else changes it, so a late frame
+     * can never yank the user back out of wherever they went.
+     */
     focusElement: function (elementId) {
-        const el = document.getElementById(elementId);
-        if (el) {
-            el.focus();
-        }
+        const startedOn = document.activeElement;
+        let framesLeft = 10;
+
+        const attempt = function () {
+            const el = document.getElementById(elementId);
+            if (el) { el.focus(); return; }
+            if (--framesLeft <= 0) return;
+            // Something else claimed focus while we were waiting — that is the user or
+            // a later render, and either outranks this request.
+            if (document.activeElement !== startedOn) return;
+            requestAnimationFrame(attempt);
+        };
+
+        attempt();
     },
 
     /**

@@ -891,12 +891,17 @@
         if (!supported) return;
 
         await LoadAccountDataAsync();
-        
+        await RefreshBookAsync();
+
         // Refreshes the order book AND the account. The account used to be loaded once, when the
         // dashboard opened, and never again — so unrealised P&L was frozen at whatever it happened
         // to be at that moment, and a position opened while the dashboard was up never appeared.
         // A P&L that looks live and is not is worse than one that is obviously stale.
-        _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshLiveAsync), null, 0, 2000);
+        //
+        // First tick at 2000, not 0. The two loads above have just run; a zero due-time repeated
+        // both of them milliseconds later, so opening the dashboard fired eight account reads
+        // instead of four and re-rendered the dialog again while the open was still settling.
+        _refreshTimer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshLiveAsync), null, 2000, 2000);
     }
 
     // ── Protective levels on the positions table ────────────────────────────
