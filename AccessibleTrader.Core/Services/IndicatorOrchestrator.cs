@@ -213,6 +213,9 @@ namespace AccessibleTrader.Core.Services
                     }
                 }
 
+                // Stamp the bar this buffer's index 0 belongs to. See SeriesDataBuffer.FirstBarDate:
+                // it is what lets the incremental path tell an appended bar from a prepended one.
+                buffer.FirstBarDate = data[0].Date;
                 _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
             }
         }
@@ -248,12 +251,41 @@ namespace AccessibleTrader.Core.Services
                         buffer.HeatmapData[^1] = lastBarBins;
                     }
 
+                    buffer.FirstBarDate = data[0].Date;
                     _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
                     continue;
                 }
 
                 // Skip full profile/drawing recalculation on every tick for performance
                 if (isProfile || s.IsDrawing) continue;
+
+                // ── Does this buffer still describe THESE bars? ──────────────────────────
+                //
+                // Every incremental step below assumes index i means the same bar it meant
+                // last time. A scrollback fetch breaks that assumption without changing
+                // anything the old code looked at: the array grows by the same rule as a new
+                // live bar, `Array.Copy` puts the old values back at 0..n-1, and every one of
+                // them is now sitting on a bar it was not computed from. Reported from real
+                // use as "zoom out, pan, and only the latest bar on the indicators has a
+                // value" — the rest is the previous history shifted left, and NaN.
+                //
+                // Nothing incremental can repair that, so the whole series is recomputed.
+                // A null stamp means "built somewhere that does not stamp" and is treated as
+                // aligned: the alternative is a full recalculation on the first tick after
+                // every workspace restore, and an unstamped buffer is either empty — which
+                // the caller already routes to a full recalculation — or was built from this
+                // same data.
+                //
+                // Deliberately below the heatmap and profile branches. Their data is not a
+                // per-bar component array this method can rebuild — RecalculateSeriesFullAsync
+                // would hand back an empty buffer and DELETE a heatmap that only
+                // RecalculateAllAsync knows how to regenerate, which is a worse outcome than
+                // the misalignment. The heatmap's own prepend behaviour is filed separately.
+                if (s.Data.FirstBarDate.HasValue && s.Data.FirstBarDate.Value != data[0].Date)
+                {
+                    await RecalculateSeriesFullAsync(s, data, ct).ConfigureAwait(false);
+                    continue;
+                }
 
                 // Pivot-based indicators that write to historical bar indices need a full
                 // recalculation rather than the scalar incremental update.
@@ -272,6 +304,7 @@ namespace AccessibleTrader.Core.Services
                 if (s.Components.Any(c => !string.IsNullOrEmpty(c.DataMapping)))
                 {
                     var mapped = _mapper.MapInternalDataToBuffer(s, data);
+                    mapped.FirstBarDate = data[0].Date;
                     _store.Dispatch(new UpdateSeriesDataAction(s.Id, mapped));
                     continue;
                 }
@@ -313,6 +346,10 @@ namespace AccessibleTrader.Core.Services
                                 }
                             }
                         }
+                        // Re-stamp rather than relying on the clone: a buffer that arrived
+                        // unstamped becomes stamped after its first tick, so the alignment
+                        // check above has something to work with from then on.
+                        buffer.FirstBarDate = data[0].Date;
                         _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
                     }
                     catch (Exception ex)
@@ -362,6 +399,7 @@ namespace AccessibleTrader.Core.Services
                 var parameters = s.BuildParameterMap();
                 var (results, zoneBands) = await _engine.CalculateWithBandsAsync(s.IndicatorCode, data, parameters, ct).ConfigureAwait(false);
                 var buffer = _mapper.MapResultsToBuffer(s, results, data.Count);
+                if (data.Count > 0) buffer.FirstBarDate = data[0].Date;
                 _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
                 // Apply dynamic zone bands if the provider wrote any via buffer.WriteZoneBands().
                 if (zoneBands.Count > 0)

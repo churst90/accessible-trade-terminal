@@ -201,13 +201,119 @@ namespace AccessibleTrader.Tests
             Assert.Equal(1.0, longResult[0]);   // head preserved by in-place overwrite
         }
 
+        // ── Scrollback: bars that arrive at the FRONT ────────────────────────
+        //
+        // Reported from real use, 2026-08-25: "when I zoom out the chart and pan, only the
+        // latest bar on indicators is populated… as I scroll back it deletes it or something."
+        //
+        // Every grow case above is an APPEND — new bars at the end, so `Array.Copy(old, new)`
+        // leaves each old value on the bar it was computed from. A scrollback PREPEND grows the
+        // array by the same rule and is silently wrong: the old values stay at indices 0..n-1
+        // while the bars they belong to have moved right by however many were prepended. The
+        // chart then shows the previous history's values smeared onto the new older bars, NaN
+        // across the middle, and a single fresh value at the right edge.
+        //
+        // Array lengths alone cannot tell the two apart — 3 values against 6 bars is the same
+        // arithmetic either way. The buffer has to know which bar it starts at.
+
+        [Fact]
+        public async Task RecalculateLastAsync_AfterAScrollbackPrepend_RecomputesInsteadOfSmearing()
+        {
+            // Buffer was computed over bars 3,4,5 and stamped with bar 3's date. A prepend
+            // makes the series bars 0..5, so index 0 is now bar 0 — a bar this buffer has
+            // never seen a value for.
+            var (orch, store, engine) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 },
+                engineFull: data => new Dictionary<string, double[]>
+                {
+                    ["rsi"] = Enumerable.Range(0, data.Count).Select(i => 1000.0 + i).ToArray(),
+                });
+
+            var series = MakeIndicatorSeries("rsi", "RSI", BarTime(3), ("rsi", new[] { 10.0, 20.0, 30.0 }));
+
+            await orch.RecalculateLastAsync(MakeBars(0, 6), new[] { series }, CancellationToken.None);
+
+            Assert.Equal(1, engine.FullCalcCalls);
+
+            var result = AssertDispatched(store, series.Id).Data.ComponentData["rsi"];
+            Assert.Equal(6, result.Length);
+            // Every bar carries a value again, and it is the recomputed one — not the old
+            // history shifted onto the wrong bars.
+            Assert.Equal(Enumerable.Range(0, 6).Select(i => 1000.0 + i), result);
+            Assert.DoesNotContain(10.0, result);
+        }
+
+        [Fact]
+        public async Task RecalculateLastAsync_AfterAScrollbackPrepend_StampsTheNewFirstBar()
+        {
+            // The stamp has to move with the data, or the very next tick sees a mismatch again
+            // and every tick pays for a full recalculation forever.
+            var (orch, store, _) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 },
+                engineFull: data => new Dictionary<string, double[]> { ["rsi"] = new double[data.Count] });
+
+            var series = MakeIndicatorSeries("rsi", "RSI", BarTime(3), ("rsi", new[] { 10.0, 20.0, 30.0 }));
+
+            await orch.RecalculateLastAsync(MakeBars(0, 6), new[] { series }, CancellationToken.None);
+
+            Assert.Equal(BarTime(0), AssertDispatched(store, series.Id).Data.FirstBarDate);
+        }
+
+        [Fact]
+        public async Task RecalculateLastAsync_OrdinaryNewBar_StaysIncremental()
+        {
+            // The control, and the reason the fix is a DATE check rather than "recalculate
+            // whenever the length changed": an appended bar must still take the cheap path,
+            // or every tick on every chart becomes a full recalculation of every indicator.
+            var (orch, store, engine) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 },
+                engineFull: data => new Dictionary<string, double[]> { ["rsi"] = new double[data.Count] });
+
+            var series = MakeIndicatorSeries("rsi", "RSI", BarTime(0), ("rsi", new[] { 10.0, 20.0, 30.0 }));
+
+            await orch.RecalculateLastAsync(MakeBars(0, 4), new[] { series }, CancellationToken.None);
+
+            Assert.Equal(0, engine.FullCalcCalls);
+            var result = AssertDispatched(store, series.Id).Data.ComponentData["rsi"];
+            Assert.Equal(new[] { 10.0, 20.0, 30.0, 99.0 }, result);
+        }
+
+        [Fact]
+        public async Task RecalculateLastAsync_UnstampedBuffer_IsTreatedAsAligned()
+        {
+            // Buffers built outside the orchestrator (SeriesManagementService, a restored
+            // workspace, the backtester) carry no stamp. Treating that as a mismatch would
+            // make the first tick after every one of them a full recalculation; treating it as
+            // aligned is safe because an unstamped buffer is either empty — which the caller
+            // already routes to a full recalculation — or was built from this same data.
+            var (orch, store, engine) = BuildWithEngine(
+                engineIncremental: (code, data, prev) => new Dictionary<string, double> { ["rsi"] = 99.0 },
+                engineFull: data => new Dictionary<string, double[]> { ["rsi"] = new double[data.Count] });
+
+            var series = MakeIndicatorSeries("rsi", "RSI", ("rsi", new[] { 10.0, 20.0, 30.0 }));
+            series.Data.FirstBarDate = null;
+
+            await orch.RecalculateLastAsync(MakeBars(0, 3), new[] { series }, CancellationToken.None);
+
+            Assert.Equal(0, engine.FullCalcCalls);
+            Assert.Equal(99.0, AssertDispatched(store, series.Id).Data.ComponentData["rsi"][^1]);
+        }
+
         // ── Fixtures ─────────────────────────────────────────────────────────
 
         private static (IndicatorOrchestrator orch, MockWorkspaceStore store) Build(
             Func<string, IReadOnlyList<Ohlcv>, Dictionary<string, double[]>, Dictionary<string, double>> engineIncremental)
         {
+            var (orch, store, _) = BuildWithEngine(engineIncremental, null);
+            return (orch, store);
+        }
+
+        private static (IndicatorOrchestrator orch, MockWorkspaceStore store, StubIndicatorEngine engine) BuildWithEngine(
+            Func<string, IReadOnlyList<Ohlcv>, Dictionary<string, double[]>, Dictionary<string, double>> engineIncremental,
+            Func<IReadOnlyList<Ohlcv>, Dictionary<string, double[]>>? engineFull)
+        {
             var store = new MockWorkspaceStore();
-            var engine = new StubIndicatorEngine(engineIncremental);
+            var engine = new StubIndicatorEngine(engineIncremental, engineFull);
             var mapper = new IndicatorStateMapper();
             var drawing = new NoOpDrawingService();
             var profile = new NoOpProfileService();
@@ -215,7 +321,7 @@ namespace AccessibleTrader.Tests
             var notifications = new MockNotificationHub();
             var logger = NullLogger<IndicatorOrchestrator>.Instance;
             var orch = new IndicatorOrchestrator(engine, mapper, drawing, profile, heatmap, store, notifications, logger);
-            return (orch, store);
+            return (orch, store, engine);
         }
 
         /// <summary>
@@ -225,6 +331,10 @@ namespace AccessibleTrader.Tests
         /// takes the <c>!string.IsNullOrEmpty(s.IndicatorCode)</c> branch.
         /// </summary>
         private static ChartSeries MakeIndicatorSeries(string id, string code, params (string name, double[] values)[] arrays)
+            => MakeIndicatorSeries(id, code, BarTime(0), arrays);
+
+        private static ChartSeries MakeIndicatorSeries(string id, string code, DateTime firstBarDate,
+            params (string name, double[] values)[] arrays)
         {
             var cfg = new SeriesConfig
             {
@@ -241,18 +351,24 @@ namespace AccessibleTrader.Tests
                     DisplayType = ComponentDisplayType.Line,
                 });
             }
-            var buf = new SeriesDataBuffer { SeriesId = id };
+            var buf = new SeriesDataBuffer { SeriesId = id, FirstBarDate = firstBarDate };
             foreach (var (name, values) in arrays)
                 buf.ComponentData[name] = (double[])values.Clone();
             return new ChartSeries(cfg, buf);
         }
 
-        private static List<Ohlcv> MakeBars(int count)
+        private static readonly DateTime Origin = new(2026, 04, 23);
+
+        private static DateTime BarTime(int index) => Origin.AddMinutes(index);
+
+        private static List<Ohlcv> MakeBars(int count) => MakeBars(0, count);
+
+        /// <summary>Bars <paramref name="firstIndex"/> .. firstIndex+count-1 on the shared minute grid.</summary>
+        private static List<Ohlcv> MakeBars(int firstIndex, int count)
         {
             var list = new List<Ohlcv>(count);
-            var t0 = new DateTime(2026, 04, 23);
             for (int i = 0; i < count; i++)
-                list.Add(new Ohlcv(t0.AddMinutes(i), 100, 100, 100, 100, 0));
+                list.Add(new Ohlcv(BarTime(firstIndex + i), 100, 100, 100, 100, 0));
             return list;
         }
 
@@ -270,10 +386,16 @@ namespace AccessibleTrader.Tests
         private sealed class StubIndicatorEngine : IIndicatorEngine
         {
             private readonly Func<string, IReadOnlyList<Ohlcv>, Dictionary<string, double[]>, Dictionary<string, double>> _incremental;
+            private readonly Func<IReadOnlyList<Ohlcv>, Dictionary<string, double[]>>? _full;
 
-            public StubIndicatorEngine(Func<string, IReadOnlyList<Ohlcv>, Dictionary<string, double[]>, Dictionary<string, double>> incremental)
+            /// <summary>Records every full-recalculation the orchestrator asked for.</summary>
+            public int FullCalcCalls { get; private set; }
+
+            public StubIndicatorEngine(Func<string, IReadOnlyList<Ohlcv>, Dictionary<string, double[]>, Dictionary<string, double>> incremental,
+                                       Func<IReadOnlyList<Ohlcv>, Dictionary<string, double[]>>? full = null)
             {
                 _incremental = incremental;
+                _full = full;
             }
 
             public Task<Dictionary<string, double[]>> CalculateAsync(string code, IReadOnlyList<Ohlcv> data,
@@ -288,8 +410,11 @@ namespace AccessibleTrader.Tests
 
             public Task<(Dictionary<string, double[]> Results, IReadOnlyList<ZoneBandConfig> ZoneBands)>
                 CalculateWithBandsAsync(string code, IReadOnlyList<Ohlcv> data, Dictionary<string, object> parameters, CancellationToken ct)
-                => Task.FromResult<(Dictionary<string, double[]>, IReadOnlyList<ZoneBandConfig>)>(
-                    (new Dictionary<string, double[]>(), Array.Empty<ZoneBandConfig>()));
+            {
+                FullCalcCalls++;
+                return Task.FromResult<(Dictionary<string, double[]>, IReadOnlyList<ZoneBandConfig>)>(
+                    (_full?.Invoke(data) ?? new Dictionary<string, double[]>(), Array.Empty<ZoneBandConfig>()));
+            }
         }
 
         private sealed class NoOpDrawingService : IDrawingService

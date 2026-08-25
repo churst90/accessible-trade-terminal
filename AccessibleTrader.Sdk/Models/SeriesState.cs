@@ -123,7 +123,25 @@ namespace AccessibleTrader.Sdk.Models
     public class SeriesDataBuffer
     {
         public string SeriesId { get; init; } = "";
-        
+
+        /// <summary>
+        /// The date of the bar these arrays start at — index 0 — or <c>null</c> when the buffer
+        /// was built somewhere that does not know (an empty buffer from
+        /// <c>SeriesManagementService</c>, a restored workspace, the backtester).
+        ///
+        /// <para>
+        /// It exists because array LENGTHS cannot tell an append from a prepend. Three values
+        /// against six bars is the same arithmetic whether the three new bars arrived at the end
+        /// (a live tick, where the old values are still on their own bars) or at the front (a
+        /// scrollback fetch, where every old value has moved right by three). The incremental
+        /// update path grew the array with <c>Array.Copy</c> either way, so a scrollback left the
+        /// previous history's values smeared onto the wrong bars, NaN across the middle, and one
+        /// fresh value at the right edge — which is what a user sees as "only the latest bar on
+        /// the indicators is populated".
+        /// </para>
+        /// </summary>
+        public DateTime? FirstBarDate { get; set; }
+
         // Component data arrays (parallel to SeriesConfig.Components)
         public Dictionary<string, double[]> ComponentData { get; set; } = new();
         
@@ -136,6 +154,7 @@ namespace AccessibleTrader.Sdk.Models
             return new SeriesDataBuffer
             {
                 SeriesId = SeriesId,
+                FirstBarDate = FirstBarDate,
                 ComponentData = ComponentData.ToDictionary(k => k.Key, v => (double[])v.Value.Clone()),
                 ProfileBins = ProfileBins.ToList(),
                 HeatmapData = HeatmapData.Select(l => l.ToList()).ToList()

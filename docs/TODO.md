@@ -3552,6 +3552,60 @@ Four commissioned areas never ran and carry **no findings and no grade**. Nothin
 
 ---
 
+## The scrollback smear (reported from use, 2026-08-25)
+
+**Symptom, in the user's words:** "when I zoom out the chart and pan, only the latest bar on
+indicators is populated. It loads some data, then as I scroll back it deletes it or something."
+
+- [x] **`IndicatorOrchestrator.RecalculateLastAsync` grew a component array the same way whether
+  the new bars arrived at the END or at the FRONT.** The grow branch is
+  `Array.Fill(newArr, NaN); Array.Copy(arr, newArr, arr.Length); newArr[^1] = fresh;` — correct for
+  an appended live bar, and silently wrong for a scrollback prepend, where every stored value has
+  moved right by however many bars were fetched. The result on screen is exactly the report: the old
+  history smeared onto the wrong (older) bars, NaN across the middle, one fresh value at the right
+  edge. **Array lengths cannot tell the two cases apart** — three values against six bars is the
+  same arithmetic either way — which is why `IndicatorOrchestratorIncrementalTests` had a test
+  (`SlowDataArrival_FillsSkippedBarsWithNaN`) pinning the grow rule as correct: it is, for the case
+  it describes.
+  **CLOSED 2026-08-25.** `SeriesDataBuffer` now carries `FirstBarDate` — the bar its index 0 belongs
+  to — stamped by every orchestrator write path, and the incremental path refuses to run when that
+  date no longer matches `data[0]`, recomputing the series instead. A null stamp counts as aligned
+  (buffers built by `SeriesManagementService`, a restored workspace or the backtester carry none,
+  and treating those as mismatched would force a full recalculation on the first tick after every
+  restore). The gate sits BELOW the heatmap and profile branches deliberately — see the item below.
+  Guards: a prepend must recompute and must re-stamp; an appended bar must still take the cheap
+  path, or every tick on every chart becomes a full recalculation of every indicator.
+  **`DataOrchestrationService` already had a prepend heuristic** (`_lastFirstBarDate`, forces a full
+  recalc when the first bar date moves earlier) and it is not wrong — but it is reset to null on
+  every tab switch and every identity change, so the first prepend after either was undetected, and
+  it lives in a different class from the code that does the damage. It stays as the cheap path; the
+  stamp is now the actual gate.
+
+- [ ] **The heatmap series has the same prepend bug and is not covered by that fix.**
+  `RecalculateLastAsync`'s heatmap branch appends `lastBarBins` whenever
+  `data.Count > buffer.HeatmapData.Count`, which after a scrollback appends one column for a bar at
+  the RIGHT edge while every existing column now belongs to a bar further right than where it sits.
+  It was left out of the alignment gate on purpose: `RecalculateSeriesFullAsync` returns an empty
+  buffer for a heatmap (only `RecalculateAllAsync` can regenerate one from the order-book history
+  service), so routing it through the gate would DELETE the heatmap rather than repair it. Fix:
+  either give the gate a heatmap-aware path into `RecalculateAllAsync`, or have the heatmap store
+  its bins keyed by bar date rather than by position. MEDIUM.
+
+- [ ] **"Chart pattern targets and triggers change as more history loads" — same report, different
+  cause, still open.** Some of it was the smear above (pattern detection reads the component arrays
+  that were misaligned) and is fixed with it. The rest is the known causality blind spot filed
+  against `IndicatorCausalityTests`: the guard only ever APPENDS future bars (`full.Take(k)`), so
+  nothing tests what happens when OLDER bars arrive, which is the normal case in this app — and
+  three confirmed defects live in exactly that gap (`CipherBProvider`'s `Math.Min(100, n-1)`
+  bucket, `PulseProvider.ComputeMtfRsi`'s weekly buckets aligned to array index 0, and
+  `PivotLevelsProvider`'s first pivot set computed from a truncated session). Every one of those
+  changes an existing bar's answer when history is prepended, which is what the user is seeing.
+  The fix is the filed suffix-stability check (`bars.Skip(k)` vs `bars`, comparing the overlapping
+  tail) plus fixing whatever it finds; chart-pattern detection needs the same treatment and has no
+  causality guard of its own at all. HIGH.
+
+---
+
 ## Scripting and the sandbox — audit 2026-08-25
 
 The fourth of the never-assessed areas, and the one the TODO called highest-value: an
