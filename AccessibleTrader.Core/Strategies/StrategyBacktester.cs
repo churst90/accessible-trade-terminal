@@ -153,7 +153,29 @@ public class StrategyBacktester : IStrategyBacktester
         // Stamp IsBacktesting=true so ConfigurableStrategy (and any other event-publishing
         // strategy) skips IEventBus publication during the replay — otherwise SetupSonifier
         // speaks every Armed/Dropped/Reconfirm event for thousands of replayed bars.
+        // Re-align the workspace's indicator buffers with the date-filtered window.
+        //
+        // Every consumer downstream of here locates "the strategy's current bar" the same way:
+        // it takes the growing history window's Count and indexes the component array with it
+        // (ConditionEvaluator's leaf read, CipherSrLevelProvider, IchimokuLevelProvider). That
+        // identity only holds when array index == history index. The workspace's arrays are
+        // computed over the FULL chart, so a date-filtered run breaks it: at loop bar 0 of an
+        // H2 window starting at absolute bar 1200, history.Count is 1 and the read lands on
+        // absolute bar 0 — 1200 bars of the wrong market, at every bar of the run.
+        //
+        // Slicing here rather than threading an offset through the evaluator is deliberate: the
+        // offset would have to reach four unrelated consumers (and any future one), and each
+        // would be free to forget it. After the slice there is no offset to forget — index and
+        // history agree again, which is the invariant every one of them already assumes.
+        //
+        // Arrays shorter than the offset slice to empty, which reads as "this indicator has no
+        // data in this window" and makes the leaf false — the conservative answer, and the true
+        // one. Config, drawings and profile bins are carried across untouched; only the
+        // per-bar component buffers are re-based. The caller's state is not mutated: every
+        // ChartSeries here is a new instance over a new SeriesDataBuffer.
         var liveState = state with { IsBacktesting = true };
+        if (featureCaptureOffset > 0)
+            liveState = liveState with { ActiveSeries = SliceSeriesFrom(liveState.ActiveSeries, featureCaptureOffset) };
 
         // Build a growing history window; use immutable list for type compat
         var historyBuffer = ImmutableList<Ohlcv>.Empty;
@@ -430,12 +452,13 @@ public class StrategyBacktester : IStrategyBacktester
                 // and bars before it, the fill happens at i+1's open). This snapshot is
                 // attached to every BacktestTrade row produced from this position so the
                 // CSV export can correlate winners vs losers against feature values that
-                // may not even be in the strategy's leaf set. The captureOffset maps from
-                // the date-filtered loop index back to the original ComponentData index —
-                // see the date-filter block above for the offset calculation. Without it,
-                // H1 and H2 read identical absolute positions from the shared workspace
-                // arrays and produce duplicate (wrong) snapshots.
-                openFeatureSnapshot = CaptureFeatureSnapshot(liveState, i + featureCaptureOffset);
+                // may not even be in the strategy's leaf set. `i` is the correct index with no
+                // offset added: liveState's component arrays were re-based to the date-filtered
+                // window above, so loop index and array index are the same thing again. This
+                // used to add featureCaptureOffset because the arrays were still the full
+                // chart's — adding it now would double-count the shift and put H2's snapshots
+                // past the end of every array.
+                openFeatureSnapshot = CaptureFeatureSnapshot(liveState, i);
 
                 // Capture the TP ladder so the exit check on subsequent bars can fire each rung.
                 // Falls back to the single TakeProfit field if no ladder was provided (e.g. by a
@@ -616,6 +639,58 @@ public class StrategyBacktester : IStrategyBacktester
         double periodsPerYear = returns.Count / years;
 
         return mean / stdDev * Math.Sqrt(periodsPerYear);
+    }
+
+    /// <summary>
+    /// Returns a copy of <paramref name="series"/> whose per-bar component buffers start at
+    /// absolute bar <paramref name="offset"/>, so that array index 0 is the first bar of a
+    /// date-filtered backtest window.
+    ///
+    /// <para>
+    /// The whole strategy stack locates the current bar as <c>history.Count - 1</c> against a
+    /// component array. That is only the right bar when the array starts where the history
+    /// starts. Re-basing the arrays once, here, restores that identity for every consumer at
+    /// once — the condition evaluator's leaf reads, the Cipher SR and Ichimoku level providers,
+    /// and the feature snapshot — instead of asking each of them to remember an offset.
+    /// </para>
+    ///
+    /// <para>
+    /// Nothing the caller owns is mutated: each entry becomes a new <see cref="ChartSeries"/>
+    /// over a new <see cref="SeriesDataBuffer"/>, keeping the same <c>Config</c> (so component
+    /// metadata, ids and visibility survive) and the same profile bins. An array with fewer
+    /// than <paramref name="offset"/> entries slices to empty, which every consumer already
+    /// treats as "no data for this component".
+    /// </para>
+    /// </summary>
+    private static ImmutableList<ChartSeries> SliceSeriesFrom(
+        ImmutableList<ChartSeries> series, int offset)
+    {
+        if (series == null || series.Count == 0 || offset <= 0) return series ?? ImmutableList<ChartSeries>.Empty;
+
+        var builder = ImmutableList.CreateBuilder<ChartSeries>();
+        foreach (var s in series)
+        {
+            var buffer = new SeriesDataBuffer
+            {
+                SeriesId    = s.Data?.SeriesId ?? "",
+                ProfileBins = s.Data?.ProfileBins ?? new List<ProfileBin>(),
+                HeatmapData = s.Data?.HeatmapData ?? new List<List<ProfileBin>>()
+            };
+
+            if (s.Data?.ComponentData != null)
+            {
+                foreach (var kv in s.Data.ComponentData)
+                {
+                    var arr = kv.Value;
+                    buffer.ComponentData[kv.Key] = (arr == null || arr.Length <= offset)
+                        ? Array.Empty<double>()
+                        : arr[offset..];
+                }
+            }
+
+            builder.Add(s.WithData(buffer));
+        }
+        return builder.ToImmutable();
     }
 
     /// <summary>

@@ -78,8 +78,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             var s = state.ActiveSeries.FirstOrDefault(x => x.Id == targetId);
             if (s == null) return null;
 
-            int idx = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
-            return s.Components[idx].Name;
+            // A series with no components has no effective component name — and this runs inside
+            // Dispatch, so throwing here surfaces in every reducer path at once.
+            int idx = s.ClampComponent(state.FocusedComponentIndex);
+            return idx < 0 ? null : s.Components[idx].Name;
         }
 
         private static WorkspaceState AddSeries(WorkspaceState state, ChartSeries series)

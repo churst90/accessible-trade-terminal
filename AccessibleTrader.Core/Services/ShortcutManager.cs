@@ -34,17 +34,49 @@ namespace AccessibleTrader.Core.Services
 
     public class ShortcutManager : IShortcutManager
     {
-        public ShortcutProfile CurrentProfile { get; private set; } = new();
+        private readonly IPlatformPathService _pathService;
+        private readonly object _initLock = new();
         private readonly Dictionary<string, ShortcutDefinition> _lookup = new();
-        private readonly string _filepath;
+
+        // Both the profile and the file path resolve on FIRST USE, not in the constructor.
+        //
+        // On the multi-user WebHost `IShortcutManager` is Scoped, but the per-circuit identity
+        // is set inside OnCircuitOpenedAsync while WebHostBrowserCircuitHandler takes this
+        // service as a CONSTRUCTOR parameter — so the object necessarily exists before anyone
+        // knows who is using it. Resolving AppDataDirectory in the constructor therefore always
+        // resolved it to users/anon, and every hosted user read and wrote one shared
+        // shortcuts.json: rebinding a key changed a stranger's trading keyboard. Deferring the
+        // read to first use puts it after the identity is set. Harmless on the single-user
+        // heads, where AppDataDirectory never changes. Same shape as SettingsManager, which
+        // already had to solve this — see the note there.
+        private ShortcutProfile? _profile;
+        private string? _filepath;
 
         public ShortcutManager(IPlatformPathService pathService)
         {
-            // PLATFORM PATH: Use the provided path service for cross-platform support.
-            _filepath = Path.Combine(pathService.AppDataDirectory, "shortcuts.json");
+            _pathService = pathService;
+        }
 
-            InitializeDefaultProfile();
-            LoadFromDisk(); // Override with user settings if they exist
+        public ShortcutProfile CurrentProfile
+        {
+            get { EnsureLoaded(); return _profile!; }
+        }
+
+        /// <summary>
+        /// Resolves the user-scoped file path, installs the default profile and overlays the
+        /// user's saved one. Idempotent and cheap after the first call.
+        /// </summary>
+        private void EnsureLoaded()
+        {
+            if (_profile != null) return;
+            lock (_initLock)
+            {
+                if (_profile != null) return;
+                // PLATFORM PATH: Use the provided path service for cross-platform support.
+                _filepath = Path.Combine(_pathService.AppDataDirectory, "shortcuts.json");
+                InitializeDefaultProfile();
+                LoadFromDiskCore(); // Override with user settings if they exist
+            }
         }
 
         /// <summary>
@@ -54,15 +86,21 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public void LoadFromDisk()
         {
+            EnsureLoaded();
+            LoadFromDiskCore();
+        }
+
+        private void LoadFromDiskCore()
+        {
             try
             {
                 if (File.Exists(_filepath))
                 {
-                    string json = File.ReadAllText(_filepath);
+                    string json = File.ReadAllText(_filepath!);
                     var profile = JsonConvert.DeserializeObject<ShortcutProfile>(json);
                     if (profile != null)
                     {
-                        LoadProfile(profile);
+                        ApplyProfile(profile);
                     }
                 }
             }
@@ -74,10 +112,11 @@ namespace AccessibleTrader.Core.Services
 
         public void SaveToDisk()
         {
+            EnsureLoaded();
             try
             {
                 string json = JsonConvert.SerializeObject(CurrentProfile, Formatting.Indented);
-                AtomicFile.WriteAllText(_filepath, json);
+                AtomicFile.WriteAllText(_filepath!, json);
             }
             catch (Exception ex)
             {
@@ -87,7 +126,15 @@ namespace AccessibleTrader.Core.Services
 
         public void LoadProfile(ShortcutProfile profile)
         {
-            CurrentProfile = profile;
+            // Ensure first: a caller that sets a profile before anything else has read one must
+            // still leave the file path resolved, or the next SaveToDisk has nowhere to write.
+            EnsureLoaded();
+            ApplyProfile(profile);
+        }
+
+        private void ApplyProfile(ShortcutProfile profile)
+        {
+            _profile = profile;
             _lookup.Clear();
             foreach (var s in profile.Shortcuts)
             {
@@ -102,6 +149,7 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public SystemCommand GetCommand(string key, bool shift, bool ctrl, bool alt)
         {
+            EnsureLoaded();
             string lookupKey = GenerateLookupKey(key, shift, ctrl, alt);
             return _lookup.TryGetValue(lookupKey, out var definition) ? definition.Command : SystemCommand.None;
         }
@@ -125,6 +173,7 @@ namespace AccessibleTrader.Core.Services
 
         public IReadOnlyList<ShortcutDisplayBinding> GetAllBindings()
         {
+            EnsureLoaded();
             return CurrentProfile.Shortcuts.Select(b => new ShortcutDisplayBinding(
                 b.Command.ToString(),
                 FormatBinding(b)
@@ -143,6 +192,7 @@ namespace AccessibleTrader.Core.Services
 
         public IReadOnlyList<SystemCommand> UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false)
         {
+            EnsureLoaded();
             string newComboKey = GenerateLookupKey(key, shift, ctrl, alt);
 
             // Commands currently occupying the target combo (excluding the one we're
@@ -433,7 +483,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.UnmuteAllComponents,  "U", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
-            LoadProfile(p);
+            // ApplyProfile, not LoadProfile: this runs from inside EnsureLoaded, which already
+            // holds the lock and is the thing being initialised.
+            ApplyProfile(p);
         }
     }
 }

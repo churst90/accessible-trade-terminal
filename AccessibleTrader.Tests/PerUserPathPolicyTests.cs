@@ -154,5 +154,115 @@ namespace AccessibleTrader.Tests
                 + "docs/TODO.md. The list reached zero on 2026-08-22 and must stay there. "
                 + "Current list: " + string.Join(", ", KnownOffenders.Keys));
         }
+
+        // ── Rule 2: asking the right path service is not enough. You have to ask it LATE ──
+
+        /// <summary>
+        /// A path service that answers differently once the user is known — which is exactly what
+        /// <c>UserScopedPathService</c> does when the circuit sets <c>ICurrentUser</c>.
+        /// </summary>
+        private sealed class ShiftingPaths : AccessibleTrader.Core.Services.IPlatformPathService
+        {
+            private readonly string _root = Path.Combine(Path.GetTempPath(),
+                "atc-shifting-" + Guid.NewGuid().ToString("N"));
+            public int Reads { get; private set; }
+            public string User { get; set; } = "anon";
+            public string AppDataDirectory
+            {
+                get
+                {
+                    Reads++;
+                    var dir = Path.Combine(_root, "users", User);
+                    Directory.CreateDirectory(dir);
+                    return dir;
+                }
+            }
+            public string CacheDirectory => AppDataDirectory;
+        }
+
+        /// <summary>
+        /// <c>ShortcutManager</c> resolved its file path in its CONSTRUCTOR, and
+        /// <c>WebHostBrowserCircuitHandler</c> takes it as a constructor parameter — so on the
+        /// hosted head the object always existed before <c>ICurrentUser.Set</c> had run, and the
+        /// path always came out as <c>users/anon</c>. Every signed-in user therefore read and
+        /// wrote one shared <c>shortcuts.json</c>: rebinding a key silently changed a stranger's
+        /// trading keyboard.
+        ///
+        /// <para>
+        /// This is the same defect <c>WorkspacePerUserIsolationTests</c> and
+        /// <c>IndicatorPrefsPerUserIsolationTests</c> each proved for their own service. Those
+        /// tests hand each service a DIFFERENT path service and cannot fail for one that captures
+        /// the path too early — the two managers below share ONE path service, which is what makes
+        /// the timing visible.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void ShortcutManager_ResolvesItsPathAfterTheUserIsKnown()
+        {
+            var paths = new ShiftingPaths();
+
+            // Construction happens while the circuit still says "anon" — the real ordering.
+            var alice = new AccessibleTrader.Core.Services.ShortcutManager(paths);
+            Assert.Equal(0, paths.Reads);   // nothing may be read yet
+
+            paths.User = "alice";
+            alice.UpdateBinding(AccessibleTrader.Core.Models.SystemCommand.NavLeft, "F7");
+            Assert.True(paths.Reads > 0);
+
+            // Bob's circuit opens next and sets a different identity before anything is read.
+            var bob = new AccessibleTrader.Core.Services.ShortcutManager(paths);
+            paths.User = "bob";
+
+            var bobsLeft = bob.CurrentProfile.Shortcuts.First(
+                s => s.Command == AccessibleTrader.Core.Models.SystemCommand.NavLeft);
+            Assert.Equal("LEFT", bobsLeft.Key);
+            Assert.Equal(AccessibleTrader.Core.Models.SystemCommand.NavLeft,
+                bob.GetCommand("LEFT", false, false, false));
+
+            // …and Alice still has hers.
+            paths.User = "alice";
+            var reloaded = new AccessibleTrader.Core.Services.ShortcutManager(paths);
+            Assert.Equal(AccessibleTrader.Core.Models.SystemCommand.NavLeft,
+                reloaded.GetCommand("F7", false, false, false));
+        }
+
+        /// <summary>
+        /// The structural half, and the one that closes the class rather than the instance.
+        ///
+        /// <para>
+        /// An object must exist before any of its methods can be called, so every service in
+        /// <c>WebHostBrowserCircuitHandler</c>'s constructor is necessarily built BEFORE
+        /// <c>OnCircuitOpenedAsync</c> runs <c>ICurrentUser.Set</c>. Any user-scoped service
+        /// there is one lazy-loading mistake away from serving the wrong user's data — the
+        /// shortcuts bug was precisely that. The fix for a new dependency is to resolve it from
+        /// <c>_scope</c> INSIDE <c>OnCircuitOpenedAsync</c>, after <c>Set</c>, not to add it here.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheCircuitHandlerTakesNothingUserScopedInItsConstructor()
+        {
+            var type = typeof(AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler);
+            var ctors = type.GetConstructors();
+            Assert.Single(ctors);
+
+            // Allowed: things that cannot be user-scoped by construction. ILogger<T> is
+            // stateless per category; IServiceProvider IS the escape hatch this rule points at.
+            bool Allowed(Type t) =>
+                t == typeof(IServiceProvider)
+                || (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Microsoft.Extensions.Logging.ILogger<>));
+
+            var offenders = ctors[0].GetParameters()
+                .Where(p => !Allowed(p.ParameterType))
+                .Select(p => $"{p.ParameterType.Name} {p.Name}")
+                .ToList();
+
+            Assert.True(offenders.Count == 0,
+                "WebHostBrowserCircuitHandler's constructor runs before OnCircuitOpenedAsync sets "
+                + "the per-circuit identity, so anything resolved here is built while the user is "
+                + "still \"anon\". IShortcutManager sat here and every hosted user shared one "
+                + "shortcuts.json because of it. Resolve these from the injected IServiceProvider "
+                + "inside OnCircuitOpenedAsync instead, after ICurrentUser.Set:\n  "
+                + string.Join("\n  ", offenders));
+        }
     }
 }

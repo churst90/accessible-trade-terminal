@@ -129,7 +129,14 @@ namespace AccessibleTrader.Core.Services.Audio
                 return;
             }
 
-            int cIdx = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
+            // Nothing to sonify on a series with no components (a provider that returned
+            // nothing, or one focused mid-load). Mute rather than feed -1 downstream.
+            int cIdx = series.ClampComponent(state.FocusedComponentIndex);
+            if (cIdx < 0)
+            {
+                MuteAllNavigationSlots();
+                return;
+            }
 
             // REACTIVE PANNING: Pan must match the visual bar positions.
             //   • At live edge — canvas shows data in `effectiveWindow` slots plus empty

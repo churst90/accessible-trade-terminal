@@ -202,9 +202,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // prepend the pane display name so the user hears "[Pane]. [Component]..." on transition only.
             if (isYMove && !seriesIdChanged && _previousState != null)
             {
-                int prevCompIdx = Math.Clamp(_previousState.FocusedComponentIndex, 0, s.Components.Count - 1);
-                int currCompIdx = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
-                if (prevCompIdx != currCompIdx)
+                int prevCompIdx = s.ClampComponent(_previousState.FocusedComponentIndex);
+                int currCompIdx = s.ClampComponent(state.FocusedComponentIndex);
+                if (prevCompIdx >= 0 && currCompIdx >= 0 && prevCompIdx != currCompIdx)
                 {
                     string? prevPane = s.Components[prevCompIdx].SubPaneName;
                     string? currPane = s.Components[currCompIdx].SubPaneName;
@@ -311,9 +311,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!isJump && isXMove && !isHeatmap && !isProfile
                 && state.LastInteractionContext == InteractionContext.Component)
             {
-                int focusedComp = Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1);
-                string additionalSignals = GetAdditionalSignalSpeech(state, state.CurrentDataIndex, s.Id, focusedComp);
-                if (!string.IsNullOrWhiteSpace(additionalSignals)) utterance.Add(additionalSignals.Trim());
+                int focusedComp = s.ClampComponent(state.FocusedComponentIndex);
+                if (focusedComp >= 0)
+                {
+                    string additionalSignals = GetAdditionalSignalSpeech(state, state.CurrentDataIndex, s.Id, focusedComp);
+                    if (!string.IsNullOrWhiteSpace(additionalSignals)) utterance.Add(additionalSignals.Trim());
+                }
             }
 
             // 3. The bar itself.

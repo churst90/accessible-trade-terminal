@@ -144,7 +144,24 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                if (!await feed.RefreshAsync(ct).ConfigureAwait(false)) return;
+                if (!await feed.RefreshAsync(ct).ConfigureAwait(false))
+                {
+                    // A bare `return` here was the silent half of the wrong-chart bug. Every
+                    // door into it looks identical from the outside — an open circuit
+                    // (DataOrchestrator returns empty deliberately), a 200 OK carrying no bars
+                    // for a delisted ticker or a symbol outside the plan, an uninitialised
+                    // orchestrator — and none of them said anything. A blind user pressed Load
+                    // and heard nothing at all, which is indistinguishable from a chart that
+                    // loaded fine. Name the symbol AND the provider: the usual cause is that
+                    // this particular venue does not carry this particular symbol.
+                    string symbol   = feed.Identity.Symbol ?? "the symbol";
+                    string provider = string.IsNullOrEmpty(feed.Identity.Provider)
+                        ? "" : $" from {feed.Identity.Provider}";
+                    string msg = $"No data for {symbol}{provider}. The chart is empty.";
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, msg));
+                    ErrorOccurred?.Invoke(msg);
+                    return;
+                }
 
                 if (!DispatchIfStillFocused(feed, new UpdateDataAction(feed.Bars, IsInitialLoad: true))) return;
                 _store.Dispatch(new ZoomAction(100));

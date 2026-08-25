@@ -259,8 +259,28 @@ namespace AccessibleTrader.Core.Services
             AdjustChartVolumeAction a => _volumeService.ApplyChartVolume(state, a),
             AdjustVolumeAction a      => _volumeService.Apply(state, a),
 
-            // ── Identity / mode / provider context (trivial projections) ─────
-            SetIdentityAction a        => state with { Identity = a.Identity },
+            // ── Identity / mode / provider context ───────────────────────────
+            //
+            // Setting the identity CLEARS the data. It used to be a one-field projection, and
+            // that is how a chart came to show the wrong market: `LoadChartAsync` dispatches
+            // this, awaits the fetch, and dispatches Ready — but a fetch that comes back empty
+            // returns early without dispatching anything (an open circuit, a 200 OK with no
+            // bars for a delisted ticker, a symbol outside the plan). The title, the toolbar and
+            // Identity then all said ETH/USD while Data was still BTC/USD's 200 bars, status
+            // said Ready, and nothing was spoken. `PaperTradingProvider.OnState` prices
+            // positions and fills resting orders from exactly that (Identity, last bar) pair.
+            //
+            // Data belongs to an identity, so it cannot outlive one. The three dispatch sites
+            // are the chart load and the two workspace-restore sites, all of which either load
+            // data next or have none yet; tab switch and resume restore their snapshots by a
+            // different action and are unaffected.
+            SetIdentityAction a        => state with
+            {
+                Identity = a.Identity,
+                Data = new TimeSeriesBuffer<Ohlcv>(),
+                CurrentDataIndex = 0,
+                ViewportStartIndex = 0,
+            },
             ChangeModeAction a         => state with { Mode = a.Mode },
             SetProviderContextAction a => state with { CurrentDataShape = a.DataShape, SymbolDisplayName = a.SymbolDisplayName },
 

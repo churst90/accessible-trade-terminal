@@ -740,6 +740,20 @@ namespace AccessibleTrader.Core.Services
             try
             {
                 await _dataManager.RefreshDataAsync().ConfigureAwait(false);
+
+                // Ready is a claim about the chart, not about the call returning. A refresh
+                // that produced no bars used to land here and be announced as Ready anyway —
+                // the one status a user takes as "your chart is up". Every empty-result door
+                // (open circuit, 200-OK-with-no-bars, uninitialised orchestrator) returns from
+                // RefreshDataAsync normally, so the only honest test is whether there are bars.
+                // DataManager has already SAID what went wrong; this decides what the chart IS.
+                if (_store.State.Data.Count == 0)
+                {
+                    _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Error));
+                    _stateMachine.Fire(MarketTrigger.ErrorOccurred);
+                    return;
+                }
+
                 _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Ready));
                 _stateMachine.Fire(MarketTrigger.ConnectionEstablished);
             }

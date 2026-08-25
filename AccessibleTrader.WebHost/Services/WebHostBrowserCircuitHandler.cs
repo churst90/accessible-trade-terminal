@@ -55,16 +55,19 @@ namespace AccessibleTrader.WebHost.Services
         /// pipeline owns delivery then — same Orca, would double-speak).</summary>
         internal static int ActiveCircuits => _activeCircuits;
 
-        private readonly IShortcutManager _shortcuts;
         private readonly ILogger<WebHostBrowserCircuitHandler> _logger;
         private readonly IServiceProvider _scope;
 
+        // NOTHING user-scoped may be a constructor parameter here, and IShortcutManager used to
+        // be one. An object exists before its methods run, so a constructor dependency is built
+        // before OnCircuitOpenedAsync can call ICurrentUser.Set — the shortcut manager resolved
+        // its file path at that moment and every hosted user shared users/anon/shortcuts.json.
+        // Resolve per-circuit services from _scope INSIDE OnCircuitOpenedAsync, after Set.
+        // PerUserPathPolicyTests.TheCircuitHandlerTakesNothingUserScopedInItsConstructor pins it.
         public WebHostBrowserCircuitHandler(
-            IShortcutManager shortcuts,
             ILogger<WebHostBrowserCircuitHandler> logger,
             IServiceProvider scope)
         {
-            _shortcuts = shortcuts;
             _logger = logger;
             _scope = scope;   // the circuit's scoped provider — resolve optional account services from it
         }
@@ -101,7 +104,11 @@ namespace AccessibleTrader.WebHost.Services
 
             try
             {
-                WebHostShortcutRemap.ApplyBrowserHostOverrides(_shortcuts, _logger);
+                // Resolved here, not injected: this is the first moment the shortcut manager can
+                // safely learn which user's shortcuts.json it owns. See the constructor note.
+                var shortcuts = _scope.GetService<IShortcutManager>();
+                if (shortcuts != null)
+                    WebHostShortcutRemap.ApplyBrowserHostOverrides(shortcuts, _logger);
             }
             catch (Exception ex)
             {

@@ -665,7 +665,7 @@ namespace AccessibleTrader.Core.Services.Input
             }
 
             // Determine current pane from focused component.
-            int focusedIdx = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
+            int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
             string? currentPane = series.Components[focusedIdx].SubPaneName;
             int currentPaneIdx = paneOrder.IndexOf(currentPane);
             if (currentPaneIdx < 0) currentPaneIdx = 0;
@@ -710,7 +710,7 @@ namespace AccessibleTrader.Core.Services.Input
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (series == null || series.Components.Count == 0) return;
 
-            int focusedIdx = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
+            int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
             string? currentPane = series.Components[focusedIdx].SubPaneName;
 
             // Collect indices of all components in the same pane, in order.

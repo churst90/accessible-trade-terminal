@@ -2,6 +2,50 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-25 (the causality batch — blockers 5, 7, 8 and 9):** **522 open.** Eight items
+closed, all of the same shape: *the code read the wrong bar, the wrong user's file, or died
+without saying so.* Blockers 1–4 and 5, 7, 8, 9 of the health assessment's nine are now closed;
+only 6 (live-vs-backtest execution parity) remains, and it is feature-sized.
+
+**The causality group (blocker 5).** Four consumer-layer look-aheads, none of which
+`IndicatorCausalityTests` could ever have caught: that contract proves each indicator's OUTPUT is
+causal and says nothing about which bar a consumer then reads. The date-filter one was fixed by
+**slicing the workspace's component arrays to the window** rather than threading a
+`barIndexOffset` — the offset would have had to reach four unrelated consumers and every future
+one, whereas after the slice `array index == history index` again, which is the invariant all of
+them already assume. `CrossesLine` and `PriceVsCloud` (both branches) now clip to
+`Math.Min(history.Count, arr.Length) - 1`; `RiskPlanResolver.ReadLatestComponent` takes the bar
+count, and its bounded NaN walk now scans backward from the CURRENT bar instead of the end of the
+array. Every one of these is a no-op live — `history.Count == arr.Length` there — which is exactly
+why they survived. Every guard is a PAIR: the future-read is made to flip a leaf both ways, so a
+"return false always" regression cannot pass.
+
+**The empty chart (blocker 7).** `SetIdentityAction` was a one-field projection, so a load that
+came back empty left the previous symbol's 200 bars under the new symbol's identity, marked Ready,
+in silence — and `PaperTradingProvider.OnState` prices positions from exactly that
+`(Identity, last bar)` pair. Data now dies with its identity; the empty result SPEAKS, naming the
+symbol and the venue; and `Ready` is no longer dispatched over an empty chart. **The fix widened a
+second bug class and that had to be closed with it:** an empty `Data` stopped being a
+startup-only state, and `PointNavigationStrategy`/`BinnedNavigationStrategy` both threw on the
+first arrow key. Every other `Data.Count - 1` clamp in the tree was audited; the rest are guarded.
+
+**The empty component list (blocker 9).** `Math.Clamp(i, 0, Components.Count - 1)` throws when the
+list is empty — written as a defence, it *was* the crash — and inside an EventBus subscriber Rx
+disposes the throwing observer, so the terminal goes permanently silent with nothing said about
+it. Closed as a class: `ChartSeries.ClampComponent` returns **-1**, all 16 sites in the tree use
+it (including the ten already guarded, so the shape itself is gone), and a scan guard keeps it
+gone — floored on the POPULATION, never the violations.
+
+**One shared shortcuts.json (blocker 8).** Fixed in both halves. `ShortcutManager` now resolves
+its path lazily like `SettingsManager`, AND `IShortcutManager` came off
+`WebHostBrowserCircuitHandler`'s constructor — an object exists before its methods run, so a
+constructor dependency is necessarily built before `ICurrentUser.Set`. A structural guard now
+pins that constructor to `ILogger<T>` + `IServiceProvider`, which closes the class rather than the
+instance. Recount: it was the ONLY early-forced path consumer of fourteen candidates.
+
+Suite **4604 green** (+26). Eleven sabotage runs; every guard proven red by reintroducing its own
+bug, including the scan guards.
+
 **Status 2026-08-23 (small-fixes batch):** 267 open of 1325 tracked items (1058 done — nine
 closed this pass: VolRegime empty guard, the F3 format literal, PlayNote's discarded delay,
 AudioEngine.Reset's click, Object Tree labels, Sound Designer Escape, TabBar's nested button,
@@ -609,7 +653,7 @@ answered **no** on three independent grounds, each sufficient alone. Four of the
 *consumer-side* half of the TODO:552 look-ahead cluster marked ALL FIXED on 2026-08-21; that sweep
 closed the indicator-provider half and missed the paths below.
 
-- [ ] **`ConditionEvaluator.cs:271` indexes workspace indicator arrays by `history.Count` while the
+- [x] **`ConditionEvaluator.cs:271` indexes workspace indicator arrays by `history.Count` while the
   backtester date-filters the bars, so every walk-forward window reads indicator values from the wrong
   absolute bars.** `StrategyBacktester.Run` slices `data` to `[StartDate, EndDate]` (`:81-97`) but
   passes `state` through untouched (`:156`); `ActiveSeries` component arrays still span the full
@@ -623,20 +667,39 @@ closed the indicator-provider half and missed the paths below.
   walk-forward and every H1/H2 survivor verdict this repo has produced for a component-reading spec is
   invalid.** Fix: thread a `barIndexOffset` through, or slice `ActiveSeries` arrays to the window
   before the run. CONFIRMED. CRITICAL.
-- [ ] **`ConditionEvaluator.CrossesLine:768-776` reads the second descriptor at `data.Length - 1` — a
+  **CLOSED 2026-08-25.** Fixed by SLICING, not by threading an offset. `StrategyBacktester.Run`
+  now re-bases every `ActiveSeries` component array to the date-filtered window
+  (`SliceSeriesFrom`, applied to `liveState` only — the caller's series are untouched, each entry
+  becomes a new `ChartSeries` over a new `SeriesDataBuffer`). The offset would have had to reach
+  four unrelated consumers and every future one; after the slice there is no offset to forget,
+  because array index and history index agree again — which is the invariant all of them already
+  assumed. `CipherSrLevelProvider` and `IchimokuLevelProvider` were fixed for free. The feature
+  snapshot's `i + featureCaptureOffset` became plain `i` (adding it now would double-count).
+  Guards: `StrategyConsumerCausalityTests` runs a strategy that records `arr[history.Count - 1]`
+  at every bar against an array whose values ARE their own absolute index, plus a no-filter
+  vacuity twin and a no-mutation check.
+- [x] **`ConditionEvaluator.CrossesLine:768-776` reads the second descriptor at `data.Length - 1` — a
   full look-ahead on every MA-cross leaf.** The comment at `:765-772` claims "Same future-leak
   protection as the main path" and then does not apply it, reasoning that "the second descriptor's
   array length should match the primary's". Length matching is not the issue — the primary was clipped
   to `history.Count - 1`, the second is not clipped at all. "SMA 50 crosses above SMA 200" compares
   SMA50 at backtest bar 100 against SMA200 at the final bar of the chart: on a rising series the leaf
   is false everywhere, on a falling one true everywhere. CONFIRMED. CRITICAL.
-- [ ] **`ConditionEvaluator.PriceVsCloud:810,811,832` reads `upperData[^1]`, `lowerData[^1]`,
+  **CLOSED 2026-08-25.** `Math.Min(history.Count, data.Length) - 1`, and `history` is now passed
+  in. The old comment's reasoning is recorded in the new one: length matching was never the
+  issue — the primary had been clipped and the second had not. Guarded BOTH ways: a cross that
+  IS happening now must be seen, and a cross that only exists at the end of the chart must not
+  be reported.
+- [x] **`ConditionEvaluator.PriceVsCloud:810,811,832` reads `upperData[^1]`, `lowerData[^1]`,
   `compData[^1]` with no clip — `AboveCloud`/`BelowCloud`/`InsideCloud` see the chart's final cloud at
   every historical bar.** `history` is passed in and used only for `history[^1].Close` (`:793`). Note
   `IchimokuLevelProvider.cs:39-43` *does* clip the same components, so the same Ichimoku data is
   causal via the level path and non-causal via the operator path, in one evaluation. Fix:
   `int upTo = Math.Min(history.Count, arr.Length)` and read `arr[upTo-1]`. CONFIRMED. CRITICAL.
-- [ ] **`RiskPlanResolver.ReadLatestComponent:304-308` reads `arr[arr.Length-1]`, so
+  **CLOSED 2026-08-25.** Both boundaries and the single-boundary fallback clip to
+  `Math.Min(history.Count, arr.Length) - 1`. Guarded with a pair plus a separate test for the
+  fallback branch, which had the same read and would otherwise have been missed.
+- [x] **`RiskPlanResolver.ReadLatestComponent:304-308` reads `arr[arr.Length-1]`, so
   `StopSourceKind.BelowComponent` and `TargetSourceKind.AtComponent` place stops and targets from the
   last bar of the chart.** The backward NaN scan is bounded to `arr.Length - 10`, i.e. the end of the
   array, never the strategy's current bar. Call sites `ResolveStop:188`, `ResolveTarget:270`. A spec
@@ -644,6 +707,11 @@ closed the indicator-provider half and missed the paths below.
   because `riskPerUnit` gates the R:R check (`:49-50`, `:80-82`) and drives position size (`:84`),
   this corrupts the entry filter, the reported R:R and the quantity simultaneously. The function takes
   no `history` argument at all, which is why the 2026-08-21 sweep missed it. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25.** Takes `barCount` (both call sites pass `history.Count`) and reads the
+  current bar. The bounded NaN walk is now bounded relative to the CURRENT bar rather than the
+  end of the array — otherwise a NaN at the current bar would be "repaired" with a future value.
+  Three guards: the stop lands on today's component value, a plan whose stop is on the wrong side
+  of entry TODAY is refused (the one that costs money), and the NaN scan stays behind the cursor.
 - [ ] **`StrategyEngine.ExecuteSignalAsync:192-200` drops the TP ladder, close portions, `StopAdjust`
   and the ATR trail, and has no position awareness — the live order bears no resemblance to what the
   backtester simulated.** The `TradeSignal` is built from six fields; `signal.TpLadder`,
@@ -1019,7 +1087,7 @@ class** (881 lines of toolbar selection state + a load controller + hardcoded pr
 recalc router with no relationship to `DataOrchestrator` at all** — the name collision is why the two
 take ten minutes to tell apart. Renaming those two would remove more confusion than any refactor here.
 
-- [ ] **A load that returns no bars leaves the PREVIOUS symbol's data in the store under the NEW
+- [x] **A load that returns no bars leaves the PREVIOUS symbol's data in the store under the NEW
   symbol's identity, marked Ready, with nothing spoken (`MarketOrchestrator.cs:738-744`,
   `DataManager.cs:147`, `WorkspaceStore.cs:244`).** `LoadChartAsync` dispatches
   `SetIdentityAction(identity)` at `:738`, whose reducer is `state with { Identity = a.Identity }` — it
@@ -1036,6 +1104,20 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   through a different door — `DispatchIfStillFocused` does not cover it because nothing is dispatched at
   all. Fix: `SetIdentityAction` must clear `Data`, and the empty-result path must publish a
   `FeedbackRequestEvent` naming the symbol and provider. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25.** Three parts. (1) `SetIdentityAction` now clears `Data` and resets
+  `CurrentDataIndex`/`ViewportStartIndex` — data belongs to an identity and cannot outlive one.
+  Only three sites dispatch it (the chart load and the two workspace-restore sites); tab switch
+  and resume restore snapshots through a different action and are unaffected. (2) `DataManager`
+  SPEAKS the empty result, naming the symbol AND the provider — the usual cause is that this
+  venue does not carry this symbol. (3) `MarketOrchestrator` stops dispatching `Ready` over an
+  empty chart; Ready is a claim about the chart, not about the call returning, and the only
+  honest test is whether there are bars. **Clearing Data made "a chart with no bars" an ordinary
+  state rather than a startup-only one, which exposed the `Math.Clamp(i, 0, Data.Count - 1)`
+  class** — `PointNavigationStrategy.NavigateX` and `BinnedNavigationStrategy.NavigateX` both
+  threw on the first arrow key; both now refuse. `ViewportReducer`'s clamp against an incoming
+  empty list was guarded too. Audited every other `Data.Count - 1` clamp in the tree: all
+  guarded. Guards in `EmptyLoadHonestyTests`, each with its negative half (a load that DID
+  return bars still lands them, still reaches Ready, and says nothing about being empty).
 - [ ] **A websocket reconnect never gap-fills the outage, and the field that was meant to do it is dead
   (`LiveStreamManager.cs:17`, `:68`, `:249-279`).** `AttemptReconnectAsync` disposes the old
   subscription, reconnects, resubscribes and announces "stream reconnected successfully" — it never
@@ -1927,7 +2009,7 @@ charting products. Against it sits a large body of undisciplined provider code.
 The *content* of what the terminal says is the best-considered part of the codebase. The **delivery**
 layer is one rung down and is where these findings sit.
 
-- [ ] **`NavigationFeedbackManager.cs:314` and `:205-206` throw `ArgumentException` on a zero-component
+- [x] **`NavigationFeedbackManager.cs:314` and `:205-206` throw `ArgumentException` on a zero-component
   series, and the throw kills all navigation speech for the session.**
   `Math.Clamp(value, 0, s.Components.Count - 1)` passes `min=0, max=-1` when the series has no
   components, and `Math.Clamp` throws when `min > max`. Reachable path: focus an indicator series whose
@@ -1942,7 +2024,20 @@ layer is one rung down and is where these findings sit.
   `if (s.Components.Count == 0)` before both sites, or add a `SafeClamp` returning `-1` for an empty
   list. CONFIRMED (defect and `Clamp` semantics; reachability of a zero-component series SUSPECTED, but
   the guard at `AccessibilityFeedbackCoordinator.cs:643` proves the author expected it). CRITICAL.
-- [ ] **`AccessibilityFeedbackCoordinator.cs:642` clamps against `Components.Count - 1` one line before
+  **CLOSED 2026-08-25.** Closed as a CLASS, not as three lines. New
+  `ChartSeries.ClampComponent(index)` (`AccessibleTrader.Sdk/Models/ComponentIndex.cs`) returns
+  **-1** for an empty component list instead of throwing, and every one of the 16 clamp sites in
+  the tree now goes through it — including the ten that were already guarded, so the shape itself
+  is gone and a scan can enforce its absence. Six were genuinely unguarded:
+  `NavigationFeedbackManager` (×3), `AccessibilityFeedbackCoordinator`, `SeriesReducer`,
+  `NavigationSonifier`. Each decides for itself what -1 means (skip the announcement, return null,
+  mute). `ChartCommandManager` (×5), `CommandDispatcher` (×2), `PointNavigationStrategy` and
+  `SpeechFormatter` were already guarded upstream and were converted anyway. Ratchet:
+  `EmptyComponentListSurvivalTests.NoProductionSourceClampsAgainstAnEmptyComponentList` — a scan
+  with the floor on the POPULATION (ClampComponent call sites), never on the violations. The
+  headline guard is the one that pins the DAMAGE: after a CONTEXT_SUMMARY on a zero-component
+  series, the next FeedbackRequestEvent must still be delivered.
+- [x] **`AccessibilityFeedbackCoordinator.cs:642` clamps against `Components.Count - 1` one line before
   the `Count > 0` guard that exists to prevent exactly that.** `:642` is
   `int compIdx = Math.Clamp(state.FocusedComponentIndex, 0, focusedSeries.Components.Count - 1);` and
   `:643` is `focusedSeries.Components.Count > 0 ? … : null` — line 642 has already thrown by the time
@@ -1950,6 +2045,9 @@ layer is one rung down and is where these findings sit.
   disoriented user reaches for — and the throw takes down the same subscription. Same class, outside this
   area: `Workspace/Reducers/SeriesReducer.cs:81` is unguarded and sits in a *reducer*, so the throw would
   surface inside `Dispatch`. CONFIRMED. CRITICAL.
+  **CLOSED 2026-08-25** with the item above — same helper, same guard file. `SeriesReducer.cs:81`
+  (named here as the same class outside the area) was fixed in the same pass; it sits in a
+  reducer, so its throw surfaced inside `Dispatch` rather than tearing down a subscription.
 - [ ] **There is no speech priority anywhere; `interrupt: true` is the default and any navigation
   keystroke clobbers an in-flight critical message.** `ISpeechManager.cs:13` exposes only
   `Speak(string, bool interrupt)` — no priority, no queue, no politeness level.
@@ -2136,7 +2234,7 @@ layer is one rung down and is where these findings sit.
 
 ### Health audit — workspace state, settings, persistence (grade C+)
 
-- [ ] **Every hosted user shares `users/anon/shortcuts.json` — `ShortcutManager.cs:44` captures the path
+- [x] **Every hosted user shares `users/anon/shortcuts.json` — `ShortcutManager.cs:44` captures the path
   in its constructor and the circuit handler forces that constructor to run before the user is known.**
   `WebHostBrowserCircuitHandler` takes `IShortcutManager` as a *constructor parameter*
   (`WebHostBrowserCircuitHandler.cs:63`) and sets the per-circuit identity inside `OnCircuitOpenedAsync`
@@ -2154,6 +2252,19 @@ layer is one rung down and is where these findings sit.
   as `SettingsManager.cs:28-58` does, or take `IShortcutManager` off the circuit handler's constructor and
   resolve it inside `OnCircuitOpenedAsync` after `Set`. CONFIRMED. **CRITICAL** (cross-user state
   read/write; disproves the isolation guarantee).
+  **CLOSED 2026-08-25.** Two halves, because the instance fix alone leaves the class open.
+  (1) `ShortcutManager` resolves its path and loads its profile on FIRST USE, under a lock,
+  exactly as `SettingsManager` does — `EnsureLoaded()` from every public entry point, with a
+  private `ApplyProfile` so the public `LoadProfile` can Ensure first without recursing.
+  (2) `IShortcutManager` came OFF `WebHostBrowserCircuitHandler`'s constructor and is resolved
+  from the circuit's `IServiceProvider` inside `OnCircuitOpenedAsync`, after `ICurrentUser.Set`.
+  Recount: it was the ONLY path-service consumer the circuit handler forced into existence early
+  — 14 other services resolve `AppDataDirectory` in their constructors, all Scoped and none
+  reached before the identity is set. Guards live in `PerUserPathPolicyTests` beside the existing
+  scan: a behavioural one where both managers share ONE shifting path service (the isolation
+  tests that already exist hand each service its own, so they cannot fail for a service that
+  captures too early), and a structural one asserting the circuit handler's constructor takes
+  nothing but `ILogger<T>` and `IServiceProvider`.
 - [ ] **Closing a tab renumbers by list position and permanently orphans a tab — `TabReducer.cs:201-204`.**
   `reindexed` is `snapshots.RemoveAll(...).Select((t, i) => t with { TabIndex = i >= switchTo ? i : i })`
   — both arms of the ternary are `i`, so it is a no-op conditional that always assigns the enumeration

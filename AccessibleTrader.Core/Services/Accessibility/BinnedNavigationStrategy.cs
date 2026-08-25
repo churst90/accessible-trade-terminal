@@ -18,6 +18,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <inheritdoc />
         public NavigationResult NavigateX(WorkspaceState state, int delta)
         {
+            // Same reason as PointNavigationStrategy: the clamp below throws on an empty chart
+            // instead of refusing, and an empty chart is a normal state after a failed load.
+            if (state.Data == null || state.Data.Count == 0) return new NavigationResult(false);
+
             var seriesId = state.FocusedSeriesId ?? "candles";
             var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
 

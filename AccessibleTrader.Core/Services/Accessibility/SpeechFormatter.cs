@@ -108,7 +108,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else
             {
                 if (series.Components.Count == 0) return "";
-                var compIndex = Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1);
+                var compIndex = series.ClampComponent(state.FocusedComponentIndex);
                 var comp = series.Components[compIndex];
                 // Provider contextual speech applies in Component context only (the
                 // old NavigationFeedbackManager "path 1" gate, now strategy #1).

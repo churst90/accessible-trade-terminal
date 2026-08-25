@@ -646,8 +646,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
                         if (focusedSeries != null && state.LastInteractionContext == InteractionContext.Component)
                         {
-                            int compIdx = Math.Clamp(state.FocusedComponentIndex, 0, focusedSeries.Components.Count - 1);
-                            string? subPane = focusedSeries.Components.Count > 0
+                            // The Count > 0 guard on the next line was written for exactly this
+                            // case and arrived one line too late — the clamp above it had already
+                            // thrown, taking down the FeedbackRequestEvent subscription with it.
+                            // Shift+F1 is the orientation key a disoriented user reaches for, so
+                            // this was the keystroke that silenced the terminal.
+                            int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
+                            string? subPane = compIdx >= 0
                                 ? focusedSeries.Components[compIdx].SubPaneName
                                 : null;
                             string paneLabel = string.IsNullOrEmpty(subPane) ? "main pane" : subPane + " pane";

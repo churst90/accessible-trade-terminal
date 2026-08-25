@@ -79,8 +79,10 @@ namespace AccessibleTrader.Core.Services.Audio
                 // Series/Component: start from cursor so the user hears from the current position forward.
                 int start = Math.Clamp(Math.Max(0, state.CurrentDataIndex), 0, state.Data.Count - 1);
 
+                // -1 is already this call's "no component filter" value, which is the right
+                // answer for a series with nothing to filter to.
                 int componentFilter = state.PlaybackScope == PlaybackScope.Component
-                    ? Math.Clamp(state.FocusedComponentIndex, 0, series.Components.Count - 1)
+                    ? series.ClampComponent(state.FocusedComponentIndex)
                     : -1;
 
                 SafeFireAndForget.Run(

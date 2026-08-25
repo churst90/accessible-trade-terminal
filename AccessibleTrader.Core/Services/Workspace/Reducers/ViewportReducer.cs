@@ -90,7 +90,10 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 if (viewportWasAtLive && isAppend)
                     newStart = Math.Max(0, list.Count - effectiveWindow);
 
-                newIdx = Math.Clamp(newIdx, 0, list.Count - 1);
+                // list.Count == 0 would make this clamp throw (min 0 > max -1). No caller
+                // dispatches an empty update today, but the cost of being wrong about that is
+                // an exception inside Dispatch.
+                newIdx = list.Count == 0 ? 0 : Math.Clamp(newIdx, 0, list.Count - 1);
             }
 
             var updated = state with

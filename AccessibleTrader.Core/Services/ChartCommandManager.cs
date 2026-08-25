@@ -67,7 +67,7 @@ namespace AccessibleTrader.Core.Services
                     if (ev.Scope == "COMPONENT")
                     {
                         if (s == null || s.Components.Count == 0) return;
-                        var c = s.Components[Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1)];
+                        var c = s.Components[s.ClampComponent(state.FocusedComponentIndex)];
                         _store.Dispatch(new AdjustVolumeAction(seriesId, c.Name, ev.Delta));
                         targetName = $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)}";
                     }
@@ -89,7 +89,7 @@ namespace AccessibleTrader.Core.Services
                     {
                         var ps = postState.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
                         var pc = ps?.Components.Count > 0
-                            ? ps.Components[Math.Clamp(postState.FocusedComponentIndex, 0, ps.Components.Count - 1)]
+                            ? ps.Components[ps.ClampComponent(postState.FocusedComponentIndex)]
                             : null;
                         volume = pc?.Volume ?? 0f;
                     }
@@ -138,9 +138,9 @@ namespace AccessibleTrader.Core.Services
 
                     if (isComponentScope && s.Components.Count > 0)
                     {
-                        var c = s.Components[Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1)];
+                        var c = s.Components[s.ClampComponent(state.FocusedComponentIndex)];
                         _store.Dispatch(new ToggleMuteAction(seriesId, c.Name));
-                        var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1));
+                        var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(s.ClampComponent(state.FocusedComponentIndex));
                         bool nowMuted = newC?.IsMuted ?? false;
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowMuted ? "muted" : "unmuted")}"));
                     }
@@ -172,9 +172,9 @@ namespace AccessibleTrader.Core.Services
 
                     if (isComponentScope && s.Components.Count > 0)
                     {
-                        var c = s.Components[Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1)];
+                        var c = s.Components[s.ClampComponent(state.FocusedComponentIndex)];
                         _store.Dispatch(new ToggleHideAction(seriesId, c.Name));
-                        var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(Math.Clamp(state.FocusedComponentIndex, 0, s.Components.Count - 1));
+                        var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(s.ClampComponent(state.FocusedComponentIndex));
                         bool nowHidden = !(newC?.IsVisible ?? true);
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowHidden ? "hidden" : "visible")}"));
                     }

@@ -185,7 +185,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                     // the workspace's active series list. Longs: stop below the value;
                     // shorts: mirror above. If the component is missing or NaN we return
                     // NaN so the resolver rejects the plan with a clear reason.
-                    double compVal = ReadLatestComponent(state, s.IndicatorCode, s.ComponentName);
+                    double compVal = ReadLatestComponent(state, s.IndicatorCode, s.ComponentName, history.Count);
                     if (double.IsNaN(compVal)) return double.NaN;
 
                     // For a long, the stop must be BELOW the component (subtract buffer).
@@ -267,7 +267,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                     // Example: "exit long when price reaches EMA 50". The target is only valid
                     // if it's on the profit side of entry — a TP at EMA 50 below a long entry
                     // is nonsensical and gets rejected here.
-                    double compVal = ReadLatestComponent(state, r.IndicatorCode, r.ComponentName);
+                    double compVal = ReadLatestComponent(state, r.IndicatorCode, r.ComponentName, history.Count);
                     if (double.IsNaN(compVal)) return double.NaN;
 
                     if (side == OrderSide.Buy && compVal <= entry)  return double.NaN;
@@ -281,12 +281,24 @@ namespace AccessibleTrader.Core.Services.Strategies
         }
 
         /// <summary>
-        /// Looks up the latest (most-recent-bar) value of an indicator component from
-        /// the workspace's active series list. Returns NaN if the series/component
-        /// doesn't exist or its data buffer is empty. Used by BelowComponent /
+        /// Looks up the value of an indicator component AT THE CURRENT BAR from the workspace's
+        /// active series list. Returns NaN if the series/component doesn't exist or its data
+        /// buffer has nothing at or before the current bar. Used by BelowComponent /
         /// AtComponent stop and target sources.
+        ///
+        /// <para>
+        /// <paramref name="barCount"/> is the strategy's history length, and clipping to it is
+        /// the whole point of the parameter. This method used to read <c>arr[arr.Length - 1]</c>
+        /// — the last bar of the CHART. In a backtest that placed every stop and every target
+        /// from a value the market had not printed yet: "stop below EMA 50" on two years of
+        /// history sized a trade in month three against today's EMA 50. It is not a reporting
+        /// error either — <c>riskPerUnit</c> gates the reward:risk check and drives position
+        /// size, so one wrong read corrupts the entry filter, the stated R:R and the quantity
+        /// together. Live, <paramref name="barCount"/> equals the array length and the clip
+        /// does nothing.
+        /// </para>
         /// </summary>
-        private static double ReadLatestComponent(WorkspaceState state, string indicatorCode, string componentName)
+        private static double ReadLatestComponent(WorkspaceState state, string indicatorCode, string componentName, int barCount)
         {
             if (string.IsNullOrWhiteSpace(indicatorCode) || string.IsNullOrWhiteSpace(componentName))
                 return double.NaN;
@@ -299,10 +311,15 @@ namespace AccessibleTrader.Core.Services.Strategies
                 var arr = series.GetComponentData(componentName);
                 if (arr == null || arr.Length == 0) return double.NaN;
 
+                // The current bar, never past it.
+                int cur = Math.Min(barCount, arr.Length) - 1;
+                if (cur < 0) return double.NaN;
+
                 // Walk backward past any trailing NaN bars so live-updating pre-warm
-                // gaps don't break the read. Bounded scan (last 10 bars) for safety.
-                int scanLimit = Math.Max(1, arr.Length - 10);
-                for (int i = arr.Length - 1; i >= scanLimit; i--)
+                // gaps don't break the read. Bounded scan (last 10 bars) for safety —
+                // bounded relative to the current bar, not to the end of the array.
+                int scanLimit = Math.Max(0, cur - 9);
+                for (int i = cur; i >= scanLimit; i--)
                 {
                     if (!double.IsNaN(arr[i])) return arr[i];
                 }

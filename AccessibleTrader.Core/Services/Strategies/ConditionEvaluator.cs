@@ -282,8 +282,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 LeafOperator.Between       => !double.IsNaN(cur) && cur >= leaf.Value && cur <= (leaf.Value2 ?? double.PositiveInfinity),
                 LeafOperator.CrossesAbove  => !double.IsNaN(cur) && !double.IsNaN(prev) && prev <= leaf.Value && cur >  leaf.Value,
                 LeafOperator.CrossesBelow  => !double.IsNaN(cur) && !double.IsNaN(prev) && prev >= leaf.Value && cur <  leaf.Value,
-                LeafOperator.CrossesAboveLine => CrossesLine(state, leaf, cur, prev, above: true),
-                LeafOperator.CrossesBelowLine => CrossesLine(state, leaf, cur, prev, above: false),
+                LeafOperator.CrossesAboveLine => CrossesLine(history, state, leaf, cur, prev, above: true),
+                LeafOperator.CrossesBelowLine => CrossesLine(history, state, leaf, cur, prev, above: false),
                 LeafOperator.ChangesDirection => DirectionChanged(data, history.Count),
                 LeafOperator.AboveCloud      => PriceVsCloud(history, state, desc, +1),
                 LeafOperator.BelowCloud      => PriceVsCloud(history, state, desc, -1),
@@ -747,7 +747,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             return s1 != 0 && s2 != 0 && s1 != s2;
         }
 
-        private bool CrossesLine(WorkspaceState state, ConditionLeaf leaf, double cur, double prev, bool above)
+        private bool CrossesLine(IReadOnlyList<Ohlcv> history, WorkspaceState state, ConditionLeaf leaf, double cur, double prev, bool above)
         {
             // Resolve the second descriptor (the line being crossed). If unset, the operator
             // degrades to false — same behavior as the original stub but with the path now wired.
@@ -762,15 +762,18 @@ namespace AccessibleTrader.Core.Services.Strategies
             var data = series.GetComponentData(secondDesc.ComponentName);
             if (data == null || data.Length == 0) return false;
 
-            // Same future-leak protection as the main path: clip the read to the strategy's
-            // current bar index. The caller passed in `cur` and `prev` from the primary descriptor
-            // (already clipped); we read the same index from the second descriptor.
-            int upTo = data.Length;
-            // We don't have history.Count here, but `cur` and `prev` were derived against
-            // the primary descriptor at history.Count - 1 / -2 already, and the second
-            // descriptor's array length should match the primary's in any consistent workspace.
-            // Use the array's last/penultimate values and fall back gracefully on mismatch.
-            int curIdx = upTo - 1;
+            // Same future-leak protection as the main path, and it has to be the SAME clip —
+            // against history.Count, not against this array's own length. The comment that used
+            // to sit here reasoned that the two descriptors' arrays are the same length in a
+            // consistent workspace, so reading the second at data.Length - 1 was safe. Length
+            // matching was never the point: the primary had already been clipped to the
+            // strategy's current bar, and the second had not been clipped at all. "SMA 50
+            // crosses above SMA 200" therefore compared SMA 50 at backtest bar 100 against
+            // SMA 200 at the LAST bar of the chart — on a rising series the leaf is false at
+            // every bar, on a falling one true at every bar, and either way the cross it names
+            // is not the cross it tests. In live evaluation history.Count == data.Length and
+            // the clip is a no-op, which is why this survived so long.
+            int curIdx = Math.Min(history.Count, data.Length) - 1;
             if (curIdx < 0) return false;
             double otherCur  = data[curIdx];
             double otherPrev = curIdx >= 1 ? data[curIdx - 1] : double.NaN;
@@ -801,14 +804,22 @@ namespace AccessibleTrader.Core.Services.Strategies
                 f.UpperComponentName == desc.ComponentName ||
                 f.LowerComponentName == desc.ComponentName);
 
+            // Clip every component read to the strategy's current bar, exactly as the main leaf
+            // path does. Reading [^1] here handed AboveCloud / BelowCloud / InsideCloud the
+            // chart's FINAL cloud at every historical bar — and did it while the same Ichimoku
+            // data reached the level path causally through IchimokuLevelProvider, so one
+            // evaluation could see two different clouds. history.Count is the strategy's bar
+            // count; in live evaluation it equals the array length and this is a no-op.
             if (fill != null)
             {
                 var upperData = series.GetComponentData(fill.UpperComponentName);
                 var lowerData = series.GetComponentData(fill.LowerComponentName);
-                if (upperData.Length > 0 && lowerData.Length > 0)
+                int upIdx = Math.Min(history.Count, upperData.Length) - 1;
+                int loIdx = Math.Min(history.Count, lowerData.Length) - 1;
+                if (upIdx >= 0 && loIdx >= 0)
                 {
-                    double u = upperData[^1];
-                    double l = lowerData[^1];
+                    double u = upperData[upIdx];
+                    double l = lowerData[loIdx];
                     if (!double.IsNaN(u) && !double.IsNaN(l))
                     {
                         // Normalise so hi >= lo regardless of which span is above.
@@ -828,8 +839,9 @@ namespace AccessibleTrader.Core.Services.Strategies
             // Fallback: no cloud fill found, or component data unavailable.
             // Use the named component as a single boundary (AboveCloud / BelowCloud only).
             var compData = series.GetComponentData(desc.ComponentName);
-            if (compData.Length == 0) return false;
-            double val = compData[^1];
+            int compIdx = Math.Min(history.Count, compData.Length) - 1;
+            if (compIdx < 0) return false;
+            double val = compData[compIdx];
             if (double.IsNaN(val)) return false;
             return sign switch
             {
