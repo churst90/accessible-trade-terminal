@@ -2,6 +2,44 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-25 (the sandbox's open list — three of five closed):** **521 open.** Picking up
+where the scripting/sandbox audit left off.
+
+**The compile surface stopped depending on what the host had loaded.** The reference set was built
+by scanning `AppDomain.CurrentDomain.GetAssemblies()`, so what a script could even NAME differed
+between the desktop head, the WebHost and a test process — and between two runs of the same head,
+depending on which feature the user opened first. It is a declared list now. The list is not trying
+to be minimal; it is trying to be the same everywhere, because the walker was always the wall.
+Where breadth is free it buys diagnostic quality — `System.Console` is referenced *deliberately* so
+a debug print is refused with the sandbox's own wording rather than "the name 'Console' does not
+exist" — while `Microsoft.CSharp` is deliberately absent so the `dynamic` escape cannot reach the
+emit step at all. The change immediately broke `Rejects_ProcessStart`, which was the right failure
+and the useful one: with `System.Diagnostics.Process` in no reference the script gets, Roslyn's
+refusal reads to an author like a typo of theirs, so the walker now names an unresolved qualified
+name that matches a blocked namespace.
+
+**The memory quota stopped being only a poll.** `new double[500_000_000]` was legal, got its four
+gigabytes, and the 2-second supervisor poll noticed afterwards. The worker's runtimeconfig now
+carries a 192 MB `System.GC.HeapHardLimit` — deliberately below the 256 MB working-set quota, so
+the runtime refuses at the allocation and the poll stays as the backstop for what a heap limit
+cannot see. The guard turns on WHICH refusal comes back, since "the call failed" was true before.
+
+**Script strategies got a causality gate, over their orders.** Indicators got one in the audit;
+a strategy never passes through `SignalCatalog`, so nothing applied to the half of the surface
+that places orders. Same bars in must produce the same orders on the same bars out — checked for
+determinism first (a strategy consulting a clock would otherwise be reported as reading the future,
+which is the wrong accusation), then prefix, then suffix by bar date. `state.Data` holds the whole
+series from the first `OnBar` call, which the probe reproduces on purpose: `state.Data[history.Count]`
+is the next bar, and a backtest pays for reading it. A strategy that emits nothing is reported as
+**not exercised**, never as clean. Shipped with the half it needed: **auto-load now speaks when a
+saved strategy does not come back**, because a script the user armed can now legitimately fail to
+recompile and that had been a log line.
+
+Still open and still the headline: **strategy scripts never leave the host process**. It is scoped
+in the section below — six opcodes, an incremental history, and a `WorkspaceState` projection with
+a reflection guard so it cannot silently go stale — but not started. Suite **4784 green**; twelve
+sabotage runs, every guard proven red.
+
 **Status 2026-08-25 (causality for scripts and for chart patterns):** **523 open.** The contract
 now reaches the two places it never has. **Scripted indicators**: `ICustomIndicator` gained a
 causality declaration, and because a script's self-declaration is worth even less than a provider's
@@ -3744,7 +3782,7 @@ real answer. That is filed below as its own finding.
   wires custom indicators into `SignalCatalog`. When that happens, the catalog must ask the
   registry rather than growing its own rule. MEDIUM.
 
-- [ ] **Script STRATEGIES have no causality gate and cannot have this one.** `CompileStrategyAsync`
+- [x] **Script STRATEGIES have no causality gate and cannot have this one.** `CompileStrategyAsync`
   produces an `ITradingStrategy` that reads bars directly — it never goes through `SignalCatalog`,
   so the refusal gate that stops `ICHIMOKU.Chikou Span` becoming a condition does not apply to it
   at all, and a script strategy is free to index forward into the bar list it is handed. Unlike an
@@ -3752,6 +3790,40 @@ real answer. That is filed below as its own finding.
   comparison would have to be over the ORDERS it emits (same bars in, same orders on the same bars
   out, under both prefix and suffix). Compounding: strategy scripts also never leave the host
   process — see the sandbox finding below. HIGH.
+  **CLOSED 2026-08-25.** `ScriptStrategyCausalityProbe` (Core/Services/Strategies) does exactly
+  that comparison, and `CompileStrategyAsync` refuses on a finding — there is no half-measure
+  available here as there is for an indicator, because a strategy has no "draws but does not
+  trade" mode. Three sweeps, in this order:
+  - **Determinism first.** The full series is run twice and must agree. A strategy that consults a
+    clock or a random number would otherwise fail the prefix sweep and be reported as reading the
+    future, which is a different accusation and the wrong one.
+  - **Prefix** — first k bars vs. all of them. The vector is not subtle: `state.Data` holds the
+    WHOLE series from the first `OnBar` call (the backtester hands it over intact, and the probe
+    reproduces that deliberately — a probe that truncated the state would prove the strategy safe
+    under conditions it never runs in), so `state.Data[history.Count]` is the next bar.
+  - **Suffix** — all bars vs. `bars.Skip(k)`, compared BY BAR DATE. Catches the Pine-port shape
+    where `bar_index` became a count of bars loaded.
+
+  Orders are compared by a fingerprint of every field the router reads; `Rationale` is excluded
+  (prose, routinely embeds a formatted number) and doubles are rounded to 9 places so ordinary
+  floating-point wobble is not reported as look-ahead. A **fresh instance per run**, or the long
+  run's state leaks into the short one and every comparison after the first means nothing.
+  **A strategy that emits no orders is NOT called clean** — it is reported as not exercised, the
+  same position `NotExercisedByTheseSeries` takes for the built-ins. The probe hands over an empty
+  `ActiveSeries`, so a strategy whose conditions read indicator components lands there; see the
+  follow-up below.
+  Shipped with the other half it needed: **auto-load now SPEAKS when a saved strategy does not come
+  back.** A script the user armed can now legitimately fail to recompile, and `StrategyAutoLoader`
+  had only ever written that to the log — silence, to the person whose strategy is no longer
+  running. All three drop paths announce; a library that loads cleanly stays silent, which is
+  pinned too. Ten guards in `StrategyCausalityGateTests`, five sabotage runs, every one red.
+
+- [ ] **The strategy probe hands over an empty `ActiveSeries`, so an indicator-reading strategy is
+  never exercised.** It is reported honestly ("not refused, not exercised") rather than passed, but
+  that is the common shape for a composed strategy and the gate is doing nothing for it. Closing it
+  means computing a component stack per run — the same bars through a couple of built-in providers,
+  sliced consistently with each sweep so the components a strategy reads are themselves prefix- and
+  suffix-correct. MEDIUM.
 
 ### Fixed in this pass
 
@@ -3809,7 +3881,31 @@ real answer. That is filed below as its own finding.
   any host where the OS sandbox is unavailable and say so. Until then the class doc's "user scripts
   execute out-of-process so a sandbox escape cannot reach the trading host" (`:174-186`) is true of
   indicators only. **CONFIRMED. The headline finding of this audit.**
-- [ ] **What a script can even NAME depends on the host's assembly load order.**
+
+  **Scoped 2026-08-25, not started — the shape, so the next attempt does not re-derive it.** The
+  reason this is feature-sized and the other four items were not is `OnBar`'s third argument:
+  `WorkspaceState`, a 45-property record holding `ImmutableList<ChartSeries>`, tab snapshots and
+  drawings. The frame protocol knows `Ohlcv` and `double[]` and nothing else.
+  - **Six opcodes**: `LoadAssembly` grows an `ITradingStrategy` branch answering `StrategyReady`
+    (id/name/complexity/parameters — `StrategyParameter.DefaultValue` is `object`, so a tagged
+    value codec is needed: double / long / bool / string / null); then `InitializeStrategy`,
+    `OnBar` → `Signal`, `OrderFilled` → `Ack`, `StopStrategy` → `Ack`, `GetMetrics` → `Metrics`.
+  - **Do not send the history every bar.** A backtest is ~10k `OnBar` calls; re-sending the whole
+    buffer each time is O(n²) — 4.8 GB over a 10k-bar run. The worker keeps its own history and
+    the host sends only the bars it has not sent, with the `FirstBarDate`/count check the
+    scrollback fix already taught us to use, resyncing in full on a mismatch.
+  - **The state projection is the actual work, and it must not drift.** `liveState` is constant
+    across the backtest loop, so it can be sent once at `Initialize` and re-sent only when it
+    changes. Carry the scalars + `Identity` + `Data` + `ActiveSeries`; leave out `PaneRanges`,
+    `PaneHeightRatios` and `TabSnapshots` (UI state, and the last one carries other charts' whole
+    series). **A hand-maintained projection silently goes stale** — the guard is a reflection test
+    that fails when a `WorkspaceState` property is neither carried nor on a declared not-carried
+    list, so growing the record forces a decision instead of a silent default.
+  - `ChartSeries` splits cleanly: `SeriesConfig` is already JSON-serialisable, `SeriesDataBuffer`'s
+    component arrays go through the existing binary path.
+  - **The causality probe transfers unchanged** — it drives `ITradingStrategy`, and the indicator
+    probe already runs against the out-of-process proxy exactly as against an in-process instance.
+- [x] **What a script can even NAME depends on the host's assembly load order.**
   `CompileIndicatorAsync:264-281` and `CompileStrategyAsync:449-466` add every loaded `System.*` /
   `Microsoft.*` / `netstandard` / `mscorlib` assembly to the reference set. The comment argues this
   is safe because the walker rejects blocked namespaces regardless — true for the namespace rule,
@@ -3820,6 +3916,26 @@ real answer. That is filed below as its own finding.
   declared reference list (the five pinned ones plus a named allow-list), so the compile surface is
   the same everywhere and a new escape cannot arrive because some unrelated feature loaded an
   assembly. CONFIRMED. HIGH.
+  **CLOSED 2026-08-25.** Both scans replaced by `RoslynScriptingService.BuildReferences`, which
+  resolves eleven named framework assemblies from the directory holding `System.Private.CoreLib`
+  plus the SDK (and Core, for strategies) pinned by `typeof`. **The list is not trying to be
+  minimal — it is trying to be the same everywhere**: the walker was always the wall, and it
+  refuses a blocked namespace whether or not the assembly is referenced. Where breadth is free it
+  buys diagnostic quality — `System.Console` is referenced *deliberately* so a script's
+  `Console.WriteLine` is refused with the sandbox's own wording instead of "the name 'Console' does
+  not exist". `Microsoft.CSharp` is the one deliberate omission, so the `dynamic` escape cannot
+  reach the emit step even if the walker's rule is ever weakened.
+  **One thing the change surfaced and had to fix with it:** `System.Diagnostics.Process` is now in
+  no reference the script gets, so Roslyn's answer became "the type or namespace name 'Process'
+  does not exist" — which reads to a script author like a typo of theirs rather than a policy of
+  ours, and `HostileScriptTests.Rejects_ProcessStart` went red on exactly that. `SandboxWalker`
+  now name-matches an UNRESOLVED qualified name against the blocked namespaces. Pure string
+  matching, and safe only because it fires on a name that already failed to bind: the strongest
+  thing it can do is replace one refusal's wording with another's.
+  Six guards in `ScriptReferenceSetTests`; the load-bearing one force-loads `System.Text.Json`
+  (a real `System.*` assembly in an allowed namespace) and proves a script still cannot see it.
+  Three sabotage runs, red on the reintroduced AppDomain scan, on a dead list entry, and on the
+  deleted name rule.
 - [ ] **The Linux sandbox mounts the whole filesystem readable, including the API-key store.**
   `LinuxBwrapLauncher.BuildBwrapArgs` uses `--ro-bind / /`, and the class doc argues read access is
   not an exfiltration vector because "with no network and no writable mount, a hostile indicator has
@@ -3831,12 +3947,23 @@ real answer. That is filed below as its own finding.
   the "does the CLR still start under the tighter mount" half could not be verified, and shipping an
   unverified change to the launcher would break scripting for every Linux user. Needs a machine with
   bubblewrap. CONFIRMED. MEDIUM (HIGH on the WebHost, whose platform this is).
-- [ ] **The memory quota is a 2-second poll, so a script can allocate multiple GB inside one
+- [x] **The memory quota is a 2-second poll, so a script can allocate multiple GB inside one
   interval.** `OutOfProcessScriptHost.MemoryPollInterval` is 2 s and the ceiling is a 256 MB working
   set; a `new double[500_000_000]` compiles fine (correctly — it is a runtime concern) and the host
   notices up to two seconds later. Nothing sets a hard limit on the worker itself. Cheapest real
   fix: `System.GC.HeapHardLimit` in the ScriptWorker's `runtimeconfig`, which makes the runtime
   refuse the allocation rather than the supervisor notice it afterwards. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-25.** `RuntimeHostConfigurationOption` in the ScriptWorker csproj sets
+  `System.GC.HeapHardLimit` to **192 MB**, deliberately BELOW
+  `OutOfProcessScriptHost.DefaultMaxWorkingSetBytes` (256 MB) so the runtime refuses first and the
+  poll stays as the backstop for what a heap limit does not cover (native allocations, thread
+  stacks, a merely-resident runaway). The two numbers live in different projects and nothing else
+  connects them, so `ScriptWorkerMemoryLimitTests` does — including the ordering itself.
+  The end-to-end guard turns on WHICH refusal comes back, not on failure: "the call failed" is true
+  under the old behaviour too (the poll kills the worker), so it asserts the error is the
+  allocation's own `OutOfMemoryException` and is NOT the memory-quota kill. Verified by removing
+  the option and watching both guards go red while an ordinary indicator kept running under the
+  limit.
 - [ ] **Pine dialect fidelity was not assessed.** `Core/PineScript/PineTranspiler.cs` (649 lines)
   was read only far enough to confirm it produces C# that goes through the same compile path — the
   question of whether a Pine script MEANS the same thing here as on TradingView is untouched, and is

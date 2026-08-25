@@ -22,6 +22,30 @@
   </ItemGroup>
 
   <!--
+    Hard memory ceiling for user script code, enforced by the RUNTIME rather than by the
+    supervisor.
+
+    OutOfProcessScriptHost polls WorkingSet64 every 2 seconds against a 256 MB quota, so a
+    script that writes `new double[500_000_000]` gets the whole allocation and the host
+    notices up to two seconds later — by which point the machine has already been asked for
+    4 GB. A GC heap hard limit makes the runtime refuse the allocation at the point it is
+    made: the script sees an OutOfMemoryException, the worker stays alive, and the user gets
+    the error rather than the swap storm.
+
+    192 MB sits deliberately BELOW OutOfProcessScriptHost.DefaultMaxWorkingSetBytes (256 MB)
+    so the runtime is what refuses first and the poll stays as the backstop for everything a
+    heap limit does not cover (native allocations, thread stacks, a runaway worker that is
+    merely resident). ScriptWorkerMemoryLimitTests pins that ordering — the two numbers live
+    in different projects and would otherwise drift apart silently.
+
+    Decimal, not the 0x form used for the DOTNET_GCHeapHardLimit env var: this lands in
+    runtimeconfig.json, where the value is read as a number.
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.HeapHardLimit" Value="201326592" />
+  </ItemGroup>
+
+  <!--
     Ship the macOS sandbox profile next to the worker binary so
     MacSandboxExecLauncher can find it via
     Path.Combine(AppContext.BaseDirectory, "sandbox-profiles", "script-worker.sb").

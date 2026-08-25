@@ -343,12 +343,19 @@ public class HostileScriptTests
     }
 
     /// <summary>
-    /// The reference set is built by scanning the assemblies the HOST has already loaded, so
-    /// whether these escapes could even be NAMED varied with the host's load order — in a bare
-    /// test process neither Microsoft.CSharp nor System.Console is loaded, and both cases fail
-    /// with an ordinary compile error that would have hidden the hole. Loading them here is what
-    /// makes these tests test the dangerous configuration, which is the one a real desktop host
-    /// is in. (That the posture varies by host at all is filed separately.)
+    /// Kept, but no longer load-bearing — and the difference is the point.
+    ///
+    /// <para>
+    /// When these tests were written the reference set was built by scanning the assemblies the
+    /// HOST had already loaded, so whether an escape could even be NAMED varied with load order:
+    /// in a bare test process neither Microsoft.CSharp nor System.Console was loaded, both cases
+    /// failed with an ordinary compile error, and the hole was invisible. Forcing the loads was
+    /// what made these tests exercise the dangerous configuration. Since the set became a fixed
+    /// declared list (see <see cref="ScriptReferenceSetTests"/>) there is no dangerous
+    /// configuration to reach for: <c>System.Console</c> is always referenced and
+    /// <c>Microsoft.CSharp</c> never is. The calls stay because a refusal that survives the host
+    /// having those assemblies loaded is strictly the stronger claim.
+    /// </para>
     /// </summary>
     private static void ForceLoadTheAssembliesThatMakeThisReachable()
     {

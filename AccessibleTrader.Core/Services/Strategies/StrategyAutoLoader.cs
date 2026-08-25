@@ -1,4 +1,5 @@
 using System;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Logging;
 using AccessibleTrader.Sdk.Strategies;
 
@@ -25,6 +26,7 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly IRoslynScriptingService? _roslyn;
         private readonly IAppLogger _logger;
         private readonly IStrategyPositionManager? _positions;
+        private readonly IEventBus? _eventBus;
         private bool _hasLoaded;
 
         public StrategyAutoLoader(
@@ -33,7 +35,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             IStrategyEngine engine,
             IAppLogger logger,
             IRoslynScriptingService? roslyn = null,
-            IStrategyPositionManager? positions = null)
+            IStrategyPositionManager? positions = null,
+            IEventBus? eventBus = null)
         {
             _library = library;
             _factory = factory;
@@ -41,6 +44,29 @@ namespace AccessibleTrader.Core.Services.Strategies
             _roslyn  = roslyn;
             _logger  = logger;
             _positions = positions;
+            _eventBus = eventBus;
+        }
+
+        /// <summary>
+        /// A strategy the user armed did not come back. Every path that drops one says so out
+        /// loud, not just to the log.
+        ///
+        /// <para>
+        /// Auto-load is best-effort by design — a bad spec must not stop the app from starting —
+        /// but "best-effort" had meant a log line, and a log line is invisible to the person whose
+        /// strategy is now not running. They armed it, they restarted, and the terminal says
+        /// nothing: as far as they can tell it is live. That gap widened the day the causality
+        /// gate landed, because a saved script that reads the next bar now legitimately fails to
+        /// recompile — a refusal the author has to hear about, not discover from a missing trade.
+        /// </para>
+        /// </summary>
+        private void AnnounceNotLoaded(string strategyName, string reason)
+        {
+            _eventBus?.Publish(new FeedbackRequestEvent(
+                FeedbackType.Error,
+                $"Strategy {strategyName} did not load: {reason}",
+                Interrupt: false,
+                IsUserInitiated: false));
         }
 
         /// <summary>
@@ -73,6 +99,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                             _logger.LogWarning(
                                 $"Auto-load skipped Roslyn strategy '{spec.Name}' — IRoslynScriptingService not registered.",
                                 nameof(StrategyAutoLoader));
+                            AnnounceNotLoaded(spec.Name, "scripting is not available on this build");
                             continue;
                         }
                         var result = await _roslyn.CompileStrategyAsync(spec.RoslynSource!).ConfigureAwait(false);
@@ -82,6 +109,10 @@ namespace AccessibleTrader.Core.Services.Strategies
                                 $"Auto-load failed to recompile Roslyn strategy '{spec.Name}' ({spec.Id}): "
                                 + string.Join("; ", result.Errors),
                                 nameof(StrategyAutoLoader));
+                            // First finding only: the rest go to the log. Speech that reads out
+                            // four Roslyn diagnostics is speech the user talks over.
+                            AnnounceNotLoaded(spec.Name,
+                                result.Errors is { Length: > 0 } ? result.Errors[0] : "it no longer compiles");
                             continue;
                         }
                         _engine.AddStrategy(result.Strategy!, new System.Collections.Generic.Dictionary<string, object>(),
@@ -102,6 +133,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                     _logger.LogWarning(
                         $"Auto-load failed for strategy '{spec.Name}' ({spec.Id}): {ex.Message}",
                         nameof(StrategyAutoLoader));
+                    AnnounceNotLoaded(spec.Name, ex.Message);
                 }
             }
 

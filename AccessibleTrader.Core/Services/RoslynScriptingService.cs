@@ -12,6 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Scripting;
 using AccessibleTrader.Core.Services.Scripting;
+using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
@@ -36,9 +37,12 @@ namespace AccessibleTrader.Core.Services
     /// Each compilation runs in its own <see cref="AssemblyLoadContext"/> for isolation.
     /// </summary>
     /// <remarks>
-    /// Sandbox policy — allowed references:
-    ///   AccessibleTrader.Sdk, System.Numerics, Skender.Stock.Indicators.
-    /// Blocked: System.IO, System.Net, System.Reflection (any emit path).
+    /// Sandbox policy — the compile-time reference set is a fixed declared list
+    /// (<c>_frameworkReferenceNames</c> plus AccessibleTrader.Sdk, AccessibleTrader.Core for
+    /// strategies, and Skender.Stock.Indicators), identical on every host.
+    /// Blocked: System.IO, System.Net, System.Reflection (any emit path) — see
+    /// <c>_blockedNamespaces</c> for the full policy, which the semantic walker enforces
+    /// independently of what is referenced.
     /// Scripts must define a class that implements <see cref="ICustomIndicator"/>.
     /// </remarks>
     public interface IRoslynScriptingService
@@ -208,6 +212,119 @@ namespace AccessibleTrader.Core.Services
             "AccessibleTrader.Sdk.Models",
         };
 
+        /// <summary>
+        /// The framework assemblies a user script may compile against, declared by name and
+        /// resolved from the directory that holds <c>System.Private.CoreLib</c>.
+        ///
+        /// <para>
+        /// Until 2026-08-25 this set was built by scanning
+        /// <c>AppDomain.CurrentDomain.GetAssemblies()</c> for anything called <c>System.*</c> or
+        /// <c>Microsoft.*</c>, which made <b>what a script can even name</b> a function of what
+        /// the host happened to have loaded when the user pressed Compile. The desktop head, the
+        /// WebHost and a unit-test process each had a different answer, and so did two runs of the
+        /// same head depending on which features the user had opened first. Two of the four
+        /// escapes found in that audit were invisible in a bare test process for exactly this
+        /// reason — <c>dynamic</c> compiled only because <c>Microsoft.CSharp</c> was loaded, and
+        /// <c>Console.WriteLine</c> only because <c>System.Console</c> was — so the probe had to
+        /// force-load both to see the real answer. A boundary that moves with unrelated feature
+        /// work is not a boundary.
+        /// </para>
+        ///
+        /// <para>
+        /// The reference set has never been the wall — <see cref="SandboxWalker"/> is, and it
+        /// refuses blocked namespaces whether or not their assembly is referenced. So this list is
+        /// not trying to be minimal; it is trying to be <i>the same everywhere</i>. Where breadth
+        /// is a free choice it buys diagnostic quality: <c>System.Console</c> is referenced
+        /// deliberately so a script's <c>Console.WriteLine</c> is refused with "type
+        /// 'System.Console' is not allowed in user scripts" rather than with a bare
+        /// "the name 'Console' does not exist". <c>Microsoft.CSharp</c> is the one deliberate
+        /// omission: nothing legitimate in an indicator needs the dynamic binder, the walker
+        /// refuses <c>dynamic</c> before Emit regardless, and leaving it out means the escape
+        /// cannot reach the emit step even if that rule is ever weakened.
+        /// </para>
+        /// </summary>
+        private static readonly string[] _frameworkReferenceNames =
+        {
+            "System.Runtime",                  // the facade nearly every BCL type is forwarded through
+            "netstandard",                     // scripts pasted from netstandard-targeting sources
+            "System.Collections",              // List<T>, Dictionary<K,V>, HashSet<T>
+            "System.Collections.Immutable",    // WorkspaceState.ActiveSeries is an ImmutableList
+            "System.ObjectModel",              // ReadOnlyCollection, ObservableCollection
+            "System.Linq",
+            "System.Memory",                   // Span/ReadOnlySpan — Calculate's own signature
+            "System.Numerics.Vectors",
+            "System.Runtime.Extensions",       // legacy facade some pasted sources still name
+            "System.Text.RegularExpressions",  // symbol/pattern matching in strategy code
+            "System.Console",                  // referenced ONLY so the refusal reads properly
+        };
+
+        /// <summary>Exposed for the reference-determinism guard in the test suite.</summary>
+        internal static IReadOnlyList<string> FrameworkReferenceNames => _frameworkReferenceNames;
+
+        /// <summary>
+        /// Thrown when the framework reference set cannot be resolved from disk. Surfaced to the
+        /// script author as a plain error rather than letting Roslyn report a wall of CS0518
+        /// "predefined type is not defined" diagnostics that read as a bug in their script.
+        /// </summary>
+        internal sealed class ReferenceSetUnavailableException : Exception
+        {
+            public ReferenceSetUnavailableException(string message) : base(message) { }
+        }
+
+        /// <summary>
+        /// Builds the compile-time reference set. Identical on every host, because every entry is
+        /// either pinned by <c>typeof</c> or resolved by name from the runtime directory — never
+        /// from the list of assemblies this process happens to have loaded.
+        /// </summary>
+        /// <param name="includeHostCore">
+        /// Strategy scripts additionally compile against AccessibleTrader.Core, because
+        /// <c>BaseStrategy</c> and the strategy helper types live there. Indicators do not.
+        /// </param>
+        internal static List<MetadataReference> BuildReferences(bool includeHostCore)
+        {
+            var references = new List<MetadataReference>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddFile(string? path)
+            {
+                if (string.IsNullOrEmpty(path)) return;
+                if (!seen.Add(path)) return;
+                try { references.Add(MetadataReference.CreateFromFile(path)); }
+                catch { /* unreadable file — the missing-reference check below reports the effect */ }
+            }
+
+            var coreLib = typeof(object).Assembly.Location;
+            AddFile(coreLib);
+            AddFile(typeof(ICustomIndicator).Assembly.Location);                 // AccessibleTrader.Sdk
+            if (includeHostCore)
+                AddFile(typeof(RoslynScriptingService).Assembly.Location);       // AccessibleTrader.Core
+
+            var runtimeDir = string.IsNullOrEmpty(coreLib) ? "" : (Path.GetDirectoryName(coreLib) ?? "");
+            if (runtimeDir.Length == 0 || !File.Exists(Path.Combine(runtimeDir, "System.Runtime.dll")))
+                throw new ReferenceSetUnavailableException(
+                    "Script compilation is unavailable on this build: the framework reference set " +
+                    "could not be resolved from disk" +
+                    (runtimeDir.Length == 0 ? " (the runtime has no file location — single-file publish?)." : $" under '{runtimeDir}'."));
+
+            foreach (var name in _frameworkReferenceNames)
+            {
+                var path = Path.Combine(runtimeDir, name + ".dll");
+                if (File.Exists(path)) AddFile(path);
+            }
+
+            // Skender is a hard package dependency of AccessibleTrader.Core, so it sits beside
+            // Core's own binary on every head. Resolved from THERE rather than from the loaded
+            // assembly list, for the same reason as everything else here.
+            var coreDir = Path.GetDirectoryName(typeof(RoslynScriptingService).Assembly.Location);
+            if (!string.IsNullOrEmpty(coreDir))
+            {
+                var skender = Path.Combine(coreDir, "Skender.Stock.Indicators.dll");
+                if (File.Exists(skender)) AddFile(skender);
+            }
+
+            return references;
+        }
+
         public async Task<CompileResult> CompileIndicatorAsync(string code)
         {
             ThrowIfScriptsDisabled();
@@ -225,60 +342,10 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                // Resolve permitted references. In the split .NET BCL the
-                // types an indicator reasonably uses live across multiple
-                // assemblies: Dictionary in System.Collections, arrays and
-                // Span in System.Runtime, IEnumerable in System.Linq etc.
-                // We pin a few via typeof(...).Assembly and then additionally
-                // scan the AppDomain for anything else the running host has
-                // already loaded. See BuildSystemReferences() for the rule.
-                var references = new List<MetadataReference>
-                {
-                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),                                 // System.Private.CoreLib
-                    MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),                            // System.Linq
-                    MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<,>).Assembly.Location),// System.Collections
-                    MetadataReference.CreateFromFile(typeof(ICustomIndicator).Assembly.Location),                      // AccessibleTrader.Sdk
-                    MetadataReference.CreateFromFile(typeof(System.Numerics.Vector2).Assembly.Location),               // System.Numerics.Vectors
-                };
-
-                // Try to add Skender if present in the default ALC
-                try
-                {
-                    var skenderAsm = AppDomain.CurrentDomain.GetAssemblies()
-                        .FirstOrDefault(a => a.GetName().Name == "Skender.Stock.Indicators");
-                    if (skenderAsm != null)
-                        references.Add(MetadataReference.CreateFromFile(skenderAsm.Location));
-                }
-                catch { /* optional dependency */ }
-
-                // Scan AppDomain for every System.* / Microsoft.* assembly
-                // and include it. This is deliberately broad — the semantic
-                // sandbox walker (AnalyzeSandbox) rejects types in blocked
-                // namespaces regardless of whether they're in the reference
-                // set, so widening the reference surface doesn't weaken
-                // security.
-                var already = new HashSet<string>(references
-                    .Select(r => (r as PortableExecutableReference)?.FilePath ?? "")
-                    .Where(s => s.Length > 0),
-                    StringComparer.OrdinalIgnoreCase);
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    try
-                    {
-                        if (string.IsNullOrEmpty(asm.Location)) continue;
-                        if (already.Contains(asm.Location)) continue;
-                        var name = asm.GetName().Name ?? "";
-                        if (name.StartsWith("System.", StringComparison.Ordinal)
-                            || name.StartsWith("Microsoft.", StringComparison.Ordinal)
-                            || name == "netstandard"
-                            || name == "mscorlib")
-                        {
-                            references.Add(MetadataReference.CreateFromFile(asm.Location));
-                            already.Add(asm.Location);
-                        }
-                    }
-                    catch { /* skip inaccessible */ }
-                }
+                // The declared, host-independent reference set. See
+                // _frameworkReferenceNames for why this is a fixed list rather than a
+                // scan of whatever the running process has loaded.
+                var references = BuildReferences(includeHostCore: false);
 
                 var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest);
                 var syntaxTree   = CSharpSyntaxTree.ParseText(fullCode, parseOptions);
@@ -426,44 +493,9 @@ namespace AccessibleTrader.Core.Services
 
             try
             {
-                // Same broadened reference strategy as CompileIndicatorAsync —
-                // pin the common BCL types and then scan AppDomain for any
-                // System.* / Microsoft.* / netstandard / mscorlib assembly
-                // loaded at compile time. Semantic sandbox walker still
-                // rejects blocked namespaces independently of the reference
-                // surface.
-                var references = new List<MetadataReference>
-                {
-                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),                                 // System.Private.CoreLib
-                    MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),                            // System.Linq
-                    MetadataReference.CreateFromFile(typeof(System.Collections.Generic.Dictionary<,>).Assembly.Location),// System.Collections
-                    MetadataReference.CreateFromFile(typeof(ICustomIndicator).Assembly.Location),                      // AccessibleTrader.Sdk
-                    MetadataReference.CreateFromFile(typeof(RoslynScriptingService).Assembly.Location),                // AccessibleTrader.Core
-                    MetadataReference.CreateFromFile(typeof(System.Numerics.Vector2).Assembly.Location),               // System.Numerics.Vectors
-                };
-
-                var already = new HashSet<string>(references
-                    .Select(r => (r as PortableExecutableReference)?.FilePath ?? "")
-                    .Where(s => s.Length > 0),
-                    StringComparer.OrdinalIgnoreCase);
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    try
-                    {
-                        if (string.IsNullOrEmpty(asm.Location)) continue;
-                        if (already.Contains(asm.Location)) continue;
-                        var name = asm.GetName().Name ?? "";
-                        if (name.StartsWith("System.", StringComparison.Ordinal)
-                            || name.StartsWith("Microsoft.", StringComparison.Ordinal)
-                            || name == "netstandard"
-                            || name == "mscorlib")
-                        {
-                            references.Add(MetadataReference.CreateFromFile(asm.Location));
-                            already.Add(asm.Location);
-                        }
-                    }
-                    catch { /* skip */ }
-                }
+                // Same declared reference set as CompileIndicatorAsync, plus
+                // AccessibleTrader.Core — BaseStrategy and the strategy helper types live there.
+                var references = BuildReferences(includeHostCore: true);
 
                 var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest);
                 var syntaxTree   = CSharpSyntaxTree.ParseText(fullCode, parseOptions);
@@ -509,8 +541,22 @@ namespace AccessibleTrader.Core.Services
                 if (instance == null)
                     return new CompileStrategyResult(false, null, new[] { "Failed to instantiate strategy class." });
 
+                // The causality gate. A scripted INDICATOR is probed at registration and its
+                // look-ahead components are simply not offered to the strategy builder; a strategy
+                // has no equivalent half-measure — there is no "draws but does not trade" mode for
+                // something whose entire output is orders — so the gate is here, at the one door
+                // every script strategy comes through, and it refuses.
+                var causality = ScriptStrategyCausalityProbe.Probe(instance);
+                if (causality.Refused)
+                {
+                    alc.Unload();
+                    return new CompileStrategyResult(false, null, causality.Findings.ToArray());
+                }
+
                 _contexts[instance.Id] = alc;
-                return new CompileStrategyResult(true, instance, Array.Empty<string>());
+                // Notes ride back in Errors on a SUCCESSFUL result, which is the same channel the
+                // in-process indicator path uses for its "this is the unsandboxed path" warning.
+                return new CompileStrategyResult(true, instance, causality.Notes.ToArray());
             }
             catch (Exception ex)
             {
@@ -759,10 +805,12 @@ namespace AccessibleTrader.Core.Services
             /// </para>
             ///
             /// <para>
-            /// Whether that escape even compiled depended on whether <c>Microsoft.CSharp</c>
-            /// happened to be loaded in the host process, because the reference set is built by
+            /// Whether that escape even compiled used to depend on whether <c>Microsoft.CSharp</c>
+            /// happened to be loaded in the host process, because the reference set was built by
             /// scanning the running AppDomain. A security boundary that varies with the host's
-            /// assembly load order is not a boundary; this makes the answer the same everywhere.
+            /// assembly load order is not a boundary; the set is a declared list now (see
+            /// <c>_frameworkReferenceNames</c>) and this rule makes the answer the same
+            /// everywhere regardless.
             /// </para>
             /// </summary>
             public override void Visit(SyntaxNode? node)
@@ -791,13 +839,15 @@ namespace AccessibleTrader.Core.Services
 
             public override void VisitQualifiedName(QualifiedNameSyntax node)
             {
-                CheckSymbol(_model.GetSymbolInfo(node).Symbol, node);
+                var symbol = _model.GetSymbolInfo(node).Symbol;
+                if (symbol == null) CheckUnresolvedName(node); else CheckSymbol(symbol, node);
                 base.VisitQualifiedName(node);
             }
 
             public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
             {
-                CheckSymbol(_model.GetSymbolInfo(node).Symbol, node);
+                var symbol = _model.GetSymbolInfo(node).Symbol;
+                if (symbol == null) CheckUnresolvedName(node); else CheckSymbol(symbol, node);
                 base.VisitMemberAccessExpression(node);
             }
 
@@ -818,6 +868,35 @@ namespace AccessibleTrader.Core.Services
             {
                 CheckSymbol(_model.GetSymbolInfo(node).Symbol, node);
                 base.VisitAttribute(node);
+            }
+
+            /// <summary>
+            /// Diagnostic-quality rule, not a security rule: a fully-qualified name that resolves
+            /// to NOTHING but reads as a blocked namespace gets the sandbox's own message.
+            ///
+            /// <para>
+            /// Since the reference set became a fixed list, not every blocked assembly is in it —
+            /// <c>System.Diagnostics.Process</c>, for instance, is reachable from no reference the
+            /// script gets. Roslyn's answer for that is "the type or namespace name 'Process' does
+            /// not exist in the namespace 'System.Diagnostics'", which reads to a script author
+            /// like a typo on their part rather than a policy on ours. This is pure string
+            /// matching and would be a weak rule on its own; it is safe here precisely because it
+            /// only fires on a name that already failed to bind, so the strongest thing it can do
+            /// is replace one refusal's wording with another's. It can never refuse a script that
+            /// would otherwise have compiled.
+            /// </para>
+            /// </summary>
+            private void CheckUnresolvedName(SyntaxNode node)
+            {
+                var text = node.ToString();
+                foreach (var blocked in _blockedNamespaces)
+                {
+                    if (text.StartsWith(blocked + ".", StringComparison.Ordinal))
+                    {
+                        Report(node, $"type '{text}' is in blocked namespace '{blocked}'.");
+                        return;
+                    }
+                }
             }
 
             private void CheckSymbol(ISymbol? symbol, SyntaxNode node)
