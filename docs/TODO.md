@@ -37,8 +37,16 @@ recompile and that had been a log line.
 
 Still open and still the headline: **strategy scripts never leave the host process**. It is scoped
 in the section below — six opcodes, an incremental history, and a `WorkspaceState` projection with
-a reflection guard so it cannot silently go stale — but not started. Suite **4784 green**; twelve
+a reflection guard so it cannot silently go stale — but not started. Suite **4786 green**; fifteen
 sabotage runs, every guard proven red.
+
+**The gate got a wall-clock budget**, because it now runs once per armed script at app start and a
+strategy that is quadratic in the bars it was handed would have turned that into a startup hang —
+a worse bug than the one being caught. Running out is a NOTE saying what was not established:
+never a pass, and never a refusal on evidence that was never gathered. **Its first guard used a
+zero budget and so only ever exercised the outermost check** — it stayed green with the prefix
+loop's check deleted. The second one is slow enough per bar that the check which fires is an inner
+one.
 
 **Status 2026-08-25 (causality for scripts and for chart patterns):** **523 open.** The contract
 now reaches the two places it never has. **Scripted indicators**: `ICustomIndicator` gained a

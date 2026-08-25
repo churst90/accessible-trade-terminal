@@ -209,6 +209,66 @@ public class StrategyCausalityGateTests
             => null;
     }
 
+    /// <summary>
+    /// The gate runs inside <c>CompileStrategyAsync</c>, which auto-load calls once per armed
+    /// script at app start. A strategy that is quadratic in the bars it was handed would turn that
+    /// into a startup hang — a worse bug than the one being caught — so the probe has a wall-clock
+    /// budget. Running out is a NOTE saying what was not established: not a pass, and not a
+    /// refusal, because an unfinished check has not found anything.
+    /// </summary>
+    [Fact]
+    public void Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal()
+    {
+        // The look-ahead strategy specifically: with no time to run, even the one the probe would
+        // certainly catch must come back un-refused rather than accused on no evidence.
+        var report = ScriptStrategyCausalityProbe.Probe(new LookaheadStrategy(), budget: TimeSpan.Zero);
+
+        Assert.False(report.Refused);
+        Assert.Empty(report.Findings);
+        Assert.Contains(report.Notes, n => n.Contains("ran out of its", StringComparison.Ordinal));
+
+        // …and the same strategy, given the real budget, IS refused. Without this the test above
+        // would pass against a probe that had simply stopped working.
+        Assert.True(ScriptStrategyCausalityProbe.Probe(new LookaheadStrategy()).Refused);
+    }
+
+    /// <summary>
+    /// The budget has to stop a probe that is already RUNNING, not only one that starts too late.
+    ///
+    /// <para>
+    /// A zero budget short-circuits at the very first check and proves nothing about the ones
+    /// inside — the first draft of the test above did exactly that, and stayed green with the
+    /// prefix loop's check deleted. This one is slow enough per bar that the two full runs
+    /// certainly outlast the budget, so the check that fires is one of the inner ones, and the
+    /// strategy is a look-ahead so deleting that check makes the probe refuse and the test go red.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_budget_stops_a_probe_that_is_already_running()
+    {
+        var report = ScriptStrategyCausalityProbe.Probe(
+            new SlowLookaheadStrategy(), budget: TimeSpan.FromMilliseconds(200));
+
+        Assert.False(report.Refused, string.Join("\n", report.Findings));
+        Assert.Contains(report.Notes, n => n.Contains("ran out of its", StringComparison.Ordinal));
+    }
+
+    /// <summary>The look-ahead strategy, with roughly a millisecond of work per bar.</summary>
+    private sealed class SlowLookaheadStrategy : ProbeStrategyBase
+    {
+        public override string Id => "PROBE_SLOW_LOOKAHEAD";
+        public override StrategySignal? OnBar(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state)
+        {
+            // Wall-clock, not a work loop: the point is to consume the budget predictably on any
+            // machine. It cannot affect the DECISION, which stays a pure function of the bars.
+            System.Threading.SpinWait.SpinUntil(() => false, 1);
+
+            int next = history.Count;
+            if (next >= state.Data.Count) return null;
+            return state.Data[next].Close > newBar.Close ? Buy(newBar.Close) : null;
+        }
+    }
+
     // ── The seam: the gate has to be wired into the compile door ─────────────────────────────
 
     private static RoslynScriptingService NewScripting() =>

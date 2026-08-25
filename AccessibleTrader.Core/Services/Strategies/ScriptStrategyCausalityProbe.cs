@@ -103,17 +103,48 @@ namespace AccessibleTrader.Core.Services.Strategies
         private static readonly ChartIdentity ProbeIdentity =
             new("Spot", "probe", "PROBE/USD", "1h");
 
-        public static ScriptStrategyCausalityReport Probe(ITradingStrategy prototype)
+        /// <summary>
+        /// Wall-clock budget for the whole probe.
+        ///
+        /// <para>
+        /// This runs inside <c>CompileStrategyAsync</c>, and <c>StrategyAutoLoader</c> calls that
+        /// once per armed script at app start. Twelve runs of 400 bars is nothing for an ordinary
+        /// strategy — the whole suite of these finishes in under a second — but a strategy that
+        /// recomputes a long indicator on every bar is quadratic in what it was handed, and a gate
+        /// that hangs startup would be a worse bug than the one it catches. The budget is checked
+        /// BETWEEN runs (a synchronous <c>OnBar</c> cannot be interrupted from outside), and
+        /// running out is reported as a note saying what was and was not established — never as a
+        /// pass, and never as a refusal.
+        /// </para>
+        /// </summary>
+        public static readonly TimeSpan Budget = TimeSpan.FromSeconds(8);
+
+        /// <param name="budget">
+        /// Overrides <see cref="Budget"/>. Exists so a test can prove the budget path without
+        /// spending eight real seconds to do it — production never passes it.
+        /// </param>
+        public static ScriptStrategyCausalityReport Probe(ITradingStrategy prototype, TimeSpan? budget = null)
         {
             ArgumentNullException.ThrowIfNull(prototype);
+            var limit = budget ?? Budget;
 
             string id = prototype.Id ?? "";
             var findings = new List<string>();
             var notes = new List<string>();
             int signalsSeen = 0;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            bool ranOut = false;
+
+            bool OutOfTime()
+            {
+                if (clock.Elapsed < limit) return false;
+                ranOut = true;
+                return true;
+            }
 
             foreach (int flavour in Flavours)
             {
+                if (OutOfTime()) break;
                 var full = CausalityProbeSeries.Bars(flavour, ProbeLength);
 
                 Trace whole;
@@ -148,6 +179,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // ── Does a bar's decision change when the FUTURE arrives? ────────────────────
                 foreach (int k in PrefixLengths)
                 {
+                    if (OutOfTime()) break;
                     Trace shortRun;
                     try { shortRun = Run(prototype, full.Take(k).ToList()); }
                     catch (Exception ex)
@@ -171,6 +203,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // ── Does a bar's decision change when OLDER bars arrive? ─────────────────────
                 foreach (int k in SuffixDrops)
                 {
+                    if (OutOfTime()) break;
                     Trace shortRun;
                     try { shortRun = Run(prototype, full.Skip(k).ToList()); }
                     catch (Exception ex)
@@ -196,6 +229,13 @@ namespace AccessibleTrader.Core.Services.Strategies
 
             if (findings.Count > 0)
                 return new ScriptStrategyCausalityReport(id, Refused: true, findings, notes, signalsSeen);
+
+            if (ranOut)
+                notes.Add(
+                    $"The causality check ran out of its {limit.TotalSeconds:F0}-second budget before " +
+                    "finishing, so part of it was not done — the strategy was not refused, but it was " +
+                    "not fully checked either. A strategy this slow to replay will also be slow to " +
+                    "backtest.");
 
             if (signalsSeen == 0)
                 notes.Add(
