@@ -108,6 +108,38 @@ namespace AccessibleTrader.Tests
             await h.Paper.Received(1).CancelOrderAsync("paper-1", "BTC/USDT"); // never half a pair
         }
 
+        /// <summary>
+        /// A rollback that did not work is not a rollback, and must not be announced as one.
+        ///
+        /// <para>
+        /// <c>CancelOrderAsync</c> returns <c>bool</c> and the result was discarded, so when
+        /// the cancel failed — a provider that had gone offline, or an exception swallowed
+        /// into false — the user was told "the limit leg was cancelled, nothing is resting"
+        /// while a naked limit leg sat on the book. That is the one outcome the rollback
+        /// exists to prevent, announced as its own success.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public async Task Paper_a_rollback_that_fails_is_not_announced_as_a_rollback()
+        {
+            var h = Build();
+            h.Settings.GetSetting("trading.paperTradingMode").Returns(Newtonsoft.Json.Linq.JToken.FromObject(true));
+            int calls = 0;
+            h.Paper.PlaceOrderAsync(Arg.Any<TradeSignal>())
+                .Returns(_ => Task.FromResult(++calls == 1 ? "paper-1" : "ORDER_FAILED:nope"));
+            h.Paper.CancelOrderAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(false));
+
+            var (ok, msg) = await h.Svc.PlaceOcoPairAsync("Binance", "BTC/USDT", OrderSide.Sell, 0.5, 110, 95);
+
+            Assert.False(ok);
+            Assert.DoesNotContain("nothing is resting", msg);
+            // Names the order, says it may still be live, and says what to do about it.
+            Assert.Contains("paper-1", msg);
+            Assert.Contains("may still be resting", msg);
+            h.Err.Received().ReportError(Arg.Is<string>(m => m.Contains("rollback failed")),
+                                         ErrorSeverity.High);
+        }
+
         [Fact]
         public async Task Flag_only_provider_is_refused()
         {

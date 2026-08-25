@@ -118,43 +118,119 @@ namespace AccessibleTrader.Core.Services.Trading
         /// Resolves the provider and its dedicated credential together, so no path
         /// below can reach the venue without both.
         /// </summary>
-        private async Task<(IWithdrawalProvider? P, string? Refusal)> ReadyAsync(string provider)
+        private async Task<(IWithdrawalProvider? P, string? Refusal, IAsyncDisposable Lease)> ReadyAsync(string provider)
         {
             // Belt and braces. CanWithdrawAsync already keeps every surface dark,
             // but this is the single choke point every venue-reaching call passes
             // through, and a UI gate someone forgets is exactly how a dark feature
             // stops being dark. A refusal here means no request leaves the machine.
             if (!_released)
-                return (null, "withdrawals are not enabled in this build");
+                return (null, "withdrawals are not enabled in this build", NoLease.Instance);
 
             var p = await ProviderAsync(provider).ConfigureAwait(false);
             if (p is null)
-                return (null, $"{provider} does not support withdrawals through its API");
+                return (null, $"{provider} does not support withdrawals through its API", NoLease.Instance);
 
             var key = await _keys.GetWithdrawalKeyAsync(provider).ConfigureAwait(false);
             if (key is null || string.IsNullOrEmpty(key.ApiKey))
                 return (null,
                     $"no withdrawal-enabled API key is configured for {provider}. Withdrawals deliberately "
                   + "require their OWN key profile so that a trading key can never move funds — create one "
-                  + "in API Keys, with withdrawal permission granted at the venue.");
+                  + "in API Keys, with withdrawal permission granted at the venue.",
+                    NoLease.Instance);
 
-            // The credential is handed to the plugin for THIS call only, exactly as
-            // the trading path does at each sign site.
+            // ── The credential is a LOAN, and the lease is what gives it back ──────
+            //
+            // `raw` is the shared plugin instance — the same object the order path
+            // signs with, one per DataService. Configuring it here used to be the end
+            // of the story: nothing restored the trading key afterwards, and
+            // DataService only reconfigures on a market-data fetch (and its
+            // ConfigureStoredKeyProvidersAsync skips anything already IsConfigured, which
+            // for most providers is a hardcoded true). So the withdrawal-enabled key
+            // stayed live indefinitely, and every order in between was signed with the
+            // one credential that can also move funds off the venue. The comment here
+            // said "for THIS call only" and the code said otherwise.
+            //
+            // The plugin surface offers no way to READ a credential back, so this is a
+            // restore rather than a snapshot: the lease reconfigures from the key store,
+            // exactly as DataService.EnsureProviderConfiguredAsync would, and blanks the
+            // credential when there is no trading key to restore — which is the correct
+            // end state, because in that case there was none to begin with.
+            //
+            // What this does NOT close: an order placed by another thread DURING the
+            // venue call still signs with the withdrawal key. Narrowing the window from
+            // "forever" to "one HTTP round trip" is what a shared instance allows;
+            // closing it needs a per-call credential on IWithdrawalProvider or a
+            // dedicated instance, filed in docs/TODO.md.
             if (await _data.GetProviderAsync(provider).ConfigureAwait(false) is { } raw)
+            {
                 raw.Configure(new Dictionary<string, string>
                 {
                     ["ApiKey"] = key.ApiKey,
                     ["ApiSecret"] = key.ApiSecret ?? "",
                     ["Passphrase"] = key.Passphrase ?? "",
                 });
+                return (p, null, new CredentialLease(raw, _keys, _logger, provider));
+            }
 
-            return (p, null);
+            return (p, null, NoLease.Instance);
+        }
+
+        /// <summary>
+        /// Puts the provider's TRADING credential back when the venue call is done.
+        /// Never throws: a failure to restore is loud in the log and must not turn a
+        /// completed withdrawal into an exception the caller reports as a failure.
+        /// </summary>
+        private sealed class CredentialLease : IAsyncDisposable
+        {
+            private readonly Sdk.Plugins.IMarketDataProvider _raw;
+            private readonly IApiKeyService _keys;
+            private readonly ILogger _logger;
+            private readonly string _provider;
+            private bool _done;
+
+            public CredentialLease(Sdk.Plugins.IMarketDataProvider raw, IApiKeyService keys,
+                                   ILogger logger, string provider)
+            {
+                _raw = raw; _keys = keys; _logger = logger; _provider = provider;
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                if (_done) return;
+                _done = true;
+                try
+                {
+                    var trading = await _keys.GetKeyForProviderAsync(_provider).ConfigureAwait(false);
+                    _raw.Configure(new Dictionary<string, string>
+                    {
+                        ["ApiKey"] = trading?.ApiKey ?? "",
+                        ["ApiSecret"] = trading?.ApiSecret ?? "",
+                        ["Passphrase"] = trading?.Passphrase ?? "",
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // High, not a warning: the provider is now holding a
+                    // withdrawal-enabled key that the order path will sign with.
+                    _logger.LogError(ex,
+                        "Could not restore the trading credential on {Provider} after a withdrawal call. "
+                      + "The withdrawal-enabled key may still be configured on that provider.", _provider);
+                }
+            }
+        }
+
+        private sealed class NoLease : IAsyncDisposable
+        {
+            public static readonly NoLease Instance = new();
+            public ValueTask DisposeAsync() => default;
         }
 
         public async Task<ProviderResult<IReadOnlyList<WithdrawalDestination>>> GetDestinationsAsync(
             string provider, string asset, CancellationToken ct = default)
         {
-            var (p, refusal) = await ReadyAsync(provider).ConfigureAwait(false);
+            var (p, refusal, lease) = await ReadyAsync(provider).ConfigureAwait(false);
+            await using var _ = lease;
             if (p is null) return ProviderResult<IReadOnlyList<WithdrawalDestination>>.NotPermitted(refusal!);
 
             try
@@ -184,7 +260,8 @@ namespace AccessibleTrader.Core.Services.Trading
             if (amount <= 0)
                 return ProviderResult<WithdrawalQuote>.Failed("the amount must be greater than zero");
 
-            var (p, refusal) = await ReadyAsync(provider).ConfigureAwait(false);
+            var (p, refusal, lease) = await ReadyAsync(provider).ConfigureAwait(false);
+            await using var _ = lease;
             if (p is null) return ProviderResult<WithdrawalQuote>.NotPermitted(refusal!);
 
             try
@@ -228,7 +305,8 @@ namespace AccessibleTrader.Core.Services.Trading
                 return ProviderResult<WithdrawalResult>.Failed(
                     $"the withdrawal was not confirmed — type {ConfirmationPhrase} exactly to proceed");
 
-            var (p, refusal) = await ReadyAsync(provider).ConfigureAwait(false);
+            var (p, refusal, lease) = await ReadyAsync(provider).ConfigureAwait(false);
+            await using var _ = lease;
             if (p is null) return ProviderResult<WithdrawalResult>.NotPermitted(refusal!);
 
             try

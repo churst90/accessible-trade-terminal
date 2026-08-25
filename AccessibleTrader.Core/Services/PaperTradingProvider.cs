@@ -65,13 +65,26 @@ namespace AccessibleTrader.Core.Services
         // The charts this account is watching. ONE account can be looked at from several browser
         // tabs at once, each with its own IWorkspaceStore, so this is a set rather than the single
         // store it used to be — see PaperAccountHub for why the account itself is now shared.
-        private readonly List<(IWorkspaceStore Store, IDisposable Sub)> _stores = new();
+        private readonly List<(IWorkspaceStore Store, IDisposable Sub, IDisposable? Monitor)> _stores = new();
         private readonly object _storeLock = new();
-        private IWorkspaceStore _store;   // the most recently active attached store
+        // Written from every attached store's subscription callback and read from
+        // paths that do not hold _lock (ProviderForSymbol, ResolvePriceAsync), so the
+        // publication has to be visible across threads.
+        // Nullable: when the LAST tab detaches there is no chart to speak of, and
+        // pointing at the dead one would keep resolving prices and identities against a
+        // workspace nobody is looking at. Every read falls back to the account's own
+        // persisted exposure instead.
+        private volatile IWorkspaceStore? _store;   // the most recently active attached store
         private readonly ILogger<PaperTradingProvider> _logger;
         private readonly string _statePath;
         private readonly object _lock = new();
-        private readonly IDisposable? _monitorSub;
+
+        /// <summary>
+        /// The subscription pair the constructor made for <see cref="PrimaryStore"/>,
+        /// handed to whoever claims it via <see cref="TakePrimaryAttachment"/>. See that
+        /// method for why the creating tab has to be able to detach like any other.
+        /// </summary>
+        private IDisposable? _primaryAttachment;
 
         private readonly Subject<OrderUpdate> _orderUpdates = new();
         public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates.AsObservable();
@@ -82,6 +95,40 @@ namespace AccessibleTrader.Core.Services
         // monitor. Deliberately NOT persisted: a price restored from disk would be
         // stale by an unknown amount and would price positions off it.
         private readonly Dictionary<string, double> _lastPrice = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The most recent bar seen for each symbol, whole rather than just its close.
+        /// An order placed part-way through a bar needs to know what that bar had
+        /// already printed before it existed — see <see cref="EligibleRange"/>. Not
+        /// persisted, for the same reason <see cref="_lastPrice"/> is not.
+        /// </summary>
+        private readonly Dictionary<string, Ohlcv> _lastBar = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Spellings that resolved onto a DIFFERENT existing position's key, mapped to
+        /// that key.
+        ///
+        /// <para>
+        /// <see cref="ResolveLedgerKeyAsync"/> deliberately files a trade under an
+        /// existing position's spelling rather than renaming it, so after trading
+        /// <c>BTC/USD</c> and then <c>BTCUSDT</c> on a venue that routes both to one
+        /// book, everything — position, collateral, protective legs — is keyed
+        /// <c>BTC/USD</c>. Bars, however, arrive spelled the way the CHART spells them.
+        /// Without this map the fill engine looked for <c>BTCUSDT</c> orders, found
+        /// none, and the stop, the take-profit and liquidation all went quiet: a short
+        /// there could never be bought in, and unrealised P&amp;L sat frozen at the entry
+        /// price because <c>_lastPrice</c> was written under the other key.
+        /// </para>
+        ///
+        /// <para>
+        /// Persisted, because the venue lookup that produced the mapping needs the
+        /// network and the fill engine runs under a lock. Every read re-checks that the
+        /// target is still a live ledger key, so an alias cannot resurrect itself after
+        /// the position it pointed at is closed.
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<string, string> _ledgerAlias = new(StringComparer.OrdinalIgnoreCase);
+
         // The chart each traded symbol was traded under, so exposure can be priced
         // after its tab is gone. Persisted, unlike _lastPrice.
         private readonly Dictionary<string, ChartIdentity> _exposureIdentity = new(StringComparer.OrdinalIgnoreCase);
@@ -123,18 +170,21 @@ namespace AccessibleTrader.Core.Services
         {
             _store = store;
             PrimaryStore = store;
-            Attach(store);
             _logger = logger;
             _data = dataService;
             _statePath = Path.Combine(paths.AppDataDirectory, "paper_account.json");
             Load();
 
-
-            // …and off background monitors, which are the only price source for a
-            // symbol whose tab is not the focused one. Without this the engine was
-            // blind to every chart but the one on screen.
-            _monitorSub = eventBus?.Subscribe<MonitoredBarEvent>(
-                e => ProcessBar(e.Identity.Symbol ?? "", e.Latest));
+            // Attached LAST, and deliberately: StateStream is a BehaviorSubject, so
+            // subscribing replays the current state straight into the fill engine. Doing
+            // that before Load() ran the engine against an empty ledger — and before
+            // _logger was assigned.
+            //
+            // The monitor subscription rides along with the store, not with the
+            // constructor: IEventBus is scoped per browser tab on the hosted head, so an
+            // account that kept only its creator's bus never saw a background bar from
+            // any other tab. Each attachment now brings its own; see Attach.
+            _primaryAttachment = Attach(store, eventBus);
         }
 
         // ── IProviderPlugin ───────────────────────────────────────────────────
@@ -285,6 +335,14 @@ namespace AccessibleTrader.Core.Services
 
             lock (_lock)
             {
+                // The resolver just matched this spelling onto an existing position's
+                // key using a venue lookup the fill engine cannot make (it runs under
+                // this lock, and a lock may not be held across an await). Remember the
+                // answer so bars arriving under the chart's spelling can find the
+                // position, the stop and the collateral that are filed under the other.
+                if (!string.Equals(symbol, raw, StringComparison.OrdinalIgnoreCase))
+                    _ledgerAlias[raw] = symbol;
+
                 if (signal.Leverage is > 1) _leverage[symbol] = Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
 
                 // Remember which chart this symbol trades on, so the monitoring service — and
@@ -292,7 +350,7 @@ namespace AccessibleTrader.Core.Services
                 // canonically: the live identity may spell the same market differently from the
                 // signal, and an identity filed under a spelling nothing looks up is an identity
                 // that will not be there when a close needs it.
-                var live = _store.State.Identity;
+                var live = _store?.State.Identity ?? default;
                 if (!string.IsNullOrEmpty(live.Provider)
                     && string.Equals(LocalCanonical(live.Symbol ?? ""), LocalCanonical(raw),
                                      StringComparison.OrdinalIgnoreCase))
@@ -396,7 +454,7 @@ namespace AccessibleTrader.Core.Services
                     isStop && signal.TriggerPrice == null && signal.StopLoss != null;
                 var bracket = BracketFrom(signal, stopLossIsEntryTrigger);
 
-                _open.Add(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
+                Rest(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
                     ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket));
                 Persist();
                 return oid;
@@ -472,19 +530,19 @@ namespace AccessibleTrader.Core.Services
                 ReportIfCrossed(symbol, exit, level, entryPx, ProtectiveLevel.TakeProfit, isLong);
 
             if (spec.TrailStopValue is > 0 && spec.TrailStopMode != null)
-                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, entryPx, true, false,
+                Rest(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, entryPx, true, false,
                     spec.TrailStopMode, spec.TrailStopValue, entryPx, ocoGroupId: bracket,
                     reduceOnly: true));    // trailing stop anchored at the fill — always on the right side by construction
             else if (spec.StopLoss is > 0 && StopIsSane(spec.StopLoss.Value))
-                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, spec.StopLoss, true, false,
+                Rest(new PaperOrder(NewId(), symbol, exit, OrderType.StopMarket, qty, null, spec.StopLoss, true, false,
                     ocoGroupId: bracket, reduceOnly: true));
 
             if (spec.TakeProfit is > 0 && TargetIsSane(spec.TakeProfit.Value))
-                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, spec.TakeProfit, false, true,
+                Rest(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, spec.TakeProfit, false, true,
                     ocoGroupId: bracket, reduceOnly: true));
 
             if (spec.TrailTpValue is > 0 && spec.TrailTpMode != null)
-                _open.Add(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, null, false, true,
+                Rest(new PaperOrder(NewId(), symbol, exit, OrderType.TakeProfitMarket, qty, null, null, false, true,
                     spec.TrailTpMode, spec.TrailTpValue, null, spec.TrailTpActivation,
                     armed: spec.TrailTpActivation == null, ocoGroupId: bracket,
                     reduceOnly: true));  // trailing take-profit
@@ -517,6 +575,32 @@ namespace AccessibleTrader.Core.Services
                 "Paper bracket leg refused on {Symbol}: {Which} {Level} against entry {Entry} ({Message})",
                 symbol, name, level, entryPx, check.Message);
             return false;
+        }
+
+        /// <summary>
+        /// Put a resting order on the book, stamped with the moment it was placed and
+        /// with what its symbol's current bar had already printed.
+        ///
+        /// <para>
+        /// The single door onto <c>_open</c> for new orders, deliberately: the stamp is
+        /// what stops an order filling off price action that predates it
+        /// (<see cref="EligibleRange"/>), and a placement path that added to the list
+        /// directly would silently opt out of that. <c>Load</c> is the one exception —
+        /// it restores the stamp that was persisted rather than minting a new one.
+        /// </para>
+        ///
+        /// <para>Caller holds <see cref="_lock"/>.</para>
+        /// </summary>
+        private void Rest(PaperOrder o)
+        {
+            o.PlacedAt = DateTime.UtcNow;
+            if (_lastBar.TryGetValue(o.Symbol, out var b))
+            {
+                o.PlacedBarHigh = b.High;
+                o.PlacedBarLow = b.Low;
+                o.PlacedBarClose = b.Close;
+            }
+            _open.Add(o);
         }
 
         /// <summary>One-cancels-other: after <paramref name="filled"/> executes (or is
@@ -567,6 +651,8 @@ namespace AccessibleTrader.Core.Services
                 _history.Clear();
                 _exposureIdentity.Clear();
                 _lastPrice.Clear();
+                _lastBar.Clear();
+                _ledgerAlias.Clear();
                 _collateral.Clear();
                 Persist();
             }
@@ -600,22 +686,34 @@ namespace AccessibleTrader.Core.Services
 
             lock (_lock)
             {
+                // The spelling this bar arrives under is the CHART's, which is not
+                // necessarily the one the money is filed under. Everything below works
+                // on the ledger key; both spellings get the price, because callers ask
+                // for whichever one they hold.
+                string key = LedgerKeyFor(sym);
+
                 // Remember the price even when nothing fills: it is what makes
                 // unrealized P&L live for a position whose chart is not on screen.
                 _lastPrice[sym] = bar.Close;
+                _lastBar[sym] = bar;
+                if (!string.Equals(key, sym, StringComparison.OrdinalIgnoreCase))
+                {
+                    _lastPrice[key] = bar.Close;
+                    _lastBar[key] = bar;
+                }
 
                 // Liquidation before anything else this tick. A short whose collateral
                 // is gone is not a position any more, and letting resting orders act on
                 // it first would report fills against something that no longer exists.
-                LiquidateIfCollateralExhausted(sym, bar);
+                LiquidateIfCollateralExhausted(key, bar);
 
                 // Advance trailing stops first so this tick uses the moved trigger.
                 bool trailMoved = false;
                 foreach (var o in _open)
-                    if (o.Trail != null && string.Equals(o.Symbol, sym, StringComparison.OrdinalIgnoreCase))
+                    if (o.Trail != null && string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase))
                         trailMoved |= UpdateTrail(o, bar);
 
-                var fills = _open.Where(o => string.Equals(o.Symbol, sym, StringComparison.OrdinalIgnoreCase) && Crossed(o, bar)).ToList();
+                var fills = _open.Where(o => string.Equals(o.Symbol, key, StringComparison.OrdinalIgnoreCase) && Crossed(o, bar)).ToList();
                 if (fills.Count == 0)
                 {
                     if (trailMoved) Persist();
@@ -763,26 +861,89 @@ namespace AccessibleTrader.Core.Services
 
             // Trailing exits trigger stop-wise (on a reversal to the trigger)
             // whether they are labelled stop or take-profit — matching Crossed.
-            return BarFill.Price(level, bar.Open, o.Side, stopLike: o.IsStop || o.Trail != null);
+            return BarFill.Price(level, MarketWhenLive(o, bar), o.Side, stopLike: o.IsStop || o.Trail != null);
+        }
+
+        /// <summary>
+        /// Where the market was when this order became live — the reference
+        /// <see cref="BarFill"/> needs to tell a gap from a touch.
+        ///
+        /// <para>
+        /// The bar's OPEN is that reference only for an order that already existed when
+        /// the bar opened. For one placed part-way through, the open is a price the
+        /// order was never live at, and handing it over gives away the whole gap: a buy
+        /// limit at 99 typed while the market is 105, on a bar that opened at 98, would
+        /// have filled at 98.
+        /// </para>
+        /// </summary>
+        private static double MarketWhenLive(PaperOrder o, Ohlcv bar) =>
+            bar.Date > o.PlacedAt ? bar.Open : (o.PlacedBarClose ?? bar.Close);
+
+        /// <summary>
+        /// The high and low that may fill this order: the part of the bar that happened
+        /// AFTER it was placed.
+        ///
+        /// <para>
+        /// <b>The bug this exists to close.</b> The engine is driven by the newest,
+        /// still-forming bar, and an order carried no placement time, so it was tested
+        /// against the whole bar's accumulated extremes — including price action from
+        /// before it existed. On the 4h and 1d charts the demo exposes, a buy limit at
+        /// 99 placed when the day already printed 99 six hours ago and spot is 105
+        /// crossed on the very next tick and filled at 99. Free money, minted by the
+        /// simulator, and the same root cause anchored a fresh trailing stop at an
+        /// extreme it had never seen.
+        /// </para>
+        ///
+        /// <para>
+        /// A bar that OPENED after placement happened entirely afterwards, so all of it
+        /// counts — the common case, and the fast path. Otherwise the bar was already
+        /// forming: an extreme BEYOND what it had printed at placement is new price
+        /// action and counts, while an extreme that was already there does not, and the
+        /// only two prices known to have occurred after placement are the price then and
+        /// the price now. That is a lower bound on the true post-placement range, which
+        /// is the safe direction: it can delay a fill by a tick, never invent one.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Bar timestamps decide this, and they are not all UTC.</b> A venue stamping
+        /// bars in exchange-local time behind UTC simply looks older and takes the
+        /// conservative branch; one ahead of UTC takes the whole bar, which is exactly
+        /// the behaviour that existed before. The failure mode is degradation to the old
+        /// rule, never something worse. An order restored from a state file written
+        /// before this field existed has <c>PlacedAt = default</c> and is treated the
+        /// same way.
+        /// </para>
+        /// </summary>
+        private static (double High, double Low) EligibleRange(PaperOrder o, Ohlcv bar)
+        {
+            if (bar.Date > o.PlacedAt) return (bar.High, bar.Low);
+
+            double now = bar.Close;
+            double then = o.PlacedBarClose ?? now;
+            double high = o.PlacedBarHigh is double ph && bar.High > ph ? bar.High : Math.Max(then, now);
+            double low  = o.PlacedBarLow  is double pl && bar.Low  < pl ? bar.Low  : Math.Min(then, now);
+            return (high, low);
         }
 
         private static bool Crossed(PaperOrder o, Ohlcv bar)
         {
+            var (high, low) = EligibleRange(o, bar);
+
             // Trailing exits (stop or take-profit) fire on a reversal to the
             // trailing trigger, regardless of stop/TP labelling — and only once
             // armed with a computed trigger.
             if (o.Trail != null)
                 return o.Armed && o.Trigger != null &&
-                       (o.Side == OrderSide.Buy ? bar.High >= o.Trigger : bar.Low <= o.Trigger);
+                       (o.Side == OrderSide.Buy ? high >= o.Trigger : low <= o.Trigger);
 
             return o.Type switch
             {
                 OrderType.Limit
-                    => o.Side == OrderSide.Buy ? bar.Low <= o.Price : bar.High >= o.Price,
+                    => o.Side == OrderSide.Buy ? low <= o.Price : high >= o.Price,
                 OrderType.StopMarket or OrderType.StopLimit
-                    => o.Side == OrderSide.Buy ? bar.High >= o.Trigger : bar.Low <= o.Trigger,
+                    => o.Side == OrderSide.Buy ? high >= o.Trigger : low <= o.Trigger,
                 OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
-                    => o.Side == OrderSide.Buy ? bar.Low <= o.Trigger : bar.High >= o.Trigger,
+                    => o.Side == OrderSide.Buy ? low <= o.Trigger : high >= o.Trigger,
                 _ => false
             };
         }
@@ -793,21 +954,26 @@ namespace AccessibleTrader.Core.Services
         {
             if (o.Trail == null || o.TrailValue == null) return false;
 
+            // Same rule as Crossed: a trailing stop may only trail from price action
+            // that happened after it existed. Anchoring a stop placed at 10:00 to the
+            // day's 06:00 high sets its trigger from a move it never rode.
+            var (high, low) = EligibleRange(o, bar);
+
             // A trailing take-profit stays dormant until price reaches its
             // activation level, then arms and begins trailing from there.
             if (!o.Armed)
             {
                 bool reached = o.Activation == null ||
-                    (o.Side == OrderSide.Sell ? bar.High >= o.Activation.Value : bar.Low <= o.Activation.Value);
+                    (o.Side == OrderSide.Sell ? high >= o.Activation.Value : low <= o.Activation.Value);
                 if (!reached) return false;
                 o.Armed = true;
-                o.TrailAnchor = o.Side == OrderSide.Sell ? bar.High : bar.Low;
+                o.TrailAnchor = o.Side == OrderSide.Sell ? high : low;
             }
 
             double Dist(double anchor) => o.Trail == TrailMode.Amount ? o.TrailValue.Value : anchor * o.TrailValue.Value / 100.0;
             if (o.Side == OrderSide.Sell)   // protecting a long: trail up
             {
-                double anchor = Math.Max(o.TrailAnchor ?? bar.High, bar.High);
+                double anchor = Math.Max(o.TrailAnchor ?? high, high);
                 bool moved = o.TrailAnchor is null || anchor > o.TrailAnchor.Value;
                 o.TrailAnchor = anchor;
                 o.Trigger = anchor - Dist(anchor);
@@ -815,7 +981,7 @@ namespace AccessibleTrader.Core.Services
             }
             else                            // protecting a short: trail down
             {
-                double anchor = Math.Min(o.TrailAnchor ?? bar.Low, bar.Low);
+                double anchor = Math.Min(o.TrailAnchor ?? low, low);
                 bool moved = o.TrailAnchor is null || anchor < o.TrailAnchor.Value;
                 o.TrailAnchor = anchor;
                 o.Trigger = anchor + Dist(anchor);
@@ -970,24 +1136,58 @@ namespace AccessibleTrader.Core.Services
         /// while the tab that placed it happened to be in front. Dispose the token to stop watching
         /// — the circuit scope does that when the tab goes away.
         /// </summary>
-        public IDisposable Attach(IWorkspaceStore store)
+        /// <param name="eventBus">
+        /// This tab's bus, subscribed for the life of the attachment. Optional, and null
+        /// on any head that has no background monitoring. On the hosted head
+        /// <c>IEventBus</c> is registered <c>AddScoped</c> — a Blazor scope IS a browser
+        /// tab — so the bus a background monitor publishes on is the publishing tab's own.
+        /// An account that held only the bus of whichever tab happened to create it was
+        /// deaf to every other tab's monitors, which is precisely the case the background
+        /// fill path exists for.
+        /// </param>
+        public IDisposable Attach(IWorkspaceStore store, IEventBus? eventBus = null)
         {
             if (store == null) return new NoOpDisposable();
 
             var sub = store.StateStream.Subscribe(st => { _store = store; OnState(st); });
-            lock (_storeLock) _stores.Add((store, sub));
+            var monitorSub = eventBus?.Subscribe<MonitoredBarEvent>(
+                e => ProcessBar(e.Identity.Symbol ?? "", e.Latest));
+            lock (_storeLock) _stores.Add((store, sub, monitorSub));
 
             return new DetachToken(this, store, sub);
         }
 
+        /// <summary>
+        /// Claim the constructor's own subscription, once. Null-returning after that.
+        ///
+        /// <para>
+        /// The tab that CREATES the account is the one whose store the constructor
+        /// attached, and it used to be handed a no-op token — so when that tab closed,
+        /// nothing detached: its dead store kept its subscription in <c>_stores</c>, and
+        /// <see cref="_store"/> could go on pointing at a workspace nobody was looking
+        /// at, resolving prices and identities against a chart that had gone. Every
+        /// tab must be able to leave, including the first one.
+        /// </para>
+        /// </summary>
+        public IDisposable TakePrimaryAttachment()
+        {
+            var claimed = System.Threading.Interlocked.Exchange(ref _primaryAttachment, null);
+            return claimed ?? new NoOpDisposable();
+        }
+
         private void Detach(IWorkspaceStore store, IDisposable sub)
         {
+            List<IDisposable?> monitors;
             lock (_storeLock)
             {
+                monitors = _stores
+                    .Where(e => ReferenceEquals(e.Store, store) && ReferenceEquals(e.Sub, sub))
+                    .Select(e => e.Monitor).ToList();
                 _stores.RemoveAll(e => ReferenceEquals(e.Store, store) && ReferenceEquals(e.Sub, sub));
                 // Fall back to any surviving store so identity reads keep working.
-                if (ReferenceEquals(_store, store) && _stores.Count > 0) _store = _stores[^1].Store;
+                if (ReferenceEquals(_store, store)) _store = _stores.Count > 0 ? _stores[^1].Store : null;
             }
+            foreach (var m in monitors) m?.Dispose();
             sub.Dispose();
         }
 
@@ -1033,6 +1233,61 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private static string LocalCanonical(string symbol) =>
             symbol?.Replace("/", "").Replace("-", "").ToUpperInvariant() ?? string.Empty;
+
+        /// <summary>
+        /// Every spelling the ledger currently has money filed under: open positions,
+        /// locked collateral, and resting orders. Caller holds <see cref="_lock"/>.
+        /// </summary>
+        private IEnumerable<string> LedgerKeys() =>
+            _positions.Keys
+                .Concat(_collateral.Keys)
+                .Concat(_open.Select(o => o.Symbol))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        private bool IsLedgerKey(string sym) =>
+            _positions.ContainsKey(sym)
+            || _collateral.ContainsKey(sym)
+            || _open.Any(o => string.Equals(o.Symbol, sym, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// The ledger key a bar for <paramref name="sym"/> belongs to.
+        ///
+        /// <para>
+        /// The account files a trade under an EXISTING position's spelling
+        /// (<see cref="ResolveLedgerKeyAsync"/>), but bars arrive under the chart's. The
+        /// fill engine compares the two with <c>string.Equals</c>, so without this the
+        /// two halves of the same market never met: stops and targets on the aliased
+        /// position never fired, and a short filed under the other spelling could not be
+        /// liquidated no matter how far it ran.
+        /// </para>
+        ///
+        /// <para>
+        /// Three ways in, cheapest first, and all of them synchronous — the fill engine
+        /// runs under a lock and cannot ask a venue anything. (1) The spelling IS a
+        /// ledger key. (2) A recorded alias, re-checked against the live ledger so a
+        /// closed position's alias cannot capture a fresh trade under the same name.
+        /// (3) A separator-and-case match, which catches <c>BTC/USD</c> against
+        /// <c>BTCUSD</c> with no venue knowledge at all. Otherwise the spelling stands
+        /// on its own, which is what a symbol with no exposure should do.
+        /// </para>
+        ///
+        /// <para>Caller holds <see cref="_lock"/>.</para>
+        /// </summary>
+        private string LedgerKeyFor(string sym)
+        {
+            if (IsLedgerKey(sym)) return sym;
+
+            if (_ledgerAlias.TryGetValue(sym, out string? mapped)
+                && mapped != null && IsLedgerKey(mapped))
+                return mapped;
+
+            string canon = LocalCanonical(sym);
+            foreach (string key in LedgerKeys())
+                if (string.Equals(LocalCanonical(key), canon, StringComparison.OrdinalIgnoreCase))
+                    return key;
+
+            return sym;
+        }
 
         /// <summary>
         /// The ledger key for this order: an EXISTING position's key when one names the same
@@ -1104,7 +1359,7 @@ namespace AccessibleTrader.Core.Services
                         return kv.Value.Provider;
                 }
             }
-            var live = _store.State.Identity;
+            var live = _store?.State.Identity ?? default;
             return string.IsNullOrEmpty(live.Provider) ? null : live.Provider;
         }
 
@@ -1140,7 +1395,7 @@ namespace AccessibleTrader.Core.Services
                     if (string.Equals(LocalCanonical(kv.Key), LocalCanonical(rawSymbol), StringComparison.OrdinalIgnoreCase))
                         attempts.Add((kv.Value, true));
             }
-            var live = _store.State.Identity;
+            var live = _store?.State.Identity ?? default;
             if (!string.IsNullOrEmpty(live.Provider)) attempts.Add((live, false));
 
             foreach (var (id, fromRecord) in attempts)
@@ -1253,8 +1508,8 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private double PriceFor(string symbol, double fallback)
         {
-            var st = _store.State;
-            if (st.Data != null && st.Data.Count > 0 &&
+            var st = _store?.State;
+            if (st != null && st.Data != null && st.Data.Count > 0 &&
                 string.Equals(st.Identity.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
                 return st.Data[st.Data.Count - 1].Close;
             return _lastPrice.TryGetValue(symbol.ToUpperInvariant(), out double p) && p > 0 ? p : fallback;
@@ -1314,6 +1569,8 @@ namespace AccessibleTrader.Core.Services
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
                         Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId,
                         ReduceOnly = o.ReduceOnly,
+                        PlacedAt = o.PlacedAt, PlacedBarHigh = o.PlacedBarHigh,
+                        PlacedBarLow = o.PlacedBarLow, PlacedBarClose = o.PlacedBarClose,
                         Bracket = o.Bracket == null ? null : new BracketDto
                         {
                             StopLoss = o.Bracket.StopLoss, TakeProfit = o.Bracket.TakeProfit,
@@ -1328,7 +1585,11 @@ namespace AccessibleTrader.Core.Services
                     {
                         Symbol = kv.Key, Market = kv.Value.Market,
                         Provider = kv.Value.Provider, Timeframe = kv.Value.Timeframe
-                    }).ToList()
+                    }).ToList(),
+                    // Only aliases still pointing at live exposure are worth keeping —
+                    // the map would otherwise grow a row per spelling ever typed.
+                    Aliases = _ledgerAlias.Where(kv => IsLedgerKey(kv.Value))
+                        .Select(kv => new AliasDto { From = kv.Key, To = kv.Value }).ToList()
                 };
                 AtomicFile.WriteAllText(_statePath, JsonConvert.SerializeObject(dto, Formatting.Indented));
             }
@@ -1350,7 +1611,8 @@ namespace AccessibleTrader.Core.Services
                 // the feature still existed. Clamp on load; Persist() then drops the no-ops.
                 foreach (var l in dto.Leverage) _leverage[l.Symbol] = Math.Clamp(l.Value, 1, MaxLeverage);
                 foreach (var o in dto.Open)
-                    _open.Add(new PaperOrder(o.Id, o.Symbol,
+                {
+                    var restored = new PaperOrder(o.Id, o.Symbol,
                         Enum.TryParse<OrderSide>(o.Side, out var s) ? s : OrderSide.Buy,
                         Enum.TryParse<OrderType>(o.Type, out var t) ? t : OrderType.Market,
                         o.Quantity, o.Price, o.Trigger, o.Stop, o.Tp,
@@ -1361,11 +1623,23 @@ namespace AccessibleTrader.Core.Services
                             Enum.TryParse<TrailMode>(o.Bracket.TrailStopMode, out var bsm) ? bsm : (TrailMode?)null,
                             o.Bracket.TrailStopValue,
                             Enum.TryParse<TrailMode>(o.Bracket.TrailTpMode, out var btm) ? btm : (TrailMode?)null,
-                            o.Bracket.TrailTpValue, o.Bracket.TrailTpActivation, o.Bracket.Oco)));
+                            o.Bracket.TrailTpValue, o.Bracket.TrailTpActivation, o.Bracket.Oco));
+                    // Restored, not re-minted: stamping these with "now" would let a
+                    // restart hand every resting order the whole current bar to fill
+                    // against, which is the exploit this field closes.
+                    restored.PlacedAt = o.PlacedAt;
+                    restored.PlacedBarHigh = o.PlacedBarHigh;
+                    restored.PlacedBarLow = o.PlacedBarLow;
+                    restored.PlacedBarClose = o.PlacedBarClose;
+                    _open.Add(restored);
+                }
                 if (dto.History != null) _history.AddRange(dto.History);
                 foreach (var c in dto.Collateral ?? new List<LevDto>()) _collateral[c.Symbol] = c.Value;
                 foreach (var c in dto.Charts ?? new List<IdentDto>())
                     _exposureIdentity[c.Symbol] = new ChartIdentity(c.Market, c.Provider, c.Symbol, c.Timeframe);
+                foreach (var a in dto.Aliases ?? new List<AliasDto>())
+                    if (!string.IsNullOrEmpty(a.From) && !string.IsNullOrEmpty(a.To))
+                        _ledgerAlias[a.From] = a.To;
             }
             catch (Exception ex)
             {
@@ -1388,8 +1662,12 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Really tear down. Called by the owner, not by scope disposal.</summary>
         internal void DisposeAccount()
         {
-            _monitorSub?.Dispose();
-            lock (_storeLock) { foreach (var e in _stores) e.Sub.Dispose(); _stores.Clear(); }
+            lock (_storeLock)
+            {
+                foreach (var e in _stores) { e.Sub.Dispose(); e.Monitor?.Dispose(); }
+                _stores.Clear();
+            }
+            _primaryAttachment = null;
             _orderUpdates.OnCompleted();
             _orderUpdates.Dispose();
         }
@@ -1426,6 +1704,19 @@ namespace AccessibleTrader.Core.Services
             /// for orders carrying no protection.
             /// </summary>
             public BracketSpec? Bracket { get; }
+
+            /// <summary>
+            /// When this order joined the book, and what the bar it joined mid-way
+            /// through had already printed by then. <see cref="EligibleRange"/> is the
+            /// only reader; <see cref="Rest"/> is the only writer outside <c>Load</c>.
+            /// <c>default</c> means unknown — an order restored from a state file
+            /// written before these existed — and is treated as "the whole bar counts",
+            /// which is the behaviour that shipped before.
+            /// </summary>
+            public DateTime PlacedAt { get; set; }
+            public double? PlacedBarHigh { get; set; }
+            public double? PlacedBarLow { get; set; }
+            public double? PlacedBarClose { get; set; }
 
             public PaperOrder(string id, string symbol, OrderSide side, OrderType type, double quantity,
                 double? price, double? trigger, bool isStop, bool isTp,
@@ -1470,7 +1761,12 @@ namespace AccessibleTrader.Core.Services
             // Locked against open shorts. Restoring positions without it would hand
             // back collateral the account still owes — free money on every restart.
             public List<LevDto> Collateral { get; set; } = new();
+            // Chart spellings that resolved onto another position's key. Without these
+            // a restart loses the venue lookup that produced them, and the fill engine
+            // goes back to missing the position it should be filling against.
+            public List<AliasDto> Aliases { get; set; } = new();
         }
+        private sealed class AliasDto { public string From { get; set; } = ""; public string To { get; set; } = ""; }
         private sealed class PosDto { public string Symbol { get; set; } = ""; public double Qty { get; set; } public double Avg { get; set; } }
         private sealed class IdentDto
         {
@@ -1502,6 +1798,15 @@ namespace AccessibleTrader.Core.Services
             // open a position, and a pending bracket that does not survive a restart
             // is a silently unprotected entry — the same bug in different clothes.
             public bool ReduceOnly { get; set; }
+
+            // When the order joined the book, and what its bar had already printed by
+            // then. Absent in files written before EligibleRange existed, which
+            // deserialise to default/null and are treated as "the whole bar counts".
+            public DateTime PlacedAt { get; set; }
+            public double? PlacedBarHigh { get; set; }
+            public double? PlacedBarLow { get; set; }
+            public double? PlacedBarClose { get; set; }
+
             public BracketDto? Bracket { get; set; }
         }
 

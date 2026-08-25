@@ -49,6 +49,22 @@ namespace AccessibleTrader.Core.Services.Trading
                 return "Not placed: " + reason + ".";
             }
 
+            // ORDER_UNCERTAIN:{id} — the submit threw AND a matching order was found on
+            // the exchange afterwards. The switch below fell through to its default arm
+            // ("an order id — it went"), so the one code that means "verify before
+            // retrying" was the one code every caller treated as a clean success and
+            // said nothing about. It is NOT phrased as "not placed": the order most
+            // likely IS live, and telling a user it failed is how the same position gets
+            // opened twice.
+            if (result.StartsWith("ORDER_UNCERTAIN", StringComparison.OrdinalIgnoreCase))
+            {
+                int idAt = result.IndexOf(':');
+                string id = idAt >= 0 ? result[(idAt + 1)..].Trim() : "";
+                return "Uncertain: the order was sent, the reply was lost, and a matching order "
+                     + (id.Length > 0 ? $"({id}) " : "")
+                     + "was found on the exchange. Check your open orders and positions before placing it again.";
+            }
+
             // The PROVIDER_NOT_* family, which carries its reason the same way. These used to be
             // bare codes and now arrive as CODE:reason, so both shapes are handled — a build where
             // one side has been updated and the other has not must still say something usable.

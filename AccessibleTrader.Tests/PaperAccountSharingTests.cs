@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
@@ -97,6 +98,131 @@ namespace AccessibleTrader.Tests
                 .Single(p => p.Symbol.Equals("BTCUSDT", StringComparison.OrdinalIgnoreCase));
             Assert.True(pos.UnrealizedPnL > 0,
                 "the account priced the position from the tab that is live, so P&L should have moved");
+        }
+
+        /// <summary>
+        /// Two tabs opening at the same instant get ONE account.
+        ///
+        /// <para>
+        /// <c>ConcurrentDictionary.GetOrAdd</c> does not serialise its factory, so both
+        /// ran and the loser was thrown away WITHOUT <c>DisposeAccount()</c> — while its
+        /// constructor had already attached to a store and subscribed to
+        /// <c>MonitoredBarEvent</c>. It went on processing bars and writing the whole of
+        /// <c>paper_account.json</c> on every change, which is exactly the last-writer-wins
+        /// corruption this hub exists to prevent, reproduced by the fix for it.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void ConcurrentFirstUse_BuildsExactlyOneAccount()
+        {
+            var paths = Substitute.For<IPlatformPathService>();
+            paths.AppDataDirectory.Returns(Path.Combine(_dir, "racer"));
+            Directory.CreateDirectory(Path.Combine(_dir, "racer"));
+
+            int built = 0;
+            var built_accounts = new System.Collections.Concurrent.ConcurrentBag<PaperTradingProvider>();
+            using var gate = new System.Threading.Barrier(8);
+
+            var results = new PaperTradingProvider[8];
+            System.Threading.Tasks.Parallel.For(0, 8, i =>
+            {
+                gate.SignalAndWait();
+                results[i] = _hub.ForUser("racer", () =>
+                {
+                    System.Threading.Interlocked.Increment(ref built);
+                    var a = new PaperTradingProvider(new MockWorkspaceStore(), paths,
+                                                     NullLogger<PaperTradingProvider>.Instance);
+                    built_accounts.Add(a);
+                    return a;
+                });
+            });
+
+            Assert.Equal(1, built);
+            Assert.Single(built_accounts);
+            Assert.All(results, r => Assert.Same(results[0], r));
+        }
+
+        /// <summary>
+        /// The tab that CREATED the account can leave like any other.
+        ///
+        /// <para>
+        /// It used to be handed a no-op token, so nothing ever detached: the dead store
+        /// kept its live subscription and the account went on resolving prices and chart
+        /// identities against a workspace nobody was looking at.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public async Task TheCreatingTab_ActuallyDetachesWhenItCloses()
+        {
+            var account = Account("user-1", out var storeA);
+            var creating = account.TakePrimaryAttachment();
+
+            storeA.EmitState(ChartOf("Venue", "BTCUSDT", 60_000));
+            await account.PlaceOrderAsync(Buy("BTCUSDT", 0.1));
+
+            creating.Dispose();   // the first tab closes
+
+            // Its store is no longer watched, so its prices stop reaching the account.
+            storeA.EmitState(ChartOf("Venue", "BTCUSDT", 90_000));
+
+            var pos = (await account.GetPositionsAsync())
+                .Single(p => p.Symbol.Equals("BTCUSDT", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(0, pos.UnrealizedPnL, 6);
+        }
+
+        /// <summary>
+        /// Claimable once. A second claimant must get a no-op rather than a token that
+        /// detaches a subscription somebody else owns.
+        /// </summary>
+        [Fact]
+        public async Task ThePrimaryAttachment_IsHandedOverExactlyOnce()
+        {
+            var account = Account("user-1", out var storeA);
+            account.TakePrimaryAttachment();
+
+            account.TakePrimaryAttachment().Dispose();   // a second claimant
+
+            storeA.EmitState(ChartOf("Venue", "BTCUSDT", 60_000));
+            string result = await account.PlaceOrderAsync(Buy("BTCUSDT", 0.1));
+
+            Assert.DoesNotContain("ORDER_FAILED", result);
+        }
+
+        /// <summary>
+        /// Each tab brings its own event bus, and takes it away again.
+        ///
+        /// <para>
+        /// <c>IEventBus</c> is <c>AddScoped</c> on the WebHost — a scope is a tab — so an
+        /// account that kept only its creator's bus never heard a background monitor in
+        /// any other tab, which is the exact case background fills exist for.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public async Task AnAttachedTabsBus_IsHeardAndThenReleased()
+        {
+            var account = Account("user-1", out var storeA);
+            var busB = new SpyEventBus();
+            var attachment = account.Attach(new MockWorkspaceStore(), busB);
+
+            storeA.EmitState(ChartOf("Venue", "BTCUSDT", 60_000));
+            await account.PlaceOrderAsync(Buy("BTCUSDT", 0.1));
+            storeA.EmitState(ChartOf("Venue", "ETHUSDT", 3_000));   // tab A navigates away
+
+            // Tab B's monitor is now the only thing pricing the BTC position.
+            busB.Publish(new MonitoredBarEvent(new ChartIdentity("Spot", "Venue", "BTCUSDT", "1h"),
+                                               new Ohlcv(DateTime.UtcNow, 70_000, 70_000, 70_000, 70_000, 1)));
+            var moved = (await account.GetPositionsAsync())
+                .Single(p => p.Symbol.Equals("BTCUSDT", StringComparison.OrdinalIgnoreCase));
+            Assert.True(moved.UnrealizedPnL > 0);
+
+            attachment.Dispose();
+
+            // …and stops being heard once that tab is gone.
+            busB.Publish(new MonitoredBarEvent(new ChartIdentity("Spot", "Venue", "BTCUSDT", "1h"),
+                                               new Ohlcv(DateTime.UtcNow, 90_000, 90_000, 90_000, 90_000, 1)));
+            var after = (await account.GetPositionsAsync())
+                .Single(p => p.Symbol.Equals("BTCUSDT", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(moved.UnrealizedPnL, after.UnrealizedPnL, 6);
         }
 
         // ── Fixtures ─────────────────────────────────────────────────────────

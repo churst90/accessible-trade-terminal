@@ -353,7 +353,7 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   speaks; refusing loudly beats attaching a self-closing order, and beats dropping it silently
   while the user believes the position is protected. The trailing stop is exempt: anchored at the
   fill, it is on the right side by construction.
-- [ ] **An alias-resolved ledger key is invisible to the fill engine and to liquidation
+- [x] **An alias-resolved ledger key is invisible to the fill engine and to liquidation
   (`PaperTradingProvider.cs:1009-1042` vs `:551`, `:563`, `:571`).** `ResolveLedgerKeyAsync`
   deliberately returns an existing position's spelling ("Existing positions are matched, never
   renamed"), so after trading `BTC/USD` then `BTCUSDT` the position, collateral and protective legs
@@ -365,7 +365,18 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   returns the entry price (unrealised P&L frozen at zero), and **a short there can never be
   liquidated**. Distinct mechanism from TODO:2136 (spelling, not casing). Fix: index by a canonical
   key with the user's spelling as a display label. CONFIRMED. HIGH.
-- [ ] **The withdrawal-enabled credential is written onto the shared provider instance and never
+  **CLOSED 2026-08-24.** Not by re-keying the ledger — re-keying means merging a long against a
+  short at a price no trade happened at — but by teaching the fill engine the mapping.
+  `LedgerKeyFor(sym)` resolves an incoming bar's spelling to the key the money is filed under,
+  three ways, all synchronous because `ProcessBar` runs under the lock and cannot ask a venue
+  anything: the spelling IS a ledger key; a recorded alias (persisted, and re-checked against live
+  exposure on every read so a closed position's alias cannot capture a fresh trade); or a
+  separator-and-case match, which catches `BTC/USD` vs `BTCUSD` with no venue knowledge. The alias
+  is written by `PlaceOrderAsync` at the moment `ResolveLedgerKeyAsync` maps one spelling onto
+  another, which is the only place the venue lookup is affordable. `_lastPrice` is now written
+  under BOTH spellings, so a caller holding either gets a price. `ProcessBar` routes liquidation,
+  the trail advance and the fill filter through the key.
+- [x] **The withdrawal-enabled credential is written onto the shared provider instance and never
   restored (`WithdrawalService.cs:143-149`).** `ReadyAsync` calls `raw.Configure(...)` with the
   withdrawal key on the object from `_data.GetProviderAsync(provider)` — the same singleton-per-
   DataService plugin instance the order path uses. Nothing restores the trading key.
@@ -377,7 +388,16 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   THIS call only") asserts the opposite of what the code does. Contained today only by
   `WithdrawalService.Released = false` (`:62`) — **which is scheduled to flip for 2.3.1**. Fix:
   snapshot/restore around the call, or give withdrawal its own provider instance. CONFIRMED. HIGH.
-- [ ] **Resting orders fill off price action that predates them
+  **CLOSED 2026-08-24.** `ReadyAsync` now returns a credential LEASE alongside the provider, and
+  all three venue-reaching methods `await using` it. The plugin surface offers no way to READ a
+  credential back, so it is a restore rather than a snapshot: on dispose the lease reconfigures
+  from the key store exactly as `DataService.EnsureProviderConfiguredAsync` would, and BLANKS the
+  credential when there is no trading key — which is the correct end state, because in that case
+  there was none to begin with. The lease never throws; a failed restore logs at Error, because
+  the consequence is a withdrawal-enabled key left live on the order path. **Not closed by this:
+  an order placed by another thread DURING the venue call still signs with the withdrawal key** —
+  see the follow-up item filed below.
+- [x] **Resting orders fill off price action that predates them
   (`PaperTradingProvider.Crossed:722-741`, `UpdateTrail:745-777`).** `ProcessBar` is driven by the
   newest, still-forming bar (`OnState:535` takes `data[^1]`), and `PaperOrder` carries no placement
   timestamp, so `Crossed` tests the whole bar's accumulated `High`/`Low`. On a 4h or 1d chart — the
@@ -386,6 +406,19 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   the exact failure `BarFill`'s own doc is written against. Same root cause anchors a fresh trailing
   stop at the whole bar's extreme (`:763`, `:771`). Fix: stamp each `PaperOrder` with its creation
   time and only consider the portion of the bar after it. CONFIRMED. HIGH.
+  **CLOSED 2026-08-24.** `PaperOrder` gained `PlacedAt` plus the placing bar's high/low/close,
+  stamped by a new `Rest()` — the single door onto `_open` for new orders, so a placement path
+  cannot silently opt out — and persisted, because a restart that re-minted the stamp would hand
+  every restored order the whole current bar to fill against. `EligibleRange(o, bar)` is the one
+  reader: a bar that OPENED after placement counts whole (the common case and the fast path);
+  otherwise a NEW extreme beyond what the bar had printed at placement counts, and where none was
+  made the only prices known to have occurred afterwards are the price then and the price now.
+  That is a lower bound on the true post-placement range — it can delay a fill by a tick, never
+  invent one. `Crossed`, `UpdateTrail` and the gap reference handed to `BarFill` all go through
+  it: the last matters because a bar that opened at 90 would otherwise fill a 99 buy limit typed
+  at 105 AT 90. Bar timestamps decide this and are not all UTC; a venue stamping behind UTC takes
+  the conservative branch, one ahead takes the whole bar, so the failure mode is degradation to
+  the old rule and never something worse.
 - [x] **A strategy signal with no quantity places 1.0 units of the instrument
   (`StrategyEngine.cs:195`).** `Quantity: signal.Quantity ?? 1.0` — on a live venue that is 1 BTC,
   1 ETH or 1 whole contract, from a strategy that simply did not set the field, with no sizing input
@@ -421,7 +454,7 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   rather than half-away-from-zero so the size cannot exceed the risk budget just requested. The
   "set a stop loss, a price, and a risk percent" message now distinguishes the no-cash case,
   which used to send the user to check three fields that were all fine.
-- [ ] **`PaperAccountHub.ForUser` can construct two accounts over one state file
+- [x] **`PaperAccountHub.ForUser` can construct two accounts over one state file
   (`PaperAccountHub.cs:45-50`).** `ConcurrentDictionary.GetOrAdd(key, factory)` does not serialise
   the factory, so under concurrent first-use (two tabs opening at once — the exact scenario this
   class exists for) both factories run. The loser is discarded *without* `DisposeAccount()`, but its
@@ -429,7 +462,12 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   so it keeps processing bars and calling `Persist()` (`:1286`) on the same `paper_account.json` —
   reproducing the last-writer-wins corruption the hub's own doc (`:12-19`) describes. Fix:
   `GetOrAdd` with a `Lazy<T>`, or a lock. CONFIRMED. MEDIUM.
-- [ ] **The tab that creates a paper account never detaches its chart, and the account keeps that
+  **CLOSED 2026-08-24.** `GetOrAdd` over `Lazy<PaperTradingProvider>` with
+  `LazyThreadSafetyMode.ExecutionAndPublication`. Several Lazy wrappers may still be constructed;
+  only the one that wins the dictionary is ever asked for its `Value`, and constructing a Lazy
+  costs nothing. `Dispose` skips a Lazy nobody forced — forcing it there would build an account
+  only to tear it down.
+- [x] **The tab that creates a paper account never detaches its chart, and the account keeps that
   tab's scoped services forever (`PaperAccountAttachment.cs:57-64`).** The creating circuit gets
   `new NoOp()` because `ReferenceEquals(Account.PrimaryStore, store)`, so when that tab closes
   `Detach` (`PaperTradingProvider.cs:936`) is never called for it: the dead store's subscription stays
@@ -439,19 +477,41 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   against a stale chart. The account also permanently holds the first tab's scoped `IEventBus` and
   `IDataService` (both `AddScoped` on the WebHost), so background-monitor bars from other tabs never
   reach it. CONFIRMED. MEDIUM.
-- [ ] **`PlaceOcoPairAsync` announces "the limit leg was cancelled, nothing is resting" without
+  **CLOSED 2026-08-24 (two of the three halves).** (1) `TakePrimaryAttachment()` hands the
+  constructor's own subscription to the creating tab exactly once, so that tab detaches like any
+  other; a second claimant gets a no-op rather than a token that would tear down somebody else's
+  subscription. (2) `_store` is now nullable and `Detach` sets it to null when the LAST tab goes,
+  because pointing at a dead workspace is what made prices and identities resolve against a chart
+  nobody was looking at; every read falls back to the account's own persisted exposure. It is also
+  `volatile` — it is written from every attached store's callback and read from paths that do not
+  hold `_lock`. (3) `IEventBus` moved from the constructor onto `Attach(store, bus)`, so each tab
+  brings its own bus and takes it away again: the account was previously deaf to every background
+  monitor except its creator's, which is the exact case background fills exist for. **`IDataService`
+  is still the creator's** — see the follow-up item filed below.
+- [x] **`PlaceOcoPairAsync` announces "the limit leg was cancelled, nothing is resting" without
   checking whether the cancel worked (`GeneralOrderService.cs:703-704`).** `CancelOrderAsync` returns
   `bool` and the result is discarded. If the cancel fails (`:715` returns false for a disconnected
   provider; `:723` swallows an exception into false) the user is told nothing is resting while a
   naked limit leg sits on the book — the one outcome the rollback exists to prevent. CONFIRMED. MEDIUM.
-- [ ] **`CancelOrderAsync` and `SetLeverageAsync` fail silently at the service layer
+  **CLOSED 2026-08-24.** The result is checked. A failed rollback reports at High and returns a
+  message that names the order id, says it may still be resting unprotected, and says to cancel it
+  by hand — the three things a user needs and none of which the old sentence carried.
+- [x] **`CancelOrderAsync` and `SetLeverageAsync` fail silently at the service layer
   (`GeneralOrderService.cs:712-725`, `:807-813`).** `CancelOrderAsync` returns `false` for `tp ==
   null` or `!tp.IsConnected` with no `ReportError`, and the catch at `:720` only logs.
   `SetLeverageAsync` returns `1.0` on any failure, indistinguishable from "the venue applied 1×". The
   dashboard's `CancelOrder` (`:1256`) does say "Cancel failed for {symbol}." but with no reason.
   Leverage has no announcement at all: a user asking for 5× and silently getting 1× has a position a
   fifth the size they think. CONFIRMED. MEDIUM.
-- [ ] **`ORDER_UNCERTAIN` is classified as success by the one translator (`OrderResult.cs:64-71`).**
+  **CLOSED 2026-08-24.** Every false path out of `CancelOrderAsync` now reports at High and says
+  the order may still be resting — the missing half was never "it failed", it was "so the money is
+  still on the book". `SetLeverageAsync` reports on both failure paths AND when the venue applied
+  something other than what was asked, naming both numbers. **Recount:** the audit's "a user asking
+  for 5× and silently getting 1×" has no reachable caller today — `SetLeverageAsync` is called from
+  no UI surface, only through `IOrderExecutionService` (the leverage feature is withdrawn; see the
+  `MaxLeverage` clamp work). The fix is still right, and is what the path will need on the day the
+  feature returns, but nothing user-facing was broken by it.
+- [x] **`ORDER_UNCERTAIN` is classified as success by the one translator (`OrderResult.cs:64-71`).**
   The switch's default arm is `_ => null, // an order id — it went.` But
   `GeneralOrderService:398` returns `$"ORDER_UNCERTAIN:{maybe.Id}"` for the worst case there is: the
   submit threw and a matching order was found on the exchange. `QuickTradeExecutor:78` and
@@ -459,6 +519,26 @@ accessibility **B-**, StrategyLab **B-**, SDK+providers **B-**, WebHost/security
   nothing. `GeneralOrderService:395` reports it separately so the desktop user hears *something*, but
   the "one translator" contract the class documents (`:9-16`) is broken on the exact code that means
   "verify before retrying". Related to TODO:2114 but not covered by it. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-24.** A branch above the switch, so both `ORDER_UNCERTAIN:{id}` and the bare
+  code speak. Deliberately NOT phrased "Not placed": the order most likely IS live, and telling a
+  user it failed is how the same position gets opened twice. It names the id and says to check open
+  orders and positions before placing it again.
+
+## Money path, batch two — follow-ups filed 2026-08-24
+
+- [ ] **A withdrawal still shares its provider instance with the order path for the length of one
+  venue call.** The credential lease (closed above) narrows the exposure from "indefinitely" to
+  "one HTTP round trip", but an order placed by another thread inside that window still signs with
+  the withdrawal-enabled key. Closing it properly needs either a per-call credential on
+  `IWithdrawalProvider`'s three methods (an SDK contract change; Kraken is the only implementor
+  today, so it is cheap now and will not be later) or a dedicated provider instance for the
+  withdrawal path. Worth doing BEFORE `WithdrawalService.Released` flips for 2.3.1.
+- [ ] **The shared paper account still holds its creating tab's scoped `IDataService`.**
+  `IEventBus` moved onto `Attach` in the batch-two work; `IDataService` did not, because it is read
+  from inside async methods (`ResolveLedgerKeyAsync`, `ResolvePriceAsync`) where swapping it per
+  attachment would be racy. On the WebHost that means the account keeps using tab one's data
+  service after tab one's circuit is disposed. Fix: inject a root-scoped accessor, or hand the
+  data service in per call from the attachment that is driving.
 - [ ] **API-key secrets are stored under the nickname alone, so one nickname across two providers
   collides (`ApiKeyService.cs:276-291`).** Storage keys are `apikey_{Nickname}_key` / `_secret` /
   `_passphrase`, and `SaveKeyCoreAsync` does `_cache.RemoveAll(k => k.Nickname == config.Nickname)`

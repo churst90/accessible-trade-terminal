@@ -762,9 +762,23 @@ namespace AccessibleTrader.Core.Services
                 string r2 = await PlaceOrderAsync(providerName, stopLeg).ConfigureAwait(false);
                 if (IsErrorSentinel(r2))
                 {
-                    // Never leave half a pair resting.
-                    await CancelOrderAsync(providerName, r1, symbol).ConfigureAwait(false);
-                    return (false, "OCO stop leg failed — the limit leg was cancelled, nothing is resting.");
+                    // Never leave half a pair resting — and never SAY the rollback
+                    // happened without checking. CancelOrderAsync returns false for a
+                    // provider that has gone offline and for an exception it swallowed,
+                    // and this discarded the answer: the user was told nothing was
+                    // resting while a naked limit leg sat on the book, which is the one
+                    // outcome the rollback exists to prevent.
+                    bool rolledBack = await CancelOrderAsync(providerName, r1, symbol).ConfigureAwait(false);
+                    if (rolledBack)
+                        return (false, "OCO stop leg failed — the limit leg was cancelled, nothing is resting.");
+
+                    _errorCoordinator.ReportError(
+                        $"OCO rollback failed on {providerName}: the stop leg was not placed AND the limit leg "
+                        + $"({r1}) could not be cancelled.", ErrorSeverity.High);
+                    return (false,
+                        $"OCO stop leg failed AND the limit leg could not be cancelled. Order {r1} for "
+                        + $"{quantity} {symbol} may still be resting, unprotected — check your open orders "
+                        + "and cancel it by hand.");
                 }
                 return (true, "OCO pair resting: whichever fills first cancels the other.");
             }
@@ -772,17 +786,49 @@ namespace AccessibleTrader.Core.Services
             return (false, $"{providerName} cannot place linked OCO pairs from this terminal yet.");
         }
 
+        /// <summary>
+        /// Cancel a resting order. False means it may still be on the book.
+        ///
+        /// <para>
+        /// Every false path REPORTS. This used to return false three ways — no trading
+        /// provider, a disconnected one, and a swallowed exception — with nothing said
+        /// on any of them, so the only thing the user heard was the dashboard's "Cancel
+        /// failed for BTC/USD.", with no reason and no indication of whether the order
+        /// was still live. A cancel that quietly did nothing leaves money on the book.
+        /// </para>
+        /// </summary>
         public async Task<bool> CancelOrderAsync(string providerName, string orderId, string symbol)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null || !tp.IsConnected) return false;
+            if (tp == null)
+            {
+                _errorCoordinator.ReportError(
+                    $"Cannot cancel {symbol}: no trading provider is configured for {providerName}. "
+                    + "The order is still resting.", ErrorSeverity.High);
+                return false;
+            }
+            if (!tp.IsConnected)
+            {
+                _errorCoordinator.ReportError(
+                    $"Cannot cancel {symbol}: {providerName} is not connected. The order is still resting.",
+                    ErrorSeverity.High);
+                return false;
+            }
             try
             {
-                return await tp.CancelOrderAsync(orderId, symbol).ConfigureAwait(false);
+                bool ok = await tp.CancelOrderAsync(orderId, symbol).ConfigureAwait(false);
+                if (!ok)
+                    _errorCoordinator.ReportError(
+                        $"{providerName} refused to cancel the {symbol} order. It may still be resting — "
+                        + "check your open orders.", ErrorSeverity.High);
+                return ok;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CancelOrder failed for {OrderId}", orderId);
+                _errorCoordinator.ReportError(
+                    $"Cancelling the {symbol} order failed: {ex.Message}. It may still be resting — "
+                    + "check your open orders.", ErrorSeverity.High);
                 return false;
             }
         }
@@ -866,12 +912,46 @@ namespace AccessibleTrader.Core.Services
             return tp?.MaxLeverage ?? 1.0;
         }
 
+        /// <summary>
+        /// The leverage the venue actually applied, which is not necessarily the one
+        /// asked for.
+        ///
+        /// <para>
+        /// Returns 1.0 when it could not be set — indistinguishable, as a number, from a
+        /// venue that applied 1× on purpose. So every failure path says so out loud
+        /// rather than letting a caller size a position against leverage it does not
+        /// have. A silent 1.0 in place of a requested 5× is a position a fifth the size
+        /// the user believes they hold.
+        /// </para>
+        /// </summary>
         public async Task<double> SetLeverageAsync(string providerName, string symbol, double leverage)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
-            if (tp == null || !tp.IsConnected) return 1.0;
-            try { return await tp.SetLeverageAsync(symbol, leverage).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "SetLeverage failed"); return 1.0; }
+            if (tp == null || !tp.IsConnected)
+            {
+                _errorCoordinator.ReportError(
+                    $"Leverage was not set on {symbol}: {providerName} is "
+                    + (tp == null ? "not configured for trading." : "not connected.")
+                    + " The position will be sized at 1 times.", ErrorSeverity.Medium);
+                return 1.0;
+            }
+            try
+            {
+                double applied = await tp.SetLeverageAsync(symbol, leverage).ConfigureAwait(false);
+                if (Math.Abs(applied - leverage) > 1e-9)
+                    _errorCoordinator.ReportError(
+                        $"{providerName} applied {applied:0.##} times leverage on {symbol}, not the "
+                        + $"{leverage:0.##} times requested.", ErrorSeverity.Medium);
+                return applied;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SetLeverage failed");
+                _errorCoordinator.ReportError(
+                    $"Leverage was not set on {symbol}: {ex.Message}. The position will be sized at 1 times.",
+                    ErrorSeverity.Medium);
+                return 1.0;
+            }
         }
 
         public async Task<bool> SupportsTradingAsync(string providerName)

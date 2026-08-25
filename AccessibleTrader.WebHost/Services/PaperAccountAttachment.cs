@@ -59,13 +59,18 @@ namespace AccessibleTrader.WebHost.Services
 
             // The account may pre-date this tab, so attach unconditionally — ForUser only runs the
             // factory (which attaches once itself) for a user who had none.
+            //
+            // The creating tab CLAIMS the constructor's attachment rather than being handed a
+            // no-op. A no-op meant the first tab never detached: its store kept a live
+            // subscription after the circuit was gone, and the account went on resolving
+            // identities and prices against a chart nobody was looking at. TakePrimaryAttachment
+            // hands the token over exactly once, so a second circuit that happens to be
+            // constructed with the same store still attaches normally.
             _attachment = ReferenceEquals(Account.PrimaryStore, store)
-                ? new NoOp()
-                : Account.Attach(store);
+                ? Account.TakePrimaryAttachment()
+                : Account.Attach(store, eventBus);
         }
 
         public void Dispose() => _attachment.Dispose();
-
-        private sealed class NoOp : IDisposable { public void Dispose() { } }
     }
 }
