@@ -441,7 +441,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // backtest" — Cipher A has the identical loop and was never back-ported, which is the
             // recurrence pattern this codebase keeps producing: fixed where reported, untouched at
             // the structurally identical site next door. Same default (ON) and same shared shift.
-            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", true);
+            bool confirmLag = IndicatorParams.GetBool(parameters, "DivergenceConfirmLag", true);
             if (confirmLag && pivotBars > 0)
             {
                 bullDiv      = IndicatorMath.ShiftMarkersForward(bullDiv,      pivotBars, n);
@@ -613,6 +613,5 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
-        private static bool   GetBool(Dictionary<string, object> p, string k, bool   def) => p.TryGetValue(k, out var v) ? Convert.ToBoolean(v) : def;
     }
 }

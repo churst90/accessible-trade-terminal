@@ -32,6 +32,12 @@ public static class Program
         // Force binary mode on stdio — we are sending raw bytes, not text.
         var stdin  = Console.OpenStandardInput();
         var stdout = Console.OpenStandardOutput();
+        var stderr = Console.OpenStandardError();
+
+        // Take the handles FIRST, then send Console somewhere harmless: from here on the user's
+        // indicator is the only thing that would print, and stdout is the frame pipe. See
+        // WorkerDispatcher.IsolateConsole.
+        WorkerDispatcher.IsolateConsole(stderr);
 
         var dispatcher = new WorkerDispatcher(stdin, stdout);
         try

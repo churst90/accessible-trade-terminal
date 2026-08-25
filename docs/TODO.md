@@ -2,6 +2,28 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+**Status 2026-08-25 (the scripting-sandbox audit + the three seam bugs):** Three indicator-seam
+items closed first, because the sandbox is what will read that seam at volume: the strategy cache
+computed a **Cutler** RSI while every chart draws Wilder's (they never converge — a strategy read a
+different number from the line it was backtested against); three of six providers dropped every
+boolean parameter they were given, because their private reader handled `bool` and `string` and the
+dictionary only ever carries `double`; and `SignalCatalog` published strategy leaves for five
+indicators the Add Indicator menu already refuses as non-computable, so a condition on them was
+permanently NaN and therefore permanently false, silently.
+
+Then the fourth never-assessed area: **the scripting sandbox**, an arbitrary-code-execution
+boundary. Method was to COMPILE candidate escapes rather than read the walker — 25 hostile shapes
+through the real compile path, four of which reached the worker. **`dynamic` turned the entire
+blocklist off** (a dynamic member access has no resolved symbol, and every rule works on resolved
+symbols); a script's `Console.WriteLine` **corrupted the worker's IPC frame stream**, measured as
+`Frame length 1650553376 exceeds 67108864`; `Environment.GetEnvironmentVariables()` handed a script
+the host's whole environment block; and the blocked-member check tested `IMethodSymbol` only, so a
+property could not have been listed even if someone had thought to list one. All four fixed. The
+structural finding is filed, not fixed: **strategy scripts never leave the host process** — only
+indicators go out-of-process — so for the half of the surface that places orders, the walker is the
+only wall. See "Scripting and the sandbox — audit 2026-08-25". Suite **4700 green**; nine sabotage
+runs, every guard proven red.
+
 **Status 2026-08-25 (the causality batch — blockers 5, 7, 8 and 9):** **522 open.** Eight items
 closed, all of the same shape: *the code read the wrong bar, the wrong user's file, or died
 without saying so.* Blockers 1–4 and 5, 7, 8, 9 of the health assessment's nine are now closed;
@@ -1903,7 +1925,7 @@ charting products. Against it sits a large body of undisciplined provider code.
   one), so they are now rendered as text inputs and seeded from metadata defaults when unset —
   otherwise a knob only appears after it has already been changed, which for an existing series is
   never. New `StringIndicatorParameterTests` (8), the sibling of `BoolIndicatorParameterTests`.
-- [ ] **`CipherSRProvider.cs:555-561`, `CipherSProvider.cs:586-592`, `SpiderLinesProvider.cs:142-148` —
+- [x] **`CipherSRProvider.cs:555-561`, `CipherSProvider.cs:586-592`, `SpiderLinesProvider.cs:142-148` —
   `GetBool` handles `bool` and `string` but not `double`, and `double` is the only type it can ever be
   given.** `IndicatorModelFactory.TryParseParamValue:114` deliberately converts `"true"` to `1.0`, and
   `ChartSeries.cs:162` types the dictionary as `double`, so these three helpers always fall through to
@@ -1916,7 +1938,20 @@ charting products. Against it sits a large body of undisciplined provider code.
   providers work and three do not, from the same declared parameter type. Fix: one shared invariant
   accessor (the TODO:2005 item), plus a test that goes metadata → `TryParseParamValue` → provider and
   asserts the provider *observed* the flip. CONFIRMED. HIGH.
-- [ ] **`SignalCatalog` publishes strategy leaves for indicators `IndicatorService` has already ruled
+  **CLOSED 2026-08-25.** All six copies deleted; one `AccessibleTrader.Sdk.Indicators.IndicatorParams
+  .GetBool` now reads `bool`, `double` (and every other numeric boxing), and strings — with
+  InvariantCulture parsing, because workspaces persist parameters as JSON and a comma-decimal locale
+  must not change what a switch means — falling back to the caller's default rather than to `false`,
+  since a switch that defaults ON must stay ON when the stored value is unreadable. Only the BOOLEAN
+  accessor was unified: the numeric ones disagree about rounding and culture and moving them changes
+  shipped indicator values, which stays its own pass. The guards assert what the provider
+  **observed** — each of the three runs its indicator twice through the whole
+  metadata → `TryParseParamValue` → `Calculate` path and requires the output to move — plus a scan
+  that no provider declares its own boolean reader again, floored on the population of shared call
+  sites. **Fixture trap:** Cipher SR needs volume that VARIES (its pivots require a bar to clear 1.2×
+  the trailing average), or both runs are all-NaN, agree perfectly, and the test reports "the flag was
+  ignored" for a provider that read it correctly.
+- [x] **`SignalCatalog` publishes strategy leaves for indicators `IndicatorService` has already ruled
   non-computable, so a condition on them can never fire and nothing says so.** `SignalCatalog.Refresh`
   (`:65-102`) walks `provider.GetIndicators()` raw; `IndicatorService.GetAvailableIndicators`
   (`IndicatorService.cs:102-111`) filters the same list through `IsComputable`. The two disagree for
@@ -1925,6 +1960,14 @@ charting products. Against it sits a large body of undisciplined provider code.
   `Eom` (`SkenderVolumeProvider.cs:77`). The user cannot add these from the Add Indicator dialog, but the
   strategy builder happily offers `Ppo.Ppo GreaterThan 0`, which is permanently NaN and so permanently
   false. TODO:729 covers the *rendering* half; the strategy-leaf half is not filed. CONFIRMED. HIGH.
+  **CLOSED 2026-08-25.** The rule moved out of `IndicatorService` into
+  `Indicators.IndicatorComputability` and both callers now apply it — two callers asking the same
+  question of the same providers must not each own their copy of the answer. A non-computable
+  indicator's leaves are REFUSED rather than absent, reusing the causality machinery: they stay in
+  `Excluded`, resolvable by id and carrying a reason, so a strategy saved before the gate can still
+  say why its leaf stopped working. Guards compare the two lists code for code and pin the five
+  Skender-2.5.0 gaps by name, with both vacuity halves — a catalog or menu that failed to build, and
+  a rule that refuses everything, each fail the file.
 - [ ] **`SkenderBandProvider.cs:58-61` declares the component `"Sma"` twice, and
   `SkenderBoundedOscillatorProvider.cs:112-123` declares `"Oscillator"` twice and `"Signal"` twice.**
   Literal duplicate `Name` values inside one `IndicatorMetadata.Components` list — the Bollinger centre
@@ -1961,7 +2004,7 @@ charting products. Against it sits a large body of undisciplined provider code.
   fixed-size trailing window ending at each bar, or from the `__timeframe` hint the orchestrator already
   stamps (`IndicatorOrchestrator.cs:160-161`); then add a gapped/irregular flavour to the causality
   series. CONFIRMED. HIGH.
-- [ ] **`StrategyIndicatorCache.cs:109-125` computes a Cutler RSI while the chart draws a Wilder RSI, and
+- [x] **`StrategyIndicatorCache.cs:109-125` computes a Cutler RSI while the chart draws a Wilder RSI, and
   `:95-107` seeds EMA differently again — so a strategy's "RSI" is not the RSI the user is looking at.**
   `ComputeRsi` averages gains/losses over a plain trailing window
   (`for (int i = count - period; i < count; i++)`), no Wilder smoothing. `IndicatorMath.Rsi:77-85` and
@@ -1974,6 +2017,18 @@ charting products. Against it sits a large body of undisciplined provider code.
   timeframe, and `Invalidate(int currentCount)` (`:32-45`) only evicts on a bar-count change — so
   switching BTC→ETH at the same bar count serves BTC's indicator values to an ETH strategy until the
   count moves. (See also the strategies-area entry on the same cache.) CONFIRMED. HIGH.
+  **CLOSED 2026-08-25** (the keying half was closed on 2026-08-25 by `BeginSeries`; this is the
+  arithmetic half). `ComputeRsi` is now Wilder's, matching `IndicatorMath.Rsi`, `PulseProvider` and
+  the interface's own long-standing docstring — the two never converge with more data, so this was a
+  strategy reading a different number from the line it was backtested against, indefinitely.
+  `ComputeEma` is seeded from the first close like `IndicatorMath.Ema`, and the dead
+  `data[count - count + i]` is gone. The cache deliberately does NOT delegate to `IndicatorMath`:
+  these are scalar last-bar questions asked once per bar per strategy and the array helpers allocate
+  two arrays per call. `StrategyIndicatorCacheParityTests` is what stands in for shared code — it
+  pins each scalar against the library's last slot. **Two halves of it matter:** a vacuity check
+  proving the fixture can actually tell Wilder from Cutler (>1 point apart), and an EMA case at
+  exactly `period` bars, because the seed's weight decays as (1-k)^n and a 300-bar fixture passes
+  with either seed.
 - [ ] **`AnchoredVwapProvider.cs:191-198` — `AVWAP Bias Soft` can never take the value 0 its comment
   promises.** `aboveEither = close > fh || close > fl` is true whenever price is anywhere above the lower
   of the two anchors, which includes the entire "between them" region; `belowBoth` requires price under
@@ -3471,13 +3526,10 @@ Four commissioned areas never ran and carry **no findings and no grade**. Nothin
   modal open/close/escape, keyboard traps, nested-interactive), Blazor lifecycle correctness
   (`StateHasChanged` off the render thread, `IDisposable` leaks, `async void`), JS interop disposal,
   duplication across the ~25 modals, and platform stubs that crash if reached.
-- **Scripting and the sandbox** (`Core/PineScript/`, `Core/Services/Scripting/`,
-  `AccessibleTrader.ScriptSandbox/`, `AccessibleTrader.ScriptWorker/`, the Android worker plumbing).
-  Intended scope: **whether a user script can escape the sandbox** — the assembly/using allow-list,
-  reflection, `System.IO`/`System.Net`/`Process`/P/Invoke, and whether the restriction is enforced at
-  compile time, at runtime, or by process isolation only; resource exhaustion and whether a timeout
-  actually *kills* the work; IPC robustness against hostile messages; and Pine dialect fidelity. This is an
-  arbitrary-code-execution boundary and is the highest-value of the four to run next.
+- ~~**Scripting and the sandbox**~~ — **RUN 2026-08-25. See "Scripting and the sandbox — audit
+  2026-08-25" below.** Four escapes found by compiling candidates rather than by reading the code;
+  three fixed in that pass, and the structural finding (strategy scripts never leave the host
+  process) filed there.
 - **The test suite itself** (`AccessibleTrader.Tests/`, 343 files, ~4,495 tests). Intended scope: does a
   green suite mean the app works? The three known pathologies (tests that mirror production logic,
   scan guards that check presence rather than path, guards written against an empty baseline), per-area
@@ -3497,6 +3549,125 @@ Four commissioned areas never ran and carry **no findings and no grade**. Nothin
   `catch (Exception)` sites**, **10 `async void`**, **18 sync-over-async** (`.Result`/`.Wait()`/
   `GetAwaiter().GetResult()`), only **20 TODO/FIXME/HACK markers**. `Directory.Build.props` sets no
   `TreatWarningsAsErrors` and no shared analyzer configuration.
+
+---
+
+## Scripting and the sandbox — audit 2026-08-25
+
+The fourth of the never-assessed areas, and the one the TODO called highest-value: an
+arbitrary-code-execution boundary. **Method: candidate escapes were COMPILED, not read.** A probe
+ran 25 hostile shapes through `RoslynScriptingService.CompileIndicatorAsync` and printed, for each,
+whether the sandbox refused it or whether it reached the worker-spawn step. Four reached the worker.
+Reading the walker would not have found the first one — it looks correct, and its correctness is
+exactly what makes the hole.
+
+**The reference set is built by scanning the host's loaded assemblies**
+(`AppDomain.CurrentDomain.GetAssemblies()` filtered to `System.*` / `Microsoft.*`), so in a bare
+test process neither `Microsoft.CSharp` nor `System.Console` is present and two of the four escapes
+fail with an ordinary compile error that hides them. The probe had to force-load both to see the
+real answer. That is filed below as its own finding.
+
+### Fixed in this pass
+
+- [x] **`dynamic` turned the entire blocklist off.** `dynamic asm = typeof(object).Assembly;
+  asm.GetType("System.Diagnostics.Process");` compiled clean and reached the worker; the identical
+  static code is refused on its first token. Every rule in `SandboxWalker` works on RESOLVED
+  symbols — which is what makes it stronger than string matching — and a dynamic member access has
+  no resolved symbol, so `GetSymbolInfo` returns null and every check returns early. One keyword.
+  **FIXED**: `SandboxWalker.Visit` now refuses any expression whose type or converted type is
+  `TypeKind.Dynamic`, so the answer no longer depends on whether `Microsoft.CSharp` happens to be
+  loaded. Three guards in `HostileScriptTests.Rejects_DynamicDispatch`, proven red.
+- [x] **A script's `Console.WriteLine` corrupted the worker's IPC stream.** The worker speaks a
+  binary frame protocol over stdout and the user's indicator runs in that same process, so a print
+  wrote raw text into the middle of the frame stream: the host read `"bar "` as a big-endian length
+  prefix and threw `Frame length 1650553376 exceeds 67108864 — malformed stream`. Measured, not
+  reasoned — that string is from the sabotage run. Printing to see what your script is doing is the
+  most natural debugging move there is, so it had to be made SAFE rather than merely forbidden.
+  **FIXED** in both halves: `WorkerDispatcher.IsolateConsole` (called by `ScriptWorker.Program`
+  before any user code can run) points `Console` at stderr, which the host already pumps into its
+  log, and closes `Console.In` so a script cannot eat the next command frame; and the walker now
+  blocks `System.Console` at compile time so the author is TOLD rather than silently redirected.
+  End-to-end guard runs a printing indicator through the real worker process.
+- [x] **`System.Environment` and `System.AppContext` were fully readable.**
+  `Environment.GetEnvironmentVariables()` hands a script the entire environment block of the process
+  that launched it — on a machine that configures credentials that way, that is the credentials —
+  and it needs to name no blocked namespace to get there. **FIXED**: both types blocked outright;
+  neither has a legitimate use inside an indicator, whose whole input is the bars and parameters it
+  is given.
+- [x] **The blocked-member check could only ever contain methods.** It tested
+  `symbol is IMethodSymbol`, so a property could not have been listed even if someone had thought to
+  list one — the shape of the check had quietly defined the policy. `Environment.CurrentDirectory`
+  is a property; so are the three doors from a `Type` onto the reflection surface. **FIXED**:
+  properties, fields and events are checked too, and `Type.Assembly` / `Type.Module` /
+  `Type.TypeHandle` are now listed, so holding an `Assembly` is refused rather than only using one.
+  **Trap worth remembering:** the first guard for this used `var a = typeof(object).Assembly;` and
+  stayed green with the rule deleted — `var` is itself an identifier that resolves to
+  `System.Reflection.Assembly`, so the namespace rule caught that spelling. `object a = ...` is what
+  isolates the property path. Found by deleting the rule, not by inspection.
+- [x] **Two entries in `_blockedTypes` named types that do not exist** — `System.GCHandle` and
+  `System.Buffers.NativeMemory` (both live in `System.Runtime.InteropServices`, which the namespace
+  rule already covers). Dead entries in a security list read as coverage. Corrected.
+
+### Open
+
+- [ ] **Strategy scripts never leave the host process, and a strategy is the thing that places
+  orders.** `RoslynScriptingService.CompileStrategyAsync` (`:497-513`) loads the compiled assembly
+  with `alc.LoadFromStream` **in the trading host** — no worker, no OS sandbox, no memory or CPU
+  quota, no kill switch. Only `CompileIndicatorAsync` goes out-of-process. `ExecuteSimpleAsync`
+  (`:521`) runs `CSharpScript.RunAsync` in-process as well, as does `ScriptingService`. So for the
+  half of the scripting surface that can open positions, the Roslyn semantic walker is the ONLY
+  wall — and the audit above found that walls of that kind had a total bypass in them
+  (`dynamic`) for months. The worker protocol only knows `ICustomIndicator`, so closing this is
+  feature-sized: either extend the frame protocol to `ITradingStrategy` (OnBar in, orders out,
+  with the host applying its own risk rules to whatever comes back), or refuse strategy scripts on
+  any host where the OS sandbox is unavailable and say so. Until then the class doc's "user scripts
+  execute out-of-process so a sandbox escape cannot reach the trading host" (`:174-186`) is true of
+  indicators only. **CONFIRMED. The headline finding of this audit.**
+- [ ] **What a script can even NAME depends on the host's assembly load order.**
+  `CompileIndicatorAsync:264-281` and `CompileStrategyAsync:449-466` add every loaded `System.*` /
+  `Microsoft.*` / `netstandard` / `mscorlib` assembly to the reference set. The comment argues this
+  is safe because the walker rejects blocked namespaces regardless — true for the namespace rule,
+  and false for anything the walker cannot see: `dynamic` compiled only because `Microsoft.CSharp`
+  was loaded, and `Console.WriteLine` only because `System.Console` was. A security posture that
+  differs between the desktop head, the WebHost and a test process — and between two runs of the
+  same head depending on what the user opened first — cannot be reasoned about. Fix: a fixed,
+  declared reference list (the five pinned ones plus a named allow-list), so the compile surface is
+  the same everywhere and a new escape cannot arrive because some unrelated feature loaded an
+  assembly. CONFIRMED. HIGH.
+- [ ] **The Linux sandbox mounts the whole filesystem readable, including the API-key store.**
+  `LinuxBwrapLauncher.BuildBwrapArgs` uses `--ro-bind / /`, and the class doc argues read access is
+  not an exfiltration vector because "with no network and no writable mount, a hostile indicator has
+  no channel out beyond its numeric result frames" — but the result frames ARE a channel: an
+  indicator returns arbitrary `double[]` that the host then renders and persists. The launcher's own
+  doc already lists the fix as a deferred hardening: `--tmpfs` over `$HOME` so user files are not
+  readable at all, and `--clearenv` with a minimal passthrough so the worker does not inherit the
+  host's environment. **Not done in this pass because `bwrap` is not installed on this machine**, so
+  the "does the CLR still start under the tighter mount" half could not be verified, and shipping an
+  unverified change to the launcher would break scripting for every Linux user. Needs a machine with
+  bubblewrap. CONFIRMED. MEDIUM (HIGH on the WebHost, whose platform this is).
+- [ ] **The memory quota is a 2-second poll, so a script can allocate multiple GB inside one
+  interval.** `OutOfProcessScriptHost.MemoryPollInterval` is 2 s and the ceiling is a 256 MB working
+  set; a `new double[500_000_000]` compiles fine (correctly — it is a runtime concern) and the host
+  notices up to two seconds later. Nothing sets a hard limit on the worker itself. Cheapest real
+  fix: `System.GC.HeapHardLimit` in the ScriptWorker's `runtimeconfig`, which makes the runtime
+  refuse the allocation rather than the supervisor notice it afterwards. CONFIRMED. MEDIUM.
+- [ ] **Pine dialect fidelity was not assessed.** `Core/PineScript/PineTranspiler.cs` (649 lines)
+  was read only far enough to confirm it produces C# that goes through the same compile path — the
+  question of whether a Pine script MEANS the same thing here as on TradingView is untouched, and is
+  a correctness question rather than a security one. Still open from the original scope.
+
+**Checked and found sound, so that it is not re-audited:** the IPC decode layer
+(`MessageCodec.CheckCount` caps every untrusted `u32` at 1M elements and strings at 64 KB, on top of
+`FrameCodec`'s 64 MB frame cap and its zero-length and overlong rejections — a hostile worker cannot
+amplify a small payload into a large host allocation); the per-call timeout genuinely KILLS the
+worker (`CalculateAsync` catch filter, `Kill(entireProcessTree: true)`) rather than abandoning it;
+the CPU-fraction monitor; the concurrent-worker cap; and the refuse-rather-than-downgrade policy
+when an OS sandbox primitive is missing (`SandboxPolicy.EnforceOrThrow`, override env var recorded
+as a security event). `System.IO`, `System.Net`, `System.Diagnostics`, `System.Reflection`,
+interop, `Type.GetType`, `Activator.CreateInstance`, target-typed `new` of a blocked type, a blocked
+type as a generic argument, a method group of a blocked member and even `nameof` of one are all
+refused — the namespace and type rules are strong. The hole was never in what they cover; it was in
+what could get past them without being a symbol at all.
 
 ---
 

@@ -20,6 +20,14 @@ namespace AccessibleTrader.Core.Services.Strategies
     /// </para>
     ///
     /// <para>
+    /// It also publishes only what can be computed. The Add Indicator menu has always filtered on
+    /// that (<see cref="Indicators.IndicatorComputability"/>) and this class did not, so an
+    /// indicator the user could not put on a chart — PPO, HV, TMA, ZLEMA, EOM, none of which
+    /// Skender 2.5.0 implements — was still offered as a strategy leaf, where it evaluated to NaN
+    /// and therefore false on every bar for the life of the strategy, silently.
+    /// </para>
+    ///
+    /// <para>
     /// Refused components stay resolvable through <see cref="GetById"/> and are listed in
     /// <see cref="Excluded"/>. They are withheld from <see cref="All"/> — the pickable list — but
     /// a strategy saved before this gate existed must be able to say why its leaf stopped working,
@@ -70,6 +78,10 @@ namespace AccessibleTrader.Core.Services.Strategies
 
                 foreach (var ind in indicators)
                 {
+                    // Asked once per indicator, not per component: it is reflection over the
+                    // indicator library's exported methods.
+                    string? notComputable = Indicators.IndicatorComputability.RefusalReason(provider, ind);
+
                     foreach (var comp in ind.Components)
                     {
                         // Build a stable ID. {INDICATOR_CODE}.{ComponentName} survives renames
@@ -87,7 +99,11 @@ namespace AccessibleTrader.Core.Services.Strategies
                             Causality: CausalityContract.Effective(ind, comp)
                         );
 
-                        string? why = CausalityContract.RefusalReason(ind, comp);
+                        // Computability first: an indicator that cannot produce a number at all is
+                        // a more basic refusal than "this component reads the future", and saying
+                        // the causal thing about a leaf that is permanently NaN would be beside
+                        // the point.
+                        string? why = notComputable ?? CausalityContract.RefusalReason(ind, comp);
                         if (why == null)
                         {
                             list.Add(descriptor);

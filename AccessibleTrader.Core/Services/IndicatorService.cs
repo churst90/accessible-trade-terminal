@@ -112,16 +112,10 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>
         /// Whether an indicator can actually produce a value, so one that cannot is never offered.
-        ///
-        /// <para>
-        /// Skender-backed indicators resolve by reflection on <c>"Get" + Code</c>. When the name is
-        /// wrong — or the indicator simply is not in the version of Skender we ship — the lookup
-        /// returns null, the delegate is never built, and the indicator draws an empty line with no
-        /// exception and no log. Ten codes were in that state: Bollinger Bands and Keltner and
-        /// Chandelier and Ultimate were misnamed (now aliased in
-        /// <see cref="Indicators.SkenderCalculationCore.SkenderMethodName"/>), and PPO, ZLEMA, TMA,
-        /// Historical Volatility and Ease of Movement are not implemented by Skender 2.5.0 at all.
-        /// </para>
+        /// The rule itself lives in <see cref="Indicators.IndicatorComputability"/> because
+        /// <c>SignalCatalog</c> has to apply exactly the same one to strategy leaves — for years it
+        /// did not, and PPO, HV, TMA, ZLEMA and EOM were unusable on a chart while remaining
+        /// pickable in the strategy builder. This method keeps only the logging.
         ///
         /// <para>
         /// Filtering here rather than deleting five metadata blocks keeps the answer tied to what
@@ -133,10 +127,7 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private bool IsComputable(IndicatorMetadata meta, IIndicatorProvider provider)
         {
-            if (!provider.GetType().Name.StartsWith("Skender", StringComparison.Ordinal)) return true;
-            if (string.IsNullOrEmpty(meta.Code)) return true;
-
-            bool ok = Indicators.SkenderCalculationCore.CanResolve(meta.Code);
+            bool ok = Indicators.IndicatorComputability.IsComputable(provider, meta);
             if (!ok && _unresolvable.Add(meta.Code))
                 _logger?.LogWarning(
                     "Indicator '{Code}' ({Name}) is not offered: Skender exposes no Get{Method}, so it " +

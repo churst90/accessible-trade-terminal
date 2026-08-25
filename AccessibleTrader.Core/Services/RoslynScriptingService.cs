@@ -630,6 +630,14 @@ namespace AccessibleTrader.Core.Services
             "System.Type.GetMember",
             "System.Type.MakeGenericType",
             "System.Type.MakeArrayType",
+            // Properties, which the member check could not see until 2026-08-25. These are the
+            // three doors from a Type — which every script can obtain with typeof — onto the
+            // reflection surface. Reaching THROUGH one was already refused (the objects live in
+            // System.Reflection); holding one is now refused too, so the escape has to be caught
+            // at its first token rather than at its second.
+            "System.Type.Assembly",
+            "System.Type.Module",
+            "System.Type.TypeHandle",
             "System.Activator.CreateInstance",
             "System.Activator.CreateInstanceFrom",
             "System.Delegate.CreateDelegate",
@@ -647,10 +655,32 @@ namespace AccessibleTrader.Core.Services
         private static readonly HashSet<string> _blockedTypes = new(StringComparer.Ordinal)
         {
             "System.AppDomain",
-            "System.GCHandle",
+            "System.Runtime.InteropServices.GCHandle",
             "System.Runtime.CompilerServices.Unsafe",
             "System.Runtime.CompilerServices.RuntimeHelpers",
-            "System.Buffers.NativeMemory",
+            "System.Runtime.InteropServices.NativeMemory",
+
+            // Reading the host's environment. Every one of these compiled and
+            // reached the worker before they were listed: Environment.
+            // GetEnvironmentVariables() hands a script the whole environment
+            // block of the process that launched it, which on a machine that
+            // configures credentials that way is the credentials. Neither type
+            // has a legitimate use inside an indicator, whose entire input is
+            // the bars and parameters it is given.
+            //
+            // Blocking the TYPE rather than listing members is deliberate:
+            // Environment.CurrentDirectory is a property, and until this pass
+            // the member list was consulted for methods only.
+            "System.Environment",
+            "System.AppContext",
+
+            // System.Console lives in an allowed namespace, and in the worker
+            // stdout IS the IPC pipe. Writes are neutralised at the worker end
+            // (WorkerDispatcher.IsolateConsole redirects them to stderr, so a
+            // script author's debug print still reaches the host log) — this
+            // entry is the compile-time half, so the script is TOLD rather than
+            // silently having its output swallowed.
+            "System.Console",
         };
 
         private static string BuildWrappedCode(string code)
@@ -712,6 +742,40 @@ namespace AccessibleTrader.Core.Services
             public List<string> Violations { get; } = new();
 
             public SandboxWalker(SemanticModel model) : base(SyntaxWalkerDepth.Node) { _model = model; }
+
+            /// <summary>
+            /// <c>dynamic</c> is refused outright, and it is the single most important rule in
+            /// this class.
+            ///
+            /// <para>
+            /// Every other rule here works on RESOLVED symbols — that is what makes the walker
+            /// stronger than string matching. A dynamic member access has no resolved symbol at
+            /// all: <c>GetSymbolInfo</c> returns null and every check below returns early. So
+            /// <c>dynamic asm = typeof(object).Assembly; asm.GetType("System.Diagnostics.Process")</c>
+            /// compiled clean and reached the worker, while the identical static code was refused
+            /// on the very first token. One keyword turned the whole blocklist off. Verified by
+            /// compiling it, not by reading the code — see
+            /// <c>HostileScriptTests.Rejects_DynamicDispatch_*</c>.
+            /// </para>
+            ///
+            /// <para>
+            /// Whether that escape even compiled depended on whether <c>Microsoft.CSharp</c>
+            /// happened to be loaded in the host process, because the reference set is built by
+            /// scanning the running AppDomain. A security boundary that varies with the host's
+            /// assembly load order is not a boundary; this makes the answer the same everywhere.
+            /// </para>
+            /// </summary>
+            public override void Visit(SyntaxNode? node)
+            {
+                if (node is ExpressionSyntax expression)
+                {
+                    var info = _model.GetTypeInfo(expression);
+                    if (info.Type?.TypeKind == TypeKind.Dynamic || info.ConvertedType?.TypeKind == TypeKind.Dynamic)
+                        Report(node, "'dynamic' is not allowed in user scripts — it would bypass every " +
+                                     "type and member restriction the sandbox applies.");
+                }
+                base.Visit(node);
+            }
 
             public override void VisitIdentifierName(IdentifierNameSyntax node)
             {
@@ -775,12 +839,16 @@ namespace AccessibleTrader.Core.Services
                 if (containingType != null) CheckType(containingType, node);
 
                 // Blocked-member check (e.g. Type.GetType, Activator.CreateInstance).
-                if (symbol is IMethodSymbol method)
+                // Properties and fields count, not only methods: the list is a list of things a
+                // script must not touch, and a property is touched by being read. It was
+                // methods-only until 2026-08-25, which is why every entry in the list happened
+                // to be a method — the shape of the check had quietly defined the policy.
+                if (symbol is IMethodSymbol or IPropertySymbol or IFieldSymbol or IEventSymbol)
                 {
-                    var containing = method.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted));
+                    var containing = symbol.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted));
                     if (containing != null)
                     {
-                        var key = $"{containing}.{method.Name}";
+                        var key = $"{containing}.{symbol.Name}";
                         if (_blockedMembers.Contains(key))
                             Report(node, $"member '{key}' is not allowed in user scripts.");
                     }

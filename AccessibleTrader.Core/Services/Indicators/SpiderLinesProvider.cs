@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -105,7 +106,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var close = new double[n];
             for (int i = 0; i < n; i++) close[i] = data[i].Close;
 
-            bool fastMode = GetBool(parameters, "FastMode", false);
+            bool fastMode = IndicatorParams.GetBool(parameters, "FastMode", false);
 
             var emaResults = new double[Lines.Length][];
             for (int li = 0; li < Lines.Length; li++)
@@ -137,14 +138,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (valid >= 0) score[i] = s;
             }
             WriteToBuffer(buffer, CompStackingScore, score, n);
-        }
-
-        private static bool GetBool(Dictionary<string, object> p, string k, bool def)
-        {
-            if (!p.TryGetValue(k, out var v)) return def;
-            if (v is bool b)   return b;
-            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
-            return def;
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)

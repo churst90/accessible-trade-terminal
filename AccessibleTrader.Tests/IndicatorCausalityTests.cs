@@ -47,18 +47,10 @@ namespace AccessibleTrader.Tests
         public static IEnumerable<object[]> Providers() =>
             ProviderTypes().Select(t => new object[] { t });
 
-        private static IEnumerable<Type> ProviderTypes() =>
-            // Core and StrategyLab. No plugin assembly implements IIndicatorProvider — the plugins
-            // are data sources — so an anchor type in each of these two covers every provider that
-            // can reach SignalCatalog.
-            new[] { typeof(ValueDeviationProvider).Assembly, typeof(AccessibleTrader.StrategyLab.CftcCotProvider).Assembly }
-                .SelectMany(a => a.GetTypes())
-                .Where(t => typeof(IIndicatorProvider).IsAssignableFrom(t)
-                            && !t.IsAbstract && !t.IsInterface)
-                // Skip name-alias subclasses: EmaFillProvider is an empty class deriving from
-                // MACloudProvider, and counting both would double every MA_CLOUD component.
-                .Where(t => t.BaseType == null || !typeof(IIndicatorProvider).IsAssignableFrom(t.BaseType))
-                .OrderBy(t => t.Name);
+        // The set itself lives in IndicatorProviderFixture: SignalCatalogComputabilityTests needs
+        // the same one, and two guards each enumerating "every provider" their own way is how one
+        // of them quietly ends up covering fewer.
+        private static IEnumerable<Type> ProviderTypes() => IndicatorProviderFixture.ProviderTypes();
 
         /// <summary>
         /// Builds a provider whatever its constructor asks for, substituting its interface
@@ -66,16 +58,7 @@ namespace AccessibleTrader.Tests
         /// StrategyLab providers, which take an <c>ICrossSeriesCache</c> — and a contract that skips
         /// the providers feeding the research tooling is not much of a contract.
         /// </summary>
-        private static IIndicatorProvider Create(Type type)
-        {
-            var ctor = type.GetConstructors().OrderBy(c => c.GetParameters().Length).First();
-            var args = ctor.GetParameters().Select(p =>
-                p.ParameterType.IsInterface
-                    ? NSubstitute.Substitute.For(new[] { p.ParameterType }, Array.Empty<object>())
-                    : p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null)
-                .ToArray();
-            return (IIndicatorProvider)ctor.Invoke(args);
-        }
+        private static IIndicatorProvider Create(Type type) => IndicatorProviderFixture.Create(type);
 
         // ── Synthetic series ──────────────────────────────────────────────────────────────────
         // Three characters, because pivot and divergence markers are sparse: a rolling swing
@@ -303,8 +286,7 @@ namespace AccessibleTrader.Tests
             Assert.Contains("ICHIMOKU.Kijun-sen", ids);
         }
 
-        private static List<IIndicatorProvider> AllProviders() =>
-            ProviderTypes().Select(t => Create(t)).ToList();
+        private static List<IIndicatorProvider> AllProviders() => IndicatorProviderFixture.AllProviders();
 
         // ── The guard's own blind spots ───────────────────────────────────────────────────────
 

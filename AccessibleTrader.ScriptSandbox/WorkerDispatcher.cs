@@ -54,6 +54,36 @@ public sealed class WorkerDispatcher
     }
 
     /// <summary>
+    /// Points <see cref="Console"/> away from the IPC pipe, before any user code can run.
+    ///
+    /// <para>
+    /// The worker speaks a binary frame protocol over stdout, and the user's indicator runs
+    /// <b>inside this process</b>. A single <c>Console.WriteLine("debug")</c> in a script
+    /// therefore writes raw text into the middle of the frame stream: the host reads the first
+    /// four bytes of that text as a length prefix and either desyncs or throws
+    /// "malformed stream", and the indicator fails with a message that has nothing to do with
+    /// what the author actually did. Printing to see what your script is doing is the most
+    /// natural debugging move there is, so this had to be safe rather than merely forbidden.
+    /// </para>
+    ///
+    /// <para>
+    /// Console output goes to <paramref name="diagnosticSink"/> — stderr in the real worker,
+    /// which the host already pumps into its log — so the print still reaches the developer.
+    /// Console input is closed off in the same move: <c>Console.ReadLine()</c> would otherwise
+    /// eat the host's next command frame.
+    /// </para>
+    /// </summary>
+    public static void IsolateConsole(Stream diagnosticSink)
+    {
+        if (diagnosticSink == null) throw new ArgumentNullException(nameof(diagnosticSink));
+
+        var writer = new StreamWriter(diagnosticSink, new UTF8Encoding(false)) { AutoFlush = true };
+        Console.SetOut(writer);
+        Console.SetError(writer);
+        Console.SetIn(TextReader.Null);
+    }
+
+    /// <summary>
     /// Drive the worker loop until a <see cref="Opcode.Shutdown"/> frame
     /// arrives or <paramref name="ct"/> is cancelled. Returns normally
     /// on Shutdown; propagates <see cref="EndOfStreamException"/> if

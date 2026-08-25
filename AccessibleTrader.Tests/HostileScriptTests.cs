@@ -278,4 +278,134 @@ public class HostileScriptTests
             Assert.Contains("__hostile_script_test_never_used__", errors);
         }
     }
+
+    // ── The escapes found by compiling them, 2026-08-25 ──────────────────────────────────
+    //
+    // Everything above was written against shapes the sandbox was designed to refuse. These
+    // five were found the other way round: by compiling a list of candidate escapes and
+    // reading which ones came back "compiled successfully". Four of the five did.
+
+    /// <summary>
+    /// Both halves of the dynamic escape, because they fail differently.
+    ///
+    /// <para>
+    /// The walker's strength — it works on resolved symbols, so it sees through usings,
+    /// aliases and whitespace — is exactly its weakness: a dynamic member access resolves to
+    /// no symbol, so every check returned early and the whole blocklist was off. The static
+    /// spelling of the first case here is refused on its first token; the dynamic spelling
+    /// compiled and reached the worker.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("dynamic asm = typeof(object).Assembly; var t = asm.GetType(\"System.Diagnostics.Process\"); var _ = t.ToString();")]
+    [InlineData("dynamic o = new object(); var _ = o.GetType().Assembly.Location;")]
+    [InlineData("object o = new object(); var _ = ((dynamic)o).GetHashCode();")]
+    public async Task Rejects_DynamicDispatch(string body)
+    {
+        ForceLoadTheAssembliesThatMakeThisReachable();
+        AssertRejectedBySandbox(await NewScripting().CompileIndicatorAsync(Wrap(body)),
+            "a dynamic member access");
+    }
+
+    /// <summary>
+    /// <c>Environment.GetEnvironmentVariables()</c> hands a script the entire environment block
+    /// of the process that launched it. On a machine that configures credentials that way, that
+    /// is the credentials — and the script does not need to name a blocked namespace to get
+    /// there. <c>CurrentDirectory</c> is here as the PROPERTY case: the blocked-member check
+    /// looked at methods only, so a property could not have been listed even if someone had
+    /// thought to list it.
+    /// </summary>
+    [Theory]
+    [InlineData("var _ = System.Environment.GetEnvironmentVariable(\"PATH\");")]
+    [InlineData("var _ = System.Environment.GetEnvironmentVariables();")]
+    [InlineData("var _ = System.Environment.CurrentDirectory;")]
+    [InlineData("var _ = System.AppContext.BaseDirectory;")]
+    public async Task Rejects_ReadingTheHostEnvironment(string body)
+    {
+        AssertRejectedBySandbox(await NewScripting().CompileIndicatorAsync(Wrap(body)),
+            "a read of the host environment");
+    }
+
+    /// <summary>
+    /// In the worker, stdout IS the IPC pipe. A script's <c>Console.WriteLine</c> writes text
+    /// into the middle of the binary frame stream. The runtime half of this is
+    /// <c>WorkerDispatcher.IsolateConsole</c> — which is what actually makes it safe, and what
+    /// keeps a debug print reaching the log — but the compile-time refusal is what TELLS the
+    /// author, instead of silently swallowing their output.
+    /// </summary>
+    [Fact]
+    public async Task Rejects_ConsoleWrites()
+    {
+        ForceLoadTheAssembliesThatMakeThisReachable();
+        AssertRejectedBySandbox(
+            await NewScripting().CompileIndicatorAsync(Wrap("System.Console.WriteLine(\"hi\");")),
+            "a Console write");
+    }
+
+    /// <summary>
+    /// The reference set is built by scanning the assemblies the HOST has already loaded, so
+    /// whether these escapes could even be NAMED varied with the host's load order — in a bare
+    /// test process neither Microsoft.CSharp nor System.Console is loaded, and both cases fail
+    /// with an ordinary compile error that would have hidden the hole. Loading them here is what
+    /// makes these tests test the dangerous configuration, which is the one a real desktop host
+    /// is in. (That the posture varies by host at all is filed separately.)
+    /// </summary>
+    private static void ForceLoadTheAssembliesThatMakeThisReachable()
+    {
+        _ = typeof(Microsoft.CSharp.RuntimeBinder.Binder).Name;
+        _ = Console.Out;
+    }
+
+    /// <summary>Wraps a Calculate body in the smallest legal indicator.</summary>
+    private static string Wrap(string body) => $$"""
+        public sealed class ProbeIndicator : ICustomIndicator
+        {
+            public string Id => "PROBE";
+            public string DisplayName => "probe";
+            public string[] ComponentNames => new[] { "x" };
+            public ComponentDisplayType[] DisplayTypes => new[] { ComponentDisplayType.Line };
+            public Dictionary<string, double> DefaultParameters => new();
+
+            public double[][] Calculate(System.ReadOnlySpan<Ohlcv> data, Dictionary<string, double> parameters)
+            {
+                {{body}}
+                return new[] { new double[data.Length] };
+            }
+        }
+        """;
+
+    /// <summary>
+    /// A blocked PROPERTY, which is the case the member check was structurally unable to make
+    /// until 2026-08-25: it looked at <c>IMethodSymbol</c> only, so the list could contain
+    /// nothing but methods and nobody would have noticed the omission. Holding an Assembly was
+    /// legal as long as you never touched it — this refuses it at the first token instead of
+    /// the second.
+    /// </summary>
+    [Fact]
+    public async Task Rejects_HoldingAnAssemblyObjectAtAll()
+    {
+        // NOT `var a = typeof(object).Assembly` — `var` is itself an identifier that resolves to
+        // System.Reflection.Assembly, so the namespace rule catches that spelling and the test
+        // would pass with the property rule deleted. Widening to `object` removes every symbol
+        // in the statement except the property itself. (Found by deleting the rule and watching
+        // the first draft stay green.)
+        AssertRejectedBySandbox(
+            await NewScripting().CompileIndicatorAsync(Wrap("object a = typeof(object).Assembly; var _ = a;")),
+            "a Type.Assembly read");
+    }
+
+    /// <summary>
+    /// The control for the two Theories above: the same wrapper, doing something legal, must
+    /// still get past the sandbox. Without this, a wrapper that failed to compile for its own
+    /// reasons would make every case above pass for the wrong reason.
+    /// </summary>
+    [Fact]
+    public async Task The_probe_wrapper_itself_is_not_refused()
+    {
+        ForceLoadTheAssembliesThatMakeThisReachable();
+        var result = await NewScripting().CompileIndicatorAsync(
+            Wrap("double s = 0; for (int i = 0; i < data.Length; i++) s += data[i].Close;"));
+
+        Assert.DoesNotContain(result.Errors ?? Array.Empty<string>(), IsSandboxOrigin);
+    }
 }

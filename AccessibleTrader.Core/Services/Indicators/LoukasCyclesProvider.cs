@@ -327,7 +327,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             int  dcMaxBars   = GetInt(parameters, "DcMaxBars", 90);
             int  swingLookback = GetInt(parameters, "SwingLookback", 10);
             int  icDcCount   = GetInt(parameters, "IcDcCount", 3);
-            bool enableFy    = GetBool(parameters, "EnableFourYearCycle", false) && IsBtcSymbol(parameters);
+            bool enableFy    = IndicatorParams.GetBool(parameters, "EnableFourYearCycle", false) && IsBtcSymbol(parameters);
 
             // Clamp to safe ranges so a bad parameter never crashes the calc.
             if (dcMinBars < 1) dcMinBars = 1;
@@ -521,7 +521,7 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             int  dcMinBars = GetInt(parameters, "DcMinBars", 35);
             int  dcMaxBars = GetInt(parameters, "DcMaxBars", 90);
-            bool enableFy  = GetBool(parameters, "EnableFourYearCycle", false);
+            bool enableFy  = IndicatorParams.GetBool(parameters, "EnableFourYearCycle", false);
 
             double day     = GetVal(results, CompDcDayCount,  index);
             double dcOfIc  = GetVal(results, CompIcDcCount,   index);
@@ -629,13 +629,6 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         private static int GetInt(Dictionary<string, object> p, string k, int def) =>
             p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
-
-        private static bool GetBool(Dictionary<string, object> p, string k, bool def)
-        {
-            if (!p.TryGetValue(k, out var v) || v == null) return def;
-            if (v is bool b) return b;
-            return Convert.ToBoolean(v);
-        }
 
         /// <summary>
         /// The Four-Year Cycle anchors are Bitcoin halving dates — on any other

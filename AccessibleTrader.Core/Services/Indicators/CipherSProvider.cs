@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -219,7 +220,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // alpha (0.25-0.4) while chop gets a faster alpha (0.55-0.7). This
             // tracks fast sentiment pivots in bursty markets without introducing
             // flicker in orderly trends.
-            bool adaptive = GetBool(parameters, "AdaptiveSmoothing", false);
+            bool adaptive = IndicatorParams.GetBool(parameters, "AdaptiveSmoothing", false);
             const int varWin = 10;
             double prevSmooth = double.NaN;
 
@@ -580,14 +581,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (v is int i)    return i;
                 if (int.TryParse(v?.ToString(), out int parsed)) return parsed;
             }
-            return def;
-        }
-
-        private static bool GetBool(Dictionary<string, object> p, string key, bool def)
-        {
-            if (!p.TryGetValue(key, out var v)) return def;
-            if (v is bool b)   return b;
-            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
             return def;
         }
 

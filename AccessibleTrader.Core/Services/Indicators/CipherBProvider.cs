@@ -471,7 +471,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // (negative polarity AND depth > threshold) means the higher-TF regime
             // is bearish, so a blue dot fired in that context is almost always a
             // counter-trend trap. Same logic inverted for red dots.
-            bool   useAnchorSuppression = GetBool(parameters, "UseAnchorSuppression", true);
+            bool   useAnchorSuppression = IndicatorParams.GetBool(parameters, "UseAnchorSuppression", true);
             double anchorSuppressDepth  = GetDbl(parameters, "AnchorSuppressDepth", 40.0);
 
             bool adaptive = string.Equals(thresholdMode, "Percentile", StringComparison.OrdinalIgnoreCase);
@@ -492,7 +492,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             //   4h–12h   : intraday-slow  (ADX 14, ATR 0.15, MF 40, pivot 3, conv 0.75)
             //   12h–3d   : daily          (ADX 18, ATR 0.20, MF 60, pivot 3, conv 0.85) — base
             //   >  3d    : weekly+        (ADX 20, ATR 0.25, MF 60, pivot 3, conv 0.90)
-            bool tfAware = GetBool(parameters, "TfAware", true);
+            bool tfAware = IndicatorParams.GetBool(parameters, "TfAware", true);
             int  tfBucket = 3;  // 0=ifast, 1=intraday, 2=islow, 3=daily, 4=weekly+
             int  intervalMin = 1440;
             if (tfAware && n >= 10)
@@ -1035,7 +1035,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Power users who want the pure Market-Cipher-B pivot-stamped dot for chart
             // review only can set DivergenceConfirmLag=false, accepting that any strategy
             // reading those markers in backtest is then look-ahead-biased.
-            bool confirmLag = GetBool(parameters, "DivergenceConfirmLag", true);
+            bool confirmLag = IndicatorParams.GetBool(parameters, "DivergenceConfirmLag", true);
             if (confirmLag && pivotBars > 0)
             {
                 bullDiv = ShiftMarkersForward(bullDiv, pivotBars, n);
@@ -1264,7 +1264,6 @@ namespace AccessibleTrader.Core.Services.Indicators
         private static int    GetInt(Dictionary<string, object> p, string k, int    def) => p.TryGetValue(k, out var v) ? (int)Convert.ToDouble(v) : def;
         private static double GetDbl(Dictionary<string, object> p, string k, double def) => p.TryGetValue(k, out var v) ? Convert.ToDouble(v) : def;
         private static string GetStr(Dictionary<string, object> p, string k, string def) => p.TryGetValue(k, out var v) && v is string s ? s : def;
-        private static bool   GetBool(Dictionary<string, object> p, string k, bool   def) => p.TryGetValue(k, out var v) ? Convert.ToBoolean(v) : def;
 
         /// <summary>
         /// Moves sparse markers from the pivot bar to the bar the pivot could first be confirmed.

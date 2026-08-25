@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using AccessibleTrader.Sdk.Indicators;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -212,7 +213,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             double volMult     = GetDbl(parameters, "VolumeMultiplier", 1.2);
             double breakPctFixed = GetDbl(parameters, "BreakThreshold", 0.2) / 100.0; // % → ratio
             bool   autoScale   = GetInt(parameters, "AutoScale",        1) != 0;
-            bool   adaptiveBreak = GetBool(parameters, "AdaptiveBreak", true);
+            bool   adaptiveBreak = IndicatorParams.GetBool(parameters, "AdaptiveBreak", true);
             int    atrPeriod   = Math.Max(2, GetInt(parameters, "AtrPeriod", 14));
 
             // Adaptive break uses ATR/close so the threshold adjusts to realized volatility.
@@ -549,14 +550,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                 if (v is double d) return (int)d;
                 if (int.TryParse(v?.ToString(), out int parsed)) return parsed;
             }
-            return def;
-        }
-
-        private static bool GetBool(Dictionary<string, object> p, string k, bool def)
-        {
-            if (!p.TryGetValue(k, out var v)) return def;
-            if (v is bool b)   return b;
-            if (v is string s) return bool.TryParse(s, out var r) ? r : def;
             return def;
         }
 

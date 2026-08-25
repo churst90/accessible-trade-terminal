@@ -132,6 +132,17 @@ namespace AccessibleTrader.Core.Services
         }
 
         // ── Pure computations ────────────────────────────────────────────────
+        //
+        // Every one of these must return exactly what the equivalent
+        // Sdk.Indicators.IndicatorMath helper puts in its LAST slot for the same closes —
+        // that is the library the chart's own providers draw from, and a strategy whose
+        // "RSI" is not the RSI on screen is a bug the user cannot see until it costs them a
+        // trade. StrategyIndicatorCacheParityTests pins each pair against a random series.
+        //
+        // They are re-implemented here rather than delegating because these are scalar,
+        // last-bar-only questions asked once per bar per strategy: IndicatorMath allocates a
+        // closes array plus a full result array per call, which in a 5,000-bar backtest is
+        // 5,000 of each. The parity test, not shared code, is what keeps them honest.
 
         private static double ComputeSma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
@@ -142,36 +153,75 @@ namespace AccessibleTrader.Core.Services
             return sum / period;
         }
 
+        /// <summary>
+        /// EMA seeded from the FIRST close, matching <c>IndicatorMath.Ema</c> — the seed every
+        /// chart series built on that library uses (Cipher B/C/SR, Ichimoku, Spider Lines, and
+        /// anything a plugin author writes against the documented helper).
+        ///
+        /// <para>
+        /// This used to seed with the SMA of the first <c>period</c> closes, written as the dead
+        /// arithmetic <c>data[count - count + i]</c>. The seed's weight decays by
+        /// <c>(1 - k)</c> per bar, so on a long series the two agree to many decimals — but
+        /// "agrees on long series" is not a contract, and short warmup windows are exactly where
+        /// a strategy's first live signal is decided.
+        /// </para>
+        /// </summary>
         private static double ComputeEma(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
             int count = data.Count;
             if (count < period) return double.NaN;
-            double k = 2.0 / (period + 1);
-            // Seed with SMA of the first `period` closes
-            double ema = 0;
-            for (int i = 0; i < period; i++) ema += data[count - count + i].Close;
-            ema /= period;
-            for (int i = period; i < count; i++)
-                ema = data[i].Close * k + ema * (1 - k);
+            double k = 2.0 / (period + 1.0);
+            double ema = data[0].Close;
+            for (int i = 1; i < count; i++)
+                ema = data[i].Close * k + ema * (1.0 - k);
             return ema;
         }
 
+        /// <summary>
+        /// Wilder's RSI (RMA-smoothed), matching <c>IndicatorMath.Rsi</c> and
+        /// <c>PulseProvider.ComputeRsi</c>.
+        ///
+        /// <para>
+        /// This was a Cutler RSI — a plain arithmetic mean of the gains and losses over the last
+        /// <c>period</c> changes with no smoothing — while the interface it implements has always
+        /// documented "Wilder's RSI over the last period bars" and every RSI the user can see on
+        /// the chart is Wilder. The two do not converge with more data: on a 14-bar setting they
+        /// routinely sit several points apart, which is the difference between a 30-threshold
+        /// entry firing and not firing. A strategy backtested against the line it was reading and
+        /// then run live got a different number from the same name.
+        /// </para>
+        ///
+        /// <para>
+        /// Wilder is path-dependent, so this walks the whole series rather than a trailing
+        /// window. That is the same O(n) the EMA above already costs.
+        /// </para>
+        /// </summary>
         private static double ComputeRsi(IReadOnlyList<Sdk.Models.Ohlcv> data, int period)
         {
             int count = data.Count;
             if (count < period + 1) return double.NaN;
-            double gain = 0, loss = 0;
-            for (int i = count - period; i < count; i++)
+
+            double avgGain = 0, avgLoss = 0;
+            for (int i = 1; i <= period; i++)
             {
-                double change = data[i].Close - data[i - 1].Close;
-                if (change > 0) gain += change;
-                else loss -= change;
+                double ch = data[i].Close - data[i - 1].Close;
+                if (ch > 0) avgGain += ch; else avgLoss -= ch;
             }
-            double avgGain = gain / period;
-            double avgLoss = loss / period;
-            if (avgLoss == 0) return 100.0;
-            double rs = avgGain / avgLoss;
-            return 100.0 - 100.0 / (1.0 + rs);
+            avgGain /= period;
+            avgLoss /= period;
+
+            for (int i = period + 1; i < count; i++)
+            {
+                double ch = data[i].Close - data[i - 1].Close;
+                double gain = ch > 0 ? ch : 0;
+                double loss = ch < 0 ? -ch : 0;
+                avgGain = (avgGain * (period - 1) + gain) / period;
+                avgLoss = (avgLoss * (period - 1) + loss) / period;
+            }
+
+            // 1e-10, not == 0: IndicatorMath uses that floor, and an exact-zero test disagrees
+            // with it on a series whose losses are merely tiny.
+            return avgLoss < 1e-10 ? 100.0 : 100.0 - 100.0 / (1.0 + avgGain / avgLoss);
         }
 
         private static (double Middle, double Upper, double Lower) ComputeBollingerBands(
