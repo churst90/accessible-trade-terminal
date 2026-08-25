@@ -27,9 +27,9 @@ namespace AccessibleTrader.Core.Services
         void Stop();
         void Silence();
 
-        void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
-        void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
-        
+        // NO SonifySeries/SonifyComponent here either — same reason as on IAudioFeedbackRouter.
+        // SyncNavigationSlots is the one writer of voice slot 0.
+
         AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null);
 
         /// <summary>Sets the master output gain applied to all audio voices. Range 0.0–1.0.</summary>

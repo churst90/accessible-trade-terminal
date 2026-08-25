@@ -2,13 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AccessibleTrader.Sdk.Collections;
-using AccessibleTrader.Sdk.Models;
-using AccessibleTrader.Core.Services;
 using Xunit;
 
 namespace AccessibleTrader.Tests
 {
-    public class DataCacheTests
+    /// <summary>
+    /// The <see cref="CircularBuffer{T}"/> eviction/wrap/prepend contract.
+    ///
+    /// <para>
+    /// This file was DataCacheTests and also covered <c>DataCacheService</c>, the buffer's only
+    /// consumer. That service was deleted on 2026-08-25 — it had no callers at all, and its
+    /// <c>Add</c> corrupted its own lookup index on every eviction (surviving items all shift
+    /// down one, but only the new entry's index was rewritten) while <c>AddRange</c> rebuilt
+    /// the index correctly. The buffer itself is still used, so its tests stay.
+    /// </para>
+    /// </summary>
+    public class CircularBufferTests
     {
         [Fact]
         public void CircularBuffer_ShouldEvictOldItems()
@@ -58,34 +67,5 @@ namespace AccessibleTrader.Tests
             Assert.Equal(4, buffer[3]);
         }
 
-        [Fact]
-        public void DataCacheService_ShouldUpdateExistingTick()
-        {
-            var cache = new DataCacheService();
-            var date = DateTime.UtcNow;
-            var tick1 = new Ohlcv { Date = date, Close = 100 };
-            var tick2 = new Ohlcv { Date = date, Close = 105 };
-
-            cache.Add(tick1);
-            cache.Add(tick2);
-
-            Assert.Equal(1, cache.Count);
-            Assert.Equal(105, (double)cache.Data[0].Close);
-        }
-
-        [Fact]
-        public void DataCacheService_ShouldMaintainCapacity()
-        {
-            var cache = new DataCacheService();
-            for (int i = 0; i < 6000; i++)
-            {
-                cache.Add(new Ohlcv { Date = DateTime.UtcNow.AddMinutes(i), Close = i });
-            }
-
-            Assert.Equal(5000, cache.Count);
-        }
     }
 }
-
-
-

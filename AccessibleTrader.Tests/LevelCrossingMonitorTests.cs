@@ -21,8 +21,6 @@ namespace AccessibleTrader.Tests
             public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
 
             public void SyncNavigationSlots(WorkspaceState state) { }
-            public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double durationSeconds = 0.2, double delayMilliseconds = 0) { }
-            public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double durationSeconds = 0.2, double delayMilliseconds = 0) { }
             public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1) { }
             public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1) { }
             public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double? overrideValue = null)

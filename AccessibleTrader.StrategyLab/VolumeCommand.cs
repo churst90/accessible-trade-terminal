@@ -49,6 +49,7 @@ public static class VolumeCommand
 
     public static int Run(string snapshotDir, string tf, int permutations)
     {
+        LabStats.ReportPermutationCap("volume", permutations, PermutationCap);
         var obs = new List<Obs>();
         var covered = new List<string>();
 
@@ -294,11 +295,18 @@ public static class VolumeCommand
     }
 
     /// <summary>
+    /// Ceiling on <c>--permutations</c> for this command. Reported to the operator by
+    /// <see cref="LabStats.ReportPermutationCap"/> at the top of the run, so a request for
+    /// more than this is visibly not what was executed.
+    /// </summary>
+    private const int PermutationCap = 4_000;
+
+    /// <summary>
     /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 8181, cap: 4_000);
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 8181, cap: PermutationCap);
 }

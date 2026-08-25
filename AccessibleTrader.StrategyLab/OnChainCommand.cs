@@ -65,6 +65,7 @@ public static class OnChainCommand
         var obs = new List<Obs>();
         var panels = new List<OnChainRobustness.Panel>();
         Console.WriteLine();
+        LabStats.ReportPermutationCap("onchain", permutations, PermutationCap);
         Console.WriteLine($"===== ON-CHAIN VALUE METRICS — forward horizon {horizon} bars =====");
         Console.WriteLine($"Metrics lagged {MetricLagDays}d (a day's on-chain aggregate is not knowable until it closes).");
         Console.WriteLine();
@@ -332,11 +333,18 @@ public static class OnChainCommand
     }
 
     /// <summary>
+    /// Ceiling on <c>--permutations</c> for this command. Reported to the operator by
+    /// <see cref="LabStats.ReportPermutationCap"/> at the top of the run, so a request for
+    /// more than this is visibly not what was executed.
+    /// </summary>
+    private const int PermutationCap = 4_000;
+
+    /// <summary>
     /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 6161, cap: 4_000);
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 6161, cap: PermutationCap);
 }

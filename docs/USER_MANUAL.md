@@ -2150,11 +2150,18 @@ create one, so you always know which alerts are watching while you're away and
 which are not. You can also enable **browser notifications** (Settings > Alerts >
 Browser notifications): your alerts then arrive as system notifications on that
 device — spoken by your screen reader like any other notification — even with
-the terminal tab closed, as long as the browser is running. While you are
-actively signed in, your live session handles everything as usual; the server
-takes over the moment your last tab disconnects. Turn server-side evaluation
-off with the "alerts.serverSide" setting if you'd rather alerts only run while
-you are present.
+the terminal tab closed, as long as the browser is running. Turn server-side
+evaluation off with the "alerts.serverSide" setting if you'd rather alerts only
+run while you are present.
+
+**A limitation worth knowing while you are signed in.** The server steps back
+while you have the terminal open, on the assumption that your live session is
+watching — but your live session only evaluates alerts for symbols you
+currently have on screen. So a price alert on a symbol whose tab you closed is
+watched by the server once you sign out, and by nobody while you are signed in
+with other charts open. Until that is fixed, the reliable pattern is to keep a
+tab open for anything you are actively waiting on, or to sign out and let the
+server carry the watch.
 And if you enable "send setups to alerts" in Settings, confirmed and armed strategy
 setups flow through the same delivery — your Discord channel hears "Long setup —
 gold" with the trade plan, even when you're away from the terminal.

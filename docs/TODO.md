@@ -55,6 +55,17 @@ run through the UNSANDBOXED launcher first, so a broken fixture cannot pass for 
 Suite **4831 green** (4826 by `--list-tests`, which is the number the doc-drift guard reads);
 thirteen sabotage runs, every guard proven red.
 
+**Small-fixes batch, 2026-08-25 (seventeen items closed).** The genuinely-small end of the
+untagged backlog, done as one pass: the two pan formulas, four case-sensitivity defects
+(paper-ledger dictionaries, `ChartIdentity`, the `"Ping"` envelope name, `NoiseType`), the
+`AudioEngine` NaN paths, `SpeechFormatter`'s stale price-component fallback, the `.tab-btn`
+selector that never matched, the silent permutation cap, the WinUI `Handled = true`, the hosted
+-alerts overpromise in the manual, and four deletions (`EmaFillProvider`, `DataCacheService`,
+`BackfillManager`, the six dead sonification exports). Suite **4829 green** (4824 by
+`--list-tests`) — the drop is the deleted classes' own tests plus two `ComponentSpeechKeyTests`
+theory cases that had been running against the `EmaFillProvider` alias. Seven sabotage runs, every
+new guard proven red; one deliberately stays green under sabotage and the entry says why.
+
 **The gate got a wall-clock budget**, because it now runs once per armed script at app start and a
 strategy that is quadratic in the bars it was handed would have turned that into a startup hang —
 a worse bug than the one being caught. Running out is a NOTE saying what was not established:
@@ -2881,11 +2892,12 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   0.8 with `noiseAmount 0.3` + `subSawMix 0.3` peak at **9.78× full scale**, not "routinely exceeds 4.0",
   and chart-scope playback can drive 64 voices. TODO:2956 (render a full Chart-scope bar and assert
   peak ≤ 1.0) is the test that would have caught it. CONFIRMED.
-- [ ] **(amends TODO:2109)** Verified the two pan formulas: `AudioConstants.CalculatePan:48` is
+- [x] **(amends TODO:2109)** Verified the two pan formulas: `AudioConstants.CalculatePan:48` is
   `2k/(N−1)−1`; `LevelCrossingMonitor.ComputePan:281-283` is `2(k+0.5)/N−1`; and the
   `AudioConstants.cs:14-18` doc comment **describes the second while the file implements the first**.
   Those are the only two in the tree. CONFIRMED.
 
+  **CLOSED 2026-08-25:** fixed with the item it amends — see above.
 ---
 
 ### Health audit — chart rendering, drawing tools, coordinate math, theming (grade C+)
@@ -5220,8 +5232,11 @@ impossible for any test to notice a focus bug.
   physical press through the deduped path — so letter keys can fire twice (hide then show = silent
   no-op). `GlobalInputService.NormalizeKey` already has the right mapping table. The iOS/MacCatalyst
   `KeyboardPageHandler.cs:79` has the same un-deduped direct dispatch.
-- [ ] **MAUI: `Platforms/Windows/App.xaml.cs:12` marks every WinUI unhandled exception
+- [x] **MAUI: `Platforms/Windows/App.xaml.cs:12` marks every WinUI unhandled exception
   `Handled = true`** and continues in an undefined state.
+  **CLOSED 2026-08-25:** `e.Handled = true` removed; the crash log it writes stays, so the exception is
+  still diagnosable. Continuing in an undefined state is worse than crashing for a user who cannot
+  see that the UI has stopped repainting and goes on trading against it.
 - [ ] **MAUI: `TrayIconService.cs` is the highest compile risk in the tree.** Behind `#if TRAY_ICON`,
   which the csproj turns **on by default** for the Windows TFM, and the only file depending on
   `H.NotifyIcon.Maui` 2.3.0 API shapes that changed between 2.0 and 2.1. Its own header calls it
@@ -5238,8 +5253,11 @@ impossible for any test to notice a focus bug.
 - [ ] **Three independent modal-open counters** (`keyboard.js`, `CommandDispatcher`,
   `MainPage.xaml.cs`) all driven from the same event, all drifting independently if any modal
   double-publishes — and nothing guards against a second open event while already visible.
-- [ ] **`app.css:760`'s touch-target bump targets `.tab-btn`; `TabBar` emits `tab-button`.** The
+- [x] **`app.css:760`'s touch-target bump targets `.tab-btn`; `TabBar` emits `tab-button`.** The
   44 px minimum for workspace tabs has never applied.
+  **CLOSED 2026-08-25:** selector corrected to `.tab-button` in BOTH copies of `app.css` (BlazorClient and
+  WebHost — the two-copies item below is still open, so a one-file fix would have shipped the 44px
+  minimum to one head only).
 - [ ] **`role="dialog"` markup is copy-pasted 25 times.** `ModalBase` captures the *event* contract
   but not the *markup* contract, which is why the markup drifted into five different `aria-selected`
   encodings, one missing render, and one dialog that escapes the scanner. A `<ModalShell>` render
@@ -5944,10 +5962,15 @@ after the `StableSeed` sweep suggested there would be more. There was.
   one is SMA-seeded over the first `period` bars, which is the more standard construction and gives
   different values for the whole early series. One of the two is wrong for its context and nothing
   says which.
-- [ ] **The permutation cap is silent.** Four commands clamp `--permutations` to 4,000 or 20,000
+- [x] **The permutation cap is silent.** Four commands clamp `--permutations` to 4,000 or 20,000
   and print nothing about it, so asking for 50,000 quietly gives you 4,000. `LabStats.PermutationP`
   now returns `runsUsed` through an overload precisely so a caller can report what was actually
   done; no command uses it yet.
+  **CLOSED 2026-08-25:** `LabStats.ReportPermutationCap` prints, once per command run, what was asked for,
+  what the cap is, and the p-value floor that cap implies. Wired into all four commands
+  (`events`/`volume`/`onchain` at 4,000; `cycle` at 20,000), with the cap now a named constant in
+  each command rather than a literal buried in the private wrapper, so the notice and the clamp
+  cannot disagree.
 - [ ] **Three near-identical JSON-backed list stores.** `JsonScreenerLibrary`,
   `JsonWatchlistLibrary` and `JsonStrategyLibrary` share the same constructor, `GetById`, `Upsert`,
   `Save` and `Reload` shape over different item types. A generic base would remove all three; not
@@ -5955,7 +5978,7 @@ after the `StableSeed` sweep suggested there would be more. There was.
 
 ### Correctness / duplication debt found by this audit
 
-- [ ] **NOT IN THE AUDIT — `EmaFillProvider` is an empty subclass of `MACloudProvider` kept as a name
+- [x] **NOT IN THE AUDIT — `EmaFillProvider` is an empty subclass of `MACloudProvider` kept as a name
   alias, and registering both would have crashed the app at startup.** Found 2026-08-21:
   `SignalCatalog.Refresh` built its ID index with `ToDictionary`, which throws on a duplicate key,
   and both classes answer to `MA_CLOUD.MA Cloud`. Only `MACloudProvider` is registered today, so
@@ -5963,6 +5986,14 @@ after the `StableSeed` sweep suggested there would be more. There was.
   throwing — a shadowed leaf is a better failure than a dead app — but the alias itself is the real
   debt: delete it and fix the three test references, or keep it and document why. Anything that
   enumerates providers reflectively (`IndicatorCausalityTests` does) has to know to skip it.
+  **CLOSED 2026-08-25:** deleted, and the file renamed `EmaFillProvider.cs` → `MACloudProvider.cs` to match
+  the class it actually holds. Three `CloudSonificationTests` retargeted at `MACloudProvider`
+  (they were the only coverage of MA_CLOUD's shipped cloud-fill defaults, so retargeting beat
+  deleting). The alias-skip filter in `IndicatorProviderFixture` was REMOVED rather than kept: with
+  its one target gone it would only have hidden a future provider that legitimately derives from
+  another. Note what the census missed — `ComponentSpeechKeyTests` did NOT use that fixture, so it
+  had been running its theory against the alias all along; deleting the class removed two theory
+  cases (and the DeDe variant's).
 - [ ] **`VolumeProfileLevelProvider:61` silently falls back to a known future-leaking profile.**
   `bins ??= series.ProfileBins` — whenever `_backtestCache` is null or inactive (the ctor parameter
   is optional and defaults to null; `ReplayProfiles` can be false), the backtest reads the
@@ -6012,7 +6043,7 @@ after the `StableSeed` sweep suggested there would be more. There was.
   three with three different boundary sets; and `GetInt`/`GetDbl`/`GetBool` are re-declared in ~20
   provider files with genuinely different behaviour (some `Convert.ToDouble`, which throws on a
   non-numeric string; some `TryParse`; only one null-safe).
-- [ ] **`SpeechFormatter.GetPointValue`'s fallback still uses pre-rename, case-sensitive names.**
+- [x] **`SpeechFormatter.GetPointValue`'s fallback still uses pre-rename, case-sensitive names.**
   `c.Contains("Body")`, `"Upper"`, `"Lower"`, `"Open"` — against the current machine ids
   (`upper_wick`, `lower_wick`, `body`, `line`) every one of those is false, so it returns
   `double.NaN`. This is exactly the test commit `35928149` removed from the sonifier, left in place
@@ -6020,15 +6051,32 @@ after the `StableSeed` sweep suggested there would be more. There was.
   primary lookup succeeds — but a dropped mapping or a series built outside the reducer path and
   the wick reads "no data" with nothing failing. `ChartMath.GetComponentValue` is the corrected
   version of the same block; call it.
+  **CLOSED 2026-08-25:** the corrected mapping is extracted as `ChartMath.PriceComponentFallback` and called
+  from both sites, so there is one copy rather than a corrected one and a stale one. It matches the
+  machine ids AND the legacy display names, case-insensitively. One deliberate difference at the
+  call sites: an unrecognised name on the price series renders as the close (what the renderer
+  already did — a component has to be drawn somewhere) but SPEAKS as NaN, because saying a number
+  that was never the component's value is worse than "no data".
 - [ ] **Signal polarity is classified twice and they disagree.** `NavigationSonifier.IsPositiveSignal`
   has a `PitchMapping.Direction` branch that `NavigationFeedbackManager` lacks, so for such a
   component the audio cluster order and the spoken signal order can flip relative to each other —
   while both comments claim they match. Separately, both use
   `Contains("Up", OrdinalIgnoreCase)`, which matches **"Support"**.
-- [ ] **Two pan formulas.** `AudioConstants.CalculatePan` computes `k/(N-1)`;
+- [x] **Two pan formulas.** `AudioConstants.CalculatePan` computes `k/(N-1)`;
   `LevelCrossingMonitor.ComputePan` computes `(k+0.5)/N`. The `AudioConstants` doc comment
   describes the *second* one while implementing the first, and it is load-bearing documentation for
   the audio/visual lockstep claim.
+  **CLOSED 2026-08-25:** the renderer settles it — `StandardRenderers` draws bar `i` at
+  `(i * barWidth) + halfBar`, so a bar's visual fraction is `(i + 0.5) / ViewportLength`, which is
+  what `LevelCrossingMonitor` computed and what `AudioConstants`' doc comment described.
+  `CalculatePan` was the wrong one and now implements the centre-of-slot form;
+  `LevelCrossingMonitor.ComputePan` delegates to it rather than agreeing with it, so there is no
+  second formula left to drift. Two pinned tests changed with it — they asserted ±1.0 at the first
+  and last slots, which is exactly the edge-to-edge behaviour that disagreed with the pixels.
+  Guards: `CalculatePan_MatchesTheRenderersBarCentre` (computed from the renderer's own arithmetic,
+  not from the fixed formula) and `LevelCrossingMonitor_PansIdenticallyToTheNavigationPath`. The
+  first was proven red against the restored formula; the second stays green there BY DESIGN — it
+  guards re-divergence, not the choice of formula, and only the first can catch a wrong one.
 - [ ] **Order-failure classification exists three times in three non-equivalent forms.**
   `GeneralOrderService.IsErrorSentinel` (prefix match), `OrderResult.DescribeFailure` (explicit
   switch), and `TradingDashboardModal:1195`/`:1299`
@@ -6052,11 +6100,15 @@ after the `StableSeed` sweep suggested there would be more. There was.
   throwing subscriber aborts the fill loop mid-way — after `_open.Remove` and `ApplyFill` have
   already mutated cash and positions, before `Persist()` — leaving disk disagreeing with memory,
   and takes the paper broker's price feed down for the session.
-- [ ] **`_positions`, `_collateral` and `_leverage` use the default case-sensitive comparer** while
+- [x] **`_positions`, `_collateral` and `_leverage` use the default case-sensitive comparer** while
   `_lastPrice` and `_exposureIdentity` use `OrdinalIgnoreCase`. Latent today because writers
   uppercase first, but `Load()` restores whatever keys are in the JSON, and a split position would
   give a short whose collateral and quantity live under different keys — one that can never
   liquidate.
+  **CLOSED 2026-08-25:** all three now use `StringComparer.OrdinalIgnoreCase`, matching `_lastPrice`,
+  `_exposureIdentity` and `_ledgerAlias`. `Load()` repopulates by indexer into the same instances,
+  so the comparer survives a restore — which was the path that made this reachable. No
+  case-sensitive `Dictionary<string, …>` is left in the file.
 - [ ] **Stops and take-profits fill at the trigger even when the bar gapped through it.**
   Deliberately pinned by a test with the comment "v1 simplification", but it is a systematic
   optimistic bias in the one direction that matters, on the 4h and 1d timeframes the demo exposes.
@@ -6068,32 +6120,62 @@ after the `StableSeed` sweep suggested there would be more. There was.
   of 1 and a BTC/USD short of 1 collapse to a single 0 BTC row, which `PortfolioValuationService`
   then filters out — both positions vanish from the portfolio total while `GetPositionsAsync` still
   lists them. Two account views that disagree.
-- [ ] **`ChartIdentity` equality is case-sensitive** while provider resolution everywhere else is
+- [x] **`ChartIdentity` equality is case-sensitive** while provider resolution everywhere else is
   `OrdinalIgnoreCase` (`MarketOrchestrator.EnsureContains` was explicitly made insensitive because
   "the Economic list says 'Fred' while the plugin calls itself 'FRED'"). One casing mismatch gives
   two `ChartFeed`s for one chart, makes `MarketFeeds.IsLive` lie, and defeats the focused-tab guard
   in `BackgroundTabFeedService.Reconcile` — producing exactly the double-feed its comment exists to
   prevent.
-- [ ] **`DataCacheService.Add` corrupts its own lookup index on eviction** (every surviving item's
+  **CLOSED 2026-08-25:** `Equals`/`GetHashCode` hand-written over all four parts with
+  `StringComparison.OrdinalIgnoreCase`, matching how provider and market names resolve everywhere
+  else.
+- [x] **`DataCacheService.Add` corrupts its own lookup index on eviction** (every surviving item's
   index shifts, only the new entry is rewritten; `AddRange` calls `RebuildLookup`, `Add` does not).
   Registered as a Singleton in both hosts with **no consumers at all** — latent corruption in dead
   code. Delete it with `BackfillManager`.
-- [ ] **Dead second navigation path still exported.** `IAudioFeedbackRouter.SonifySeries` /
+  **CLOSED 2026-08-25:** deleted, with `BackfillManager`, along with both DI registrations, the
+  `IDataCacheService` lifetime assertion in `WebHostServiceLifetimeTests`, and the two tests that
+  covered it. `DataCacheTests` kept its three `CircularBuffer` tests and was renamed
+  `CircularBufferTests` — the buffer is still used, the service was not.
+- [x] **Dead second navigation path still exported.** `IAudioFeedbackRouter.SonifySeries` /
   `SonifyComponent` / `SonifyProfile` / `SonifyHeatmap` and `ISonificationManager.SonifySeries` /
   `SonifyComponent` have zero production call sites and all write voice slot 0 — the invariant the
   single-path redesign exists to protect. Delete them, and add a test asserting only
   `SyncNavigationSlots` emits `SetVoice(0, …)`.
-- [ ] **`EnvelopeType` and `NoiseType` are free-text strings compared inconsistently.**
+  **CLOSED 2026-08-25:** all six exports deleted — four on `IAudioFeedbackRouter`, two on
+  `ISonificationManager` — and with them the two `INavigationSonifier` methods they were the only
+  callers of (`SonifySeries`, `SonifyComponent`). `SonifyProfile`/`SonifyHeatmap` stay: they write
+  slot 0 too, but only because `SyncNavigationSlots` delegates to them for the two distribution
+  display types, so the single-owner rule holds through them. New `NavigationSlotZeroOwnershipTests`
+  has both halves of the guard: a reflection test that no audio facade exports a `Sonify*` method,
+  and a source scan asserting every `SetVoice(0, …)` / `SetVoice(SLOT_NAV_START, …)` in Core sits
+  in one of the five allowed methods. The scan carries a vacuity check (zero matches = the pattern
+  drifted, not a clean tree). Both proven red.
+- [x] **`EnvelopeType` and `NoiseType` are free-text strings compared inconsistently.**
   `"Ping"` is matched case-sensitively at `AudioSequencer:90`, `:256` and `AudioEngine:500` and
   case-insensitively at `AudioSequencer:246`. An imported patch with `"ping"` is treated as a marker
   for the NaN guard, as continuous for the voice, and gets duration 0 — a permanent drone on a
   playback slot that never decays. `ImportPatchJson` validates nothing.
-- [ ] **`AudioEngine` divides by zero for a Ping voice with `TotalDurationSamples == 0`**, putting
+  **CLOSED 2026-08-25:** canonicalised at the boundary rather than compared case-insensitively everywhere:
+  `AudioSequencer.IsPing` is now the single test in the sequencer, and `AudioEngine.SetVoice`
+  normalises the envelope to `"Ping"` and the noise colour to white/pink/brown before enqueueing.
+  That keeps the per-frame render loop's cheap ordinal `==` — matching case-insensitively 48,000
+  times a second across 128 voices to accommodate an imported patch's `"ping"` would be paying for
+  the fix in the hottest loop in the app. `NoiseType` had the same defect and is fixed with it: an
+  imported `"White"` silently rendered as pink.
+- [x] **`AudioEngine` divides by zero for a Ping voice with `TotalDurationSamples == 0`**, putting
   NaN into the PCM buffer. Reachable through `DecayMs = 0`, a registry patch with 0, or an imported
   patch's `DurationSeconds`. `SetVoice` should reject non-finite `freq`/`vol`/`pan` and clamp
   duration — "NaN must be silent" is currently enforced only upstream in `CreateAudioPoint`, not at
   the engine boundary.
 
+  **CLOSED 2026-08-25:** `SetVoice` now refuses non-finite `freq`/`vol`/`pan` — by STOPPING the slot, not by
+  dropping the command, since a silently-dropped command leaves whatever was already on the slot
+  droning — and floors a Ping's duration at one sample. Guards in `AudioEngineSlotAndPanTests`:
+  `ZeroLengthPing_ProducesNoNaN`, `ZeroLengthPing_IsCaseInsensitive` (the spelling an imported patch
+  actually carries) and `NonFiniteVoiceParameters_AreRefusedAtTheEngineBoundary` (NaN freq, NaN vol,
+  NaN pan, +Inf freq). All three proven red. Closes TODO's "SetVoice(durationSec: 0, envelope:
+  \"Ping\") produces no NaN" test item too.
 ### Documentation drift
 
 - [x] **FIXED 2026-08-21 — The doc-drift guard is RED on main right now.** `python3
@@ -6158,7 +6240,13 @@ after the `StableSeed` sweep suggested there would be more. There was.
   genuinely refuses, and `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1` is the logged opt-out. A
   wrong security comment is worse than none — someone could "restore" the fallback.
   `FINALIZATION_PLAN.md` §5 item 1 still lists the old behaviour as a to-fix item too.
-- [ ] **`USER_MANUAL.md:2023` overpromises hosted alerts** — see the background-alert item above.
+- [x] **`USER_MANUAL.md:2023` overpromises hosted alerts** — see the background-alert item above.
+  **CLOSED 2026-08-25:** the sentence claiming "your live session handles everything as usual" is gone,
+  replaced by a named limitation: the server steps back while you are signed in, but your live
+  session only evaluates alerts for symbols currently on screen, so an alert on a closed tab is
+  watched by nobody until you sign out. The manual now says which pattern is reliable. The
+  underlying defect is still open (the hosted-suppression item in the alerts audit) — this is the
+  documentation half only.
 - [x] **WRITTEN 2026-08-22 — No `[2.3.0]` section in CHANGES.md.** Carried from the 2026-08-20
   list. Written retrospectively from the 23 commits between `v2.2.0` and `v2.3.0` plus WHATSNEW
   and the verification doc, and labelled as retrospective so nobody mistakes it for a
@@ -6744,6 +6832,19 @@ they belong to this section even though the audit filed them elsewhere:
 
 None of this makes 12 seconds untrustworthy today; all of it will bite on a loaded CI runner.
 
+- [ ] **OBSERVED 2026-08-25 — `LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment`
+  fails intermittently, and only in the full suite.** Twice in five Release runs of the whole suite;
+  never once when the class is run alone (14/14) and never on a `--no-build` re-run of the same
+  binaries. Not related to the small-fixes batch it was found during — nothing in that batch touches
+  the sandbox, the worker, or environment handling. **Hypothesis, not established:** the test spawns
+  a real `ScriptWorker` process twice (unsandboxed, then under bwrap) and `OutOfProcessScriptHost`
+  enforces a 10 s start and 5 s calculate timeout; under 4,800 tests running in parallel on a loaded
+  machine a timeout returns the failure value, and the assertion that reads it —
+  `Assert.Equal(1.0, unsandboxed[0][0])`, the *control* half — then fails as if the sandbox had
+  leaked. Which of the two asserts actually failed was not captured, so confirm that first. If the
+  hypothesis holds the fix is a longer timeout for process-spawning tests, or a collection that
+  serialises them, NOT a retry — a retry here would hide a real sandbox regression.
+
 - [x] **FIXED 2026-08-23 — Four negative assertions gated on a fixed delay** — inherently racy in
   the false-green direction: `PreferencePersistenceTests:105` (1400 ms then "no write happened"),
   `GeneralOrderServiceTests:513-516` and `:535-540`. Note the asymmetry: the suite's own `WaitFor`
@@ -6869,11 +6970,16 @@ Ordered by value. Every one of these would have caught something above.
 - [ ] **Heikin-Ashi component-context speech** — HA on, a bar whose raw lower shadow is 19% and
   whose HA lower shadow is 0%, assert the wick speech says zero. `BarDetailContextTests` covers the
   detail key only.
-- [ ] **Only `SyncNavigationSlots` writes voice slot 0** (reflection or architecture test).
+- [x] **Only `SyncNavigationSlots` writes voice slot 0** (reflection or architecture test).
+  **CLOSED 2026-08-25:** written as `NavigationSlotZeroOwnershipTests` alongside the dead-export deletion —
+  see the "Dead second navigation path still exported" item for what it asserts and how it was
+  proven red.
 - [ ] **`PlayNote` never emits `SetVoice` for slots 26-31**; and a rendered-audio assertion that a
   staggered earcon has N distinct onsets.
 - [ ] **Render a full Chart-scope bar and assert peak ≤ 1.0** (output headroom).
-- [ ] **`SetVoice(durationSec: 0, envelope: "Ping")` produces no NaN** in the buffer.
+- [x] **`SetVoice(durationSec: 0, envelope: "Ping")` produces no NaN** in the buffer.
+  **CLOSED 2026-08-25:** written as `ZeroLengthPing_ProducesNoNaN`, plus a case-insensitive twin and a
+  non-finite-parameter test — see the `AudioEngine` divide-by-zero item.
 - [ ] **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
   directory. `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` exist; the
   paper account has no equivalent.
@@ -6909,9 +7015,12 @@ and deliberately not fixed, each with the reason.
   `alerts.json` moves. Commands are in [SERVER_SETUP.md](SERVER_SETUP.md); with more than one
   account there is no correct automatic answer, because the shared directory has no record of who
   wrote what.
-- [ ] **`BackfillManager` is dead code.** No callers, still registered in both hosts, still has
+- [x] **`BackfillManager` is dead code.** No callers, still registered in both hosts, still has
   passing tests. `OhlcvStore` supersedes it. Deleting a class plus its test file is a judgement
   call, not a cleanup.
+  **CLOSED 2026-08-25:** deleted with `DataCacheService` — see that item. Its five tests went with it, and
+  the doc comments in `OhlcvStore`, `DataService` and `IMultiTimeframeDataService` that referenced
+  either class were corrected rather than left pointing at nothing.
 - [ ] **The analytics cache key has no user or credential dimension.** Correct today — hosted keys
   are server-seeded and desktop is single-user — but if per-user API keys ever reach hosted, one
   user's paid Glassnode data would be served to another from the shared cache directory.

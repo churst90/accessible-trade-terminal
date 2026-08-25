@@ -248,10 +248,6 @@ public class FeedbackTypeCoverageTests
         public List<FeedbackType> Requested { get; } = new();
         public bool IsSonificationEnabled { get; set; } = true;
         public void PlayEarcon(FeedbackType type, ErrorSeverity severity = ErrorSeverity.Medium) => Requested.Add(type);
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f) { }
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f) { }
-        public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
-        public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
         public void Silence() { }
     }
 

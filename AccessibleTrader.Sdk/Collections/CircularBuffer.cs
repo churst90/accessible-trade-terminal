@@ -104,8 +104,8 @@ namespace AccessibleTrader.Sdk.Collections
             set
             {
                 if (index < 0 || index >= _size) throw new IndexOutOfRangeException();
-                // Note: The caller (DataCacheService) typically holds a lock,
-                // but we perform the assignment atomically for the underlying array slot.
+                // Note: callers typically hold their own lock, but the assignment to the
+                // underlying array slot is atomic on its own.
                 _buffer[(_head + index) % _capacity] = value;
             }
         }

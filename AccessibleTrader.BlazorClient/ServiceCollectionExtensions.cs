@@ -67,7 +67,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IVolumeStateService, VolumeStateService>();
             services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
 
-            // SQLite local cache — AppDbContext is used by DataCacheService and ApiKeyService.
+            // SQLite local cache — AppDbContext is used by ApiKeyService.
             services.AddDbContextFactory<AppDbContext>((sp, options) =>
             {
                 var pathService = sp.GetRequiredService<IPlatformPathService>();
@@ -222,7 +222,6 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.Feeds.IMarketFeedHub, AccessibleTrader.Core.Services.Feeds.MarketFeedHub>();
             services.AddSingleton<IDataManager, DataManager>();
             services.AddSingleton<IOrderBookHistoryService, OrderBookHistoryService>();
-            services.AddSingleton<IDataCacheService, DataCacheService>();
             services.AddSingleton<ICacheService, FileCacheService>();
             // Historical OHLCV store (see OhlcvStore): shared public market data, one writer.
             services.AddSingleton<IOhlcvStore, OhlcvStore>();
@@ -234,7 +233,6 @@ namespace AccessibleTrader.BlazorClient
             // consumed by DataOrchestrator — registered as concrete types for easy mocking.
             services.AddSingleton<HistoricalDataFetcher>();
             services.AddSingleton<LiveStreamManager>();
-            services.AddSingleton<BackfillManager>();
 
             // Orchestration façade — ties historical fetch + live stream together with
             // Polly resilience policies and a DataStateMachine.

@@ -132,7 +132,16 @@ namespace AccessibleTrader.Core.Services
         // The chart each traded symbol was traded under, so exposure can be priced
         // after its tab is gone. Persisted, unlike _lastPrice.
         private readonly Dictionary<string, ChartIdentity> _exposureIdentity = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, (double Qty, double Avg)> _positions = new();
+
+        /// <summary>
+        /// Case-insensitive, like every other ledger dictionary here. It was the default
+        /// comparer until 2026-08-25, which was latent only because every writer uppercases
+        /// the key first — but <see cref="Load"/> restores whatever keys are in the JSON, and a
+        /// position split across two casings gives a short whose quantity and collateral live
+        /// under different keys: one that can never be liquidated, because the liquidation
+        /// check looks up collateral by the position's key and finds nothing.
+        /// </summary>
+        private readonly Dictionary<string, (double Qty, double Avg)> _positions = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Quote currency locked against a short: the sale proceeds (which are owed
@@ -140,7 +149,7 @@ namespace AccessibleTrader.Core.Services
         /// <c>Balance.Locked</c> — the field that was hardcoded to zero until shorting
         /// gave it something to mean.
         /// </summary>
-        private readonly Dictionary<string, double> _collateral = new();
+        private readonly Dictionary<string, double> _collateral = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Margin posted on top of the proceeds, as a fraction of notional. 1.0 is
@@ -151,7 +160,7 @@ namespace AccessibleTrader.Core.Services
         /// configurable version belongs with the leverage work.
         /// </summary>
         private const double InitialMarginRate = 1.0;
-        private readonly Dictionary<string, double> _leverage = new();
+        private readonly Dictionary<string, double> _leverage = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
 

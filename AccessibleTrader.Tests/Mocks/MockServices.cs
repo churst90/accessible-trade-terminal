@@ -68,15 +68,12 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class CounterSonificationManager : ISonificationManager
     {
-        public int SonifyCalls = 0;
         public bool IsEnabled { get; set; } = true;
         public bool IsPlaying => false;
 #pragma warning disable CS0067
         public event Action? PlaybackFinished;
         public event Action<int>? PlaybackPointReached;
 #pragma warning restore CS0067
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) => SonifyCalls++;
         public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0, bool force = false) { }
         public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f, bool force = false) { }
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null) => new AudioPoint(440, 1, "sine", 0, "Sustain");
@@ -198,10 +195,6 @@ namespace AccessibleTrader.Tests.Mocks
     {
         public bool IsSonificationEnabled { get; set; } = true;
         public void PlayEarcon(FeedbackType type, ErrorSeverity severity = ErrorSeverity.Medium) { }
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f) { }
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f) { }
-        public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
-        public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
         public void Silence() { }
     }
 
@@ -257,10 +250,6 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class MockNavigationSonifier : INavigationSonifier
     {
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) { }
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0) { }
-        public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
-        public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
         public void PlayNote(double frequency, double durationSeconds, string waveformType, float volume, float pan = 0, double delayMilliseconds = 0) { }
         public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null) => new AudioPoint(440, 1, "sine", 0, "Sustain");
@@ -268,6 +257,8 @@ namespace AccessibleTrader.Tests.Mocks
         public void SetMasterGain(float gain) { }
         public void Silence() { }
         public void SyncNavigationSlots(WorkspaceState state) { }
+        public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
+        public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
         public Task FireClusterTicksAsync(WorkspaceState state, int dataIndex, string excludeSeriesId, int excludeComponentIndex, bool crossSeriesMode = false) => Task.CompletedTask;
     }
 

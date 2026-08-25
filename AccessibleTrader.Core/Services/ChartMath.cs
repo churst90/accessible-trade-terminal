@@ -80,18 +80,55 @@ namespace AccessibleTrader.Core.Services
             // saved workspaces predating the Phase 2 rename still resolve correctly.
             if (series.Id == "price" || series.Id == "candles")
             {
-                return component.Name switch
-                {
-                    "Open" => point.Open,
-                    "High" or "upper_wick" or "Upper Wick" => point.High,
-                    "Low"  or "lower_wick" or "Lower Wick" => point.Low,
-                    "Close" or "body" or "line" or "Candle Body" => point.Close,
-                    "Volume" => point.Volume,
-                    _ => point.Close
-                };
+                double mapped = PriceComponentFallback(component.Name, point);
+                // An unrecognised component on the price series still has to render somewhere;
+                // the close is the least-wrong y for it. Speech does NOT take this branch —
+                // saying a number that was never the component's value is worse than silence.
+                return double.IsNaN(mapped) ? point.Close : mapped;
             }
 
             return double.NaN;
+        }
+
+        /// <summary>
+        /// Maps a price-series component NAME onto the OHLCV field it stands for, for the case
+        /// where the series carries no component array of its own (the primary price series'
+        /// components are virtual). Returns NaN for a name that is not a candle part.
+        ///
+        /// <para>
+        /// Accepts both the snake_case machine ids (<c>body</c>, <c>upper_wick</c>,
+        /// <c>lower_wick</c>, <c>line</c>) and the legacy display-style names
+        /// (<c>Candle Body</c>, <c>Upper Wick</c>, …) so workspaces saved before the Phase 2
+        /// rename still resolve. Case-insensitive throughout, because the ids reach here from
+        /// saved JSON and from provider metadata, neither of which is normalised.
+        /// </para>
+        ///
+        /// <para>
+        /// Shared deliberately: <c>SpeechFormatter.GetPointValue</c> carried its own copy that
+        /// still tested the PRE-rename names with <c>string.Contains</c>
+        /// (<c>c.Contains("Body")</c>, <c>"Upper"</c>, <c>"Lower"</c>, <c>"Open"</c>) — against
+        /// the current ids every one of those is false, so it returned NaN and the wick read
+        /// "no data" whenever the primary lookup missed.
+        /// </para>
+        /// </summary>
+        public static double PriceComponentFallback(string componentName, Ohlcv point)
+        {
+            if (string.IsNullOrWhiteSpace(componentName)) return double.NaN;
+            string n = componentName.Trim();
+
+            if (Is(n, "Open")) return point.Open;
+            if (Is(n, "High", "upper_wick", "Upper Wick")) return point.High;
+            if (Is(n, "Low", "lower_wick", "Lower Wick")) return point.Low;
+            if (Is(n, "Close", "body", "line", "Candle Body")) return point.Close;
+            if (Is(n, "Volume")) return point.Volume;
+            return double.NaN;
+
+            static bool Is(string name, params string[] candidates)
+            {
+                foreach (var c in candidates)
+                    if (name.Equals(c, StringComparison.OrdinalIgnoreCase)) return true;
+                return false;
+            }
         }
 
         /// <summary>

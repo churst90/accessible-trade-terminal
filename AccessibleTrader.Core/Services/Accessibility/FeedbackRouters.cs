@@ -138,10 +138,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         bool IsSonificationEnabled { get; set; }
         void PlayEarcon(FeedbackType type, ErrorSeverity severity = ErrorSeverity.Medium);
-        void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f);
-        void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f);
-        void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f);
-        void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f);
+
+        // NO Sonify* members. There were four (SonifySeries/SonifyComponent/SonifyProfile/
+        // SonifyHeatmap), with zero production call sites, all of which wrote voice slot 0 —
+        // the slot the single-navigation-path redesign exists to keep under one writer.
+        // A second exported way to reach it is the bug, whether or not anything calls it today.
+        // Navigation sonification goes through SonificationManager.SyncNavigationSlots.
         void Silence();
     }
 
@@ -185,30 +187,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // exists to forbid.
                 default: _earcons.PlayInfo(); break;
             }
-        }
-
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f)
-        {
-            if (!IsSonificationEnabled) return;
-            _sonifier.SonifySeries(series, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume);
-        }
-
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f)
-        {
-            if (!IsSonificationEnabled) return;
-            _sonifier.SonifyComponent(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume);
-        }
-
-        public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f)
-        {
-            if (!IsSonificationEnabled) return;
-            _sonifier.SonifyProfile(series, binIndex, masterVolume);
-        }
-
-        public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
-        {
-            if (!IsSonificationEnabled) return;
-            _sonifier.SonifyHeatmap(series, dataIndex, binIndex, masterVolume);
         }
 
         public void Silence() => _sonifier.Silence();

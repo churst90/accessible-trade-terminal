@@ -30,18 +30,111 @@ namespace AccessibleTrader.Tests
             return buf;
         }
 
-        // ── Pan arithmetic ──────────────────────────────────────────────────
+        // ── Engine-boundary validation: nothing non-finite reaches the PCM buffer ──
 
         [Fact]
-        public void CalculatePan_LeftEdge_ReturnsNegativeOne()
+        public void ZeroLengthPing_ProducesNoNaN()
         {
-            Assert.Equal(-1.0, AudioConstants.CalculatePan(0, 100));
+            // A Ping's decay is 1 − (Remaining / Total). Total came straight from the caller's
+            // durationSec, so durationSec: 0 divided by zero and wrote NaN for the life of the
+            // voice — reachable through DecayMs = 0, a registry patch with 0, or an imported
+            // patch's DurationSeconds. SetVoice now floors a Ping at one sample.
+            var engine = new AudioEngine();
+            engine.SetVoice(0, 440, 0.8f, 0f, "sine", false, durationSec: 0, envelope: "Ping");
+
+            var buf = ReadOneBuffer(engine);
+            Assert.All(buf, s => Assert.True(float.IsFinite(s), "NaN or Infinity in the PCM buffer"));
         }
 
         [Fact]
-        public void CalculatePan_RightEdge_ReturnsPositiveOne()
+        public void ZeroLengthPing_IsCaseInsensitive()
         {
-            Assert.Equal(1.0, AudioConstants.CalculatePan(99, 100));
+            // Same guard, reached through the spelling an imported patch actually carries.
+            // "ping" used to miss every ordinal == "Ping" test in the pipeline.
+            var engine = new AudioEngine();
+            engine.SetVoice(0, 440, 0.8f, 0f, "sine", false, durationSec: 0, envelope: "ping");
+
+            var buf = ReadOneBuffer(engine);
+            Assert.All(buf, s => Assert.True(float.IsFinite(s), "NaN or Infinity in the PCM buffer"));
+        }
+
+        [Fact]
+        public void NonFiniteVoiceParameters_AreRefusedAtTheEngineBoundary()
+        {
+            // "NaN must be silent" was enforced only upstream in CreateAudioPoint. A NaN
+            // frequency, volume or pan arriving by any other route went straight into the
+            // synthesis math. Each of these must leave the buffer clean.
+            foreach (var (freq, vol, pan) in new (double, float, float)[]
+                     {
+                         (double.NaN, 0.8f, 0f),
+                         (440, float.NaN, 0f),
+                         (440, 0.8f, float.NaN),
+                         (double.PositiveInfinity, 0.8f, 0f),
+                     })
+            {
+                var engine = new AudioEngine();
+                engine.SetVoice(0, freq, vol, pan, "sine", true, durationSec: 1.0);
+
+                var buf = ReadOneBuffer(engine);
+                Assert.All(buf, s => Assert.True(float.IsFinite(s),
+                    $"NaN or Infinity in the PCM buffer for freq={freq}, vol={vol}, pan={pan}"));
+            }
+        }
+
+        // ── Pan arithmetic ──────────────────────────────────────────────────
+
+        // The renderer draws bar i at (i * barWidth) + halfBar with barWidth = Width/ViewportLength
+        // (StandardRenderers.cs), so bar i sits at visual fraction (i + 0.5) / ViewportLength and
+        // the first and last bars are half a slot in from the canvas edges — NOT hard left/right.
+        // These two used to assert ±1.0 for the old 2k/(N−1)−1 formula, which is why the audio and
+        // the pixels disagreed everywhere except dead centre.
+        [Fact]
+        public void CalculatePan_FirstSlot_IsHalfASlotInFromTheLeftEdge()
+        {
+            // Bar 0 of 100 sits at fraction 0.005 → pan 2(0.005) − 1 = −0.99.
+            Assert.Equal(-0.99, AudioConstants.CalculatePan(0, 100), precision: 10);
+        }
+
+        [Fact]
+        public void CalculatePan_LastSlot_IsHalfASlotInFromTheRightEdge()
+        {
+            // Bar 99 of 100 sits at fraction 0.995 → pan +0.99.
+            Assert.Equal(+0.99, AudioConstants.CalculatePan(99, 100), precision: 10);
+        }
+
+        [Fact]
+        public void CalculatePan_MatchesTheRenderersBarCentre()
+        {
+            // Ground truth: StandardRenderers puts bar i at (i * barWidth) + halfBar.
+            const int width = 800, viewportLength = 40;
+            float barWidth = (float)width / viewportLength;
+            float halfBar = barWidth / 2.0f;
+
+            for (int i = 0; i < viewportLength; i++)
+            {
+                double pixelFraction = ((i * barWidth) + halfBar) / width;
+                double expectedPan = (pixelFraction * 2.0) - 1.0;
+                Assert.Equal(expectedPan, AudioConstants.CalculatePan(i, viewportLength), precision: 6);
+            }
+        }
+
+        [Fact]
+        public void LevelCrossingMonitor_PansIdenticallyToTheNavigationPath()
+        {
+            // The two formulas that used to disagree. LevelCrossingMonitor.ComputePan now
+            // delegates, so this cannot drift back apart without deleting the delegation.
+            foreach (int rel in new[] { 0, 1, 17, 63, 99 })
+            {
+                var state = WorkspaceState.Initial with
+                {
+                    ViewportStartIndex = 500,
+                    ViewportLength = 100,
+                    CurrentDataIndex = 500 + rel,
+                };
+                Assert.Equal(
+                    (float)AudioConstants.CalculatePan(rel, 100),
+                    LevelCrossingMonitor.ComputePan(state));
+            }
         }
 
         [Fact]

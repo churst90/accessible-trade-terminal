@@ -26,9 +26,12 @@ namespace AccessibleTrader.Tests
                 .SelectMany(a => a.GetTypes())
                 .Where(t => typeof(IIndicatorProvider).IsAssignableFrom(t)
                             && !t.IsAbstract && !t.IsInterface)
-                // Skip name-alias subclasses: EmaFillProvider is an empty class deriving from
-                // MACloudProvider, and counting both would double every MA_CLOUD component.
-                .Where(t => t.BaseType == null || !typeof(IIndicatorProvider).IsAssignableFrom(t.BaseType))
+                // No filter on provider subclasses. There used to be one, to skip the
+                // EmaFillProvider name alias (an empty subclass of MACloudProvider, which
+                // would have double-counted every MA_CLOUD component). The alias is deleted,
+                // and leaving the filter behind would silently exclude a future provider that
+                // legitimately derives from another one — a guard with no target that only
+                // knows how to hide things.
                 .OrderBy(t => t.Name);
 
         /// <summary>

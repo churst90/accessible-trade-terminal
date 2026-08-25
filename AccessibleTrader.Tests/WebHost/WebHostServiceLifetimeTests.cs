@@ -46,7 +46,6 @@ public class WebHostServiceLifetimeTests
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<IPluginLoaderService>(s));
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<PluginTrustPolicy>(s));
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<IApiKeyService>(s));
-        Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<IDataCacheService>(s));
     }
 
     [Fact]

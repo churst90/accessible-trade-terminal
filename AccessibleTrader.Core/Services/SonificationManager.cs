@@ -174,16 +174,6 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(SonificationTrigger.Reset);
         }
 
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0)
-        {
-            if (IsEnabled && !IsPlaying) _navigation.SonifySeries(series, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, durationSeconds, delayMilliseconds);
-        }
-
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0)
-        {
-            if (IsEnabled && !IsPlaying) _navigation.SonifyComponent(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, durationSeconds, delayMilliseconds);
-        }
-
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null)
         {
             return _navigation.CreateAudioPoint(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, overrideValue);

@@ -11,9 +11,9 @@ namespace AccessibleTrader.Core.Services.Strategies
     /// AND 5m Cipher A buy" becomes two leaves with different Timeframe values).
     ///
     /// Source-of-truth for OHLCV is whatever <see cref="IDataOrchestrator.FetchOhlcvAsync"/>
-    /// returns — the orchestrator is already wired through <see cref="IDataCacheService"/>
+    /// returns — the orchestrator is already wired through <see cref="IOhlcvStore"/>
     /// (SQLite cache) and Polly resilience, so calling it respects API limits and the
-    /// on-disk backfill cache automatically. This service adds an in-memory layer on top
+    /// on-disk store automatically. This service adds an in-memory layer on top
     /// keyed by (provider, symbol, timeframe) with a short TTL appropriate to the bar size,
     /// so multiple condition leaves on the same HTF only fetch once per evaluation pass.
     /// </summary>

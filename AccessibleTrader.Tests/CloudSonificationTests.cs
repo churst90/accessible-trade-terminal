@@ -6,7 +6,7 @@ using AccessibleTrader.Sdk.Models;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Tests for cloud fill sonification configuration across EMA Fill, Ichimoku, and Cipher B.
+    /// Tests for cloud fill sonification configuration across MA Cloud, Ichimoku, and Cipher B.
     /// Verifies backward compatibility (null Sonification OK), Clone preservation, and
     /// that each provider's cloud has distinct frequencies.
     /// </summary>
@@ -55,33 +55,36 @@ namespace AccessibleTrader.Tests
             Assert.Equal(200, cloned.Sonification.DecayMs);
         }
 
-        // ── 3. EmaFillProvider cloud fill ────────────────────────────────────
+        // ── 3. MA Cloud fill ──────────────────────────────────────────────────
+        // These three were written against EmaFillProvider, an empty subclass kept as a
+        // name alias. The alias is gone (2026-08-25); the shipped defaults it was standing
+        // in for are MACloudProvider's, so they are asserted directly.
 
         [Fact]
-        public void EmaFillProvider_CloudFill_HasNonNullSonification()
+        public void MACloudProvider_CloudFill_HasNonNullSonification()
         {
-            var provider = new EmaFillProvider();
+            var provider = new MACloudProvider();
             var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
             Assert.NotNull(fill.Sonification);
         }
 
         [Fact]
-        public void EmaFillProvider_CloudFill_BullishFrequency_Is440()
+        public void MACloudProvider_CloudFill_BullishFrequency_Is440()
         {
-            var provider = new EmaFillProvider();
+            var provider = new MACloudProvider();
             var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
             Assert.Equal(440f, fill.Sonification!.BullishFrequency);
         }
 
         [Fact]
-        public void EmaFillProvider_CloudFill_BearishFrequency_Is220()
+        public void MACloudProvider_CloudFill_BearishFrequency_Is220()
         {
-            var provider = new EmaFillProvider();
+            var provider = new MACloudProvider();
             var fill     = provider.GetIndicators()[0].DefaultCloudFills[0];
             Assert.Equal(220f, fill.Sonification!.BearishFrequency);
         }
 
-        // ── 4. IchimokuProvider cloud fill — distinct from EMA ────────────────
+        // ── 4. IchimokuProvider cloud fill — distinct from MA Cloud ───────────
 
         [Fact]
         public void IchimokuProvider_CloudFill_BullishFrequency_Is520()

@@ -227,7 +227,6 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Feeds.IMarketFeedHub, AccessibleTrader.Core.Services.Feeds.MarketFeedHub>();
             services.AddScoped<IDataManager, DataManager>();
             services.AddScoped<IOrderBookHistoryService, OrderBookHistoryService>();
-            services.AddSingleton<IDataCacheService, DataCacheService>();
             services.AddSingleton<ICacheService, FileCacheService>();
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
@@ -235,7 +234,6 @@ namespace AccessibleTrader.WebHost
 
             services.AddScoped<HistoricalDataFetcher>();
             services.AddScoped<LiveStreamManager>();
-            services.AddScoped<BackfillManager>();
 
             services.AddScoped<IDataOrchestrator, DataOrchestrator>();
             services.AddScoped<IDataOrchestrationService, DataOrchestrationService>();

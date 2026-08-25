@@ -247,6 +247,27 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             if (slot < 0 || slot >= _voices.Length) return;
 
+            // ── Engine-boundary validation ───────────────────────────────────────────────
+            // "NaN must be silent" was enforced only upstream in CreateAudioPoint, so anything
+            // reaching the engine by another route (an imported patch, a registry entry, a
+            // plugin) could put a non-finite value straight into the PCM buffer. A non-finite
+            // freq/vol/pan is not a note — stop the slot rather than enqueueing it, because
+            // dropping the command silently would leave whatever was already on the slot
+            // droning, which is the louder failure.
+            if (!double.IsFinite(freq) || !float.IsFinite(vol) || !float.IsFinite(pan))
+            {
+                StopVoice(slot);
+                return;
+            }
+
+            // A Ping's decay is computed as 1 − (Remaining / Total), so a zero-length Ping
+            // divides by zero and writes NaN for the life of the voice. Reachable through
+            // DecayMs = 0, a registry patch with 0, or an imported patch's DurationSeconds.
+            // Floor it at one sample: a Ping that is asked to last no time is a click, not a NaN.
+            if (!double.IsFinite(durationSec) || durationSec < 0) durationSec = 0;
+            bool isPing = string.Equals(envelope, "Ping", StringComparison.OrdinalIgnoreCase);
+            if (isPing && durationSec * _sampleRate < 1.0) durationSec = 1.0 / _sampleRate;
+
             // Voice-slot pooling: OscillatorVoice instances are allocated once in the ctor
             // (permanent MaxVoices-element array); VoiceCommand is a struct value type so no heap
             // allocation per command. The only remaining per-call allocation in the old
@@ -279,16 +300,34 @@ namespace AccessibleTrader.Core.Services.Audio
                 Slot = slot, Frequency = freq, Volume = vol, Pan = pan,
                 Waveform = waveType, IsContinuous = continuous,
                 Wavetable = wavetable, SampleData = sampleData, SampleStep = sampleStep,
-                EnvelopeType = envelope, TriggerClick = click,
+                // Canonicalised here, once, so the per-frame render loop can keep its cheap
+                // ordinal `== "Ping"` compare. Matching case-insensitively 48,000 times a
+                // second across 128 voices to accommodate an imported patch's "ping" would be
+                // paying for the fix in the hottest loop in the app.
+                EnvelopeType = isPing ? "Ping" : envelope, TriggerClick = click,
                 DurationSamples = durationSec * _sampleRate,
                 DataIndex = dataIndex, IsActive = true,
                 NoiseAmount = Math.Max(0f, noiseAmount),
-                NoiseType = noiseType ?? "pink",
+                NoiseType = CanonicalNoiseType(noiseType),
                 SquareMix = Math.Max(0f, squareMix),
                 SawMix = Math.Max(0f, sawMix),
                 TriangleMix = Math.Max(0f, triangleMix),
                 SubSawMix = Math.Max(0f, subSawMix)
             });
+        }
+
+        /// <summary>
+        /// Noise colour, canonicalised at the boundary for the same reason the envelope name is:
+        /// the render loop tests it with an ordinal <c>==</c> once per frame per voice, so an
+        /// imported patch carrying <c>"White"</c> would silently render as pink. Unknown colours
+        /// keep the documented default rather than falling through to a fourth behaviour.
+        /// </summary>
+        private static string CanonicalNoiseType(string? noiseType)
+        {
+            if (string.IsNullOrWhiteSpace(noiseType)) return "pink";
+            if (noiseType.Equals("white", StringComparison.OrdinalIgnoreCase)) return "white";
+            if (noiseType.Equals("brown", StringComparison.OrdinalIgnoreCase)) return "brown";
+            return "pink";
         }
 
         /// <summary>Case-insensitive waveform parse without allocating a lowercase copy.

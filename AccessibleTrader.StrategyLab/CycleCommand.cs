@@ -55,6 +55,7 @@ public static class CycleCommand
         };
 
         Console.WriteLine();
+        LabStats.ReportPermutationCap("cycle", permutations, PermutationCap);
         Console.WriteLine("===== CAMEL / BOB LUCAS / CHARLES NANA CYCLES =====");
         Console.WriteLine("Lows found algorithmically: a pivot low that is the lowest of `span` bars either side,");
         Console.WriteLine($"knowable only `span` bars later. Surrogates = {Surrogates} return-shuffled random walks.");
@@ -284,11 +285,18 @@ public static class CycleCommand
     }
 
     /// <summary>
+    /// Ceiling on <c>--permutations</c> for this command. Reported to the operator by
+    /// <see cref="LabStats.ReportPermutationCap"/> at the top of the run, so a request for
+    /// more than this is visibly not what was executed.
+    /// </summary>
+    private const int PermutationCap = 20_000;
+
+    /// <summary>
     /// Two-sample permutation test — see <see cref="LabStats.PermutationP"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// Capped at 20,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 9090, cap: 20_000);
+        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 9090, cap: PermutationCap);
 }

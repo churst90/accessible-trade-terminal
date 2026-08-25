@@ -377,14 +377,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     return data[i];
             }
 
+            // Fallback for the primary price series, whose components are virtual. Shared with
+            // the renderer (ChartMath) rather than reimplemented: this block used to test the
+            // PRE-rename names with Contains ("Body"/"Upper"/"Lower"/"Open"), all of which are
+            // false against the current machine ids (body/upper_wick/lower_wick/line), so it
+            // returned NaN and the wick spoke "no data" whenever the primary lookup missed.
+            // Unlike the renderer, an unrecognised name stays NaN here — speech says "no data"
+            // rather than reading out a close price under some other component's name.
             string seriesId = s.Id.ToLowerInvariant();
             if (seriesId == "price" || seriesId == "candles")
-            {
-                if (c.Contains("Body") || c.Contains("Close")) return p.Close;
-                if (c.Contains("Upper") || c.Contains("High")) return p.High;
-                if (c.Contains("Lower") || c.Contains("Low")) return p.Low;
-                if (c.Contains("Open")) return p.Open;
-            }
+                return ChartMath.PriceComponentFallback(c, p);
             if (seriesId == "volume") return p.Volume;
             return double.NaN;
         }

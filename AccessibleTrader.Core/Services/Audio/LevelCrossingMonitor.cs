@@ -274,13 +274,17 @@ namespace AccessibleTrader.Core.Services.Audio
             }
         }
 
-        private static float ComputePan(WorkspaceState state)
+        /// <summary>
+        /// Level cues pan to the bar they belong to, so this MUST agree with the pan the
+        /// navigation path gives that same bar. It used to compute the centre-of-slot form
+        /// inline while <see cref="AudioConstants.CalculatePan"/> computed an edge-to-edge one;
+        /// delegating removes the possibility of a second formula rather than merely fixing it.
+        /// Internal so a test can pin the agreement.
+        /// </summary>
+        internal static float ComputePan(WorkspaceState state)
         {
             int rel = state.CurrentDataIndex - state.ViewportStartIndex;
-            int vlen = Math.Max(1, state.ViewportLength);
-            double frac = (rel + 0.5) / vlen;
-            frac = Math.Max(0.0, Math.Min(1.0, frac));
-            return (float)(frac * 2.0 - 1.0);
+            return (float)AudioConstants.CalculatePan(rel, AudioConstants.ComputePanWidth(state));
         }
     }
 }

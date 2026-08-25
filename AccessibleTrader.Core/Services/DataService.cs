@@ -281,8 +281,8 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// <para>
         /// A policy whose body cannot fail is not a policy. Every caller
-        /// (<see cref="HistoricalDataFetcher"/> via the orchestrator's policy,
-        /// <c>BackfillManager</c>, <c>MarketFeeds</c>) has its own terminal handler, so
+        /// (<see cref="HistoricalDataFetcher"/> via the orchestrator's policy and
+        /// <c>MarketFeeds</c>) has its own terminal handler, so
         /// letting the exception out costs nothing and is what makes the layer real.
         /// </para>
         /// </summary>

@@ -35,7 +35,8 @@ namespace AccessibleTrader.Core.Services
     /// <para>
     /// The table and its composite key (market, provider, symbol, timeframe, timestamp) already
     /// existed; nothing ever wrote to it. The only writer, <c>BackfillManager.QueueBackfill</c>,
-    /// had no callers anywhere in the codebase, and the read path was restricted to <c>1m</c> — so
+    /// had no callers anywhere in the codebase (that class was deleted on 2026-08-25, superseded
+    /// by this one), and the read path was restricted to <c>1m</c> — so
     /// the file on disk was 0 bytes with no tables at all. This class is the writer, and it works
     /// at whatever timeframe was actually requested rather than only at 1m.
     /// </para>

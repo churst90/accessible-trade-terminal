@@ -266,7 +266,4 @@ namespace AccessibleTrader.Core.Services.Indicators
         public List<LevelDescriptor> GetDefaultLevels(string code)
             => new();
     }
-
-    // Backward compatibility alias — existing workspaces may reference the old class name.
-    public class EmaFillProvider : MACloudProvider { }
 }

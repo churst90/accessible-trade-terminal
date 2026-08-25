@@ -21,8 +21,11 @@ namespace AccessibleTrader.Core.Services.Audio
         /// actually reach the engine, and multi-oscillator patches sound all their layers.
         /// </summary>
         void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f);
-        void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
-        void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0);
+        // SonifySeries/SonifyComponent were removed on 2026-08-25. They were a second way to
+        // write voice slot 0, exported all the way up through IAudioFeedbackRouter and
+        // ISonificationManager, and called by nothing in production. SyncNavigationSlots is
+        // the single writer of slot 0; SonifyProfile/SonifyHeatmap below stay because it
+        // delegates to them for the two distribution display types.
         void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f);
         void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f);
         AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null);
@@ -468,17 +471,6 @@ namespace AccessibleTrader.Core.Services.Audio
             }
         }
 
-        public void SonifySeries(ChartSeries series, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0)
-        {
-            if (series == null || !series.IsVisible || series.IsMuted) return;
-            foreach (var comp in series.Components)
-            {
-                if (!comp.IsVisible || comp.IsMuted) continue;
-                int cIdx = series.Components.IndexOf(comp);
-                SonifyComponent(series, cIdx, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, durationSeconds, delayMilliseconds);
-            }
-        }
-
         public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f)
         {
             if (series == null || series.Data.ProfileBins == null || binIndex < 0 || binIndex >= series.Data.ProfileBins.Count) return;
@@ -551,20 +543,6 @@ namespace AccessibleTrader.Core.Services.Audio
             _audioDriver.StopVoice(SLOT_NAV_START);
             // Sawtooth waveform distinguishes heatmaps perceptually from all other series.
             _audioDriver.SetVoice(SLOT_NAV_START, freq, vol, 0f, "sawtooth", false, 0.1, binIndex);
-        }
-
-        public void SonifyComponent(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double durationSeconds = 0.2, double delayMilliseconds = 0)
-        {
-            if (series == null || !series.IsVisible || series.IsMuted) return;
-            if (componentIndex >= 0 && componentIndex < series.Components.Count && series.Components[componentIndex].IsMuted) return;
-            var audioPt = CreateAudioPoint(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume);
-            if (audioPt.Volume <= 0) return;
-
-            // Always use the dedicated navigation slot (0) so a new navigation note
-            // immediately interrupts any prior navigation note.  PlayNote (earcons) uses
-            // slots 16-31 and never interferes with slot 0.
-            _audioDriver.StopVoice(SLOT_NAV_START);
-            _audioDriver.SetVoice(SLOT_NAV_START, audioPt.Frequency, audioPt.Volume, (float)audioPt.Pan, audioPt.Waveform, false, durationSeconds, dataIndex, audioPt.EnvelopeType, audioPt.TriggerClick, audioPt.NoiseAmount, audioPt.NoiseType, audioPt.SquareMix, audioPt.SawMix, audioPt.TriangleMix, audioPt.SubSawMix);
         }
 
 

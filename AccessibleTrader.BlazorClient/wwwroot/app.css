@@ -774,7 +774,9 @@ label {
    On touchscreens, lift small controls toward the 44px minimum without
    affecting the dense desktop layout. */
 @media (pointer: coarse) {
-    .tab-btn { min-height: 44px; padding: 8px 14px; }
+    /* .tab-button, not .tab-btn: TabBar.razor emits class="tab-button", so this rule
+       matched nothing and workspace tabs never got the 44px minimum. */
+    .tab-button { min-height: 44px; padding: 8px 14px; }
     button   { min-height: 40px; }
     select, input[type="checkbox"], input[type="radio"] { min-height: 32px; min-width: 32px; }
 }

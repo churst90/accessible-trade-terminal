@@ -82,12 +82,23 @@ namespace AccessibleTrader.Core.Services.Audio
         };
 
         /// <summary>
+        /// The one place the envelope name is tested. <c>EnvelopeType</c> is free text that
+        /// arrives from provider metadata, saved workspaces and imported patch JSON, none of
+        /// which normalise it. It used to be compared case-sensitively here and at the
+        /// continuous/one-shot decision, but case-INsensitively at the NaN marker guard — so an
+        /// imported <c>"ping"</c> was a marker for the guard, continuous for the voice, and got
+        /// duration 0: a permanent drone on a playback slot that never decays.
+        /// </summary>
+        internal static bool IsPing(string? envelopeType)
+            => string.Equals(envelopeType, "Ping", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Resolves the Ping duration in seconds for a given component and audio point.
         /// Applies DecayMs > patch DefaultDecayMs > existing bar-proportional default.
         /// </summary>
         private double ResolvePingDuration(AccessibleTrader.Sdk.Models.ComponentConfig comp, AudioPoint audioPt, double msPerBar)
         {
-            if (audioPt.EnvelopeType != "Ping") return 0.0;
+            if (!IsPing(audioPt.EnvelopeType)) return 0.0;
 
             // Component-level DecayMs wins (user edit or metadata layer 1).
             if (comp.DecayMs.HasValue)
@@ -243,7 +254,7 @@ namespace AccessibleTrader.Core.Services.Audio
             var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
 
             // NaN guard for Ping-envelope markers: only fire on actual signal bars.
-            if (string.Equals(audioPt.EnvelopeType, "Ping", StringComparison.OrdinalIgnoreCase)
+            if (IsPing(audioPt.EnvelopeType)
                 && AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)
                 && audioPt.Volume <= 0)
             {
@@ -253,7 +264,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
             float layerScale = LayerVolume(comp.PlaybackLayer);
             float scaledVol = audioPt.Volume * layerScale;
-            bool continuous = audioPt.EnvelopeType != "Ping";
+            bool continuous = !IsPing(audioPt.EnvelopeType);
             double durationSec = ResolvePingDuration(comp, audioPt, msPerBar);
             float pan = (float)audioPt.Pan;
 
@@ -560,7 +571,7 @@ namespace AccessibleTrader.Core.Services.Audio
 
         /// <summary>
         /// Stops every voice this sequencer can drive — component slots 32-95 and cloud slots 96-127.
-        /// Playback voices are continuous Sustain oscillators (see <c>continuous = EnvelopeType != "Ping"</c>),
+        /// Playback voices are continuous Sustain oscillators (see <c>continuous = !IsPing(EnvelopeType)</c>),
         /// so they ring until explicitly stopped. Called both on <see cref="Stop"/> and on entering pause,
         /// where the loop parks without advancing: without this the last bar's chord drones indefinitely
         /// (very audible on the WebHost browser path, which keeps streaming the sustained samples).

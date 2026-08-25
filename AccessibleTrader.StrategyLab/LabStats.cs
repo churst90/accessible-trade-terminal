@@ -22,6 +22,27 @@ namespace AccessibleTrader.StrategyLab;
 public static class LabStats
 {
     /// <summary>
+    /// Prints, once per command run, that <c>--permutations</c> was capped — if it was.
+    ///
+    /// <para>
+    /// The cap is applied inside a loop over many buckets, so reporting it per test would be
+    /// noise; reporting it nowhere, which is what happened until 2026-08-25, meant asking for
+    /// 50,000 permutations quietly gave you 4,000 and a p-value floored at 1/4001 that read as
+    /// if it came from the count you asked for. A research tool that silently does less work
+    /// than requested is producing numbers its own operator cannot interpret.
+    /// </para>
+    /// </summary>
+    public static void ReportPermutationCap(string command, int requested, int cap)
+    {
+        if (requested <= cap) return;
+        System.Console.WriteLine(
+            $"note: --permutations {requested:N0} capped at {cap:N0} for `{command}` — the test runs " +
+            $"once per bucket here, so the full count would dominate runtime. p-values floor at " +
+            $"{1.0 / (cap + 1):G3}.");
+        System.Console.WriteLine();
+    }
+
+    /// <summary>
     /// Two-sample permutation test on the difference of means: shuffle the pooled values, split
     /// them into groups of the original sizes, and count how often the random split produces a gap
     /// at least as extreme as the observed one.
