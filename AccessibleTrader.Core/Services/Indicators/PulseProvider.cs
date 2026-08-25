@@ -99,8 +99,12 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// crypto daily; other instruments need retuning because bar-counted periods
         /// and percent-based slope thresholds are asset-specific.
         ///
-        /// Usage: <c>var p = PulseProvider.Presets.StocksDaily; service.SetParameters(seriesId, p);</c>
-        /// or manually set via AddIndicatorModal parameter fields.
+        /// These are a reference table, not something the app can apply in one call: there is
+        /// no SetParameters API, and the store's UpdateSeriesParametersAction carries
+        /// Dictionary&lt;string, double&gt; rather than the object-valued shape here. Read the
+        /// preset for the instrument class you are on and enter the values in the indicator's
+        /// Properties dialog. (An earlier version of this line named a method that has never
+        /// existed, which is worth knowing if you went looking for it.)
         ///
         /// Reasoning per preset:
         /// - **CryptoDaily** (default): 14/50 RSI, 200 SMA, 0.02%/bar slope. Current validated.
@@ -245,7 +249,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "crossHoldDownBars",   DisplayName = "Cross Hold-Down Bars", DataType = typeof(int),    DefaultValue = 5    },
                     new() { Name = "adxBullMin",          DisplayName = "ADX Bull Min (v2)",    DataType = typeof(double), DefaultValue = 20.0 },
                     new() { Name = "adxBearMin",          DisplayName = "ADX Bear Min (v2)",    DataType = typeof(double), DefaultValue = 25.0 },
-                    new() { Name = "mfiBearV2Max",        DisplayName = "MFI Bear Max (v2)",    DataType = typeof(double), DefaultValue = 40.0 },
 
                     // ── v3 parameters (CMF + Vol regime + Golden dot) ───────────
                     new() { Name = "cmfPeriod",           DisplayName = "CMF Period",           DataType = typeof(int),    DefaultValue = 20   },
@@ -253,7 +256,6 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "cmfBearMax",          DisplayName = "CMF Bear Max",         DataType = typeof(double), DefaultValue = 0.0  },
                     new() { Name = "atrPeriod",           DisplayName = "ATR Period",           DataType = typeof(int),    DefaultValue = 14   },
                     new() { Name = "volPctileBars",       DisplayName = "Vol Percentile Window",DataType = typeof(int),    DefaultValue = 100  },
-                    new() { Name = "volPctileMax",        DisplayName = "Vol Percentile Max",   DataType = typeof(double), DefaultValue = 90.0 },
 
                     // ── v4 parameters (MTF + smoothing) ─────────────────────────
                     new() { Name = "mtfBarsPerWeek",      DisplayName = "MTF Bars per Week",    DataType = typeof(int),    DefaultValue = 7    },
@@ -611,7 +613,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             int holdDownBars    = Math.Max(0, GetInt(parameters, "crossHoldDownBars", 5));
             double adxBullMin   = GetDbl(parameters, "adxBullMin", 20.0);
             double adxBearMin   = GetDbl(parameters, "adxBearMin", 25.0);
-            double mfiBearV2    = GetDbl(parameters, "mfiBearV2Max", 40.0);
 
             // v3 parameters
             int cmfPeriod       = Math.Max(2, GetInt(parameters, "cmfPeriod", 20));
@@ -619,7 +620,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             double cmfBearMax   = GetDbl(parameters, "cmfBearMax", 0.0);
             int atrPeriod       = Math.Max(2, GetInt(parameters, "atrPeriod", 14));
             int volPctileBars   = Math.Max(10, GetInt(parameters, "volPctileBars", 100));
-            double volPctileMax = GetDbl(parameters, "volPctileMax", 90.0);
 
             // v4 parameters
             int mtfBarsPerWeek    = Math.Max(2, GetInt(parameters, "mtfBarsPerWeek", 7));

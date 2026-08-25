@@ -667,13 +667,10 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Rolling percentile of ATR for the volatility floor. Using the smaller
             // of AdaptiveLookback or 200 keeps this cheap and responsive.
             int atrRankWindow = Math.Min(adaptiveLook, 200);
-            var atrCeiling = RollingQuantile.Compute(atr, atrRankWindow, 1.0 - atrFloorPct, Math.Min(atrRankWindow / 2, 50));
-            // Gold fires only if atr[i] >= atrCeiling lower-bound, i.e. ATR is at or above
-            // the (1 - AtrFloorPct) percentile rank of recent values. We re-use the
-            // percentile helper: the (1-floor) percentile is the threshold; ATR above it
-            // means we're in the top AtrFloorPct of volatility.
-            // Actually we want the INVERSE: the floor is the AtrFloorPct percentile of ATR,
-            // and we require atr[i] > that floor. Recompute:
+            // The floor is the AtrFloorPct percentile of recent ATR, and gold requires
+            // atr[i] above it — not the (1 - AtrFloorPct) ceiling, which is the top of the
+            // range rather than the bottom. Both used to be computed here; only this one was
+            // ever read, and the other cost a full rolling quantile over the series per recalc.
             var atrFloorSeries = RollingQuantile.Compute(atr, atrRankWindow, atrFloorPct, Math.Min(atrRankWindow / 2, 50));
 
             // ── Adaptive OB/OS ───────────────────────────────────────────────

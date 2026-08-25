@@ -2,6 +2,52 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
+## Code hygiene pass (2026-08-25)
+
+A whole-tree cleanup rather than a bug hunt, and the first thing it produced is a way to keep the
+result: **`.editorconfig` at the repo root**, which configures rot detection ONLY — dead private
+members, unnecessary usings, and the compiler diagnostics for documentation that is *wrong*. It sets
+no formatting preferences on purpose; a repo-wide reformat would cost all of blame and buy nothing.
+It is not enforced by default, because the MAUI head multi-targets and cannot be analyzed without the
+MAUI workloads, so turning `EnforceCodeStyleInBuild` on repo-wide would make the build
+environment-dependent. Run it deliberately:
+
+```
+dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj \
+  -p:UseRazorSourceGenerator=false -p:EnforceCodeStyleInBuild=true \
+  -p:GenerateDocumentationFile=true --no-incremental
+```
+
+**That command is now completely silent except NU1902.** What it took:
+
+- **3,161 unused `using` directives** across 898 files (`dotnet format style --diagnostics IDE0005`).
+- **35 dead private members**, including one entire class — `IStateFeedbackManager` was registered in
+  both hosts' DI and had a test mock, and nothing anywhere resolved it. Constructor dependencies that
+  lied about what a class needs went too (NavigationFeedbackManager took five, read two).
+- **270 documentation defects.** 43 `/// <summary>` blocks on positional-record parameters, which C#
+  discards silently — years of invisible paragraphs, now plain `//` comments beside the parameter.
+  34 unresolvable crefs, 12 doc comments with unescaped `<` swallowing up to fourteen lines of prose,
+  11 ambiguous crefs, 4 `<paramref>` tags that could not bind.
+
+### Traps this pass found, for the next one
+
+- **IDE0005 cannot see the Razor declaration pre-pass.** Razor compiles plain `.cs` files twice, and
+  the first pass runs before any component type exists. A `using` that only that pass needs reads as
+  unnecessary in the final compilation and gets deleted. `WebHost/Program.cs` and five test files
+  carry comments marking theirs. Re-running `dotnet format` on the Tests project WILL take them again
+  if BlazorClient.Components has not built first — it did, twice, in this session.
+- **CS1573 is off, and that was a decision, not an oversight.** It fired 163 times and the reasoning
+  is in the .editorconfig: IWithdrawalProvider documents the three parameters that would surprise a
+  caller and leaves five self-evident ones bare, which is correct. The rule flags neither wrong nor
+  absent documentation, only asymmetric documentation.
+- **Do not pin AngleSharp to clear NU1902.** Tried: 1.3.0 and 1.4.0 are still affected, 1.5.2 clears
+  the advisory and breaks bUnit — `IHtmlCollection<T>` changed binary-incompatibly and bUnit 1.40 was
+  built against the old shape, so three tests die on `MissingMethodException`. The finding is recorded
+  in `AccessibleTrader.Tests.csproj` next to the reference. Revisit when bUnit ships against a patched
+  AngleSharp.
+
+Suite 4830, zero failures, both the analyzer build and the ordinary one clean.
+
 **Status 2026-08-25 (the sandbox's open list — three of five closed):** **521 open.** Picking up
 where the scripting/sandbox audit left off.
 
@@ -2191,7 +2237,16 @@ charting products. Against it sits a large body of undisciplined provider code.
   `PulseProvider.cs:216` rebuilds 24 components and 34 parameters, each time, before the string comparison
   that rejects it. Fix: build the code→provider map once at construction, or cache metadata as the Skender
   providers do. CONFIRMED. MEDIUM (allocation pressure on the chart hot path).
-- [ ] **Dead code that reads as live: `CipherBProvider.cs:673` (`atrCeiling`), `PulseProvider.cs:928`
+- [x] **CLOSED 2026-08-25 (hygiene pass).** All five gone. `atrCeiling` deleted along with the four
+  comment lines narrating the abandoned approach; the surviving floor computation now says why it is
+  the floor and not the ceiling. `MfiWithinBearV2` and `GetComponentColor` deleted (the latter took a
+  `Colors` array with it — eight hex values hand-duplicating the `DefaultColorHex` already on the
+  component metadata). `mfiBearV2Max` and `volPctileMax` removed from the Properties dialog as well as
+  from the calculation: wiring them would be a signal change, and an inert knob is worse than no knob.
+  `Presets` is **kept** — 80 lines of per-instrument calibration with the reasoning attached, which
+  StrategyCatalogue points users at — but its usage line no longer names `service.SetParameters`, a
+  method that has never existed; it now says plainly that there is no one-call apply and the values go
+  in by hand. ORIGINAL: **Dead code that reads as live: `CipherBProvider.cs:673` (`atrCeiling`), `PulseProvider.cs:928`
   (`MfiWithinBearV2`), `PulseProvider.cs:615,623` (`mfiBearV2`, `volPctileMax`), `PulseProvider.cs:118-200`
   (`Presets`), `SpiderLinesProvider.cs:224-229` (`GetComponentColor`).** `atrCeiling` is a full
   `RollingQuantile.Compute` over the whole ATR series — O(n · 200 log 200) per recalc — assigned and never
@@ -3094,6 +3149,8 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   an infinite screen Y feeds the anchor hit-test at `DrawingInteractionManager.cs:309,641`; `MapY` guards
   this at `:192`. `InverseMapY` and `GetIndexFromX` (`ChartMath.cs:216,240`) have **no callers at all**
   outside `ChartMath.cs` — dead code. CONFIRMED (recounted by grep). LOW.
+  **The `InverseMapY` / `GetIndexFromX` half was already done on 2026-08-24** — see the deletion note at
+  `ChartMath.cs:246`. The disagreement-on-degenerate-input half of this item is still open.
   **CLOSED 2026-08-24:** The two leftovers named in this item are now done as well. `ProfileRenderLayer` took an
   `IProfileService`, a `ThemeService` and an `IAppLogger`, assigned all three to fields and
   used **none** — it draws from `ctx.Theme` and the bins are already on the series — so the
