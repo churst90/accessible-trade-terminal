@@ -65,12 +65,10 @@ public sealed record CalculateResponse(double[][] ComponentData);
 /// </summary>
 public static class MessageCodec
 {
-    // Defense-in-depth caps on untrusted u32 counts from decoded payloads.
-    // FrameCodec already enforces a 64 MB frame cap, but without per-field
-    // caps a single `u32=500_000_000` string/array length triggers an
-    // OOM-class allocation before the invalid read is detected.
-    private const int MaxArrayElements = 1_000_000;   // generous for bar arrays
-    private const int MaxStringBytes   = 64 * 1024;   // 64 KB covers any id/name/param
+    // Defense-in-depth caps on untrusted u32 counts from decoded payloads live in
+    // Wire (shared with the strategy codec). FrameCodec already enforces a 64 MB
+    // frame cap, but without per-field caps a single `u32=500_000_000` string/array
+    // length triggers an OOM-class allocation before the invalid read is detected.
 
     // ── IndicatorMetadataMessage ───────────────────────────────────────
 
@@ -100,7 +98,7 @@ public static class MessageCodec
 
     public static IndicatorMetadataMessage DecodeMetadata(byte[] payload)
     {
-        var r = new ByteReader(payload);
+        var r = new WireReader(payload);
         var id    = r.ReadString();
         var name  = r.ReadString();
 
@@ -146,7 +144,7 @@ public static class MessageCodec
 
     public static CalculateRequest DecodeCalculateRequest(byte[] payload)
     {
-        var r = new ByteReader(payload);
+        var r = new WireReader(payload);
         int n = CheckCount(r.ReadU32(), "Bars");
         var bars = new Ohlcv[n];
         for (int i = 0; i < n; i++) bars[i] = r.ReadOhlcv();
@@ -178,7 +176,7 @@ public static class MessageCodec
 
     public static CalculateResponse DecodeCalculateResponse(byte[] payload)
     {
-        var r = new ByteReader(payload);
+        var r = new WireReader(payload);
         int k = CheckCount(r.ReadU32(), "ComponentData");
         var components = new double[k][];
         for (int c = 0; c < k; c++)
@@ -191,127 +189,15 @@ public static class MessageCodec
         return new CalculateResponse(components);
     }
 
-    private static int CheckCount(uint raw, string field)
-    {
-        if (raw > MaxArrayElements)
-            throw new InvalidDataException($"{field} count {raw} exceeds cap {MaxArrayElements}.");
-        return (int)raw;
-    }
+    private static int CheckCount(uint raw, string field) => Wire.CheckCount(raw, field);
 
     // ── Primitives ─────────────────────────────────────────────────────
+    // Thin aliases onto Wire so this codec and the strategy codec cannot drift
+    // apart on how a string or a bar is framed. See Wire for the format.
 
-    private static void WriteString(MemoryStream ms, string s)
-    {
-        var bytes = Encoding.UTF8.GetBytes(s ?? "");
-        WriteU32(ms, (uint)bytes.Length);
-        ms.Write(bytes, 0, bytes.Length);
-    }
-
-    private static void WriteU32(MemoryStream ms, uint v)
-    {
-        Span<byte> b = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(b, v);
-        ms.Write(b);
-    }
-
-    private static void WriteI32(MemoryStream ms, int v)
-    {
-        Span<byte> b = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32BigEndian(b, v);
-        ms.Write(b);
-    }
-
-    private static void WriteF64(MemoryStream ms, double v)
-    {
-        Span<byte> b = stackalloc byte[8];
-        BinaryPrimitives.WriteDoubleBigEndian(b, v);
-        ms.Write(b);
-    }
-
-    private static void WriteI64(MemoryStream ms, long v)
-    {
-        Span<byte> b = stackalloc byte[8];
-        BinaryPrimitives.WriteInt64BigEndian(b, v);
-        ms.Write(b);
-    }
-
-    private static void WriteOhlcv(MemoryStream ms, Ohlcv bar)
-    {
-        WriteI64(ms, bar.Date.Ticks);
-        WriteF64(ms, bar.Open);
-        WriteF64(ms, bar.High);
-        WriteF64(ms, bar.Low);
-        WriteF64(ms, bar.Close);
-        WriteF64(ms, bar.Volume);
-    }
-
-    private ref struct ByteReader
-    {
-        private readonly byte[] _buf;
-        private int _pos;
-        public ByteReader(byte[] buf) { _buf = buf; _pos = 0; }
-
-        private void EnsureAvailable(int n)
-        {
-            if (n < 0 || _pos + n > _buf.Length)
-                throw new InvalidDataException(
-                    $"Truncated frame: attempted to read {n} bytes at offset {_pos}, buffer length {_buf.Length}.");
-        }
-
-        public uint ReadU32()
-        {
-            EnsureAvailable(4);
-            var v = BinaryPrimitives.ReadUInt32BigEndian(_buf.AsSpan(_pos, 4));
-            _pos += 4;
-            return v;
-        }
-
-        public int ReadI32()
-        {
-            EnsureAvailable(4);
-            var v = BinaryPrimitives.ReadInt32BigEndian(_buf.AsSpan(_pos, 4));
-            _pos += 4;
-            return v;
-        }
-
-        public double ReadF64()
-        {
-            EnsureAvailable(8);
-            var v = BinaryPrimitives.ReadDoubleBigEndian(_buf.AsSpan(_pos, 8));
-            _pos += 8;
-            return v;
-        }
-
-        public long ReadI64()
-        {
-            EnsureAvailable(8);
-            var v = BinaryPrimitives.ReadInt64BigEndian(_buf.AsSpan(_pos, 8));
-            _pos += 8;
-            return v;
-        }
-
-        public string ReadString()
-        {
-            uint rawLen = ReadU32();
-            if (rawLen == 0) return "";
-            if (rawLen > MaxStringBytes)
-                throw new InvalidDataException($"String length {rawLen} exceeds cap {MaxStringBytes}.");
-            int len = (int)rawLen;
-            EnsureAvailable(len);
-            var s = Encoding.UTF8.GetString(_buf, _pos, len);
-            _pos += len;
-            return s;
-        }
-
-        public Ohlcv ReadOhlcv()
-        {
-            var ticks  = ReadI64();
-            var open   = ReadF64();
-            var high   = ReadF64();
-            var low    = ReadF64();
-            var close  = ReadF64();
-            var volume = ReadF64();
-            return new Ohlcv(new DateTime(ticks, DateTimeKind.Utc), open, high, low, close, volume);
-        }
-    }
+    private static void WriteString(MemoryStream ms, string s) => Wire.WriteString(ms, s);
+    private static void WriteU32(MemoryStream ms, uint v)      => Wire.WriteU32(ms, v);
+    private static void WriteI32(MemoryStream ms, int v)       => Wire.WriteI32(ms, v);
+    private static void WriteF64(MemoryStream ms, double v)    => Wire.WriteF64(ms, v);
+    private static void WriteOhlcv(MemoryStream ms, Ohlcv bar) => Wire.WriteOhlcv(ms, bar);
 }

@@ -29,21 +29,11 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class ScriptWorkerMemoryLimitTests
 {
-    private static string ResolveWorkerPath()
-    {
-        var baseDir      = AppContext.BaseDirectory;
-        var solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-        var config       = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))) ?? "Debug";
-        var exeName      = OperatingSystem.IsWindows()
-            ? "AccessibleTrader.ScriptWorker.exe"
-            : "AccessibleTrader.ScriptWorker";
-        return Path.Combine(solutionRoot, "AccessibleTrader.ScriptWorker", "bin", config, "net10.0", exeName);
-    }
 
     [Fact]
     public void The_worker_declares_a_heap_hard_limit_below_the_supervisor_quota()
     {
-        var workerPath = ResolveWorkerPath();
+        var workerPath = ScriptWorkerPath.Resolve();
         // NOT Path.ChangeExtension(workerPath, null): the worker has no extension on Unix, so
         // that reads ".ScriptWorker" as the extension and strips it.
         var configPath = Path.Combine(Path.GetDirectoryName(workerPath)!,
@@ -84,7 +74,7 @@ public class ScriptWorkerMemoryLimitTests
     [Fact]
     public async Task A_script_asking_for_four_gigabytes_is_refused_by_the_runtime_not_by_the_poll()
     {
-        var workerPath = ResolveWorkerPath();
+        var workerPath = ScriptWorkerPath.Resolve();
         Assert.True(File.Exists(workerPath), $"ScriptWorker executable not found at '{workerPath}'.");
 
         const string src = """
@@ -137,7 +127,7 @@ public class ScriptWorkerMemoryLimitTests
     [Fact]
     public async Task An_ordinary_indicator_still_runs_under_the_heap_limit()
     {
-        var workerPath = ResolveWorkerPath();
+        var workerPath = ScriptWorkerPath.Resolve();
         Assert.True(File.Exists(workerPath), $"ScriptWorker executable not found at '{workerPath}'.");
 
         const string src = """

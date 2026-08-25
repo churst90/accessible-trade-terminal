@@ -742,7 +742,12 @@ namespace AccessibleTrader.Tests
             string id = engine.AddStrategy(strategy, null, StrategyExecutionMode.Auto, specId: "spec-1");
             dataManager.DataUpdated += Raise.Event<Action>();
 
-            await WaitUntil(() => h.Orders.Placed.Count > 0);
+            // Both halves, not just the placement. ExecuteSignalAsync records the order with the
+            // broker BEFORE it registers the plan with the manager, so waiting only on
+            // Orders.Placed lets the assertion below run in the gap between the two — which it
+            // did about one run in three. A timeout here still fails, so a manager that is never
+            // populated is still caught; only the moment of looking has moved.
+            await WaitUntil(() => h.Orders.Placed.Count > 0 && h.Manager.Get(id) != null);
 
             // The entry went, and the manager now holds the ladder the ORDER could not carry.
             Assert.Equal(OrderSide.Buy, h.Orders.Placed[0].Signal.Side);

@@ -35,9 +35,15 @@ is the next bar, and a backtest pays for reading it. A strategy that emits nothi
 saved strategy does not come back**, because a script the user armed can now legitimately fail to
 recompile and that had been a log line.
 
-Still open and still the headline: **strategy scripts never leave the host process**. It is scoped
-in the section below — six opcodes, an incremental history, and a `WorkspaceState` projection with
-a reflection guard so it cannot silently go stale — but not started. Suite **4786 green**; fifteen
+**Closed 2026-08-25, and it was the headline: strategy scripts now leave the host process.**
+`CompileStrategyAsync` returns a proxy for a strategy running in the sandboxed worker, driven a
+bar at a time over five new opcodes, with an incremental history and a reflection-guarded
+`WorkspaceState` projection. Two things the scope had not predicted: the causality probe could not
+start a proxy over (`Activator` on a proxy's type builds another empty proxy — hence
+`IRestartableStrategy`), and **no script strategy had ever been able to read `state.ActiveSeries`
+at all**, because `ChartSeries` derives from CommunityToolkit's `ObservableObject` and that
+assembly was in no reference set the compile ever used. See the item below for both. Suite
+**4817 green** (4812 by `--list-tests`, which is the number the doc-drift guard reads); seven
 sabotage runs, every guard proven red.
 
 **The gate got a wall-clock budget**, because it now runs once per armed script at app start and a
@@ -90,10 +96,11 @@ symbols); a script's `Console.WriteLine` **corrupted the worker's IPC frame stre
 `Frame length 1650553376 exceeds 67108864`; `Environment.GetEnvironmentVariables()` handed a script
 the host's whole environment block; and the blocked-member check tested `IMethodSymbol` only, so a
 property could not have been listed even if someone had thought to list one. All four fixed. The
-structural finding is filed, not fixed: **strategy scripts never leave the host process** — only
+structural finding was filed, not fixed: **strategy scripts never leave the host process** — only
 indicators go out-of-process — so for the half of the surface that places orders, the walker is the
-only wall. See "Scripting and the sandbox — audit 2026-08-25". Suite **4700 green**; nine sabotage
-runs, every guard proven red.
+only wall. **Closed later the same day**: strategies now run in the worker too, so the walker is
+one of two walls rather than the only one. See "Scripting and the sandbox — audit 2026-08-25".
+Suite **4700 green** at the time of the audit; nine sabotage runs, every guard proven red.
 
 **Status 2026-08-25 (the causality batch — blockers 5, 7, 8 and 9):** **522 open.** Eight items
 closed, all of the same shape: *the code read the wrong bar, the wrong user's file, or died
@@ -3876,7 +3883,7 @@ real answer. That is filed below as its own finding.
 
 ### Open
 
-- [ ] **Strategy scripts never leave the host process, and a strategy is the thing that places
+- [x] **Strategy scripts never leave the host process, and a strategy is the thing that places
   orders.** `RoslynScriptingService.CompileStrategyAsync` (`:497-513`) loads the compiled assembly
   with `alc.LoadFromStream` **in the trading host** — no worker, no OS sandbox, no memory or CPU
   quota, no kill switch. Only `CompileIndicatorAsync` goes out-of-process. `ExecuteSimpleAsync`
@@ -3913,6 +3920,70 @@ real answer. That is filed below as its own finding.
     component arrays go through the existing binary path.
   - **The causality probe transfers unchanged** — it drives `ITradingStrategy`, and the indicator
     probe already runs against the out-of-process proxy exactly as against an in-process instance.
+
+  **CLOSED 2026-08-25.** Built to the scope above, which held except in two places named below.
+  `CompileStrategyAsync`'s default path now spawns the worker, sends the assembly, and returns an
+  `OutOfProcessStrategy` proxy; the in-process load survives only behind
+  `ACCESSIBLETRADER_SCRIPT_IN_PROCESS=1` in a DEBUG build, exactly as for indicators. The five
+  strategy opcodes and their four responses are in `Opcode.cs`; the codec is `StrategyMessages.cs`
+  over the primitives that `MessageCodec`'s private helpers were promoted into (`Wire.cs`), so the
+  two codecs cannot drift on how a bar or a string is framed. `LoadAssembly` answers `Ready` or
+  `StrategyReady` depending on what it found, so the WORKER decides what a compiled assembly is.
+  - **History is a delta, pinned at both ends.** The worker keeps its own copy; the host sends the
+    tail it has not sent, with the total count and the first bar's date. A first-bar date that
+    moved is a prepend, not an append, and forces a full resend — the lesson the scrollback smear
+    taught, applied before it could be learned again here.
+  - **State crosses on reference change.** The backtester builds one `liveState` before its loop
+    and hands it to every bar, so it crosses once per run; the live engine makes a new record per
+    bar, so it crosses per bar. The gap that leaves is documented on `OutOfProcessStrategy`:
+    mutating a `ChartSeries` in place under an unchanged state reference is not noticed. Nothing
+    in the reducer does that, and deep-comparing a component stack every bar costs more than the
+    send it saves.
+  - **The projection's anti-staleness guard is the census in `WorkspaceProjectionTests`**, plus a
+    reflection round-trip over every carried scalar.
+  Seven sabotage runs, all red: a carried property dropped from the wire; a property listed on
+  neither projection list; the delta trusting the count without the first bar's date (the
+  prepend-as-append smear); the state never resent after Initialize (a strategy reading a stale
+  workspace forever); the probe back on `Activator` against a proxy; and strategies quietly
+  returning to the in-process path, which is the regression the whole change exists to prevent
+  and which two separate tests catch.
+  **Two things the scope did not predict.**
+  1. **The probe could not start a proxy over.** `Run` did `Activator.CreateInstance(prototype
+     .GetType())`, which through a proxy constructs another proxy with nothing behind it. Fixed
+     with `IRestartableStrategy` in the SDK: the proxy returns itself and the worker builds a
+     fresh instance on every `InitializeStrategy` frame. Everything else still goes through
+     `Activator`, so nothing changed for an in-process strategy.
+  2. **No script strategy could read `state.ActiveSeries` at all, and never could have.**
+     `ChartSeries`, `SeriesConfig`, `ComponentConfig` and `LevelConfig` all derive from
+     CommunityToolkit's `ObservableObject`, which was in neither the old AppDomain scan (it only
+     matched `System.*`/`Microsoft.*`) nor the declared list that replaced it — so
+     `state.ActiveSeries[0].FriendlyName` failed to compile with "the type 'ObservableObject' is
+     defined in an assembly that is not referenced", which reads to an author as a broken script.
+     A pre-existing defect this surfaced by being the first thing to drive a strategy against a
+     real series stack. `_packageReferenceNames` now resolves it beside Skender, from Core's own
+     directory. Widens nothing — the walker is the wall and does not consult that list.
+  **What did NOT come along, and is filed rather than faked:** the host's DI graph. Inside the
+  worker `PluginHostServices`' statics are unset and Core's caches (the strategy indicator cache,
+  the profile cache) are empty, so a script that reaches for a host singleton gets null. Every
+  strategy the templates teach reads its inputs from `OnBar`'s arguments and is unaffected.
+  Also unchanged: a strategy script may still NAME any `AccessibleTrader.Core` type, because it
+  compiles against Core and the walker's blocklist is framework namespaces. That was true
+  in-process too and was strictly worse there; the OS sandbox is what now stands behind it.
+  Thirty tests across `WorkspaceProjectionTests`, `StrategyCodecTests` and
+  `OutOfProcessStrategyTests` (the last driving a real spawned worker), plus
+  `StrategyCausalityGateTests` repointed from a deliberately bogus worker path — "never used", and
+  it had stopped being true — onto the real binary, so the gate is now proven across the boundary
+  it actually runs across.
+
+- [ ] **A script strategy cannot reach the host services a script strategy might want.** Filed out
+  of the out-of-process work above. Inside the worker there is no DI container, `PluginHostServices`
+  is unset, and `IStrategyIndicatorCache` / the profile cache are empty — so the backtester's
+  per-bar VPVR replay, which writes into a HOST-side profile cache, is invisible to a scripted
+  strategy running in the sandbox. `state.ActiveSeries` carries the computed component stack and
+  the profile bins, which is what a condition-style strategy actually reads, so this is not a
+  blocker; it is a gap between what a strategy CAN read and what a built-in plugin strategy can.
+  Options are a service-projection over the frame protocol (large) or documenting the boundary in
+  the scripting help and the strategy template (small, and probably right). MEDIUM.
 - [x] **What a script can even NAME depends on the host's assembly load order.**
   `CompileIndicatorAsync:264-281` and `CompileStrategyAsync:449-466` add every loaded `System.*` /
   `Microsoft.*` / `netstandard` / `mscorlib` assembly to the reference set. The comment argues this

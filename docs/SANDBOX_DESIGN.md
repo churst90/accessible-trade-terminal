@@ -66,7 +66,8 @@ so even a full sandbox escape can't reach the trading host.
 **Worker responsibilities**
 - Take a compiled-assembly bytestream on startup.
 - Load into a collectible `AssemblyLoadContext` (no trust gain — defense in depth only).
-- Read frames from stdin, dispatch to `ICustomIndicator.Calculate` or `ITradingStrategy.Evaluate`.
+- Read frames from stdin, dispatch to `ICustomIndicator.Calculate` or, for a strategy, to
+  `Initialize` / `OnBar` / `OnOrderFilled` / `OnStop` / `GetMetrics`.
 - Write result frames to stdout.
 - Never reach outside the pipe.
 
@@ -87,21 +88,44 @@ loops).
 
 ### Opcodes (host → worker)
 
-| opcode | name         | payload                                              |
-|--------|--------------|------------------------------------------------------|
-| `0x01` | LoadAssembly | assembly bytes                                       |
-| `0x02` | Calculate    | u32 bar-count, f64×5×N OHLCV rows, u32 param-count, params |
-| `0x03` | Evaluate     | strategy-specific (TBD)                              |
-| `0xFF` | Shutdown     | (empty)                                              |
+| opcode | name               | payload                                              |
+|--------|--------------------|------------------------------------------------------|
+| `0x01` | LoadAssembly       | assembly bytes                                       |
+| `0x02` | Calculate          | u32 bar-count, f64×5×N OHLCV rows, u32 param-count, params |
+| `0x03` | InitializeStrategy | u32 bar-count + OHLCV rows, tagged param map, workspace projection |
+| `0x04` | OnBar              | the closed bar, a history delta, and the workspace projection when it changed |
+| `0x05` | OrderFilled        | one `OrderUpdate`                                    |
+| `0x06` | StopStrategy       | (empty)                                              |
+| `0x07` | GetMetrics         | (empty)                                              |
+| `0xFF` | Shutdown           | (empty)                                              |
 
 ### Opcodes (worker → host)
 
-| opcode | name         | payload                                              |
-|--------|--------------|------------------------------------------------------|
-| `0x81` | Ready        | (empty)                                              |
-| `0x82` | Result       | u32 component-count, for each: u32 len, f64×len      |
-| `0x83` | Error        | utf-8 error message                                  |
-| `0x84` | Diagnostic   | utf-8 log line (verbose; host routes to the journal) |
+| opcode | name          | payload                                              |
+|--------|---------------|------------------------------------------------------|
+| `0x81` | Ready         | indicator metadata                                   |
+| `0x82` | Result        | u32 component-count, for each: u32 len, f64×len      |
+| `0x83` | Error         | utf-8 error message                                  |
+| `0x84` | Diagnostic    | utf-8 log line (verbose; host routes to the journal) |
+| `0x85` | StrategyReady | strategy metadata (id, name, complexity, parameters) |
+| `0x86` | Signal        | presence byte, then one `StrategySignal`             |
+| `0x87` | Ack           | (empty) — a void strategy call succeeded             |
+| `0x88` | Metrics       | one `StrategyMetrics`                                |
+
+`LoadAssembly` answers `Ready` or `StrategyReady` depending on what the assembly turned out to
+hold — the worker decides, not the host.
+
+**Why `OnBar` is not simply "send the three arguments".** A backtest is one `OnBar` per bar with a
+history that grows by one each time; re-sending it whole is quadratic, ~4.8 GB over a 10,000-bar
+run. The worker keeps the history and the host sends only what it has not sent, pinned at both
+ends by first-bar date and total count — lengths alone cannot tell an append from a prepend, and
+a disagreement is a hard error answered with a full resend. The workspace state is sent when the
+host's reference to it changes, which is once per backtest run and once per bar when live.
+
+**What crosses in the workspace projection** is declared in
+`AccessibleTrader.ScriptSandbox/WorkspaceProjection.cs` and enforced by `WorkspaceProjectionTests`:
+a `WorkspaceState` property on neither the carried nor the not-carried list fails the test run, so
+growing that record forces a decision rather than silently defaulting inside the sandbox.
 
 ### Timeouts
 

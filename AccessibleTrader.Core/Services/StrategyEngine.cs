@@ -387,7 +387,8 @@ namespace AccessibleTrader.Core.Services
                 var active = _activeStrategies.FirstOrDefault(a => a.InstanceId == instanceId);
                 if (active == null) return;
 
-                active.Strategy.OnStop();
+                StopStrategy(active.Strategy);
+                ReleaseStrategy(active.Strategy);
                 _activeStrategies = _activeStrategies.RemoveAll(a => a.InstanceId == instanceId);
                 _pendingSignals.Remove(instanceId);
                 _lastSignalTimes.Remove(instanceId);
@@ -424,8 +425,59 @@ namespace AccessibleTrader.Core.Services
             lock (_evalGate)
             {
                 foreach (var active in _activeStrategies)
-                    active.Strategy.OnStop();
+                {
+                    StopStrategy(active.Strategy);
+                    ReleaseStrategy(active.Strategy);
+                }
             }
+        }
+
+        /// <summary>
+        /// The strategy's own teardown, which is allowed to fail.
+        ///
+        /// <para>
+        /// A script strategy's <c>OnStop</c> is a round trip to a worker process, so it now throws
+        /// for reasons that have nothing to do with the strategy's code — a worker the memory
+        /// quota already killed, a pipe that broke. Letting that escape would abandon the rest of
+        /// the removal (the worker never released, the managed position never forgotten) or, in
+        /// <see cref="Dispose"/>, leave every strategy after this one running. Teardown reports
+        /// and continues.
+        /// </para>
+        /// </summary>
+        private void StopStrategy(ITradingStrategy strategy)
+        {
+            try { strategy.OnStop(); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    $"Strategy '{strategy.Name}' threw from OnStop; carrying on with its teardown: {ex.Message}",
+                    nameof(StrategyEngine));
+            }
+        }
+
+        /// <summary>
+        /// Releases whatever a strategy instance is holding beyond its own memory.
+        ///
+        /// <para>
+        /// A script strategy is a proxy for code running in the sandbox worker, and dropping the
+        /// reference does not end that process — it sits there holding one of the sixteen
+        /// concurrency slots until the app exits, and a user who adds and removes four scripts a
+        /// day runs out of slots without ever being told why. <c>OnStop</c> is the strategy's own
+        /// teardown and deliberately does NOT kill the worker (the causality probe calls it
+        /// between runs); this is the separate step that does.
+        /// </para>
+        /// </summary>
+        private void ReleaseStrategy(ITradingStrategy strategy)
+        {
+            if (strategy is not IAsyncDisposable disposable) return;
+
+            // Fire-and-forget: the worker's own DisposeAsync sends Shutdown, waits out a one
+            // second grace window and then kills the process. Blocking a strategy removal — which
+            // can run from the UI thread — on that is not worth the certainty.
+            SafeFireAndForget.Run(
+                async () => await disposable.DisposeAsync().ConfigureAwait(false),
+                _msLogger,
+                $"ReleaseStrategy_{strategy.Name}");
         }
     }
 }

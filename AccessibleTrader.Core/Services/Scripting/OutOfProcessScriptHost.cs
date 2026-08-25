@@ -4,6 +4,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.ScriptSandbox;
+using AccessibleTrader.Sdk.Strategies;
+using AccessibleTrader.Sdk.Trading;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Scripting;
@@ -51,6 +53,14 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
 {
     /// <summary>Max wall-clock a single Calculate call gets before we kill the worker.</summary>
     public static readonly TimeSpan DefaultCalculateTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Max wall-clock a single strategy frame (Initialize / OnBar / OrderFilled / OnStop /
+    /// GetMetrics) gets before we kill the worker. Same budget as an indicator Calculate, for
+    /// the same reason: one bar's decision is a small computation, and a strategy that cannot
+    /// answer in five seconds is not one that can be driven off a live bar close.
+    /// </summary>
+    public static readonly TimeSpan DefaultStrategyCallTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>Max wall-clock for the initial LoadAssembly → Ready handshake.</summary>
     public static readonly TimeSpan DefaultStartTimeout = TimeSpan.FromSeconds(10);
@@ -130,6 +140,7 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
     private volatile bool _killedForCpu;
 
     private IndicatorMetadataMessage? _metadata;
+    private StrategyMetadataMessage? _strategyMetadata;
     private bool _disposed;
 
     private OutOfProcessScriptHost(IScriptWorkerProcess proc, string scriptId, long maxWorkingSetBytes, double maxCpuFraction, ILogger? logger)
@@ -175,6 +186,19 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
     /// </summary>
     public IndicatorMetadataMessage Metadata =>
         _metadata ?? throw new InvalidOperationException("StartAsync has not completed successfully.");
+
+    /// <summary>
+    /// Published metadata from the worker's <see cref="Opcode.StrategyReady"/> response —
+    /// populated instead of <see cref="Metadata"/> when the loaded assembly turned out to hold
+    /// an <c>ITradingStrategy</c>. Which one a worker answers with is the worker's decision, not
+    /// the host's: see <see cref="Opcode.LoadAssembly"/>.
+    /// </summary>
+    public StrategyMetadataMessage StrategyMetadata =>
+        _strategyMetadata ?? throw new InvalidOperationException(
+            "This worker did not load a strategy (StartAsync has not completed, or the assembly held an indicator).");
+
+    /// <summary><c>true</c> when the loaded assembly held an <c>ITradingStrategy</c>.</summary>
+    public bool IsStrategy => _strategyMetadata != null;
 
     public bool IsAlive => !_disposed && !_proc.HasExited;
 
@@ -343,6 +367,9 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
                     case Opcode.Ready:
                         _metadata = MessageCodec.DecodeMetadata(payload);
                         return;
+                    case Opcode.StrategyReady:
+                        _strategyMetadata = StrategyCodec.DecodeMetadata(payload);
+                        return;
                     case Opcode.Error:
                         throw new InvalidOperationException(
                             $"script worker {_scriptId} rejected LoadAssembly: {Encoding.UTF8.GetString(payload)}");
@@ -378,34 +405,103 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
         TimeSpan? timeout = null,
         CancellationToken ct = default)
     {
+        var (_, resp) = await RoundTripAsync(
+            Opcode.Calculate, MessageCodec.EncodeCalculateRequest(request),
+            Opcode.Result, "Calculate", timeout ?? DefaultCalculateTimeout, ct).ConfigureAwait(false);
+        return MessageCodec.DecodeCalculateResponse(resp).ComponentData;
+    }
+
+    // ── Strategy frames ─────────────────────────────────────────────────────
+    // One method per ITradingStrategy member, each a single round trip. The
+    // proxy (OutOfProcessStrategy) is what turns them back into the synchronous
+    // interface the engine and the backtester call.
+
+    /// <summary>
+    /// Construct a fresh strategy instance in the worker and call <c>Initialize</c> on it. Every
+    /// call starts the strategy over — see <see cref="Opcode.InitializeStrategy"/>.
+    /// </summary>
+    public async Task InitializeStrategyAsync(
+        InitializeStrategyRequest request, TimeSpan? timeout = null, CancellationToken ct = default) =>
+        await RoundTripAsync(
+            Opcode.InitializeStrategy, StrategyCodec.EncodeInitialize(request),
+            Opcode.Ack, "Initialize", timeout ?? DefaultStrategyCallTimeout, ct).ConfigureAwait(false);
+
+    /// <summary>One bar in, at most one order out.</summary>
+    public async Task<StrategySignal?> OnBarAsync(
+        OnBarRequest request, TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        var (_, resp) = await RoundTripAsync(
+            Opcode.OnBar, StrategyCodec.EncodeOnBar(request),
+            Opcode.Signal, "OnBar", timeout ?? DefaultStrategyCallTimeout, ct).ConfigureAwait(false);
+        return StrategyCodec.DecodeSignal(resp).Signal;
+    }
+
+    public async Task OnOrderFilledAsync(
+        OrderUpdate fill, TimeSpan? timeout = null, CancellationToken ct = default) =>
+        await RoundTripAsync(
+            Opcode.OrderFilled, StrategyCodec.EncodeOrderUpdate(fill),
+            Opcode.Ack, "OnOrderFilled", timeout ?? DefaultStrategyCallTimeout, ct).ConfigureAwait(false);
+
+    public async Task StopStrategyAsync(TimeSpan? timeout = null, CancellationToken ct = default) =>
+        await RoundTripAsync(
+            Opcode.StopStrategy, Array.Empty<byte>(),
+            Opcode.Ack, "OnStop", timeout ?? DefaultStrategyCallTimeout, ct).ConfigureAwait(false);
+
+    public async Task<StrategyMetrics> GetStrategyMetricsAsync(
+        TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        var (_, resp) = await RoundTripAsync(
+            Opcode.GetMetrics, Array.Empty<byte>(),
+            Opcode.Metrics, "GetMetrics", timeout ?? DefaultStrategyCallTimeout, ct).ConfigureAwait(false);
+        return StrategyCodec.DecodeMetrics(resp);
+    }
+
+    /// <summary>
+    /// Send one command frame and wait for the one response opcode it is allowed to produce.
+    ///
+    /// <para>
+    /// Every host → worker call has the same failure surface — a timeout that must kill the
+    /// worker, a quota kill whose only symptom at this layer is a broken pipe, an
+    /// <see cref="Opcode.Error"/> carrying the worker's own words, and diagnostics that have to
+    /// be drained rather than mistaken for the answer. Writing that seven times is how one of
+    /// the seven ends up missing the kill on timeout and leaves a hung worker holding a
+    /// concurrency slot for the rest of the session.
+    /// </para>
+    /// </summary>
+    private async Task<(Opcode Opcode, byte[] Payload)> RoundTripAsync(
+        Opcode send,
+        byte[] payload,
+        Opcode expected,
+        string operation,
+        TimeSpan timeout,
+        CancellationToken ct)
+    {
         if (_disposed) throw new ObjectDisposedException(nameof(OutOfProcessScriptHost));
         if (!IsAlive)  throw new InvalidOperationException($"script worker {_scriptId} has exited (code {_proc.ExitCode}).");
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(timeout ?? DefaultCalculateTimeout);
+        timeoutCts.CancelAfter(timeout);
 
         await _ioGate.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
         try
         {
-            var payload = MessageCodec.EncodeCalculateRequest(request);
-            await FrameCodec.WriteFrameAsync(_stdin, Opcode.Calculate, payload, timeoutCts.Token).ConfigureAwait(false);
+            await FrameCodec.WriteFrameAsync(_stdin, send, payload, timeoutCts.Token).ConfigureAwait(false);
 
             while (true)
             {
                 var (opcode, resp) = await FrameCodec.ReadFrameAsync(_stdout, timeoutCts.Token).ConfigureAwait(false);
+                if (opcode == expected) return (opcode, resp);
                 switch (opcode)
                 {
-                    case Opcode.Result:
-                        return MessageCodec.DecodeCalculateResponse(resp).ComponentData;
                     case Opcode.Error:
                         throw new InvalidOperationException(
-                            $"script worker {_scriptId} Calculate error: {Encoding.UTF8.GetString(resp)}");
+                            $"script worker {_scriptId} {operation} error: {Encoding.UTF8.GetString(resp)}");
                     case Opcode.Diagnostic:
                         _logger?.LogDebug("[worker {Id}] {Msg}", _scriptId, Encoding.UTF8.GetString(resp));
                         continue;
                     default:
                         throw new InvalidDataException(
-                            $"script worker {_scriptId} sent unexpected opcode 0x{(byte)opcode:X2} during Calculate");
+                            $"script worker {_scriptId} sent unexpected opcode 0x{(byte)opcode:X2} during {operation}");
                 }
             }
         }
@@ -414,13 +510,12 @@ public sealed class OutOfProcessScriptHost : IAsyncDisposable
             // Timed-out worker is suspect — kill it so we don't keep
             // feeding frames to a process that won't answer.
             try { if (!_proc.HasExited) _proc.Kill(entireProcessTree: true); } catch { }
-            var budget = timeout ?? DefaultCalculateTimeout;
             RecordSecurityEvent(
                 AccessibleTrader.Sdk.Services.SecurityEventKind.CalculateTimeout,
-                $"Calculate exceeded {budget.TotalSeconds:F0}s",
-                new Dictionary<string, string> { ["timeoutSeconds"] = budget.TotalSeconds.ToString("F0") });
+                $"{operation} exceeded {timeout.TotalSeconds:F0}s",
+                new Dictionary<string, string> { ["timeoutSeconds"] = timeout.TotalSeconds.ToString("F0") });
             throw new TimeoutException(
-                $"script worker {_scriptId} Calculate exceeded {budget.TotalSeconds:F0}s — worker killed");
+                $"script worker {_scriptId} {operation} exceeded {timeout.TotalSeconds:F0}s — worker killed");
         }
         catch (Exception) when (_killedForMemory)
         {

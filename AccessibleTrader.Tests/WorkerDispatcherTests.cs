@@ -236,8 +236,10 @@ public class WorkerDispatcherTests
 
     /// <summary>
     /// A perfectly valid assembly that implements nothing. The user sees this
-    /// when their script compiles but the class does not implement
-    /// <c>ICustomIndicator</c>, so the message has to name the interface.
+    /// when their script compiles but the class implements neither of the two
+    /// interfaces a script can be, so the message has to name both — a script
+    /// author who meant to write a strategy and got told only about
+    /// <c>ICustomIndicator</c> is being pointed at the wrong mistake.
     /// </summary>
     [Fact]
     public async Task RunAsync_LoadAssemblyWithNoIndicatorType_ReportsError()
@@ -247,8 +249,9 @@ public class WorkerDispatcherTests
             (Opcode.Shutdown, Array.Empty<byte>()));
 
         var error = Assert.Single(frames, f => f.opcode == Opcode.Error);
-        Assert.Contains("no ICustomIndicator implementation found", Text(error.payload));
+        Assert.Contains("no ICustomIndicator or ITradingStrategy implementation found", Text(error.payload));
         Assert.DoesNotContain(frames, f => f.opcode == Opcode.Ready);
+        Assert.DoesNotContain(frames, f => f.opcode == Opcode.StrategyReady);
     }
 
     /// <summary>

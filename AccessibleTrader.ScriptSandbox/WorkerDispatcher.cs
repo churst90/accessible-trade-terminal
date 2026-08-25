@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,16 +9,28 @@ using System.Threading;
 using System.Threading.Tasks;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Strategies;
 
 namespace AccessibleTrader.ScriptSandbox;
 
 /// <summary>
 /// Shared worker-side dispatch loop. Reads <see cref="Opcode"/> frames
-/// from an input <see cref="Stream"/>, loads user indicator assemblies
-/// into a collectible <see cref="AssemblyLoadContext"/>, invokes
-/// <see cref="ICustomIndicator.Calculate"/> on the loaded instance, and
-/// writes result / error / diagnostic frames back on the output
-/// <see cref="Stream"/>.
+/// from an input <see cref="Stream"/>, loads user script assemblies
+/// into a collectible <see cref="AssemblyLoadContext"/>, invokes the
+/// loaded instance, and writes result / error / diagnostic frames back on
+/// the output <see cref="Stream"/>.
+///
+/// <para>
+/// Two kinds of script land here. An <c>ICustomIndicator</c> answers a
+/// single <see cref="Opcode.Calculate"/> frame with component arrays. An
+/// <c>ITradingStrategy</c> — the half of the scripting surface that opens
+/// positions — is driven a bar at a time through
+/// <see cref="Opcode.InitializeStrategy"/>, <see cref="Opcode.OnBar"/>,
+/// <see cref="Opcode.OrderFilled"/>, <see cref="Opcode.StopStrategy"/> and
+/// <see cref="Opcode.GetMetrics"/>, and its orders come back as
+/// <see cref="Opcode.Signal"/> frames for the HOST to apply its own risk
+/// rules to. Nothing the strategy returns places an order by itself.
+/// </para>
 ///
 /// <para>
 /// Extracted from the desktop <c>AccessibleTrader.ScriptWorker.Program</c>
@@ -46,6 +59,24 @@ public sealed class WorkerDispatcher
     // LoadAssembly frame; unloaded on Shutdown.
     private AssemblyLoadContext? _alc;
     private ICustomIndicator? _indicator;
+
+    // ── Strategy state ──────────────────────────────────────────────────
+    // The loaded strategy TYPE outlives any one instance: every
+    // InitializeStrategy frame constructs a fresh instance from it, which is
+    // what lets the causality probe start over without reaching Activator
+    // across the process boundary.
+    private Type? _strategyType;
+    private ITradingStrategy? _strategy;
+
+    // The worker's own copy of the bar history, so OnBar can be sent a delta
+    // instead of the whole buffer. See HistorySync for why that matters and
+    // what pins it against drifting out of step with the host's.
+    private readonly List<Ohlcv> _history = new();
+
+    // The last workspace state the host sent. An OnBar frame with no state
+    // means "unchanged" — the backtester passes one immutable liveState to
+    // every bar of a run, so this is the common case there.
+    private WorkspaceState? _state;
 
     public WorkerDispatcher(Stream input, Stream output)
     {
@@ -108,6 +139,26 @@ public sealed class WorkerDispatcher
                     await HandleCalculateAsync(payload, ct).ConfigureAwait(false);
                     break;
 
+                case Opcode.InitializeStrategy:
+                    await HandleInitializeStrategyAsync(payload, ct).ConfigureAwait(false);
+                    break;
+
+                case Opcode.OnBar:
+                    await HandleOnBarAsync(payload, ct).ConfigureAwait(false);
+                    break;
+
+                case Opcode.OrderFilled:
+                    await HandleOrderFilledAsync(payload, ct).ConfigureAwait(false);
+                    break;
+
+                case Opcode.StopStrategy:
+                    await HandleStopStrategyAsync(ct).ConfigureAwait(false);
+                    break;
+
+                case Opcode.GetMetrics:
+                    await HandleGetMetricsAsync(ct).ConfigureAwait(false);
+                    break;
+
                 case Opcode.Shutdown:
                     await EmitDiagnosticAsync("shutdown received", ct).ConfigureAwait(false);
                     try { _alc?.Unload(); } catch { /* best-effort */ }
@@ -142,7 +193,10 @@ public sealed class WorkerDispatcher
                                      && typeof(ICustomIndicator).IsAssignableFrom(t));
             if (indicatorType == null)
             {
-                await EmitErrorAsync("no ICustomIndicator implementation found in loaded assembly", ct).ConfigureAwait(false);
+                // Not an indicator — the other thing a user script can be is a strategy, and
+                // that half is the half that places orders. Answering StrategyReady from the
+                // same opcode keeps the host from having to know which it compiled.
+                await HandleLoadStrategyAsync(assembly, ct).ConfigureAwait(false);
                 return;
             }
 
@@ -197,6 +251,201 @@ public sealed class WorkerDispatcher
         catch (Exception ex)
         {
             await EmitErrorAsync("Calculate threw: " + ex, ct).ConfigureAwait(false);
+        }
+    }
+
+    // ── Strategy frames ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The <c>ITradingStrategy</c> arm of <c>LoadAssembly</c>. Instantiates the type once to read
+    /// its declared metadata, then keeps the TYPE — every <c>InitializeStrategy</c> builds a fresh
+    /// instance from it.
+    /// </summary>
+    private async Task HandleLoadStrategyAsync(Assembly assembly, CancellationToken ct)
+    {
+        var strategyType = assembly.GetTypes()
+            .FirstOrDefault(t => !t.IsAbstract && !t.IsInterface
+                                 && typeof(ITradingStrategy).IsAssignableFrom(t));
+        if (strategyType == null)
+        {
+            await EmitErrorAsync(
+                "no ICustomIndicator or ITradingStrategy implementation found in loaded assembly", ct).ConfigureAwait(false);
+            return;
+        }
+
+        var probe = (ITradingStrategy?)Activator.CreateInstance(strategyType);
+        if (probe == null)
+        {
+            await EmitErrorAsync(
+                "failed to instantiate ITradingStrategy (needs a public parameterless constructor)", ct).ConfigureAwait(false);
+            return;
+        }
+
+        _strategyType = strategyType;
+        _strategy = probe;
+
+        var meta = new StrategyMetadataMessage(
+            Id:              probe.Id ?? "",
+            Name:            probe.Name ?? "",
+            Description:     probe.Description ?? "",
+            ComplexityValue: (int)probe.Complexity,
+            Parameters:      (probe.Parameters ?? Array.Empty<StrategyParameter>()).ToArray());
+
+        await FrameCodec.WriteFrameAsync(_out, Opcode.StrategyReady, StrategyCodec.EncodeMetadata(meta), ct)
+            .ConfigureAwait(false);
+    }
+
+    private async Task HandleInitializeStrategyAsync(byte[] payload, CancellationToken ct)
+    {
+        if (_strategyType == null)
+        {
+            await EmitErrorAsync("InitializeStrategy received before a successful LoadAssembly", ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            var req = StrategyCodec.DecodeInitialize(payload);
+
+            // A FRESH instance every time. The probe needs a strategy that has never seen a bar
+            // for each of its runs, and "call Activator on the prototype's type" — how it does
+            // that in-process — has no meaning through a proxy. Doing it here means the probe's
+            // shape survives the move without the probe knowing a process boundary exists.
+            var instance = (ITradingStrategy?)Activator.CreateInstance(_strategyType);
+            if (instance == null)
+            {
+                await EmitErrorAsync(
+                    "the strategy class could not be instantiated (it needs a public parameterless constructor)",
+                    ct).ConfigureAwait(false);
+                return;
+            }
+
+            _strategy = instance;
+            _state = req.State;
+            _history.Clear();
+            _history.AddRange(req.History);
+
+            var parameters = new Dictionary<string, object>(req.Parameters.Count, StringComparer.Ordinal);
+            foreach (var kv in req.Parameters)
+                if (kv.Value != null) parameters[kv.Key] = kv.Value;
+
+            instance.Initialize(req.History, req.State, parameters);
+            await FrameCodec.WriteFrameAsync(_out, Opcode.Ack, Array.Empty<byte>(), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await EmitErrorAsync("Initialize threw: " + ex, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleOnBarAsync(byte[] payload, CancellationToken ct)
+    {
+        if (_strategy == null)
+        {
+            await EmitErrorAsync("OnBar received before a successful InitializeStrategy", ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            var req = StrategyCodec.DecodeOnBar(payload);
+
+            if (req.History.FullResync)
+            {
+                _history.Clear();
+                _history.AddRange(req.History.Bars);
+            }
+            else
+            {
+                _history.AddRange(req.History.Bars);
+            }
+
+            // The delta is only safe because both ends are pinned. A count that agrees while the
+            // first bar does not is exactly the prepend-versus-append confusion that smeared a
+            // whole indicator's values onto the wrong bars once already; here it would hand a
+            // strategy a history that silently disagrees with the host's.
+            if (_history.Count != req.History.ExpectedCount
+                || (_history.Count > 0 && _history[0].Date.Ticks != req.History.FirstBarTicks))
+            {
+                await EmitErrorAsync(
+                    $"history desync: worker holds {_history.Count} bars starting " +
+                    $"{(_history.Count > 0 ? _history[0].Date.Ticks : 0)}, host expected " +
+                    $"{req.History.ExpectedCount} starting {req.History.FirstBarTicks}", ct).ConfigureAwait(false);
+                return;
+            }
+
+            if (req.State != null) _state = req.State;
+            if (_state == null)
+            {
+                await EmitErrorAsync("OnBar arrived with no workspace state and none cached", ct).ConfigureAwait(false);
+                return;
+            }
+
+            var signal = _strategy.OnBar(req.Bar, _history, _state);
+            await FrameCodec.WriteFrameAsync(_out, Opcode.Signal,
+                StrategyCodec.EncodeSignal(new SignalResponse(signal)), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await EmitErrorAsync("OnBar threw: " + ex, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleOrderFilledAsync(byte[] payload, CancellationToken ct)
+    {
+        if (_strategy == null)
+        {
+            await EmitErrorAsync("OrderFilled received before a successful InitializeStrategy", ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            _strategy.OnOrderFilled(StrategyCodec.DecodeOrderUpdate(payload));
+            await FrameCodec.WriteFrameAsync(_out, Opcode.Ack, Array.Empty<byte>(), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await EmitErrorAsync("OnOrderFilled threw: " + ex, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleStopStrategyAsync(CancellationToken ct)
+    {
+        if (_strategy == null)
+        {
+            await EmitErrorAsync("StopStrategy received before a successful InitializeStrategy", ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            _strategy.OnStop();
+            await FrameCodec.WriteFrameAsync(_out, Opcode.Ack, Array.Empty<byte>(), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await EmitErrorAsync("OnStop threw: " + ex, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task HandleGetMetricsAsync(CancellationToken ct)
+    {
+        if (_strategy == null)
+        {
+            await EmitErrorAsync("GetMetrics received before a successful InitializeStrategy", ct).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            var metrics = _strategy.GetMetrics();
+            await FrameCodec.WriteFrameAsync(_out, Opcode.Metrics,
+                StrategyCodec.EncodeMetrics(metrics), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await EmitErrorAsync("GetMetrics threw: " + ex, ct).ConfigureAwait(false);
         }
     }
 

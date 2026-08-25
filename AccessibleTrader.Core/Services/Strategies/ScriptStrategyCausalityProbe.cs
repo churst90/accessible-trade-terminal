@@ -257,10 +257,17 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// </summary>
         private static Trace Run(ITradingStrategy prototype, List<Ohlcv> bars)
         {
-            var strategy = (ITradingStrategy?)Activator.CreateInstance(prototype.GetType())
-                ?? throw new InvalidOperationException(
-                    "the strategy class could not be instantiated a second time (it needs a public " +
-                    "parameterless constructor)");
+            // A strategy running in the sandbox worker is reached through a proxy, and
+            // reflecting on the PROXY's type would construct another proxy with nothing behind
+            // it. Such a strategy says how to start over itself; everything else is a plain
+            // class this can simply re-create. Either way the instance below has seen no bars,
+            // which is the only property the comparison depends on.
+            var strategy = prototype is IRestartableStrategy restartable
+                ? restartable.StartFresh()
+                : (ITradingStrategy?)Activator.CreateInstance(prototype.GetType())
+                  ?? throw new InvalidOperationException(
+                      "the strategy class could not be instantiated a second time (it needs a public " +
+                      "parameterless constructor)");
 
             var state = WorkspaceState.Initial with
             {

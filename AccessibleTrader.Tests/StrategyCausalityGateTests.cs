@@ -271,10 +271,22 @@ public class StrategyCausalityGateTests
 
     // ── The seam: the gate has to be wired into the compile door ─────────────────────────────
 
+    /// <summary>
+    /// A scripting service pointed at the REAL worker binary.
+    ///
+    /// <para>
+    /// This used to hand out a deliberately bogus worker path, on the reasoning that
+    /// <c>CompileStrategyAsync</c> loaded the strategy in-process and never went looking for one.
+    /// That stopped being true when strategies moved into the sandbox worker, and a test whose
+    /// path argument is "never used" is exactly the shape that keeps passing against the wrong
+    /// thing. Now the two compile tests below drive the gate across the process boundary it
+    /// actually runs across in production.
+    /// </para>
+    /// </summary>
     private static RoslynScriptingService NewScripting() =>
         new RoslynScriptingService(
             workerLauncher: new DefaultProcessLauncher(),
-            workerPathResolver: () => "/__strategy_gate_test_never_used__");
+            workerPathResolver: ScriptWorkerPath.Resolve);
 
     private const string ScriptPreamble = """
         using System;
@@ -433,6 +445,13 @@ public class StrategyCausalityGateTests
         Assert.True(result.Success, "A causal strategy was refused. Errors: " + errors);
         Assert.NotNull(result.Strategy);
         Assert.Empty(result.Errors ?? Array.Empty<string>());
+
+        // And it really did cross the process boundary. Without this, a regression that dropped
+        // CompileStrategyAsync back onto the in-process path would leave both compile tests here
+        // perfectly green — the gate would still work, it would just be running next to the
+        // credentials again.
+        Assert.IsType<AccessibleTrader.Core.Services.Scripting.OutOfProcessStrategy>(result.Strategy);
+
         scripting.UnloadScript(result.Strategy!.Id);
     }
 }

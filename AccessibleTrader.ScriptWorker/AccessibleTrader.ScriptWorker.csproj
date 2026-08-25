@@ -19,6 +19,23 @@
   <ItemGroup>
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
     <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+    <!--
+      Strategy scripts compile against AccessibleTrader.Core — BaseStrategy and the strategy
+      helper types live there, and CompileStrategyAsync has always put Core in the reference
+      set. A script assembly that names a Core type therefore cannot LOAD without Core
+      resolvable from the worker, so the worker has to carry it: the collectible ALC falls back
+      to the default context, which probes this project's deps.json and nothing else.
+
+      This costs no shipped bytes. The BlazorClient's CopyScriptWorker target copies the whole
+      worker output over the host's own directory, which already holds an identical Core.dll
+      and its dependencies from the same build.
+
+      It does NOT give a script the host's service graph: PluginHostServices' statics are unset
+      in the worker and Core's caches are empty there, so a strategy that reaches for a host
+      singleton gets null. Everything the strategy templates teach reads its inputs from OnBar's
+      arguments and is unaffected.
+    -->
+    <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
   </ItemGroup>
 
   <!--

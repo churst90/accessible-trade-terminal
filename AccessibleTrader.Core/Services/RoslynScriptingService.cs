@@ -258,6 +258,30 @@ namespace AccessibleTrader.Core.Services
             "System.Console",                  // referenced ONLY so the refusal reads properly
         };
 
+        /// <summary>
+        /// Package assemblies resolved from the directory holding AccessibleTrader.Core, on the
+        /// same "declared, not scanned" rule as <see cref="_frameworkReferenceNames"/>.
+        ///
+        /// <para>
+        /// <c>CommunityToolkit.Mvvm</c> is here because <c>ChartSeries</c>, <c>SeriesConfig</c>,
+        /// <c>ComponentConfig</c> and <c>LevelConfig</c> all derive from its <c>ObservableObject</c>,
+        /// and a base class the compiler cannot see makes the whole derived type unnameable:
+        /// without it, <c>state.ActiveSeries[0].FriendlyName</c> — the ordinary way a strategy
+        /// reads the indicator stack it was handed — failed with "the type 'ObservableObject' is
+        /// defined in an assembly that is not referenced", which reads as a broken script rather
+        /// than a missing reference. It was missing under the old AppDomain scan too (that scan
+        /// only ever matched <c>System.*</c> and <c>Microsoft.*</c>), so no script strategy has
+        /// ever been able to read a component; the out-of-process work is what surfaced it,
+        /// because it is the first thing that drove a strategy against a real series stack.
+        /// It widens nothing: the walker is the wall and does not consult this list.
+        /// </para>
+        /// </summary>
+        private static readonly string[] _packageReferenceNames =
+        {
+            "Skender.Stock.Indicators",
+            "CommunityToolkit.Mvvm",
+        };
+
         /// <summary>Exposed for the reference-determinism guard in the test suite.</summary>
         internal static IReadOnlyList<string> FrameworkReferenceNames => _frameworkReferenceNames;
 
@@ -312,15 +336,16 @@ namespace AccessibleTrader.Core.Services
                 if (File.Exists(path)) AddFile(path);
             }
 
-            // Skender is a hard package dependency of AccessibleTrader.Core, so it sits beside
-            // Core's own binary on every head. Resolved from THERE rather than from the loaded
-            // assembly list, for the same reason as everything else here.
+            // Package assemblies that sit beside Core's own binary on every head. Resolved from
+            // THERE rather than from the loaded assembly list, for the same reason as everything
+            // else here.
             var coreDir = Path.GetDirectoryName(typeof(RoslynScriptingService).Assembly.Location);
             if (!string.IsNullOrEmpty(coreDir))
-            {
-                var skender = Path.Combine(coreDir, "Skender.Stock.Indicators.dll");
-                if (File.Exists(skender)) AddFile(skender);
-            }
+                foreach (var name in _packageReferenceNames)
+                {
+                    var path = Path.Combine(coreDir, name + ".dll");
+                    if (File.Exists(path)) AddFile(path);
+                }
 
             return references;
         }
@@ -474,6 +499,20 @@ namespace AccessibleTrader.Core.Services
                 return new CompileResult(false, null, new[] { "ScriptWorker failed to start: " + ex.Message });
             }
 
+            // The worker answers LoadAssembly with whichever kind it found, so a user who wrote a
+            // strategy and pressed Compile Indicator lands here. Saying so beats letting
+            // OutOfProcessIndicator ask for indicator metadata that was never sent and report
+            // "StartAsync has not completed successfully", which describes nothing they did.
+            if (host.IsStrategy)
+            {
+                await host.DisposeAsync().ConfigureAwait(false);
+                return new CompileResult(false, null, new[]
+                {
+                    "This script implements ITradingStrategy, not ICustomIndicator. Add it from the " +
+                    "strategy modal rather than the indicator one."
+                });
+            }
+
             var proxy = new OutOfProcessIndicator(host);
             _outOfProcessHosts[proxy.Id] = host;
             return new CompileResult(true, proxy, Array.Empty<string>());
@@ -526,42 +565,135 @@ namespace AccessibleTrader.Core.Services
                     return new CompileStrategyResult(false, null, errors);
                 }
 
-                ms.Seek(0, System.IO.SeekOrigin.Begin);
-                var alc      = new AssemblyLoadContext($"strategy_{Guid.NewGuid():N}", isCollectible: true);
-                var assembly = alc.LoadFromStream(ms);
-
-                var stratType = assembly.GetTypes()
-                    .FirstOrDefault(t => !t.IsAbstract && !t.IsInterface
-                                         && typeof(ITradingStrategy).IsAssignableFrom(t));
-
-                if (stratType == null)
-                    return new CompileStrategyResult(false, null, new[] { "No class implementing ITradingStrategy found in the script." });
-
-                var instance = (ITradingStrategy?)Activator.CreateInstance(stratType);
-                if (instance == null)
-                    return new CompileStrategyResult(false, null, new[] { "Failed to instantiate strategy class." });
-
-                // The causality gate. A scripted INDICATOR is probed at registration and its
-                // look-ahead components are simply not offered to the strategy builder; a strategy
-                // has no equivalent half-measure — there is no "draws but does not trade" mode for
-                // something whose entire output is orders — so the gate is here, at the one door
-                // every script strategy comes through, and it refuses.
-                var causality = ScriptStrategyCausalityProbe.Probe(instance);
-                if (causality.Refused)
-                {
-                    alc.Unload();
-                    return new CompileStrategyResult(false, null, causality.Findings.ToArray());
-                }
-
-                _contexts[instance.Id] = alc;
-                // Notes ride back in Errors on a SUCCESSFUL result, which is the same channel the
-                // in-process indicator path uses for its "this is the unsandboxed path" warning.
-                return new CompileStrategyResult(true, instance, causality.Notes.ToArray());
+                // Default path: the strategy runs in the sandboxed worker and this host gets a
+                // proxy. Dev/debug path (ACCESSIBLETRADER_SCRIPT_IN_PROCESS=1, DEBUG builds only):
+                // load into a collectible ALC here so breakpoints hit — strictly weaker, since a
+                // sandbox escape then runs inside the trading process.
+                var assemblyBytes = ms.ToArray();
+                return InProcessOptIn
+                    ? LoadStrategyInProcess(assemblyBytes)
+                    : await LoadStrategyOutOfProcessAsync(assemblyBytes).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 return new CompileStrategyResult(false, null, new[] { ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Legacy in-process strategy load. Only reachable via
+        /// <c>ACCESSIBLETRADER_SCRIPT_IN_PROCESS=1</c> in a DEBUG build.
+        /// </summary>
+        private CompileStrategyResult LoadStrategyInProcess(byte[] assemblyBytes)
+        {
+            using var ms = new MemoryStream(assemblyBytes);
+            var alc      = new AssemblyLoadContext($"strategy_{Guid.NewGuid():N}", isCollectible: true);
+            var assembly = alc.LoadFromStream(ms);
+
+            var stratType = assembly.GetTypes()
+                .FirstOrDefault(t => !t.IsAbstract && !t.IsInterface
+                                     && typeof(ITradingStrategy).IsAssignableFrom(t));
+
+            if (stratType == null)
+                return new CompileStrategyResult(false, null, new[] { "No class implementing ITradingStrategy found in the script." });
+
+            var instance = (ITradingStrategy?)Activator.CreateInstance(stratType);
+            if (instance == null)
+                return new CompileStrategyResult(false, null, new[] { "Failed to instantiate strategy class." });
+
+            var causality = ScriptStrategyCausalityProbe.Probe(instance);
+            if (causality.Refused)
+            {
+                alc.Unload();
+                return new CompileStrategyResult(false, null, causality.Findings.ToArray());
+            }
+
+            _contexts[instance.Id] = alc;
+            return new CompileStrategyResult(true, instance, causality.Notes.ToArray());
+        }
+
+        /// <summary>
+        /// Default out-of-process strategy load. Spawns the worker through the configured
+        /// <see cref="IScriptWorkerLauncher"/>, sends the assembly, and returns a proxy that
+        /// forwards <c>Initialize</c> / <c>OnBar</c> / <c>OnOrderFilled</c> / <c>OnStop</c> /
+        /// <c>GetMetrics</c> over stdio.
+        ///
+        /// <para>
+        /// The causality gate runs here, against the proxy, exactly as it runs against an
+        /// in-process instance — the probe drives <c>ITradingStrategy</c> and does not know or
+        /// care that a process boundary is in the way. A scripted INDICATOR that reads the future
+        /// is merely not offered to the strategy builder; a strategy has no equivalent
+        /// half-measure, because its entire output is orders, so a refusal here is a refusal to
+        /// load. When it refuses, the worker is torn down with it.
+        /// </para>
+        /// </summary>
+        private async Task<CompileStrategyResult> LoadStrategyOutOfProcessAsync(byte[] assemblyBytes)
+        {
+            string workerPath;
+            try
+            {
+                workerPath = _workerPathResolver();
+                if (!OperatingSystem.IsAndroid() && !File.Exists(workerPath))
+                    return new CompileStrategyResult(false, null, new[]
+                    {
+                        $"ScriptWorker executable not found at '{workerPath}'. " +
+                        "Run a Release build of AccessibleTrader.ScriptWorker or opt into the in-process dev path " +
+                        "with ACCESSIBLETRADER_SCRIPT_IN_PROCESS=1."
+                    });
+            }
+            catch (Exception ex)
+            {
+                return new CompileStrategyResult(false, null, new[] { "ScriptWorker path resolution failed: " + ex.Message });
+            }
+
+            var scriptId = Guid.NewGuid().ToString("N");
+            OutOfProcessScriptHost? host = null;
+            try
+            {
+                host = await OutOfProcessScriptHost.StartAsync(
+                    _workerLauncher, workerPath, assemblyBytes, scriptId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (host != null) await host.DisposeAsync().ConfigureAwait(false);
+                return new CompileStrategyResult(false, null, new[] { "ScriptWorker failed to start: " + ex.Message });
+            }
+
+            if (!host.IsStrategy)
+            {
+                await host.DisposeAsync().ConfigureAwait(false);
+                return new CompileStrategyResult(false, null, new[] { "No class implementing ITradingStrategy found in the script." });
+            }
+
+            var proxy = new OutOfProcessStrategy(host);
+            ScriptStrategyCausalityReport causality;
+            try
+            {
+                causality = ScriptStrategyCausalityProbe.Probe(proxy);
+            }
+            catch (Exception ex)
+            {
+                await proxy.DisposeAsync().ConfigureAwait(false);
+                return new CompileStrategyResult(false, null, new[]
+                {
+                    "The strategy could not be checked for causality because the script worker failed: " + ex.Message
+                });
+            }
+
+            if (causality.Refused)
+            {
+                await proxy.DisposeAsync().ConfigureAwait(false);
+                return new CompileStrategyResult(false, null, causality.Findings.ToArray());
+            }
+
+            // Keyed by the strategy's own Id so UnloadScript reaches it, same as an indicator.
+            // The engine also disposes the proxy when the strategy is removed — a leaked ALC was
+            // a bounded waste, but a leaked worker is a live OS process holding one of the
+            // sixteen concurrency slots for the rest of the session.
+            _outOfProcessHosts[proxy.Id] = host;
+            // Notes ride back in Errors on a SUCCESSFUL result, which is the same channel the
+            // in-process indicator path uses for its "this is the unsandboxed path" warning.
+            return new CompileStrategyResult(true, proxy, causality.Notes.ToArray());
         }
 
         public async Task<ScriptResult> ExecuteSimpleAsync(string code, List<Ohlcv> data)

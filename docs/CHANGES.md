@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Strategy scripts leave the trading host (2026-08-25)
+
+- **A user-written strategy now runs in the OS-sandboxed worker process, like an indicator has for
+  months.** Until now `CompileStrategyAsync` loaded the compiled assembly into the trading host
+  with `alc.LoadFromStream` — no worker, no sandbox, no memory or CPU quota, no kill switch — and
+  the Roslyn semantic walker was the only wall standing between a user script and the process
+  holding the API keys. Indicators had gone out-of-process; the half of the scripting surface that
+  can open a position had not. That is now closed: `CompileStrategyAsync` hands back a proxy, the
+  script runs behind the platform's own sandbox (Windows AppContainer, macOS `sandbox-exec`, Linux
+  `bwrap`, Android `isolatedProcess`), and what crosses back is a `StrategySignal` — a description
+  of an order, which the host's own risk rules, position manager and order service then act on.
+  Nothing the strategy returns places an order by itself.
+- **The strategy is driven a bar at a time over five new frames** — `InitializeStrategy`, `OnBar`,
+  `OrderFilled`, `StopStrategy`, `GetMetrics` — and `LoadAssembly` now answers `Ready` or
+  `StrategyReady` depending on what the assembly turned out to hold, so the worker is what decides
+  what a compiled script is.
+- **The history is sent as a delta, because sending it whole is quadratic.** A backtest is one
+  `OnBar` per bar with a history that grows by one each time; re-sending the buffer every call
+  moves about 4.8 GB over a 10,000-bar run to communicate 10,000 bars. The worker keeps its own
+  copy and the host sends only the tail — pinned by the first bar's date as well as by the count,
+  because lengths alone cannot tell an append from a prepend. Older bars arriving from a
+  scrollback fetch force a full resend rather than being stuck on the end.
+- **`WorkspaceState` crosses as a declared projection, with a guard against it going stale.**
+  `OnBar`'s third argument is a 49-property record; the chart identity, the bar buffer, the
+  computed indicator stack and the settings a strategy might read cross, while pane geometry and
+  `TabSnapshots` — which carries every OTHER open chart's whole series stack — deliberately do
+  not. A hand-maintained projection of a record that size silently goes stale, so a reflection
+  test fails the build's test run when a `WorkspaceState` property is on neither the carried nor
+  the not-carried list. Growing that record now forces a decision.
+- **The causality gate came along unchanged, and is now proven across the boundary.** The probe
+  drives `ITradingStrategy` and does not know a process is in the way — except for one thing: it
+  starts each run with a fresh instance via `Activator`, and reflecting on a proxy's type builds
+  another proxy with nothing behind it. A strategy that cannot be re-created that way now says so
+  (`IRestartableStrategy`) and the worker constructs a fresh instance on every `Initialize`. The
+  two gate tests used to run against a worker path commented "never used"; they now run against
+  the real binary and assert that what came back is the proxy.
+- **A script strategy could not read `state.ActiveSeries` at all, and never could have.**
+  `ChartSeries`, `SeriesConfig`, `ComponentConfig` and `LevelConfig` all derive from
+  CommunityToolkit's `ObservableObject`, and that assembly was in no reference set the script
+  compile has ever used — so `state.ActiveSeries[0].FriendlyName`, the ordinary way a strategy
+  reads the indicator stack it was handed, failed with "the type 'ObservableObject' is defined in
+  an assembly that is not referenced", which reads to an author as a mistake of theirs. Found by
+  being the first thing to drive a strategy against a real series stack. Fixed by resolving it
+  from Core's own directory alongside Skender; it widens nothing, since the walker is the wall and
+  does not consult that list.
+- **Removing a strategy now releases its worker.** A proxy that is merely dropped leaves a live OS
+  process holding one of the sixteen concurrency slots until the app exits — so a user who adds
+  and removes four scripts in a session runs out of slots with nothing telling them why. `OnStop`
+  is the strategy's own teardown and deliberately does not kill the worker (the causality probe
+  calls it between runs); the engine's removal path is what disposes the proxy. Teardown also
+  survives a failing `OnStop` now — it is a round trip to another process, so it can fail for
+  reasons that are not the strategy's code (a worker the memory quota already killed, a broken
+  pipe), and letting that escape would have abandoned the rest of the removal, or on shutdown left
+  every strategy after it still running.
+- **A timing hole in `StrategyPositionManagementTests` closed on the way past.** The engine's
+  execution path records the order with the broker before it registers the plan with the manager,
+  and the test waited only on the placement — so it read the manager in the gap about one run in
+  three. It waited on the wrong condition, not on too short a timeout.
+
 ### The live strategy runs the plan it was backtested on (2026-08-25)
 
 - **The take-profit ladder, the move to breakeven and the ATR trail now exist live.** An Auto-mode

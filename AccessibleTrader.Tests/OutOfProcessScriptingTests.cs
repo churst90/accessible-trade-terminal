@@ -45,24 +45,11 @@ public class OutOfProcessScriptingTests
         }
         """;
 
-    private static string ResolveWorkerPath()
-    {
-        // Test assembly lives at …/AccessibleTrader.Tests/bin/<Config>/net10.0
-        // Worker lives at …/AccessibleTrader.ScriptWorker/bin/<Config>/net10.0
-        // Walk up three levels to the solution root, then back down.
-        var baseDir   = AppContext.BaseDirectory;
-        var solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-        var config    = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))) ?? "Debug";
-        var exeName   = OperatingSystem.IsWindows()
-            ? "AccessibleTrader.ScriptWorker.exe"
-            : "AccessibleTrader.ScriptWorker";
-        return Path.Combine(solutionRoot, "AccessibleTrader.ScriptWorker", "bin", config, "net10.0", exeName);
-    }
 
     [Fact]
     public async Task Roundtrip_TrivialIndicator_EchoesClosePrices()
     {
-        var workerPath = ResolveWorkerPath();
+        var workerPath = ScriptWorkerPath.Resolve();
         if (!File.Exists(workerPath))
         {
             // Fresh clone hasn't built the worker yet — skip rather than

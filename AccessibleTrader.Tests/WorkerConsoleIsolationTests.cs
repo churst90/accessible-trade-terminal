@@ -87,7 +87,7 @@ public class WorkerConsoleIsolationTests
     [Fact]
     public async Task AnIndicatorThatPrintsStillReturnsItsValuesThroughTheRealWorker()
     {
-        string workerPath = ResolveWorkerPath();
+        string workerPath = ScriptWorkerPath.Resolve();
         Assert.True(File.Exists(workerPath),
             $"ScriptWorker executable not found at '{workerPath}' — build AccessibleTrader.ScriptWorker.");
 
@@ -176,14 +176,4 @@ public class WorkerConsoleIsolationTests
         return ms.ToArray();
     }
 
-    private static string ResolveWorkerPath()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        var solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-        var config = Path.GetFileName(Path.GetDirectoryName(baseDir.TrimEnd(Path.DirectorySeparatorChar))) ?? "Debug";
-        var exeName = OperatingSystem.IsWindows()
-            ? "AccessibleTrader.ScriptWorker.exe"
-            : "AccessibleTrader.ScriptWorker";
-        return Path.Combine(solutionRoot, "AccessibleTrader.ScriptWorker", "bin", config, "net10.0", exeName);
-    }
 }
