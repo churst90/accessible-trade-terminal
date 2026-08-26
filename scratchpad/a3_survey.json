@@ -196,7 +196,9 @@
     "actualFocus": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014\u201D",
     "unnamedControls": [],
     "tabs": [],
-    "tabEscapes": [],
+    "tabEscapes": [
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D"
+    ],
     "tabStops": [
       "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D",
       "\u003Cbutton (no id)\u003E \u201CClose\u201D",
@@ -204,14 +206,14 @@
       "\u003Cbutton (no id)\u003E \u201CClose\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D",
       "\u003Cbutton (no id)\u003E \u201CClose\u201D",
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D",
       "\u003Cbutton (no id)\u003E \u201CClose\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D",
       "\u003Cbutton (no id)\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D",
-      "\u003Cbutton (no id)\u003E \u201CClose\u201D"
+      "\u003Cbutton (no id) aria-label=\u0027Refresh order book\u0027\u003E \u201CRefresh\u201D"
     ],
-    "tabDistinctStops": 2,
+    "tabDistinctStops": 3,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -232,8 +234,14 @@
     "actualFocus": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D",
     "unnamedControls": [],
     "tabs": [],
-    "tabEscapes": [],
+    "tabEscapes": [
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D"
+    ],
     "tabStops": [
+      "\u003Cselect id=\u0027key-provider\u0027\u003E \u201CAlpacaBGeometricsBinanceBitstampCoinbaseCoinMetricsDefiLlama\u2026\u201D",
+      "\u003Cinput id=\u0027key-nickname\u0027 aria-label=\u0027Profile nickname\u0027\u003E",
+      "\u003Cselect id=\u0027key-env\u0027\u003E \u201CPaper                         Live\u201D",
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
       "\u003Cselect id=\u0027key-provider\u0027\u003E \u201CAlpacaBGeometricsBinanceBitstampCoinbaseCoinMetricsDefiLlama\u2026\u201D",
       "\u003Cinput id=\u0027key-nickname\u0027 aria-label=\u0027Profile nickname\u0027\u003E",
       "\u003Cselect id=\u0027key-env\u0027\u003E \u201CPaper                         Live\u201D",
@@ -241,11 +249,7 @@
       "\u003Cinput id=\u0027key-apikey\u0027 aria-label=\u0027API key\u0027\u003E",
       "\u003Cinput id=\u0027key-secret\u0027 aria-label=\u0027API secret (optional \u2014 key-only providers like Twelve Data, FMP, and Polygon leave this blank)\u0027\u003E",
       "\u003Cinput id=\u0027key-pass\u0027 aria-label=\u0027Passphrase (optional)\u0027\u003E",
-      "\u003Cbutton id=\u0027apikeys-save\u0027 aria-label=\u0027Save new API key profile\u0027\u003E \u201CSave Profile\u201D",
-      "\u003Cbutton id=\u0027apikeys-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cselect id=\u0027key-provider\u0027\u003E \u201CAlpacaBGeometricsBinanceBitstampCoinbaseCoinMetricsDefiLlama\u2026\u201D",
-      "\u003Cinput id=\u0027key-nickname\u0027 aria-label=\u0027Profile nickname\u0027\u003E",
-      "\u003Cselect id=\u0027key-env\u0027\u003E \u201CPaper                         Live\u201D"
+      "\u003Cbutton id=\u0027apikeys-save\u0027 aria-label=\u0027Save new API key profile\u0027\u003E \u201CSave Profile\u201D"
     ],
     "tabDistinctStops": 9,
     "escapeClosed": true,
@@ -657,24 +661,22 @@
     "actualFocus": "\u003Ch2 id=\u0027journal-title\u0027\u003E \u201CJournal\u201D",
     "unnamedControls": [],
     "tabs": [],
-    "tabEscapes": [
-      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D"
-    ],
+    "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D",
-      "\u003Cbutton (no id)\u003E \u201CSpeech (2)\u201D",
-      "\u003Cbutton (no id)\u003E \u201CAlerts (0)\u201D",
-      "\u003Cbutton (no id)\u003E \u201CSetups (0)\u201D",
-      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D",
       "\u003Cbutton (no id)\u003E \u201CSpeech (2)\u201D",
       "\u003Cbutton (no id)\u003E \u201CAlerts (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CSetups (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CErrors (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Copy all visible journal entries to clipboard\u0027\u003E \u201CCopy visible\u201D"
+      "\u003Cbutton (no id) aria-label=\u0027Copy all visible journal entries to clipboard\u0027\u003E \u201CCopy visible\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[16:01:37] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"
     ],
-    "tabDistinctStops": 8,
+    "tabDistinctStops": 11,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -955,20 +957,20 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton id=\u0027help-close\u0027\u003E \u201CClose\u201D"
+      "\u003Csummary (no id)\u003E \u201CGetting started (first chart in five steps)\u201D",
+      "\u003Csummary (no id)\u003E \u201CUnderstanding the Soundscape\u201D",
+      "\u003Csummary (no id)\u003E \u201CVolume Profile Navigation\u201D",
+      "\u003Csummary (no id)\u003E \u201CDrawing Tools Workflow\u201D",
+      "\u003Csummary (no id)\u003E \u201CIndicators \u0026 Customization\u201D",
+      "\u003Csummary (no id)\u003E \u201CMarket watch \u2014 watchlists \u0026 the screener\u201D",
+      "\u003Csummary (no id)\u003E \u201CStructure, value zones \u0026 the respect report\u201D",
+      "\u003Csummary (no id)\u003E \u201CBar replay \u0026 split view\u201D",
+      "\u003Csummary (no id)\u003E \u201CChart Navigation\u201D",
+      "\u003Csummary (no id)\u003E \u201CPlayback\u201D",
+      "\u003Csummary (no id)\u003E \u201CVolume \u0026 Audio\u201D",
+      "\u003Csummary (no id)\u003E \u201CAccessibility \u0026 Speech\u201D"
     ],
-    "tabDistinctStops": 1,
+    "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"

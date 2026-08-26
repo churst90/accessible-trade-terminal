@@ -59,7 +59,7 @@ namespace AccessibleTrader.Tests
         public static TheoryData<string> RowScopedActions() => new()
         {
             "private async Task CancelOrder(AccountOrder row)",
-            "private async Task ClosePosition(AccountPosition row)",
+            "private async Task CloseAsync(AccountPosition row, double? limitPrice)",
             "private async Task CommitProtectiveAsync(AccountPosition row, ProtectiveLevel level)",
             "private async Task<List<TradingAccount>> EnumerateAccountsAsync()",
             "private async Task<AccountData> LoadOneAccountAsync(TradingAccount account)",

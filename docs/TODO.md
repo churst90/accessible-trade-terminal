@@ -111,8 +111,22 @@ selector that is actually reachable — which required teaching the paper broker
 it had only ever done isolated and the selector was gated on a capability it could not honestly
 declare. See "Trading dashboard decoupling" and "Cross margin in the paper broker" below.
 
-**Phase B is complete. Next: Phase 4 of the decoupling (close-at-limit) is the only remainder of
-that roadmap; otherwise the queue is the 71 HIGH items and the tests-that-should-exist list.**
+**Phase B is complete, and so is the whole dashboard-decoupling roadmap (Phases 1–4 plus tests).
+Next: the tests-that-should-exist list, then the 71 HIGH items — see "What to do next" at the
+bottom of this section.**
+
+### What to do next, and why that order
+
+**Tests first, HIGH items second.** The A2 audit measured this suite's true mutation catch rate at
+**61%**, and A3 built a browser harness that changes what several of the 38 outstanding tests should
+even be. Working 71 HIGH items against a suite that misses two regressions in five means the fixes
+land unverified and the count goes down without the risk going down with it. The tests are also the
+cheaper half: many are now a few lines in `AccessibleTrader.BrowserTests` rather than a new bUnit
+file, and A2 named the specific gaps — speech `interrupt:` never asserted, order sentinels, modal
+focus asserted *somewhere valid* rather than *where*, backtest costs always zero, 22 of 25 sandbox
+blocklist entries untested. **Fix the two known flakes first** (`LinuxBwrapSandboxTests` env canary,
+full-suite only — green in isolation), because a suite that is red for reasons nobody trusts is a
+suite nobody reads.
 
 ### Below the line
 
@@ -1366,9 +1380,22 @@ account `<select>` defaulting to the focused chart's venue, populated from the P
   **Exchange** column, rendered even with one account so hosted and desktop stay structurally
   identical — which was Phase 2's actual invariant. **Re-open this if stacked venues turn out to
   need heading navigation in practice**; the row data is already there for it.
-- [ ] **Phase 4 — close semantics.** `Close position` stays market; add `Close at limit…`
-  revealing a price field. Both keep `ReduceOnly: true`; never make one button's order type
-  depend on hidden state. **Still open** — the only part of the decoupling roadmap that is.
+- [x] **Phase 4 — close semantics. DONE 2026-08-26.** Two buttons per row: `Close position`
+  (market, always) and `Close at limit` (a resting limit at the typed price, always). Both build
+  their order in ONE method — `CloseAsync(row, double? limitPrice)` — so `ReduceOnly: true` is a
+  single line neither path can drift from. It matters MORE on the limit path: a resting exit can
+  sit on the book for days while a stop takes the position out from under it, and without the flag
+  the survivor opens a fresh position the other way at a price picked for a different trade.
+  The confirmation says **"Close order resting… the position is still open until it fills"**, not
+  "Closing" — a limit exit that has not filled has not closed anything, and a confirmation that
+  sounds like it did is how a trader walks away from a position they think is gone. The price
+  field reuses the stop/target editor's idiom (button becomes field, Enter commits, Escape
+  cancels and says so), seeded from the position's mark. **No ellipsis in the visible text**: "…"
+  is a sighted convention for "opens further input" and is read as "dot dot dot" or dropped, so
+  the aria-label says "Opens a price field" instead. Direction is NOT validated — a limit exit on
+  the near side of the market is a marketable limit, which is a legitimate thing to want, so
+  `ProtectiveLevelValidator.ParsePrice` was split out of `Validate` and only the parse applies.
+  Five sabotages, five catches.
 - [x] **Tests — DONE, and every one proven red by sabotage.** `TradingDashboardDecouplingTests`
   (9), `DashboardRefusalScanTests` (9, with the vacuity check written as "does this regex still
   match the original defect?"), `PositionLabelTests` (10), `PaperCrossMarginTests` (13), plus

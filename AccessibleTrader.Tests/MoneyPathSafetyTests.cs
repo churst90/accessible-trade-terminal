@@ -51,10 +51,45 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void ClosePosition_SendsReduceOnly_Unconditionally()
         {
-            string body = DashboardMethod("private async Task ClosePosition(AccountPosition row)");
+            // Both close paths build their order in ONE method, so there is one line to
+            // guard rather than two that could drift. That matters more since the limit
+            // close shipped: a resting exit can sit on the book for days while a stop
+            // takes the position out from under it, and without the flag the survivor
+            // opens a fresh position the other way at a price picked for a different trade.
+            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice)");
 
             Assert.Contains("ReduceOnly: true", body, StringComparison.Ordinal);
             Assert.DoesNotContain("Can(ProviderCapabilities.ReduceOnly)", body, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Neither close button's order type may depend on hidden state. `Close position`
+        /// is market and always market; `Close at limit` is a limit and always a limit.
+        ///
+        /// <para>
+        /// One control that switched behaviour on whether a price field elsewhere happened
+        /// to be filled would do two different things to two presses that felt identical —
+        /// and on a screen where the deciding state cannot be glanced at, that is the whole
+        /// class of defect this dialog was rebuilt to remove.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void EachCloseButtonsOrderTypeIsFixedByWhichButtonItIs()
+        {
+            // Member, not Method: both are expression-bodied, and brace matching alone
+            // would silently read whatever is declared after them.
+            Assert.Contains("CloseAsync(row, limitPrice: null)",
+                DashboardSourceReader.Member("private Task ClosePosition(AccountPosition row)"),
+                StringComparison.Ordinal);
+            Assert.Contains("CloseAsync(row, limitPrice)",
+                DashboardSourceReader.Member("private Task ClosePositionAtLimit(AccountPosition row, double limitPrice)"),
+                StringComparison.Ordinal);
+
+            // And the shared builder derives the type from the argument alone — not from
+            // _closeLimitText, not from a nullable field read at the last moment.
+            string body = DashboardMethod("private async Task CloseAsync(AccountPosition row, double? limitPrice)");
+            Assert.Contains("limitPrice is null ? OrderType.Market : OrderType.Limit", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("_closeLimitText", body, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -75,7 +110,7 @@ namespace AccessibleTrader.Tests
         public static TheoryData<string> OrderPlacingHandlers() => new()
         {
             "private async Task SubmitOrder()",
-            "private async Task ClosePosition(AccountPosition row)",
+            "private async Task CloseAsync(AccountPosition row, double? limitPrice)",
             "private async Task CancelOrder(AccountOrder row)",
             "private async Task SubmitOcoPair()",
         };

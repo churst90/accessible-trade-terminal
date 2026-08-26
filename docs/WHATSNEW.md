@@ -17,6 +17,12 @@
 - **Buttons say what they do to what.** "Cancel order" and "Close position", each announcing
   the side, the symbol and the exchange. The Cancel button used to be an "✕", which is read
   as "times", as "ex", or not at all depending on your screen reader and its settings.
+- **Close a position at market, or park a limit order to close it.** Every position row has
+  both buttons now, and each one says which it is — "Close position" always goes to market,
+  "Close at limit" opens a price field and rests an order at the price you type. Neither
+  quietly changes into the other depending on what is filled in somewhere else. The limit
+  one tells you it is *resting*, not that it has closed, because until it fills you still
+  have the position.
 - **Cross or isolated margin, and the paper account really does both.** The choice was in the
   order ticket but invisible unless you were on an exchange that offered it — which the paper
   account did not, because it only ever did isolated. It does both now, and they behave

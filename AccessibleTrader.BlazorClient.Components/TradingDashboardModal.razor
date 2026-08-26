@@ -489,8 +489,33 @@
                                                     <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
                                                     @* Verb first, and the subject named. "Close" alone gave no clue whether
                                                        it closed the position or the dialog, and a row full of identical
-                                                       "Close" buttons is unnavigable by button list. *@
-                                                    <td><button aria-label="@($"Close position, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}, market order")" disabled="@_orderInFlight" @onclick="() => ClosePosition(row)">Close position</button></td>
+                                                       "Close" buttons is unnavigable by button list.
+
+                                                       TWO buttons, and each one's order type is in its name. A single
+                                                       Close whose behaviour changed with a price field somewhere else
+                                                       would be a control that does two different things to two presses
+                                                       that felt the same. *@
+                                                    <td>
+                                                        <button aria-label="@($"Close position at market, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}")" disabled="@_orderInFlight" @onclick="() => ClosePosition(row)">Close position</button>
+                                                        @if (IsClosingAtLimit(row))
+                                                        {
+                                                            <input id="@LimitCloseFieldId(row)"
+                                                                   type="text"
+                                                                   style="width:110px;"
+                                                                   autofocus
+                                                                   aria-label="@($"Limit price to close {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Type a price and press Enter. Escape leaves the position open.")"
+                                                                   value="@_closeLimitText"
+                                                                   @oninput="e => _closeLimitText = e.Value?.ToString() ?? string.Empty"
+                                                                   @onkeydown="e => OnLimitCloseKeyAsync(e, row)" />
+                                                        }
+                                                        else
+                                                        {
+                                                            @* No "…" in the visible text: the ellipsis is a sighted
+                                                               convention for "opens further input", and it is read as
+                                                               "dot dot dot" or dropped entirely. The label says it. *@
+                                                            <button aria-label="@($"Close at limit, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Opens a price field.")" disabled="@_orderInFlight" @onclick="() => BeginLimitClose(row)">Close at limit</button>
+                                                        }
+                                                    </td>
                                                 </tr>
                                             }
                                             @if (!_positions.Any())
@@ -1414,7 +1439,11 @@
     private async Task RefreshLiveAsync()
     {
         await RefreshBookAsync();
-        if (_editing.HasValue) return;
+        // Any inline field open means someone is mid-type. Repainting the table under
+        // them throws away what they had typed, and doing it every two seconds makes
+        // the field unusable — which on the limit-close field means the exit never
+        // gets placed.
+        if (_editing.HasValue || _closingAtLimit.HasValue) return;
         try { await LoadAccountDataAsync(); } catch { /* a transient read must not kill the timer */ }
         StateHasChanged();
     }
@@ -1487,6 +1516,11 @@
     {
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Trading dashboard"));
+        // Both inline editors are abandoned, not remembered. A half-typed limit price
+        // that came back on the next open would be a price chosen for a market that
+        // has since moved, sitting one Enter away from a live exit.
+        _editing = null;
+        _closingAtLimit = null;
         _refreshTimer?.Dispose();
         _refreshTimer = null;
         StateHasChanged();
@@ -1795,9 +1829,29 @@
         if (ok) await LoadAccountDataAsync();
     }
 
-    // Close (or reduce-to-flat) a position by submitting an opposing market order,
-    // on the account the position is held in rather than on whatever chart is up.
-    private async Task ClosePosition(AccountPosition row)
+    /// <summary>
+    /// Close at market. One of exactly two close buttons, and it is always a market
+    /// order — see <see cref="CloseAsync"/> for why that is a rule rather than a
+    /// default.
+    /// </summary>
+    private Task ClosePosition(AccountPosition row) => CloseAsync(row, limitPrice: null);
+
+    /// <summary>
+    /// Close with a resting limit order at the typed price. The other close button.
+    /// </summary>
+    private Task ClosePositionAtLimit(AccountPosition row, double limitPrice) =>
+        CloseAsync(row, limitPrice);
+
+    // Close (or reduce-to-flat) a position by submitting an opposing order, on the
+    // account the position is held in rather than on whatever chart is up.
+    //
+    // TWO BUTTONS, NOT ONE BUTTON WITH A MODE. `Close position` is market and always
+    // market; `Close at limit` is a limit and always a limit. A single control whose
+    // order type depends on whether some other field happens to be filled in is a
+    // control that behaves differently on two presses that felt identical — which is
+    // the exact failure mode this dialog already had, and it is worse on a screen
+    // where the state deciding it cannot be seen at a glance.
+    private async Task CloseAsync(AccountPosition row, double? limitPrice)
     {
         var p = row.Position;
         string provider = row.Account.ProviderName;
@@ -1835,9 +1889,17 @@
         // must never be able to open a position. On a venue that ignores the flag the
         // order is unchanged; on one that honours it the overshoot is clipped, which
         // is the entire point.
+        //
+        // It matters MORE on the limit path, not less: a resting exit can sit on the
+        // book for days while the position it was meant to close is taken out by a
+        // stop, and without the flag the survivor opens a fresh position in the
+        // opposite direction at a price the trader picked for a completely different
+        // trade. Same flag, same line, both paths.
         var signal = new TradeSignal(
             Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
-            Type: OrderType.Market, SubType: subType, ReduceOnly: true);
+            Type: limitPrice is null ? OrderType.Market : OrderType.Limit,
+            Price: limitPrice,
+            SubType: subType, ReduceOnly: true);
 
         OrderPlacement placement;
         try
@@ -1858,9 +1920,78 @@
             // that was being dropped. RefusalAnnouncement also drops the "Close failed" framing
             // for an uncertain close, which may well have gone through.
             err ? placement.RefusalAnnouncement($"Close failed for {p.Symbol}.")
-                : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
+                // The limit case says RESTING, not "closing". A limit exit that has not
+                // filled has not closed anything, and a confirmation that sounds like it
+                // did is how a trader walks away from a position they believe is gone.
+                : limitPrice is double lp
+                    ? $"Close order resting. {(side == OrderSide.Sell ? "Sell" : "Buy")} "
+                      + $"{PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))} {p.Symbol} "
+                      + $"at limit {PriceFormatter.FormatPrice(lp)}. The position is still open until it fills."
+                    : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
             true));
         if (!err) await LoadAccountDataAsync();
+    }
+
+    // ── Close at limit: the inline price field ──────────────────────────────
+    //
+    // Same shape as the stop/target editors two columns over — a button that becomes
+    // a field, Enter commits, Escape cancels — because a second interaction idiom on
+    // one table is a second thing to learn for no reason.
+
+    /// <summary>Which row, if any, is typing a limit close price. Keyed by account as
+    /// well as symbol: the same symbol can be held on two venues.</summary>
+    private (string Slug, string Symbol)? _closingAtLimit;
+    private string _closeLimitText = "";
+
+    private bool IsClosingAtLimit(AccountPosition row) =>
+        _closingAtLimit is { } c && c.Slug == row.Account.Slug && c.Symbol == row.Position.Symbol;
+
+    private async Task BeginLimitClose(AccountPosition row)
+    {
+        _closingAtLimit = (row.Account.Slug, row.Position.Symbol);
+        // Seeded from the position's own mark rather than left blank: it is the number
+        // the trader is deciding around, and typing a full price from scratch on a
+        // screen reader is slower than editing one.
+        _closeLimitText = PriceFormatter.FormatPrice(CurrentPriceFor(row.Position))
+            .Replace(",", "").Replace("$", "");
+        StateHasChanged();
+        await Task.Yield();
+        // focusElement, not `autofocus` alone: it retries across animation frames, which
+        // is what made the Alt+T fix work in a real browser.
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", LimitCloseFieldId(row)); }
+        catch { /* best-effort focus, as everywhere else */ }
+    }
+
+    private static string LimitCloseFieldId(AccountPosition row) =>
+        $"close-limit-{row.Account.Slug}-{new string(row.Position.Symbol.Where(char.IsLetterOrDigit).ToArray())}";
+
+    private async Task OnLimitCloseKeyAsync(KeyboardEventArgs e, AccountPosition row)
+    {
+        if (e.Key == "Escape")
+        {
+            _closingAtLimit = null;
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"Left open. No close order was placed for {row.Position.Symbol}."));
+            StateHasChanged();
+            return;
+        }
+        if (e.Key != "Enter") return;
+
+        // Parsed, not validated for direction. A limit exit on the near side of the
+        // market is a marketable limit — a legitimate way to pay the spread for a fast
+        // fill — so the only refusals here are "that is not a price" and "that is not
+        // positive", and both of them speak.
+        var parsed = ProtectiveLevelValidator.ParsePrice(_closeLimitText);
+        if (!parsed.Ok)
+        {
+            // Stay in the field so the value can be corrected rather than retyped.
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, parsed.Message, true));
+            StateHasChanged();
+            return;
+        }
+
+        _closingAtLimit = null;
+        await ClosePositionAtLimit(row, parsed.Value);
     }
 
     // Live-order safety: speak a one-line review and require an explicit confirm.

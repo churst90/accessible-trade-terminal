@@ -37,6 +37,17 @@ All notable changes to this project will be documented in this file.
   you know which one.
 - **Withdrawal keys are never enumerated as trading accounts,** even when active on a venue that
   trades. Nothing on the trading path may touch a credential that can move funds off the exchange.
+- **Close at market, or close at a limit — and which one you get is which button you pressed.**
+  Every position row now offers both. `Close position` is a market order and always a market order;
+  `Close at limit` opens a price field and rests a limit. Neither reads hidden state to decide, so
+  two presses that felt identical cannot do different things. Both are reduce-only, which matters
+  more on the limit path than the market one: a resting exit can sit on the book for days while a
+  stop takes the position out from under it, and without that flag the survivor opens a fresh
+  position in the opposite direction at a price chosen for a trade that is already over.
+- **A resting close says it is resting.** The limit path announces "Close order resting … the
+  position is still open until it fills" rather than "Closing" — an exit that has not filled has not
+  closed anything, and a confirmation that sounds like it did is how someone walks away from a
+  position they believe is gone.
 
 ### Cross margin, so the paper account can offer the choice it was hiding (2026-08-26)
 

@@ -42,6 +42,30 @@ namespace AccessibleTrader.Tests
         public static string MethodStripped(string signature) =>
             PipelineIdentityAndResilienceTests.StripCommentsAndStrings(Method(signature));
 
+        /// <summary>
+        /// A member's body, whether it is brace-bodied or expression-bodied.
+        ///
+        /// <para>
+        /// Brace matching alone silently reads the WRONG method for an
+        /// <c>=&gt;</c> member: the first <c>{</c> after the signature belongs to
+        /// whatever is declared next, so the guard would assert against a body it was
+        /// never pointed at and pass or fail for unrelated reasons.
+        /// </para>
+        /// </summary>
+        public static string Member(string signature)
+        {
+            string src = Source();
+            int at = src.IndexOf(signature, StringComparison.Ordinal);
+            Assert.True(at >= 0, $"The dashboard no longer declares `{signature}` — re-point this guard.");
+
+            int brace = src.IndexOf('{', at);
+            int arrow = src.IndexOf("=>", at, StringComparison.Ordinal);
+            if (arrow >= 0 && (brace < 0 || arrow < brace))
+                return src.Substring(at, src.IndexOf(';', arrow) - at + 1);
+
+            return Method(signature);
+        }
+
         /// <summary>Brace-matched body of a method in the dashboard's @code block.</summary>
         public static string Method(string signature)
         {

@@ -52,7 +52,26 @@ namespace AccessibleTrader.Core.Services.Trading
         /// <param name="level">Which protective order this is.</param>
         /// <param name="isLong">True for a long position; the rule inverts for a short.</param>
         /// <param name="currentPrice">The market price the level is judged against.</param>
-        public static Result Validate(string? text, ProtectiveLevel level, bool isLong, double currentPrice)
+        /// <summary>
+        /// Turns typed text into a price, or says why it is not one.
+        ///
+        /// <para>
+        /// Split out of <see cref="Validate"/> because the directional rule below is
+        /// specific to protective levels, and "what counts as a price a person typed"
+        /// is not. The limit-close field on the positions table needs the second
+        /// without the first — a limit exit on the near side of the market is a
+        /// marketable limit order, which is a legitimate thing to want, not the
+        /// self-triggering stop this class exists to prevent.
+        /// </para>
+        ///
+        /// <para>
+        /// One copy, because a second parser would drift: this one accepts grouping
+        /// separators, a currency symbol and stray spaces, and a field that silently
+        /// refused "60,320" while its neighbour accepted it would be worse than either
+        /// behaviour applied consistently.
+        /// </para>
+        /// </summary>
+        public static Result ParsePrice(string? text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return new Result(false, 0, "Enter a price, or press Escape to leave it unchanged.");
@@ -65,6 +84,15 @@ namespace AccessibleTrader.Core.Services.Trading
 
             if (!double.IsFinite(value) || value <= 0)
                 return new Result(false, 0, "A price must be greater than zero.");
+
+            return new Result(true, value, "");
+        }
+
+        public static Result Validate(string? text, ProtectiveLevel level, bool isLong, double currentPrice)
+        {
+            var parsed = ParsePrice(text);
+            if (!parsed.Ok) return parsed;
+            double value = parsed.Value;
 
             if (currentPrice <= 0)
                 return new Result(false, 0, "There is no current price to check that against, so it was not changed.");

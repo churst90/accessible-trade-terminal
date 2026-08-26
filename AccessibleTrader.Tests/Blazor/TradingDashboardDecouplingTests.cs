@@ -16,10 +16,13 @@
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Trading;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using NSubstitute;
 
 namespace AccessibleTrader.Tests.Blazor;
@@ -241,6 +244,118 @@ public class TradingDashboardDecouplingTests
 
     private static List<string> Labels(IRenderedComponent<TradingDashboardModal> cut) =>
         cut.FindAll("button").Select(b => b.GetAttribute("aria-label") ?? b.TextContent.Trim()).ToList();
+
+    // ── Close semantics ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void Close_at_limit_rests_a_reduce_only_limit_order_at_the_typed_price()
+    {
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        h.OrderService.PlaceOrderAsync(default!, default!)
+            .ReturnsForAnyArgs(OrderPlacement.Parse("paper-1"));
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+
+        var field = cut.Find("input[id^='close-limit-']");
+        field.Input("3,150");                                  // grouped, as a person types it
+        field.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        cut.WaitForAssertion(() => h.OrderService.Received().PlaceOrderAsync(
+            "kraken",
+            Arg.Is<TradeSignal>(sig =>
+                sig.Symbol == "ETHUSDT" &&
+                sig.Side == OrderSide.Sell &&          // opposing the long
+                sig.Type == OrderType.Limit &&
+                sig.Price == 3_150 &&
+                sig.Quantity == 2.0 &&
+                sig.ReduceOnly)));
+    }
+
+    [Fact]
+    public void Close_at_market_stays_a_market_order_even_with_the_limit_field_open()
+    {
+        // The rule Phase 4 exists for: neither button's order type may depend on
+        // hidden state. Open the limit field, type into it, then press the OTHER
+        // button — it must still be a market close.
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        h.OrderService.PlaceOrderAsync(default!, default!)
+            .ReturnsForAnyArgs(OrderPlacement.Parse("paper-1"));
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+        cut.Find("input[id^='close-limit-']").Input("3150");
+
+        cut.Find("button[aria-label^='Close position at market']").Click();
+
+        cut.WaitForAssertion(() => h.OrderService.Received().PlaceOrderAsync(
+            "kraken",
+            Arg.Is<TradeSignal>(sig => sig.Type == OrderType.Market && sig.Price == null && sig.ReduceOnly)));
+    }
+
+    [Fact]
+    public void A_limit_close_that_is_not_a_price_is_refused_out_loud_and_places_nothing()
+    {
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        var spoken = new List<string>();
+        using var sub = h.EventBus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+        var field = cut.Find("input[id^='close-limit-']");
+        field.Input("about three thousand");
+        field.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        cut.WaitForAssertion(() =>
+            Assert.True(spoken.Any(m => m.Contains("is not a price", StringComparison.OrdinalIgnoreCase)),
+                "Nothing said why the price was refused. Heard: " + string.Join(" | ", spoken)));
+
+        h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
+
+        // And the field stays open, so the value can be corrected rather than retyped.
+        Assert.NotNull(cut.Find("input[id^='close-limit-']"));
+    }
+
+    [Fact]
+    public void Escape_in_the_limit_field_leaves_the_position_open_and_says_so()
+    {
+        using var h = Harness(positions: new[]
+        {
+            new Position("ETHUSDT", 2.0, 3_000, 6_100, 100, 1.0, 0, MarginMode.None),
+        });
+        var spoken = new List<string>();
+        using var sub = h.EventBus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+        var cut = Open(h);
+        WaitForAccountRead(h);
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
+        cut.Find("button[aria-label^='Close at limit']").Click();
+        cut.Find("input[id^='close-limit-']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        // WaitForAssertion, not a bare assert: bUnit queues the handler on the
+        // renderer's dispatcher, so KeyDown returns before it has run. Asserting
+        // synchronously here reads an empty list and calls the feature broken.
+        cut.WaitForAssertion(() =>
+            Assert.True(spoken.Any(m => m.Contains("Left open", StringComparison.Ordinal)),
+                "Escape said nothing. Heard: " + string.Join(" | ", spoken)));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("input[id^='close-limit-']")));
+        h.OrderService.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!, default!);
+    }
 
     // ── Which accounts exist ─────────────────────────────────────────────────
 
