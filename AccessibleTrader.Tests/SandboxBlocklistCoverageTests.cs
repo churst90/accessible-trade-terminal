@@ -200,32 +200,43 @@ public class SandboxBlocklistCoverageTests
 
     /// <summary>
     /// The vacuity check, and it is not optional here. Every test above asserts a REFUSAL, so a
-    /// compiler that refused everything — a broken reference set, a wrapper that no longer
-    /// compiles, a walker that threw on entry — would turn the whole file green while proving
-    /// nothing at all. An ordinary indicator must still get through.
+    /// walker that refused everything — a broken reference set, a wrapper that no longer compiles,
+    /// a namespace filter that swallowed the whole surface — would turn the file green while
+    /// proving nothing at all. An ordinary indicator must not be refused BY THE SANDBOX.
     ///
     /// <para>
-    /// This one needs the real worker (the probes above deliberately do not, because a
-    /// compile-time refusal never reaches the spawn step), so it is skipped rather than faked
-    /// where the worker has not been built.
+    /// "By the sandbox" is the whole precision, and the first version of this test got it wrong in
+    /// a way worth recording. It asserted <c>result.Success</c> against a real worker, which
+    /// passes here and fails on CI: the runner has no <c>bwrap</c>, and <c>LinuxBwrapLauncher</c>
+    /// correctly REFUSES rather than silently downgrading to an unsandboxed worker. The claim this
+    /// file needs is about the compile-time walker, which never reaches the spawn step — so it is
+    /// stated that way, and now holds on any machine whether or not it can run a sandbox at all.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task An_ordinary_indicator_still_compiles()
+    public async Task An_ordinary_indicator_is_not_refused_by_the_sandbox()
     {
-        var workerPath = ScriptWorkerPath.ResolveIfBuilt();
-        if (workerPath is null) return;   // worker not built on this machine
-
-        var scripting = new RoslynScriptingService(
-            workerLauncher: RoslynScriptingService.CreateDefaultLauncher(),
-            workerPathResolver: () => workerPath);
-
-        var result = await scripting.CompileIndicatorAsync(Script(
+        var result = await NewScripting().CompileIndicatorAsync(Script(
             "double sum = 0; for (int i = 0; i < data.Length; i++) sum += data[i].Close;"));
 
-        Assert.True(result.Success,
-            "a harmless indicator was refused, so every refusal above is meaningless: "
-            + string.Join("\n  ", result.Errors ?? Array.Empty<string>()));
-        if (result.Indicator != null) scripting.UnloadScript(result.Indicator.Id);
+        var errors = result.Errors ?? Array.Empty<string>();
+        var sandboxRefusals = errors.Where(e =>
+            e.Contains("is not allowed in user scripts", StringComparison.Ordinal)
+            || e.Contains("is in blocked namespace", StringComparison.Ordinal)
+            || e.Contains("Blocked:", StringComparison.Ordinal)).ToList();
+
+        Assert.True(sandboxRefusals.Count == 0,
+            "a harmless indicator was refused by the sandbox, so every refusal above is "
+            + "meaningless:\n  " + string.Join("\n  ", sandboxRefusals));
+
+        // And it must be a real compile, not one that died before the walker ever ran — otherwise
+        // "no sandbox diagnostic" is a statement about a compilation that did not happen. The only
+        // error permitted is the deliberately bogus worker path these probes use.
+        Assert.True(errors.All(e => e.Contains("__blocklist_coverage_never_used__", StringComparison.Ordinal))
+                    || result.Success,
+            "the fixture failed to compile for a reason unrelated to the sandbox:\n  "
+            + string.Join("\n  ", errors));
+
+        if (result.Indicator != null) NewScripting().UnloadScript(result.Indicator.Id);
     }
 }

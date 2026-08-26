@@ -727,6 +727,15 @@ these: apply it, and the suite must go red.
   `System.Type.Assembly` goes red twice over; adding an unprobed entry goes red; and reverting the
   member check to methods-only — the 2026-08-25 hole — takes out exactly the three property
   entries (`Assembly`, `Module`, `TypeHandle`) and nothing else.
+  **Trap, caught by CI rather than by this machine:** the vacuity check was first written as
+  "an ordinary indicator still compiles", against a real worker. That passes here and fails on the
+  runner, because the runner has no `bwrap` and `LinuxBwrapLauncher` correctly REFUSES rather than
+  downgrading to an unsandboxed worker — so the test was asserting something about the machine, not
+  about the walker. The claim this file needs is compile-time only (a blocklist refusal never
+  reaches the spawn step), so it is now "an ordinary indicator is not refused BY THE SANDBOX",
+  which holds anywhere. Still proven: widening the namespace filter to swallow `System.Collections`
+  turns it red. **Any test that touches `RoslynScriptingService` end-to-end is environment-
+  dependent in this exact way, and this box is the permissive one.**
 - [x] **(F7)** Parity test between `ShortcutManager`'s default table and the Help modal's documented
   list. Nothing currently pins any shortcut. Mutant M20. MEDIUM. **Done 2026-08-26, and it found
   something on the first run** — see "The F1 Help dialog had rotted" below.
