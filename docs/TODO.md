@@ -128,6 +128,40 @@ blocklist entries untested. **Fix the two known flakes first** (`LinuxBwrapSandb
 full-suite only — green in isolation), because a suite that is red for reasons nobody trusts is a
 suite nobody reads.
 
+**2026-08-26 — the flakes are done and the first block of tests is written.** The flake work paid
+for itself several times over: the bwrap one was never a flake, it was a live defect killing script
+workers mid-session (see "The bwrap flake was a production bug"). Written and proven by sabotage:
+A2/F2 (speech `interrupt:`), F6 (the whole sandbox blocklist), F7 (shortcut/help parity — which
+found the F1 dialog missing 37 bindings including every quick-trade chord), F8 (narration causality,
+swept over 27 providers), F10 (EMA/SMA warmup), the LOW self-referential mouse expectation, plus
+`ResamplerService` (no test file at all → found open/close swapped on descending input) and
+subscriber fault isolation (→ found an order reporting failure while the position was open).
+Suite 4,930 → **5,049**, green in both configs.
+
+**Still open from the tests-that-should-exist list, in the order they are worth taking:**
+
+1. **`LiveStreamManager`'s watchdog** — no tests at all: the connected-but-quiet branch,
+   `MaxReconnectAttempts`, `AttemptReconnectAsync`, and the consolidator reset that corrupts the
+   in-progress bar. Check `MarketFeedWatchdogTests` first for overlap.
+2. **The focused pump delivering a tick for a different identity** — the list says *"fails today"*,
+   so treat it as a bug report with a test attached, not as a test.
+3. **`OhlcvStore` monthly timeframes and insert-only dedup** — the same persistence path the
+   resampler bug was writing into.
+4. **`DataOrchestratorResilienceTests`' hand-copied `Transition` switch** — it pins a transcript of
+   the production code and passes while `LiveStreaming` is unreachable.
+5. **Audio**: one `Speak` per keypress on a crowded bar; `EarconType` enumerated the way
+   `FeedbackType` already is; mute as a theory over every `ComponentDisplayType`; Heikin-Ashi
+   component speech; `PlayNote` slots 26–31; Chart-scope output headroom.
+6. **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
+   directory.
+7. **Gap-fill overlapping a live tick** — the in-lock re-check at `ChartFeed:140`.
+
+**Recount before writing any of them.** Several items on that list were already closed by other
+work and the list did not know: "buy the whole account", "wrong-side stops", "brackets on a
+non-market entry", `ReportSuccess` for a sentinel, and "liquidated reaches speech" all had tests
+already when this session went looking. This is the same census-is-half-wrong pattern the
+2026-08-24 assessment produced; grep before you write.
+
 ### Below the line
 
 The 38 tests-that-should-exist stay worth writing, but after A2 and A3, which will change what "a
@@ -8205,11 +8239,23 @@ Ordered by value. Every one of these would have caught something above.
   that bar or counts calls.
 - [ ] **Enumerate `FeedbackType` and `EarconType`** and assert every member either speaks, earcons,
   or is on an explicit documented no-op allow-list. Three separate silent-arm bugs have now shipped.
-- [ ] **Buy the whole account** (`Quantity = balance / price`) and assert `Free >= 0` after the fee.
-  The only negative-cash test uses a 90% buy.
-- [ ] **Wrong-side stops**: a buy stop below the market and a sell stop above it must be refused.
-- [ ] **Brackets on a non-market entry**: `TradeSignal(..., OrderType.Limit, Price: 95, StopLoss:
+- [x] **Buy the whole account** (`Quantity = balance / price`) and assert `Free >= 0` after the fee.
+  The only negative-cash test uses a 90% buy. **ALREADY CLOSED — recount 2026-08-26.** It is
+  `PaperTradingProviderTests.Maximal_market_buy_leaves_cash_non_negative_after_the_fee`, which
+  buys exactly `balance / price` (1,000 BTC at 100 against a 100,000 account), beside
+  `Rejects_an_order_whose_fee_alone_would_overdraw` and
+  `A_fill_that_fits_including_its_fee_is_still_accepted`. The "only 90%" note was already stale
+  when it was written.
+- [x] **Wrong-side stops**: a buy stop below the market and a sell stop above it must be refused.
+  **ALREADY CLOSED — recount 2026-08-26.** `A_buy_stop_below_the_market_is_rejected_at_placement`
+  and `A_sell_stop_above_the_market_is_rejected_at_placement`, with
+  `A_stop_entry_on_the_correct_side_is_still_accepted_and_fills_at_its_trigger` as the vacuity
+  half.
+- [x] **Brackets on a non-market entry**: `TradeSignal(..., OrderType.Limit, Price: 95, StopLoss:
   90)` must produce a resting stop. Every current bracket test uses `OrderType.Market`.
+  **ALREADY CLOSED — recount 2026-08-26.** `A_limit_entry_carrying_a_stop_attaches_it_when_the_
+  entry_fills`, under the "The stop travels with the entry" heading in
+  `PaperTradingProviderTests` — written when that defect was fixed, and the list was not told.
 - [ ] **Orphaned legs after a manual close**: close the position, drive price to the stop, assert no
   new position is opened.
 - [ ] **The focused pump must not deliver a tick for a different identity.** Set focus to B, push an
@@ -8281,9 +8327,15 @@ Ordered by value. Every one of these would have caught something above.
 - [ ] **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
   directory. `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` exist; the
   paper account has no equivalent.
-- [ ] **`ReportSuccess` is not called for a sentinel result**, and the dashboard renders
-  `ORDER_DUPLICATE_SUPPRESSED` as an error.
-- [ ] **The word "liquidated" reaches speech** on a forced close.
+- [x] **`ReportSuccess` is not called for a sentinel result**, and the dashboard renders
+  `ORDER_DUPLICATE_SUPPRESSED` as an error. **ALREADY CLOSED by B1 — recount 2026-08-26.**
+  `OrderFailureHonestyTests` asserts both directions of `ReportSuccess`, and
+  `ORDER_DUPLICATE_SUPPRESSED` is named in four files
+  (`OrderPlacementVocabularyTests`, `OrderFailureHonestyTests`, `QuickTradeFailureReportingTests`,
+  `UnclosablePositionTests`).
+- [x] **The word "liquidated" reaches speech** on a forced close. **ALREADY CLOSED by B1 —
+  recount 2026-08-26.** `OrderEventAnnouncementTests.AForcedLiquidation_DoesNotAnnounceAsAn
+  OrdinaryFill`, with `AnOrdinaryFill_GainsNoReasonClause` as its vacuity twin.
 - [x] **A throwing `OrderUpdate` subscriber does not take down the fill engine**; and a throwing
   `EventBus` subscriber does not stop delivery to the others.
   **Done 2026-08-26 — both were true, and the first one was the worst money-path failure shape
