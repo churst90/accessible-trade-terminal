@@ -247,5 +247,48 @@ namespace AccessibleTrader.Tests
             Assert.DoesNotContain(" at ", msg);
             Assert.Contains("Bought 0.5 BTCUSD", msg);
         }
+
+        /// <summary>
+        /// A fill nobody asked for must not sound like one they placed.
+        ///
+        /// <para>
+        /// The paper broker's forced liquidation emits a <c>Filled</c> update carrying
+        /// <c>Reason = "LIQUIDATED — the short's collateral was exhausted at …"</c>, and the fill
+        /// formatter dropped <c>Reason</c> because fills were assumed to be requested. The trader
+        /// heard "Order filled. Bought 1 BTCUSD at 200. Loss 100." — a trade they did not place,
+        /// worded exactly like one they did, with the fact that they had been wiped out left out.
+        /// <c>FormatTerminated</c> has always spoken the reason; fills now do too.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void AForcedLiquidation_DoesNotAnnounceAsAnOrdinaryFill()
+        {
+            var liquidation = Update(qty: 1, price: 200) with
+            {
+                RealizedPnL = -100,
+                Reason = "LIQUIDATED — the short's collateral was exhausted at 200"
+            };
+
+            string msg = AccessibilityFeedbackCoordinator.FormatFill("Order filled", liquidation);
+
+            Assert.Contains("LIQUIDATED", msg);
+            Assert.Contains("collateral was exhausted", msg);
+            // Still a fill, and still says what it cost — the reason is added, not substituted.
+            Assert.Contains("Bought 1 BTCUSD", msg);
+            Assert.Contains("Loss", msg);
+        }
+
+        /// <summary>
+        /// The vacuity half: an ordinary fill carries no reason and must gain no trailing clause.
+        /// </summary>
+        [Fact]
+        public void AnOrdinaryFill_GainsNoReasonClause()
+        {
+            string msg = AccessibilityFeedbackCoordinator.FormatFill("Order filled", Update());
+
+            Assert.EndsWith(".", msg);
+            Assert.DoesNotContain("LIQUIDATED", msg);
+            Assert.Equal("Order filled. Bought 0.5 BTCUSD at 45000.00.", msg);
+        }
     }
 }

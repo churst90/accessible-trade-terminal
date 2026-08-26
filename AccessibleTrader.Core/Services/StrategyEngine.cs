@@ -286,7 +286,7 @@ namespace AccessibleTrader.Core.Services
                     TakeProfit: signal.TakeProfit
                 );
 
-                string result = await _orderService.PlaceOrderAsync(providerName, tradeSignal).ConfigureAwait(false);
+                var placement = await _orderService.PlaceOrderAsync(providerName, tradeSignal).ConfigureAwait(false);
 
                 // ── Read the answer ──────────────────────────────────────────
                 //
@@ -297,14 +297,18 @@ namespace AccessibleTrader.Core.Services
                 // for want of balance, or because the provider is not connected, the user has
                 // heard the signal and will hear nothing else. Believing you hold a position you
                 // do not hold is the most expensive wrong belief this application can create.
-                string? failure = OrderResult.DescribeFailure(result);
-                if (failure != null)
+                if (!placement.Succeeded)
                 {
                     _logger.LogError(
-                        $"Auto-execute for strategy '{active.Strategy.Name}' was not placed: {result}",
+                        $"Auto-execute for strategy '{active.Strategy.Name}' was not placed: {placement.Raw}",
                         nameof(StrategyEngine));
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
-                        $"{active.Strategy.Name} could not place its {signal.Side} order. {failure}", true));
+                        placement.RefusalAnnouncement(
+                            $"{active.Strategy.Name} could not place its {signal.Side} order.",
+                            // Nobody is at the keyboard for an auto strategy, so the one thing
+                            // that must survive is WHICH strategy — even when the order may
+                            // actually be live and "could not place" would be a lie.
+                            $"{active.Strategy.Name}'s {signal.Side} order:"), true));
                     return;
                 }
 
@@ -316,7 +320,11 @@ namespace AccessibleTrader.Core.Services
                 if (_positions != null)
                 {
                     double reference = LastClose(state);
-                    _positions.OpenPosition(active, signal, qty, providerName, symbol, reference, result);
+                    // OrderId is null for an ORDER_SUBMITTED acceptance (live, no id). Fall back to
+                    // the raw code so the manager still has a stable key for the position, which
+                    // is what it had before this was typed.
+                    _positions.OpenPosition(active, signal, qty, providerName, symbol, reference,
+                        placement.OrderId ?? placement.Raw);
                 }
             }
             catch (Exception ex)

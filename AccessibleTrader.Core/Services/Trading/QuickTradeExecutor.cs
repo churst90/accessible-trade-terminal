@@ -63,21 +63,22 @@ namespace AccessibleTrader.Core.Services.Trading
                     Price: e.EntryPrice,
                     StopLoss: e.StopPrice);
 
-                string result = await _orders.PlaceOrderAsync(provider, signal).ConfigureAwait(false);
+                var placement = await _orders.PlaceOrderAsync(provider, signal).ConfigureAwait(false);
 
                 // ── Read the answer ──────────────────────────────────────────────
                 //
-                // PlaceOrderAsync returns a status string, and this call used to DISCARD it. Every
-                // refusal — no price for the symbol, not enough paper balance, a quantity past the
-                // sanity ceiling — came back here and was dropped on the floor. The user had already
-                // been told the order was sent, so the result was the worst combination available:
-                // a confirmed order, no fill, no position, and nothing said. Exactly what the catch
-                // block below was written to prevent, defeated by a return value nobody looked at.
-                string? failure = OrderResult.DescribeFailure(result);
-                if (failure != null)
+                // PlaceOrderAsync used to answer with a status string, and this call DISCARDED it.
+                // Every refusal — no price for the symbol, not enough paper balance, a quantity past
+                // the sanity ceiling — came back here and was dropped on the floor. The user had
+                // already been told the order was sent, so the result was the worst combination
+                // available: a confirmed order, no fill, no position, and nothing said. Exactly what
+                // the catch block below was written to prevent, defeated by a return value nobody
+                // looked at. It is now a typed OrderPlacement, so "nobody looked at it" is a
+                // compile error rather than a silence.
+                if (!placement.Succeeded)
                 {
-                    _logger.LogWarning("Quick trade for {Symbol} was not placed: {Result}", e.Symbol, result);
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, failure, true));
+                    _logger.LogWarning("Quick trade for {Symbol} was not placed: {Raw}", e.Symbol, placement.Raw);
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, placement.FailureMessage!, true));
                 }
             }
             catch (Exception ex)

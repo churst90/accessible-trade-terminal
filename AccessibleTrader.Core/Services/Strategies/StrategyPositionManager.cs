@@ -360,10 +360,9 @@ namespace AccessibleTrader.Core.Services.Strategies
                     // never do — an oversized rung would flip a long into a short.
                     ReduceOnly: true);
 
-                string result = await _orderService.PlaceOrderAsync(order.Provider, trade).ConfigureAwait(false);
-                string? failure = OrderResult.DescribeFailure(result);
+                var placement = await _orderService.PlaceOrderAsync(order.Provider, trade).ConfigureAwait(false);
 
-                if (failure == null)
+                if (placement.Succeeded)
                 {
                     ExitAccepted(order.ExitId);
                     Announce(FeedbackType.Info,
@@ -372,9 +371,17 @@ namespace AccessibleTrader.Core.Services.Strategies
                 }
 
                 ExitRejected(order.ExitId);
+                // "The position is still open" is a claim, and it is not one this path can make
+                // about an order that may well have gone through. What stays true either way is
+                // that the level is re-armed, so that is what an uncertain exit says instead.
+                string tail = placement.NeedsVerification
+                    ? " The exit level stays armed, so check your positions before it fires again."
+                    : " The position is still open and the level stays armed.";
                 Announce(FeedbackType.Error,
-                    $"{order.StrategyName} could not close {Qty(order.Quantity)} {order.Symbol} on {order.Reason}. "
-                    + failure + " The position is still open and the level stays armed.");
+                    placement.RefusalAnnouncement(
+                        $"{order.StrategyName} could not close {Qty(order.Quantity)} {order.Symbol} on {order.Reason}.",
+                        $"{order.StrategyName}'s exit for {Qty(order.Quantity)} {order.Symbol}:")
+                    + tail);
                 return false;
             }
             catch (Exception ex)

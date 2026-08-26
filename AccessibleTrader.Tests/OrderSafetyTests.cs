@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
@@ -69,7 +70,8 @@ namespace AccessibleTrader.Tests
 
             var result = await svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("ORDER_REJECTED_QUANTITY", result);
+            Assert.Equal(OrderOutcome.Rejected, result.Outcome);
+            Assert.Equal(OrderCodes.RejectedQuantity, result.Raw);
             await tp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -81,7 +83,8 @@ namespace AccessibleTrader.Tests
 
             var result = await svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("ORDER_REJECTED_PRICE", result);
+            Assert.Equal(OrderOutcome.Rejected, result.Outcome);
+            Assert.Equal(OrderCodes.RejectedPrice, result.Raw);
             await tp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -96,7 +99,8 @@ namespace AccessibleTrader.Tests
 
             var result = await svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("ORDER_REJECTED_PRICE", result);
+            Assert.Equal(OrderOutcome.Rejected, result.Outcome);
+            Assert.Equal(OrderCodes.RejectedPrice, result.Raw);
             await tp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -132,14 +136,15 @@ namespace AccessibleTrader.Tests
         public async Task PlaceOrder_DedupSuppressesSecondCallWithSameClientOid()
         {
             var (svc, tp, _, _) = BuildService();
-            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("ORDER_123"));
+            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("EX-123"));
             var signal = SaneSignal with { ClientOid = "fixed-id" };
 
             var first = await svc.PlaceOrderAsync("Binance", signal);
             var second = await svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("ORDER_123", first);
-            Assert.Equal("ORDER_DUPLICATE_SUPPRESSED", second);
+            Assert.Equal("EX-123", first.OrderId);
+            Assert.Equal(OrderOutcome.Duplicate, second.Outcome);
+            Assert.False(second.Succeeded, "A suppressed duplicate must never read as a placed order.");
             await tp.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -175,13 +180,14 @@ namespace AccessibleTrader.Tests
         public async Task PlaceOrder_DedupSuppressesAccidentalDoubleSubmit_WithNoClientOid()
         {
             var (svc, tp, _, _) = BuildService();
-            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("ORDER_123"));
+            tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("EX-123"));
 
             var first  = await svc.PlaceOrderAsync("Binance", SaneSignal);
             var second = await svc.PlaceOrderAsync("Binance", SaneSignal);
 
-            Assert.Equal("ORDER_123", first);
-            Assert.Equal("ORDER_DUPLICATE_SUPPRESSED", second);
+            Assert.Equal("EX-123", first.OrderId);
+            Assert.Equal(OrderOutcome.Duplicate, second.Outcome);
+            Assert.False(second.Succeeded, "A suppressed duplicate must never read as a placed order.");
             await tp.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -257,7 +263,7 @@ namespace AccessibleTrader.Tests
             // Same ClientOid on a DIFFERENT provider must succeed — dedup key is (provider|oid).
             var second = await svc.PlaceOrderAsync("Coinbase", signal);
 
-            Assert.Equal("OK2", second);
+            Assert.Equal("OK2", second.OrderId);
         }
 
         [Fact]
@@ -273,8 +279,11 @@ namespace AccessibleTrader.Tests
 
             var result = await svc.PlaceOrderAsync("Binance", SaneSignal);
 
-            Assert.StartsWith("ORDER_UNCERTAIN:", result);
-            Assert.Contains("ORDER_999", result);
+            Assert.Equal(OrderOutcome.Uncertain, result.Outcome);
+            Assert.Equal("ORDER_999", result.OrderId);
+            // Uncertain is not a refusal and must not be announced as one: the order is
+            // probably live, and "not placed" is what makes a trader submit it twice.
+            Assert.DoesNotContain("Not placed", result.FailureMessage!, StringComparison.OrdinalIgnoreCase);
         }
 
         // ── Protective-order verification net (2026-06-12 audit fix 2) ──────────

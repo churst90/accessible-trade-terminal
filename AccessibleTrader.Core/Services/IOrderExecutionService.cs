@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -8,7 +9,25 @@ namespace AccessibleTrader.Core.Services
     public interface IOrderExecutionService
     {
         // ── Order execution ────────────────────────────────────────────────────
-        Task<string> PlaceOrderAsync(string provider, TradeSignal signal);
+
+        /// <summary>
+        /// Submits an order and says what became of it.
+        ///
+        /// <para>
+        /// Returns a typed <see cref="OrderPlacement"/>, never a status string. The provider-level
+        /// <c>ITradingProvider.PlaceOrderAsync</c> still answers in the documented string protocol
+        /// (31 implementations depend on it); this method is where that string is recognised, once,
+        /// so that no caller above it has to guess which prefixes mean failure. Three callers used
+        /// to guess, they disagreed, and each disagreement was something a blind trader heard as a
+        /// confirmation of an order nobody sent.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Callers: branch on <see cref="OrderPlacement.Succeeded"/>, and handle
+        /// <see cref="OrderPlacement.NeedsVerification"/> separately from a refusal.</b>
+        /// </para>
+        /// </summary>
+        Task<OrderPlacement> PlaceOrderAsync(string provider, TradeSignal signal);
         Task<bool>   CancelOrderAsync(string provider, string orderId, string symbol);
 
         /// <summary>

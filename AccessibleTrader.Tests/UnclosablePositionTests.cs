@@ -165,8 +165,8 @@ namespace AccessibleTrader.Tests
         // ── Fix 1: the refusal reaches the user with its reason ──────────────
 
         [Theory]
-        // "insufficient" is the one reason the shared translator does NOT pass through verbatim:
-        // OrderResult replaces it with what the user can act on, because "insufficient paper
+        // "insufficient" is the one reason the recogniser does NOT pass through verbatim:
+        // OrderPlacement replaces it with what the user can act on, because "insufficient paper
         // balance" is true and useless — the size grew because the stop is tight. That behaviour
         // predates this patch and is pinned by QuickTradeFailureReportingTests; the expectation
         // here was written against a private second translator that has since been folded into
@@ -180,27 +180,44 @@ namespace AccessibleTrader.Tests
         {
             // The dashboard announced a bare "Close failed for BTC/USD." and dropped everything
             // after the colon — which is the only part saying what to do about it. For a
-            // screen-reader user that was the whole message gone.
-            string spoken = TradingDashboardModal.DescribeOrderFailure(code);
+            // screen-reader user that was the whole message gone. This is the exact call the
+            // Close button makes.
+            string spoken = OrderPlacement.Parse(code).RefusalAnnouncement("Close failed for BTC/USD.");
 
+            Assert.StartsWith("Close failed for BTC/USD.", spoken, StringComparison.Ordinal);
             Assert.Contains(expected, spoken, StringComparison.OrdinalIgnoreCase);
             Assert.EndsWith(".", spoken);
         }
 
         /// <summary>
-        /// There must be exactly ONE translator from failure code to spoken sentence. The patch
-        /// that fixed the dropped-reason bug added a private copy inside the dashboard, four lines
-        /// away from an existing call to the shared one — which is the drift this codebase keeps
-        /// paying for, and which <see cref="OrderResult"/>'s own summary was written to prevent.
+        /// There must be exactly ONE recogniser of an order result. The patch that fixed the
+        /// dropped-reason bug added a private copy inside the dashboard, four lines away from an
+        /// existing call to the shared one; a THIRD lived in the ticket as a
+        /// <c>StartsWith</c> pair that missed <c>ORDER_DUPLICATE_SUPPRESSED</c> entirely, so a
+        /// screen-reader double-Enter announced "Order placed" for an order the dedup gate had
+        /// just refused to send.
+        ///
+        /// <para>
+        /// The typed <see cref="OrderPlacement"/> makes a private copy impossible to write by
+        /// accident — the component never sees a status string now — but it is still possible to
+        /// write one on purpose, and this is where that would be noticed.
+        /// </para>
         /// </summary>
-        [Theory]
-        [InlineData("ORDER_FAILED:no price available for BTC/USD — open its chart")]
-        [InlineData("PROVIDER_NOT_CONNECTED:Bitstamp is not connected")]
-        [InlineData("ORDER_FAILED:insufficient paper balance — needs more")]
-        public void TheDashboardSpeaksThroughTheSharedTranslator(string code)
+        [Fact]
+        public void TheDashboardCannotClassifyAnOrderResultItself()
         {
-            Assert.Equal(OrderResult.DescribeFailureOrDefault(code),
-                         TradingDashboardModal.DescribeOrderFailure(code));
+            string src = File.ReadAllText(Path.Combine(
+                RepoPaths.RepoRoot(), "AccessibleTrader.BlazorClient.Components", "TradingDashboardModal.razor"));
+
+            // Strip comments: this file EXPLAINS the old prefix test in prose, and a guard that
+            // cannot tell an explanation from a call would fire on its own documentation.
+            string code = string.Join("\n", src.Split('\n')
+                .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+
+            Assert.DoesNotContain("StartsWith(\"ORDER_", code, StringComparison.Ordinal);
+            Assert.DoesNotContain("StartsWith(\"PROVIDER_", code, StringComparison.Ordinal);
+            Assert.Contains(".Succeeded", code, StringComparison.Ordinal);
+            Assert.Contains("RefusalAnnouncement(", code, StringComparison.Ordinal);
         }
 
         [Theory]
@@ -210,10 +227,27 @@ namespace AccessibleTrader.Tests
         public void AReasonlessCode_StillProducesASentence(string code)
         {
             // Never announce a dangling "Close failed for BTC/USD." with nothing following it.
-            string spoken = TradingDashboardModal.DescribeOrderFailure(code);
+            string spoken = OrderPlacement.Parse(code).RefusalAnnouncement("Close failed for BTC/USD.");
 
             Assert.False(string.IsNullOrWhiteSpace(spoken));
             Assert.EndsWith(".", spoken);
+        }
+
+        /// <summary>
+        /// The outcome the old <c>StartsWith("ORDER_FAILED") || StartsWith("PROVIDER_NOT")</c>
+        /// pair got WRONG, stated as the announcement a user would hear. A suppressed duplicate
+        /// matched neither prefix, so the ticket announced "Order placed" for an order that was
+        /// never sent — after the very key press the dedup gate exists to absorb.
+        /// </summary>
+        [Fact]
+        public void ASuppressedDuplicate_IsNeverAnnouncedAsPlaced()
+        {
+            var placement = OrderPlacement.Parse("ORDER_DUPLICATE_SUPPRESSED");
+
+            Assert.False(placement.Succeeded);
+            Assert.Equal(OrderOutcome.Duplicate, placement.Outcome);
+            Assert.Contains("duplicate", placement.RefusalAnnouncement("Order rejected for BTC/USD."),
+                            StringComparison.OrdinalIgnoreCase);
         }
 
         // ── Fixtures ─────────────────────────────────────────────────────────

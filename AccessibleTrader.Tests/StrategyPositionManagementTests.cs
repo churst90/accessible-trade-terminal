@@ -69,10 +69,16 @@ namespace AccessibleTrader.Tests
             public Func<TradeSignal, string>? Answer;
             public ProviderResult<List<Position>>? Positions;
 
-            public Task<string> PlaceOrderAsync(string provider, TradeSignal signal)
+            /// <summary>
+            /// The scripted answer is still written in the wire vocabulary — that is what a
+            /// provider actually returns — and parsed by the same recogniser production uses, so
+            /// a test cannot hand the manager an outcome no provider could produce.
+            /// </summary>
+            public Task<OrderPlacement> PlaceOrderAsync(string provider, TradeSignal signal)
             {
                 Placed.Add((provider, signal));
-                return Task.FromResult(Answer?.Invoke(signal) ?? ("order-" + Placed.Count));
+                return Task.FromResult(
+                    OrderPlacement.Parse(Answer?.Invoke(signal) ?? ("order-" + Placed.Count)));
             }
 
             public Task<ProviderResult<List<Position>>> GetPositionsAsync(string provider) =>

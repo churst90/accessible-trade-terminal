@@ -190,7 +190,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string pnl = o.RealizedPnL.HasValue
                 ? $" {(o.RealizedPnL.Value >= 0 ? "Profit" : "Loss")} {SpeechPriceFormatter.FormatPrice(Math.Abs(o.RealizedPnL.Value))}."
                 : "";
-            return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.{pnl}";
+            // A fill that carries a reason is a fill NOBODY ASKED FOR — the paper broker's
+            // forced liquidation is the one that exists today, and it announced as an ordinary
+            // "Order filled. Bought 1 BTC/USD at 200. Loss 100." The trader heard a trade they
+            // did not place, worded exactly like one they did, and the fact that their collateral
+            // was exhausted was the part left out. FormatTerminated has always spoken Reason;
+            // fills dropped it because fills were assumed to be requested.
+            string why = string.IsNullOrWhiteSpace(o.Reason) ? "" : " " + o.Reason!.TrimEnd('.') + ".";
+            return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.{pnl}{why}";
         }
 
         internal static string FormatPartialFill(Sdk.Trading.OrderUpdate o)

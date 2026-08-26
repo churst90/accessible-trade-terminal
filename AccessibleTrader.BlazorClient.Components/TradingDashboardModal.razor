@@ -1045,15 +1045,14 @@
             StopLoss: level == ProtectiveLevel.StopLoss ? check.Value : null,
             TakeProfit: level == ProtectiveLevel.TakeProfit ? check.Value : null);
 
-        string result = await OrderService.PlaceOrderAsync(provider, signal);
-        string? failure = OrderResult.DescribeFailure(result);
+        var placement = await OrderService.PlaceOrderAsync(provider, signal);
 
         _editing = null;
         await LoadAccountDataAsync();
 
-        EventBus.Publish(failure != null
-            ? new FeedbackRequestEvent(FeedbackType.Error, failure, true)
-            : new FeedbackRequestEvent(FeedbackType.StateChange, check.Message));
+        EventBus.Publish(placement.Succeeded
+            ? new FeedbackRequestEvent(FeedbackType.StateChange, check.Message)
+            : new FeedbackRequestEvent(FeedbackType.Error, placement.FailureMessage!, true));
         StateHasChanged();
     }
 
@@ -1275,9 +1274,15 @@
                 PostOnly:       NeedsLimit && Can(ProviderCapabilities.PostOnly) && _postOnly,
                 PositionSide:   posSide);
 
-            string result = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
+            var placement = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 
-            _orderError  = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
+            // This line used to be `result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT")`,
+            // a private third recogniser that matched neither of the other two. It missed
+            // ORDER_DUPLICATE_SUPPRESSED — the routine screen-reader double-Enter — and announced
+            // "Order placed" for an order the dedup gate had just refused to send, along with both
+            // ORDER_REJECTED_* codes and ORDER_UNCERTAIN. The classification now happens once, in
+            // OrderPlacement, and this component consumes it.
+            _orderError  = !placement.Succeeded;
             // Paper orders skip the live review, so the sector-stacking hint (warn-only,
             // never blocking) rides along with the fill confirmation instead.
             string sectorHint = !_orderError
@@ -1289,7 +1294,7 @@
             // Same rule as ClosePosition: a rejection carries its reason, and the reason is the
             // part the user can act on. "Order rejected" alone sends them back to guess.
             _orderStatus = _orderError
-                ? $"Order rejected for {Store.State.Identity.Symbol}. {DescribeOrderFailure(result)}"
+                ? placement.RefusalAnnouncement($"Order rejected for {Store.State.Identity.Symbol}.")
                 : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
@@ -1466,20 +1471,6 @@
         if (ok) await LoadAccountDataAsync();
     }
 
-    /// <summary>
-    /// The human half of an order-service failure code.
-    ///
-    /// <para>
-    /// A thin forward to <see cref="OrderResult.DescribeFailureOrDefault"/> rather than a second
-    /// implementation. This class of defect — one translator per caller, drifting apart — is the
-    /// reason <c>OrderResult</c> exists at all, and its own summary says so: "One translator, used
-    /// by every path that places an order, is how that stays fixed." A private copy here would
-    /// have started out identical and stopped being identical the first time either was improved.
-    /// </para>
-    /// </summary>
-    internal static string DescribeOrderFailure(string result) =>
-        OrderResult.DescribeFailureOrDefault(result);
-
     // Close (or reduce-to-flat) a position by submitting an opposing market order.
     private async Task ClosePosition(Position p)
     {
@@ -1504,24 +1495,25 @@
             Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
             Type: OrderType.Market, SubType: subType, ReduceOnly: true);
 
-        string result;
+        OrderPlacement placement;
         try
         {
-            result = await OrderService.PlaceOrderAsync(provider, signal);
+            placement = await OrderService.PlaceOrderAsync(provider, signal);
         }
         finally
         {
             EndOrderAction();
         }
-        bool err = result.StartsWith("ORDER_FAILED") || result.StartsWith("PROVIDER_NOT");
+        bool err = !placement.Succeeded;
         EventBus.Publish(new FeedbackRequestEvent(err ? FeedbackType.Error : FeedbackType.Info,
             // Say WHY, not just that it failed. The provider returns a reason after the colon
             // ("insufficient paper balance — …", "no live price for symbol — …") and this line
             // used to throw it away, announcing a bare "Close failed for BTC/USD." A refusal a
             // user can act on and a refusal that looks like a dead end are the same event with
             // different words, and for a screen-reader user the actionable half is the half
-            // that was being dropped.
-            err ? $"Close failed for {p.Symbol}. {DescribeOrderFailure(result)}"
+            // that was being dropped. RefusalAnnouncement also drops the "Close failed" framing
+            // for an uncertain close, which may well have gone through.
+            err ? placement.RefusalAnnouncement($"Close failed for {p.Symbol}.")
                 : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
             true));
         if (!err) await LoadAccountDataAsync();

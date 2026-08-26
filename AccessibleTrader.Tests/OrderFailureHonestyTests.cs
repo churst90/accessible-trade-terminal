@@ -161,7 +161,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void OrderUncertain_IsNotTranslatedAsSuccess()
         {
-            string? said = OrderResult.DescribeFailure("ORDER_UNCERTAIN:8891");
+            string? said = OrderPlacement.Parse("ORDER_UNCERTAIN:8891").FailureMessage;
 
             Assert.NotNull(said);
             Assert.Contains("8891", said);
@@ -174,7 +174,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void OrderUncertain_WithNoIdAttached_StillSpeaks()
         {
-            string? said = OrderResult.DescribeFailure("ORDER_UNCERTAIN");
+            string? said = OrderPlacement.Parse("ORDER_UNCERTAIN").FailureMessage;
 
             Assert.NotNull(said);
             Assert.Contains("Check your open orders", said);
@@ -187,8 +187,125 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void ARealOrderId_IsStillSilence()
         {
-            Assert.Null(OrderResult.DescribeFailure("8891"));
-            Assert.Null(OrderResult.DescribeFailure("paper-1a2b3c4d5e6f"));
+            Assert.Null(OrderPlacement.Parse("8891").FailureMessage);
+            Assert.Null(OrderPlacement.Parse("paper-1a2b3c4d5e6f").FailureMessage);
+        }
+
+        // ── "Order placed" is said AFTER the answer is read, not before ───────
+
+        /// <summary>
+        /// The defect this section exists for, and it was one line long.
+        /// <c>ReportSuccess("Order placed: …")</c> fired on the statement immediately after
+        /// <c>tp.PlaceOrderAsync</c> returned — before anything had looked at what the provider
+        /// actually said. A provider answering <c>ORDER_FAILED:…</c> produced a spoken
+        /// confirmation followed by silence, which for a blind trader is indistinguishable from
+        /// a filled order. There is no compensating channel: nothing else would ever have
+        /// mentioned it.
+        /// </summary>
+        [Theory]
+        [InlineData("ORDER_FAILED:insufficient balance")]
+        [InlineData("ORDER_REJECTED_QUANTITY")]
+        [InlineData("ORDER_DUPLICATE_SUPPRESSED")]
+        [InlineData("PROVIDER_NOT_CONFIGURED")]      // A2's mutant M21, as a user-facing claim
+        [InlineData("ORDER_THROTTLED")]              // reserved prefix, unrecognised code
+        public async Task AProviderRefusal_IsNeverAnnouncedAsOrderPlaced(string code)
+        {
+            var h = Build();
+            h.Tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult(code));
+
+            var placement = await h.Svc.PlaceOrderAsync("Binance", Sane);
+
+            Assert.False(placement.Succeeded);
+            Assert.False(string.IsNullOrWhiteSpace(placement.FailureMessage));
+            h.Err.DidNotReceive().ReportSuccess(Arg.Any<string>());
+            // Nothing was placed, so nothing may be polled: an id-less code handed to the status
+            // poller is how the poller came to be fed garbage.
+            Assert.Equal(0, h.Svc.OrderWatchesStarted);
+        }
+
+        /// <summary>
+        /// The vacuity half. A guard that refused everything would pass the theory above and
+        /// break the feature: an order that goes MUST still be announced as placed, and must
+        /// still start the watch that announces its fill.
+        /// </summary>
+        [Fact]
+        public async Task AnOrderThatGoes_IsStillAnnouncedAsPlaced()
+        {
+            var h = Build();
+            h.Tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("EX-77"));
+
+            var placement = await h.Svc.PlaceOrderAsync("Binance", Sane);
+
+            Assert.True(placement.Succeeded);
+            Assert.Equal("EX-77", placement.OrderId);
+            h.Err.Received().ReportSuccess(Arg.Is<string>(m => m.Contains("Order placed")));
+            Assert.Equal(1, h.Svc.OrderWatchesStarted);
+        }
+
+        /// <summary>
+        /// <c>ORDER_SUBMITTED</c> is the case both old recognisers disagreed about. It is a
+        /// success — say "Order placed" — but there is no id, so no watch starts and the user is
+        /// told, separately, that this order's fill cannot be announced. Announcing the success
+        /// without that caveat lets "placed" imply an outcome that will never arrive.
+        /// </summary>
+        [Fact]
+        public async Task AVenueAcceptanceWithNoId_IsPlacedButSaysItsFillCannotBeAnnounced()
+        {
+            var h = Build();
+            h.Tp.SupportsOrderEventStreaming.Returns(false);
+            h.Tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("ORDER_SUBMITTED"));
+
+            var placement = await h.Svc.PlaceOrderAsync("Binance", Sane);
+
+            Assert.True(placement.Succeeded);
+            Assert.False(placement.HasOrderId);
+            Assert.Equal(0, h.Svc.OrderWatchesStarted);
+            h.Err.Received().ReportSuccess(Arg.Is<string>(m => m.Contains("Order placed")));
+            h.Err.Received().ReportError(
+                Arg.Is<string>(m => m.Contains("did not return an order id")),
+                ErrorSeverity.Medium);
+        }
+
+        /// <summary>
+        /// And the consequence of reading it as a success: a bracket on an id-less acceptance is
+        /// now VERIFIED. The old prefix test skipped the protective-order scan for exactly these
+        /// orders — the ones where nothing else can ever report a missing stop, because there is
+        /// no id to poll and (here) no order-event stream either.
+        /// </summary>
+        [Fact]
+        public async Task ABracketOnAnIdLessAcceptance_IsStillVerified()
+        {
+            var h = Build();
+            h.Svc.ProtectionVerifyDelay = TimeSpan.Zero;
+            h.Tp.SupportsOrderEventStreaming.Returns(false);
+            h.Tp.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("ORDER_SUBMITTED"));
+            h.Tp.GetOpenOrdersAsync(Arg.Any<string?>()).Returns(_ => Task.FromResult(new List<OpenOrder>()));
+
+            await h.Svc.PlaceOrderAsync("Binance", Sane with { StopLoss = 44_000.0 });
+
+            // The scan runs fire-and-forget so the order is not delayed by it. Wait for it
+            // rather than sleeping a fixed amount: this fails only if it genuinely never runs.
+            bool alarmed = await Eventually(() => h.Err.ReceivedCalls().Any(c =>
+                c.GetMethodInfo().Name == nameof(IGlobalErrorCoordinator.ReportError)
+                && c.GetArguments()[0] is string m
+                && (m.Contains("unprotected") || m.Contains("no stop loss"))));
+
+            Assert.True(alarmed, "A bracket on an id-less acceptance was never verified.");
+        }
+
+        private static TradeSignal Sane =>
+            new("BTC/USD", OrderSide.Buy, 0.01, OrderType.Market);
+
+        /// <summary>Polls a condition to a deadline. Fails slow, never fails fast on a busy box.</summary>
+        private static async Task<bool> Eventually(Func<bool> condition)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (condition()) return true;
+                await Task.Delay(25);
+            }
+            return condition();
         }
     }
 }

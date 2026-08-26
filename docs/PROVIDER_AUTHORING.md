@@ -624,21 +624,35 @@ history, and it has shipped on four venues at once.
 
 ### The PlaceOrderAsync return protocol
 
-`PlaceOrderAsync` returns a `string` (a typed result record is tracked in
-docs/TODO.md; until it lands, this string protocol is the contract):
+`PlaceOrderAsync` returns a `string`. This string protocol is the **plugin
+boundary contract** and it is not going away — but it is now recognised exactly
+once, by `OrderPlacement.Parse`, at the edge of Core. Nothing above
+`GeneralOrderService` ever sees a status string; every caller reads a typed
+`OrderPlacement`. Write to this table and the terminal says the right thing:
 
-- **Success:** the venue's order id, verbatim. The order service hands it to the
-  status poller and the fill announcements depend on it being real.
-- **Failure:** `"ORDER_FAILED:<reason>"` — everything after the colon is **spoken
-  to the user** by `OrderResult.DescribeFailure`, so write the reason as a
-  sentence a trader can act on ("Tradier trades whole shares only; round the
-  quantity and place the order again"), not an error code.
+- **Success:** the venue's order id, verbatim → `OrderOutcome.Placed`. The order
+  service hands it to the status poller and the fill announcements depend on it
+  being real.
+- **Failure:** `"ORDER_FAILED:<reason>"` → `Rejected`. Everything after the colon
+  is **spoken to the user**, so write the reason as a sentence a trader can act
+  on ("Tradier trades whole shares only; round the quantity and place the order
+  again"), not an error code.
 - **Not configured:** `"PROVIDER_NOT_CONFIGURED"` (optionally
-  `"PROVIDER_NOT_CONFIGURED:<reason>"`).
-- Never invent other `ORDER_`/`PROVIDER_`-prefixed return values:
-  `GeneralOrderService.IsErrorSentinel` treats both prefixes as failure, so an
-  `ORDER_`-prefixed "success" code silently disables bracket verification and
-  fill polling for that order.
+  `"PROVIDER_NOT_CONFIGURED:<reason>"`) → `Unavailable`. The whole
+  `PROVIDER_NOT_*` family parses the same way, bare or with a reason.
+- **Accepted, no id:** `"ORDER_SUBMITTED"` → `Accepted`. Use this ONLY when the
+  venue really did accept the order and really did not return an id. It is a
+  success: brackets are verified, but no fill poll can start, so the terminal
+  tells the user their fill cannot be announced.
+- **Never invent other `ORDER_`/`PROVIDER_`-prefixed return values.** Both
+  prefixes are reserved, and an unrecognised one is now parsed as a **refusal**
+  that names the code out loud. That is the safe direction — an invented
+  "success" code used to be announced as a placed order — but it means an
+  invented code makes your provider unusable rather than subtly wrong. A venue
+  order id must never begin with either prefix.
+
+The vocabulary is pinned by `OrderPlacementVocabularyTests`, and the enum has an
+exhaustiveness guard: adding an `OrderOutcome` without a sample fails the suite.
 
 Validation rule: **refuse, never resize.** If the venue trades whole shares and
 the signal says 9.7, return `ORDER_FAILED` naming the rule — silently truncating

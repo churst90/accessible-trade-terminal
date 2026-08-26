@@ -87,7 +87,10 @@ the four flakes first (A2/F1) — a harness measured against a suite that report
 
 ### Phase B — the fix work
 
-**B1. Typed `OrderPlacement` / the order-outcome vocabulary.** Verified still open 2026-08-25:
+**B1. Typed `OrderPlacement` / the order-outcome vocabulary. DONE 2026-08-26** — see the
+"B1 — the typed `OrderPlacement`" section below. All four defects below were confirmed and fixed,
+plus a fifth found on the way (a forced liquidation announcing as an ordinary fill), and each fix
+was proven by sabotage. Original entry, verified still open 2026-08-25:
 classification exists in three non-equivalent forms and the dashboard's `StartsWith` pair misses
 `ORDER_REJECTED_QUANTITY`, `ORDER_REJECTED_PRICE`, `ORDER_DUPLICATE_SUPPRESSED` and
 `ORDER_UNCERTAIN`, so a suppressed duplicate — the routine screen-reader double-Enter case —
@@ -442,6 +445,11 @@ decides whether a blind trader is told "Order placed" or told what went wrong is
 single test. **When B1 lands, this mutant is the acceptance test** — restore it and the suite must
 go red.
 
+**CLOSED 2026-08-26 by B1.** `IsErrorSentinel` no longer exists; its analogue — deleting the
+`PROVIDER_NOT` arm from `OrderPlacement.Parse` — was run and turns four tests red, and deleting the
+reserved-prefix fallback turns four more. `OrderPlacementVocabularyTests` pins every code in the
+protocol and carries an exhaustiveness guard over `OrderOutcome`.
+
 ### CONFIRMED — F4. The modal focus contract asserts *somewhere valid*, not *the right place* (MEDIUM)
 
 M11 deleted `WalletModal`'s `focusElement("wallet-asset")` — the call that puts the user on the
@@ -697,7 +705,7 @@ Two things should be taken before A3 rather than after it:
    for every StrategyLab result.
 
 **F3 belongs to B1 and is now its acceptance criterion**: restore mutant M21 after the typed
-`OrderPlacement` work and the suite must go red.
+`OrderPlacement` work and the suite must go red. **Done 2026-08-26 — it does.**
 
 The one sentence to carry forward: **the suite is well built and narrowly aimed.** The tests that
 exist are honest — no vacuous guards, no assertion-free tests, no empty baselines, and a money path
@@ -902,6 +910,67 @@ layer it examined is mostly *right*; what was missing was any way to know that.
 
 **Next is Phase B**, unchanged: B1 typed `OrderPlacement` (its acceptance test is A2's mutant M21),
 then B2 dashboard decoupling.
+
+---
+
+## B1 — the typed `OrderPlacement` (done 2026-08-26)
+
+Phase B item 1, and the carve-out: it did not wait on the sweep because no audit was going to make
+a false "Order placed" less true.
+
+**What was actually wrong, in one sentence: three different pieces of code decided what a
+placement result meant, they disagreed, and every disagreement was audible.**
+
+- `GeneralOrderService.IsErrorSentinel` — any `ORDER_`/`PROVIDER_` prefix is a failure.
+- `OrderResult.DescribeFailure` — an exact-match list; anything unlisted is an order id.
+- `TradingDashboardModal` — `StartsWith("ORDER_FAILED") || StartsWith("PROVIDER_NOT")`, twice.
+
+The disagreements, as things a user heard:
+
+1. **`ORDER_DUPLICATE_SUPPRESSED` matched none of the dashboard's prefixes**, so the routine
+   screen-reader double-Enter — the exact input the dedup gate exists to absorb — announced
+   "Order placed" for an order that was never sent. `ORDER_REJECTED_QUANTITY`,
+   `ORDER_REJECTED_PRICE` and `ORDER_UNCERTAIN` were wrong the same way.
+2. **`ORDER_SUBMITTED` is a success** (nine providers return it when a venue accepts an order
+   without giving an id back) and `IsErrorSentinel` read it as a failure, silently skipping
+   bracket verification on the orders least able to report a missing stop — no id to poll, and
+   on Schwab/Tradier no order-event stream either.
+3. **"Order placed" was spoken before anything looked at the answer.** `ReportSuccess` fired on
+   the statement immediately after `tp.PlaceOrderAsync` returned. A provider answering
+   `ORDER_FAILED:insufficient balance` produced a spoken confirmation followed by silence — and
+   for a blind trader silence after a confirmation is indistinguishable from a filled order.
+4. **A forced liquidation announced as an ordinary fill.** The paper broker emits a `Filled`
+   update carrying `Reason = "LIQUIDATED — the short's collateral was exhausted at …"`, and
+   `FormatFill` dropped `Reason` because fills were assumed to be requested. The trader heard a
+   trade they did not place, worded exactly like one they did.
+
+**The fix.** `IOrderExecutionService.PlaceOrderAsync` returns `OrderPlacement` — a record of
+`(Outcome, Raw, OrderId, FailureMessage)` over six outcomes: `Placed`, `Accepted`, `Rejected`,
+`Duplicate`, `Unavailable`, `Uncertain`. The string protocol survives at the plugin boundary
+(31 providers implement it, it is documented, and changing it buys nothing) and is parsed exactly
+once by `OrderPlacement.Parse`. `IsErrorSentinel`, `OrderResult` and the dashboard's private
+forwarder are all gone; the seven call sites read `Succeeded` / `HasOrderId` / `NeedsVerification`.
+
+Two design points worth keeping:
+
+- **`Succeeded` is not `HasOrderId`.** The first gates "say Order placed" and includes `Accepted`;
+  the second gates the status poller and does not. Collapsing them is what fed the poller
+  `"ORDER_SUBMITTED"` as an id.
+- **`Uncertain` drops the caller's headline.** "Close failed for BTC/USD" over an order that
+  probably went through is how the same position gets opened twice. `RefusalAnnouncement` takes an
+  optional neutral headline for callers whose framing carries information the user still needs
+  (which strategy, which position) — StrategyEngine and StrategyPositionManager use it.
+- **Unrecognised reserved codes are refusals now.** The old exact-match arm returned "it went" for
+  anything unlisted, which is precisely how M21 could delete half a classifier unnoticed.
+
+**A2/F3 is closed and the acceptance criterion was met empirically.** Four sabotage runs, each
+rebuilt and each reverted: removing the reserved-prefix arm (4 red), removing the `PROVIDER_NOT`
+arm — M21's direct analogue (4 red), restoring the announce-before-classify line (5 red), and
+dropping `Reason` from `FormatFill` (1 red).
+
+Suite 4,880 in Debug, +49. The Suggestion-mode item filed under A1 said "fix belongs with B1" —
+**it does not, and it stays open**: whether Suggestion mode announces and offers a confirm is a
+mode-design decision, not part of the result vocabulary.
 
 ---
 
@@ -6611,8 +6680,11 @@ guesses are invisible until money moves.
   and `PROVIDER_AUTHORING.md:114` says it returns `this`. An author implements `ITradingProvider`
   exactly as `SDK_GUIDE.md` §5.2 instructs, forgets the override, and trading is silently invisible
   to the host. Fix is one line: `if (this is T t) return t;`.
-- [ ] **`PlaceOrderAsync` returns a bare `string` and the `ORDER_FAILED:` protocol is documented
-  nowhere on it** — `grep ORDER_FAILED AccessibleTrader.Sdk` returns one line, on a *different*
+- [x] **`PlaceOrderAsync` returns a bare `string` and the `ORDER_FAILED:` protocol is documented
+  nowhere on it** — **DONE 2026-08-26 (B1).** `IOrderExecutionService.PlaceOrderAsync` returns a
+  typed `OrderPlacement`; the string protocol stays at the plugin boundary and is parsed once. The
+  `ORDER_SUBMITTED` disagreement named below is resolved in favour of "success with nothing to
+  poll". Original entry: — `grep ORDER_FAILED AccessibleTrader.Sdk` returns one line, on a *different*
   interface. Two disagreeing recognisers exist in Core: `IsErrorSentinel` (prefix) and
   `OrderResult.DescribeFailure` (exact-match list). `DescribeFailure("PROVIDER_NOT_CONFIGURED")`
   returns null — "it went" — so `QuickTradeExecutor` and the dashboard announce success for an order

@@ -25,12 +25,20 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class QuickTradeFailureReportingTests
 {
+    /// <summary>
+    /// The spoken half of <see cref="OrderPlacement.Parse"/>, which is the ONE recogniser now —
+    /// null when the order went. These tests were written against <c>OrderResult.DescribeFailure</c>,
+    /// a second translator that has since been folded into the record; the expectations are
+    /// unchanged because the wording is.
+    /// </summary>
+    private static string? Describe(string? result) => OrderPlacement.Parse(result).FailureMessage;
+
     /// <summary>An order id means it went. Anything else is a refusal with a reason.</summary>
     [Fact]
     public void AnOrderIdIsNotTreatedAsAFailure()
     {
-        Assert.Null(OrderResult.DescribeFailure("paper-9f2c1a4b7e03"));
-        Assert.Null(OrderResult.DescribeFailure("12345678"));
+        Assert.Null(Describe("paper-9f2c1a4b7e03"));
+        Assert.Null(Describe("12345678"));
     }
 
     /// <summary>
@@ -41,7 +49,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void InsufficientBalanceExplainsWhyAndWhatToDo()
     {
-        string? msg = OrderResult.DescribeFailure(
+        string? msg = Describe(
             "ORDER_FAILED:insufficient paper balance — that position needs 134,000.00 USDT and the account holds 100,000.00");
 
         Assert.NotNull(msg);
@@ -52,7 +60,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void NoLivePriceIsReportedPlainly()
     {
-        string? msg = OrderResult.DescribeFailure("ORDER_FAILED:no live price for symbol — load its chart first");
+        string? msg = Describe("ORDER_FAILED:no live price for symbol — load its chart first");
         Assert.NotNull(msg);
         Assert.Contains("no live price", msg!, StringComparison.OrdinalIgnoreCase);
     }
@@ -64,7 +72,7 @@ public class QuickTradeFailureReportingTests
     [InlineData("ORDER_FAILED")]
     public void EveryKnownFailureCodeProducesSomethingToSay(string code)
     {
-        string? msg = OrderResult.DescribeFailure(code);
+        string? msg = Describe(code);
         Assert.False(string.IsNullOrWhiteSpace(msg), $"{code} would be silent.");
         Assert.Contains("Not placed", msg!, StringComparison.OrdinalIgnoreCase);
     }
@@ -76,7 +84,7 @@ public class QuickTradeFailureReportingTests
     [Fact]
     public void AnUnknownFailureReasonIsStillPassedOn()
     {
-        string? msg = OrderResult.DescribeFailure("ORDER_FAILED:market is closed for maintenance");
+        string? msg = Describe("ORDER_FAILED:market is closed for maintenance");
         Assert.NotNull(msg);
         Assert.Contains("market is closed for maintenance", msg!);
     }
@@ -86,7 +94,7 @@ public class QuickTradeFailureReportingTests
     [InlineData("")]
     [InlineData("   ")]
     public void AnEmptyAnswerIsAFailureNotASuccess(string? result)
-        => Assert.False(string.IsNullOrWhiteSpace(OrderResult.DescribeFailure(result)));
+        => Assert.False(string.IsNullOrWhiteSpace(Describe(result)));
 
     // ── The pre-flight caution ───────────────────────────────────────────────
 
@@ -261,7 +269,7 @@ public class QuickTradeFailureReportingTests
 
             Orders = NSubstitute.Substitute.For<AccessibleTrader.Core.Services.IOrderExecutionService>();
             Orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<AccessibleTrader.Sdk.Plugins.TradeSignal>())
-                  .Returns(Task.FromResult(orderResult));
+                  .Returns(Task.FromResult(OrderPlacement.Parse(orderResult)));
 
             var strategy = NSubstitute.Substitute.For<AccessibleTrader.Sdk.Strategies.ITradingStrategy>();
             strategy.Name.Returns("TestStrategy");

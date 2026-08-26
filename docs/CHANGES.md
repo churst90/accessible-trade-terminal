@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### An order result is a type now, and "Order placed" waits until someone has read it (2026-08-26)
+
+- **"Order placed" was spoken before anything looked at the answer.** `ReportSuccess("Order placed:
+  …")` fired on the statement immediately after the provider returned. A provider answering
+  `ORDER_FAILED:insufficient balance` produced a spoken confirmation followed by silence — and for
+  a blind trader, silence after a confirmation is indistinguishable from a filled order. Nothing
+  is announced as a success now until it has been classified as one.
+- **A suppressed duplicate announced as "Order placed".** The trading dashboard classified results
+  with `StartsWith("ORDER_FAILED") || StartsWith("PROVIDER_NOT")`, which matched neither
+  `ORDER_DUPLICATE_SUPPRESSED` nor either `ORDER_REJECTED_*` code nor `ORDER_UNCERTAIN`. The
+  duplicate case is the routine one: a screen-reader user pressing Enter twice is exactly the input
+  the dedup gate exists to absorb, and the terminal confirmed an order it had just refused to send.
+- **Three recognisers became one.** `IOrderExecutionService.PlaceOrderAsync` returns a typed
+  `OrderPlacement` — `Placed`, `Accepted`, `Rejected`, `Duplicate`, `Unavailable`, `Uncertain` —
+  instead of a status string. `GeneralOrderService.IsErrorSentinel`, `OrderResult.DescribeFailure`
+  and the dashboard's own pair all disagreed with each other; they are gone. The string protocol
+  stays at the plugin boundary, where 31 providers implement it, and is parsed exactly once.
+- **A venue acceptance with no order id is a success again.** Nine providers return
+  `ORDER_SUBMITTED` when the venue takes an order without handing back an id. The old `ORDER_`
+  prefix test read it as a failure and skipped the protective-order scan — on the orders least able
+  to report a missing stop, since there is no id to poll and often no order-event stream either.
+  Brackets on those orders are verified now; the caveat that their fill cannot be announced is
+  unchanged.
+- **An order that may be live is no longer announced under a headline saying it failed.**
+  `ORDER_UNCERTAIN` means the submit threw and a matching order was then found on the exchange.
+  "Close failed for BTC/USD" over an order that probably went through is how the same position gets
+  opened twice, so that framing is dropped for this one outcome — callers that still need to name
+  the strategy or the position supply a neutral headline instead.
+- **A forced liquidation announced as an ordinary fill.** The paper broker emits a filled update
+  carrying `LIQUIDATED — the short's collateral was exhausted at …`, and the fill formatter dropped
+  the reason because fills were assumed to be requested. The trader heard a trade they did not
+  place, worded exactly like one they did. A fill that carries a reason now speaks it.
+- **The vocabulary has tests for the first time.** The A2 sabotage audit deleted half of
+  `IsErrorSentinel` and 4,830 tests stayed green. `OrderPlacementVocabularyTests` pins every
+  reserved code to its outcome, carries an exhaustiveness guard over `OrderOutcome`, and — with the
+  order-service behaviour tests — turns red under all four sabotages of this patch, including the
+  original mutant's direct analogue.
+
 ### The Linux sandbox stops handing scripts the user's home (2026-08-25)
 
 - **`--tmpfs $HOME`: the user's home is now absent inside the sandbox, not merely unwritable.** The

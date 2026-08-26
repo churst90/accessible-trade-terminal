@@ -140,9 +140,9 @@ public sealed class HostedPaperModeTests
         var (svc, settings, paper, live) = MakeServiceWithLiveBroker(mode);
         settings.GetSetting(SettingsKeys.PaperTradingMode).Returns(JToken.FromObject(false));
 
-        string result = await svc.PlaceOrderAsync("Kraken", Buy());
+        var result = await svc.PlaceOrderAsync("Kraken", Buy());
 
-        Assert.Equal("PAPER-1", result);
+        Assert.Equal("PAPER-1", result.OrderId);
         await paper.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         await live.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!);
     }
@@ -155,9 +155,9 @@ public sealed class HostedPaperModeTests
         var (svc, settings, paper, live) = MakeServiceWithLiveBroker(HostMode.Full);
         settings.GetSetting(SettingsKeys.PaperTradingMode).Returns(JToken.FromObject(false));
 
-        string result = await svc.PlaceOrderAsync("Kraken", Buy());
+        var result = await svc.PlaceOrderAsync("Kraken", Buy());
 
-        Assert.Equal("LIVE-1", result);
+        Assert.Equal("LIVE-1", result.OrderId);
         await live.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         await paper.DidNotReceiveWithAnyArgs().PlaceOrderAsync(default!);
     }

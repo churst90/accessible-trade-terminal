@@ -5,6 +5,7 @@ using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Trading;
 using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services
@@ -233,8 +234,12 @@ namespace AccessibleTrader.Core.Services
 
         // ── Order execution ────────────────────────────────────────────────────
 
-        public async Task<string> PlaceOrderAsync(string providerName, TradeSignal providedSignal)
+        public async Task<OrderPlacement> PlaceOrderAsync(string providerName, TradeSignal providedSignal)
         {
+            // Every exit from this method goes through OrderPlacement.Parse, including the
+            // sentinels this method invents itself. Building the record directly from a factory
+            // would let the code that PRODUCES a sentinel and the code that RECOGNISES one drift
+            // apart — which is the entire defect this type was introduced to end.
             // ── 1. Sanity clamps. Real-money path: a Roslyn-strategy bug that
             //    emits Quantity = 1e308 must not reach the exchange. NaN/Infinity
             //    on Limit-order Price is the same shape of bug — block it here.
@@ -246,7 +251,7 @@ namespace AccessibleTrader.Core.Services
                 _logger.LogWarning(
                     "Order rejected at submission: out-of-range quantity {Quantity} on {Symbol}/{Provider}",
                     providedSignal.Quantity, providedSignal.Symbol, providerName);
-                return "ORDER_REJECTED_QUANTITY";
+                return OrderPlacement.Parse(OrderCodes.RejectedQuantity);
             }
             if (providedSignal.Type == OrderType.Limit
                 || providedSignal.Type == OrderType.StopLimit
@@ -260,7 +265,7 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogWarning(
                         "Order rejected at submission: invalid limit Price {Price} on {Symbol}/{Provider}",
                         providedSignal.Price, providedSignal.Symbol, providerName);
-                    return "ORDER_REJECTED_PRICE";
+                    return OrderPlacement.Parse(OrderCodes.RejectedPrice);
                 }
             }
 
@@ -303,7 +308,7 @@ namespace AccessibleTrader.Core.Services
                         + $"was already submitted {(now - ts).TotalSeconds:F0} seconds ago. "
                         + "Check your open orders before placing it again.",
                         ErrorSeverity.Medium);
-                    return "ORDER_DUPLICATE_SUPPRESSED";
+                    return OrderPlacement.Parse(OrderCodes.DuplicateSuppressed);
                 }
                 _recentOrders[dedupKey] = now;
             }
@@ -318,17 +323,36 @@ namespace AccessibleTrader.Core.Services
                 _errorCoordinator.ReportError($"Provider {providerName} does not support trading.", ErrorSeverity.Medium);
                 // Code:reason — the caller announces everything after the colon, so a refusal
                 // arrives as a sentence rather than as a bare code with nothing to act on.
-                return $"PROVIDER_NOT_SUPPORTED:{providerName} does not support trading";
+                return OrderPlacement.Parse($"PROVIDER_NOT_SUPPORTED:{providerName} does not support trading");
             }
             if (!tp.IsConnected)
             {
                 _errorCoordinator.ReportError($"Cannot place order. {providerName} is not connected.", ErrorSeverity.High);
-                return $"PROVIDER_NOT_CONNECTED:{providerName} is not connected";
+                return OrderPlacement.Parse($"PROVIDER_NOT_CONNECTED:{providerName} is not connected");
             }
             try
             {
                 var result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);
-                _errorCoordinator.ReportSuccess($"Order placed: {signal.Side} {signal.Quantity} {signal.Symbol}");
+                var placement = OrderPlacement.Parse(result);
+
+                // "Order placed" used to be spoken HERE — on the line above, before anything had
+                // looked at what the provider actually said. A provider that answered
+                // "ORDER_FAILED:insufficient balance" produced a spoken confirmation followed by
+                // silence, which for a blind trader is indistinguishable from a filled order.
+                // Nothing is announced as a success until it has been classified as one.
+                if (placement.Succeeded)
+                {
+                    _errorCoordinator.ReportSuccess($"Order placed: {signal.Side} {signal.Quantity} {signal.Symbol}");
+                }
+                else
+                {
+                    // The refusal itself is the CALLER's to announce — it owns the framing ("Order
+                    // rejected for BTC/USD", "Close failed for BTC/USD") and every caller now
+                    // reads OrderPlacement. Reporting it here as well would double-speak it.
+                    _logger.LogWarning(
+                        "Order was not placed for {Symbol} via {Provider}: {Outcome} ({Raw})",
+                        signal.Symbol, providerName, placement.Outcome, placement.Raw);
+                }
 
                 // ── 4. Protective-order verification net (provider-agnostic). If the
                 //    signal asked for a stop loss or take profit, confirm something
@@ -337,7 +361,13 @@ namespace AccessibleTrader.Core.Services
                 //    (or be silently unsupported for the order type) leaving a naked
                 //    position. Runs in the background so order placement isn't
                 //    delayed; speaks up only when NOTHING protective can be found.
-                if ((signal.StopLoss.HasValue || signal.TakeProfit.HasValue) && !IsErrorSentinel(result))
+                //
+                //    Gated on Succeeded, not on "has an id": the scan looks up open orders BY
+                //    SYMBOL, so it works perfectly well for an ORDER_SUBMITTED order that came
+                //    back without one — and that order is exactly the case where nothing else
+                //    will ever notice a missing stop. The old prefix test read ORDER_SUBMITTED as
+                //    a failure and skipped the scan.
+                if ((signal.StopLoss.HasValue || signal.TakeProfit.HasValue) && placement.Succeeded)
                 {
                     // Brokers with a single protective slot (Kraken) attach the STOP
                     // when both were requested — say so instead of letting the user
@@ -361,28 +391,27 @@ namespace AccessibleTrader.Core.Services
                 //    would otherwise NEVER announce this order's outcome. Poll open
                 //    orders until the order resolves and synthesize the OrderUpdate
                 //    the stream would have pushed.
-                if (!IsErrorSentinel(result) && !tp.SupportsOrderEventStreaming)
+                if (placement.HasOrderId && !tp.SupportsOrderEventStreaming)
                 {
                     var capturedSignal = signal;
-                    string orderId = result;
+                    string orderId = placement.OrderId!;
                     OrderWatchesStarted++;
                     SafeFireAndForget.Run(
                         () => PollOrderUntilResolvedAsync(tp, providerName, capturedSignal, orderId),
                         _logger, "PollOrderStatus");
                 }
-                else if (result == "ORDER_SUBMITTED" && !tp.SupportsOrderEventStreaming)
+                else if (placement.Outcome == OrderOutcome.Accepted && !tp.SupportsOrderEventStreaming)
                 {
-                    // "ORDER_SUBMITTED" is a provider's venue-accepted-but-no-id
-                    // fallback. It prefix-matches the error sentinel, so the poll
-                    // above never starts — without an id there is nothing to poll.
-                    // The order is live and its fill will be silent: say so, instead
-                    // of letting "placed" imply the outcome will be announced.
+                    // ORDER_SUBMITTED is a provider's venue-accepted-but-no-id fallback: a
+                    // success with nothing to poll. The order is live and its fill will be
+                    // silent, so say so, instead of letting "placed" imply the outcome will be
+                    // announced.
                     _errorCoordinator.ReportError(
                         $"{providerName} accepted the order but did not return an order id, so its fill "
                         + "cannot be announced. Check your open orders to follow it.",
                         ErrorSeverity.Medium);
                 }
-                return result;
+                return placement;
             }
             catch (Exception ex)
             {
@@ -408,7 +437,7 @@ namespace AccessibleTrader.Core.Services
                         _errorCoordinator.ReportError(
                             $"Order failed mid-submit but a matching open order ({maybe.Id}) is on the exchange. VERIFY before retrying.",
                             ErrorSeverity.High);
-                        return $"ORDER_UNCERTAIN:{maybe.Id}";
+                        return OrderPlacement.Parse($"{OrderCodes.Uncertain}:{maybe.Id}");
                     }
                 }
                 catch (Exception scanEx)
@@ -418,7 +447,7 @@ namespace AccessibleTrader.Core.Services
                         signal.Symbol, providerName);
                 }
                 _errorCoordinator.ReportError($"Order failed: {ex.Message}", ErrorSeverity.High);
-                return $"ORDER_FAILED:{ex.Message}";
+                return OrderPlacement.Parse($"{OrderCodes.Failed}:{ex.Message}");
             }
         }
 
@@ -468,11 +497,6 @@ namespace AccessibleTrader.Core.Services
 
         private static bool IsFinitePositive(double v) =>
             !double.IsNaN(v) && !double.IsInfinity(v) && v > 0.0;
-
-        /// <summary>True when a PlaceOrderAsync return value is a failure sentinel rather than an order id.</summary>
-        private static bool IsErrorSentinel(string result) =>
-            result.StartsWith("ORDER_", StringComparison.Ordinal)
-            || result.StartsWith("PROVIDER_", StringComparison.Ordinal);
 
         /// <summary>
         /// Confirms that a bracket order's protective legs are visible on the exchange.
@@ -734,10 +758,14 @@ namespace AccessibleTrader.Core.Services
             {
                 string result = await native.PlaceOcoPairAsync(symbol, side, quantity, limitPrice, stopTriggerPrice)
                     .ConfigureAwait(false);
-                if (IsErrorSentinel(result))
+                // The native OCO call answers in the same string protocol, so it is recognised
+                // by the same parser — and its refusal now carries the venue's reason rather
+                // than the bare code the user could do nothing with.
+                var pair = OrderPlacement.Parse(result);
+                if (!pair.Succeeded)
                 {
                     _errorCoordinator.ReportError($"OCO pair failed on {providerName}.", ErrorSeverity.High);
-                    return (false, $"OCO pair failed: {result}");
+                    return (false, pair.RefusalAnnouncement("OCO pair failed."));
                 }
                 _errorCoordinator.ReportSuccess($"OCO pair placed on {providerName} (exchange-linked).");
                 return (true, "OCO pair resting, linked by the exchange: whichever fills first cancels the other.");
@@ -751,10 +779,18 @@ namespace AccessibleTrader.Core.Services
                 var stopLeg = new TradeSignal(symbol, side, quantity, OrderType.StopMarket,
                     TriggerPrice: stopTriggerPrice, OcoGroupId: group);
 
-                string r1 = await PlaceOrderAsync(providerName, limitLeg).ConfigureAwait(false);
-                if (IsErrorSentinel(r1)) return (false, "OCO limit leg failed — nothing was placed.");
-                string r2 = await PlaceOrderAsync(providerName, stopLeg).ConfigureAwait(false);
-                if (IsErrorSentinel(r2))
+                var leg1 = await PlaceOrderAsync(providerName, limitLeg).ConfigureAwait(false);
+                if (!leg1.Succeeded)
+                    return (false, leg1.RefusalAnnouncement("OCO limit leg failed — nothing was placed."));
+                // The rollback below cancels the limit leg BY ID. A leg the venue accepted without
+                // giving an id back is one this path cannot undo, so stop before placing a stop
+                // leg whose failure would leave half a pair resting with nothing to cancel it by.
+                if (!leg1.HasOrderId)
+                    return (false, "OCO limit leg was accepted without an order id, so the pair cannot be "
+                                 + "linked or rolled back. It may be resting — check your open orders.");
+                string r1 = leg1.OrderId!;
+                var leg2 = await PlaceOrderAsync(providerName, stopLeg).ConfigureAwait(false);
+                if (!leg2.Succeeded)
                 {
                     // Never leave half a pair resting — and never SAY the rollback
                     // happened without checking. CancelOrderAsync returns false for a

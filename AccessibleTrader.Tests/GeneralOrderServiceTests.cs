@@ -3,6 +3,7 @@ using System.Reactive.Subjects;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Trading;
@@ -84,8 +85,9 @@ namespace AccessibleTrader.Tests
             var first = await h.Svc.PlaceOrderAsync("Binance", signal);
             var second = await h.Svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("EX-1", first);
-            Assert.Equal("ORDER_DUPLICATE_SUPPRESSED", second);
+            Assert.Equal("EX-1", first.OrderId);
+            Assert.Equal(OrderOutcome.Duplicate, second.Outcome);
+            Assert.False(second.Succeeded, "A suppressed duplicate must never read as a placed order.");
             await h.LiveTp.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -98,8 +100,8 @@ namespace AccessibleTrader.Tests
             var a = await h.Svc.PlaceOrderAsync("Binance", SaneSignal with { ClientOid = "oid-a" });
             var b = await h.Svc.PlaceOrderAsync("Binance", SaneSignal with { ClientOid = "oid-b" });
 
-            Assert.Equal("EX-OK", a);
-            Assert.Equal("EX-OK", b);
+            Assert.Equal("EX-OK", a.OrderId);
+            Assert.Equal("EX-OK", b.OrderId);
             await h.LiveTp.Received(2).PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
 
@@ -116,7 +118,8 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Binance", signal);
 
-            Assert.Equal("ORDER_REJECTED_QUANTITY", result);
+            Assert.Equal(OrderOutcome.Rejected, result.Outcome);
+            Assert.Equal(OrderCodes.RejectedQuantity, result.Raw);
             await h.LiveTp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
             h.Err.Received().ReportError(
                 Arg.Is<string>(m => m.Contains("outside the allowed range")),
@@ -133,7 +136,7 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Binance", SaneSignal with { Quantity = 10_000_000.0 });
 
-            Assert.Equal("EX-MAX", result);
+            Assert.Equal("EX-MAX", result.OrderId);
             await h.LiveTp.Received(1).PlaceOrderAsync(Arg.Is<TradeSignal>(s => s.Quantity == 10_000_000.0));
         }
 
@@ -150,7 +153,7 @@ namespace AccessibleTrader.Tests
 
             var result = await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
 
-            Assert.Equal("paper-42", result);
+            Assert.Equal("paper-42", result.OrderId);
             await h.Paper.Received(1).PlaceOrderAsync(Arg.Any<TradeSignal>());
             await h.LiveTp.DidNotReceive().PlaceOrderAsync(Arg.Any<TradeSignal>());
         }
@@ -275,8 +278,9 @@ namespace AccessibleTrader.Tests
             var result = await h.Svc.PlaceOrderAsync("Binance", SaneSignal);
 
             // Code:reason — the reason is what the UI announces, so it must be carried, not dropped.
-            Assert.StartsWith("PROVIDER_NOT_CONNECTED:", result);
-            Assert.Contains("is not connected", result);
+            Assert.Equal(OrderOutcome.Unavailable, result.Outcome);
+            Assert.StartsWith("PROVIDER_NOT_CONNECTED:", result.Raw);
+            Assert.Contains("is not connected", result.FailureMessage);
             h.Err.Received().ReportError(
                 Arg.Is<string>(m => m.Contains("not connected")),
                 ErrorSeverity.High,
@@ -300,7 +304,8 @@ namespace AccessibleTrader.Tests
 
             // Code:reason — the exception message rides along so the UI can say WHY the order
             // failed instead of announcing a bare "rejected" the user cannot act on.
-            Assert.StartsWith("ORDER_FAILED:", result);
+            Assert.Equal(OrderOutcome.Rejected, result.Outcome);
+            Assert.StartsWith("ORDER_FAILED:", result.Raw);
             h.Err.Received().ReportError(
                 Arg.Is<string>(m => m.Contains("Order failed")),
                 ErrorSeverity.High,
@@ -488,7 +493,7 @@ namespace AccessibleTrader.Tests
             using var sub = h.Bus.Subscribe<OrderFilledEvent>(fills.Add);
 
             var result = await h.Svc.PlaceOrderAsync("Schwab", SaneSignal with { Symbol = "AAPL", Quantity = 10 });
-            Assert.Equal("SCHWAB-1", result);
+            Assert.Equal("SCHWAB-1", result.OrderId);
             // Binds the OrderWatchesStarted counter to real behavior: the watch
             // this counter records is the one whose fill lands below — which is
             // what lets Streaming_broker_is_never_polled trust counter==0.
