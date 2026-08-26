@@ -2,80 +2,97 @@
 
 This file tracks all known bugs, improvements, and roadmap items. Items are organized by improvement-plan phase. Checked items `[x]` are confirmed complete. Open items `[ ]` are pending.
 
-## Agreed order of operations (adopted 2026-08-25)
+## Agreed order of operations (adopted 2026-08-25, REVISED same day)
 
-The plan for the next several sessions, in order. Start each fresh context at the lowest-numbered
-item not yet done. This ordering is a recommendation, not a contract — revisit it whenever evidence
-says to, and record the reason here if it changes.
+The plan for the next several sessions. Start each fresh context at the lowest-numbered item not yet
+done. This is a recommendation, not a contract — revisit it when evidence says to, and record the
+reason here if it changes. It already changed once; see "why this was revised" below.
 
-The reasoning behind the whole ordering is one observation: **the test suite is structurally blind
-to the class of bug that actually gets reported.** Alt+T opened the trading dashboard without moving
-focus, and that survived a dedicated focus-contract suite, enrollment in ModalCatalog, and 4,830
-green tests — because bUnit applies a render synchronously and a browser does not. Coverage here is
-dense in pure logic (indicators, causality, money math) and near zero in "does the app behave".
-That gap, not the count of open items, is what a D+ readiness grade against 0 open CRITICALs means.
+### Phase A — see the whole picture before fixing anything else
 
-### 1. A real-browser test layer for the accessibility contract
+Four areas were commissioned in the 2026-08-24 health assessment and never ran. One (scripting and
+the sandbox) was done on 2026-08-25. Three remain, and until they are done any fix ordering is being
+chosen against a picture with holes in it.
 
-Playwright (or equivalent) driving the WebHost, scoped narrowly at first: open each of the ~25
-modals via its real keyboard shortcut, assert `document.activeElement` is inside the dialog and
-matches its `aria-labelledby`. That single test would have caught Alt+T and probably has siblings.
-Extend to tab traps, Escape, and `aria-live` content — the live region is how speech actually
-reaches a screen reader, and it is assertable in a real browser.
+**The rule for all three, and it is the whole point: demonstrate the defect, or mark it explicitly
+unverified.** The evidence for this is in this repo's own history. The sandbox audit is the one that
+worked, and it worked because it was run by COMPILING 25 candidate escapes rather than reading the
+walker — it found four real ones, including `dynamic` switching the entire blocklist off. The
+2026-08-24 assessment filed 283 findings unverified and its census turned out to be roughly half
+wrong. Three more read-throughs would not produce a clearer picture; they would inflate a 503-item
+backlog toward 750 with an unknown fraction of it fictional. Budget a triage step at the end of each.
+
+**A1. Analysis services and cross-cutting infra.** Leads the phase because it is the most mechanical
+— the baselines are already counted, so this is verification rather than opinion: 46 empty
+`catch {}`, 394 `catch (Exception)` sites, 18 sync-over-async, 10 `async void`. Scope also covers
+`EventBus` type safety and subscription leaks, the plugin trust boundary and assembly-load-context
+leaks, pattern-detection causality, and logging sufficiency for a live trading incident.
+
+The sharpest item in it is the commissioned `SafeFireAndForget` call-site census: *how many swallow
+an error the user needed to hear*. In this app a swallowed error is not merely invisible, it is
+**inaudible** — there is no compensating channel for a blind user. That is the failure mode with the
+worst ratio of severity to detectability, which is why this area goes first.
+
+**A2. The test suite itself.** The question is "does a green suite mean the app works?", and the
+answer calibrates how much to trust the other twelve reports as well as this plan. Sabotage-driven,
+not read-driven. Cheaper than it looks: partially answered already by the `(amends the test suite)`
+items filed across the other reports. Known pathologies to test for are recorded — tests that mirror
+production logic, scan guards checking presence rather than path, guards written against an empty
+baseline.
+
+**A3. Blazor UI layer — fused with the browser harness.** For this area the empirical audit IS the
+tooling, so the audit and what used to be item 1 of this roadmap are one piece of work. Build
+Playwright (or equivalent) against the WebHost and use it as the instrument: open each of the ~25
+modals by its real keyboard shortcut, assert `document.activeElement` is inside the dialog and
+matches its `aria-labelledby`, then tab traps, Escape, and `aria-live` content. Reading 51 Razor
+files for focus bugs is precisely the low-value version that produces a half-wrong census.
 
 The MAUI head runs the same components through BlazorWebView, so exercising the WebHost covers the
-shared component layer where the bug lived.
+shared component layer. First target: the Alt+T focus fix shipped 2026-08-25 is still unverified in
+a real browser — the harness should go green on it and red if `focusElement`'s retry is reverted.
 
-**Merge the Blazor UI audit into this item.** It is one of the three never-assessed areas below, and
-its commissioned scope is *literally this bug class*: "markup accessibility (accessible names,
-heading structure, `aria-live`, focus management on modal open/close/escape, keyboard traps,
-nested-interactive)". The audit generates candidates; the browser layer proves them. Running them
-together is strictly better than running either alone, and it is why the unassessed-areas item is
-no longer a separate priority of its own.
+### Phase B — the fix work
 
-### 2. The order-outcome vocabulary — typed `OrderPlacement`
+**B1. Typed `OrderPlacement` / the order-outcome vocabulary.** Verified still open 2026-08-25:
+classification exists in three non-equivalent forms and the dashboard's `StartsWith` pair misses
+`ORDER_REJECTED_QUANTITY`, `ORDER_REJECTED_PRICE`, `ORDER_DUPLICATE_SUPPRESSED` and
+`ORDER_UNCERTAIN`, so a suppressed duplicate — the routine screen-reader double-Enter case —
+announces as "Order placed"; "Order placed" is spoken before any sentinel check; a forced
+liquidation announces as an ordinary fill. Root cause is `PlaceOrderAsync` returning a bare string.
+Note the recorded partial recount: the `PROVIDER_NOT*` announce-success path is already closed.
 
-The highest-severity *known* remaining item, and a money one: a blind trader acting on a false
-confirmation is the worst failure this app has. Confirmed still open 2026-08-25:
+**CARVE-OUT, and it is deliberate:** this one does not need Phase A to justify it. No audit will make
+a false "Order placed" less true, and three sessions is a long time for a blind trader to be told an
+order went through when it did not. Take it opportunistically in any session with spare capacity
+rather than holding it behind the sweep.
 
-- Order-failure classification exists three times in three non-equivalent forms; the dashboard's
-  own `StartsWith` pair misses `ORDER_REJECTED_QUANTITY`, `ORDER_REJECTED_PRICE`,
-  `ORDER_DUPLICATE_SUPPRESSED` and `ORDER_UNCERTAIN` — so a suppressed duplicate, the routine
-  screen-reader double-Enter case, announces as "Order placed".
-- "Order placed" is spoken unconditionally, before any sentinel check.
-- A forced liquidation is announced as an ordinary fill.
-- Root cause: `PlaceOrderAsync` returns a bare `string` and the `ORDER_FAILED:` protocol is
-  documented nowhere on it. The fix is the typed `OrderPlacement` record. (Partially stale recount
-  already recorded — the `PROVIDER_NOT*` announce-success path is closed; `ORDER_SUBMITTED` still
-  reads as failure to one recogniser and success to the other.)
-
-If immediate risk reduction matters more than capability in a given week, this legitimately swaps
-with #1. It is the higher-severity single item; #1 is the better investment.
-
-### 3. Dashboard decoupling Phase 1
-
-A refactor with no direct user win, which is why it is third — but it is a bottleneck. Several
-queued items are explicitly parked behind it, and fixes keep landing on `TradingDashboardModal`,
-which the decoupling rewrites (the Alt+T timer fix on 2026-08-25 is the most recent). Every further
-patch there is work paid for twice. Do it before the pile grows.
-
-### 4. The two remaining unassessed areas
-
-The Blazor UI layer folds into #1. That leaves **the test suite itself** (partially answered by the
-other twelve reports) and **analysis services / cross-cutting infra** — `EventBus` subscription
-leaks, the `SafeFireAndForget` census of swallowed errors the user needed to hear, the plugin trust
-boundary, 46 empty `catch {}` blocks, 394 `catch (Exception)` sites, 18 sync-over-async.
-
-Precedent says these are worth running: the last unassessed area was the scripting sandbox, and
-probing it by *compiling* candidate escapes rather than reading the walker found four real ones,
-including `dynamic` disabling the entire blocklist.
+**B2. Dashboard decoupling Phase 1.** No direct user win, but a bottleneck: items are parked behind
+it and fixes keep landing on `TradingDashboardModal`, which it rewrites (most recently the Alt+T
+timer fix). Every further patch there is work paid for twice.
 
 ### Below the line
 
-The 38 tests-that-should-exist stay worth writing, but **after** #1 changes what "a test" can mean —
-some of them will be better written at the browser layer than as another bUnit file. The bwrap
-env-canary flake is small and worth fixing opportunistically, because a known-flaky suite quietly
-erodes trust in every red build. README drift and the seccomp whitelist (LOW) can wait.
+The 38 tests-that-should-exist stay worth writing, but after A2 and A3, which will change what "a
+test" means here — some belong at the browser layer rather than as another bUnit file. Do not
+silently restore this above Phase A: it was the agreed next item before 2026-08-25 and was demoted
+on purpose. The bwrap env-canary flake is small and worth fixing opportunistically, because a
+known-flaky suite quietly erodes trust in every red build. README drift and seccomp (LOW) can wait.
+
+### Why this was revised
+
+The first version of this list led with the browser test layer, on the grounds that the suite is
+structurally blind to the class of bug that actually gets reported — Alt+T opened the trading
+dashboard without moving focus and survived a dedicated focus-contract suite, ModalCatalog
+enrollment and 4,830 green tests, because bUnit applies a render synchronously and a browser does
+not. That observation still holds, and it is still the reason A3 exists.
+
+What changed is the sequencing. Cody's point: the Blazor UI layer was one of the never-assessed
+areas, so leading with the harness meant guessing at what to assert before knowing what was broken.
+Assessment is also the cheaper information. Hence Phase A first, ordered by how empirical each audit
+can be made rather than by suspected severity.
+
+The framing worth keeping either way: a D+ readiness grade standing alongside zero open CRITICALs is
+not a contradiction. It is a statement about the shape of the coverage, not the count of the defects.
 
 ---
 
