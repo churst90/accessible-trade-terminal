@@ -62,15 +62,41 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
             throw new InvalidOperationException(
                 "No browser. " + (BrowserAvailability.SkipReason ?? "Launch failed."));
 
+        // If the app has already proven it will not load, say so immediately instead of waiting
+        // out the timeouts again. This is not a nicety: on CI the first run of this suite spent
+        // its entire 25-minute budget on 45 consecutive 30-second waits for the same heading on
+        // the same broken host, and the job was killed mid-suite — so the run reported a timeout
+        // rather than a failure, produced no .trx artifact, and never reached the tests that
+        // might have failed differently. One host that cannot serve the app is one failure.
+        if (_appNeverLoaded != null)
+            throw new AppNeverLoadedException(
+                "The terminal never loaded on the first attempt; not retrying for every test.\n\n"
+                + _appNeverLoaded.Message);
+
         var context = await _browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = 1400, Height = 950 },
         });
         var page = await context.NewPageAsync();
-        var terminal = new TerminalPage(page, context);
-        await terminal.GotoAppAsync(RootUrl);
+        var terminal = new TerminalPage(page, context, () => ServerLog);
+        try
+        {
+            await terminal.GotoAppAsync(RootUrl);
+        }
+        catch (AppNeverLoadedException ex)
+        {
+            _appNeverLoaded = ex;
+            await terminal.DisposeAsync();
+            throw;
+        }
         return terminal;
     }
+
+    /// <summary>
+    /// Set once the app has failed to load, so the rest of the suite fails fast with the same
+    /// diagnosis rather than re-timing-out against a host already known to be broken.
+    /// </summary>
+    private AppNeverLoadedException? _appNeverLoaded;
 }
 
 /// <summary>

@@ -37,12 +37,45 @@ internal sealed class TerminalPage : IAsyncDisposable
 {
     private readonly IBrowserContext _context;
 
+    // Everything the browser complained about, recorded from construction so a navigation that
+    // fails still has a record of WHY. These are the three channels a Blazor Server page dies
+    // through — a missing asset (requestfailed), a script that threw (pageerror), and the
+    // framework's own diagnostics (console). See AppNeverLoadedException.
+    // Playwright raises these events on its own dispatch loop, so one lock guards all three —
+    // the failure report reads them together and must see a consistent set.
+    private readonly Lock _diagLock = new();
+    private readonly List<string> _consoleErrors = new();
+    private readonly List<string> _pageErrors = new();
+    private readonly List<string> _failedRequests = new();
+
+    /// <summary>Server-side log lines, supplied by the fixture so failures can report both ends.</summary>
+    private readonly Func<IReadOnlyList<string>> _serverLog;
+
     public IPage Page { get; }
 
-    public TerminalPage(IPage page, IBrowserContext context)
+    public TerminalPage(IPage page, IBrowserContext context, Func<IReadOnlyList<string>>? serverLog = null)
     {
         Page = page;
         _context = context;
+        _serverLog = serverLog ?? (static () => Array.Empty<string>());
+
+        Page.Console += (_, msg) =>
+        {
+            if (msg.Type is "error" or "warning")
+                lock (_diagLock) _consoleErrors.Add($"[{msg.Type}] {msg.Text}");
+        };
+        Page.PageError += (_, err) => { lock (_diagLock) _pageErrors.Add(err); };
+        Page.RequestFailed += (_, req) =>
+        {
+            lock (_diagLock) _failedRequests.Add($"{req.Method} {req.Url} — {req.Failure}");
+        };
+        Page.Response += (_, res) =>
+        {
+            // A 404 is not a "failed request" to Playwright — it is a perfectly good response
+            // carrying bad news. blazor.web.js going missing lands here, not above.
+            if (res.Status >= 400)
+                lock (_diagLock) _failedRequests.Add($"HTTP {res.Status} {res.Url}");
+        };
     }
 
     /// <summary>
@@ -57,15 +90,81 @@ internal sealed class TerminalPage : IAsyncDisposable
     /// <c>accessibleTrader._inputReady</c> means every failure this harness reports is about the
     /// app's behaviour rather than about the harness being early.
     /// </para>
+    ///
+    /// <para>
+    /// Each wait reports its own failure through <see cref="AppNeverLoadedException"/>, carrying
+    /// both what the browser saw and what the server logged. The bare Playwright timeout this
+    /// replaced said only "the locator never matched", which on CI was the entire evidence
+    /// available for a suite in which all 45 tests failed identically.
+    /// </para>
     /// </summary>
     public async Task GotoAppAsync(string rootUrl)
     {
         await InstallSpeechRecorderAsync();   // must precede navigation — see the method's remarks
-        await Page.GotoAsync(rootUrl, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
-        await Page.Locator("#main-heading").WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
-        await Page.WaitForFunctionAsync(
-            "() => window.accessibleTrader && window.accessibleTrader._inputReady === true",
-            null, new PageWaitForFunctionOptions { Timeout = 60_000 });
+
+        IResponse? response = null;
+        try
+        {
+            response = await Page.GotoAsync(rootUrl,
+                new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+        }
+        catch (Exception ex)
+        {
+            throw await DescribeFailureAsync("the navigation itself failed", rootUrl, null, ex);
+        }
+
+        try
+        {
+            // 60s, not 30s. Nothing here is server-rendered, so this single wait covers the whole
+            // cold path: the framework script, the WebSocket handshake, the per-visitor DI scope,
+            // and MainLayout's first render — which eagerly resolves some twenty services and
+            // awaits IAppStartupService.InitializeAsync. On a two-core CI runner with a
+            // just-started host that is a different order of magnitude from a warm developer box,
+            // and 30s was chosen against the latter. The fail-fast latch in TerminalBrowserFixture
+            // is what makes the longer bound affordable: the suite now spends this wait once
+            // rather than once per test.
+            await Page.Locator("#main-heading").WaitForAsync(new LocatorWaitForOptions { Timeout = 60_000 });
+        }
+        catch (Exception ex)
+        {
+            throw await DescribeFailureAsync(
+                "#main-heading never appeared, so the Blazor circuit never rendered the app "
+                + "(App.razor mounts it with prerender: false — nothing this harness looks for "
+                + "exists in the server's first response)",
+                rootUrl, response?.Status, ex);
+        }
+
+        try
+        {
+            await Page.WaitForFunctionAsync(
+                "() => window.accessibleTrader && window.accessibleTrader._inputReady === true",
+                null, new PageWaitForFunctionOptions { Timeout = 60_000 });
+        }
+        catch (Exception ex)
+        {
+            throw await DescribeFailureAsync(
+                "the app rendered but the input pipeline never armed "
+                + "(window.accessibleTrader._inputReady stayed false), so no keystroke would reach it",
+                rootUrl, response?.Status, ex);
+        }
+    }
+
+    /// <summary>
+    /// Collects both ends of the failure. Reading the document is itself allowed to fail — if the
+    /// page is gone there is nothing to read, and losing the rest of the report to that would
+    /// defeat the purpose.
+    /// </summary>
+    private async Task<AppNeverLoadedException> DescribeFailureAsync(
+        string stage, string rootUrl, int? httpStatus, Exception inner)
+    {
+        string? html = null;
+        try { html = await Page.ContentAsync(); } catch { /* best effort */ }
+
+        lock (_diagLock)
+            return AppNeverLoadedException.Build(
+                stage, rootUrl, httpStatus, html,
+                _consoleErrors.ToList(), _pageErrors.ToList(), _failedRequests.ToList(),
+                _serverLog(), inner);
     }
 
     /// <summary>

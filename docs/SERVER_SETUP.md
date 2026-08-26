@@ -48,9 +48,12 @@ dotnet publish AccessibleTrader.WebHost/AccessibleTrader.WebHost.csproj \
     -o /opt/accessible-trader/app
 ```
 
-- **`-p:ServerPublish=true` is required.** Without it, Release defaults to `OutputType=WinExe`,
-  which drops `blazor.web.js` from the published static-asset manifest → the Blazor circuit
-  never boots ("no data loaded").
+- **Keep `-p:ServerPublish=true`.** Under `OutputType=WinExe` the SDK drops `blazor.web.js` from
+  the static-asset manifest → the Blazor circuit never boots ("no data loaded"). Since 2026-08-26
+  the `WinExe` condition is also gated on `IsOSPlatform('Windows')`, so a Linux publish no longer
+  depends on this flag to stay safe — but keep passing it: it is what the release workflow uses on
+  every RID, and it keeps the command correct if you ever publish from Windows.
+  `WebHostStaticAssetManifestTests` fails the build's manifest if the asset goes missing again.
 - **`plugins_trusted.manifest` is generated into the publish output automatically** (the
   `GeneratePluginTrustManifestOnPublish` target hashes the published plugin DLLs). Without a
   matching manifest, `PluginTrustPolicy.RequireTrusted` refuses every plugin → no data.

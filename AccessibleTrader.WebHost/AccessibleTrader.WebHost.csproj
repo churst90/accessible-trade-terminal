@@ -29,13 +29,36 @@
     <!-- Release builds run as a windowed (GUI-subsystem) app on Windows so the
          shipped binary doesn't pop a black console window when the user double-
          clicks it; the app opens the browser itself. Debug stays a console app
-         so logs are visible during development. WinExe is a no-op on Linux/macOS
-         (no Windows console subsystem).
-         EXCEPTION: a Linux server/demo publish (-p:ServerPublish=true) must stay a
+         so logs are visible during development.
+         EXCEPTION: a server/demo publish (-p:ServerPublish=true) must stay a
          plain Exe — WinExe drops _framework/blazor.web.js and the RCL scoped-CSS
-         bundle from the published static-asset manifest, so the Blazor circuit
-         never boots ("no data loaded"). Deploy-only; not used by the desktop heads. -->
-    <OutputType Condition="'$(Configuration)' == 'Release' And '$(ServerPublish)' != 'true'">WinExe</OutputType>
+         bundle from the static-asset manifest, so the Blazor circuit never boots
+         ("no data loaded").
+
+         The IsOSPlatform('Windows') clause is NOT belt-and-braces, and the claim
+         this comment used to make — "WinExe is a no-op on Linux/macOS (no Windows
+         console subsystem)" — was false. WinExe strips those assets from the
+         manifest on EVERY platform, because the stripping happens in the SDK's
+         static-web-assets targets and not in the OS loader. Measured on Linux
+         2026-08-26 by counting _framework routes in
+         AccessibleTrader.WebHost.staticwebassets.endpoints.json:
+           Debug                          → 12 routes (blazor.web.js present)
+           Release                        →  0 routes
+           Release -p:ServerPublish=true  → 12 routes
+         Zero routes means Kestrel answers 404 for /_framework/blazor.web.js, the
+         circuit never starts, and a Blazor Server page renders nothing at all.
+
+         That is what took down the whole Chromium harness job: every shipping
+         path already passes ServerPublish=true (release.yml does so for all RIDs,
+         win-x64 included, and SERVER_SETUP.md documents it as required), so this
+         property had stopped guarding any artifact we actually ship and only
+         caught the builds nobody thought to add the flag to — a developer's
+         `dotnet build -c Release`, and AccessibleTrader.BrowserTests. Restricting
+         it to Windows makes the destructive case unreachable on the platforms
+         where the windowed subsystem means nothing anyway. -->
+    <OutputType Condition="'$(Configuration)' == 'Release'
+                       And '$(ServerPublish)' != 'true'
+                       And $([MSBuild]::IsOSPlatform('Windows'))">WinExe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>

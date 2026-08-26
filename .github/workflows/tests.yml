@@ -100,6 +100,19 @@ jobs:
   # HarnessSmokeTests.The_browser_suite_reports_whether_it_can_actually_run
   # fails rather than skips: a silently-skipped browser suite is a green run
   # that means nothing.
+  #
+  # A note on the timeout, because this job has already been killed by it. Its
+  # first two runs (b157e554, e7170b95) hit the 25-minute cap and were
+  # CANCELLED, which is a worse outcome than failing: `if: failure()` does not
+  # run on a cancelled job, so no .trx was uploaded and the only evidence left
+  # was the log. The cause was one broken host — Release built the WebHost as
+  # WinExe, which drops _framework/blazor.web.js from the static-asset manifest,
+  # so the Blazor circuit never started — but the suite re-discovered that 45
+  # times at 30 seconds each. TerminalBrowserFixture now latches the first
+  # "app never loaded" and fails the rest instantly, so this job reports a
+  # failure with artifacts in seconds instead of a cancellation in 25 minutes.
+  # WebHostStaticAssetManifestTests catches that particular cause in the xunit
+  # job, before a browser is ever launched.
   browser:
     name: Browser harness (Chromium)
     runs-on: ubuntu-latest

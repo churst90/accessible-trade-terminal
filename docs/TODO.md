@@ -1346,15 +1346,28 @@ shaping or rate limiting is hosted-facing; anything under `PlaceOrderAsync` is n
 restated: never add a path — even behind a flag — that lets a hosted head hold real broker credentials
 or place a live order.
 
-- [ ] **Guard the `ServerPublish` publish shape (note §2).** `AccessibleTrader.WebHost.csproj:38` sets
-  `OutputType=WinExe` for Release unless `ServerPublish=true`; under `WinExe` publish silently drops
-  `_framework/blazor.web.js` and the RCL scoped-CSS bundle from
-  `AccessibleTrader.WebHost.staticwebassets.endpoints.json` (~93,700 bytes vs ~107,800 for a good build).
-  The shell still returns 200 and the circuit never boots. **Nothing in the suite asserts this** — the
-  only defence today is a comment in the csproj and the server's post-deploy `stat`. Cheap guard: scan
-  the csproj for the `OutputType` condition so deleting the escape hatch goes red. Honest guard:
-  `dotnet publish -p:ServerPublish=true` to a temp dir and assert the endpoints manifest names
-  `blazor.web.js` — slow, so make it opt-in by trait rather than a publish on every run.
+- [x] **Guard the `ServerPublish` publish shape (note §2).** Done 2026-08-26 — and it had already
+  fired before the guard existed. `OutputType=WinExe` drops `_framework/blazor.web.js` from
+  `AccessibleTrader.WebHost.staticwebassets.endpoints.json` on **build**, not just publish, and on
+  **every platform** — the csproj's claim that "WinExe is a no-op on Linux/macOS" was false.
+  Measured on Linux: Debug 12 `_framework` routes, Release 0, Release `-p:ServerPublish=true` 12.
+  That is what took down the entire Chromium harness job on `b157e554` and `e7170b95`: no
+  `blazor.web.js` → no circuit → and since `App.razor` mounts the app tree with `prerender: false`,
+  no `#main-heading` and no element the harness looks for. All 45 tests that ran failed identically
+  at 30s each until GitHub killed the job at its 25-minute cap; because it was *cancelled* rather
+  than failed, the `if: failure()` artifact step never ran either, so no `.trx` survived.
+  **Fix:** the `WinExe` condition is now additionally gated on `IsOSPlatform('Windows')`. Every
+  shipping path already passes `ServerPublish=true` (release.yml for all RIDs, win-x64 included),
+  so the property had stopped protecting any artifact we ship and only caught the builds nobody
+  added the flag to — a developer's `dotnet build -c Release`, and `AccessibleTrader.BrowserTests`.
+  **Guard:** `WebHostStaticAssetManifestTests` reads the endpoints manifest the ordinary build
+  already copies next to the test assembly and asserts it names `_framework/blazor.web.js`. Neither
+  option sketched here was taken: scanning the csproj asserts the incantation rather than the
+  artifact and would have stayed green straight through this regression (the condition it looks for
+  was present and correct the whole time — it simply did not cover the configuration the harness
+  built), and a real publish costs minutes. Proven by sabotage: red under the old condition, green
+  after. Note the companion assertion for the scoped-CSS bundle did **not** go red under the same
+  sabotage — it is recorded in the test as an unproven invariant, not a working guard.
 - [ ] **Boot the demo head in the integration harness (note §3).** The hosted head already runs under a
   path base in tests — `WebHostIntegration.HostedFactory` sets `Accounts:Enabled`, `Program.cs` applies
   `UsePathBase("/terminal")`, and every request in `WebHostHostedAccountsIntegrationTests` is prefixed,
