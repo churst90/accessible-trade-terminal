@@ -1,0 +1,283 @@
+using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Trading;
+using AccessibleTrader.Sdk.Logging;
+using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Sdk.Plugins;
+using AccessibleTrader.Sdk.Strategies;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+
+namespace AccessibleTrader.Tests;
+
+/// <summary>
+/// PHASE A1 PROBES — throwaway. Each test asserts the behaviour the app SHOULD have.
+/// A failing test here is a DEMONSTRATED defect; a passing one kills a candidate finding.
+/// Not a regression suite: this file is deleted once the census is written up.
+/// </summary>
+[Trait("A1", "probe")]
+public class A1CrossCuttingProbes
+{
+    private static StrategySignal Signal(string why) => new(
+        Side: OrderSide.Buy, OrderType: OrderType.Market, Quantity: 0.5,
+        LimitPrice: null, StopLoss: null, TakeProfit: null,
+        Rationale: why, Confidence: 0.9);
+
+    private static Ohlcv Bar(int i, double c) =>
+        new(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(i), c, c + 1, c - 1, c, 100);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // D1. EventBus: one throwing subscriber vs everybody else.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void D1a_A_throwing_subscriber_does_not_starve_a_later_subscriber()
+    {
+        var bus = new EventBus();
+        bus.Subscribe<FeedbackRequestEvent>(_ => throw new InvalidOperationException("bad handler"));
+        var heard = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => heard.Add(e.Message));
+
+        try { bus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "stop loss was not placed", true)); }
+        catch { /* D1b covers the throw itself */ }
+
+        Assert.Single(heard);
+    }
+
+    [Fact]
+    public void D1b_Publish_does_not_throw_into_the_publisher_when_a_subscriber_throws()
+    {
+        var bus = new EventBus();
+        bus.Subscribe<FeedbackRequestEvent>(_ => throw new InvalidOperationException("bad handler"));
+
+        var ex = Record.Exception(() =>
+            bus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "order rejected", true)));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void D1c_A_subscriber_that_threw_once_still_receives_the_next_event()
+    {
+        var bus = new EventBus();
+        int seen = 0;
+        bus.Subscribe<FeedbackRequestEvent>(_ =>
+        {
+            seen++;
+            if (seen == 1) throw new InvalidOperationException("transient");
+        });
+
+        try { bus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "one", false)); } catch { }
+        try { bus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "two", false)); } catch { }
+
+        Assert.Equal(2, seen);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // D2/D3. StrategyEngine — the two log-only catch-alls on the auto path.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private sealed class Rig : IDisposable
+    {
+        public readonly EventBus Bus = new();
+        public readonly IOrderExecutionService Orders = Substitute.For<IOrderExecutionService>();
+        public readonly IDataManager Data = Substitute.For<IDataManager>();
+        public readonly IWorkspaceStore Store = Substitute.For<IWorkspaceStore>();
+        public readonly List<FeedbackRequestEvent> Spoken = new();
+        public readonly StrategyEngine Engine;
+
+        // The REAL adapters, not mocks. IAppLogger.LogError publishes AppErrorEvent,
+        // which GlobalErrorCoordinator turns into a FeedbackRequestEvent — so a
+        // substituted IAppLogger silently deletes the app's main error-speech path
+        // and makes every "nothing was announced" assertion vacuous.
+        private readonly AccessibleTrader.Core.Services.Accessibility.GlobalErrorCoordinator _coord;
+
+        public Rig(List<Ohlcv> bars)
+        {
+            Bus.Subscribe<FeedbackRequestEvent>(Spoken.Add);
+            _coord = new AccessibleTrader.Core.Services.Accessibility.GlobalErrorCoordinator(
+                Bus, NullLogger<AccessibleTrader.Core.Services.Accessibility.GlobalErrorCoordinator>.Instance,
+                Substitute.For<AccessibleTrader.Core.Services.Accessibility.IAudioFeedbackRouter>());
+            Store.State.Returns(_ => WorkspaceState.Initial with
+            {
+                Identity = new ChartIdentity("Spot", "Kraken", "BTC/USD", "1h"),
+                Data = new TimeSeriesBuffer<Ohlcv>(bars),
+                CurrentDataIndex = bars.Count - 1,
+                SymbolDisplayName = "BTC/USD",
+            });
+            Engine = new StrategyEngine(Bus, Orders,
+                new AccessibleTrader.WebHost.Services.WebHostAppLogger(
+                    NullLogger<AccessibleTrader.WebHost.Services.WebHostAppLogger>.Instance, Bus),
+                NullLogger<StrategyEngine>.Instance, Data, Store,
+                Substitute.For<IStrategyIndicatorCache>());
+        }
+
+        public void Dispose() { Engine.Dispose(); _coord.Dispose(); }
+    }
+
+    private static async Task<bool> Eventually(Func<bool> cond, int ms = 2000)
+    {
+        var until = DateTime.UtcNow.AddMilliseconds(ms);
+        while (DateTime.UtcNow < until)
+        {
+            if (cond()) return true;
+            await Task.Delay(15);
+        }
+        return cond();
+    }
+
+    [Fact]
+    public async Task D2_An_auto_order_that_THROWS_is_announced_to_the_user()
+    {
+        var bars = new List<Ohlcv> { Bar(0, 100), Bar(1, 101) };
+        using var rig = new Rig(bars);
+
+        // The provider call blows up — a disconnected socket, a disposed client, a null field.
+        // Distinct from a *rejection*, which the engine already announces.
+        rig.Orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<TradeSignal>())
+            .Returns<Task<string>>(_ => throw new HttpRequestException("connection reset"));
+
+        var strategy = Substitute.For<ITradingStrategy>();
+        strategy.Name.Returns("Breakout");
+        bool fired = false;
+        strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<WorkspaceState>())
+                .Returns(_ => fired ? null : (fired = true) ? Signal("breakout") : null);
+
+        rig.Engine.AddStrategy(strategy, null, StrategyExecutionMode.Auto, specId: "s1");
+        rig.Data.DataUpdated += Raise.Event<Action>();
+
+        // Positive control: we really did reach the order call.
+        await Eventually(() => rig.Orders.ReceivedCalls()
+            .Any(c => c.GetMethodInfo().Name == nameof(IOrderExecutionService.PlaceOrderAsync)));
+        Assert.Contains(rig.Orders.ReceivedCalls(),
+            c => c.GetMethodInfo().Name == nameof(IOrderExecutionService.PlaceOrderAsync));
+
+        bool spoke = await Eventually(() => rig.Spoken.Any(f => f.Type == FeedbackType.Error));
+        Assert.True(spoke,
+            "Auto-execute threw. The user heard nothing, and believes a Buy went on. Spoken: "
+            + string.Join(" | ", rig.Spoken.Select(s => s.Message)));
+    }
+
+    [Fact]
+    public async Task D3_A_strategy_that_THROWS_on_every_bar_tells_the_user_it_is_dead()
+    {
+        var bars = new List<Ohlcv> { Bar(0, 100), Bar(1, 101) };
+        using var rig = new Rig(bars);
+
+        var strategy = Substitute.For<ITradingStrategy>();
+        strategy.Name.Returns("Broken RSI");
+        strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<WorkspaceState>())
+                .Returns<StrategySignal?>(_ => throw new IndexOutOfRangeException("bad lookback"));
+
+        rig.Engine.AddStrategy(strategy, null, StrategyExecutionMode.Auto, specId: "s1");
+        rig.Data.DataUpdated += Raise.Event<Action>();
+        rig.Data.DataUpdated += Raise.Event<Action>();
+
+        // Positive control: the engine really did evaluate the strategy.
+        await Eventually(() => strategy.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "OnBar"));
+        Assert.Contains(strategy.ReceivedCalls(), c => c.GetMethodInfo().Name == "OnBar");
+
+        bool spoke = await Eventually(() => rig.Spoken.Any(f => f.Type == FeedbackType.Error));
+        Assert.True(spoke,
+            "The strategy threw on every bar and is effectively not running. Nothing was said.");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // D4. Suggestion mode — the DEFAULT mode — and the background monitor both
+    //     publish StrategySignalEvent. Does anything turn that into speech?
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task D4_A_suggestion_mode_signal_is_announced()
+    {
+        var bars = new List<Ohlcv> { Bar(0, 100), Bar(1, 101) };
+        using var rig = new Rig(bars);
+
+        var strategy = Substitute.For<ITradingStrategy>();
+        strategy.Name.Returns("Breakout");
+        bool fired = false;
+        strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<WorkspaceState>())
+                .Returns(_ => fired ? null : (fired = true) ? Signal("breakout above range") : null);
+
+        // Suggestion is the default mode on IStrategyEngine.AddStrategy.
+        rig.Engine.AddStrategy(strategy, null, StrategyExecutionMode.Suggestion, specId: "s1");
+        rig.Data.DataUpdated += Raise.Event<Action>();
+
+        // Positive control: the signal really was produced and reached the bus.
+        var signals = new List<StrategySignalEvent>();
+        // (subscribed after the fact would race; assert via the strategy call instead)
+        await Eventually(() => strategy.ReceivedCalls().Any(c => c.GetMethodInfo().Name == "OnBar"));
+        Assert.Contains(strategy.ReceivedCalls(), c => c.GetMethodInfo().Name == "OnBar");
+        Assert.True(fired, "sanity: the strategy emitted its signal");
+        _ = signals;
+
+        bool spoke = await Eventually(() => rig.Spoken.Count > 0);
+        Assert.True(spoke,
+            "A strategy produced a Buy setup awaiting confirmation and nothing reached the "
+            + "feedback channel — there is no way for a blind user to learn it exists.");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // D5. Object Tree: a component's mute/hide toggle bypasses the announcing
+    //     path and lands on SeriesStateChangedEvent, which has no subscriber.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void D5_Toggling_a_components_mute_reaches_the_feedback_channel()
+    {
+        var bus = new EventBus();
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        var cfg = new SeriesConfig
+        {
+            Id = "s1", Name = "RSI", IndicatorCode = "RSI", Pane = "RSI",
+            Volume = 1f, IsVisible = true,
+        };
+        cfg.Components.Add(new ComponentConfig
+        {
+            Name = "RSI", DisplayName = "RSI", IsVisible = true,
+            DisplayType = ComponentDisplayType.Line, Waveform = "sine", Volume = 1f,
+        });
+        var series = new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "s1" });
+        var state = WorkspaceState.Initial with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(series),
+            FocusedSeriesId = "s1",
+        };
+
+        // Exactly what ObjectTreeModal.ToggleCompMute does: dispatch the action directly.
+        var reduced = AccessibleTrader.Core.Services.Workspace.Reducers.SeriesReducer.Reduce(
+            state, new ToggleMuteAction("s1", "RSI"), bus);
+
+        Assert.True(reduced.ActiveSeries[0].Components[0].IsMuted, "sanity: the mute did apply");
+        Assert.NotEmpty(spoken);
+    }
+
+    /// <summary>
+    /// The control for D2/D3/D4: the rig CAN hear an announcement. A REJECTED order
+    /// (as opposed to a thrown one) is announced on exactly the same path, so an empty
+    /// Spoken list in those three is the absence of a message, not a deaf harness.
+    /// </summary>
+    [Fact]
+    public async Task D0_CONTROL_A_rejected_auto_order_IS_announced()
+    {
+        var bars = new List<Ohlcv> { Bar(0, 100), Bar(1, 101) };
+        using var rig = new Rig(bars);
+
+        rig.Orders.PlaceOrderAsync(Arg.Any<string>(), Arg.Any<TradeSignal>())
+            .Returns(Task.FromResult("ORDER_FAILED:insufficient balance"));
+
+        var strategy = Substitute.For<ITradingStrategy>();
+        strategy.Name.Returns("Breakout");
+        bool fired = false;
+        strategy.OnBar(Arg.Any<Ohlcv>(), Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<WorkspaceState>())
+                .Returns(_ => fired ? null : (fired = true) ? Signal("breakout") : null);
+
+        rig.Engine.AddStrategy(strategy, null, StrategyExecutionMode.Auto, specId: "s1");
+        rig.Data.DataUpdated += Raise.Event<Action>();
+
+        bool spoke = await Eventually(() => rig.Spoken.Any(f => f.Type == FeedbackType.Error));
+        Assert.True(spoke, "CONTROL FAILED — the harness cannot hear anything; D2/D3/D4 are vacuous.");
+    }
+}

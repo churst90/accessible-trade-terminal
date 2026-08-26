@@ -22,6 +22,11 @@ walker — it found four real ones, including `dynamic` switching the entire blo
 wrong. Three more read-throughs would not produce a clearer picture; they would inflate a 503-item
 backlog toward 750 with an unknown fraction of it fictional. Budget a triage step at the end of each.
 
+**A1 — DONE 2026-08-25.** Findings, refutations and the recounted censuses are in the
+"A1 — analysis services and cross-cutting infra" section immediately below this one. Four confirmed
+(EventBus deafening, Suggestion mode cannot suggest, Object Tree component toggles silent, MAUI
+Release has no logging providers), five refuted, three left explicitly unverified. **Next: A2.**
+
 **A1. Analysis services and cross-cutting infra.** Leads the phase because it is the most mechanical
 — the baselines are already counted, so this is verification rather than opinion: 46 empty
 `catch {}`, 394 `catch (Exception)` sites, 18 sync-over-async, 10 `async void`. Scope also covers
@@ -93,6 +98,195 @@ can be made rather than by suspected severity.
 
 The framing worth keeping either way: a D+ readiness grade standing alongside zero open CRITICALs is
 not a contradiction. It is a statement about the shape of the coverage, not the count of the defects.
+
+---
+
+## A1 — analysis services and cross-cutting infra (audit run 2026-08-25)
+
+Phase A item 1, run under the demonstrate-or-mark-unverified rule. Every finding below was
+reproduced by a failing test or by an exact mechanical census; every candidate that could not be
+reproduced is recorded as REFUTED with what killed it, because the refutations are half the value.
+The probe file that produced the demonstrations is not committed — a red test file breaks CI, and
+these are Phase B work. It is preserved verbatim at
+`scratchpad/A1CrossCuttingProbes.cs.probe`; restore it into `AccessibleTrader.Tests/` when fixing,
+and the tests become the regression guards.
+
+### The censuses, recounted
+
+The filed 2026-08-24 baselines were wrong in both directions, so they are replaced here. Counts are
+production only (`AccessibleTrader.Tests/` excluded) and come from a brace-matching parser that
+masks comments and string literals, not from grep — the earlier numbers appear to have been grep
+line counts, which both miss multi-line forms and count matches inside strings and comments.
+
+- **872 catch clauses** in production (941 including tests).
+- **Empty catches: 196**, not 46 — 66 bare `catch {}` and 130 whose body is only a comment.
+- **`catch (Exception)`: 499**, not 394. Another 277 are bare `catch`.
+- **`async void`: 10.** This one was right.
+- **Sync-over-async: 12** `GetAwaiter().GetResult()` sites, not 18. No `.Wait()` outside comments.
+
+What the catch clauses actually do with the error, which is the number that matters:
+
+| disposition | count | share |
+| --- | --- | --- |
+| logged | 292 | 33.5% |
+| returned/propagated to the caller | 220 | 25.2% |
+| silent and unexplained | 169 | 19.4% |
+| empty but explained by a comment | 116 | 13.3% |
+| cancellation/disposal (expected) | 51 | 5.8% |
+| user-facing channel directly | 23 | 2.6% |
+| rethrows | 1 | 0.1% |
+
+Of the 169 "silent and unexplained", 27 are in `AccessibleTrader.StrategyLab` (a CLI research tool,
+not a screen-reader surface) and 13 do write a user-visible status string through a field name the
+classifier did not know. **129 remain as genuine candidates**, spread thin — mostly one or two per
+file, concentrated in process/teardown paths (`AppContainerScriptWorkerProcess`,
+`OutOfProcessScriptHost`, `AndroidIsolatedProcessLauncher`, `WebHostAudioDriver`) where a swallow on
+the way down is defensible. **This is a backlog to work through, not a list of bugs**; do not quote
+129 as a defect count. A hand-read sample of 25 from the first, looser classification found only 2
+genuinely silent and undocumented, which is why the classifier was tightened twice before the number
+above was trusted.
+
+### CONFIRMED — F1. One throwing subscriber can permanently deafen the app (HIGH)
+
+`EventBus` is a bare Rx `Subject<T>` and `Publish` is `subject.OnNext`. Three demonstrated
+consequences, all in `A1CrossCuttingProbes` D1a/D1b/D1c:
+
+- A subscriber that throws **starves every subscriber registered after it** — the remaining
+  observers never see that event.
+- The exception **propagates back into the publisher**, so the code that reported a problem is the
+  code that now has a second one.
+- Rx **disposes the throwing subscription**. A handler that throws once is unsubscribed *for the
+  life of the process*. D1c: the handler received 1 of 2 published events.
+
+Reachability is read-verified, and it is the worst case available: **102 of 114 production
+subscriptions have unguarded handlers**, and both `FeedbackRequestEvent` subscribers are among them —
+`AccessibilityFeedbackCoordinator.OnFeedbackRequest`, which is the speech path itself, and
+`StatusBar.razor`, whose handler calls `InvokeAsync(StateHasChanged)` and can throw
+`ObjectDisposedException` on a torn-down component. A single exception raised anywhere inside
+`OnFeedbackRequest`'s formatting (it calls `ChartPatternContext()` and
+`_navManager.HandleNavigationFeedback`) removes speech for the rest of the session, with no error,
+no announcement, and no recovery short of restart.
+
+Fix shape: catch per-subscriber inside `EventBus.Publish` so one handler cannot see, starve, or
+outlive the others, and log the offender. Do not fix this by adding `try/catch` to 102 handlers.
+
+### CONFIRMED — F2. Suggestion mode, the DEFAULT mode, cannot suggest (HIGH)
+
+`IStrategyEngine.AddStrategy` defaults to `StrategyExecutionMode.Suggestion`. In that mode
+`StrategyEngine.EvaluateBar` stores the signal in `_pendingSignals` and publishes
+`StrategySignalEvent`. Demonstrated (D4): **nothing reaches the feedback channel.** Verified by
+reading:
+
+- `_pendingSignals` is **written and never read** — the only other reference is `Remove` in
+  `RemoveStrategy`. Because it *is* read there, no dead-code analyzer flags it.
+- `IStrategyEngine` exposes **no way to retrieve or confirm a pending signal**. The
+  "user confirmation" in the class doc does not exist.
+- `StrategySignalEvent` has exactly **one** production subscriber, `JournalService`, which writes a
+  journal line. The only surface is the Journal modal's "Setups" tab — passive, and the user has to
+  go looking for it.
+- `BackgroundWorkspaceMonitor:300` carries the comment "Background signals are announce-only", and
+  the only thing it does is publish the same unannounced event. The comment is false.
+
+So a strategy left running in the default mode produces signals a blind user has no way to learn
+about. Fix belongs with B1's order-outcome vocabulary work — decide whether Suggestion announces and
+offers a confirm, or the mode is removed.
+
+### CONFIRMED — F3. Object Tree component mute/hide is silent (MEDIUM)
+
+`ObjectTreeModal.ToggleCompHide` and `ToggleCompMute` dispatch `ToggleHideAction`/`ToggleMuteAction`
+directly, bypassing `ToggleHideEvent`/`ToggleMuteEvent` and therefore bypassing
+`ChartCommandManager`, which is what publishes the "RSI: RSI muted" `FeedbackRequestEvent`. The
+series-level `ToggleMute(string id)` in the same file goes through the event and does announce, so
+the two rows behave differently. The reducer's `SeriesStateChangedEvent` is not a fallback:
+**it is the only event in the entire bus published with no subscriber at all** (whole-repo census:
+1 orphan, 0 events subscribed-but-never-published). `EarconType.SeriesHidden` and
+`EarconType.SeriesMuted` are likewise declared and mapped in `GlobalErrorCoordinator.PlayEarcon` and
+raised by nothing. Demonstrated by D5.
+
+### CONFIRMED — F4. The MAUI head ships with no logging providers at all (HIGH, forensics)
+
+The only `builder.Logging.*` call in `MauiProgram.cs` is `AddDebug()`, and it is inside `#if DEBUG`.
+A **Release desktop build therefore registers zero `ILoggerProvider`s**, so every `ILogger` call in
+the application is discarded. That includes `SafeFireAndForget`'s "logs any unhandled exception"
+guarantee and all 292 catch clauses whose entire mitigation is that they log. After a bad trade
+there is nothing to read.
+
+Precise scope, because it is easy to overstate:
+
+- This is about **persistence and post-incident forensics, not audibility**. `MauiAppLogger`
+  publishes `AppErrorEvent` for severity ≥ Medium independently of any `ILogger` provider, so
+  `IAppLogger.LogError` still reaches speech in Release. See the F5 refutation.
+- The **WebHost is better but not fixed**: `WebApplication.CreateBuilder` wires Console/Debug by
+  default, which is ephemeral and invisible when the host is launched from the tray.
+- `SecurityEventFileSink` **is** registered in both heads, so security events do persist — and its
+  own doc-comment says hosts that wire a file `ILoggerProvider` "already get persistence for free".
+  Neither host wires one.
+
+Fix shape: a rolling-file `ILoggerProvider` in both heads, unconditionally, writing beside the
+existing security-event JSONL.
+
+### REFUTED — candidates that did not survive contact
+
+Recorded deliberately. Three of these were commissioned suspicions in the 2026-08-24 assessment.
+
+- **F5. `StrategyEngine`'s log-only catch-alls swallow the auto-execute failure.** FALSE, and it was
+  the closest call in the audit. `ExecuteSignalAsync`'s outer catch and `EvaluateBar`'s per-strategy
+  catch call `IAppLogger.LogError`, which maps to `ErrorSeverity.High`, publishes `AppErrorEvent`,
+  and reaches speech via `GlobalErrorCoordinator`. The first version of probes D2/D3 "demonstrated"
+  the defect and were **vacuous**: they substituted `IAppLogger`, which deletes the app's main
+  error-speech path. Rewiring the rig with the real `WebHostAppLogger` plus a real
+  `GlobalErrorCoordinator` turned both green. **Lesson for A2/A3: a substituted `IAppLogger` makes
+  any "nothing was announced" assertion meaningless.** The remaining, much smaller issue is wording
+  — these arrive as `"Systemic - CRITICAL: Auto-execute failed for strategy 'X': …"`, a developer
+  string, where the neighbouring paths are carefully written for a listener.
+- **EventBus subscription leaks.** REFUTED. 114 production subscriptions, **0 leaked** — every one
+  is assigned, returned, or added to a disposal collection. The single flagged site
+  (`PaperTradingProvider:1157`) is a false positive of the detector; the disposable is captured on
+  the previous line and disposed in `Detach`.
+- **`async void` handlers crashing the process.** REFUTED. Both `async void` EventBus handlers
+  (`QuickTradeExecutor.OnRequested`, `HistoryBufferCoordinator.OnRequestHistory`) wrap their entire
+  body in try/catch and report to the user. The other 8 are Blazor UI handlers.
+- **Plugin loading swallowing failures.** REFUTED. `PluginLoaderService` logs type-load and
+  DLL-load failures with the file name; the bare catches are `context.Unload()` and
+  `Directory.CreateDirectory` on teardown/first-run paths.
+- **Money-path fire-and-forget.** REFUTED, and this one is genuinely well built. All 17
+  `SafeFireAndForget` call sites were read. The wrapper only logs, but every site on the money path
+  hands off to a method that reports for itself: `StrategyPositionManager.PlaceExitAsync` announces
+  both acceptance and rejection, `VerifyProtectiveOrdersAsync` announces an unverifiable stop at
+  `ErrorSeverity.High`, and `PollOrderUntilResolvedAsync` announces after
+  `OrderPollMaxConsecutiveErrors`. The remaining sites are dispose/teardown.
+
+### UNVERIFIED — left explicitly open
+
+- **Sync-over-async deadlock reachability.** The 12 `GetAwaiter().GetResult()` sites are all
+  documented and most are tray/teardown. The one worth settling is
+  `OutOfProcessIndicator.Calculate`, whose comment asserts "the indicator pipeline invokes us
+  synchronously from an orchestrator step that already runs on a background thread". The hazard is
+  real if that assumption ever breaks — on a Blazor circuit's synchronization context this
+  deadlocks the UI. **Not demonstrated**: it needs a live ScriptWorker process driven from a
+  single-threaded synchronization context. The cheap version is to assert the assumption directly
+  with a thread-affinity check in `Calculate` rather than to prove the deadlock.
+- **Pattern-detection causality** and **the plugin trust boundary** were in A1's stated scope and
+  were not reached. Causality is partly covered by the existing producer/consumer contract work;
+  the trust boundary is adjacent to the closed sandbox audit but is not the same question (that
+  audit covered *scripts*, not *compiled plugin assemblies* loaded into an ALC).
+
+### A second full-suite-only flake, found while verifying the tree
+
+`StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script` **failed in the full run and
+passes in isolation** (12/12 for the class). Same family as the known bwrap env-canary flake: a
+script-worker/sandbox test that contends under the parallel full-suite load. Measured suite: 4830
+passed, 1 failed, 1 m 44 s. Two independent flakes in the same subsystem is no longer a coincidence
+— worth one look at whether the script-worker tests need a collection fixture to serialize them,
+rather than fixing each flake as it surfaces.
+
+### A1 → the plan
+
+Nothing here moves Phase A's ordering. F1 and F4 are cross-cutting and cheap relative to their
+blast radius; F2 overlaps B1's vocabulary work and should be taken with it. The `_pendingSignals`
+finding is the one to remember when reading the other twelve reports — a field written and never
+read, in the default execution mode, survived a 4,800-test suite, a dead-code sweep and a
+whole-class hygiene pass, because `RemoveStrategy` reads it.
 
 ---
 
