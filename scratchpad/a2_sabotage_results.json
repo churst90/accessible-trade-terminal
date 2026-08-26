@@ -1,0 +1,438 @@
+[
+ {
+  "id": "M01",
+  "area": "money/backtest honesty",
+  "file": "AccessibleTrader.Core/Services/Trading/BarFill.cs",
+  "breaks": "a gapped stop books the loss at the level the market skipped",
+  "occurrences": 1,
+  "failed": 12,
+  "passed": 4818,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BarFillTests.A_buy_limit_above_the_open_fills_at_the_open_not_at_the_limit",
+   "AccessibleTrader.Tests.BarFillTests.A_buy_stop_below_the_open_fills_at_the_open_not_below_the_market",
+   "AccessibleTrader.Tests.BarFillTests.A_long_stop_gapped_through_fills_at_the_gap_not_at_the_stop",
+   "AccessibleTrader.Tests.BarFillTests.A_long_target_gapped_past_fills_at_the_gap_and_keeps_the_extra",
+   "AccessibleTrader.Tests.BarFillTests.A_sell_limit_below_the_open_fills_at_the_open",
+   "AccessibleTrader.Tests.BarFillTests.A_sell_stop_above_the_open_fills_at_the_open",
+   "AccessibleTrader.Tests.BarFillTests.A_short_stop_gapped_through_fills_at_the_gap",
+   "AccessibleTrader.Tests.BarFillTests.A_short_target_gapped_past_fills_at_the_gap",
+   "AccessibleTrader.Tests.BarFillTests.No_fill_is_free_money_and_no_fill_is_an_overcharge",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.A_buy_limit_above_the_market_does_not_fill_above_the_market",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.A_sell_limit_below_the_market_does_not_fill_below_the_market",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.A_stop_the_market_gapped_through_fills_at_the_open_not_the_trigger"
+  ],
+  "status": "CAUGHT",
+  "seconds": 114
+ },
+ {
+  "id": "M02",
+  "area": "money/order validation",
+  "file": "AccessibleTrader.Core/Services/Trading/ProtectiveLevelValidator.cs",
+  "breaks": "a short's take-profit rule stops inverting; the exact bug the file exists to prevent",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 4819,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MoneyPathSafetyTests.ABracketLegOnTheWrongSideOfTheEntryIsRefusedAndAnnounced",
+   "AccessibleTrader.Tests.MoneyPathSafetyTests.ACorrectBracketAttachesWithNoComplaint",
+   "AccessibleTrader.Tests.PaperCapabilityConformanceTests.Declares_Brackets_and_a_bracket_attaches_both_legs_and_self_cancels",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.A_stop_entry_carrying_a_target_attaches_it_when_the_entry_fills",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.Bracket_stop_fill_cancels_the_take_profit",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.Bracket_take_profit_fill_cancels_the_stop",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.Every_leg_AttachProtectiveLegs_can_emit_is_reduce_only",
+   "AccessibleTrader.Tests.PaperTradingProviderTests.Take_profit_fires_when_high_reaches_target",
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.ALongTargetMustSitAboveThePrice",
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.AShortTargetMustSitBelowThePrice"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M03",
+  "area": "speech formatting",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechPriceFormatter.cs",
+  "breaks": "sub-dollar assets narrate as 0.00 again",
+  "occurrences": 1,
+  "failed": 25,
+  "passed": 4805,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AIAnalystServiceTests.AnalyseAsync_SubDollarBars_ReachTheModelWithFullPrecision",
+   "AccessibleTrader.Tests.DrawingCalculatorTests.Measure_SubDollarDistance_DoesNotCollapseToZero",
+   "AccessibleTrader.Tests.PricePrecisionTests.FormatPrice_NegativeValue_RetainsSignAndMagnitudePrecision",
+   "AccessibleTrader.Tests.PricePrecisionTests.FormatPrice_ScalesPrecisionByMagnitude",
+   "AccessibleTrader.Tests.PricePrecisionTests.MarkerSignal_PriceToken_DimeRange_UsesThreeDecimals",
+   "AccessibleTrader.Tests.PricePrecisionTests.MarkerSignal_PriceToken_UsesMagnitudeAwareFormatting_ForSubCentAsset",
+   "AccessibleTrader.Tests.PricePrecisionTests.StandardTemplate_ValuePriceToken_RoutesThroughMagnitudeAwareFormatter",
+   "AccessibleTrader.Tests.PricePrecisionTestsUnderDeDe.FormatPrice_NegativeValue_RetainsSignAndMagnitudePrecision",
+   "AccessibleTrader.Tests.PricePrecisionTestsUnderDeDe.FormatPrice_ScalesPrecisionByMagnitude",
+   "AccessibleTrader.Tests.PricePrecisionTestsUnderDeDe.MarkerSignal_PriceToken_DimeRange_UsesThreeDecimals",
+   "AccessibleTrader.Tests.PricePrecisionTestsUnderDeDe.MarkerSignal_PriceToken_UsesMagnitudeAwareFormatting_ForSubCentAsset",
+   "AccessibleTrader.Tests.PricePrecisionTestsUnderDeDe.StandardTemplate_ValuePriceToken_RoutesThroughMagnitudeAwareFormatter",
+   "AccessibleTrader.Tests.SpeechTemplateOverrideTests.Fixed_F2_template_on_the_price_series_is_healed_to_magnitude_aware",
+   "AccessibleTrader.Tests.SpeechTemplateOverrideTestsUnderDeDe.Fixed_F2_template_on_the_price_series_is_healed_to_magnitude_aware",
+   "AccessibleTrader.Tests.TelegramAlertChannelTests.SendAsync_SubPennyValue_DoesNotCollapseToZeros"
+  ],
+  "status": "CAUGHT",
+  "seconds": 109
+ },
+ {
+  "id": "M04",
+  "area": "speech formatting",
+  "file": "AccessibleTrader.Core/Services/Accessibility/QuantityFormatter.cs",
+  "breaks": "0.0340 and 0.0350 both speak as 0.03",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 4828,
+  "failing_tests": [
+   "AccessibleTrader.Tests.QuantityFormatterTests.PrecisionFollowsMagnitude",
+   "AccessibleTrader.Tests.QuantityFormatterTestsUnderDeDe.PrecisionFollowsMagnitude"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M05",
+  "area": "money/position sizing",
+  "file": "AccessibleTrader.Core/Strategies/RiskPercentPositionSizer.cs",
+  "breaks": "every risk-percent position is sized 100x too large",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 4826,
+  "failing_tests": [
+   "AccessibleTrader.Tests.RiskPercentPositionSizerTests.RiskPercent_above_ceiling_is_clamped_down_to_50_percent",
+   "AccessibleTrader.Tests.RiskPercentPositionSizerTests.RiskPercent_below_floor_is_clamped_up_to_001_percent",
+   "AccessibleTrader.Tests.RiskPercentPositionSizerTests.Sizes_from_stop_distance_when_stop_and_limit_present",
+   "AccessibleTrader.Tests.RiskPercentPositionSizerTests.Zero_stop_distance_falls_through_to_limit_fallback_without_dividing_by_zero"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M06",
+  "area": "release gate",
+  "file": "AccessibleTrader.Core/Services/Trading/WithdrawalReleasePolicy.cs",
+  "breaks": "an unregistered host opens the withdrawal gate instead of closing it",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WithdrawalReleaseGateTests.The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M07",
+  "area": "indicator warmup",
+  "file": "AccessibleTrader.Sdk/Indicators/IndicatorMath.cs",
+  "breaks": "EMA emits one bar earlier than its warmup allows",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M08",
+  "area": "indicator math",
+  "file": "AccessibleTrader.Sdk/Indicators/IndicatorMath.cs",
+  "breaks": "EMA smoothing factor is wrong for every period",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 4825,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorCausalityTests.TheBlindSpotsOfThisGuardAreTheOnesWeKnowAbout",
+   "AccessibleTrader.Tests.StrategyIndicatorCacheParityTests.EmaAgreesWithTheLibraryOnTheFIRSTBarItAnswersAtAll",
+   "AccessibleTrader.Tests.StrategyIndicatorCacheParityTests.EmaMatchesTheLibraryTheChartDrawsFrom"
+  ],
+  "status": "CAUGHT",
+  "seconds": 109
+ },
+ {
+  "id": "M09",
+  "area": "sandbox blocklist",
+  "file": "AccessibleTrader.Core/Services/RoslynScriptingService.cs",
+  "breaks": "user scripts may touch the filesystem",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 4828,
+  "failing_tests": [
+   "AccessibleTrader.Tests.HostileScriptTests.Rejects_FileSystemAccess_ViaFileClass",
+   "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M10",
+  "area": "sandbox blocklist",
+  "file": "AccessibleTrader.Core/Services/RoslynScriptingService.cs",
+  "breaks": "string-keyed type lookup defeats every namespace filter",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 110
+ },
+ {
+  "id": "M11",
+  "area": "modal focus",
+  "file": "AccessibleTrader.BlazorClient.Components/WalletModal.razor",
+  "breaks": "the Wallet modal opens without moving focus into it \u2014 the Alt+T bug class",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 109
+ },
+ {
+  "id": "M12",
+  "area": "earcon mute tiers",
+  "file": "AccessibleTrader.Core/Services/Accessibility/EarconService.cs",
+  "breaks": "a margin-call alert marked break-through is silenced by the earcon mute",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MuteTierTests.BreakThrough_alert_earcon_pierces_the_earcon_mute"
+  ],
+  "status": "CAUGHT",
+  "seconds": 112
+ },
+ {
+  "id": "M13",
+  "area": "order speech",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "breaks": "an order rejection is never spoken at all",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 4827,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.OrderRejected_SpeaksTheReason",
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.OrderRejected_WithNoReason_SpeaksNoTrailingNoise",
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.RejectedStopLeg_IsNotAnnouncedAsAStopHit"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M14",
+  "area": "alerts",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "a crossing alert degrades to a level alert and re-fires on every bar",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 4828,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M15",
+  "area": "moving averages",
+  "file": "AccessibleTrader.Core/Services/Indicators/MovingAverageHelper.cs",
+  "breaks": "SMA silently averages a short window when the source has gaps",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+  ],
+  "status": "CAUGHT",
+  "seconds": 110
+ },
+ {
+  "id": "M16",
+  "area": "order fill side",
+  "file": "AccessibleTrader.Core/Services/Trading/BarFill.cs",
+  "breaks": "a long's stop exit is priced as if it were a buy",
+  "occurrences": 1,
+  "failed": 9,
+  "passed": 4821,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BarFillTests.A_long_stop_gapped_through_fills_at_the_gap_not_at_the_stop",
+   "AccessibleTrader.Tests.BarFillTests.A_long_target_gapped_past_fills_at_the_gap_and_keeps_the_extra",
+   "AccessibleTrader.Tests.BarFillTests.A_short_stop_gapped_through_fills_at_the_gap",
+   "AccessibleTrader.Tests.BarFillTests.A_short_target_gapped_past_fills_at_the_gap",
+   "AccessibleTrader.Tests.BarFillTests.An_order_the_market_reaches_during_the_bar_fills_at_its_level",
+   "AccessibleTrader.Tests.SuggestionMetricsTests.Multiple_signals_aggregate_wins_and_losses",
+   "AccessibleTrader.Tests.SuggestionMetricsTests.Same_bar_Stop_and_TP_both_hit_closes_as_loss_by_stop_priority",
+   "AccessibleTrader.Tests.SuggestionMetricsTests.Signal_with_Stop_hit_on_next_bar_registers_as_theoretical_loss",
+   "AccessibleTrader.Tests.SuggestionMetricsTests.Signal_with_TP_hit_on_next_bar_registers_as_theoretical_win"
+  ],
+  "status": "CAUGHT",
+  "seconds": 109
+ },
+ {
+  "id": "M17",
+  "area": "speech routing",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "breaks": "a fill queues behind chatter instead of interrupting it",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 110
+ },
+ {
+  "id": "M18",
+  "area": "protective entry",
+  "file": "AccessibleTrader.Core/Services/Trading/ProtectiveLevelValidator.cs",
+  "breaks": "a stop loss of 0 or a negative price is accepted",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 4828,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.ANonPositivePriceIsRefused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 113
+ },
+ {
+  "id": "M19",
+  "area": "accessible name in markup",
+  "file": "AccessibleTrader.BlazorClient.Components/AlertsModal.razor",
+  "breaks": "a dialog button loses its accessible name",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 119
+ },
+ {
+  "id": "M20",
+  "area": "keyboard shortcut table",
+  "file": "AccessibleTrader.Core/Services/ShortcutManager.cs",
+  "breaks": "the documented Alt+T shortcut silently becomes Alt+Y",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment"
+  ],
+  "status": "CAUGHT",
+  "seconds": 121
+ },
+ {
+  "id": "M21",
+  "area": "order outcome classification",
+  "file": "AccessibleTrader.Core/Services/GeneralOrderService.cs",
+  "breaks": "a PROVIDER_* failure sentinel is treated as an order id",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 110
+ },
+ {
+  "id": "M22",
+  "area": "WebHost security headers",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "the strict CSP stops forbidding framing \u2014 clickjacking",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 4826,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_HostedAndDesktop_RefuseAllFraming",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Csp_LocksDownScriptsFramesAndObjects_WithoutBreakingBlazorServer",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.DemoCsp_DiffersFromStrictCsp_OnlyInFrameAncestors"
+  ],
+  "status": "CAUGHT",
+  "seconds": 112
+ },
+ {
+  "id": "M23",
+  "area": "crash-safe persistence",
+  "file": "AccessibleTrader.Core/Services/AtomicFile.cs",
+  "breaks": "the write stops being atomic and leaves its temp file behind",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 4828,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects",
+   "AccessibleTrader.Tests.PersistenceHardeningTests.AtomicFile_LeavesNoTempFilesBehind"
+  ],
+  "status": "CAUGHT",
+  "seconds": 115
+ },
+ {
+  "id": "M24",
+  "area": "indicator causality",
+  "file": "AccessibleTrader.Core/Services/Indicators/SwingStructureProvider.cs",
+  "breaks": "swing narration reads one bar into the future",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4830,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 110
+ },
+ {
+  "id": "M25",
+  "area": "focus ring contrast",
+  "file": "AccessibleTrader.Core/Services/Theming/ThemeCssBridge.cs",
+  "breaks": "the focus ring is yellow on light chrome and blue on dark \u2014 invisible on both",
+  "occurrences": 1,
+  "failed": 12,
+  "passed": 4818,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsAFocusRingThatContrastsWithItsChrome"
+  ],
+  "status": "CAUGHT",
+  "seconds": 109
+ },
+ {
+  "id": "M26",
+  "area": "text contrast",
+  "file": "AccessibleTrader.Core/Services/Theming/ThemeCssBridge.cs",
+  "breaks": "ink is near-black on dark surfaces and white on light ones",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 4819,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsReadableInkOnItsAccent"
+  ],
+  "status": "CAUGHT",
+  "seconds": 111
+ },
+ {
+  "id": "M27",
+  "area": "backtest cost model",
+  "file": "AccessibleTrader.Core/Strategies/StrategyBacktester.cs",
+  "breaks": "entry commission is never charged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment"
+  ],
+  "status": "CAUGHT",
+  "seconds": 111
+ },
+ {
+  "id": "M28",
+  "area": "backtest cost model",
+  "file": "AccessibleTrader.Core/Strategies/StrategyBacktester.cs",
+  "breaks": "slippage is applied in the trader's favour on every entry",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 4829,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment"
+  ],
+  "status": "CAUGHT",
+  "seconds": 109
+ }
+]

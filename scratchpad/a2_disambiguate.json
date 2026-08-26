@@ -1,0 +1,42 @@
+[
+ {
+  "id": "M07",
+  "class": "StrategyCausalityGateTests",
+  "failed": 0,
+  "passed": 12,
+  "verdict": "FLAKE \u2014 mutant actually SURVIVED",
+  "names": []
+ },
+ {
+  "id": "M15",
+  "class": "StrategyCausalityGateTests",
+  "failed": 0,
+  "passed": 12,
+  "verdict": "FLAKE \u2014 mutant actually SURVIVED",
+  "names": []
+ },
+ {
+  "id": "M20",
+  "class": "LinuxBwrapSandboxTests",
+  "failed": 0,
+  "passed": 14,
+  "verdict": "FLAKE \u2014 mutant actually SURVIVED",
+  "names": []
+ },
+ {
+  "id": "M09",
+  "class": "ChartAreaBarSliderTests",
+  "failed": 0,
+  "passed": 6,
+  "verdict": "FLAKE \u2014 mutant actually SURVIVED",
+  "names": []
+ },
+ {
+  "id": "M23",
+  "class": "SettingsModalTests",
+  "failed": 0,
+  "passed": 18,
+  "verdict": "FLAKE \u2014 mutant actually SURVIVED",
+  "names": []
+ }
+]

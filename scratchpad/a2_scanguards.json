@@ -1,0 +1,638 @@
+{
+ "per_file": {
+  "ActionRoutingReachabilityTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 6
+   },
+   "textual_asserts": 6,
+   "total_asserts": 7
+  },
+  "AddIndicatorSearchTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "NotNull": 1,
+    "Contains": 14
+   },
+   "textual_asserts": 14,
+   "total_asserts": 15
+  },
+  "ApiKeyChangeRefreshTests.cs": {
+   "tests": 5,
+   "assert_kinds": {
+    "NotNull": 1,
+    "Contains": 6,
+    "True": 1
+   },
+   "textual_asserts": 7,
+   "total_asserts": 8
+  },
+  "AuthoringDocParityTests.cs": {
+   "tests": 7,
+   "assert_kinds": {
+    "True": 3,
+    "Contains": 8,
+    "DoesNotContain": 7,
+    "NotEmpty": 1
+   },
+   "textual_asserts": 19,
+   "total_asserts": 19
+  },
+  "Blazor/ModalCatalog.cs": {
+   "tests": 2,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 1,
+    "Matches": 3,
+    "DoesNotMatch": 1
+   },
+   "textual_asserts": 5,
+   "total_asserts": 6
+  },
+  "BunitAsyncSettleGuardTests.cs": {
+   "tests": 1,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 2
+   },
+   "textual_asserts": 2,
+   "total_asserts": 3
+  },
+  "ChartRenderRateLimitTests.cs": {
+   "tests": 2,
+   "assert_kinds": {
+    "Equal": 1,
+    "True": 3,
+    "Contains": 1,
+    "DoesNotContain": 1,
+    "NotNull": 1
+   },
+   "textual_asserts": 5,
+   "total_asserts": 7
+  },
+  "CultureInvariantScanTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 6
+   },
+   "textual_asserts": 6,
+   "total_asserts": 7
+  },
+  "DashboardCapabilityGatingTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 5,
+    "DoesNotContain": 1,
+    "Matches": 1,
+    "Contains": 2,
+    "Equal": 1
+   },
+   "textual_asserts": 9,
+   "total_asserts": 11
+  },
+  "DataOrchestratorResilienceTests.cs": {
+   "tests": 10,
+   "assert_kinds": {
+    "Empty": 7,
+    "Equal": 17,
+    "Single": 3,
+    "True": 1,
+    "Contains": 1
+   },
+   "textual_asserts": 9,
+   "total_asserts": 29
+  },
+  "DialogContrastScanTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 2,
+    "Contains": 2,
+    "DoesNotContain": 3,
+    "Empty": 1
+   },
+   "textual_asserts": 8,
+   "total_asserts": 9
+  },
+  "DispatcherAffinityScanTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 2,
+    "Contains": 3,
+    "DoesNotContain": 2,
+    "Empty": 2
+   },
+   "textual_asserts": 9,
+   "total_asserts": 10
+  },
+  "EdgeRegistryTests.cs": {
+   "tests": 14,
+   "assert_kinds": {
+    "True": 8,
+    "Equal": 14,
+    "NotEmpty": 4,
+    "All": 4,
+    "False": 5,
+    "NotNull": 4,
+    "Contains": 2,
+    "NotEqual": 3,
+    "Matches": 1
+   },
+   "textual_asserts": 20,
+   "total_asserts": 45
+  },
+  "EmptyComponentListSurvivalTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "Equal": 5,
+    "NotNull": 2,
+    "True": 4
+   },
+   "textual_asserts": 4,
+   "total_asserts": 11
+  },
+  "EventSubscriberRegistrationTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 4,
+    "Contains": 1
+   },
+   "textual_asserts": 5,
+   "total_asserts": 6
+  },
+  "HostParityTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 9
+   },
+   "textual_asserts": 9,
+   "total_asserts": 10
+  },
+  "IndicatorBoolParameterReachabilityTests.cs": {
+   "tests": 7,
+   "assert_kinds": {
+    "True": 12,
+    "Equal": 1,
+    "False": 1
+   },
+   "textual_asserts": 13,
+   "total_asserts": 14
+  },
+  "IndicatorPrefsPerUserIsolationTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "Null": 1,
+    "Equal": 3,
+    "True": 1,
+    "NotEmpty": 1
+   },
+   "textual_asserts": 2,
+   "total_asserts": 6
+  },
+  "LabCatalogueCommandTests.cs": {
+   "tests": 8,
+   "assert_kinds": {
+    "Equal": 12,
+    "True": 2,
+    "Single": 2,
+    "Null": 1,
+    "NotEmpty": 1,
+    "All": 1,
+    "NotEqual": 4,
+    "False": 2
+   },
+   "textual_asserts": 5,
+   "total_asserts": 25
+  },
+  "ModalContractScanTests.cs": {
+   "tests": 7,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 7,
+    "DoesNotContain": 2,
+    "Contains": 3,
+    "Equal": 7,
+    "Single": 2
+   },
+   "textual_asserts": 12,
+   "total_asserts": 22
+  },
+  "MoneyPathSafetyTests.cs": {
+   "tests": 12,
+   "assert_kinds": {
+    "True": 11,
+    "Contains": 8,
+    "DoesNotContain": 3,
+    "Single": 1,
+    "False": 1,
+    "Empty": 2,
+    "Equal": 10
+   },
+   "textual_asserts": 25,
+   "total_asserts": 36
+  },
+  "NavigationSlotZeroOwnershipTests.cs": {
+   "tests": 2,
+   "assert_kinds": {
+    "True": 4
+   },
+   "textual_asserts": 4,
+   "total_asserts": 4
+  },
+  "OrderContractShipBlockerTests.cs": {
+   "tests": 15,
+   "assert_kinds": {
+    "Equal": 9,
+    "Null": 5,
+    "DoesNotContain": 1,
+    "StartsWith": 1,
+    "Contains": 2,
+    "True": 2,
+    "NotNull": 1
+   },
+   "textual_asserts": 5,
+   "total_asserts": 21
+  },
+  "OrderPostRetrySafetyTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "True": 9,
+    "ThrowsAsync": 2,
+    "Equal": 4
+   },
+   "textual_asserts": 9,
+   "total_asserts": 15
+  },
+  "PaperLegacyStateTests.cs": {
+   "tests": 1,
+   "assert_kinds": {
+    "Single": 1,
+    "Equal": 1,
+    "Empty": 1
+   },
+   "textual_asserts": 1,
+   "total_asserts": 3
+  },
+  "PerUserPathPolicyTests.cs": {
+   "tests": 5,
+   "assert_kinds": {
+    "True": 6,
+    "Equal": 4,
+    "Single": 1
+   },
+   "textual_asserts": 6,
+   "total_asserts": 11
+  },
+  "PersistenceHardeningTests.cs": {
+   "tests": 10,
+   "assert_kinds": {
+    "Equal": 8,
+    "Empty": 3,
+    "NotNull": 2,
+    "False": 1,
+    "True": 2,
+    "Contains": 4,
+    "Null": 3,
+    "Single": 3
+   },
+   "textual_asserts": 10,
+   "total_asserts": 26
+  },
+  "PipelineIdentityAndResilienceTests.cs": {
+   "tests": 13,
+   "assert_kinds": {
+    "True": 7,
+    "Equal": 8,
+    "NotNull": 4,
+    "Empty": 3,
+    "Single": 1,
+    "ThrowsAsync": 1,
+    "Contains": 2,
+    "False": 2
+   },
+   "textual_asserts": 14,
+   "total_asserts": 28
+  },
+  "PluginDependencyIsolationTests.cs": {
+   "tests": 1,
+   "assert_kinds": {
+    "True": 3
+   },
+   "textual_asserts": 3,
+   "total_asserts": 3
+  },
+  "PriceFormatScanTests.cs": {
+   "tests": 2,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 2
+   },
+   "textual_asserts": 2,
+   "total_asserts": 3
+  },
+  "ProviderCredentialBridgeEnrollmentTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "NotEmpty": 2,
+    "True": 5,
+    "Matches": 1
+   },
+   "textual_asserts": 8,
+   "total_asserts": 8
+  },
+  "ProviderRoster.cs": {
+   "tests": 2,
+   "assert_kinds": {
+    "True": 2,
+    "NotEmpty": 1
+   },
+   "textual_asserts": 3,
+   "total_asserts": 3
+  },
+  "ProviderStreamAndSigningTests.cs": {
+   "tests": 17,
+   "assert_kinds": {
+    "Equal": 20,
+    "Contains": 3,
+    "False": 2,
+    "NotEqual": 1,
+    "Null": 2,
+    "NotNull": 3,
+    "True": 3,
+    "IsAssignableFrom": 1,
+    "Single": 3
+   },
+   "textual_asserts": 8,
+   "total_asserts": 38
+  },
+  "RazorMarkupHazardTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 3
+   },
+   "textual_asserts": 3,
+   "total_asserts": 4
+  },
+  "ScriptReferenceSetTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "NotNull": 2,
+    "Contains": 5,
+    "False": 3,
+    "DoesNotContain": 4,
+    "Equal": 1,
+    "NotEmpty": 1,
+    "True": 2
+   },
+   "textual_asserts": 15,
+   "total_asserts": 18
+  },
+  "ScriptWorkerMemoryLimitTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "True": 8,
+    "Equal": 2,
+    "NotNull": 1,
+    "ThrowsAny": 1,
+    "Contains": 1,
+    "DoesNotContain": 1,
+    "Single": 1
+   },
+   "textual_asserts": 10,
+   "total_asserts": 15
+  },
+  "SdkHelperAdoptionScanTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "True": 6
+   },
+   "textual_asserts": 6,
+   "total_asserts": 6
+  },
+  "SecurityEventFileSinkTests.cs": {
+   "tests": 7,
+   "assert_kinds": {
+    "True": 3,
+    "Single": 4,
+    "Equal": 9,
+    "Contains": 2,
+    "Empty": 1
+   },
+   "textual_asserts": 6,
+   "total_asserts": 19
+  },
+  "SettingsLanguageTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 4
+   },
+   "textual_asserts": 4,
+   "total_asserts": 5
+  },
+  "SettingsManagerTests.cs": {
+   "tests": 8,
+   "assert_kinds": {
+    "Null": 1,
+    "Equal": 9,
+    "NotNull": 1,
+    "True": 3,
+    "False": 2,
+    "Single": 2
+   },
+   "textual_asserts": 5,
+   "total_asserts": 18
+  },
+  "SettingsWiringAuditTests.cs": {
+   "tests": 3,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 3
+   },
+   "textual_asserts": 3,
+   "total_asserts": 4
+  },
+  "StrategyLibraryPolicyTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "True": 4,
+    "Contains": 2,
+    "DoesNotContain": 2,
+    "Single": 2,
+    "False": 1,
+    "NotNull": 1,
+    "Null": 2
+   },
+   "textual_asserts": 9,
+   "total_asserts": 14
+  },
+  "StrategyPositionManagementTests.cs": {
+   "tests": 25,
+   "assert_kinds": {
+    "True": 23,
+    "Equal": 35,
+    "All": 3,
+    "Null": 8,
+    "Single": 3,
+    "Contains": 14,
+    "NotNull": 8,
+    "Empty": 3,
+    "False": 7,
+    "DoesNotContain": 1
+   },
+   "textual_asserts": 48,
+   "total_asserts": 105
+  },
+  "SurrogateTestTests.cs": {
+   "tests": 19,
+   "assert_kinds": {
+    "Equal": 27,
+    "True": 20,
+    "All": 3,
+    "NotEqual": 2,
+    "False": 1,
+    "InRange": 1
+   },
+   "textual_asserts": 21,
+   "total_asserts": 54
+  },
+  "ThemeCoverageTests.cs": {
+   "tests": 34,
+   "assert_kinds": {
+    "NotEqual": 5,
+    "True": 21,
+    "Equal": 35,
+    "StartsWith": 1,
+    "NotNull": 2,
+    "Null": 1
+   },
+   "textual_asserts": 21,
+   "total_asserts": 65
+  },
+  "ToolbarControlSurfaceTests.cs": {
+   "tests": 9,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 8,
+    "Contains": 11
+   },
+   "textual_asserts": 19,
+   "total_asserts": 20
+  },
+  "ToolbarLayoutStabilityTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 2,
+    "Contains": 8
+   },
+   "textual_asserts": 10,
+   "total_asserts": 11
+  },
+  "WalletModalMarkupTests.cs": {
+   "tests": 8,
+   "assert_kinds": {
+    "NotNull": 1,
+    "True": 1,
+    "Contains": 13,
+    "DoesNotContain": 5
+   },
+   "textual_asserts": 19,
+   "total_asserts": 20
+  },
+  "WatchlistLibraryTests.cs": {
+   "tests": 9,
+   "assert_kinds": {
+    "Empty": 3,
+    "Single": 2,
+    "Equal": 10,
+    "True": 4,
+    "False": 2,
+    "NotEmpty": 1
+   },
+   "textual_asserts": 10,
+   "total_asserts": 22
+  },
+  "WebHost/WebHostPushEndpointsIntegrationTests.cs": {
+   "tests": 4,
+   "assert_kinds": {
+    "Equal": 7,
+    "StartsWith": 1,
+    "NotEqual": 1,
+    "False": 3,
+    "True": 2,
+    "Contains": 2,
+    "DoesNotContain": 1
+   },
+   "textual_asserts": 8,
+   "total_asserts": 17
+  },
+  "WebHost/WebHostSecureStorageServiceTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "Equal": 7,
+    "Null": 3,
+    "Single": 1,
+    "EndsWith": 1
+   },
+   "textual_asserts": 0,
+   "total_asserts": 12
+  },
+  "WithdrawalReachabilityTests.cs": {
+   "tests": 8,
+   "assert_kinds": {
+    "NotNull": 1,
+    "Contains": 14,
+    "True": 2,
+    "DoesNotContain": 1
+   },
+   "textual_asserts": 17,
+   "total_asserts": 18
+  },
+  "WithdrawalReleaseGateTests.cs": {
+   "tests": 7,
+   "assert_kinds": {
+    "NotNull": 4,
+    "False": 2,
+    "Equal": 5,
+    "Empty": 2,
+    "Single": 1,
+    "True": 1,
+    "Contains": 4
+   },
+   "textual_asserts": 9,
+   "total_asserts": 19
+  },
+  "WorkspacePersistenceGapTests.cs": {
+   "tests": 6,
+   "assert_kinds": {
+    "Null": 1,
+    "False": 1,
+    "NotEmpty": 2,
+    "Contains": 2,
+    "Empty": 1,
+    "Single": 2,
+    "Equal": 5,
+    "True": 2,
+    "NotNull": 2
+   },
+   "textual_asserts": 8,
+   "total_asserts": 18
+  }
+ },
+ "presence_only": [
+  "AuthoringDocParityTests.cs",
+  "NavigationSlotZeroOwnershipTests.cs",
+  "PluginDependencyIsolationTests.cs",
+  "ProviderCredentialBridgeEnrollmentTests.cs",
+  "ProviderRoster.cs",
+  "SdkHelperAdoptionScanTests.cs"
+ ]
+}

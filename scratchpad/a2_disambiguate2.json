@@ -1,0 +1,32 @@
+[
+ {
+  "id": "M27",
+  "filter": "Backtest",
+  "failed": 0,
+  "passed": 29
+ },
+ {
+  "id": "M28",
+  "filter": "Backtest",
+  "failed": 0,
+  "passed": 29
+ },
+ {
+  "id": "M27",
+  "filter": "LabRunnerTests",
+  "failed": 0,
+  "passed": 4
+ },
+ {
+  "id": "M28",
+  "filter": "StrategyPositionManagementTests",
+  "failed": 0,
+  "passed": 25
+ },
+ {
+  "id": "M20",
+  "filter": "Shortcut",
+  "failed": 0,
+  "passed": 38
+ }
+]

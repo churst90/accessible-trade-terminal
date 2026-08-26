@@ -1,0 +1,219 @@
+{
+ "grep_guards": [
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "SearchMatchesTheDescriptionAndNotOnlyTheName",
+   "line": 34,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "TheMatchCountIsSpokenAsItChanges",
+   "line": 47,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "TheSelectedIndicatorIsDescribed",
+   "line": 59,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "FilteringKeepsTheCurrentSelectionWhenItStillMatches",
+   "line": 76,
+   "asserts": {
+    "Contains": 1
+   }
+  },
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "AnEmptyResultSaysWhatToDoAboutIt",
+   "line": 86,
+   "asserts": {
+    "Contains": 1
+   }
+  },
+  {
+   "file": "AddIndicatorSearchTests.cs",
+   "name": "BothFiltersAreLabelled",
+   "line": 94,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "DashboardCapabilityGatingTests.cs",
+   "name": "TheBluntMarginGateIsGone",
+   "line": 75,
+   "asserts": {
+    "DoesNotContain": 1
+   }
+  },
+  {
+   "file": "DashboardCapabilityGatingTests.cs",
+   "name": "LeverageAlsoRequiresAMaxAboveOne",
+   "line": 102,
+   "asserts": {
+    "Matches": 1
+   }
+  },
+  {
+   "file": "DashboardCapabilityGatingTests.cs",
+   "name": "ASpotOnlyProviderExplainsItsEmptyPositionsTab",
+   "line": 111,
+   "asserts": {
+    "Contains": 2
+   }
+  },
+  {
+   "file": "DispatcherAffinityScanTests.cs",
+   "name": "TheScannerResolvesAChainOfCalls",
+   "line": 186,
+   "asserts": {
+    "Contains": 3,
+    "DoesNotContain": 1
+   }
+  },
+  {
+   "file": "OrderContractShipBlockerTests.cs",
+   "name": "Ibkr_no_call_site_reads_the_raw_conId_field_as_a_fallback",
+   "line": 63,
+   "asserts": {
+    "DoesNotContain": 1
+   }
+  },
+  {
+   "file": "StrategyLibraryPolicyTests.cs",
+   "name": "TheScanCoversEveryShippingProject",
+   "line": 90,
+   "asserts": {
+    "Contains": 2,
+    "DoesNotContain": 2
+   }
+  },
+  {
+   "file": "ToolbarControlSurfaceTests.cs",
+   "name": "SplitAndReplay_reportTheirOwnStateSoTheButtonIsNotAWriteOnlyToggle",
+   "line": 94,
+   "asserts": {
+    "Contains": 2
+   }
+  },
+  {
+   "file": "ToolbarControlSurfaceTests.cs",
+   "name": "ToolbarTooltips_nameTheKeyboardShortcutForThePanelOpeners",
+   "line": 156,
+   "asserts": {
+    "Contains": 6
+   }
+  },
+  {
+   "file": "ToolbarControlSurfaceTests.cs",
+   "name": "TheToolbar_watchesTheStateItDisplays",
+   "line": 171,
+   "asserts": {
+    "Contains": 2
+   }
+  },
+  {
+   "file": "ToolbarLayoutStabilityTests.cs",
+   "name": "The_symbol_dropdown_is_width_capped_so_no_ticker_can_reflow_the_row",
+   "line": 71,
+   "asserts": {
+    "Contains": 1
+   }
+  },
+  {
+   "file": "ToolbarLayoutStabilityTests.cs",
+   "name": "An_add_key_affordance_appears_instead_of_leaving_the_user_at_a_dead_end",
+   "line": 79,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "ToolbarLayoutStabilityTests.cs",
+   "name": "Load_stays_disabled_while_the_sentinel_is_the_selected_symbol",
+   "line": 91,
+   "asserts": {
+    "Contains": 1
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "The_address_is_a_readonly_field_not_a_disabled_one",
+   "line": 28,
+   "asserts": {
+    "Contains": 2,
+    "DoesNotContain": 1
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "The_address_field_has_a_copy_button",
+   "line": 41,
+   "asserts": {
+    "Contains": 1
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "The_address_is_never_truncated_or_chunked_in_the_markup",
+   "line": 47,
+   "asserts": {
+    "Contains": 1,
+    "DoesNotContain": 2
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "A_memo_gets_its_own_field_and_copy_button",
+   "line": 59,
+   "asserts": {
+    "Contains": 3
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "There_is_a_character_by_character_read_that_names_capitals",
+   "line": 71,
+   "asserts": {
+    "Contains": 2
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "The_network_is_chosen_before_an_address_is_fetched_and_has_no_default",
+   "line": 82,
+   "asserts": {
+    "Contains": 2
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "Nothing_is_cached_between_opens",
+   "line": 93,
+   "asserts": {
+    "Contains": 1,
+    "DoesNotContain": 2
+   }
+  },
+  {
+   "file": "WalletModalMarkupTests.cs",
+   "name": "A_failed_copy_says_so_rather_than_appearing_to_work",
+   "line": 106,
+   "asserts": {
+    "Contains": 1
+   }
+  }
+ ],
+ "scan_backed_count": 116,
+ "total": 3362
+}

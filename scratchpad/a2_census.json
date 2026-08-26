@@ -1,0 +1,2345 @@
+{
+ "no_assert": [
+  {
+   "file": "AlertPipelineArmedTests.cs",
+   "name": "StartupWithNoAlertOrchestratorRegistered_DoesNotThrow",
+   "line": 155
+  },
+  {
+   "file": "Blazor/AriaValueScanTests.cs",
+   "name": "BareComponent_AriaValuesAreCoherent",
+   "line": 118
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_RightArrow_MovesToTheNextTab",
+   "line": 94
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_ArrowKeys_ReachEverySettingsTab",
+   "line": 105
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_ArrowsWrapAtBothEnds",
+   "line": 120
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_HomeAndEnd_JumpToTheFirstAndLastTab",
+   "line": 135
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects",
+   "line": 148
+  },
+  {
+   "file": "Blazor/SettingsModalTests.cs",
+   "name": "SettingsModal_UnrelatedKeys_LeaveTheActiveTabAlone",
+   "line": 162
+  },
+  {
+   "file": "BrokerParityTests.cs",
+   "name": "Ibkr",
+   "line": 454
+  },
+  {
+   "file": "CotPositioningIndicatorTests.cs",
+   "name": "static",
+   "line": 49
+  },
+  {
+   "file": "CultureInvariantScanTests.cs",
+   "name": "CultureSensitiveParsingOnlyShrinks",
+   "line": 111
+  },
+  {
+   "file": "CultureInvariantScanTests.cs",
+   "name": "AmbientCultureDateFormattingOnlyShrinks",
+   "line": 156
+  },
+  {
+   "file": "EarconServiceTests.cs",
+   "name": "Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord",
+   "line": 141
+  },
+  {
+   "file": "EdgeRegistryTests.cs",
+   "name": "EveryClaimedReMeasureCommandActuallyExists",
+   "line": 219
+  },
+  {
+   "file": "EmptyComponentListSurvivalTests.cs",
+   "name": "NavigationFeedback_SurvivesAnEmptySeries_OnBothAxes",
+   "line": 125
+  },
+  {
+   "file": "EmptyComponentListSurvivalTests.cs",
+   "name": "NavigationSonifier_SurvivesAnEmptySeries",
+   "line": 150
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_FileSystemAccess_ViaFileClass",
+   "line": 76
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_HttpClient",
+   "line": 101
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_ProcessStart",
+   "line": 125
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_UnsafeBlock_ViaLexicalPreflight",
+   "line": 148
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_DllImport_ViaLexicalPreflight",
+   "line": 172
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_AssemblyLoad_ReflectionBypass",
+   "line": 197
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_DynamicDispatch",
+   "line": 299
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_ReadingTheHostEnvironment",
+   "line": 319
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_ConsoleWrites",
+   "line": 333
+  },
+  {
+   "file": "HostileScriptTests.cs",
+   "name": "Rejects_HoldingAnAssemblyObjectAtAll",
+   "line": 388
+  },
+  {
+   "file": "KeyedFeedsHardeningTests.cs",
+   "name": "Rapid_desired_set_flapping_converges_live_via_the_serialized_chain",
+   "line": 243
+  },
+  {
+   "file": "KeyedFeedsHardeningTests.cs",
+   "name": "Focused_identity_change_stops_the_matching_background_subscription",
+   "line": 263
+  },
+  {
+   "file": "KeyedFeedsPhaseCTests.cs",
+   "name": "Cap_limits_live_background_feeds",
+   "line": 357
+  },
+  {
+   "file": "KrakenWalletTests.cs",
+   "name": "An_empty_error_array_passes",
+   "line": 98
+  },
+  {
+   "file": "LoukasCyclesProviderTests.cs",
+   "name": "EmptyData_DoesNotThrow",
+   "line": 337
+  },
+  {
+   "file": "MuteTierTests.cs",
+   "name": "ShiftF3_off_mutes_ambient_earcons",
+   "line": 119
+  },
+  {
+   "file": "MuteTierTests.cs",
+   "name": "ShiftF3_off_does_not_mute_order_outcome_earcons",
+   "line": 129
+  },
+  {
+   "file": "MuteTierTests.cs",
+   "name": "Order_earcons_respect_the_total_silence_opt_in",
+   "line": 137
+  },
+  {
+   "file": "MuteTierTests.cs",
+   "name": "BreakThrough_alert_earcon_pierces_the_earcon_mute",
+   "line": 145
+  },
+  {
+   "file": "MuteTierTests.cs",
+   "name": "Error_earcons_are_never_muted",
+   "line": 155
+  },
+  {
+   "file": "OrderContractShipBlockerTests.cs",
+   "name": "static",
+   "line": 165
+  },
+  {
+   "file": "ProviderStreamAndSigningTests.cs",
+   "name": "Binance_futures_variant_frame_missing_fields_does_not_throw",
+   "line": 241
+  },
+  {
+   "file": "QuickTradeFailureReportingTests.cs",
+   "name": "static",
+   "line": 93
+  },
+  {
+   "file": "QuickTradeSizingModeTests.cs",
+   "name": "static",
+   "line": 158
+  },
+  {
+   "file": "SessionAutosaveTests.cs",
+   "name": "Blank_sessions_never_clobber_the_saved_one",
+   "line": 61
+  },
+  {
+   "file": "SessionAutosaveTests.cs",
+   "name": "Demo_sessions_never_autosave",
+   "line": 72
+  },
+  {
+   "file": "SessionAutosaveTests.cs",
+   "name": "Opt_out_setting_disables_autosave",
+   "line": 84
+  },
+  {
+   "file": "SymbolValidatorTests.cs",
+   "name": "Validate_ValidSymbol_DoesNotThrow",
+   "line": 56
+  },
+  {
+   "file": "ThemeCoverageTests.cs",
+   "name": "Candles_takeTheirColourFromTheThemeNotFromIndicatorMetadata",
+   "line": 390
+  },
+  {
+   "file": "ThemeCoverageTests.cs",
+   "name": "A_hand_picked_candle_colour_survives_a_theme_change",
+   "line": 405
+  }
+ ],
+ "notnull_only": [
+  {
+   "file": "AnalyticsSeriesCacheTests.cs",
+   "name": "AnalyticsMarkets_AreCached",
+   "line": 25
+  },
+  {
+   "file": "AnalyticsSeriesCacheTests.cs",
+   "name": "SubTypedMarket_IsMatchedOnItsCategory",
+   "line": 43
+  },
+  {
+   "file": "Blazor/BuildSetupTabTests.cs",
+   "name": "BuildSetupTab_StrategyIdentityFieldset_Present",
+   "line": 34
+  },
+  {
+   "file": "Blazor/PropertiesModalTests.cs",
+   "name": "PropertiesModal_FourTabs_AllPresent",
+   "line": 172
+  },
+  {
+   "file": "Blazor/PropertiesModalTests.cs",
+   "name": "PropertiesModal_ApplyButton_PresentWhenOpen",
+   "line": 186
+  },
+  {
+   "file": "ChartMouseInteractionTests.cs",
+   "name": "TouchExplore_speaks_and_sonifies_each_bar_exactly_once",
+   "line": 235
+  },
+  {
+   "file": "CipherBMetadataTests.cs",
+   "name": "AdaptiveObOs_ExistInMetadata",
+   "line": 92
+  },
+  {
+   "file": "CipherBMetadataTests.cs",
+   "name": "CrossBull_ExistsInMetadata",
+   "line": 101
+  },
+  {
+   "file": "CipherBMetadataTests.cs",
+   "name": "CrossBear_ExistsInMetadata",
+   "line": 107
+  },
+  {
+   "file": "CloudSonificationTests.cs",
+   "name": "MACloudProvider_CloudFill_HasNonNullSonification",
+   "line": 62
+  },
+  {
+   "file": "CloudSonificationTests.cs",
+   "name": "CipherBProvider_AnchorFill_Sonifies",
+   "line": 120
+  },
+  {
+   "file": "EmptyComponentListSurvivalTests.cs",
+   "name": "SeriesReducer_SurvivesAnEmptySeries_InComponentContext",
+   "line": 138
+  },
+  {
+   "file": "IchimokuProviderTests.cs",
+   "name": "KumoCloudFill_HasNonNullSonification",
+   "line": 149
+  },
+  {
+   "file": "KeyedFeedsTests.cs",
+   "name": "Hub_released_lease_unpins_the_feed_for_eviction",
+   "line": 338
+  },
+  {
+   "file": "ProviderConformanceTests.cs",
+   "name": "Trading_provider_surfaces_its_trading_face",
+   "line": 65
+  }
+ ],
+ "scan": [
+  "Blazor/ModalCatalog.cs",
+  "BunitAsyncSettleGuardTests.cs",
+  "CultureInvariantScanTests.cs",
+  "DataOrchestratorResilienceTests.cs",
+  "DialogContrastScanTests.cs",
+  "DispatcherAffinityScanTests.cs",
+  "EdgeRegistryTests.cs",
+  "EmptyComponentListSurvivalTests.cs",
+  "EventSubscriberRegistrationTests.cs",
+  "IndicatorBoolParameterReachabilityTests.cs",
+  "IndicatorPrefsPerUserIsolationTests.cs",
+  "LabCatalogueCommandTests.cs",
+  "ModalContractScanTests.cs",
+  "OrderContractShipBlockerTests.cs",
+  "OrderPostRetrySafetyTests.cs",
+  "PaperLegacyStateTests.cs",
+  "PersistenceHardeningTests.cs",
+  "PipelineIdentityAndResilienceTests.cs",
+  "PluginDependencyIsolationTests.cs",
+  "PriceFormatScanTests.cs",
+  "ProviderStreamAndSigningTests.cs",
+  "ScriptWorkerMemoryLimitTests.cs",
+  "SecurityEventFileSinkTests.cs",
+  "SettingsManagerTests.cs",
+  "SettingsWiringAuditTests.cs",
+  "StrategyPositionManagementTests.cs",
+  "SurrogateTestTests.cs",
+  "ThemeCoverageTests.cs",
+  "ToolbarControlSurfaceTests.cs",
+  "WatchlistLibraryTests.cs",
+  "WebHost/WebHostPushEndpointsIntegrationTests.cs",
+  "WebHost/WebHostSecureStorageServiceTests.cs",
+  "WorkspacePersistenceGapTests.cs"
+ ],
+ "skipped": [],
+ "empty_assert": [
+  {
+   "file": "AIAnalystServiceTests.cs",
+   "name": "DeadFirstProvider_FallsThroughToTheNextOne",
+   "line": 145
+  },
+  {
+   "file": "AIAnalystServiceTests.cs",
+   "name": "CallerCancellation_Rethrows_AndDoesNotTryTheNextProvider",
+   "line": 216
+  },
+  {
+   "file": "AlertDegradationSurfacedTests.cs",
+   "name": "AHealthyTreeThatSimplyDoesNotTrigger_AnnouncesNothing",
+   "line": 158
+  },
+  {
+   "file": "AlertEvaluatorTests.cs",
+   "name": "CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "line": 94
+  },
+  {
+   "file": "AlertEvaluatorTests.cs",
+   "name": "CrossesAbove_BoundarySemantics_TouchFires_ButRestingAtThresholdDoesNot",
+   "line": 125
+  },
+  {
+   "file": "AlertEvaluatorTests.cs",
+   "name": "DisabledAlert_NeverFires_EvenWhenConditionIsMet",
+   "line": 144
+  },
+  {
+   "file": "AlertEvaluatorTests.cs",
+   "name": "ChangesDirection_FiresOnlyOnPolarityFlip",
+   "line": 183
+  },
+  {
+   "file": "AlertOrchestratorTests.cs",
+   "name": "FirstReadyTick_IsWarmupOnly_NoEvaluationAndNoEvents",
+   "line": 113
+  },
+  {
+   "file": "AlertOrchestratorTests.cs",
+   "name": "NonReadyStates_AreIgnored",
+   "line": 148
+  },
+  {
+   "file": "AlertOrchestratorTests.cs",
+   "name": "SingleBarTick_DoesNotConsumeTheWarmup",
+   "line": 162
+  },
+  {
+   "file": "AlertOrchestratorTests.cs",
+   "name": "Stop_UnsubscribesFromStateStream",
+   "line": 255
+  },
+  {
+   "file": "ApiKeyServiceTests.cs",
+   "name": "RemoveKey_DeletesMetadataAndAllThreeSecrets",
+   "line": 114
+  },
+  {
+   "file": "ApiKeyServiceTests.cs",
+   "name": "Hosted_RefusesUserKeyMutations_AtTheServiceLayer",
+   "line": 253
+  },
+  {
+   "file": "ApiKeyServiceTests.cs",
+   "name": "FullMode_UserKeyMutations_StayAllowed",
+   "line": 282
+  },
+  {
+   "file": "AssetDossierTests.cs",
+   "name": "CoinDocumentParses_IncludingTheAbsenceOfDisclosureLinks",
+   "line": 403
+  },
+  {
+   "file": "AutoNarrationTests.cs",
+   "name": "ExistingSignal_WhenNarrationEnabled_IsNotAnnounced",
+   "line": 91
+  },
+  {
+   "file": "AutoNarrationTests.cs",
+   "name": "NonNarratedSeries_NoSpeech",
+   "line": 178
+  },
+  {
+   "file": "AutoNarrationTests.cs",
+   "name": "OscillatorZoneUnchanged_NoAnnouncement",
+   "line": 271
+  },
+  {
+   "file": "AutoNarrationTests.cs",
+   "name": "NarrationDisabled_StopsSpeech",
+   "line": 336
+  },
+  {
+   "file": "BackgroundMonitoringTests.cs",
+   "name": "Monitor_FiresScopedAlert_WithSymbolPrefixedSpeech",
+   "line": 81
+  },
+  {
+   "file": "BackgroundMonitoringTests.cs",
+   "name": "Service_NeverMonitors_OnServerHostedBuilds",
+   "line": 291
+  },
+  {
+   "file": "BackgroundMonitoringTests.cs",
+   "name": "Service_IsOptIn_SettingOffMeansNoMonitors",
+   "line": 300
+  },
+  {
+   "file": "BarDetailContextTests.cs",
+   "name": "BarDetail_EmptyData_PublishesNothing",
+   "line": 21
+  },
+  {
+   "file": "BarDetailContextTests.cs",
+   "name": "BarDetail_MissingSeries_PublishesNothing",
+   "line": 31
+  },
+  {
+   "file": "Blazor/AlertsModalTests.cs",
+   "name": "AdvancedToggle_ShowsTreeEditor_AndGatesAddOnTree",
+   "line": 186
+  },
+  {
+   "file": "Blazor/ModalEscapeCloseTests.cs",
+   "name": "SaveWorkspaceModal_ClosesOnCloseTopModalEvent",
+   "line": 18
+  },
+  {
+   "file": "Blazor/ModalEscapeCloseTests.cs",
+   "name": "LoadWorkspaceModal_ClosesOnCloseTopModalEvent",
+   "line": 33
+  },
+  {
+   "file": "Blazor/SaveWorkspaceEnterKeyTests.cs",
+   "name": "Enter_ClosesTheModal_WithoutTearingDownTheCircuit",
+   "line": 47
+  },
+  {
+   "file": "Blazor/SaveWorkspaceEnterKeyTests.cs",
+   "name": "Escape_StillCloses",
+   "line": 79
+  },
+  {
+   "file": "Blazor/SoundDesignerModalTests.cs",
+   "name": "Escape_removes_the_dialog_from_the_dom",
+   "line": 49
+  },
+  {
+   "file": "Blazor/TabBarTests.cs",
+   "name": "Close_affordance_is_a_presentational_span_not_a_nested_button",
+   "line": 47
+  },
+  {
+   "file": "Blazor/TouchNavBarTests.cs",
+   "name": "HideOverride_WinsEvenOnTouchDevices",
+   "line": 28
+  },
+  {
+   "file": "Blazor/TouchNavBarTests.cs",
+   "name": "SelectingNever_HidesTheBarImmediately_LiveFlow",
+   "line": 46
+  },
+  {
+   "file": "Blazor/TouchNavBarTests.cs",
+   "name": "Stays_out_of_the_DOM_on_non_touch_devices",
+   "line": 69
+  },
+  {
+   "file": "Blazor/VisualEarconOverlayTests.cs",
+   "name": "DefaultOff_NoBadgeAppears_WhenAnEarconFires",
+   "line": 25
+  },
+  {
+   "file": "BrokerPlacementParityTests.cs",
+   "name": "Oanda_percent_trail_on_a_market_order_is_refused_before_any_request",
+   "line": 292
+  },
+  {
+   "file": "CftcProviderTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty_WithoutHttpCall",
+   "line": 80
+  },
+  {
+   "file": "CftcProviderTests.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 92
+  },
+  {
+   "file": "CftcProviderTests.cs",
+   "name": "RowsWithZeroOrMissingOpenInterest_AreSkipped",
+   "line": 122
+  },
+  {
+   "file": "ChartMathRenderingTests.cs",
+   "name": "CalculateHeikinAshi_EmptyInput_ReturnsEmpty",
+   "line": 275
+  },
+  {
+   "file": "ChartPatternDetectorTests.cs",
+   "name": "TooFewBars_ReturnsNothingRatherThanThrowing",
+   "line": 145
+  },
+  {
+   "file": "ChartPatternDetectorTests.cs",
+   "name": "AtBar_ExcludesPatternsNotYetKnowableAtThatBar",
+   "line": 497
+  },
+  {
+   "file": "ChartPatternDetectorTests.cs",
+   "name": "AtBar_DropsACompletedPatternOnceItHasResolved",
+   "line": 524
+  },
+  {
+   "file": "ChartPatternPositionTests.cs",
+   "name": "TheCacheIsEmptyRatherThanThrowingOnTooLittleData",
+   "line": 561
+  },
+  {
+   "file": "CheckoutLatencyTrackerTests.cs",
+   "name": "EmptyTracker_HasNoSnapshots",
+   "line": 14
+  },
+  {
+   "file": "CheckoutLatencyTrackerTests.cs",
+   "name": "Reset_ClearsAllProviders",
+   "line": 90
+  },
+  {
+   "file": "CipherCProviderTests.cs",
+   "name": "GetDefaultLevels_UnknownCode_ReturnsEmpty",
+   "line": 247
+  },
+  {
+   "file": "CommandDispatcherGatingTests.cs",
+   "name": "ChartScopedCommand_IsSilentlySuppressed_BeforeChartEverHadFocus",
+   "line": 48
+  },
+  {
+   "file": "CommandDispatcherGatingTests.cs",
+   "name": "PlaybackOnEmptyWorkspace_AnnouncesNoChartLoaded_AndDispatchesNothing",
+   "line": 120
+  },
+  {
+   "file": "ConfigurableStrategyPrewarmTests.cs",
+   "name": "Initialize_with_no_htf_leaves_leaves_prewarm_gate_open",
+   "line": 71
+  },
+  {
+   "file": "CrossEarconTests.cs",
+   "name": "Fire_NoCross_DoesNothing",
+   "line": 38
+  },
+  {
+   "file": "CustomIndicatorCausalityTests.cs",
+   "name": "AnHonestIndicatorIsProvedAndPublishable",
+   "line": 162
+  },
+  {
+   "file": "DataOrchestratorResilienceTests.cs",
+   "name": "A_tripped_provider_fails_fast_and_leaves_every_other_provider_alone",
+   "line": 93
+  },
+  {
+   "file": "DataOrchestratorResilienceTests.cs",
+   "name": "The_rate_limit_breaker_is_also_per_provider",
+   "line": 131
+  },
+  {
+   "file": "DataOrchestratorResilienceTests.cs",
+   "name": "A_permanent_4xx_never_trips_the_transport_breaker",
+   "line": 160
+  },
+  {
+   "file": "DeribitProviderTests.cs",
+   "name": "ParseDvol_missing_data_yields_empty_not_throw",
+   "line": 60
+  },
+  {
+   "file": "DialogContrastScanTests.cs",
+   "name": "TheScannerIgnoresColoursNamedInComments",
+   "line": 161
+  },
+  {
+   "file": "DispatcherAffinityScanTests.cs",
+   "name": "TheScannerIgnoresThePatternWrittenInAComment",
+   "line": 207
+  },
+  {
+   "file": "DispatcherAffinityScanTests.cs",
+   "name": "TheScannerAcceptsOffloadedComputationThatMarshalsBack",
+   "line": 227
+  },
+  {
+   "file": "DrawingCalculatorGeometryTests.cs",
+   "name": "TrendLine_MissingAnchor_ReturnsEmpty",
+   "line": 64
+  },
+  {
+   "file": "DrawingCalculatorGeometryTests.cs",
+   "name": "HorizontalLine_MissingAnchor_ReturnsEmpty",
+   "line": 266
+  },
+  {
+   "file": "DrawingCalculatorTests.cs",
+   "name": "RiskReward_MissingAnchor_YieldsNothing",
+   "line": 33
+  },
+  {
+   "file": "DrawingCalculatorTests.cs",
+   "name": "Measure_MissingAnchor_YieldsNothing",
+   "line": 91
+  },
+  {
+   "file": "DrawingCalculatorTests.cs",
+   "name": "Measure_AnchorDateBeyondTheChart_YieldsNothing",
+   "line": 144
+  },
+  {
+   "file": "FinraShortVolumeProviderTests.cs",
+   "name": "FetchOhlcv_HolidayFileMissing_SkipsDay_NoThrow",
+   "line": 73
+  },
+  {
+   "file": "FinraShortVolumeProviderTests.cs",
+   "name": "FetchOhlcv_InvalidSymbol_ReturnsEmpty_WithoutHttp",
+   "line": 86
+  },
+  {
+   "file": "FinraShortVolumeProviderTests.cs",
+   "name": "FetchShortInterest_ListedSymbol_NoContent_ReturnsEmpty",
+   "line": 188
+  },
+  {
+   "file": "FrameCodecTests.cs",
+   "name": "ReadFrame_ReadsSuccessiveFramesInOrder_WithoutOverConsuming",
+   "line": 103
+  },
+  {
+   "file": "FrameCodecTests.cs",
+   "name": "ReadFrame_ReturnsUndefinedOpcodeByte_Unvalidated",
+   "line": 289
+  },
+  {
+   "file": "FredProviderTests.cs",
+   "name": "AnEmptyOrMalformedPayloadYieldsNoBarsRatherThanThrowing",
+   "line": 128
+  },
+  {
+   "file": "GeminiTests.cs",
+   "name": "A_spot_account_has_positions_answered_honestly_as_none",
+   "line": 230
+  },
+  {
+   "file": "GeneralOrderServiceTests.cs",
+   "name": "DataOnly_provider_is_skipped_silently_while_a_trading_provider_still_wires_up",
+   "line": 397
+  },
+  {
+   "file": "GeneralOrderServiceTests.cs",
+   "name": "NonStreaming_stop_order_fill_announces_as_stop_hit",
+   "line": 503
+  },
+  {
+   "file": "GeneralOrderServiceTests.cs",
+   "name": "NonStreaming_order_gone_without_fill_is_treated_as_cancelled_not_filled",
+   "line": 530
+  },
+  {
+   "file": "IndicatorOrchestratorIncrementalTests.cs",
+   "name": "RecalculateLastAsync_EmptyData_EarlyReturnsWithoutDispatch",
+   "line": 125
+  },
+  {
+   "file": "IndicatorOrchestratorIncrementalTests.cs",
+   "name": "RecalculateLastAsync_Cancelled_StopsBeforeEngineCall",
+   "line": 144
+  },
+  {
+   "file": "JournalSetupLoggingTests.cs",
+   "name": "DroppedWithNoLabels_IsNotJournaled",
+   "line": 65
+  },
+  {
+   "file": "KeyedFeedsPhaseCTests.cs",
+   "name": "Focused_tab_is_never_background_subscribed_and_disable_stops_feeds",
+   "line": 321
+  },
+  {
+   "file": "KeyedFeedsTests.cs",
+   "name": "Refresh_with_empty_symbol_never_touches_the_network",
+   "line": 112
+  },
+  {
+   "file": "LabRunnerTests.cs",
+   "name": "RunWindows_TooLittleData_ReturnsEmpty",
+   "line": 141
+  },
+  {
+   "file": "LevelCrossingMonitorTests.cs",
+   "name": "SustainedConfirmation_Fires_OnFourthConsecutiveBarBeyondLevel",
+   "line": 124
+  },
+  {
+   "file": "LevelCrossingMonitorTests.cs",
+   "name": "DoesNotFire_WhenValueIsBeyondLevel_InApproachPath",
+   "line": 169
+  },
+  {
+   "file": "LevelCrossingMonitorTests.cs",
+   "name": "IgnoresLevelsWithPlayEarconFalse",
+   "line": 181
+  },
+  {
+   "file": "LevelCrossingMonitorTests.cs",
+   "name": "NoSustainedToneWithoutAnActualCrossing",
+   "line": 273
+  },
+  {
+   "file": "LevelCrossingMonitorTests.cs",
+   "name": "OverboughtStillOnlyWatchesAbove",
+   "line": 307
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Drawn_EmptyHistoryOrNoDrawings_ReturnsEmpty",
+   "line": 167
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Swing_HistoryShorterThanWindow_ReturnsEmpty",
+   "line": 223
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Swing_ExtremumWithinLookbackOfTheLastBar_IsNotAPivotYet",
+   "line": 248
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Swing_PlateauOfEqualHighs_IsNotAPivot",
+   "line": 261
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Ichimoku_NoIchimokuSeries_ReturnsEmpty",
+   "line": 289
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Profile_NonProfileSeries_IsIgnored",
+   "line": 470
+  },
+  {
+   "file": "LevelProviderTests.cs",
+   "name": "Profile_EmptyBins_YieldNoLevels",
+   "line": 527
+  },
+  {
+   "file": "LoukasCyclesProviderTests.cs",
+   "name": "WrongCode_IsIgnored",
+   "line": 346
+  },
+  {
+   "file": "MarketFeedsTests.cs",
+   "name": "NullFetchResult_ReturnsEmpty_NeverNull",
+   "line": 74
+  },
+  {
+   "file": "ModalCloseDispatchTests.cs",
+   "name": "OpenDrawingContextMenu_OpensChartMenu_WhenNoDrawingFocused",
+   "line": 136
+  },
+  {
+   "file": "MoneyPathSafetyTests.cs",
+   "name": "ABracketLegOnTheWrongSideOfTheEntryIsRefusedAndAnnounced",
+   "line": 198
+  },
+  {
+   "file": "MoneyPathSafetyTests.cs",
+   "name": "ACorrectBracketAttachesWithNoComplaint",
+   "line": 230
+  },
+  {
+   "file": "MultiTabTests.cs",
+   "name": "InitialState_HasSingleTab",
+   "line": 35
+  },
+  {
+   "file": "MultiTabTests.cs",
+   "name": "CloseInactiveTab_RemovesSnapshot",
+   "line": 172
+  },
+  {
+   "file": "MyDataTests.cs",
+   "name": "Duplicate_names_are_refused_and_delete_frees_the_name",
+   "line": 159
+  },
+  {
+   "file": "MyDataTests.cs",
+   "name": "Unknown_symbol_returns_empty_not_throw",
+   "line": 234
+  },
+  {
+   "file": "NavigationSonifierClusterTests.cs",
+   "name": "PlayNote_WithADelay_DefersTheVoice_InsteadOfDiscardingIt",
+   "line": 311
+  },
+  {
+   "file": "OhlcvStoreTests.cs",
+   "name": "SeriesAreKeyedSeparately",
+   "line": 74
+  },
+  {
+   "file": "OhlcvStoreTests.cs",
+   "name": "NotEnoughHistory_ReturnsNothingRatherThanAShortBlock",
+   "line": 88
+  },
+  {
+   "file": "OhlcvStoreTests.cs",
+   "name": "StoredBlockNotAdjacentToTheRequestedEdge_IsRefused",
+   "line": 101
+  },
+  {
+   "file": "OhlcvStoreTests.cs",
+   "name": "EmptyStore_ReturnsNothing",
+   "line": 115
+  },
+  {
+   "file": "OhlcvStoreTests.cs",
+   "name": "EmptyInput_IsANoOp",
+   "line": 172
+  },
+  {
+   "file": "PaginationBoundsTests.cs",
+   "name": "ApplyFinalFilters_EmptyInput_ReturnsEmpty",
+   "line": 127
+  },
+  {
+   "file": "PaneLegendTests.cs",
+   "name": "An_empty_or_null_pane_yields_no_rows_rather_than_an_empty_box",
+   "line": 278
+  },
+  {
+   "file": "PaperBackgroundFillTests.cs",
+   "name": "A_stop_fires_on_a_chart_the_user_is_not_looking_at",
+   "line": 69
+  },
+  {
+   "file": "PaperBackgroundFillTests.cs",
+   "name": "A_limit_order_fills_on_a_chart_the_user_is_not_looking_at",
+   "line": 92
+  },
+  {
+   "file": "PaperBackgroundFillTests.cs",
+   "name": "Exposure_is_reported_so_monitors_can_be_started_for_it",
+   "line": 129
+  },
+  {
+   "file": "PaperBackgroundFillTests.cs",
+   "name": "Exposure_survives_a_restart_so_a_forgotten_position_is_still_watched",
+   "line": 145
+  },
+  {
+   "file": "PaperCapabilityConformanceTests.cs",
+   "name": "Declares_TrailingStop_and_a_trailing_stop_actually_trails",
+   "line": 74
+  },
+  {
+   "file": "PaperCapabilityConformanceTests.cs",
+   "name": "Declares_Brackets_and_a_bracket_attaches_both_legs_and_self_cancels",
+   "line": 103
+  },
+  {
+   "file": "PaperCapabilityConformanceTests.cs",
+   "name": "Declares_OCO_and_one_leg_filling_cancels_the_other",
+   "line": 119
+  },
+  {
+   "file": "PaperFillFidelityTests.cs",
+   "name": "AStopOnASlashedSymbol_FiresOnBarsSpelledWithout",
+   "line": 62
+  },
+  {
+   "file": "PaperFillFidelityTests.cs",
+   "name": "AnAliasDies_WithTheExposureItPointedAt",
+   "line": 142
+  },
+  {
+   "file": "PaperFillFidelityTests.cs",
+   "name": "ALimitDoesNotFill_OnALowTheBarPrintedBeforeItWasPlaced",
+   "line": 176
+  },
+  {
+   "file": "PaperLegacyStateTests.cs",
+   "name": "A_pre_withdrawal_leverage_entry_is_clamped_on_load_and_dropped_on_persist",
+   "line": 42
+  },
+  {
+   "file": "PaperShortingTests.cs",
+   "name": "A_short_bigger_than_the_account_can_collateralise_is_refused_with_the_numbers",
+   "line": 122
+  },
+  {
+   "file": "PaperShortingTests.cs",
+   "name": "A_short_closed_lower_returns_the_collateral_and_the_profit",
+   "line": 142
+  },
+  {
+   "file": "PaperShortingTests.cs",
+   "name": "A_short_is_bought_in_when_its_collateral_is_exhausted",
+   "line": 190
+  },
+  {
+   "file": "PaperShortingTests.cs",
+   "name": "Liquidation_fires_on_the_bars_high_not_its_close",
+   "line": 228
+  },
+  {
+   "file": "PaperShortingTests.cs",
+   "name": "Liquidation_withdraws_the_protective_orders_too",
+   "line": 257
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Market_order_fails_when_symbol_has_no_live_price",
+   "line": 85
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Stop_loss_fires_on_exact_touch_of_trigger",
+   "line": 114
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Stop_loss_fires_on_penetration_below_trigger",
+   "line": 133
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Take_profit_fires_when_high_reaches_target",
+   "line": 152
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Limit_buy_rests_until_price_trades_down_to_it",
+   "line": 173
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Reset_restores_starting_balance_and_wipes_positions_orders_history",
+   "line": 237
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Resting_order_for_another_symbol_never_fills_on_this_chart",
+   "line": 282
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Oco_fill_of_one_leg_cancels_the_other",
+   "line": 320
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Oco_stop_leg_fill_cancels_the_limit_leg",
+   "line": 333
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Oco_manual_cancel_of_one_leg_cancels_the_pair",
+   "line": 345
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Oco_wide_bar_crossing_both_legs_fills_only_one",
+   "line": 356
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Oco_group_survives_a_restart",
+   "line": 376
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Bracket_stop_fill_cancels_the_take_profit",
+   "line": 420
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Bracket_take_profit_fill_cancels_the_stop",
+   "line": 441
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Resting_buy_that_the_account_can_no_longer_afford_is_cancelled_not_filled",
+   "line": 495
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Rejects_an_order_whose_fee_alone_would_overdraw",
+   "line": 558
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "Liquidation_may_leave_cash_negative_and_reset_recovers_the_account",
+   "line": 603
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_buy_stop_below_the_market_is_rejected_at_placement",
+   "line": 631
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_sell_stop_above_the_market_is_rejected_at_placement",
+   "line": 647
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_stop_entry_using_StopLoss_as_its_trigger_does_not_also_stop_itself_out",
+   "line": 781
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_bracket_leg_left_behind_by_a_manual_close_is_cancelled_not_filled",
+   "line": 826
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_partial_close_clamps_the_leg_to_what_is_left",
+   "line": 850
+  },
+  {
+   "file": "PaperTradingProviderTests.cs",
+   "name": "A_reduce_only_market_order_against_a_closed_position_does_not_reverse_it",
+   "line": 868
+  },
+  {
+   "file": "PersistenceHardeningTests.cs",
+   "name": "AtomicFile_LeavesNoTempFilesBehind",
+   "line": 68
+  },
+  {
+   "file": "PersistenceHardeningTests.cs",
+   "name": "StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset",
+   "line": 155
+  },
+  {
+   "file": "PersistenceHardeningTests.cs",
+   "name": "StrategyLibrary_UserSpecSurvivesReload",
+   "line": 179
+  },
+  {
+   "file": "PipelineIdentityAndResilienceTests.cs",
+   "name": "Store_update_is_dropped_when_another_tab_took_focus_during_the_fetch",
+   "line": 134
+  },
+  {
+   "file": "PipelineIdentityAndResilienceTests.cs",
+   "name": "DataService_still_surfaces_a_provider_bug_as_an_empty_result",
+   "line": 299
+  },
+  {
+   "file": "PipelineIdentityAndResilienceTests.cs",
+   "name": "Transport_failure_is_retried_exactly_once",
+   "line": 316
+  },
+  {
+   "file": "ProfileAnchoringTests.cs",
+   "name": "EmptyDataIsHandledWithoutThrowing",
+   "line": 144
+  },
+  {
+   "file": "ProviderCapabilityAuditTests.cs",
+   "name": "AnAbsentDeclarationIsReportedAsUnparsedNotAsEmpty",
+   "line": 103
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "FuturesMarket_RoutesToFapiEndpoint",
+   "line": 105
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 118
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 175
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "NoDataStatus_ReturnsEmpty",
+   "line": 212
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 223
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 302
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "ErrorStatus_ReturnsEmpty",
+   "line": 337
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MissingValuesNode_ReturnsEmpty",
+   "line": 349
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 360
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 451
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 529
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "HttpForbidden_ReturnsEmpty_NoThrow",
+   "line": 546
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "ConIdUnresolvable_ReturnsEmpty_NoHistoryCall",
+   "line": 665
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MissingDataNode_ReturnsEmpty",
+   "line": 678
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedHistoryJson_ReturnsEmpty_NoThrow",
+   "line": 691
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 751
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "EmptyCandles_ReturnsEmpty",
+   "line": 797
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "MalformedBody_ReturnsEmpty_NoThrow",
+   "line": 810
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.Enrollment.cs",
+   "name": "TokenEndpointRejects_ReturnsEmpty_NoThrow",
+   "line": 842
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_ReturnsEmpty_NoThrow",
+   "line": 102
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MissingDataNode_ReturnsEmpty",
+   "line": 113
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NonSuccessStatus_ReturnsEmpty",
+   "line": 124
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownTimeframe_ReturnsEmpty_DoesNotCallHttp",
+   "line": 135
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttpCall",
+   "line": 215
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_ReturnsEmpty",
+   "line": 229
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MissingResults_ReturnsEmpty",
+   "line": 240
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty",
+   "line": 297
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty",
+   "line": 336
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_ReturnsEmpty",
+   "line": 407
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MissingDataKey_ReturnsEmpty",
+   "line": 418
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty",
+   "line": 443
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty",
+   "line": 468
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSuffix_ReturnsEmpty_NoHttpCall",
+   "line": 496
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "FundingMalformedJson_ReturnsEmpty_NoThrow",
+   "line": 529
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_PublishesToErrorStream_ButReturnsEmpty",
+   "line": 590
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 615
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty_NoHttp",
+   "line": 628
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 682
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty",
+   "line": 695
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 712
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSuffix_ReturnsEmpty",
+   "line": 739
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty",
+   "line": 764
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "UnknownSymbol_ReturnsEmpty",
+   "line": 789
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MissingResultKey_ReturnsEmpty",
+   "line": 864
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_ReturnsEmpty",
+   "line": 874
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 928
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "MalformedJson_ReturnsEmpty",
+   "line": 1000
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NotConfigured_ReturnsEmpty_NoHttp",
+   "line": 1036
+  },
+  {
+   "file": "ProviderFetchOhlcvTests.cs",
+   "name": "NoCredsInHost_ReturnsEmpty",
+   "line": 1252
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "AllZeroKline_Dropped",
+   "line": 91
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "FrameWithoutKlinePayload_NoEmission",
+   "line": 105
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "NonExecutionReportEvent_NoEmission",
+   "line": 154
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "SmdFrame_ZeroOrMissingLast_NoEmission",
+   "line": 187
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "MalformedFrame_DoesNotThrow_NoEmission",
+   "line": 219
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "UnknownTopic_NoEmission",
+   "line": 227
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "ZeroPrice_Discarded",
+   "line": 256
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "NonPriceEvent_NoEmission",
+   "line": 265
+  },
+  {
+   "file": "ProviderLiveStreamTests.Enrollment.cs",
+   "name": "MalformedFrame_DoesNotThrow_NoEmission",
+   "line": 274
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "TradeFrame_WithZeroPrice_DoesNotEmit",
+   "line": 80
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "TradeFrame_WithPreBitcoinTimestamp_Discarded",
+   "line": 92
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "MalformedFrame_DoesNotThrow_AndDoesNotEmit",
+   "line": 126
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "UnknownEventChannel_NoEmissions",
+   "line": 134
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "OrderCreated_RegistersBaseline_ButDoesNotAnnounce",
+   "line": 151
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "HyphenChannel_DoesNotMatch_NoEmission",
+   "line": 229
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "EmptyUpdates_DoesNotEmit",
+   "line": 295
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "MalformedFrame_DoesNotThrow",
+   "line": 313
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "UnknownChannel_DoesNotEmit",
+   "line": 321
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "AllZeroBar_Dropped",
+   "line": 365
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "MalformedFrame_DoesNotThrow",
+   "line": 375
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "OhlcAllZero_Dropped",
+   "line": 445
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "EmptyBookSnapshot_DoesNotEmit",
+   "line": 479
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "MalformedFrame_DoesNotThrow",
+   "line": 497
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "NonTradeFrame_NoEmission",
+   "line": 530
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "EmptyTradeArray_NoEmission",
+   "line": 539
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "ZeroPriceTrade_Discarded",
+   "line": 550
+  },
+  {
+   "file": "ProviderLiveStreamTests.cs",
+   "name": "MalformedFrame_DoesNotThrow",
+   "line": 559
+  },
+  {
+   "file": "QuickScreenBuilderTests.cs",
+   "name": "Cloud_and_level_kinds_offer_only_their_own_semantics",
+   "line": 42
+  },
+  {
+   "file": "QuickScreenBuilderTests.cs",
+   "name": "FromRoot_on_a_null_root_yields_an_empty_editable_screen",
+   "line": 273
+  },
+  {
+   "file": "QuickScreenBuilderTests.cs",
+   "name": "FilterSymbols_trims_the_query_and_survives_an_empty_universe",
+   "line": 412
+  },
+  {
+   "file": "QuickTradeTests.cs",
+   "name": "ArmingWithoutAStopCannotPlace",
+   "line": 109
+  },
+  {
+   "file": "ReferenceLevelTests.cs",
+   "name": "GetLevels_MovingAverages_ReturnsEmptyList",
+   "line": 102
+  },
+  {
+   "file": "ReferenceLevelTests.cs",
+   "name": "GetLevels_Volatility_ReturnsEmptyList",
+   "line": 112
+  },
+  {
+   "file": "ReferenceLevelTests.cs",
+   "name": "GetLevels_Bands_ReturnsEmptyList",
+   "line": 123
+  },
+  {
+   "file": "ReferenceLevelTests.cs",
+   "name": "RegisterSeries_SMA_InjectsNoLevels",
+   "line": 205
+  },
+  {
+   "file": "ReplayServiceTests.cs",
+   "name": "Step_WhenInactive_ReturnsMinusOneAndDispatchesNothing",
+   "line": 153
+  },
+  {
+   "file": "ReplayServiceTests.cs",
+   "name": "Stop_WhenInactive_IsANoOp",
+   "line": 180
+  },
+  {
+   "file": "ResilienceTests.cs",
+   "name": "FetchOhlcv_WhenNonRetriableExceptionThrown_ShouldReturnEmptyAndFault",
+   "line": 47
+  },
+  {
+   "file": "ResilienceTests.cs",
+   "name": "FetchOhlcv_WhenHttpExceptionThrown_ShouldReturnEmptyAndFaultAfterRetry",
+   "line": 75
+  },
+  {
+   "file": "ResilienceTests.cs",
+   "name": "FetchOhlcv_WhenCircuitAlreadyOpen_ShouldReturnEmptyAndFaultQuickly",
+   "line": 101
+  },
+  {
+   "file": "ResilienceTests.cs",
+   "name": "FetchOhlcv_WhenCancelled_ShouldReturnEmptyCleanly",
+   "line": 128
+  },
+  {
+   "file": "ResilienceTests.cs",
+   "name": "FetchOhlcv_WhenSilentAndFails_ShouldNotPublishEventsOrChangeState",
+   "line": 179
+  },
+  {
+   "file": "SecEdgarProviderTests.cs",
+   "name": "AnUnexpectedShapeYieldsAnEmptySeriesRatherThanAnException",
+   "line": 135
+  },
+  {
+   "file": "SecEdgarProviderTests.cs",
+   "name": "UnknownTicker_ReportsItRatherThanFailingSilently",
+   "line": 204
+  },
+  {
+   "file": "SecEdgarProviderTests.cs",
+   "name": "ASymbolWithNoMetric_IsReportedRatherThanGuessedAt",
+   "line": 234
+  },
+  {
+   "file": "SecEdgarProviderTests.cs",
+   "name": "AConceptTheFilerDoesNotReport_IsEmptyAndNotAnError",
+   "line": 262
+  },
+  {
+   "file": "SecurityEventFileSinkTests.cs",
+   "name": "Record_NullEvent_DoesNotThrow",
+   "line": 130
+  },
+  {
+   "file": "SetupAlertBridgeTests.cs",
+   "name": "Disabled_ByDefault_PublishesNothing",
+   "line": 38
+  },
+  {
+   "file": "ShortcutManagerTests.cs",
+   "name": "UpdateBinding_ToAFreeCombo_ReportsNothingDisplaced",
+   "line": 135
+  },
+  {
+   "file": "SilentFailureTests.cs",
+   "name": "ABareBoundaryStaysEarconOnly",
+   "line": 56
+  },
+  {
+   "file": "SkenderCalculationCoreTests.cs",
+   "name": "UnknownCode_IsASilentNoOp",
+   "line": 111
+  },
+  {
+   "file": "SoundPatchLibraryTests.cs",
+   "name": "LegacyPatch_WithoutOscillators_StillLoads",
+   "line": 96
+  },
+  {
+   "file": "StrategyBacktesterTests.cs",
+   "name": "Warmup_DropsSignalsBeforeCutoff",
+   "line": 75
+  },
+  {
+   "file": "StrategyBacktesterTests.cs",
+   "name": "InsufficientData_ReturnsEmptyResultWithMessage",
+   "line": 225
+  },
+  {
+   "file": "StrategyBundleTests.cs",
+   "name": "FreshLibrary_IsEmpty_NothingIsSeeded",
+   "line": 70
+  },
+  {
+   "file": "StrategyBundleTests.cs",
+   "name": "FreshLibrary_AfterReload_IsStillEmpty",
+   "line": 80
+  },
+  {
+   "file": "StrategyBundleTests.cs",
+   "name": "Import_NeverOverwritesAnExistingSpec",
+   "line": 130
+  },
+  {
+   "file": "StrategyBundleTests.cs",
+   "name": "Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode",
+   "line": 169
+  },
+  {
+   "file": "StrategyBundleTests.cs",
+   "name": "Import_RejectsSpecsMissingConditionsOrRisk",
+   "line": 181
+  },
+  {
+   "file": "StrategyCausalityGateTests.cs",
+   "name": "A_causal_strategy_passes_and_is_actually_exercised",
+   "line": 116
+  },
+  {
+   "file": "StrategyCausalityGateTests.cs",
+   "name": "Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal",
+   "line": 215
+  },
+  {
+   "file": "StrategyCausalityGateTests.cs",
+   "name": "A_library_whose_strategies_all_load_says_nothing",
+   "line": 376
+  },
+  {
+   "file": "StrategyCausalityGateTests.cs",
+   "name": "CompileStrategyAsync_loads_a_causal_script",
+   "line": 431
+  },
+  {
+   "file": "StrategyLabTests.cs",
+   "name": "Snapshot_CacheKey_MatchesRequestKeyConvention_AndRoundTrips",
+   "line": 105
+  },
+  {
+   "file": "StrategyPluginRegistryTests.cs",
+   "name": "UnloadAll_clears_templates_and_permits_reinitialise",
+   "line": 86
+  },
+  {
+   "file": "StrategyPluginRegistryTests.cs",
+   "name": "RequireTrusted_without_manifest_entry_skips_plugin",
+   "line": 101
+  },
+  {
+   "file": "StrategyPluginRegistryTests.cs",
+   "name": "MissingDirectory_is_tolerated",
+   "line": 139
+  },
+  {
+   "file": "StrategyPositionManagementTests.cs",
+   "name": "A_repeat_signal_on_the_same_side_adds_nothing_and_rearms_the_plan",
+   "line": 463
+  },
+  {
+   "file": "StrategyPositionManagementTests.cs",
+   "name": "A_readopted_position_stops_the_restart_from_opening_a_second_one",
+   "line": 536
+  },
+  {
+   "file": "StrategyPositionManagementTests.cs",
+   "name": "Registering_a_spec_on_a_fresh_engine_restores_its_position",
+   "line": 776
+  },
+  {
+   "file": "StringIndicatorParameterTests.cs",
+   "name": "ApplyParametersRoutesEachValueToTheDictionaryThatCanHoldIt",
+   "line": 44
+  },
+  {
+   "file": "StringIndicatorParameterTests.cs",
+   "name": "AnEmptyStringIsNotStoredAsAParameter",
+   "line": 91
+  },
+  {
+   "file": "SwingStructureTests.cs",
+   "name": "EmptySeries_IsHandledWithoutThrowing",
+   "line": 188
+  },
+  {
+   "file": "TelegramAlertChannelTests.cs",
+   "name": "SendAsync_Unconfigured_DoesNotPost",
+   "line": 66
+  },
+  {
+   "file": "TradierAccountEventTests.cs",
+   "name": "NonOrder_and_malformed_payloads_stay_silent",
+   "line": 120
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Paper_startup_with_flat_account_stays_silent",
+   "line": 83
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Live_mode_startup_does_not_touch_the_paper_account",
+   "line": 93
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Data_only_provider_connect_stays_silent",
+   "line": 138
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Live_connect_while_in_paper_mode_stays_silent",
+   "line": 151
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Flat_live_account_on_connect_stays_silent",
+   "line": 166
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Position_comfortably_clear_of_liquidation_stays_silent",
+   "line": 305
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "Spot_position_without_a_liquidation_price_never_warns",
+   "line": 324
+  },
+  {
+   "file": "TradingReconciliationTests.cs",
+   "name": "A_spot_only_provider_reports_no_positions_without_announcing_anything",
+   "line": 435
+  },
+  {
+   "file": "TreeAlertTests.cs",
+   "name": "TreeAlert_FiresOnRisingEdge_Once",
+   "line": 70
+  },
+  {
+   "file": "TreeAlertTests.cs",
+   "name": "TreeAlert_ReArmsAfterGoingFalse",
+   "line": 83
+  },
+  {
+   "file": "TreeAlertTests.cs",
+   "name": "TreeAlert_RepeatIfStillActive_HonoursCooldown",
+   "line": 95
+  },
+  {
+   "file": "TreeAlertTests.cs",
+   "name": "TreeAlert_NoEvaluatorInjected_NeverFires_NeverThrows",
+   "line": 126
+  },
+  {
+   "file": "UniverseRecorderTests.cs",
+   "name": "AnEmptySweepIsRefusedRatherThanWrittenAsAMassDelisting",
+   "line": 139
+  },
+  {
+   "file": "VolRegimeProviderTests.cs",
+   "name": "EmptySeries_IsANoOp_NotAnIndexOutOfRange",
+   "line": 109
+  },
+  {
+   "file": "VpvrBacktestReplayTests.cs",
+   "name": "VolumeProfileLevelProvider_ReturnsEmptyWhenNoProfileSeries",
+   "line": 130
+  },
+  {
+   "file": "WatchlistLibraryTests.cs",
+   "name": "MissingFile_StartsEmptyAndDoesNotThrow",
+   "line": 42
+  },
+  {
+   "file": "WatchlistLibraryTests.cs",
+   "name": "CorruptFile_IsQuarantinedInsteadOfSilentlyOverwritten",
+   "line": 133
+  },
+  {
+   "file": "WatchlistLibraryTests.cs",
+   "name": "Remove_DropsTheListAndPersists",
+   "line": 149
+  },
+  {
+   "file": "WebHost/ChartAreaBarSliderTests.cs",
+   "name": "Slider_is_absent_on_non_touch_devices_even_with_data",
+   "line": 37
+  },
+  {
+   "file": "WebHost/ChartAreaBarSliderTests.cs",
+   "name": "Slider_is_absent_until_chart_data_loads",
+   "line": 51
+  },
+  {
+   "file": "WebHost/ChartAreaBrowserCanvasBranchTests.cs",
+   "name": "MauiHost_NoImageElementIsRendered",
+   "line": 34
+  },
+  {
+   "file": "WebHost/HostedAlertMonitorTests.cs",
+   "name": "Missing_users_root_yields_no_users_not_an_exception",
+   "line": 40
+  },
+  {
+   "file": "WebHost/LocalBackgroundMonitorTests.cs",
+   "name": "Persistent_evaluator_fires_a_cross_once_not_every_poll",
+   "line": 152
+  },
+  {
+   "file": "WebHost/PaperAccountAttachmentGuardTests.cs",
+   "name": "Hosted_with_no_circuit_user_refuses_instead_of_binding_everyone_to_anon",
+   "line": 47
+  },
+  {
+   "file": "WebHost/SpeechOutputModeTests.cs",
+   "name": "ScreenReader_mode_keeps_the_live_region_but_never_publishes_browser_speech",
+   "line": 57
+  },
+  {
+   "file": "WebHost/SpeechOutputModeTests.cs",
+   "name": "BrowserVoice_mode_silences_the_live_region_and_keeps_the_browser_voice",
+   "line": 72
+  },
+  {
+   "file": "WebHost/SpeechOutputModeTests.cs",
+   "name": "LiveRegionEnabled_false_skips_OnSpeak_and_does_not_queue",
+   "line": 121
+  },
+  {
+   "file": "WebHost/TrayControllerTests.cs",
+   "name": "ShowAlerts_with_none_speaks_and_does_not_open",
+   "line": 75
+  },
+  {
+   "file": "WebHost/TrayStateTests.cs",
+   "name": "Dismiss_removes_it_from_the_snapshot",
+   "line": 58
+  },
+  {
+   "file": "WebHost/WebHostAudioDriverBackendPickerTests.cs",
+   "name": "ReturnsNullPathWhenNothingFound",
+   "line": 74
+  },
+  {
+   "file": "WebHost/WebHostAudioDriverBackendPickerTests.cs",
+   "name": "NonLinuxAlwaysReturnsNullEvenIfPredicateLies",
+   "line": 85
+  },
+  {
+   "file": "WebHost/WebHostFullModeIntegrationTests.cs",
+   "name": "Alerts_page_lifecycle_no_alerts_then_read_then_dismiss",
+   "line": 36
+  },
+  {
+   "file": "WebHost/WebHostSpeechManagerForwardingTests.cs",
+   "name": "SpeakWithEmptyTextStillInvokesInnerButDoesNotPublish",
+   "line": 55
+  },
+  {
+   "file": "WebHost/WebHostSpeechManagerForwardingTests.cs",
+   "name": "SpeakWhenSpeechDisabledStillInvokesInnerButSkipsPublish",
+   "line": 73
+  },
+  {
+   "file": "WebHost/WebPushTests.cs",
+   "name": "Add_dedupes_by_endpoint_and_isolates_users",
+   "line": 56
+  },
+  {
+   "file": "WebHost/WebPushTests.cs",
+   "name": "Malformed_subscriptions_are_rejected",
+   "line": 76
+  },
+  {
+   "file": "WebHostPathAndLoggerTests.cs",
+   "name": "Low_severity_never_reaches_the_error_surface",
+   "line": 91
+  },
+  {
+   "file": "WebhookAlertChannelTests.cs",
+   "name": "ParseWebhooks_NoNamedList_NoLegacy_ReturnsEmpty",
+   "line": 236
+  },
+  {
+   "file": "WikipediaPageviewsProviderTests.cs",
+   "name": "Parse_ReturnsEmptyForAnUnexpectedShape",
+   "line": 96
+  },
+  {
+   "file": "WikipediaPageviewsProviderTests.cs",
+   "name": "NoDataForTheWindow_ReturnsEmptyWithoutRaisingAnError",
+   "line": 157
+  },
+  {
+   "file": "WithdrawalReleaseGateTests.cs",
+   "name": "The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed",
+   "line": 136
+  },
+  {
+   "file": "WorkerDispatcherTests.cs",
+   "name": "RunAsync_CancelledToken_ServesNothing",
+   "line": 432
+  },
+  {
+   "file": "WorkspacePersistenceGapTests.cs",
+   "name": "LoadAlerts_quarantines_a_corrupt_file_instead_of_swallowing_it",
+   "line": 46
+  },
+  {
+   "file": "WorkspaceProjectionTests.cs",
+   "name": "The_not_carried_properties_come_back_at_their_defaults_rather_than_at_the_hosts_values",
+   "line": 125
+  },
+  {
+   "file": "WorkspaceProjectionTests.cs",
+   "name": "An_empty_workspace_round_trips_without_a_null_anywhere",
+   "line": 290
+  },
+  {
+   "file": "WorkspaceStoreTests.cs",
+   "name": "InitialState_MatchesWorkspaceStateInitial",
+   "line": 57
+  }
+ ],
+ "per_file": {
+  "AIAnalystServiceTests.cs": 16,
+  "AccessibilityPipelineTests.cs": 10,
+  "ActionRoutingReachabilityTests.cs": 3,
+  "AddIndicatorSearchTests.cs": 6,
+  "AlertDegradationSurfacedTests.cs": 4,
+  "AlertEvaluatorTests.cs": 11,
+  "AlertOrchestratorTests.cs": 12,
+  "AlertPipelineArmedTests.cs": 3,
+  "AlertTestSenderTests.cs": 5,
+  "AlpacaBracketTests.cs": 5,
+  "AnalyticsSeriesCacheTests.cs": 5,
+  "ApiKeyChangeRefreshTests.cs": 5,
+  "ApiKeyServiceTests.cs": 16,
+  "AppSettingsTests.cs": 5,
+  "AssetAwareCrossSeriesTests.cs": 8,
+  "AssetClassifierTests.cs": 3,
+  "AssetDossierTests.cs": 23,
+  "AudioDiagnosticTests.cs": 2,
+  "AudioEngineSlotAndPanTests.cs": 20,
+  "AudioEngineTelemetryTests.cs": 4,
+  "AudioPerceptualTests.cs": 7,
+  "AuthoringDocParityTests.cs": 7,
+  "AutoNarrationTests.cs": 10,
+  "BackgroundMonitoringTests.cs": 10,
+  "BacktestMathFixTests.cs": 5,
+  "BarDetailContextTests.cs": 14,
+  "BarFillTests.cs": 12,
+  "Blazor/AlertsModalTests.cs": 10,
+  "Blazor/AriaValueScanTests.cs": 3,
+  "Blazor/BuildSetupTabTests.cs": 10,
+  "Blazor/ChartContextMenuTests.cs": 6,
+  "Blazor/ModalAccessibilityContractTests.cs": 2,
+  "Blazor/ModalCatalog.cs": 2,
+  "Blazor/ModalDisposeLeakTests.cs": 3,
+  "Blazor/ModalEscapeCloseTests.cs": 3,
+  "Blazor/ObjectTreeModalTests.cs": 1,
+  "Blazor/OrderBookModalTests.cs": 7,
+  "Blazor/PropertiesModalTests.cs": 14,
+  "Blazor/SaveWorkspaceEnterKeyTests.cs": 4,
+  "Blazor/SettingsModalTests.cs": 18,
+  "Blazor/SoundDesignerModalTests.cs": 3,
+  "Blazor/StrategyModalTests.cs": 9,
+  "Blazor/TabBarTests.cs": 2,
+  "Blazor/ToolbarIconButtonTests.cs": 2,
+  "Blazor/TouchNavBarTests.cs": 8,
+  "Blazor/TradingDashboardModalTests.cs": 1,
+  "Blazor/VisualEarconOverlayTests.cs": 4,
+  "BoolIndicatorParameterTests.cs": 6,
+  "BrokerOrderStatusMappingTests.cs": 7,
+  "BrokerParityTests.cs": 23,
+  "BrokerPlacementParityTests.cs": 16,
+  "BunitAsyncSettleGuardTests.cs": 1,
+  "CandlePatternAnalyzerTests.cs": 17,
+  "CatalogueProvenanceTests.cs": 9,
+  "CftcProviderTests.cs": 8,
+  "ChartFormationLayerTests.cs": 7,
+  "ChartHitTesterAndRangeTests.cs": 10,
+  "ChartLayoutDescriberTests.cs": 15,
+  "ChartMathPointerMappingTests.cs": 10,
+  "ChartMathRenderingTests.cs": 25,
+  "ChartMouseInteractionTests.cs": 17,
+  "ChartPatternCausalityTests.cs": 4,
+  "ChartPatternDetectorTests.cs": 26,
+  "ChartPatternPinNarrationTests.cs": 6,
+  "ChartPatternPositionTests.cs": 35,
+  "ChartRenderRateLimitTests.cs": 2,
+  "CheckoutLatencyTrackerTests.cs": 6,
+  "CipherAMetadataTests.cs": 14,
+  "CipherBMetadataTests.cs": 17,
+  "CipherCProviderTests.cs": 46,
+  "CipherSrMetadataTests.cs": 8,
+  "CircularBufferTests.cs": 3,
+  "CloudFillCrossoverTests.cs": 4,
+  "CloudSonificationTests.cs": 9,
+  "ClusterTicksFireOnNavigationTests.cs": 2,
+  "CommandDispatcherGatingTests.cs": 12,
+  "ComponentSpeechKeyTests.cs": 1,
+  "ConditionEvaluatorHtfTests.cs": 10,
+  "ConfigurableStrategyLiveWarmupTests.cs": 5,
+  "ConfigurableStrategyPrewarmTests.cs": 4,
+  "CotPositioningIndicatorTests.cs": 5,
+  "CrossEarconTests.cs": 3,
+  "CrossingNavigationTests.cs": 3,
+  "CryptoAddressValidatorTests.cs": 15,
+  "CultureInvariantScanTests.cs": 4,
+  "CustomIndicatorCausalityTests.cs": 10,
+  "DashboardCapabilityGatingTests.cs": 6,
+  "DataOrchestratorResilienceTests.cs": 10,
+  "DeDeCultureTests.cs": 1,
+  "DecayMsTests.cs": 4,
+  "DemoPolicyTests.cs": 14,
+  "DeribitProviderTests.cs": 5,
+  "DialogContrastScanTests.cs": 3,
+  "DispatcherAffinityScanTests.cs": 4,
+  "DivergenceConfirmLagTests.cs": 5,
+  "DotpadTactileDriverTests.cs": 49,
+  "DrawingCalculatorGeometryTests.cs": 12,
+  "DrawingCalculatorTests.cs": 9,
+  "DrawingInteractionManagerMouseDispatchTests.cs": 9,
+  "EarconServiceTests.cs": 8,
+  "EdgeRegistryTests.cs": 14,
+  "EmptyComponentListSurvivalTests.cs": 6,
+  "EmptyLoadHonestyTests.cs": 7,
+  "EventSubscriberRegistrationTests.cs": 3,
+  "ExchangeTimeTests.cs": 3,
+  "FeedbackTypeCoverageTests.cs": 9,
+  "FinraShortVolumeProviderTests.cs": 11,
+  "FocusTabBarDispatchTests.cs": 2,
+  "FrameCodecTests.cs": 14,
+  "FredProviderTests.cs": 9,
+  "GdeltRecorderTests.cs": 7,
+  "GeminiTests.cs": 18,
+  "GeneralOrderServiceTests.cs": 22,
+  "GradesTests.cs": 3,
+  "HostParityTests.cs": 4,
+  "HostedPaperModeTests.cs": 7,
+  "HostedProviderChoiceTests.cs": 5,
+  "HostedSettingsPersistenceTests.cs": 3,
+  "HostileScriptTests.cs": 12,
+  "IchimokuProviderTests.cs": 16,
+  "IndicatorBoolParameterReachabilityTests.cs": 7,
+  "IndicatorCausalityTests.cs": 8,
+  "IndicatorOrchestratorIncrementalTests.cs": 11,
+  "IndicatorPrefsPerUserIsolationTests.cs": 3,
+  "IndicatorTests.cs": 2,
+  "IndicatorsThatRenderNothingTests.cs": 5,
+  "InputRoutingTests.cs": 10,
+  "IntegrationDiagnosticTests.cs": 1,
+  "JournalSetupLoggingTests.cs": 3,
+  "KellyPositionSizerTests.cs": 8,
+  "KeyedFeedsHardeningTests.cs": 10,
+  "KeyedFeedsPhaseBTests.cs": 18,
+  "KeyedFeedsPhaseCTests.cs": 11,
+  "KeyedFeedsTests.cs": 21,
+  "KrakenFuturesTests.cs": 12,
+  "KrakenWalletTests.cs": 9,
+  "LLMProviderTransportTests.cs": 10,
+  "LabCatalogueCommandTests.cs": 8,
+  "LabRunnerTests.cs": 4,
+  "LabStatsTests.cs": 14,
+  "LevelCrossingMonitorTests.cs": 14,
+  "LevelProviderTests.cs": 32,
+  "LevelRespectAnalyzerTests.cs": 19,
+  "LinuxBwrapLauncherTests.cs": 6,
+  "LinuxBwrapSandboxTests.cs": 9,
+  "LoukasCyclesProviderTests.cs": 16,
+  "MainPaneLevelUnitsTests.cs": 4,
+  "MarkerLegibilityTests.cs": 5,
+  "MarkerSizingTests.cs": 12,
+  "MarketFeedWatchdogTests.cs": 5,
+  "MarketFeedsTests.cs": 4,
+  "MarketOrchestratorConsolidationTests.cs": 4,
+  "MarketOrchestratorTitleReadinessTests.cs": 3,
+  "MasterGainTests.cs": 6,
+  "MexcProtobufDecodeTests.cs": 7,
+  "ModalCloseDispatchTests.cs": 5,
+  "ModalContractScanTests.cs": 7,
+  "MoneyPathSafetyTests.cs": 12,
+  "MouseHandlerWiringTests.cs": 2,
+  "MultiTabTests.cs": 14,
+  "MuteTierTests.cs": 13,
+  "MyDataEventsProviderTests.cs": 5,
+  "MyDataMarketReachableTests.cs": 4,
+  "MyDataSeriesProviderTests.cs": 8,
+  "MyDataTests.cs": 16,
+  "NavigationSlotZeroOwnershipTests.cs": 2,
+  "NavigationSonifierClusterTests.cs": 13,
+  "NavigationUtteranceTests.cs": 6,
+  "OcoPairTests.cs": 9,
+  "OhlcvStoreTests.cs": 10,
+  "OrderContractShipBlockerTests.cs": 9,
+  "OrderEventAnnouncementTests.cs": 14,
+  "OrderFailureHonestyTests.cs": 11,
+  "OrderPostRetrySafetyTests.cs": 6,
+  "OrderSafetyTests.cs": 15,
+  "OrderStatusContractTests.cs": 4,
+  "OscillatorPatchTests.cs": 7,
+  "OutOfProcessScriptingTests.cs": 2,
+  "OutOfProcessStrategyTests.cs": 12,
+  "OutboundNetworkGuardTests.cs": 10,
+  "PaginationBoundsTests.cs": 9,
+  "PaneLegendTests.cs": 22,
+  "PaperAccountSharingTests.cs": 8,
+  "PaperBackgroundFillTests.cs": 6,
+  "PaperCapabilityConformanceTests.cs": 6,
+  "PaperFillFidelityTests.cs": 10,
+  "PaperLegacyStateTests.cs": 1,
+  "PaperShortingTests.cs": 17,
+  "PaperTradingProviderTests.cs": 44,
+  "PerUserPathPolicyTests.cs": 5,
+  "PersistenceHardeningTests.cs": 10,
+  "Phase5KeyboardScopeTests.cs": 3,
+  "PineTranspilerWarningsTests.cs": 8,
+  "PipelineIdentityAndResilienceTests.cs": 13,
+  "PlaybackLayerTests.cs": 4,
+  "PluginDependencyIsolationTests.cs": 1,
+  "PluginLoaderServiceTests.cs": 1,
+  "PortfolioValuationTests.cs": 15,
+  "PostAuditRegressionTests.cs": 8,
+  "PreferencePersistenceTests.cs": 4,
+  "PreferenceRoundTripTests.cs": 2,
+  "PriceFormatScanTests.cs": 2,
+  "PricePrecisionTests.cs": 10,
+  "ProfileAnchoringTests.cs": 8,
+  "ProtectiveLevelValidatorTests.cs": 9,
+  "ProviderCapabilityAuditTests.cs": 9,
+  "ProviderCapabilityHonestyTests.cs": 10,
+  "ProviderConformanceTests.cs": 3,
+  "ProviderCredentialBridgeEnrollmentTests.cs": 4,
+  "ProviderFetchOhlcvTests.Enrollment.cs": 45,
+  "ProviderFetchOhlcvTests.cs": 61,
+  "ProviderLiveStreamTests.Enrollment.cs": 17,
+  "ProviderLiveStreamTests.cs": 32,
+  "ProviderNameLiteralTests.cs": 3,
+  "ProviderRoster.cs": 2,
+  "ProviderSpeechStrategyTests.cs": 7,
+  "ProviderStreamAndSigningTests.cs": 15,
+  "ProviderSymbolNormalisationTests.cs": 13,
+  "ProviderTimeframeContractTests.cs": 5,
+  "QuickScreenBuilderTests.cs": 29,
+  "QuickTradeEquityFetchTests.cs": 7,
+  "QuickTradeFailureReportingTests.cs": 12,
+  "QuickTradePlacementSpeechTests.cs": 8,
+  "QuickTradeSizingModeTests.cs": 11,
+  "QuickTradeTests.cs": 14,
+  "RazorMarkupHazardTests.cs": 3,
+  "ReferenceLevelIntegrationTests.cs": 7,
+  "ReferenceLevelPlacementTests.cs": 6,
+  "ReferenceLevelTests.cs": 15,
+  "RegimeDetectorTests.cs": 6,
+  "RenderLayerTests.cs": 21,
+  "ReplayServiceTests.cs": 14,
+  "ResilienceTests.cs": 6,
+  "ResolveBarColorTests.cs": 10,
+  "RiskPercentPositionSizerTests.cs": 5,
+  "RobustnessTestSuite.cs": 1,
+  "SchwabOAuthTokenPersistenceTests.cs": 5,
+  "ScreenerServiceTests.cs": 13,
+  "ScreenerTests.cs": 10,
+  "ScriptReferenceSetTests.cs": 6,
+  "ScriptWorkerMemoryLimitTests.cs": 3,
+  "ScriptingPolicyWallTests.cs": 4,
+  "SdkHelperAdoptionScanTests.cs": 3,
+  "SdkHelperTests.cs": 9,
+  "SecEdgarProviderTests.cs": 23,
+  "SectorClassifierTests.cs": 2,
+  "SecurityEventFileSinkTests.cs": 7,
+  "SessionAutosaveTests.cs": 9,
+  "SettingsLanguageTests.cs": 4,
+  "SettingsManagerTests.cs": 8,
+  "SettingsWiringAuditTests.cs": 3,
+  "SetupAlertBridgeTests.cs": 4,
+  "ShortcutConflictTests.cs": 4,
+  "ShortcutManagerTests.cs": 11,
+  "ShortcutReachabilityTests.cs": 2,
+  "SignalCatalogComputabilityTests.cs": 4,
+  "SilentFailureTests.cs": 5,
+  "SkenderCalculationCoreTests.cs": 13,
+  "SonificationStrategyPatchTests.cs": 9,
+  "SonificationTimbreTests.cs": 14,
+  "SoundPatchLibraryTests.cs": 7,
+  "SoundPatchModelTests.cs": 4,
+  "SoundPatchRegistryTests.cs": 7,
+  "SoundThemesTests.cs": 6,
+  "SparseMarkerCountTests.cs": 5,
+  "SpeechFormatterDispatchTests.cs": 16,
+  "SpeechTemplateOverrideTests.cs": 6,
+  "SplitViewCoordinatorTests.cs": 12,
+  "SplitViewMouseMappingTests.cs": 10,
+  "StaleIndicatorOnAssetChangeTests.cs": 6,
+  "StandardRenderersSmokeTests.cs": 19,
+  "StateMachineTests.cs": 2,
+  "StrategyBacktesterTests.cs": 10,
+  "StrategyBundleTests.cs": 12,
+  "StrategyCausalityGateTests.cs": 12,
+  "StrategyCodecTests.cs": 12,
+  "StrategyConsumerCausalityTests.cs": 11,
+  "StrategyIndicatorCacheBacktestTests.cs": 3,
+  "StrategyIndicatorCacheParityTests.cs": 7,
+  "StrategyLabTests.cs": 8,
+  "StrategyLibraryPolicyTests.cs": 6,
+  "StrategyPluginRegistryTests.cs": 7,
+  "StrategyPositionManagementTests.cs": 25,
+  "StrategyRegistryCatalogTests.cs": 5,
+  "StrategySpecValidatorTests.cs": 11,
+  "StringIndicatorParameterTests.cs": 4,
+  "SuggestionMetricsTests.cs": 5,
+  "SurrogateTestTests.cs": 19,
+  "SwingStructureTests.cs": 15,
+  "SymbolCompareProviderTests.cs": 7,
+  "SymbolValidatorTests.cs": 5,
+  "TablistNavigatorTests.cs": 10,
+  "TelegramAlertChannelTests.cs": 8,
+  "ThemeCoverageTests.cs": 34,
+  "ThemeCustomizationTests.cs": 17,
+  "TierBRegressionTests.cs": 6,
+  "TimeframeValidatorTests.cs": 3,
+  "ToolbarControlSurfaceTests.cs": 9,
+  "ToolbarLayoutStabilityTests.cs": 6,
+  "TopBottomDetectorProviderTests.cs": 14,
+  "TradeRankerTests.cs": 11,
+  "TradierAccountEventTests.cs": 8,
+  "TradingReconciliationTests.cs": 18,
+  "TreeAlertTests.cs": 8,
+  "TrendAndCotSeedTests.cs": 5,
+  "UIDiagnosticTests.cs": 1,
+  "UnclosablePositionTests.cs": 9,
+  "UniverseRecorderTests.cs": 9,
+  "ValueDeviationTests.cs": 22,
+  "ViewportRangeCalculatorTests.cs": 9,
+  "ViewportRangeUnitGuardTests.cs": 4,
+  "ViewportRestoreTests.cs": 2,
+  "VisualAccessibilityTests.cs": 14,
+  "VolRegimeProviderTests.cs": 7,
+  "VpvrBacktestReplayTests.cs": 5,
+  "WalletModalMarkupTests.cs": 8,
+  "WalletProbeKeyFileTests.cs": 6,
+  "WalletServiceTests.cs": 13,
+  "WatchlistLibraryTests.cs": 9,
+  "WavetableTests.cs": 8,
+  "WebHost/BrowserAudioBridgeTests.cs": 4,
+  "WebHost/ChartAreaBarSliderTests.cs": 6,
+  "WebHost/ChartAreaBrowserCanvasBranchTests.cs": 2,
+  "WebHost/HostedAccountsAuthPolicyTests.cs": 7,
+  "WebHost/HostedAccountsPasswordResetTests.cs": 2,
+  "WebHost/HostedAccountsTwoFactorTests.cs": 10,
+  "WebHost/HostedAlertMonitorTests.cs": 4,
+  "WebHost/LocalBackgroundMonitorTests.cs": 7,
+  "WebHost/PaperAccountAttachmentGuardTests.cs": 4,
+  "WebHost/PluginHostBridgeTests.cs": 4,
+  "WebHost/SpeechOutputModeTests.cs": 6,
+  "WebHost/TrayControllerTests.cs": 11,
+  "WebHost/TrayStateTests.cs": 8,
+  "WebHost/UserScopedPathServiceTests.cs": 5,
+  "WebHost/WebHostAudioDriverBackendPickerTests.cs": 6,
+  "WebHost/WebHostFullModeIntegrationTests.cs": 4,
+  "WebHost/WebHostHostedAccountsIntegrationTests.cs": 12,
+  "WebHost/WebHostLockoutIntegrationTests.cs": 1,
+  "WebHost/WebHostPasswordResetIntegrationTests.cs": 3,
+  "WebHost/WebHostPushEndpointsIntegrationTests.cs": 4,
+  "WebHost/WebHostRateLimitIntegrationTests.cs": 2,
+  "WebHost/WebHostSecureStorageServiceTests.cs": 6,
+  "WebHost/WebHostSecurityPolicyTests.cs": 12,
+  "WebHost/WebHostServiceLifetimeTests.cs": 3,
+  "WebHost/WebHostShortcutConflictTests.cs": 3,
+  "WebHost/WebHostSpeechManagerBackendSelectionTests.cs": 7,
+  "WebHost/WebHostSpeechManagerForwardingTests.cs": 6,
+  "WebHost/WebHostTwoFactorIntegrationTests.cs": 3,
+  "WebHost/WebPushTests.cs": 6,
+  "WebHostPathAndLoggerTests.cs": 6,
+  "WebHostShortcutRemapTests.cs": 3,
+  "WebhookAlertChannelTests.cs": 12,
+  "WheelZoomAnchorTests.cs": 6,
+  "WickSonificationTests.cs": 4,
+  "WikipediaPageviewsProviderTests.cs": 16,
+  "WithdrawalReachabilityTests.cs": 8,
+  "WithdrawalReleaseGateTests.cs": 7,
+  "WithdrawalServiceTests.cs": 17,
+  "WorkerConsoleIsolationTests.cs": 4,
+  "WorkerDispatcherTests.cs": 15,
+  "WorkspacePerUserIsolationTests.cs": 3,
+  "WorkspacePersistenceGapTests.cs": 6,
+  "WorkspaceProjectionTests.cs": 7,
+  "WorkspaceStoreTests.cs": 29
+ }
+}

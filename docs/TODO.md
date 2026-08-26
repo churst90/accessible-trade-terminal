@@ -23,9 +23,16 @@ wrong. Three more read-throughs would not produce a clearer picture; they would 
 backlog toward 750 with an unknown fraction of it fictional. Budget a triage step at the end of each.
 
 **A1 — DONE 2026-08-25.** Findings, refutations and the recounted censuses are in the
-"A1 — analysis services and cross-cutting infra" section immediately below this one. Four confirmed
-(EventBus deafening, Suggestion mode cannot suggest, Object Tree component toggles silent, MAUI
-Release has no logging providers), five refuted, three left explicitly unverified. **Next: A2.**
+"A1 — analysis services and cross-cutting infra" section below. Four confirmed (EventBus deafening,
+Suggestion mode cannot suggest, Object Tree component toggles silent, MAUI Release has no logging
+providers), five refuted, three left explicitly unverified.
+
+**A2 — DONE 2026-08-26.** See "A2 — the test suite itself" below. Run by sabotage: 28 single-line
+regressions in production code, one at a time, each followed by a full 4,830-test run. **11 of 28
+survived a green suite.** Ten findings confirmed, the three suspected pathologies essentially
+refuted (the tests that exist are honest), and the sharpest result is procedural — **five mutants
+came back falsely "caught" by a flaky test firing alone**, so the naive catch rate was 79% and the
+true one is 61%. Fix the flakes before building on this suite. **Next: A3.**
 
 **A1. Analysis services and cross-cutting infra.** Leads the phase because it is the most mechanical
 — the baselines are already counted, so this is verification rather than opinion: 46 empty
@@ -38,7 +45,7 @@ an error the user needed to hear*. In this app a swallowed error is not merely i
 **inaudible** — there is no compensating channel for a blind user. That is the failure mode with the
 worst ratio of severity to detectability, which is why this area goes first.
 
-**A2. The test suite itself.** The question is "does a green suite mean the app works?", and the
+**A2. The test suite itself. DONE 2026-08-26.** The question is "does a green suite mean the app works?", and the
 answer calibrates how much to trust the other twelve reports as well as this plan. Sabotage-driven,
 not read-driven. Cheaper than it looks: partially answered already by the `(amends the test suite)`
 items filed across the other reports. Known pathologies to test for are recorded — tests that mirror
@@ -55,6 +62,15 @@ files for focus bugs is precisely the low-value version that produces a half-wro
 The MAUI head runs the same components through BlazorWebView, so exercising the WebHost covers the
 shared component layer. First target: the Alt+T focus fix shipped 2026-08-25 is still unverified in
 a real browser — the harness should go green on it and red if `focusElement`'s retry is reverted.
+
+**Carry A2's findings into the design, they are specific.** (1) The existing focus contract asserts
+that focus went *somewhere valid*, not *where it should have gone* — deleting a modal's own
+`focusElement` call leaves it green because `ModalBase` already focused the heading (A2/F4). Assert
+`document.activeElement` against a declared per-modal target. (2) There is no sweep asserting that
+interactive controls have an accessible name at all; 181 of 193 literal `aria-label` values are
+unpinned (A2/F9). (3) Nothing anywhere observes speech `interrupt:` behaviourally (A2/F2). (4) Fix
+the four flakes first (A2/F1) — a harness measured against a suite that reports a spurious red in
+1 run of 4 will teach false lessons.
 
 ### Phase B — the fix work
 
@@ -287,6 +303,378 @@ blast radius; F2 overlaps B1's vocabulary work and should be taken with it. The 
 finding is the one to remember when reading the other twelve reports — a field written and never
 read, in the default execution mode, survived a 4,800-test suite, a dead-code sweep and a
 whole-class hygiene pass, because `RemoveStrategy` reads it.
+
+---
+
+## A2 — the test suite itself (audit run 2026-08-26)
+
+Phase A item 2, and the question is the roadmap's: **does a green suite mean the app works?** That
+is not answerable by reading tests, so it was answered by breaking the app. **28 single-line
+regressions were applied to production code, one at a time, each followed by a complete 4,830-test
+run.** A mutant counts as CAUGHT only if something, anywhere in the suite, went red. Every mutant is
+a plausible edit — the kind of thing a refactor does by accident — and most of them undo a property
+the file's own doc-comment says it exists to protect.
+
+The driver, the mutant list and the raw per-run results are committed beside the A1 probes:
+`scratchpad/a2_sabotage.py` and `scratchpad/a2_sabotage_results.json`, with the census scripts in
+the same directory. Everything counted below comes from the brace-matching parser that masks
+comments and string literals, not from grep; grep line counts are what made the 2026-08-24 censuses
+roughly half wrong.
+
+### The suite, measured
+
+- **3,289 test methods → 4,830 test cases.** 390 files, 81,112 lines.
+- Production under test: **675 `.cs` files / 145,436 lines**, plus **50 `.razor` / 18,216 lines**.
+- **Zero skipped tests.** There is no `Skip=` anywhere in the suite.
+
+### The headline: 17 of 28 caught, and the count only became true after a second pass
+
+**11 of 28 mutants survived a full green run.** The naive first reading was 22 caught, and it was
+wrong, which is itself the most important finding here.
+
+Five mutants came back "CAUGHT" by exactly one failing test, and in each case that test had nothing
+to do with the mutation — `LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment` (the
+known bwrap env-canary flake) reported the broken *backtest commission* and the moved *keyboard
+shortcut*; `StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script` reported the
+broken *EMA warmup* and the broken *SMA*. Re-running each mutant against the flaky class in
+isolation turned all five green, so all five had in fact survived
+(`scratchpad/a2_disambiguate.py`, `…2.py`, and their JSON).
+
+**Without that second pass this audit would have reported a 79% catch rate instead of 61%, and
+would have filed the backtest cost model and the EMA warmup as covered.** That is what a flaky
+suite actually costs: not the annoyance of a re-run, but a red tick standing in for a green one and
+inverting the conclusion.
+
+| survived | area | what it breaks |
+| --- | --- | --- |
+| M07 | indicator warmup | EMA emits one bar earlier than its warmup allows |
+| M10 | sandbox blocklist | `System.Type.GetType` removed from `_blockedMembers` |
+| M11 | modal focus | the Wallet dialog stops focusing its first field |
+| M15 | moving averages | SMA averages a short window when the source has gaps |
+| M17 | speech routing | an order fill queues behind chatter instead of interrupting |
+| M19 | accessible name | a dialog button loses its `aria-label` |
+| M20 | shortcut table | the documented Alt+T becomes Alt+Y |
+| M21 | order outcome | a `PROVIDER_*` failure sentinel is read as an order id |
+| M24 | narration causality | swing narration reads one bar into the future |
+| M27 | backtest cost model | entry commission is never charged |
+| M28 | backtest cost model | slippage is applied in the trader's favour |
+
+The 17 caught were: both `BarFill` mutants (12 and 9 tests red), the protective-level inversion
+(11), sub-dollar price narration (25), quantity precision (2), the 100× position size (4), the
+withdrawal gate defaulting open (1), the EMA smoothing factor (5), `System.IO` off the namespace
+blocklist (1 real), the break-through earcon (1), the silenced order rejection (3), the crossing
+alert degraded to a level alert (2), the non-positive stop price (2), the CSP that stopped refusing
+framing (4), the non-atomic file write (1 real), and both theme-contrast inversions (12 and 11).
+
+**The money path is the strongest part of the suite and it is not close.** Every fill-price,
+bracket-side, position-size and protective-level mutant died immediately and loudly, usually to a
+whole class of tests written specifically for that property. The exposure is not in the trading
+arithmetic. It is in everything that surrounds it.
+
+### CONFIRMED — F1. Four flaky tests, and they invert verdicts (HIGH)
+
+Across 28 full-suite runs, **7 spurious failures from 4 distinct tests**:
+
+| test | runs | family |
+| --- | --- | --- |
+| `LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment` | 3 | script worker / bwrap |
+| `StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script` | 2 | script worker |
+| `WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_…` | 1 | bUnit render settle |
+| `Blazor.SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOnto…` | 1 | bUnit render settle |
+
+The first two were already on record as individual known flakes; the other two are new. All four
+pass in isolation. **5 of the 7 were the only failure in their run**, which is the mechanism that
+flipped five verdicts above.
+
+The script-worker half has a read-verified cause: **14 test files spawn the real worker process**
+(`HostileScriptTests`, `LinuxBwrapSandboxTests`, `OutOfProcessScriptingTests`,
+`StrategyCausalityGateTests`, `ScriptWorkerMemoryLimitTests`, `WorkerConsoleIsolationTests` and
+eight more) and **not one of them is in an xUnit collection**, so they all contend for process
+spawn, bwrap and memory under full parallel load. The suite already knows how to fix this: exactly
+one collection exists, `ProviderCredentialBridge`, which serialises the 35 files that share the
+global ApiKeys bridge. A `ScriptWorker` collection is the same one-line-per-file fix.
+
+The bUnit half is the async-settle race the repo has already met — `SetupVoid` records a JS
+invocation but never completes it, so a `ShowAsync` that awaits focus can be parked when the
+scheduler is loaded. `BunitAsyncSettleGuardTests` exists; these two tests are not using whatever it
+guards.
+
+Fix shape, in order: a `[Collection("ScriptWorker")]` over the 14 files; then the two bUnit tests
+onto the settle helper. **Until this is done, no red build in this repo can be trusted at face
+value, and — worse — no green mutant can either.**
+
+### CONFIRMED — F2. Speech interruption is unguarded everywhere (HIGH)
+
+M17 changed an order fill from `interrupt: true` to `interrupt: false` and **nothing went red**.
+
+For a screen-reader user this is not cosmetic: it is the difference between hearing "Order filled,
+0.5 BTC at 67,234" now and hearing it after the navigation chatter already in the queue has drained.
+`AccessibilityFeedbackCoordinator` sets the flag deliberately at eleven sites — fills, partial
+fills, stop hits, target hits, rejections, criticals interrupt; cancels do not — and that policy is
+one of the most user-visible decisions in the app.
+
+**The whole suite contains exactly one assertion that touches an `interrupt:` value, and it is a
+grep**: `WithdrawalReachabilityTests.cs:98` does
+`Assert.Contains("Speak(_readback, interrupt: true)", modal)` against the `.razor` source. Not one
+test observes the flag through behaviour. The seam is already there — `ISpeechRouter` is
+substituted throughout `OrderEventAnnouncementTests` — so this is a cheap suite gap to close.
+
+### CONFIRMED — F3. The order-outcome vocabulary has no test at all (HIGH, and it is B1)
+
+M21 deleted the `PROVIDER_` arm from `GeneralOrderService.IsErrorSentinel`, so a
+`PROVIDER_NOT_CONFIGURED` return would be treated as a successful order id. **Nothing went red.**
+
+This is the same surface B1 exists to fix, and it now has a measurement: the classification that
+decides whether a blind trader is told "Order placed" or told what went wrong is not covered by a
+single test. **When B1 lands, this mutant is the acceptance test** — restore it and the suite must
+go red.
+
+### CONFIRMED — F4. The modal focus contract asserts *somewhere valid*, not *the right place* (MEDIUM)
+
+M11 deleted `WalletModal`'s `focusElement("wallet-asset")` — the call that puts the user on the
+first field — and the modal focus contract stayed green.
+
+The cause is precise and worth knowing before A3 builds on this suite.
+`ModalBase.ShowModalAsync(headingElementId)` already calls `focusElement` for the dialog's `h2`,
+and `ModalAccessibilityContractTests.Dialog_OnOpen_MovesFocusToExistingFocusableElement` asserts
+that `FocusedElementIds.Count > 0` and that the **last** target exists and is focusable. Deleting a
+modal's own second, more specific focus call therefore leaves the contract satisfied by the
+heading. Every modal that inherits `ModalBase` has this hole.
+
+The contract is not worthless — it is what catches focus sent to an id that does not exist — but it
+cannot tell "opened and put you on the amount field" from "opened and put you on the title". **A3
+should assert the actual `document.activeElement` per modal against a declared expected target,
+not merely that a focus call happened.**
+
+### CONFIRMED — F5. The backtest cost model is never exercised (HIGH for research honesty)
+
+M27 (`commission = 0`) and M28 (slippage applied with the sign flipped, in the trader's favour) both
+survived, and the census says why: **all 10 `BacktestConfig` constructions in the suite, across
+`StrategyBacktesterTests`, `LabRunnerTests` and `StrategyPositionManagementTests`, set
+`CommissionRate: 0` and `SlippagePercent: 0`.** There is no exception. Production multiplies by
+those rates at five sites; every one of them is only ever multiplied by zero.
+
+This is the 2026-08-24 `(amends the test suite)` item, now demonstrated rather than asserted, and
+the consequence lands squarely on StrategyLab: a strategy edge measured with a cost model that has
+never been tested is measured with a cost model that could be silently absent. Two tests with
+non-zero rates would close it.
+
+### CONFIRMED — F6. The sandbox blocklist is a security control with 12% test coverage (MEDIUM)
+
+M10 removed `System.Type.GetType` — the entry whose own comment says "string-keyed type lookup
+defeats every namespace filter if allowed" — and the suite stayed green. The census generalises it:
+**22 of the 25 entries in `_blockedMembers` are never named anywhere in the test project**, and 2 of
+8 `_blockedTypes`. The unexercised entries include every `System.Type` reflection accessor,
+`System.Activator.CreateInstanceFrom`, `System.Delegate.CreateDelegate`, all three `System.AppDomain`
+members and `System.Environment.Exit`/`FailFast`.
+
+These are precisely the entries that *need* a member rule, because they live in the allowed `System`
+namespace and no namespace filter reaches them. `HostileScriptTests` covers the shapes that were
+found by hand during the 2026-08-25 sandbox audit and nothing else.
+
+**Scope, stated carefully:** this is a demonstrated gap in the SUITE. It is not a claim that any of
+these 22 is currently reachable from a script — the audit did not compile an escape for them. That
+is the natural follow-up and it is cheap: `HostileScriptTests` is already a table of hostile
+sources, so a theory over the blocklist would cover all 25 in one test.
+
+### CONFIRMED — F7. Nothing pins the keyboard shortcut table (MEDIUM)
+
+M20 changed Alt+T to Alt+Y in `ShortcutManager`'s defaults. The full suite stayed green, and so did
+all 38 tests matching `Shortcut` when run against the mutant directly.
+
+For a keyboard-only user the shortcut table *is* the product surface. It is documented in the Help
+modal and in `docs/`, and a silent divergence between the table and the documentation is invisible
+until someone presses the key. A parity test between `ShortcutManager`'s defaults and the Help
+modal's list is the obvious guard, and the repo already has that shape elsewhere
+(`AuthoringDocParityTests`, `ToolbarControlSurfaceTests`).
+
+### CONFIRMED — F8. Causality is guarded for producers, not for narration (MEDIUM)
+
+M24 made `SwingStructureProvider`'s narration loop read one bar past the requested index —
+look-ahead in the sentence the user hears — and nothing caught it. The repo's causality contract
+(declaration + `SignalCatalog` gate + prefix test) covers indicator *outputs*; the code that turns
+those outputs into speech at a given bar is outside it. The consumer half was already flagged as
+covered "in the causality batch section of the health-assessment file"; this is the part of it that
+is not.
+
+### CONFIRMED — F9. 181 of 193 accessible names in the component library are unpinned (MEDIUM)
+
+M19 removed an `aria-label` from a dialog button. It survived — though this particular mutant is
+**weak on purpose-check**: the button also carries the visible text "Close", so its accessible name
+degrades from "Close alerts dialog" to "Close" rather than vanishing. The mutant is reported here
+because the census behind it is not weak: **of 193 literal `aria-label` values in
+`AccessibleTrader.BlazorClient.Components`, 181 are never named in any test.** The 12 that are
+pinned are pinned incidentally, by tests that use the label as a CSS selector to find a control they
+wanted to click.
+
+`AriaValueScanTests` sweeps every catalog component, but for *value legality and reference
+resolution* — legal enumerated values, `aria-labelledby` targets that exist. There is no sweep that
+asks whether an interactive element has an accessible name at all. That is an A3 deliverable.
+
+### CONFIRMED — F10. 30% of production types are never so much as named by a test (MEDIUM)
+
+Coarser than coverage and independent of it: a type that never appears in a test file cannot have a
+deliberate test, and if it shows coverage it is being dragged along by a test aimed at something
+else.
+
+| area | types named by a test | never named |
+| --- | --- | --- |
+| ScriptSandbox + Worker | 15/16 | 6% |
+| Sdk | 226/275 | 18% |
+| Core | 515/693 | 26% |
+| Plugins | 37/50 | 26% |
+| WebHost | 38/73 | 48% |
+| StrategyLab | 33/111 | **70%** |
+| MAUI head (`AccessibleTrader.BlazorClient`) | 8/28 | **71%** |
+| **total** | **879/1,256** | **30%** |
+
+Razor components are the exception and are in good shape: 42 of 43 in the RCL are named by a test
+(only `Routes` is not); the WebHost's own 5 are at 2.
+
+Executed-line coverage was collected separately (`--collect:"XPlat Code Coverage"`, one clean run,
+4,830 passed) and agrees with the shape:
+
+| assembly | lines covered | line rate |
+| --- | --- | --- |
+| `ScriptSandbox` | 1,990 / 2,274 | **87.5%** |
+| `Sdk` | 4,660 / 5,676 | **82.1%** |
+| `Core` | 59,040 / 87,104 | 67.8% |
+| `WebHost` | 3,644 / 6,434 | 56.6% |
+| `BlazorClient.Components` (Razor) | 4,936 / 16,464 | **30.0%** |
+| `StrategyLab` | 6,048 / 30,916 | **19.6%** |
+| 31 provider/analytics plugins | — | 6.8% – 85.2%, median ≈ 39% |
+| **whole tree** | **91,212 / 182,852** | **49.9% line, 38.2% branch** |
+
+**The MAUI head does not appear in the report at all**, because the test project cannot reference it
+— its coverage is not low, it is undefined. Two other numbers are worth flagging: the Razor
+component layer at 30% is precisely the surface A3 is being built for, and `Plugins.Mexc` is the
+largest single plugin in the tree (10,478 lines) at 9.2%.
+
+The two 70% areas are both explicable and both worth stating plainly. The MAUI head cannot be
+referenced from a `net10.0` test project at all — that is why the dialogs were extracted into the
+RCL — so its 20 unnamed types are *structurally* untestable here, not merely untested; `MauiProgram`
+is among them, which is how A1's "Release ships with no logging providers" survived. StrategyLab is
+a research CLI, and 60 of its 80 files are unreferenced, which was already filed on 2026-08-24 as
+59 and is confirmed at 60.
+
+### REFUTED — the three suspected pathologies, and they are the good news
+
+The roadmap named three known shapes to look for. All three are essentially absent, and the suite is
+in better structural health than the 2026-08-24 assessment implied.
+
+- **Guards written against an empty baseline.** 20 tests combine a discovery step with
+  `Assert.Empty`; 10 have no vacuity check in the method body. All 10 were read by hand and all 10
+  are false positives — small in-memory collections, not scans. Better than that, the scan guards
+  that do exist have **their own positive and negative fixtures**:
+  `DispatcherAffinityScanTests.TheScannerResolvesAChainOfCalls` and
+  `…IgnoresThePatternWrittenInAComment` test the scanner itself against hand-written source. That is
+  the correct shape and it is already the house style.
+- **Scan guards that check presence rather than path.** **116 of 3,289 test methods (3.5%) read
+  production source text**, and only **26 (0.8%) assert on nothing but that text** — 8 in
+  `WalletModalMarkupTests`, 6 in `AddIndicatorSearchTests`, the rest scattered in threes. The
+  remaining 90 read source *and* run code. This is a small, bounded population, not a structural
+  problem.
+- **Tests that mirror production logic.** One confirmed instance, the one already filed:
+  `ChartMouseInteractionTests.cs:83` and `:144` compute the expected bar index by calling
+  `ChartMath.MapXToIndex` — the function under test — with the same arguments. Precisely stated,
+  those two tests do pin that the click path *routes through* `MapXToIndex` with the viewport's
+  parameters, which is worth something; they cannot notice a wrong `MapXToIndex`. Still open.
+- **Tests with no assertion at all.** The census flagged 15; **all 15 are false positives** —
+  `DidNotReceiveWithAnyArgs`, a same-file `Assert…` helper, or `WaitForFocus`, which throws. The
+  real count is zero.
+
+Also refuted: **`IndicatorMath` is untested** (2026-08-24). M08 — a wrong EMA smoothing factor — was
+caught by 5 tests including two parity tests against the library the chart draws from. What is
+untested is the *warmup boundary*, which M07 proved: the values are pinned, the NaN edge is not.
+
+### The commissioned `(amends the test suite)` items, rechecked
+
+The roadmap says A2 is partly answered by eight findings filed across the other twelve reports. All
+eight were rechecked; **three are already closed, one does not reproduce, four stand.**
+
+| item | verdict |
+| --- | --- |
+| dedup gate pinned-as-correct | CLOSED 2026-08-24, complement tests added |
+| no test builds an empty `Components` list | CLOSED — `EmptyComponentListSurvivalTests` does |
+| 12 audio tests on a method with no production callers | CLOSED 2026-08-24, call site restored |
+| `LocalBackgroundMonitorTests:156` vacuous | **DOES NOT REPRODUCE** — no such file; the nearest, `BackgroundMonitoringTests`, asserts substantively at that line |
+| `IndicatorMath` untested | REFUTED for values (M08), CONFIRMED for warmup (M07) |
+| 10 backtester tests at zero cost | CONFIRMED and demonstrated — see F5 |
+| `ChartMouseInteractionTests` mirrors `MapXToIndex` | CONFIRMED, 2 sites, still open |
+| 59 of 80 lab files unreferenced | CONFIRMED, recounted at **60** of 80 |
+
+### Left explicitly unverified
+
+- **The 49.9% coverage figure is a shape, not a target.** It was collected to corroborate F10 and
+  it does. Do not turn it into a number to raise: M27 and M28 both sit on lines the report counts as
+  *covered*, because the tests that execute them multiply by zero. Executed is not tested, which is
+  the whole reason this audit was run by sabotage rather than by instrumentation.
+- **Whether any of the 22 unexercised blocklist entries is actually reachable from a script.** F6 is
+  a suite finding, not a sandbox finding. Settling it means compiling 22 candidate scripts, which is
+  the 2026-08-25 sandbox audit's method and should be done the same way.
+- **The 11 survivors are gaps in the suite, not open bugs.** Production was restored after every
+  mutant and the tree is byte-identical; `git status` is clean. Do not read the survivor table as a
+  defect list.
+
+### The work A2 creates
+
+Restoring the named mutant from `scratchpad/a2_sabotage.py` is the acceptance test for each of
+these: apply it, and the suite must go red.
+
+- [ ] **(F1, do first)** Put the 14 script-worker test files in a `[Collection("ScriptWorker")]` so
+  they stop contending for process spawn and bwrap under full parallel load. Closes the two
+  long-standing flakes (`LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment`,
+  `StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script`) as one fix rather than
+  one at a time. HIGH.
+- [ ] **(F1)** Two new bUnit flakes, same async-settle family:
+  `WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline`
+  and `Blazor.SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects`. Both
+  pass in isolation. Route them through whatever `BunitAsyncSettleGuardTests` guards. HIGH.
+- [ ] **(F5)** Two backtester tests with **non-zero** `CommissionRate` and `SlippagePercent`. All 10
+  `BacktestConfig` constructions in the suite currently set both to 0, so five production sites are
+  only ever multiplied by zero. Mutants M27/M28. HIGH.
+- [ ] **(F2)** Assert speech `interrupt:` behaviourally in `OrderEventAnnouncementTests` — fills,
+  stop hits and rejections interrupt; cancels do not. The suite's only current assertion on it is a
+  grep over `.razor` source (`WithdrawalReachabilityTests.cs:98`). Mutant M17. HIGH.
+- [ ] **(F6)** Turn `HostileScriptTests` into a theory over the whole blocklist. 22 of 25
+  `_blockedMembers` entries and 2 of 8 `_blockedTypes` are never named in any test. Mutant M10.
+  MEDIUM.
+- [ ] **(F7)** Parity test between `ShortcutManager`'s default table and the Help modal's documented
+  list. Nothing currently pins any shortcut. Mutant M20. MEDIUM.
+- [ ] **(F8)** Extend the causality contract from indicator producers to the narration that reads
+  them — `SwingStructureProvider`'s describe loop can read past the requested index unnoticed.
+  Mutant M24. MEDIUM.
+- [ ] **(F10)** `IndicatorMath.Ema` warmup boundary: the values are pinned by two library-parity
+  tests, the NaN edge is not. Mutant M07. Same for `MovingAverageHelper.Sma`'s NaN-gap policy,
+  mutant M15. MEDIUM.
+- [ ] **(still open from 2026-08-24)** `ChartMouseInteractionTests.cs:83` and `:144` compute the
+  expected bar index by calling `ChartMath.MapXToIndex`, the function under test. Replace the
+  expectation with a hand-computed constant. LOW.
+
+### A2 → the plan
+
+**Nothing here moves Phase A's ordering, and A3 is confirmed as the right next step** — five of the
+eleven survivors (F2 speech interruption, F4 modal focus, F9 accessible names, and the two
+bUnit flakes in F1) are exactly the layer A3 exists to instrument, and F4 is a warning about how to
+build it: assert *where* focus landed, not that a focus call happened.
+
+Two things should be taken before A3 rather than after it:
+
+1. **F1, the collection fixture.** It is a one-line-per-file change over 14 files and it is a
+   prerequisite for trusting anything A3 measures. A harness built on a suite that reports a red
+   tick 1 run in 4 for reasons unrelated to the change will teach the same false lesson this audit
+   nearly recorded.
+2. **F5, two backtest tests with non-zero costs.** Cheapest fix on the list and it is load-bearing
+   for every StrategyLab result.
+
+**F3 belongs to B1 and is now its acceptance criterion**: restore mutant M21 after the typed
+`OrderPlacement` work and the suite must go red.
+
+The one sentence to carry forward: **the suite is well built and narrowly aimed.** The tests that
+exist are honest — no vacuous guards, no assertion-free tests, no empty baselines, and a money path
+defended in depth. What green does not mean is that anything *outside* the arithmetic works: the
+words the user hears, the order they hear them in, where focus lands, which key opens what, and what
+a backtest charges are all currently unguarded.
 
 ---
 

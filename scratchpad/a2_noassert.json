@@ -1,0 +1,77 @@
+[
+ {
+  "file": "AlertPipelineArmedTests.cs",
+  "name": "StartupWithNoAlertOrchestratorRegistered_DoesNotThrow",
+  "line": 155
+ },
+ {
+  "file": "CotPositioningIndicatorTests.cs",
+  "name": "static",
+  "line": 49
+ },
+ {
+  "file": "EdgeRegistryTests.cs",
+  "name": "EveryClaimedReMeasureCommandActuallyExists",
+  "line": 219
+ },
+ {
+  "file": "EmptyComponentListSurvivalTests.cs",
+  "name": "NavigationFeedback_SurvivesAnEmptySeries_OnBothAxes",
+  "line": 125
+ },
+ {
+  "file": "EmptyComponentListSurvivalTests.cs",
+  "name": "NavigationSonifier_SurvivesAnEmptySeries",
+  "line": 150
+ },
+ {
+  "file": "LoukasCyclesProviderTests.cs",
+  "name": "EmptyData_DoesNotThrow",
+  "line": 337
+ },
+ {
+  "file": "OrderContractShipBlockerTests.cs",
+  "name": "static",
+  "line": 165
+ },
+ {
+  "file": "ProviderStreamAndSigningTests.cs",
+  "name": "Binance_futures_variant_frame_missing_fields_does_not_throw",
+  "line": 241
+ },
+ {
+  "file": "QuickTradeFailureReportingTests.cs",
+  "name": "static",
+  "line": 93
+ },
+ {
+  "file": "QuickTradeSizingModeTests.cs",
+  "name": "static",
+  "line": 158
+ },
+ {
+  "file": "SessionAutosaveTests.cs",
+  "name": "Blank_sessions_never_clobber_the_saved_one",
+  "line": 61
+ },
+ {
+  "file": "SessionAutosaveTests.cs",
+  "name": "Demo_sessions_never_autosave",
+  "line": 72
+ },
+ {
+  "file": "SessionAutosaveTests.cs",
+  "name": "Opt_out_setting_disables_autosave",
+  "line": 84
+ },
+ {
+  "file": "SymbolValidatorTests.cs",
+  "name": "Validate_ValidSymbol_DoesNotThrow",
+  "line": 56
+ },
+ {
+  "file": "Blazor/SettingsModalTests.cs",
+  "name": "SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects",
+  "line": 148
+ }
+]
