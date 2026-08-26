@@ -22,6 +22,7 @@ namespace AccessibleTrader.Tests;
 /// refuse anything. Nothing else connects the two numbers, so these guards do.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class ScriptWorkerMemoryLimitTests
 {
 

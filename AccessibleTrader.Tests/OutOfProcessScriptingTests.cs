@@ -15,6 +15,7 @@ namespace AccessibleTrader.Tests;
 /// itself with a clear <c>SkipException</c>-style check rather
 /// than a hard fail.
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class OutOfProcessScriptingTests
 {
     // A minimal ICustomIndicator that emits Close (the final OHLCV close

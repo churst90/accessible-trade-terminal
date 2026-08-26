@@ -35,6 +35,13 @@ namespace AccessibleTrader.Tests
         {
             "AccessibleTrader.StrategyLab",
             "AccessibleTrader.Tests",
+            // The browser harness. It is a test project like AccessibleTrader.Tests and ships to
+            // nobody; it lands here because it is in the solution file, which is how these guards
+            // discover projects (deliberately — a hand-written list is how the WebHost stayed
+            // outside the rules). It legitimately resolves Playwright's browsers directory through
+            // GetFolderPath, which the per-user-path guard would otherwise report as a service
+            // building its own local-app-data path.
+            "AccessibleTrader.BrowserTests",
             "DotPadCalibrator",
         };
 

@@ -44,6 +44,12 @@
          tests can pin the backend-selection logic without spawning real
          pw-cat / gdbus / spd-say processes. -->
     <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+    <!-- Same internal ctor, different reason: the browser harness must PIN the backend to
+         BrowserTts. Left to probe the machine it runs on, WebHostSpeechManager finds the
+         developer's real /usr/bin/spd-say and every announcement the harness provokes is
+         spoken out loud by the developer's own speech-dispatcher — and none of it is
+         observable from the browser, which is where the harness is looking. -->
+    <InternalsVisibleTo Include="AccessibleTrader.BrowserTests" />
   </ItemGroup>
 
   <ItemGroup>

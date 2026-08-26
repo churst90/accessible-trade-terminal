@@ -26,6 +26,7 @@ namespace AccessibleTrader.Tests;
 /// file" is equally what a broken fixture looks like.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class LinuxBwrapSandboxTests
 {
     // ── The argument vector ───────────────────────────────────────────────────────

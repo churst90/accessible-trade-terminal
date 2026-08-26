@@ -39,6 +39,7 @@ namespace AccessibleTrader.Tests;
 /// than a coupling problem: it means the sandbox's own diagnostics changed.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class HostileScriptTests
 {
     /// <summary>The two shapes a sandbox refusal takes: "Blocked: …" from the lexical

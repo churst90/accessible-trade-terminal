@@ -49,5 +49,6 @@
   <Project Path="AccessibleTrader.ScriptWorker/AccessibleTrader.ScriptWorker.csproj" />
   <Project Path="AccessibleTrader.StrategyLab/AccessibleTrader.StrategyLab.csproj" />
   <Project Path="AccessibleTrader.Tests/AccessibleTrader.Tests.csproj" />
+  <Project Path="AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj" />
   <Project Path="tools/DotPadCalibrator/DotPadCalibrator.csproj" />
 </Solution>

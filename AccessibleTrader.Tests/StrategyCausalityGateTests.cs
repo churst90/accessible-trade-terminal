@@ -29,6 +29,7 @@ namespace AccessibleTrader.Tests;
 /// nothing calls is not a gate.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class StrategyCausalityGateTests
 {
     // ── The strategies under test ────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ namespace AccessibleTrader.Tests;
 /// see it.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class ScriptReferenceSetTests
 {
     private static RoslynScriptingService NewScripting() =>

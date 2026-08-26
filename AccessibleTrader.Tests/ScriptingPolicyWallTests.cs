@@ -12,6 +12,7 @@ namespace AccessibleTrader.Tests;
 /// point refuses before touching user code — the hidden modal is presentation,
 /// not the boundary.
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class ScriptingPolicyWallTests
 {
     private static RoslynScriptingService Roslyn(HostMode mode) =>

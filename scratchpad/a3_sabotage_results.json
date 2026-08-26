@@ -1,0 +1,18 @@
+[
+ {
+  "mutant": "S1 focusElement retry reverted (the Alt+T fix)",
+  "caught": true,
+  "summary": [
+   "Failed!  - Failed:     1, Passed:    23, Skipped:     0, Total:    24, Duration: 11 s - AccessibleTrader.BrowserTests.dll (net10.0)"
+  ],
+  "failing": []
+ },
+ {
+  "mutant": "S2 TradingDashboardModal's own focus call deleted",
+  "caught": true,
+  "summary": [
+   "Failed!  - Failed:     2, Passed:    22, Skipped:     0, Total:    24, Duration: 16 s - AccessibleTrader.BrowserTests.dll (net10.0)"
+  ],
+  "failing": []
+ }
+]

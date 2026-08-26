@@ -1,0 +1,126 @@
+[
+ {
+  "label": "after-scriptworker-collection",
+  "n": 0,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 1,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 2,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 3,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 4,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 0,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 1,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 2,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 3,
+  "rc": 1,
+  "failed": 1,
+  "passed": 4831,
+  "names": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_indicator_under_the_hardened_mount"
+  ]
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 4,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 5,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 6,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "after-scriptworker-collection",
+  "n": 7,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ },
+ {
+  "label": "final-check",
+  "n": 0,
+  "rc": 1,
+  "failed": 1,
+  "passed": 4831,
+  "names": [
+   "AccessibleTrader.Tests.PerUserPathPolicyTests.NoServiceBuildsItsOwnLocalAppDataPath"
+  ]
+ },
+ {
+  "label": "final-check",
+  "n": 0,
+  "rc": 0,
+  "failed": 0,
+  "passed": 4832,
+  "names": []
+ }
+]

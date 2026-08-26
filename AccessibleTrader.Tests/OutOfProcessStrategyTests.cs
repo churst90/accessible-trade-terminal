@@ -28,6 +28,7 @@ namespace AccessibleTrader.Tests;
 /// this one.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class OutOfProcessStrategyTests
 {
     // ── The fixture strategy ──────────────────────────────────────────────────────

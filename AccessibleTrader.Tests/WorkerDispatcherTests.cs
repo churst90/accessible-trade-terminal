@@ -40,6 +40,7 @@ namespace AccessibleTrader.Tests;
 /// raw bytes, so this file can take the codec as given and test dispatch.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class WorkerDispatcherTests
 {
     // ── Fixture indicators (compiled to real assemblies at test time) ──

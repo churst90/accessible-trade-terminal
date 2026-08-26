@@ -18,6 +18,7 @@ namespace AccessibleTrader.Tests;
 /// front end, or any path that hands the worker an assembly the Roslyn walker never saw.
 /// </para>
 /// </summary>
+[Collection("ScriptWorker")] // spawns a real worker / bwrap — see ScriptWorkerCollection
 public class WorkerConsoleIsolationTests
 {
     [Fact]

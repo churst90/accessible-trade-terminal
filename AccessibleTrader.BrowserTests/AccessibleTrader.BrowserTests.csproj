@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The browser harness. Separate from AccessibleTrader.Tests on purpose, and the reasons are
+    load-bearing rather than tidiness:
+
+      1. These tests drive a REAL Chromium against a REAL Kestrel. They must not run interleaved
+         with the 4,800-odd in-process tests — the A2 audit (2026-08-26) measured what happens
+         when heavyweight tests contend for the thread pool under xUnit's default parallelism:
+         seven spurious failures in 28 runs, five of them the only failure in their run.
+      2. Chromium is not present on every machine that runs `dotnet test`. Here it degrades to a
+         clean "no browser installed" skip; inside the main assembly it would be one more reason
+         for a green run to mean nothing.
+      3. The main suite's test count is checked by scripts/check_doc_drift.py against README.md.
+         A browser suite whose case count depends on whether a browser is installed does not
+         belong in that number.
+
+    Run it deliberately:
+      dotnet test AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj \
+        -p:UseRazorSourceGenerator=false
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.55.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AccessibleTrader.WebHost\AccessibleTrader.WebHost.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.BlazorClient.Components\AccessibleTrader.BlazorClient.Components.csproj" />
+    <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
+  </ItemGroup>
+
+</Project>

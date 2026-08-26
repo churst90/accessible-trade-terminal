@@ -49,6 +49,18 @@ window.accessibleTrader = {
     // Ctrl+Alt+Shift+C).
     _chartFocused: false,
 
+    // True once registerKeyboardHandler has finished wiring the window-level listeners.
+    //
+    // This exists because "the page has loaded" and "a keystroke reaches the app" are two
+    // different moments on the web host: the markup arrives from the server render, then the
+    // Blazor circuit connects, and only then does GlobalInputService.InitializeAsync call into
+    // here. A keystroke sent in between is silently dropped — there is no listener yet — which
+    // on a slow first connect looks exactly like a broken shortcut.
+    //
+    // The browser harness (AccessibleTrader.BrowserTests) waits on this before pressing
+    // anything, so a failure there means the shortcut is wrong rather than early.
+    _inputReady: false,
+
     /**
      * Called from .NET (CommandDispatcher / ChartFocusService) when the focus ring
      * enters or leaves the chart region. When false, single-letter chart commands
@@ -235,6 +247,10 @@ window.accessibleTrader = {
                 dotnetHelper.invokeMethodAsync('OnKeyUp', e.key);
             }
         });
+
+        // Last line on purpose: every listener above is attached before anything is told
+        // the pipeline is armed. See the _inputReady comment at the top of this object.
+        self._inputReady = true;
     },
 
     /**

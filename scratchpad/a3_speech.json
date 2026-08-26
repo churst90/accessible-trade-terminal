@@ -1,0 +1,184 @@
+[
+  {
+    "scenario": "open the Object Tree with Alt\u002BO",
+    "spoken": [
+      {
+        "Text": "Object tree dialog opened",
+        "Interrupt": false
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-2",
+        "text": "Object tree dialog opened"
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        Ready"
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  },
+  {
+    "scenario": "open and then Escape out of the Object Tree",
+    "spoken": [
+      {
+        "Text": "Object tree dialog opened",
+        "Interrupt": false
+      },
+      {
+        "Text": "Object tree dialog closed",
+        "Interrupt": false
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-1",
+        "text": "Object tree dialog closed"
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        Ready"
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  },
+  {
+    "scenario": "focus the chart with Ctrl\u002BAlt\u002BShift\u002BC",
+    "spoken": [
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "Focus on trading chart area.",
+        "Interrupt": true
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-1",
+        "text": "Focus on trading chart area."
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        Focus on trading chart area."
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  },
+  {
+    "scenario": "arrow-key navigation on an empty chart",
+    "spoken": [
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "Focus on trading chart area.",
+        "Interrupt": true
+      },
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "No chart loaded.",
+        "Interrupt": true
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-1",
+        "text": "No chart loaded."
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        No chart loaded."
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  },
+  {
+    "scenario": "toggle speech off with F2 and back on",
+    "spoken": [
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "Speech off",
+        "Interrupt": true
+      },
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "Speech on",
+        "Interrupt": true
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-1",
+        "text": "Speech on"
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        Ready"
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  },
+  {
+    "scenario": "Shift\u002BF1 context summary",
+    "spoken": [
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "Focus on trading chart area.",
+        "Interrupt": true
+      },
+      {
+        "Text": "",
+        "Interrupt": true
+      },
+      {
+        "Text": "no symbol on Bitstamp, 1h",
+        "Interrupt": true
+      }
+    ],
+    "liveRegions": [
+      {
+        "id": "aria-speech-1",
+        "text": "no symbol on Bitstamp, 1h"
+      },
+      {
+        "id": "",
+        "text": "Last Feedback:\n        CONTEXT_SUMMARY"
+      },
+      {
+        "id": "blazor-error-ui",
+        "text": "An unhandled error has occurred.\n        Reload\n        \u2715"
+      }
+    ]
+  }
+]

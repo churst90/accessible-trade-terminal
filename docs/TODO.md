@@ -32,7 +32,20 @@ regressions in production code, one at a time, each followed by a full 4,830-tes
 survived a green suite.** Ten findings confirmed, the three suspected pathologies essentially
 refuted (the tests that exist are honest), and the sharpest result is procedural — **five mutants
 came back falsely "caught" by a flaky test firing alone**, so the naive catch rate was 79% and the
-true one is 61%. Fix the flakes before building on this suite. **Next: A3.**
+true one is 61%. Fix the flakes before building on this suite.
+
+**A3 — DONE 2026-08-26.** See "A3 — the Blazor UI, fused with the browser harness" below. The audit
+and the tooling were the same piece of work: a new `AccessibleTrader.BrowserTests` project driving
+a real Chromium against a real Kestrel running the real WebHost, 128 cases in under a minute, with
+a CI job of its own. It is proven by sabotage — reverting `focusElement`'s retry (the Alt+T fix)
+turns it red, and the failure names the route. **Most of the result is refutation:** across 24
+cold-start-reachable routes, focus lands on the declared target every time, Escape closes and
+returns focus every time, Tab never escapes, and every dialog announces a name. Four findings
+confirmed (unlabelled take-profit ladder controls; a placeholder-only textarea; Shift+F12 silent
+with no series; the bwrap flake survived A2's collection fixture), seven dialogs recorded as
+unswept rather than quietly skipped.
+
+**Phase A is complete — all four commissioned audits have run. Next: Phase B (B1, then B2).**
 
 **A1. Analysis services and cross-cutting infra.** Leads the phase because it is the most mechanical
 — the baselines are already counted, so this is verification rather than opinion: 46 empty
@@ -621,18 +634,34 @@ eight were rechecked; **three are already closed, one does not reproduce, four s
 Restoring the named mutant from `scratchpad/a2_sabotage.py` is the acceptance test for each of
 these: apply it, and the suite must go red.
 
-- [ ] **(F1, do first)** Put the 14 script-worker test files in a `[Collection("ScriptWorker")]` so
-  they stop contending for process spawn and bwrap under full parallel load. Closes the two
-  long-standing flakes (`LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment`,
-  `StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script`) as one fix rather than
-  one at a time. HIGH.
+- [x] **(F1, do first)** Put the script-worker test files in a `[Collection("ScriptWorker")]` so
+  they stop contending for process spawn and bwrap under full parallel load. **Done 2026-08-26** —
+  and the census was wrong: **10 files, not 14**. The ten are the ones that actually reach
+  `ScriptWorkerPath`, `OutOfProcessScriptHost.StartAsync` or `RoslynScriptingService`
+  (`HostileScriptTests`, `LinuxBwrapSandboxTests`, `OutOfProcessScriptingTests`,
+  `OutOfProcessStrategyTests`, `ScriptingPolicyWallTests`, `ScriptReferenceSetTests`,
+  `ScriptWorkerMemoryLimitTests`, `StrategyCausalityGateTests`, `WorkerConsoleIsolationTests`,
+  `WorkerDispatcherTests`); `LinuxBwrapLauncherTests`, `FrameCodecTests` and `StrategyCodecTests`
+  only assert argv/codec shapes and spawn nothing. **It helped and it did not finish the job:**
+  13 full-suite runs after the fix produced **1 spurious failure** against 7-in-28 before, and the
+  witness was a THIRD bwrap test, `LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_
+  indicator_under_the_hardened_mount` (the vacuity twin of the env canary). Remaining cause is not
+  intra-suite parallelism. See the open item in the A3 section.
 - [ ] **(F1)** Two new bUnit flakes, same async-settle family:
   `WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline`
   and `Blazor.SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects`. Both
   pass in isolation. Route them through whatever `BunitAsyncSettleGuardTests` guards. HIGH.
-- [ ] **(F5)** Two backtester tests with **non-zero** `CommissionRate` and `SlippagePercent`. All 10
+  **Neither reappeared in 13 runs after the ScriptWorker collection landed** — plausibly they were
+  thread-pool starvation from the same ten files rather than a settle bug, but 13 runs cannot
+  distinguish "fixed" from "rarer", so this stays open.
+- [x] **(F5)** Two backtester tests with **non-zero** `CommissionRate` and `SlippagePercent`. All 10
   `BacktestConfig` constructions in the suite currently set both to 0, so five production sites are
-  only ever multiplied by zero. Mutants M27/M28. HIGH.
+  only ever multiplied by zero. Mutants M27/M28. **Done 2026-08-26** —
+  `StrategyBacktesterTests.Costs_LongEntry_…` / `Costs_ShortEntry_…`, 1% commission and 2% slippage
+  so the expected numbers sit well outside the zero-cost case, every expectation hand-computed
+  rather than recomputed from the production formula. Both mutants restored and **both tests go
+  red on each**, verified. Both sides are needed: a sign-flipped slippage term moves the long fill
+  down and the short fill up, so only running both distinguishes "adverse" from "added".
 - [ ] **(F2)** Assert speech `interrupt:` behaviourally in `OrderEventAnnouncementTests` — fills,
   stop hits and rejections interrupt; cancels do not. The suite's only current assertion on it is a
   grep over `.razor` source (`WithdrawalReachabilityTests.cs:98`). Mutant M17. HIGH.
@@ -675,6 +704,204 @@ exist are honest — no vacuous guards, no assertion-free tests, no empty baseli
 defended in depth. What green does not mean is that anything *outside* the arithmetic works: the
 words the user hears, the order they hear them in, where focus lands, which key opens what, and what
 a backtest charges are all currently unguarded.
+
+---
+
+## A3 — the Blazor UI, fused with the browser harness (audit run 2026-08-26)
+
+Phase A item 3, and the last of the four areas the 2026-08-24 health assessment commissioned and
+never ran. For this area the audit and the tooling are the same piece of work: reading 51 Razor
+files for focus bugs is exactly the half-wrong version, and the bug that motivated the whole thing
+(Alt+T opened the trading dashboard without moving focus) had already survived a dedicated
+focus-contract suite, ModalCatalog enrollment and 4,830 green tests.
+
+### The instrument
+
+`AccessibleTrader.BrowserTests` — a new project, deliberately separate from
+`AccessibleTrader.Tests`. It drives a **real Chromium** (Playwright 1.55) against a **real Kestrel**
+running the **real WebHost** in Full mode: `Program.cs`, the full DI graph, the real middleware
+order, the real SignalR circuit, the real `keyboard.js` keydown trap. 128 cases, ~56 seconds.
+
+Three things make it a measurement rather than a demo:
+
+- **A real socket.** `WebApplicationFactory` hosts on an in-memory transport a browser cannot talk
+  to. `TerminalServerFactory` builds the in-memory host the base class requires, then builds a
+  SECOND host off the same builder with Kestrel on port zero and hands its address to the browser.
+- **Its own storage.** `XDG_DATA_HOME` / `XDG_CACHE_HOME` / `XDG_CONFIG_HOME` are redirected to a
+  throwaway directory before the host is built. This is not tidiness — see the traps below.
+- **Speech pinned to the browser.** `WebHostSpeechManager` probes the machine and prefers Orca,
+  then spd-say, then the browser. The harness passes null probes to force `BrowserTts`, which is
+  the only configuration in which "what did the terminal say" is a question a browser can answer.
+
+Separate project, not another folder in the main suite, for three reasons: these tests must not run
+interleaved with the ~4,800 in-process ones (A2 measured exactly what heavyweight contention does
+to that suite); Chromium is not on every machine, so here it degrades to a clean skip; and the main
+suite's case count is checked against README by `scripts/check_doc_drift.py`, which a browser-
+dependent count would make meaningless. A new `browser` job in `tests.yml` runs it in CI.
+
+### The instrument is proven, not assumed
+
+`scratchpad/a3_sabotage.py`, same discipline as A2 — one change, rebuild, run, revert, `os.utime`:
+
+| sabotage | result |
+| --- | --- |
+| revert `focusElement`'s requestAnimationFrame retry (the Alt+T fix) | **caught** — `OrderBookModal via toolbar` fails with *"focus is on `<button aria-label='Order Book'>`, not on 'orderbook-title'"* |
+| delete `TradingDashboardModal`'s own `focusElement("trade-title")` | **caught** — 2 cases red |
+
+The first one is the roadmap's stated acceptance criterion, and it also answers a question nobody
+had measured: the retry loop is load-bearing. Without it, opening the Order Book leaves the user
+standing on the toolbar button they pressed.
+
+### REFUTED — and the refutations are most of the result
+
+The modal layer is in materially better shape than the roadmap assumed. Across **24 cold-start
+reachable routes** (8 keyboard shortcuts + 19 toolbar buttons, deduplicated):
+
+- **Focus lands on the declared target on all 24.** Including Alt+T, now verified in a real
+  browser rather than in a synchronously-rendering bUnit harness.
+- **Escape closes all 24 and returns focus to `chart-interact-zone` on all 24.**
+- **Tab never escapes any dialog** — 12 presses per route, 288 presses, zero escapes, with a
+  focusable-count floor so the assertion cannot pass by Tab doing nothing.
+- **Every dialog resolves a non-empty accessible name** through `aria-labelledby`.
+- **No unnamed controls anywhere on the main page** (toolbar, tab bar, chart, status bar).
+- **"The browser voice never speaks on the WebHost"** — filed, then killed. See trap 1.
+- **"Closing the Order Book dumps focus on `<body>`"** — filed, then killed: the harness was
+  sampling `document.activeElement` before the closing render had restored it.
+
+### CONFIRMED — F1. The take-profit ladder's controls have no accessible name (MEDIUM)
+
+`RiskPlanEditor.razor`, reached through Strategies → Build Setup. Every other field in that editor
+is labelled properly (`<label for="risk-stoppct">` and friends). The TP-ladder rows cannot be,
+because they render in a `@foreach` and a fixed `id` would collide across rungs — so the visible
+`TP1:` / `R:` / `Close fraction:` text is attached to nothing. Live sweep found **three `<select>`
+and two `<input type=number>`** with no name at all.
+
+A screen-reader user setting take-profit levels on a real trade arrives at an unlabelled spin
+button and an unlabelled dropdown. Fix is a per-rung id (`risk-tp-@idx-kind`) or an `aria-label`.
+
+### CONFIRMED — F2. The Sound Designer's import field is named only by its placeholder (LOW)
+
+`textarea#sd-import-json` has `placeholder="Paste SoundPatch JSON here..."` and nothing else.
+Placeholder is the last resort in the accname spec and a poor name: it is announced, but it
+disappears the moment the field has content, so a user who tabs back to check what they pasted
+hears an unnamed edit box.
+
+### CONFIRMED — F3. Shift+F12 is a silent no-op with no series loaded (LOW/MEDIUM)
+
+`PropertiesModal.ShowAsync` resolves the focused series and `return`s when there is none. On a
+fresh install — the state the app is in when the status line says *"Welcome to AccessibleTrader"* —
+pressing the documented Properties shortcut does nothing and **says** nothing.
+
+This is A1's failure class exactly: in this app a swallowed outcome is not merely invisible, it is
+inaudible, and there is no compensating channel. The shortcut is correctly chart-scoped
+(`CommandDispatcher.IsChartScopedCommand` lists `OpenProperties` as "the F-key exception"), which
+is a separate and correct decision; the finding is the silence, not the gate. One
+`Speak("No series selected.")` closes it.
+
+### CONFIRMED — F4. The bwrap flake survived the collection fixture (MEDIUM)
+
+A2/F1's fix helped and did not finish: 13 full-suite runs after `[Collection("ScriptWorker")]`
+landed produced 1 spurious failure (vs 7 in 28 before), and the witness was a third bwrap test,
+`LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_indicator_under_the_hardened_mount`. Since
+the ten spawning files are now serialised against each other, the remaining cause is not
+intra-suite parallelism — it is bwrap/worker start-up latency under whole-machine load against
+whatever timeout that test uses. Next step is to read the timeout rather than to run it again.
+
+### Left explicitly UNVERIFIED
+
+The rule for this phase is demonstrate or say you did not, so:
+
+- **Seven of 25 dialogs were never opened.** Five have no cold-start route at all
+  (`AddIndicatorModal`, `AssetDossierModal`, `CustomScriptsModal`, `LabelTextModal`,
+  `ThemeEditorModal`); `WalletModal` and `WithdrawModal` are gated behind a provider with a wallet,
+  so their toolbar buttons do not exist in a credential-free session. All seven are enrolled in
+  `ModalRoutes.NoColdStartRoute` with the reason, and `RouteCatalogCompletenessTests` fails the
+  build if a new dialog appears in neither list.
+- **The declared-target assertion is not yet proven to beat the bUnit contract's weakness.** A2/F4's
+  point is that `ModalBase` focuses the heading, so a modal's own second, more specific focus call
+  can be deleted unnoticed. The only three modals whose declared target is NOT the heading —
+  Wallet (`wallet-asset`), Withdraw (`withdraw-asset`), LabelText (`label-text-input`) — are all
+  unreachable from a cold start, so no reachable route currently distinguishes the two cases. The
+  design is right; the demonstration is missing until the harness can seed credentials.
+- **Only the initial state and the tablist of each dialog were swept for names.** Controls behind
+  `<details>` expanders, conditional branches and populated lists were not rendered and so were not
+  measured. The 5 + 1 found are a floor, not a total.
+- **The MAUI head is not covered** and cannot be from a net10.0 project. It runs the same components
+  through BlazorWebView, so the component layer is covered by proxy; its own shell is not.
+- **No screen reader was in the loop.** The harness reads the accessibility tree Chromium computes.
+  That is the right input to the question "does this control have a name", and it is not the same
+  as "Orca announces it usefully".
+
+### Traps this pass found — read these before touching the harness
+
+1. **Blazor memoizes the function it resolves for a JS interop identifier.** The speech recorder was
+   installed after page load and recorded nothing, while the server log showed the bridge
+   dispatching every utterance — because the first `accessibleTrader.speak` call happens during
+   circuit start-up (a `Silence()` with empty text) and .NET kept invoking the cached original.
+   That reads exactly like *"the browser voice is dead in the mode meant for users with no screen
+   reader"*, which was about to be filed as a HIGH finding. It is now an `AddInitScriptAsync` hook
+   installed before navigation, and it needs TWO layers: `keyboard.js` REPLACES
+   `window.accessibleTrader` with a fresh object literal, and `webSpeech.js` later assigns `speak`
+   onto whatever object is there.
+2. **The harness ran against the developer's real data directory** until `XDG_DATA_HOME` was
+   redirected. Full mode resolves `PlatformPaths.AppDataRoot()` to `~/.local/share/AccessibleTrader`
+   — real workspaces, saved tabs, journal, alerts, API keys. The first survey opened his own four
+   saved chart tabs and connected live websockets to MEXC, Kraken and Bitstamp to service them, and
+   then pressed Escape twenty-seven times inside that session.
+3. **`WebHostSpeechManager` probes the machine**, so on any Linux box with speech-dispatcher
+   installed the backend is `SpdSay`: the harness talks out loud through the developer's speakers,
+   AND `ShouldEnableLiveRegion` empties the ARIA live region, so the browser is deaf to everything
+   the app says. Pin the backend.
+4. **Pin `PLAYWRIGHT_BROWSERS_PATH` before redirecting `XDG_CACHE_HOME`** — the node driver resolves
+   `~/.cache/ms-playwright` through it, so the redirect relocates the browsers directory and every
+   launch reports "executable doesn't exist" as though nothing were installed.
+5. **Playwright's headless default wants a separate `chromium_headless_shell` download.**
+   `Channel = "chromium"` runs the full build instead, which is also the browser a user runs.
+6. **Two accessible-name traps, both of which produced false results on the first run.** A bare
+   `[href]` selector matches the toolbar's 29 inline `<svg><use href="#icon-…">` elements; use
+   `a[href]`, and skip anything with an `aria-hidden` ANCESTOR rather than the attribute on the
+   element itself. And a `<select>`'s option text is NOT its accessible name — the textContent
+   fallback applies to button/link/tab roles, never to textbox/combobox/listbox, and without that
+   carve-out every unlabelled dropdown in the app passes.
+7. **A Tab-trap test needs a vacuity floor.** "Focus never left the dialog" is also precisely what a
+   Tab key that does nothing looks like. The floor has to be the dialog's own focusable count, not
+   a constant: the Trading Dashboard with no chart loaded is legitimately one Close button.
+8. **`_inputReady`.** A keystroke sent between "the page rendered" and
+   "`GlobalInputService.InitializeAsync` attached the window listener" is dropped silently, which
+   is indistinguishable from a broken shortcut. `keyboard.js` now sets a flag on the last line of
+   `registerKeyboardHandler` and the harness waits on it, so every failure it reports is about the
+   app rather than about the harness being early.
+
+### The work A3 creates
+
+- [ ] **(F1)** Give the TP-ladder rungs in `RiskPlanEditor.razor` accessible names — per-rung ids
+  (`risk-tp-@idx-kind`, `risk-tp-@idx-value`, `risk-tp-@idx-portion`) with matching `for`, or
+  `aria-label`. Acceptance test: delete the entries from `AccessibleNameSweepTests.KnownUnnamed`
+  and the sweep must stay green. MEDIUM.
+- [ ] **(F2)** Give `textarea#sd-import-json` a real label. Same acceptance test. LOW.
+- [ ] **(F3)** Make Shift+F12 with no focused series say so instead of returning silently. LOW.
+- [ ] **(F4)** Read the timeout in
+  `LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_indicator_under_the_hardened_mount` and
+  raise it, or make it wait on a signal instead of a clock. MEDIUM.
+- [ ] Teach the harness to seed a chart and credentials, which unlocks the seven unswept dialogs
+  AND lets the declared-target assertion finally distinguish "focused the heading" from "focused
+  the amount field" (the whole point of A2/F4). MEDIUM.
+- [ ] Sweep controls behind `<details>` expanders and populated lists, not just the initial render
+  and the tablist. LOW.
+
+### A3 → the plan
+
+**Phase A is complete.** All four commissioned audit areas have now been run — scripting/sandbox
+(2026-08-25), cross-cutting infra (A1), the test suite itself (A2), and the Blazor UI (A3) — every
+one of them empirically, and each one produced refutations as well as findings.
+
+The overall shape after four audits: **the arithmetic and the money path are the strong part of
+this codebase, and the parts a blind user actually lives in are the thin part** — the words, their
+order, where focus lands, which key opens what. A3 is the first of the four to report that the
+layer it examined is mostly *right*; what was missing was any way to know that.
+
+**Next is Phase B**, unchanged: B1 typed `OrderPlacement` (its acceptance test is A2's mutant M21),
+then B2 dashboard decoupling.
 
 ---
 

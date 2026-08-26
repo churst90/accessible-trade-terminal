@@ -281,5 +281,88 @@ namespace AccessibleTrader.Tests
             for (int i = 1; i < dates.Count; i++)
                 Assert.True(dates[i] >= dates[i - 1], $"equity curve out of order at index {i}: {dates[i - 1]} → {dates[i]}");
         }
+
+        // ── Costs: the two tests that make the cost model non-vacuous ───────
+        //
+        // The A2 sabotage audit (2026-08-26) found that every one of the ten BacktestConfig
+        // constructions in this suite set CommissionRate: 0 AND SlippagePercent: 0, so the five
+        // production sites that multiply by those rates were only ever multiplied by zero.
+        // Mutant M27 (entry commission replaced with 0) and M28 (entry slippage applied in the
+        // trader's FAVOUR) both survived the full 4,830-test suite. These two tests are their
+        // acceptance criteria: restore either mutant and one of them must go red.
+        //
+        // The rates are deliberately absurd (1% commission, 2% slippage) rather than realistic.
+        // A realistic 0.1%/0.05% would put the expected numbers inside the rounding tolerance of
+        // the zero-cost case, which is the same as not testing it. Every expected value below is
+        // hand-computed from the fixture, NOT recomputed by calling the production formula —
+        // see the standing lesson about tests that mirror the logic they are guarding.
+
+        private const double Commission = 0.01;    // 1% per side
+        private const double Slippage   = 0.02;    // 2% per side
+
+        [Fact]
+        public async System.Threading.Tasks.Task Costs_LongEntry_PaysSlippageUpAndCommissionOnBothSides()
+        {
+            // LinearBars: bar i has Open = Close = 100 + i, so the fill bar (index 1) opens at
+            // 101 and the last bar (index 9) closes at 109. Price only rises, so a stop at 50
+            // never trades and the position closes on "End of data".
+            var bt = new StrategyBacktester();
+            var data = LinearBars(10);
+            var strat = new DeterministicStrategy(0, new StrategySignal(
+                Side: OrderSide.Buy, OrderType: OrderType.Market, Quantity: 1, LimitPrice: null,
+                StopLoss: 50, TakeProfit: null, Rationale: "test", Confidence: 1));
+            var cfg = new BacktestConfig(
+                StartingCapital: 10000, WarmupBars: 0, ReplayProfiles: false,
+                CommissionRate: Commission, SlippagePercent: Slippage);
+
+            var result = await bt.RunAsync(strat, data, cfg);
+
+            var trade = Assert.Single(result.Trades);
+
+            // Slippage is ADVERSE for a buyer: 101 + (101 × 2%) = 103.02. With the sign flipped
+            // (M28) this would be 98.98 — a better price than the market's, which is the tell.
+            Assert.Equal(103.02, trade.EntryPrice, 6);
+            Assert.Equal(109.0, trade.ExitPrice!.Value, 6);
+
+            // Trade P&L carries the EXIT commission only (109 × 1 × 1% = 1.09):
+            //   (109 − 103.02) × 1 − 1.09 = 4.89
+            Assert.Equal(4.89, trade.PnL!.Value, 6);
+
+            // The ENTRY commission (103.02 × 1 × 1% = 1.0302) is charged against equity rather
+            // than against the trade row, so TotalPnL is the only place it shows up — which is
+            // exactly why M27 could zero it without a single assertion noticing.
+            //   4.89 − 1.0302 = 3.8598
+            Assert.Equal(3.8598, result.Metrics.TotalPnL, 6);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task Costs_ShortEntry_PaysSlippageDownAndCommissionOnBothSides()
+        {
+            // The mirror image, and it is not redundant: a sign-flipped slippage term moves the
+            // long fill down and the short fill UP, so only running both sides distinguishes
+            // "slippage is adverse" from "slippage is added".
+            var bt = new StrategyBacktester();
+            var data = LinearBars(10);
+            var strat = new DeterministicStrategy(0, new StrategySignal(
+                Side: OrderSide.Sell, OrderType: OrderType.Market, Quantity: 1, LimitPrice: null,
+                StopLoss: 200, TakeProfit: null, Rationale: "test", Confidence: 1));
+            var cfg = new BacktestConfig(
+                StartingCapital: 10000, WarmupBars: 0, ReplayProfiles: false,
+                CommissionRate: Commission, SlippagePercent: Slippage);
+
+            var result = await bt.RunAsync(strat, data, cfg);
+
+            var trade = Assert.Single(result.Trades);
+
+            // 101 − (101 × 2%) = 98.98. A short filled at 103.02 would be a short sold ABOVE
+            // the market — free money, and the direction M28 introduces.
+            Assert.Equal(98.98, trade.EntryPrice, 6);
+
+            //   (98.98 − 109) × 1 − 1.09 = −11.11
+            Assert.Equal(-11.11, trade.PnL!.Value, 6);
+
+            // Entry commission 98.98 × 1% = 0.9898.  −11.11 − 0.9898 = −12.0998
+            Assert.Equal(-12.0998, result.Metrics.TotalPnL, 6);
+        }
     }
 }

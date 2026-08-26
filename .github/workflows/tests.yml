@@ -82,6 +82,68 @@ jobs:
           path: AccessibleTrader.Tests/TestResults/*.trx
           retention-days: 14
 
+  # ── Browser harness ────────────────────────────────────────────────────────
+  #
+  # AccessibleTrader.BrowserTests drives a real Chromium against a real Kestrel
+  # running the real WebHost. It is a SEPARATE job, not another filter on the
+  # xunit one, because it must not run interleaved with the ~4,800 in-process
+  # tests: the A2 audit (2026-08-26) measured what heavyweight tests contending
+  # for the thread pool do to that suite — seven spurious failures in 28 runs,
+  # five of them the only failure in their run.
+  #
+  # It exists because the suite above is structurally blind to a whole class of
+  # bug. Alt+T opened the trading dashboard without moving focus and survived a
+  # dedicated focus-contract suite, a modal catalog and 4,830 green tests,
+  # because bUnit applies a render synchronously and a browser does not.
+  #
+  # Without a browser installed every test here SKIPS, which is why
+  # HarnessSmokeTests.The_browser_suite_reports_whether_it_can_actually_run
+  # fails rather than skips: a silently-skipped browser suite is a green run
+  # that means nothing.
+  browser:
+    name: Browser harness (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.301'
+
+      - name: Restore
+        run: dotnet restore AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj
+
+      - name: Build
+        run: |
+          dotnet build AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:UseRazorSourceGenerator=false
+
+      # The version must match the Microsoft.Playwright PackageReference: the
+      # .NET driver looks for one exact browser build number.
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Test
+        run: |
+          dotnet test AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj \
+            --configuration Release \
+            --no-build \
+            -p:UseRazorSourceGenerator=false \
+            --logger "trx;LogFileName=browser-results.trx"
+
+      - name: Upload results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: AccessibleTrader.BrowserTests/TestResults/*.trx
+          retention-days: 14
+
   # ── MAUI head compile check ────────────────────────────────────────────────
   #
   # The MAUI desktop head was ONLY built by release.yml, which runs on a tag.
