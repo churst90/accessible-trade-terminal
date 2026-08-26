@@ -290,5 +290,103 @@ namespace AccessibleTrader.Tests
             Assert.DoesNotContain("LIQUIDATED", msg);
             Assert.Equal("Order filled. Bought 0.5 BTCUSD at 45000.00.", msg);
         }
+
+        // ── Which utterances cut off the one before them ─────────────────────
+        //
+        // A2/F2. Every `Speak` call in the coordinator names an `interrupt:` value and
+        // NOTHING in the suite observed any of them — the only assertion on the word
+        // anywhere was a grep over .razor source, and the test double discarded the
+        // flag before anyone could read it. Mutant M17 flips one of these and the
+        // suite stayed green.
+        //
+        // The rule the code encodes, and these pin: an event that changes the
+        // trader's position or their money — a fill, a partial, a stop, a take
+        // profit, a rejection, a margin warning — interrupts, because hearing it
+        // thirty seconds late is the same as not hearing it. An event that merely
+        // retires an order they already know about — a cancel they asked for, an
+        // expiry, a replace — does not, because stamping on a bar reading to say
+        // "your cancel went through" is the terminal talking over the user.
+
+        private static bool SpokeInterrupting(CounterSpeechManager speech)
+        {
+            var utterance = Assert.Single(speech.Utterances);
+            return utterance.Interrupt;
+        }
+
+        [Theory]
+        [InlineData("fill")]
+        [InlineData("partial")]
+        [InlineData("stop")]
+        [InlineData("takeprofit")]
+        [InlineData("rejected")]
+        [InlineData("margin")]
+        public void MoneyEvents_InterruptWhateverIsBeingSpoken(string which)
+        {
+            var (_, bus, speech, _) = CreateHarness();
+
+            switch (which)
+            {
+                case "fill":       bus.Publish(new OrderFilledEvent(Update())); break;
+                case "partial":    bus.Publish(new OrderPartialFillEvent(
+                                       Update(qty: 0.3, remaining: 0.2, status: OrderStatus.PartialFill))); break;
+                case "stop":       bus.Publish(new StopHitEvent(Update(side: OrderSide.Sell, stop: true))); break;
+                case "takeprofit": bus.Publish(new TakeProfitHitEvent(Update(side: OrderSide.Sell, tp: true))); break;
+                case "rejected":   bus.Publish(new OrderRejectedEvent(
+                                       Update(qty: 0, price: 0, status: OrderStatus.Rejected), "Insufficient balance")); break;
+                case "margin":     bus.Publish(new MarginWarningEvent("BTCUSD", 0.12,
+                                       "Margin warning for BTCUSD. Liquidation is 3 percent away.")); break;
+            }
+
+            Assert.True(SpokeInterrupting(speech),
+                $"'{which}' was queued behind whatever was already speaking instead of interrupting it.");
+            // Interrupting is two acts, not one: the router silences first and then
+            // speaks. A Speak(interrupt: true) with no Silence leaves the previous
+            // utterance running underneath on the managers that queue.
+            Assert.True(speech.SilenceCalls >= 1,
+                $"'{which}' claimed to interrupt but never silenced the current utterance.");
+        }
+
+        [Theory]
+        [InlineData("cancelled")]
+        [InlineData("expired")]
+        [InlineData("replaced")]
+        public void OrderRetirements_WaitTheirTurn(string which)
+        {
+            var (_, bus, speech, _) = CreateHarness();
+
+            switch (which)
+            {
+                case "cancelled": bus.Publish(new OrderCancelledEvent(
+                                      Update(status: OrderStatus.Cancelled))); break;
+                case "expired":   bus.Publish(new OrderExpiredEvent(
+                                      Update(status: OrderStatus.Expired))); break;
+                case "replaced":  bus.Publish(new OrderReplacedEvent(
+                                      Update(status: OrderStatus.Cancelled))); break;
+            }
+
+            Assert.False(SpokeInterrupting(speech),
+                $"'{which}' cut off whatever the user was listening to for a routine state change.");
+            Assert.Equal(0, speech.SilenceCalls);
+        }
+
+        /// <summary>
+        /// The vacuity check for the pair above. Both theories read the same field, so a
+        /// double that silently stopped recording it would turn one green and the other
+        /// red — but a double that recorded a CONSTANT would turn exactly one of them
+        /// green and could survive if only one theory existed. This asserts the two
+        /// values actually differ within a single harness, which is the claim.
+        /// </summary>
+        [Fact]
+        public void TheInterruptFlagIsRecorded_AndTheTwoClassesDisagree()
+        {
+            var (_, bus, speech, _) = CreateHarness();
+
+            bus.Publish(new OrderFilledEvent(Update()));
+            bus.Publish(new OrderCancelledEvent(Update(status: OrderStatus.Cancelled)));
+
+            Assert.Equal(2, speech.Utterances.Count);
+            Assert.True(speech.Utterances[0].Interrupt);
+            Assert.False(speech.Utterances[1].Interrupt);
+        }
     }
 }

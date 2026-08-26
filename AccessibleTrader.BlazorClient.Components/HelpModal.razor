@@ -210,6 +210,11 @@
                         <tr><td>Shift+[ / Shift+]</td><td>Decrease / increase panning step percentage</td><td>"Panning step: N percent"</td></tr>
                         <tr><td>Ctrl+← / Ctrl+→</td><td>Jump to previous / next trendline crossing</td><td>"Trendline crossing" or "No crossing found"</td></tr>
                         <tr><td>Alt+↑ / Alt+↓</td><td>Scroll indicator panes up or down</td><td>"Scroll panes up/down"</td></tr>
+                        <tr><td>Ctrl+Page Up / Ctrl+Page Down</td><td>Jump to the previous / next sub-pane</td><td>Pane name</td></tr>
+                        <tr><td>Ctrl+↑ / Ctrl+↓</td><td>Cycle components within the focused pane</td><td>Component value</td></tr>
+                        <tr><td>, / .</td><td>Step to the previous / next chart-formation edge</td><td>Edge name and bar data</td></tr>
+                        <tr><td>;</td><td>Cycle the chosen formation under the cursor</td><td>Formation name</td></tr>
+                        <tr><td>Shift+;</td><td>Clear the chosen formation</td><td>"Formation focus cleared"</td></tr>
                         <tr><td>Ctrl+Alt+Shift+C</td><td>Focus chart area and speak context summary</td><td>Symbol + context summary</td></tr>
                     </tbody>
                 </table>
@@ -248,9 +253,13 @@
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
                     <tbody>
-                        <tr><td>F2</td><td>Toggle speech output on / off</td><td>"Speech on" / "Speech off"</td></tr>
+                        <tr><td>F2</td><td>Toggle speech output on / off (the interactive channel — things you asked for)</td><td>"Speech on" / "Speech off"</td></tr>
+                        <tr><td>Shift+F2</td><td>Toggle event speech on / off (the ambient channel — things that happen to you)</td><td>"Event speech on" / "Event speech off"</td></tr>
                         <tr><td>F3</td><td>Toggle sonification engine on / off</td><td>"Sound on" / "Sound off"</td></tr>
-                        <tr><td>F4</td><td>Speak current context snapshot</td><td>"Symbol on Provider, Timeframe"</td></tr>
+                        <tr><td>Shift+F3</td><td>Toggle earcons on / off</td><td>"Earcons on" / "Earcons off"</td></tr>
+                        <tr><td>F4</td><td>Toggle braille output on / off</td><td>"Braille on" / "Braille off"</td></tr>
+                        <tr><td>Shift+F4</td><td>Open braille / tactile display settings</td><td>Dialog title</td></tr>
+                        <tr><td>Shift+F1</td><td>Speak current context snapshot</td><td>"Symbol on Provider, Timeframe"</td></tr>
                         <tr><td>H</td><td>Toggle indicator visibility (hide / show)</td><td>"[Series] hidden / visible"</td></tr>
                     </tbody>
                 </table>
@@ -262,7 +271,9 @@
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
                         <tr><td>F1</td><td>Open this Help dialog</td></tr>
+                        <tr><td>F12</td><td>Open Settings</td></tr>
                         <tr><td>Alt+A</td><td>Open Indicator search</td></tr>
+                        <tr><td>Alt+I</td><td>Open the Asset Dossier for the focused symbol</td></tr>
                         <tr><td>Alt+S</td><td>Open Strategy Manager</td></tr>
                         <tr><td>Alt+O</td><td>Open Object Tree (series list)</td></tr>
                         <tr><td>Alt+T</td><td>Open Trading Dashboard</td></tr>
@@ -282,7 +293,71 @@
                         <tr><td>Ctrl+Alt+Shift+J</td><td>Open the Journal (speech / alerts / setups / errors)</td></tr>
                         <tr><td>ContextMenu / Shift+F10</td><td>Open the context menu for the focused drawing</td></tr>
                         <tr><td>Delete</td><td>Remove focused indicator</td></tr>
+                        <tr><td>0</td><td>Add a reference level at the focused value</td></tr>
                         <tr><td>Tab / Shift+Tab</td><td>Navigate toolbar controls</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            @*
+                Orientation, tabs and workspaces. These were absent from this dialog until
+                2026-08-26 while docs/SHORTCUTS.md carried all of them — which is the worst
+                shape the drift can take, because the in-app help is the copy a user reaches
+                without leaving the terminal. ShortcutHelpParityTests now fails the build if
+                a default binding is missing from either.
+            *@
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Orientation &amp; recovery</summary>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>Ctrl+Alt+Shift+Y</td><td>Speak the chart layout — what is on screen and where</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+K</td><td>Show all components (undo every hide)</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+U</td><td>Unmute all components (undo every mute)</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+M</td><td>Speak the background monitoring summary</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Chart tabs &amp; workspaces</summary>
+                <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
+                    Browsers reserve Ctrl+T and Ctrl+Tab for their own tabs, so the web host also
+                    binds Alt+Shift+N (new chart tab) and Ctrl+Alt+Shift+T (focus the tab bar and
+                    drive it with the arrow keys). Both chords work on every head.
+                </p>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>Ctrl+T / Alt+Shift+N</td><td>New chart tab</td></tr>
+                        <tr><td>Ctrl+W</td><td>Close the active chart tab</td></tr>
+                        <tr><td>Ctrl+Tab / Ctrl+Shift+Tab</td><td>Next / previous chart tab (desktop)</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+T</td><td>Focus the tab bar (web-safe; then arrows, Home, End, Delete)</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+W</td><td>Save the workspace</td></tr>
+                        <tr><td>Ctrl+Alt+W</td><td>Load a workspace</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+L</td><td>Load a chart</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+I</td><td>Open My Data (cached history and stored files)</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Quick trade (keyboard order entry)</summary>
+                <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
+                    Three-modifier chords, deliberately: these move money and must be impossible to
+                    hit by accident. Nothing is sent until you are armed, and the stop is set before
+                    the size — the size is computed <em>from</em> the stop distance. See
+                    <strong>docs/SHORTCUTS.md</strong> for the full workflow.
+                </p>
+                <table class="shortcuts-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>Ctrl+Alt+Shift+X</td><td>Set the stop at the focused bar's price — do this first</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+1 / Ctrl+Alt+Shift+2 / Ctrl+Alt+Shift+3</td><td>Arm at risk tier 1, 2 or 3</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+0</td><td>Disarm — cancel the armed quick trade</td></tr>
+                        <tr><td>Ctrl+Alt+Shift+Q</td><td>Speak the current arm status (tier, stop, computed size)</td></tr>
+                        <tr><td>Shift+Enter</td><td>Place the armed order as a limit at the focused price</td></tr>
+                        <tr><td>Ctrl+Enter</td><td>Place the armed order at market</td></tr>
                     </tbody>
                 </table>
             </details>

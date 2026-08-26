@@ -232,12 +232,36 @@ public sealed class BlazorTestHarness : IDisposable
     /// <summary>Element ids passed to accessibleTrader.focusElement, in call
     /// order. The stub above answers every call, but bUnit still records them —
     /// this is how tests assert WHERE focus was sent rather than merely that
-    /// the modal rendered (the gap that made focus bugs untestable).</summary>
-    public IReadOnlyList<string> FocusedElementIds =>
-        Ctx.JSInterop.Invocations
-            .Where(i => i.Identifier == "accessibleTrader.focusElement")
-            .Select(i => i.Arguments.Count > 0 ? i.Arguments[0]?.ToString() ?? "" : "")
-            .ToList();
+    /// the modal rendered (the gap that made focus bugs untestable).
+    ///
+    /// <para>
+    /// The retry is not defensive padding. <see cref="WaitForFocus"/> spins on this property
+    /// from the test thread while the renderer thread is APPENDING to the very collection it
+    /// enumerates, and bUnit's invocation log is an ordinary non-concurrent one — so a LINQ
+    /// pass over it can die with "Collection was modified; enumeration operation may not
+    /// execute" instead of returning the ids. The failure would read as a broken focus call,
+    /// not as a harness race, which is the expensive kind of wrong.
+    /// </para></summary>
+    public IReadOnlyList<string> FocusedElementIds
+    {
+        get
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return Ctx.JSInterop.Invocations
+                        .Where(i => i.Identifier == "accessibleTrader.focusElement")
+                        .Select(i => i.Arguments.Count > 0 ? i.Arguments[0]?.ToString() ?? "" : "")
+                        .ToList();
+                }
+                catch (InvalidOperationException) when (attempt < 100)
+                {
+                    Thread.Yield();
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Waits for focus to be sent to <paramref name="elementId"/>, on the WALL CLOCK

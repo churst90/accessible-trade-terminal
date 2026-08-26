@@ -74,6 +74,21 @@
   not a false signal. If a strategy of yours has gone quiet since updating, this is
   probably why; rebuild the condition from the causal signals that remain.
 
+- **The Help dialog now lists the keys that place trades.** Press F1 and 37 shortcuts were
+  missing from it — every quick-trade chord among them, so the keys that set your stop, arm a
+  risk tier and send the order appeared nowhere in the terminal's own help. Chart tabs,
+  workspace save and load, Alt+I for the asset dossier, F12 for Settings, the formation keys
+  and the whole Ctrl+Alt+Shift orientation family were absent too. They are all in there now,
+  under three new headings: Orientation & recovery, Chart tabs & workspaces, and Quick trade.
+  One row was not missing but wrong — F4 was described as speaking the context snapshot, which
+  it stopped doing when the F-key layout changed; F4 toggles braille, and Shift+F1 is the
+  snapshot. The full manual in `docs/SHORTCUTS.md` had all of these the whole time; it was the
+  in-app copy that had drifted, which is the one you can reach without leaving the terminal.
+- **Custom indicators and script strategies stop dropping off the chart.** They ran in a
+  sandboxed helper process, and that process could be killed by the operating system partway
+  through a session for reasons that had nothing to do with your script — leaving the indicator
+  simply gone, with nothing said. Fixed at the cause; they now live as long as the app does.
+
 **Not in this release, deliberately: moving funds off a venue.** The withdrawal path is
 built and tested, but no one has yet run a real withdrawal with it, and that is the one
 place in this terminal where being wrong loses money directly rather than through a

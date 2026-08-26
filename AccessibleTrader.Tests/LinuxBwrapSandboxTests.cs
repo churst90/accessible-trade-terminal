@@ -228,6 +228,84 @@ public class LinuxBwrapSandboxTests
         }
     }
 
+    /// <summary>
+    /// The sandbox must outlive the thread that started it.
+    ///
+    /// <para>
+    /// <c>--die-with-parent</c> is <c>prctl(PR_SET_PDEATHSIG, SIGKILL)</c>, and on Linux the
+    /// "parent" PDEATHSIG watches is the <b>thread</b> that created the process, not the
+    /// process. Spawning bwrap from a thread-pool thread therefore armed a kill switch on a
+    /// thread the runtime retires whenever it feels like it: when it did, the kernel killed the
+    /// sandbox mid-session and the host saw exit code 137 and an <c>EndOfStreamException</c> at
+    /// byte 0 of the next frame.
+    /// </para>
+    ///
+    /// <para>
+    /// This arrived disguised as a test flake — <c>LinuxBwrapSandboxTests</c> failing about
+    /// once in seven full-suite runs, always green in isolation — and two passes filed it as
+    /// start-up latency against a timeout. It is not latency: measured bwrap start is ~0.2 s
+    /// against a 10 s budget even at 2x CPU oversubscription. What it actually was is a custom
+    /// indicator or a script strategy dropping off a live chart partway through a session, for
+    /// a user with no way to see it happen.
+    /// </para>
+    ///
+    /// <para>
+    /// The test is the demonstration: start a worker on a thread and let that thread exit, then
+    /// talk to the worker. Before the fix this threw
+    /// <c>InvalidOperationException: script worker … has exited (code 137)</c>. The control —
+    /// the same thing with the thread kept alive — is what distinguishes "the fix works" from
+    /// "the fixture never worked", and the argv test above is what keeps
+    /// <c>--die-with-parent</c> itself from being deleted as an easier way to pass this.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(false)]  // control: the spawning thread is still running
+    [InlineData(true)]   // the regression: the spawning thread has exited
+    public async Task A_worker_survives_the_thread_that_spawned_it(bool letTheSpawningThreadExit)
+    {
+        if (SkipUnlessBwrap(out var workerPath)) return;
+
+        var assembly = EchoCloseIndicator();
+        OutOfProcessScriptHost? host = null;
+        Exception? startFailure = null;
+        var started = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+
+        var spawner = new Thread(() =>
+        {
+            try
+            {
+                host = OutOfProcessScriptHost.StartAsync(
+                    new LinuxBwrapLauncher(), workerPath!, assembly,
+                    scriptId: "pdeath-" + Guid.NewGuid().ToString("N")[..8]).GetAwaiter().GetResult();
+            }
+            catch (Exception ex) { startFailure = ex; }
+            started.Set();
+            if (!letTheSpawningThreadExit) release.Wait(TimeSpan.FromSeconds(30));
+        }) { IsBackground = true, Name = "test-spawner" };
+
+        spawner.Start();
+        Assert.True(started.Wait(TimeSpan.FromSeconds(60)), "the worker never finished starting");
+        Assert.Null(startFailure);
+
+        try
+        {
+            if (letTheSpawningThreadExit)
+                Assert.True(spawner.Join(TimeSpan.FromSeconds(10)), "the spawning thread did not exit");
+
+            var result = await host!.CalculateAsync(
+                new CalculateRequest(Bars(), new Dictionary<string, double>()));
+
+            Assert.Single(result);
+            Assert.Equal(new[] { 100.5, 101.5, 102.5 }, result[0]);
+        }
+        finally
+        {
+            release.Set();
+            if (host != null) await host.DisposeAsync();
+        }
+    }
+
     // ── Harness ───────────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -145,10 +146,74 @@ public sealed class LinuxBwrapLauncher : IScriptWorkerLauncher
         foreach (var arg in BuildBwrapArgs(workerDir, workerExecutablePath))
             psi.ArgumentList.Add(arg);
 
-        var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        proc.Start();
+        var proc = SpawnOnTheLongLivedThread(psi);
         SandboxApplied = true;
         return new DotNetProcessAdapter(proc);
+    }
+
+    // ── Why the spawn is marshalled onto a thread of our own ─────────────────
+    //
+    // `--die-with-parent` is implemented as prctl(PR_SET_PDEATHSIG, SIGKILL), and on Linux the
+    // "parent" that PDEATHSIG watches is the **thread** that created the process, not the
+    // process. Starting bwrap from a thread-pool thread therefore arms a kill switch on a
+    // thread the runtime is free to retire the moment it goes idle — and when it does, the
+    // kernel SIGKILLs the sandbox while the host is alive and mid-conversation with it. The
+    // host sees the worker vanish with exit code 137 and an EndOfStreamException at byte 0 of
+    // the next frame.
+    //
+    // It reached this repo as a suspected test flake: `LinuxBwrapSandboxTests` failed roughly
+    // once in seven full-suite runs and always passed in isolation, and two audits recorded it
+    // as "bwrap/worker start-up latency under load" against some timeout. It is neither latency
+    // nor a timeout — measured start is ~0.2 s against a 10 s budget even at 2x CPU
+    // oversubscription. Demonstrated instead by spawning one worker from a thread that is then
+    // allowed to exit and one from a thread that is kept alive: the first dies with exactly the
+    // observed error, the second answers normally.
+    //
+    // In production the same thing takes a custom indicator or a script strategy off the chart
+    // partway through a session, for a user who has no way to see that it happened.
+    //
+    // Dropping `--die-with-parent` would also "fix" it and is the wrong trade: it is what stops
+    // a sandbox outliving a host crash. Instead every launch happens on one background thread
+    // that lives as long as the process, so the kill switch now fires when it should — when the
+    // process is gone — and never before.
+    private static readonly BlockingCollection<(ProcessStartInfo Psi, TaskCompletionSource<Process> Result)>
+        _spawnQueue = new();
+
+    private static readonly Thread _spawnThread = StartSpawnThread();
+
+    private static Thread StartSpawnThread()
+    {
+        var t = new Thread(() =>
+        {
+            foreach (var (psi, result) in _spawnQueue.GetConsumingEnumerable())
+            {
+                try
+                {
+                    var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                    p.Start();
+                    result.SetResult(p);
+                }
+                catch (Exception ex) { result.SetException(ex); }
+            }
+        })
+        {
+            // Background: the process must still be able to exit. When it does, PDEATHSIG fires
+            // on every live sandbox, which is precisely the behaviour --die-with-parent is for.
+            IsBackground = true,
+            Name = "bwrap-spawner",
+        };
+        t.Start();
+        return t;
+    }
+
+    private static Process SpawnOnTheLongLivedThread(ProcessStartInfo psi)
+    {
+        _ = _spawnThread;   // force the static initialiser
+        var result = new TaskCompletionSource<Process>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _spawnQueue.Add((psi, result));
+        // Blocking is deliberate and matches the previous behaviour: Process.Start was always
+        // synchronous here, and the queue is drained by a thread that does nothing else.
+        return result.Task.GetAwaiter().GetResult();
     }
 
     /// <summary>

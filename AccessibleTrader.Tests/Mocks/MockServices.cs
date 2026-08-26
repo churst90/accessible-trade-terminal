@@ -51,11 +51,25 @@ namespace AccessibleTrader.Tests.Mocks
         public bool IsSpeechEnabled { get; set; } = true;
         public string SpeechMode => "Test";
         public Action<string>? OnSpeak { get; set; }
-        public void Silence() { }
+
+        // The interrupt flag used to be discarded here, which is why nothing in the
+        // suite could observe it: A2/F2 found the only assertion on `interrupt:`
+        // anywhere was a grep over .razor source. Whether an utterance cuts off the
+        // one before it is not a detail — a fill that queues behind a bar reading is
+        // a fill the trader hears seconds late, and a cancel that cuts one off is a
+        // routine event stamping on something the user asked for.
+        public readonly List<(string Text, bool Interrupt)> Utterances = new();
+        public int SilenceCalls = 0;
+
+        /// <summary>The interrupt flag of the most recent utterance.</summary>
+        public bool LastInterrupt => Utterances.Count > 0 ? Utterances[^1].Interrupt : false;
+
+        public void Silence() { SilenceCalls++; }
         public void Speak(string text, bool interrupt = false)
         {
             SpeakCalls++;
             LastSpokenText = text;
+            Utterances.Add((text, interrupt));
             OnSpeak?.Invoke(text);
         }
     }

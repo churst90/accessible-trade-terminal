@@ -675,14 +675,28 @@ these: apply it, and the suite must go red.
   13 full-suite runs after the fix produced **1 spurious failure** against 7-in-28 before, and the
   witness was a THIRD bwrap test, `LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_
   indicator_under_the_hardened_mount` (the vacuity twin of the env canary). Remaining cause is not
-  intra-suite parallelism. See the open item in the A3 section.
-- [ ] **(F1)** Two new bUnit flakes, same async-settle family:
+  intra-suite parallelism. **CLOSED 2026-08-26 — and it was never a flake.** See "The bwrap flake
+  was a production bug" below.
+- [x] **(F1)** Two new bUnit flakes, same async-settle family:
   `WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline`
   and `Blazor.SettingsModalTests.SettingsModal_ArrowNavigation_MovesFocusOntoTheTabItSelects`. Both
   pass in isolation. Route them through whatever `BunitAsyncSettleGuardTests` guards. HIGH.
   **Neither reappeared in 13 runs after the ScriptWorker collection landed** — plausibly they were
   thread-pool starvation from the same ten files rather than a settle bug, but 13 runs cannot
   distinguish "fixed" from "rarer", so this stays open.
+  **2026-08-26: 43 further full-suite runs and neither has reappeared** (20 before the bwrap fix,
+  20 after, 3 more against the enlarged suite), so the settle-bug reading is now the less likely
+  one and the thread-pool-starvation reading fits — both live downstream of the ten files that were
+  serialised. Closed as not-reproducible rather than as fixed, with one real hazard removed on the
+  way: **`BlazorTestHarness.FocusedElementIds` enumerated bUnit's invocation log while the renderer
+  thread appended to it.** `WaitForFocus` spins on that property thousands of times a second during
+  exactly the window in which the second `focusElement` call lands, and a LINQ pass over a
+  non-concurrent list being mutated throws "Collection was modified" — which would surface as
+  *"focus was never sent"*, i.e. as a focus bug rather than as a harness race. It now retries.
+  Hardening, not a demonstrated cause; recorded as such. `QuickTradeFailureReportingTests`'
+  `WaitForErrorAsync` had the same shape over `SpyEventBus.Log` and got the same treatment, plus a
+  15 s deadline in place of 3 s — it produced one unexplained red in the run that first included
+  the 36 new sandbox-blocklist compilations, and three clean 4,995-test runs afterwards.
 - [x] **(F5)** Two backtester tests with **non-zero** `CommissionRate` and `SlippagePercent`. All 10
   `BacktestConfig` constructions in the suite currently set both to 0, so five production sites are
   only ever multiplied by zero. Mutants M27/M28. **Done 2026-08-26** —
@@ -691,23 +705,55 @@ these: apply it, and the suite must go red.
   rather than recomputed from the production formula. Both mutants restored and **both tests go
   red on each**, verified. Both sides are needed: a sign-flipped slippage term moves the long fill
   down and the short fill up, so only running both distinguishes "adverse" from "added".
-- [ ] **(F2)** Assert speech `interrupt:` behaviourally in `OrderEventAnnouncementTests` — fills,
+- [x] **(F2)** Assert speech `interrupt:` behaviourally in `OrderEventAnnouncementTests` — fills,
   stop hits and rejections interrupt; cancels do not. The suite's only current assertion on it is a
   grep over `.razor` source (`WithdrawalReachabilityTests.cs:98`). Mutant M17. HIGH.
-- [ ] **(F6)** Turn `HostileScriptTests` into a theory over the whole blocklist. 22 of 25
+  **Done 2026-08-26.** The reason nothing could assert it was one line in the test double:
+  `CounterSpeechManager.Speak` took `interrupt` and dropped it on the floor. It now records every
+  utterance as `(text, interrupt)` and counts `Silence()`, and two theories pin the rule the
+  coordinator encodes — money events (fill, partial, stop, take profit, rejection, margin warning)
+  interrupt AND silence first; retirements (cancel, expiry, replace) do neither — plus a test that
+  the two classes disagree inside one harness, so a double that recorded a constant cannot pass
+  both. Proven in both directions: flipping the fill to `interrupt: false` and the cancel to
+  `interrupt: true` each turn exactly the right theory case red.
+- [x] **(F6)** Turn `HostileScriptTests` into a theory over the whole blocklist. 22 of 25
   `_blockedMembers` entries and 2 of 8 `_blockedTypes` are never named in any test. Mutant M10.
-  MEDIUM.
-- [ ] **(F7)** Parity test between `ShortcutManager`'s default table and the Help modal's documented
-  list. Nothing currently pins any shortcut. Mutant M20. MEDIUM.
+  MEDIUM. **Done 2026-08-26** — `SandboxBlocklistCoverageTests`, 33 probes compiled through the
+  real walker. Two details make it worth more than a count: each probe must be refused **by name**
+  (the walker quotes the key it matched, so agreeing with it proves *that entry* did the work
+  rather than a neighbouring rule covering the same snippet), and the coverage guard reads
+  `_blockedMembers`/`_blockedTypes` by reflection in both directions, so adding an entry without a
+  probe fails the build and a probe for a deleted entry does too. Sabotage: deleting
+  `System.Type.Assembly` goes red twice over; adding an unprobed entry goes red; and reverting the
+  member check to methods-only — the 2026-08-25 hole — takes out exactly the three property
+  entries (`Assembly`, `Module`, `TypeHandle`) and nothing else.
+- [x] **(F7)** Parity test between `ShortcutManager`'s default table and the Help modal's documented
+  list. Nothing currently pins any shortcut. Mutant M20. MEDIUM. **Done 2026-08-26, and it found
+  something on the first run** — see "The F1 Help dialog had rotted" below.
 - [ ] **(F8)** Extend the causality contract from indicator producers to the narration that reads
   them — `SwingStructureProvider`'s describe loop can read past the requested index unnoticed.
   Mutant M24. MEDIUM.
-- [ ] **(F10)** `IndicatorMath.Ema` warmup boundary: the values are pinned by two library-parity
+- [x] **(F10)** `IndicatorMath.Ema` warmup boundary: the values are pinned by two library-parity
   tests, the NaN edge is not. Mutant M07. Same for `MovingAverageHelper.Sma`'s NaN-gap policy,
-  mutant M15. MEDIUM.
-- [ ] **(still open from 2026-08-24)** `ChartMouseInteractionTests.cs:83` and `:144` compute the
+  mutant M15. MEDIUM. **Done 2026-08-26** — `IndicatorMathWarmupTests`, ten cases, every expected
+  number derived by hand in the comment beside it rather than recomputed from the production
+  formula. It pins more than the index: the two have *opposite* gap policies and both are load
+  bearing. EMA does not count a leading NaN towards warmup and carries its state across a mid-series
+  gap (re-seeding would publish 30 where 22.5 is right, hiding the history the average is supposed
+  to carry); SMA refuses any window containing a gap rather than averaging the survivors (which
+  would publish a "3-period average" of two bars under the same name). Four sabotages, four
+  distinct red sets.
+- [x] **(still open from 2026-08-24)** `ChartMouseInteractionTests.cs:83` and `:144` compute the
   expected bar index by calling `ChartMath.MapXToIndex`, the function under test. Replace the
-  expectation with a hand-computed constant. LOW.
+  expectation with a hand-computed constant. LOW. **Done 2026-08-26, with a trap worth recording.**
+  The constant at the click point those tests already used (25 % across, bar 135) is *insensitive*:
+  dropping the `- 1` from `start + round(fraction × (length − 1))` gives `round(0.25 × 100) = 25`
+  and `round(0.25 × 99) = 25`, the same bar — so a hand-computed 135 agrees with a broken mapping
+  as readily as a correct one, and replacing the self-reference would have felt like progress while
+  changing nothing. The fixture now pins the harness viewport (start 110, length 100) and adds a
+  click at 80 %, where the two formulas separate (189 against 190). **When you replace a
+  self-referential expectation with a constant, take the constant at a point where being wrong
+  would show.**
 
 ### A2 → the plan
 
@@ -835,6 +881,93 @@ landed produced 1 spurious failure (vs 7 in 28 before), and the witness was a th
 the ten spawning files are now serialised against each other, the remaining cause is not
 intra-suite parallelism — it is bwrap/worker start-up latency under whole-machine load against
 whatever timeout that test uses. Next step is to read the timeout rather than to run it again.
+
+**CLOSED 2026-08-26. It was not a timeout, and it was not a flake.** See below.
+
+## The bwrap flake was a production bug — script workers were being SIGKILLed
+
+**Fixed 2026-08-26.** Three passes had this filed as an intermittent test failure. It is a live
+defect in the scripting sandbox: a custom indicator or a script strategy can be killed off a chart
+mid-session, and for a blind user nothing says so.
+
+**What actually happens.** `LinuxBwrapLauncher` passes `--die-with-parent`, which bwrap implements
+as `prctl(PR_SET_PDEATHSIG, SIGKILL)`. On Linux the "parent" PDEATHSIG watches is **the thread that
+created the process, not the process**. Every launch went through `Process.Start` on whatever
+thread happened to be running — a thread-pool thread in the app, an xUnit worker in the suite — so
+each worker was born with a kill switch armed on a thread the runtime is free to retire the moment
+it goes idle. When it retires, the kernel SIGKILLs the sandbox while the host is alive and still
+talking to it.
+
+**How the earlier readings went wrong, and what settled it.** The suspicion on record was
+"start-up latency under whole-machine load against some timeout", and the recommended next step was
+to read the timeout. Reading it was right and the conclusion was the opposite of the expectation:
+`DefaultStartTimeout` is 10 s and `DefaultCalculateTimeout` 5 s, and a probe measured real bwrap
+start at **0.03 s idle and 0.22 s at 2× CPU oversubscription** — a 45× margin. The timeout theory
+is refuted.
+
+What settled it was reproducing rather than reasoning: 20 full-suite runs in a scratch worktree,
+**3 failures**, and the messages name the mechanism —
+`InvalidOperationException: script worker … has exited (code 137)` and
+`EndOfStreamException: Stream closed after 0/5 bytes — the other end exited`. **137 is 128+9:
+SIGKILL.** The host's own quota killers are ruled out by construction (they report distinct
+messages, and their timer's first tick is at 2 s against a test that finishes in 80 ms), so the
+signal came from outside. A direct experiment then confirmed the cause: spawn a worker from a
+thread and let that thread exit → dead with exactly the observed error; keep the thread alive →
+answers normally.
+
+**The fix.** Not dropping `--die-with-parent`, which would also make the symptom go away and is
+the wrong trade — it is what stops a sandbox outliving a host crash. Instead every bwrap launch is
+marshalled onto a single background thread that lives as long as the process, so the kill switch
+fires when it should and never before. `LinuxBwrapSandboxTests.A_worker_survives_the_thread_that_
+spawned_it` is the acceptance test, as a two-case theory: the spawning thread exits (the
+regression) and the spawning thread is kept alive (the control that distinguishes a working fix
+from a fixture that never worked). Reverting the fix turns exactly the first case red. The argv
+test that asserts `--die-with-parent` is present is what stops the flag being deleted as an easier
+way to pass.
+
+**Confirmed by the same instrument that found it: 3 failures in 20 full-suite runs before the fix,
+0 in 20 after** (same worktree, same machine, same load). Plus three more clean 4,995-test runs in
+the working tree afterwards.
+
+**Worth keeping.** A 1-in-7 test failure was a real user-facing defect wearing a flake's clothes
+for three passes, and each pass explained it a little more plausibly without reproducing it. The
+step that broke it open was cheap and nobody had taken it: run the suite in a loop in a throwaway
+worktree and **record the failure message**. `git worktree add` next to the repo is the whole
+setup — the flake needs the real tree because `ScriptWorkerPath` resolves relative to the solution
+root, and a scratch copy has to be a real checkout, not a copied `bin`.
+
+## The F1 Help dialog had rotted, and nothing compared it to anything
+
+**Fixed 2026-08-26**, found by writing A2/F7. The keyboard is the entire interface here and it is
+written down in three places: `ShortcutManager`'s default profile (what happens), `HelpModal.razor`
+(what F1 says), `docs/SHORTCUTS.md` (what the manual says). Nothing compared them.
+
+**37 of the 124 default bindings appeared nowhere in the in-app help.** Among them every quick-trade
+chord — `Ctrl+Alt+Shift+X` (set the stop), `1/2/3` (arm a risk tier), `0` (disarm), `Q` (arm
+status), `Shift+Enter` and `Ctrl+Enter` (place) — i.e. the keys that size and send real orders. Also
+all chart-tab management, workspace save/load, `Alt+I`, `F12`, sub-pane and intra-pane navigation,
+the formation keys `,` `.` `;`, `Shift+F2`/`F3`/`F4`, and the whole Ctrl+Alt+Shift orientation and
+recovery family (speak layout, show all, unmute all, monitoring status).
+
+**And one row was wrong rather than missing, which is worse because the user believes it:** F4 was
+documented as *"Speak current context snapshot"*. It stopped being that at the 2026-07-21 F-key
+redesign — F4 toggles braille, and the snapshot moved to Shift+F1.
+
+`docs/SHORTCUTS.md` was, and is, complete: 0 missing in both directions. So the copy that had
+rotted is precisely the one a user reaches without leaving the terminal.
+
+`ShortcutHelpParityTests` now asserts four things and each fails differently: every combination the
+Help dialog lists is bound to something (a documented key that does nothing); every default binding
+is named in the Help dialog and in the manual (a feature that, for a keyboard-only user, does not
+exist); and every `Toggle*` row's description mentions what it toggles (the F4 case). All four
+proven by sabotage. The Help dialog gained the 37 bindings, three new sections — Orientation &
+recovery, Chart tabs & workspaces, Quick trade — and a corrected F4 row.
+
+Two notes for whoever extends it. The description check is scoped to `Toggle*` commands on purpose:
+those name exactly one thing each, so "the description must contain that word" is a claim about
+correctness; over the rest of the table it would be a wording preference wearing a guard's clothes.
+And the parser needs each cell to spell its chords out — `Ctrl+Alt+Shift+1 / 2 / 3` reads as three
+different keys to it, which is also how it reads to somebody hearing the table one cell at a time.
 
 ### Left explicitly UNVERIFIED
 

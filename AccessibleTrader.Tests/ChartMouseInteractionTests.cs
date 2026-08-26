@@ -77,9 +77,68 @@ public sealed class ChartMouseInteractionTests
 
         int after = h.Store.State.CurrentDataIndex;
         Assert.NotEqual(before, after);
-        int expected = ChartMath.MapXToIndex(
-            320, 1280, h.Store.State.ViewportStartIndex, h.Store.State.ViewportLength);
-        Assert.Equal(expected, after);
+        Assert.Equal(ExpectedBarAt25Percent, after);
+    }
+
+    // The viewport the 200-bar harness settles on after its initial load. Pinned rather than
+    // read, because everything below derives an expected bar index from these two numbers by
+    // hand — see ExpectedBarAt25Percent. If a viewport-sizing change moves them, this assert
+    // is what says so, instead of the arithmetic silently re-deriving itself around the change.
+    private const int HarnessViewportStart  = 110;
+    private const int HarnessViewportLength = 100;
+
+    /// <summary>
+    /// The bar under a click 25 % across a 1280 px chart, computed by hand from the mapping's
+    /// definition — <c>start + round(fraction × (length − 1))</c> — and NOT by calling
+    /// <c>ChartMath.MapXToIndex</c>, which is the function these tests exist to check.
+    /// 320/1280 = 0.25; round(0.25 × 99) = round(24.75) = 25; 110 + 25 = 135.
+    ///
+    /// <para>
+    /// Filed 2026-08-24 and confirmed by A2: the two sites below asked the function under test
+    /// what the answer was and then agreed with it, so any mapping bug reproduced itself in the
+    /// expectation and the assert held. That is one of the three shapes a test takes when it
+    /// stops guarding anything.
+    /// </para>
+    /// </summary>
+    private const int ExpectedBarAt25Percent = 135;
+
+    /// <summary>
+    /// 1024/1280 = 0.8; round(0.8 × 99) = round(79.2) = 79; 110 + 79 = 189.
+    ///
+    /// <para>
+    /// This point exists because 25 % is not discriminating. Dropping the −1 from the mapping —
+    /// <c>round(0.25 × 100) = 25</c> against <c>round(0.25 × 99) = 25</c> — lands on the same
+    /// bar, so a hand-computed 135 agrees with a broken mapping as readily as a correct one.
+    /// At 80 % the two answers separate (79 against 80) and the fixture actually measures
+    /// something. Worth remembering when replacing a self-referential expectation with a
+    /// constant: the constant has to be taken at a point where being wrong would show.
+    /// </para>
+    /// </summary>
+    private const int ExpectedBarAt80Percent = 189;
+
+    [Fact]
+    public void The_harness_viewport_is_the_one_the_hand_computed_expectations_assume()
+    {
+        var h = new Harness();
+
+        Assert.Equal(HarnessViewportStart, h.Store.State.ViewportStartIndex);
+        Assert.Equal(HarnessViewportLength, h.Store.State.ViewportLength);
+        // And the arithmetic above is genuinely the mapping's, not a coincidence that would
+        // survive the viewport moving underneath it.
+        Assert.Equal(ExpectedBarAt25Percent,
+            HarnessViewportStart + (int)Math.Round(0.25 * (HarnessViewportLength - 1)));
+        Assert.Equal(ExpectedBarAt80Percent,
+            HarnessViewportStart + (int)Math.Round(0.80 * (HarnessViewportLength - 1)));
+    }
+
+    [Fact]
+    public void Click_maps_the_pixel_to_the_bar_the_viewport_arithmetic_says_it_should()
+    {
+        var h = new Harness();
+
+        h.Click(1024, 360);
+
+        Assert.Equal(ExpectedBarAt80Percent, h.Store.State.CurrentDataIndex);
     }
 
     [Fact]
@@ -138,9 +197,7 @@ public sealed class ChartMouseInteractionTests
         var ev = h.Bus.Log.OfType<OpenChartContextMenuEvent>().LastOrDefault();
         Assert.NotNull(ev);
         Assert.Equal(320, ev!.ViewportX);
-        int expected = ChartMath.MapXToIndex(
-            320, 1280, h.Store.State.ViewportStartIndex, h.Store.State.ViewportLength);
-        Assert.Equal(expected, ev.BarIndex);
+        Assert.Equal(ExpectedBarAt25Percent, ev.BarIndex);
     }
 
     [Fact]

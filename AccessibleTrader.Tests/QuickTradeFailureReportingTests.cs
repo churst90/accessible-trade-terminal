@@ -304,16 +304,46 @@ public class QuickTradeFailureReportingTests
             return Task.CompletedTask;
         }
 
-        public async Task<FeedbackRequestEvent?> WaitForErrorAsync(int timeoutMs = 3000)
+        /// <summary>
+        /// Polls the spy bus for a spoken error, on the wall clock, because the engine reports
+        /// from a background continuation.
+        ///
+        /// <para>
+        /// Two things here are load-hardening rather than logic. <c>SpyEventBus.Log</c> is a
+        /// plain <c>List&lt;object&gt;</c> that the engine APPENDS to while this loop enumerates
+        /// it, so a LINQ pass over it can die with "Collection was modified" and read as "the
+        /// error was never reported" — the same trap the bUnit interop log has. And a three
+        /// second budget is thin on a machine running the whole suite in parallel: this waits on
+        /// something that did happen, so a longer deadline costs nothing in the passing case and
+        /// removes a red tick nobody can explain in the failing one.
+        /// </para>
+        /// </summary>
+        public async Task<FeedbackRequestEvent?> WaitForErrorAsync(int timeoutMs = 15000)
         {
             var deadline = Environment.TickCount64 + timeoutMs;
             while (Environment.TickCount64 < deadline)
             {
-                var hit = Bus.Log.OfType<FeedbackRequestEvent>().FirstOrDefault(e => e.Type == FeedbackType.Error);
+                var hit = FirstError();
                 if (hit != null) return hit;
                 await Task.Delay(10);
             }
             return null;
+        }
+
+        private FeedbackRequestEvent? FirstError()
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return Bus.Log.OfType<FeedbackRequestEvent>()
+                                  .FirstOrDefault(e => e.Type == FeedbackType.Error);
+                }
+                catch (InvalidOperationException) when (attempt < 100)
+                {
+                    Thread.Yield();
+                }
+            }
         }
     }
 }

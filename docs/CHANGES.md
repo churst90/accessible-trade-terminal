@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The keyboard help that never mentioned the keys that place orders (2026-08-26)
+
+- **The F1 Help dialog was missing 37 of the 124 default key bindings**, including every quick-trade
+  chord: Ctrl+Alt+Shift+X to set the stop, 1/2/3 to arm a risk tier, 0 to disarm, Q for arm status,
+  Shift+Enter and Ctrl+Enter to place. Also every chart-tab key, workspace save and load, Alt+I for
+  the asset dossier, F12 for Settings, sub-pane and intra-pane navigation, the formation keys
+  `,` `.` `;`, Shift+F2/F3/F4, and the whole Ctrl+Alt+Shift orientation-and-recovery family. For a
+  keyboard-only user a shortcut that appears in no help is a feature that does not exist.
+- **And F4 was described as something it stopped doing five weeks ago.** The 2026-07-21 F-key
+  redesign gave F4 to braille and moved the context snapshot to Shift+F1; the Help table still said
+  "Speak current context snapshot". A wrong row is worse than a missing one, because it is believed.
+- **`docs/SHORTCUTS.md` was complete throughout** — so the copy that had rotted was the one you
+  reach without leaving the terminal. The dialog now carries all 124 bindings, in three new
+  sections (Orientation & recovery, Chart tabs & workspaces, Quick trade), and
+  `ShortcutHelpParityTests` fails the build if the profile, the dialog and the manual ever disagree
+  again — in either direction, plus a check that a Toggle shortcut's description names the thing it
+  toggles.
+
+### Script workers were being killed off the chart mid-session (2026-08-26)
+
+- **A custom indicator or a script strategy could stop, silently, partway through a session.** The
+  Linux sandbox passes `--die-with-parent`, which is `prctl(PR_SET_PDEATHSIG, SIGKILL)` — and on
+  Linux the "parent" that watches is the *thread* that started the process, not the process. Workers
+  were started on whichever thread happened to be free, so each one was born with a kill switch
+  armed on a thread the runtime retires as soon as it goes idle. When it did, the kernel killed the
+  sandbox while the app was alive and still talking to it, and the script vanished with nothing said.
+- Every sandbox launch now happens on a single long-lived thread, so the kill switch fires when the
+  app exits and never before. `--die-with-parent` stays: it is what stops a sandbox outliving a
+  crash. `LinuxBwrapSandboxTests.A_worker_survives_the_thread_that_spawned_it` is the regression
+  test, with a keep-the-thread-alive control beside it.
+- This had been on record since 2026-08-24 as an intermittent *test* failure and was twice explained
+  as start-up latency against a timeout. It was neither: measured bwrap start is 0.03 s idle and
+  0.22 s at 2× CPU oversubscription, against a 10 s budget. What settled it was running the suite
+  twenty times in a scratch worktree and reading the failure message — exit code 137, which is
+  SIGKILL.
+
 ### The trading dashboard stops asking what chart you are looking at (2026-08-26)
 
 - **You could not cancel your own orders.** Every action in the dialog resolved its venue from the
