@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### An order that succeeded could report as failed (2026-08-26)
+
+- **A single faulty listener on the order stream made a filled order look like a failed one.** The
+  stream was a bare `Subject<OrderUpdate>`, which runs its subscribers on the publishing thread and
+  stops at the first one that throws — so the exception came back out of `PlaceOrderAsync` *after
+  the position had already opened*, and every subscriber behind the broken one got nothing.
+  Measured: the caller saw an exception, the healthy subscriber received no fill, and the account
+  held one position. A trader told their order failed while holding it is the one outcome a broker
+  must never produce.
+- **The same shape on the event bus.** `Publish` threw back at the publisher and denied the event to
+  every subscriber registered after the faulty one — which on this bus means the spoken fill, the
+  earcon and the journal entry vanishing together because of a fault somewhere unrelated. A handler
+  that threw once was also dropped by Rx and went silent for the rest of the session.
+- Both now isolate each subscriber: a broken listener loses its own notification and nobody else's,
+  the publisher never sees the exception, and the fault is logged rather than swallowed. One gap
+  stays open and is documented in the code and pinned by a test — a consumer of the order stream
+  that throws still loses its own subscription, because Rx tears it down before the guard is
+  reached.
+
+### Resampled candles could come out with open and close swapped (2026-08-26)
+
+- **A higher-timeframe candle built from newest-first history had its open and close reversed** — a
+  down hour drawn, spoken and sonified as an up hour. The aggregator took the open from the first
+  bar it *saw* and the close from the last, which is correct only while the input happens to be
+  oldest-first; nothing enforced that, and plenty of venues return history the other way round.
+  Since resampled bars are now cached to disk, a wrong candle was written down rather than
+  corrected on the next fetch.
+- Open and close are now taken from the earliest and latest bar in the bucket by timestamp, so the
+  answer no longer depends on what order the data arrived in. `ResamplerServiceTests` is new and
+  covers the rest of it too: bucket stamps, partial buckets, Monday-opening weeks, calendar
+  quarters, and daily buckets across a daylight-saving change.
+
 ### The keyboard help that never mentioned the keys that place orders (2026-08-26)
 
 - **The F1 Help dialog was missing 37 of the 124 default key bindings**, including every quick-trade

@@ -82,7 +82,51 @@ namespace AccessibleTrader.Core.Services
         private IDisposable? _primaryAttachment;
 
         private readonly Subject<OrderUpdate> _orderUpdates = new();
-        public IObservable<OrderUpdate> OrderUpdateStream => _orderUpdates.AsObservable();
+
+        /// <summary>
+        /// Order lifecycle notifications, with each subscriber isolated from the others.
+        ///
+        /// <para>
+        /// Handing out <c>_orderUpdates.AsObservable()</c> directly put every listener on one
+        /// observer walk: <c>OnNext</c> stops at the first handler that throws, so a fault in any
+        /// one of them denied the fill to all the ones behind it and threw the exception back out
+        /// of <c>PlaceOrderAsync</c> — after the position had opened. The speech announcement, the
+        /// earcon, the journal entry and the reconciliation coordinator all read this stream.
+        /// </para>
+        ///
+        /// <para>
+        /// Giving each subscriber its own subscription and catching inside it means a broken
+        /// listener costs nobody else anything, and the order path never sees the exception.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>What this does NOT fix, and it is a real gap.</b> Consumers call
+        /// <c>Subscribe(Action&lt;OrderUpdate&gt;)</c> themselves, and Rx's own
+        /// <c>AnonymousObserver</c> disposes the subscription when that action throws — before the
+        /// catch below is reached. So the faulty listener goes silent for the rest of the session,
+        /// and if it was an announcement path, the trader stops being told about fills with only
+        /// this log line to show for it. Closing that means giving the stream a subscribe method of
+        /// its own instead of handing out a bare <c>IObservable</c>, which changes a contract every
+        /// provider plugin implements. Pinned by
+        /// <c>SubscriberFaultIsolationTests.An_order_subscriber_that_throws_loses_its_own_
+        /// subscription_and_nobody_elses</c>.
+        /// </para>
+        /// </summary>
+        public IObservable<OrderUpdate> OrderUpdateStream =>
+            Observable.Create<OrderUpdate>(observer => _orderUpdates.Subscribe(
+                update =>
+                {
+                    try { observer.OnNext(update); }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogError(ex,
+                            "A subscriber to the paper broker's order stream threw handling {Status} for {Symbol}. "
+                            + "Its subscription survives; other subscribers were unaffected.",
+                            update.Status, update.Symbol);
+                    }
+                },
+                observer.OnError,
+                observer.OnCompleted));
 
         private const double FeeRate = 0.0004;   // simulated 0.04% taker fee per fill
         private double _cash;
@@ -1752,8 +1796,42 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Announces an order-lifecycle change to whoever is listening.
+        ///
+        /// <para>
+        /// The try/catch is load-bearing and is the fix for the worst failure mode this class had.
+        /// <c>Subject&lt;T&gt;.OnNext</c> runs subscribers on the CALLING thread and lets any
+        /// exception they raise propagate straight back out — so one broken listener took the
+        /// exception all the way out of <c>PlaceOrderAsync</c>, <b>after the position had already
+        /// been opened</b>. Measured: the caller saw an <c>InvalidOperationException</c>, the
+        /// healthy subscriber received nothing, and <c>GetPositionsAsync</c> returned one position.
+        /// A trader told their order failed while holding it is the one outcome a simulated broker
+        /// must never produce, and a live broker adapter would behave the same way.
+        /// </para>
+        ///
+        /// <para>
+        /// Each subscriber is isolated rather than the batch: a listener that throws loses its own
+        /// notification and no one else's. Swallowing quietly would be the other bug — in this app
+        /// an unreported error is inaudible — so it goes to the log, which is where the terminal's
+        /// error surface reads from.
+        /// </para>
+        /// </summary>
         private void Emit(string id, string symbol, OrderSide side, double filledQty, double filledPx, double remaining, OrderStatus status, bool stop, bool tp, double? pnl = null, bool trailing = false, string? reason = null)
-            => _orderUpdates.OnNext(new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing, reason));
+        {
+            var update = new OrderUpdate(id, symbol, side, filledQty, filledPx, remaining, status, stop, tp, DateTime.UtcNow, pnl, trailing, reason);
+            try
+            {
+                _orderUpdates.OnNext(update);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex,
+                    "A subscriber to the paper broker's order stream threw while handling {Status} for {Symbol} (order {OrderId}). "
+                    + "The order itself is unaffected; the notification was lost for that subscriber.",
+                    status, symbol, id);
+            }
+        }
 
         private static string NewId() => "paper-" + Guid.NewGuid().ToString("N").Substring(0, 12);
 

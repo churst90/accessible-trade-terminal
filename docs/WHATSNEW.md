@@ -88,6 +88,16 @@
   sandboxed helper process, and that process could be killed by the operating system partway
   through a session for reasons that had nothing to do with your script — leaving the indicator
   simply gone, with nothing said. Fixed at the cause; they now live as long as the app does.
+- **An order that went through could tell you it had failed.** If anything listening to the order
+  feed hit a problem of its own, the error came back to you as if the order itself had failed —
+  after the position was already open. So you could be told a trade did not happen while holding
+  it, which is the worst thing a terminal can say. A fault in one listener now costs that listener
+  and nothing else, and the order reports what actually happened to it.
+- **Higher-timeframe candles are right whichever way the exchange sends its history.** Some venues
+  return the newest bar first, and when they did, every hourly or daily candle the terminal built
+  from that history came out with its open and close the wrong way round — a falling bar described,
+  and sonified, as a rising one. And because those candles are now cached, the wrong one stayed
+  wrong. Fixed.
 
 **Not in this release, deliberately: moving funds off a venue.** The withdrawal path is
 built and tested, but no one has yet run a real withdrawal with it, and that is the one

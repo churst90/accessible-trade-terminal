@@ -730,9 +730,19 @@ these: apply it, and the suite must go red.
 - [x] **(F7)** Parity test between `ShortcutManager`'s default table and the Help modal's documented
   list. Nothing currently pins any shortcut. Mutant M20. MEDIUM. **Done 2026-08-26, and it found
   something on the first run** — see "The F1 Help dialog had rotted" below.
-- [ ] **(F8)** Extend the causality contract from indicator producers to the narration that reads
+- [x] **(F8)** Extend the causality contract from indicator producers to the narration that reads
   them — `SwingStructureProvider`'s describe loop can read past the requested index unnoticed.
-  Mutant M24. MEDIUM.
+  Mutant M24. MEDIUM. **Done 2026-08-26** — `NarrationCausalityTests`, and it went wider than the
+  one provider: a sweep over **all 27 indicator providers reachable with a parameterless
+  constructor**, each asked to narrate bar 100 twice, the second time with every bar and every
+  component value after bar 100 rewritten into something else. Same sentence, or the description
+  read the future. **The result is a refutation: no provider leaks.** Restoring M24 (widening
+  `RecentLabels` past `i <= index`) turns both the sweep's SwingStructure case and the named test
+  red, so the instrument is proven. Vacuity is the load-bearing part of this file — every case
+  passes by two strings being EQUAL, so a harness that produced one constant would go green
+  everywhere; the sweep therefore also doubles the PAST and requires at least ten narrations to
+  change. The nine providers whose constructors take services are named, not skipped, and the
+  covered count is asserted so the sweep cannot shrink in silence.
 - [x] **(F10)** `IndicatorMath.Ema` warmup boundary: the values are pinned by two library-parity
   tests, the NaN edge is not. Mutant M07. Same for `MovingAverageHelper.Sma`'s NaN-gap policy,
   mutant M15. MEDIUM. **Done 2026-08-26** — `IndicatorMathWarmupTests`, ten cases, every expected
@@ -8195,9 +8205,25 @@ Ordered by value. Every one of these would have caught something above.
   new position is opened.
 - [ ] **The focused pump must not deliver a tick for a different identity.** Set focus to B, push an
   A-priced tick into the orchestrator channel, assert B's buffer is untouched. Fails today.
-- [ ] **`ResamplerService` has no test file at all** — bucket alignment, the timestamp convention,
+- [x] **`ResamplerService` has no test file at all** — bucket alignment, the timestamp convention,
   partial edge buckets, descending input, month/week boundaries, DST. Highest-value missing file in
   the data area now that resampled bars are persisted.
+  **Done 2026-08-26 — `ResamplerServiceTests`, 14 cases, and writing the "descending input" one
+  found a live bug.** Open and Close were taken from the first and last bar *seen*, not the
+  earliest and latest by timestamp, so descending input — which plenty of venues return, and which
+  `HistoricalDataFetcher` passes through untouched — produced **every aggregated candle with its
+  open and close swapped**. A down hour reported as an up hour, on a chart that is read aloud,
+  sonified by direction, detected as formations, and traded from; and since resampled bars are now
+  persisted, written to disk rather than corrected on the next fetch. Fixed by taking both from the
+  bucket's earliest and latest bar, one branch per bar. The old behaviour restored turns the
+  descending and shuffled cases red, so the fix is demonstrated rather than asserted.
+  The rest of the file pins what the TODO asked for: the stamp is the bucket START (not the last
+  bar in it — the sabotage that moves it takes out eight of fourteen), partial buckets are
+  published rather than withheld, weeks open Monday 00:00 UTC with Sunday belonging to the week
+  before, months open on the 1st, `3M` aligns to the calendar quarter and not to whenever the data
+  starts, and a daily bucket does not move across the March DST change. Every expected number is
+  hand-derived in the comment beside it, and the fixture is shaped so O, H, L and C each come from
+  a *different* input bar — otherwise a swapped field is coincidentally right.
 - [ ] **`OhlcvStore` monthly timeframes** (where the forming filter is wrong) and the insert-only
   dedup (a re-fetch with *different* values for an existing timestamp — no test asserts either
   behaviour).
@@ -8249,11 +8275,37 @@ Ordered by value. Every one of these would have caught something above.
 - [ ] **`ReportSuccess` is not called for a sentinel result**, and the dashboard renders
   `ORDER_DUPLICATE_SUPPRESSED` as an error.
 - [ ] **The word "liquidated" reaches speech** on a forced close.
-- [ ] **A throwing `OrderUpdate` subscriber does not take down the fill engine**; and a throwing
+- [x] **A throwing `OrderUpdate` subscriber does not take down the fill engine**; and a throwing
   `EventBus` subscriber does not stop delivery to the others.
-- [ ] **Concurrency on the paper broker** — fill evaluation racing a user cancel; reentrancy from an
+  **Done 2026-08-26 — both were true, and the first one was the worst money-path failure shape
+  this codebase has produced.** `SubscriberFaultIsolationTests`. Measured before fixing: with one
+  throwing subscriber on `OrderUpdateStream`, `PlaceOrderAsync` threw
+  `InvalidOperationException`, the healthy subscriber received nothing, and `GetPositionsAsync`
+  then returned one position. **A trader told their order failed, while holding it.** Same shape on
+  the `EventBus`: `Publish` threw back out at the publisher and every subscriber registered after
+  the broken one got nothing — on this bus that is the spoken fill, the earcon and the journal
+  entry disappearing together because of a fault in something unrelated. Cause in both cases is
+  `Subject<T>.OnNext` walking its observers on the publishing thread and stopping at the first
+  throw. Fixed by isolating each subscriber: `EventBus` wraps the `Action<T>` it is handed, and
+  `PaperTradingProvider` hands each subscriber its own subscription through `Observable.Create`.
+  Logged, not swallowed — an unreported error here is inaudible.
+  **One gap left open on purpose and pinned by a test:** a consumer of `OrderUpdateStream` that
+  throws still loses *its own* subscription, because Rx's `AnonymousObserver` disposes it before
+  the publisher-side guard is reached. So an announcement path that throws once stops announcing.
+  Closing that means giving the stream a subscribe method of its own rather than a bare
+  `IObservable`, which changes a contract every provider plugin implements — filed here rather than
+  smuggled into this batch. The `EventBus` half does not have this problem, because the bus owns
+  the delegate.
+- [x] **Concurrency on the paper broker** — fill evaluation racing a user cancel; reentrancy from an
   `OrderUpdateStream` subscriber back into `PlaceOrderAsync`. No test in the trading area uses
-  `Task.WhenAll` or `Parallel.For`.
+  `Task.WhenAll` or `Parallel.For`. **Done 2026-08-26** in the same file: 16 concurrent market buys
+  must leave a position that matches the sum of what was actually announced as filled (books agree
+  with notifications) and a cash balance that lands exactly on the arithmetic (a lost debit shows
+  up as free cash that is too high — an account quietly funding trades it did not have); and a
+  cancel racing a tick through the limit price, run 25 times, must resolve to exactly one of
+  cancelled or filled with nothing left resting and never two positions. All green — the lock is
+  doing its job. Reentrancy from a subscriber back into `PlaceOrderAsync` is NOT covered and is
+  left explicitly unverified.
 - [ ] **Gap-fill overlapping a live tick.** The two operations are covered separately; the in-lock
   re-check at `ChartFeed:140` that makes overlap safe has no test that would fail if deleted.
 
