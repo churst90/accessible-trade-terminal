@@ -144,8 +144,14 @@ public sealed class ModalBrowserContractTests
 
         // The vacuity check, and it is not optional. "Focus never left the dialog" is also exactly
         // what a Tab key that does nothing at all looks like. A dialog with one control is a
-        // legitimate single stop (the Trading Dashboard with no chart loaded is literally one
-        // Close button), so the floor is the number of focusable controls, not a constant.
+        // legitimate single stop, so the floor is the number of focusable controls, not a constant.
+        //
+        // The Trading Dashboard used to be the example here — with no chart loaded it was
+        // literally one Close button, because a venue that could not execute orders replaced the
+        // ENTIRE dialog with a wall. That was the chart coupling, not a small dialog: the accounts
+        // were there all along. Since 2026-08-26 the same route surveys seven distinct stops and a
+        // five-tab tablist (see scratchpad/a3_survey.json), which is why the example is gone rather
+        // than updated.
         int focusable = await t.Page.EvaluateAsync<int>(@"() => {
             const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
                                  .filter(el => el.offsetParent !== null);

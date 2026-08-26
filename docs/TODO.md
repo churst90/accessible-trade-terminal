@@ -103,9 +103,16 @@ a false "Order placed" less true, and three sessions is a long time for a blind 
 order went through when it did not. Take it opportunistically in any session with spare capacity
 rather than holding it behind the sweep.
 
-**B2. Dashboard decoupling Phase 1.** No direct user win, but a bottleneck: items are parked behind
-it and fixes keep landing on `TradingDashboardModal`, which it rewrites (most recently the Alt+T
-timer fix). Every further patch there is work paid for twice.
+**B2. Dashboard decoupling — DONE 2026-08-26.** Shipped as the full decoupling rather than the
+planned Phase 1, at Cody's direction ("the trading dashboard should be completely independent from
+the chart"), together with three things he asked for in the same breath: the venue on every row,
+direction and margin mode and leverage in the Positions table's leading column, and a cross/isolated
+selector that is actually reachable — which required teaching the paper broker cross margin, because
+it had only ever done isolated and the selector was gated on a capability it could not honestly
+declare. See "Trading dashboard decoupling" and "Cross margin in the paper broker" below.
+
+**Phase B is complete. Next: Phase 4 of the decoupling (close-at-limit) is the only remainder of
+that roadmap; otherwise the queue is the 71 HIGH items and the tests-that-should-exist list.**
 
 ### Below the line
 
@@ -1276,6 +1283,50 @@ clean. Suite last green at 4495 tests; **not re-run as part of this assessment**
 
 ---
 
+## Cross margin in the paper broker (2026-08-26)
+
+Not on any roadmap — it is what the dashboard's cross/isolated selector turned out to cost.
+
+**The report:** "I still don't see a selection for selecting cross or isolated in the dashboard."
+**Why:** the control was gated on `ProviderCapabilities.IsolatedMargin`, and `PaperTradingProvider`
+did not declare it. That was honest. It held collateral **per symbol** (`_collateral[symbol]`,
+`LiquidateIfCollateralExhausted(symbol, …)`) — real isolated margin — and had no cross concept at
+all. Declaring the flag to reveal the control would have made the selector decoration: two options,
+one behaviour.
+
+So cross is now simulated, and the two modes genuinely differ:
+
+- `MarginMode { None, Cross, Isolated }` on the SDK `Position` (trailing optional param, same shape
+  as the `Leverage` / `LiquidationPrice` additions before it). `None` is the honest answer for a
+  spot holding — **not** a synonym for cross. A long here is bought outright, so nothing is held
+  either way and printing "cross 1x" over it would describe a liquidation it cannot have.
+- `_marginMode` per symbol, set from `TradeSignal.MarginType` when a position OPENS or FLIPS, never
+  when it is added to (a venue does not re-margin an open position because the second lot asked for
+  something else), cleared when it closes, and persisted.
+- **Isolated** liquidates unchanged, against its own collateral. **Cross** is judged on the pooled
+  collateral of every cross short PLUS free cash, so it survives further — and when it goes, every
+  cross position goes with it while isolated ones are untouched. A cross position's reported
+  liquidation price includes the headroom the other cross shorts still have, so somebody else's
+  losing trade moves yours; that is the fact that makes the mode worth putting on the row.
+- Ticket default changed `"Cross"` → `"Isolated"`. Cross is the mode with the larger blast radius,
+  and a default nobody chose should not be the dangerous one. It also matches what the broker did
+  before it honoured the field, so no existing account changes behaviour by accident.
+
+**The migration that decides money:** an account written before this existed carries no recorded
+modes and every short in it was collateralised per symbol. `MarginModeOf` reads those as Isolated —
+that is not a default, it is what they are. Defaulting to `None`/cross would have moved a real
+position's liquidation price on restart, silently, in the direction that keeps a losing trade open
+longer. `An_account_saved_before_cross_existed_reloads_as_isolated` strips `Margins` out of a real
+state file and checks the liquidation price comes back at 200, with a vacuity assert that there was
+something to strip.
+
+**Six sabotages, six correct catches:** cross exempted from the isolated check removed (3 red), the
+pooled check never firing (3 red), the mode always reading Isolated (6 red), legacy accounts reading
+as "no mode" (2 red), the mode re-applied on every fill instead of only on opening (1 red), and a
+mode reported with no collateral behind it (1 red).
+
+---
+
 ## Trading dashboard decoupling (roadmap adopted 2026-08-23)
 
 Full design: `patches/trading-dashboard-decoupling-spec.md` (written 2026-08-22 against
@@ -1294,32 +1345,39 @@ you are looking at). If the ticket is ever decoupled from the chart, *then* it g
 account `<select>` defaulting to the focused chart's venue, populated from the Phase 3
 `TradingAccount` enumeration — which degrades to a single "Paper account" entry on hosted.
 
-- [ ] **Phase 1 — the unblock (small, ship first, own commit).** Stop filtering the orders/fills
-  tabs by the focused chart's symbol (`GetOpenOrdersAsync(provider, null)`; symbol param already
-  optional). Add the Symbol column the orders table never had (colspan 6 → 7). Ungate `CancelOrder`
-  — paper mode discards the provider name, so an empty chart identity is not a reason to refuse —
-  and make **every** early return in the seven chart-coupled sites publish a
-  `FeedbackRequestEvent`; a silent return is the defect. Explicit button labels: `✕` →
-  `Cancel order`, `Close` → `Close position`, verb-first aria-labels naming the symbol.
-- [ ] **Phase 2 — per-provider sections.** Group Balances/Positions/Orders under one
-  `<section aria-labelledby>` + `<h3>` per account (H-key navigation between venues); keep the
-  existing `sr-only` captions and `scope="col"` headers as-is. Per-account empty/error notes.
-  With exactly one account, still render the heading so hosted and desktop stay structurally
-  identical.
-- [ ] **Phase 3 — the real decoupling.** `TradingAccount` record (paper → one venue-less account;
-  live → distinct active providers from `IApiKeyService.GetAllKeysAsync()` filtered by
-  `SupportsTradingAsync`, **never** a key with `AllowsWithdrawal`). `LoadAccountDataAsync` loops
-  accounts concurrently with per-account failure isolation. Rows carry their provider (wrapper
-  record, not an SDK contract change), then the Phase 1 chart fallback is deleted. The ticket
-  sites (spec lists them) keep reading `Store.State.Identity`.
+- [x] **Phases 1 and 3 — DONE 2026-08-26, shipped together.** They were split for risk, and the
+  split stopped making sense once Cody asked for the dashboard to be "completely independent from
+  the chart": Phase 1's chart fallback existed only to be deleted by Phase 3, so writing it would
+  have been work paid for twice. What landed: a `TradingAccount` record and the row wrappers
+  (`AccountPosition` / `AccountOrder` / `AccountBalance` / `AccountFill`) in
+  `TradingAccounts.cs`; accounts enumerated from `GetAllKeysAsync()` filtered by `IsActive`,
+  `!AllowsWithdrawal` and `SupportsTradingAsync` (paper → one `"Paper"` account — NOT `""`, which
+  `SupportsTradingAsync` refuses before the routing that would have ignored it); orders and fills
+  read unfiltered (`GetOpenOrdersAsync(provider, null)`); accounts loaded concurrently with
+  per-account failure isolation; `CancelOrder` / `ClosePosition` / `CommitProtectiveAsync` taking
+  their venue off the row; `ShowAsync` and `LoadAccountDataAsync` no longer bailing without a
+  chart; `✕` → `Cancel order` and `Close` → `Close position` with verb-first aria-labels naming
+  the symbol AND the exchange.
+- [x] **Phase 2 — superseded by an Exchange COLUMN, deliberately.** The spec wanted per-account
+  `<section>` + `<h3>` groups for H-key navigation. Cody asked instead for the venue on the row
+  ("limit orders should be in the orders tab with the exchange they're associated with"), and once
+  every row names its exchange the sections buy nothing and cost the ability to read all venues in
+  one table pass. Every table (Balances / Positions / Orders / History) now carries an
+  **Exchange** column, rendered even with one account so hosted and desktop stay structurally
+  identical — which was Phase 2's actual invariant. **Re-open this if stacked venues turn out to
+  need heading navigation in practice**; the row data is already there for it.
 - [ ] **Phase 4 — close semantics.** `Close position` stays market; add `Close at limit…`
   revealing a price field. Both keep `ReduceOnly: true`; never make one button's order type
-  depend on hidden state.
-- [ ] **Tests (spec §7).** Six named tests — cancel-without-chart, unfiltered orders tab,
-  every-refusal-speaks scan (with vacuity floor, reuse `StripCommentsAndStrings`), per-account
-  headings via bUnit, withdrawal keys never enumerated, verb-and-subject button names — each
-  proven red before the fix. Extend `DashboardCapabilityGatingTests` to assert gating per
-  account, not globally.
+  depend on hidden state. **Still open** — the only part of the decoupling roadmap that is.
+- [x] **Tests — DONE, and every one proven red by sabotage.** `TradingDashboardDecouplingTests`
+  (9), `DashboardRefusalScanTests` (9, with the vacuity check written as "does this regex still
+  match the original defect?"), `PositionLabelTests` (10), `PaperCrossMarginTests` (13), plus
+  per-account spot-only gating in `DashboardCapabilityGatingTests`. Per-account *heading* tests
+  are not among them — see Phase 2 above. **The trap worth keeping:** `ChartIdentity.Empty` is
+  `Bitstamp`/`Spot`/`1h` with only the SYMBOL blank, so a bUnit harness that simply omits
+  `SeedChartState` still hands the dashboard a provider name. Reintroducing the old
+  `if (string.IsNullOrEmpty(provider)) return;` into `CancelOrder` left the whole new file green
+  until the fixture seeded a genuinely blank identity.
 - [ ] **Spec Appendix B follow-ups (separate from the decoupling):** duplicate protective legs
   (`AttachProtectiveLegs` reachable twice for one entry — replace, not add, at the same trigger);
   the pre-`ResolveLedgerKeyAsync` `BTC/USD` vs `BTCUSDT` opposing pair needs a user-facing offer

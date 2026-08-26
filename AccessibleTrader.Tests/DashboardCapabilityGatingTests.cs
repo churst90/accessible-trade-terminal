@@ -119,6 +119,28 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void SpotOnlyIsJudgedAcrossTheAccountsNotOffTheFocusedChart()
+        {
+            // The account views are no longer chart-scoped, so this note must not be
+            // either. Read off the focused chart, a spot chart in front of a connected
+            // futures account tells the user their venue has no positions while the tab
+            // sits there holding one — a claim about the wrong venue entirely.
+            //
+            // The ticket's own gating is deliberately NOT per account: an order placed
+            // here goes to the chart's venue, so _caps stays the chart's. The two must
+            // stay separate fields or one of them is lying about something.
+            // Expression-bodied, so read to the terminating semicolon rather than
+            // brace-matching a body it does not have.
+            string src = Dashboard();
+            int at = src.IndexOf("private bool IsSpotOnly =>", StringComparison.Ordinal);
+            Assert.True(at >= 0, "IsSpotOnly is gone — re-point this guard.");
+            string body = src.Substring(at, src.IndexOf(';', at) - at + 1);
+
+            Assert.Contains("_accountCaps", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("Can(", body, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void TheGateTableCoversEveryTicketCapability()
         {
             // Guard the guard: if a capability that gates a control is dropped from

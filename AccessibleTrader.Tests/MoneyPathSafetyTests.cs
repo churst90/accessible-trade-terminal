@@ -29,30 +29,9 @@ namespace AccessibleTrader.Tests
 
         // ── Close position must be reduce-only ───────────────────────────────
 
-        private static string DashboardSource()
-        {
-            string path = Path.Combine(RepoPaths.RepoRoot(), "AccessibleTrader.BlazorClient.Components",
-                                       "TradingDashboardModal.razor");
-            Assert.True(File.Exists(path), $"Trading dashboard not found at {path}");
-            return File.ReadAllText(path);
-        }
-
-        /// <summary>Brace-matched body of a method in the dashboard's @code block.</summary>
-        private static string DashboardMethod(string signature)
-        {
-            string src = DashboardSource();
-            int at = src.IndexOf(signature, StringComparison.Ordinal);
-            Assert.True(at >= 0, $"The dashboard no longer declares `{signature}` — re-point this guard.");
-            int open = src.IndexOf('{', at);
-            Assert.True(open > 0, $"No body found for `{signature}`.");
-            int depth = 0;
-            for (int i = open; i < src.Length; i++)
-            {
-                if (src[i] == '{') depth++;
-                else if (src[i] == '}' && --depth == 0) return src.Substring(open, i - open + 1);
-            }
-            throw new Xunit.Sdk.XunitException($"Unbalanced braces reading `{signature}`.");
-        }
+        // Shared with DashboardRefusalScanTests — see DashboardSourceReader for why
+        // the brace matcher lives in one place rather than two.
+        private static string DashboardMethod(string signature) => DashboardSourceReader.Method(signature);
 
         /// <summary>
         /// A button labelled "Close" must never be able to OPEN a position.
@@ -72,7 +51,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void ClosePosition_SendsReduceOnly_Unconditionally()
         {
-            string body = DashboardMethod("private async Task ClosePosition(Position p)");
+            string body = DashboardMethod("private async Task ClosePosition(AccountPosition row)");
 
             Assert.Contains("ReduceOnly: true", body, StringComparison.Ordinal);
             Assert.DoesNotContain("Can(ProviderCapabilities.ReduceOnly)", body, StringComparison.Ordinal);
@@ -96,8 +75,8 @@ namespace AccessibleTrader.Tests
         public static TheoryData<string> OrderPlacingHandlers() => new()
         {
             "private async Task SubmitOrder()",
-            "private async Task ClosePosition(Position p)",
-            "private async Task CancelOrder(string orderId, string symbol)",
+            "private async Task ClosePosition(AccountPosition row)",
+            "private async Task CancelOrder(AccountOrder row)",
             "private async Task SubmitOcoPair()",
         };
 
@@ -136,7 +115,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TheLatchAlsoDisablesTheButtons()
         {
-            string src = DashboardSource();
+            string src = DashboardSourceReader.Source();
             int gated = Regex.Matches(src, @"disabled=""@[^""]*_orderInFlight").Count;
             Assert.True(gated >= 4,
                 $"Only {gated} controls read _orderInFlight in their disabled binding; 4 did when this "

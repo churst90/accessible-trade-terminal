@@ -174,6 +174,32 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task Declares_IsolatedMargin_and_the_two_modes_really_differ()
+        {
+            // A capability list is a claim in both directions, so this checks the
+            // claim rather than the flag: two identical shorts, one cross and one
+            // isolated, on the same bar. If they end the bar in the same state the
+            // flag is decoration and the dashboard's selector changes nothing.
+            var paper = Make(out var store);
+            Assert.True(paper.Capabilities.HasFlag(ProviderCapabilities.IsolatedMargin));
+
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0, MarginType: "Isolated"));
+            var isolated = (await paper.GetPositionsAsync()).Single();
+
+            paper.ResetAccount();
+            store.EmitState(StateWith(Btc, 99, 101, 98, 100));
+            await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0, MarginType: "Cross"));
+            var cross = (await paper.GetPositionsAsync()).Single();
+
+            Assert.Equal(MarginMode.Isolated, isolated.MarginMode);
+            Assert.Equal(MarginMode.Cross, cross.MarginMode);
+            Assert.True(cross.LiquidationPrice > isolated.LiquidationPrice * 10,
+                "cross draws on the whole balance, so its liquidation must be far beyond the "
+                + $"isolated one. Isolated {isolated.LiquidationPrice:N2}, cross {cross.LiquidationPrice:N2}.");
+        }
+
+        [Fact]
         public async Task A_refused_order_says_why_rather_than_failing_silently()
         {
             // A rejection with no reason is the silent-feedback defect: the user

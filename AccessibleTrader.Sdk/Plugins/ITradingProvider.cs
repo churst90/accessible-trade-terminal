@@ -54,6 +54,25 @@ namespace AccessibleTrader.Sdk.Plugins
 
     public record Balance(string Asset, double Free, double Locked);
 
+    /// <summary>
+    /// How a position's collateral is held, which decides what can liquidate it.
+    ///
+    /// <para><see cref="Isolated"/> caps the loss at the collateral posted against
+    /// that one position: it liquidates on its own and takes nothing else with it.
+    /// <see cref="Cross"/> draws on the whole account, so it survives longer and
+    /// then takes every other cross position down with it. Those are different
+    /// trades with the same entry, which is why the mode belongs on the row rather
+    /// than in a setting somewhere.</para>
+    ///
+    /// <para><see cref="None"/> is the honest answer for spot, where nothing is
+    /// borrowed and there is no collateral to hold either way — NOT a synonym for
+    /// "cross". A venue that does not report the mode should say <see cref="None"/>
+    /// rather than guess; the dashboard renders it as plain spot and says nothing
+    /// about margin, where guessing would print a liquidation story that is not
+    /// true of the position.</para>
+    /// </summary>
+    public enum MarginMode { None, Cross, Isolated }
+
     /// <summary>An open futures/margin position with live P&amp;L data.</summary>
     public record Position(
         string Symbol,
@@ -62,7 +81,8 @@ namespace AccessibleTrader.Sdk.Plugins
         double MarketValue,
         double UnrealizedPnL,
         double Leverage = 1.0,
-        double LiquidationPrice = 0.0
+        double LiquidationPrice = 0.0,
+        MarginMode MarginMode = MarginMode.None
     );
 
     public record OpenOrder(

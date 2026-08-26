@@ -155,6 +155,29 @@ namespace AccessibleTrader.Core.Services
         /// configurable version belongs with the leverage work.
         /// </summary>
         private const double InitialMarginRate = 1.0;
+
+        /// <summary>
+        /// How each position's collateral is held. Set when a position is OPENED (or
+        /// flipped) from <c>TradeSignal.MarginType</c>, cleared when it closes.
+        ///
+        /// <para>
+        /// Isolated is the default and is what this broker always did: the collateral
+        /// in <see cref="_collateral"/> backs one symbol, and that symbol liquidates
+        /// alone. Cross posts the same collateral but pools it — a cross short is
+        /// judged against every cross short's collateral PLUS free cash, so it
+        /// survives further and then takes every other cross position with it. Those
+        /// are two different trades from the same entry, which is why the mode is
+        /// reported per position rather than kept as a setting.
+        /// </para>
+        ///
+        /// <para>
+        /// Absent for a symbol means "not recorded" — see <see cref="MarginModeOf"/>,
+        /// which reads a legacy account (written before this map existed) as Isolated
+        /// wherever collateral is held, because that is what those positions actually
+        /// are.
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<string, MarginMode> _marginMode = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, double> _leverage = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<PaperOrder> _open = new();
         private readonly List<TradeFill> _history = new();   // newest first, capped
@@ -215,10 +238,21 @@ namespace AccessibleTrader.Core.Services
         /// unreachable in paper mode. A capability list is a claim in both
         /// directions, and <c>PaperCapabilityConformanceTests</c> now checks both.
         /// </para>
+        ///
+        /// <para>
+        /// <c>IsolatedMargin</c> is the newest entry and it is earned the same way:
+        /// <c>TradeSignal.MarginType</c> is recorded against the position and the two
+        /// modes liquidate by different maths — isolated against that symbol's own
+        /// collateral, cross against the pooled collateral of every cross short plus
+        /// free cash. Before it, the dashboard hid the cross/isolated selector in
+        /// paper mode, so the one account every hosted user has could not reach the
+        /// choice at all.
+        /// </para>
         /// </summary>
         public ProviderCapabilities Capabilities =>
             ProviderCapabilities.Brackets | ProviderCapabilities.OCO | ProviderCapabilities.TrailingStop |
-            ProviderCapabilities.Shorting | ProviderCapabilities.MarginTrading;
+            ProviderCapabilities.Shorting | ProviderCapabilities.MarginTrading |
+            ProviderCapabilities.IsolatedMargin;
         public T? GetCapability<T>() where T : class => this as T;
 
         // ── ITradingProvider flags ────────────────────────────────────────────
@@ -272,16 +306,11 @@ namespace AccessibleTrader.Core.Services
                     {
                         double price = PriceFor(kv.Key, kv.Value.Avg);
                         double lev = _leverage.TryGetValue(kv.Key, out var l) ? l : 1.0;
-                        // Longs have no liquidation price — a spot long simply goes to
-                        // zero — so 0 there means "not applicable", not "at zero".
-                        double liq = kv.Value.Qty < 0 && CollateralOf(kv.Key) > 0
-                            ? CollateralOf(kv.Key) / Math.Abs(kv.Value.Qty)
-                            : 0;
                         return new Position(
                             kv.Key, kv.Value.Qty, kv.Value.Avg,
                             kv.Value.Qty * price,
                             (price - kv.Value.Avg) * kv.Value.Qty,
-                            lev, liq);
+                            lev, LiquidationPriceOf(kv.Key), MarginModeOf(kv.Key));
                     })
                     .ToList();
                 return Task.FromResult(list);
@@ -395,7 +424,7 @@ namespace AccessibleTrader.Core.Services
                     }
 
                     string id = NewId();
-                    var pnl = ApplyFill(symbol, signal.Side, mktQty, px);
+                    var pnl = ApplyFill(symbol, signal.Side, mktQty, px, ParseMarginMode(signal.MarginType));
                     Emit(id, symbol, signal.Side, mktQty, px, 0, OrderStatus.Filled, false, false, pnl);
                     RecordFill(symbol, signal.Side, mktQty, px, pnl, id);
 
@@ -459,7 +488,8 @@ namespace AccessibleTrader.Core.Services
                 var bracket = BracketFrom(signal, stopLossIsEntryTrigger);
 
                 Rest(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
-                    ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket));
+                    ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket,
+                    marginMode: ParseMarginMode(signal.MarginType)));
                 Persist();
                 return oid;
             }
@@ -658,6 +688,7 @@ namespace AccessibleTrader.Core.Services
                 _lastBar.Clear();
                 _ledgerAlias.Clear();
                 _collateral.Clear();
+                _marginMode.Clear();
                 Persist();
             }
         }
@@ -710,6 +741,7 @@ namespace AccessibleTrader.Core.Services
                 // is gone is not a position any more, and letting resting orders act on
                 // it first would report fills against something that no longer exists.
                 LiquidateIfCollateralExhausted(key, bar);
+                LiquidateCrossIfPooledEquityExhausted(key, bar);
 
                 // Advance trailing stops first so this tick uses the moved trigger.
                 bool trailMoved = false;
@@ -775,7 +807,7 @@ namespace AccessibleTrader.Core.Services
                         continue;
                     }
 
-                    var pnl = ApplyFill(o.Symbol, o.Side, qty, px);
+                    var pnl = ApplyFill(o.Symbol, o.Side, qty, px, o.MarginMode);
                     Emit(o.Id, o.Symbol, o.Side, qty, px, 0, OrderStatus.Filled, o.IsStop, o.IsTp, pnl, o.Trail != null);
                     RecordFill(o.Symbol, o.Side, qty, px, pnl, o.Id);
                     CancelOcoSiblings(o);
@@ -826,6 +858,12 @@ namespace AccessibleTrader.Core.Services
         {
             if (!_positions.TryGetValue(symbol, out var pos) || pos.Qty >= 0) return;
 
+            // A cross short is not judged on its own collateral — that is the whole
+            // difference between the modes — so it is left to the pooled check below.
+            // Running both would liquidate it at the isolated threshold and cross
+            // would be a label with no behaviour behind it.
+            if (MarginModeOf(symbol) == MarginMode.Cross) return;
+
             double locked = CollateralOf(symbol);
             if (locked <= 0) return;
 
@@ -835,15 +873,77 @@ namespace AccessibleTrader.Core.Services
 
             // Bought back AT the liquidation price: that is where the collateral runs
             // out, and it is what the account is left with either way.
-            string id = NewId();
-            var pnl = ApplyFill(symbol, OrderSide.Buy, shortQty, liqPrice);
-            Emit(id, symbol, OrderSide.Buy, shortQty, liqPrice, 0, OrderStatus.Filled, false, false, pnl,
-                reason: $"LIQUIDATED — the short's collateral was exhausted at "
-                      + liqPrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-            RecordFill(symbol, OrderSide.Buy, shortQty, liqPrice, pnl, id);
+            ForceClose(symbol, shortQty, liqPrice,
+                "LIQUIDATED — the short's collateral was exhausted at "
+                + liqPrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+        }
 
-            // Its protective orders protect nothing now, and leaving them resting
-            // would reopen the position on the next touch.
+        /// <summary>
+        /// Buys back EVERY cross short when the pooled resources behind them run out.
+        ///
+        /// <para>
+        /// Cross margin is one collateral bucket plus the free cash in the account, so
+        /// no single position has a threshold of its own: the test is whether what all
+        /// the cross shorts owe has reached what the account has to pay it with. That
+        /// is why a cross short survives past the price an isolated one would have died
+        /// at — and why, when it finally goes, it takes every other cross position with
+        /// it. Isolated positions are ring-fenced and are not touched here, which is
+        /// the property a trader chooses isolated for.
+        /// </para>
+        ///
+        /// <para>
+        /// The symbol whose bar just printed is marked at that bar's HIGH, for the same
+        /// reason the isolated check uses it: the money is gone at the moment price
+        /// touches the level, and a bar that spiked through and recovered still
+        /// liquidated you on a real venue. Every other cross short is marked at its
+        /// last known price. Unlike the isolated path the buy-back is AT that mark
+        /// rather than at a computed threshold, because with several positions there
+        /// is no single price the pool ran out at — and a gap taking the account
+        /// further negative than its collateral is a true fact about cross margin, not
+        /// a rounding error. Caller holds the lock.
+        /// </para>
+        /// </summary>
+        private void LiquidateCrossIfPooledEquityExhausted(string pricedSymbol, Ohlcv bar)
+        {
+            var shorts = new List<(string Symbol, double Qty, double Mark)>();
+            double resources = _cash;
+
+            foreach (var kv in _positions)
+            {
+                if (kv.Value.Qty >= 0) continue;
+                if (MarginModeOf(kv.Key) != MarginMode.Cross) continue;
+                double mark = string.Equals(kv.Key, pricedSymbol, StringComparison.OrdinalIgnoreCase)
+                    ? bar.High
+                    : PriceFor(kv.Key, kv.Value.Avg);
+                if (mark <= 0) continue;   // never priced: nothing to judge it on yet
+                resources += CollateralOf(kv.Key);
+                shorts.Add((kv.Key, Math.Abs(kv.Value.Qty), mark));
+            }
+
+            if (shorts.Count == 0) return;
+            double owed = shorts.Sum(s => s.Mark * s.Qty);
+            if (owed < resources) return;
+
+            // Materialised before the loop: ForceClose mutates _positions, and the
+            // whole point of cross is that they all go together.
+            foreach (var s in shorts)
+                ForceClose(s.Symbol, s.Qty, s.Mark,
+                    "LIQUIDATED — cross margin: the account's pooled collateral and cash were "
+                    + "exhausted by its short positions together");
+        }
+
+        /// <summary>
+        /// The buy-back itself: fill it, record it, and cancel the orders that were
+        /// protecting a position which no longer exists. Leaving those resting is how
+        /// a liquidated short reopens itself on the next touch. Caller holds the lock.
+        /// </summary>
+        private void ForceClose(string symbol, double qty, double price, string reason)
+        {
+            string id = NewId();
+            var pnl = ApplyFill(symbol, OrderSide.Buy, qty, price);
+            Emit(id, symbol, OrderSide.Buy, qty, price, 0, OrderStatus.Filled, false, false, pnl, reason: reason);
+            RecordFill(symbol, OrderSide.Buy, qty, price, pnl, id);
+
             foreach (var o in _open.Where(o => string.Equals(o.Symbol, symbol, StringComparison.OrdinalIgnoreCase)).ToList())
             {
                 _open.Remove(o);
@@ -851,7 +951,7 @@ namespace AccessibleTrader.Core.Services
                     reason: "the position was liquidated");
             }
 
-            _logger.LogWarning("Paper short on {Symbol} liquidated at {Price}", symbol, liqPrice);
+            _logger.LogWarning("Paper short on {Symbol} liquidated at {Price}", symbol, price);
         }
 
         /// <summary>
@@ -1452,15 +1552,117 @@ namespace AccessibleTrader.Core.Services
         private double CollateralOf(string symbol) =>
             _collateral.TryGetValue(symbol, out double c) ? c : 0.0;
 
+        /// <summary>
+        /// How this position's collateral is held.
+        ///
+        /// <para>
+        /// A position with no collateral posted against it — every long here, which
+        /// is bought outright — reports <see cref="MarginMode.None"/> rather than a
+        /// mode, because nothing is held either way and naming a mode would imply a
+        /// liquidation story the position does not have.
+        /// </para>
+        ///
+        /// <para>
+        /// An account saved before <see cref="_marginMode"/> existed carries no
+        /// entries, and every short in it was collateralised per symbol. Reading
+        /// those as Isolated is not a default, it is what they are.
+        /// </para>
+        /// </summary>
+        /// <summary>
+        /// Reads <c>TradeSignal.MarginType</c>, which is a free string on the SDK
+        /// contract because exchanges spell it differently.
+        ///
+        /// <para>
+        /// Anything unrecognised — including null, which is what every caller that
+        /// does not care sends — is <see cref="MarginMode.None"/>, meaning "did not
+        /// ask". That leaves the position on this broker's long-standing isolated
+        /// behaviour rather than guessing cross, which would move a liquidation price
+        /// on the strength of a typo.
+        /// </para>
+        /// </summary>
+        internal static MarginMode ParseMarginMode(string? marginType) => marginType?.Trim().ToLowerInvariant() switch
+        {
+            "cross"    => MarginMode.Cross,
+            "isolated" => MarginMode.Isolated,
+            _          => MarginMode.None,
+        };
+
+        private MarginMode MarginModeOf(string symbol) =>
+            CollateralOf(symbol) <= 0 ? MarginMode.None
+            : _marginMode.TryGetValue(symbol, out var m) && m != MarginMode.None ? m
+            : MarginMode.Isolated;
+
+        /// <summary>
+        /// The price at which this position's collateral runs out, or 0 when it has
+        /// none — a long is bought outright and simply goes to zero, so 0 here means
+        /// "not applicable", not "at zero".
+        ///
+        /// <para>
+        /// Isolated is the position's own collateral over what it owes. Cross adds
+        /// free cash and the headroom the other cross shorts still have, which is the
+        /// whole difference between the modes: the same short liquidates later under
+        /// cross and takes the rest of the account with it when it does. Both are the
+        /// exact price the tick check fires at, so the number on the row and the
+        /// number that closes the trade cannot drift.
+        /// </para>
+        ///
+        /// <para>Caller holds <c>_lock</c>.</para>
+        /// </summary>
+        private double LiquidationPriceOf(string symbol)
+        {
+            if (!_positions.TryGetValue(symbol, out var pos) || pos.Qty >= 0) return 0;
+            double own = CollateralOf(symbol);
+            if (own <= 0) return 0;
+
+            double qty = Math.Abs(pos.Qty);
+            if (MarginModeOf(symbol) != MarginMode.Cross) return own / qty;
+
+            double liq = (own + _cash + CrossHeadroomExcluding(symbol)) / qty;
+            // Already past it: the next tick liquidates. A negative price is not a
+            // thing to read out, so report "not applicable" rather than nonsense.
+            return liq > 0 ? liq : 0;
+        }
+
+        /// <summary>
+        /// What the OTHER cross shorts still have spare — each one's collateral less
+        /// what it currently owes. Negative for a cross short that is underwater,
+        /// which is the point: in cross margin someone else's losing trade moves your
+        /// liquidation price. Caller holds <c>_lock</c>.
+        /// </summary>
+        private double CrossHeadroomExcluding(string symbol)
+        {
+            double headroom = 0;
+            foreach (var kv in _positions)
+            {
+                if (kv.Value.Qty >= 0) continue;
+                if (string.Equals(kv.Key, symbol, StringComparison.OrdinalIgnoreCase)) continue;
+                if (MarginModeOf(kv.Key) != MarginMode.Cross) continue;
+                headroom += CollateralOf(kv.Key)
+                          - PriceFor(kv.Key, kv.Value.Avg) * Math.Abs(kv.Value.Qty);
+            }
+            return headroom;
+        }
+
         // ── Account mutation (caller holds _lock) ─────────────────────────────
 
         // Returns realized P&L (quote currency) for the portion of this fill that
         // reduces an existing position; null when it only opens/adds.
-        private double? ApplyFill(string symbol, OrderSide side, double qty, double price)
+        //
+        // `requested` is the margin mode the ORDER asked for, and it is applied only
+        // where it can honestly take effect: opening a position, or flipping one
+        // through flat, which is a new position wearing the old symbol. Adding to a
+        // position leaves the mode alone — a venue does not re-margin an existing
+        // short because the second lot asked for something else, and silently
+        // switching an isolated position to cross would move its liquidation price
+        // without anyone asking.
+        private double? ApplyFill(string symbol, OrderSide side, double qty, double price,
+            MarginMode requested = MarginMode.None)
         {
             var pos = _positions.TryGetValue(symbol, out var p) ? p : (Qty: 0.0, Avg: 0.0);
             double signed = side == OrderSide.Buy ? qty : -qty;
             double newQty = pos.Qty + signed;
+            bool opensFresh = Math.Abs(pos.Qty) < 1e-12 || Math.Sign(newQty) != Math.Sign(pos.Qty);
+            if (requested != MarginMode.None && opensFresh) _marginMode[symbol] = requested;
 
             // The SAME settlement the affordability check used, so the two can never
             // disagree about what a fill costs.
@@ -1481,6 +1683,9 @@ namespace AccessibleTrader.Core.Services
                 // Nothing is owed any more, so nothing stays locked. Guards against
                 // rounding dust holding a few cents hostage forever.
                 _collateral.Remove(symbol);
+                // The mode described THAT position. Left behind, it would silently
+                // re-margin the next unrelated trade in the same symbol.
+                _marginMode.Remove(symbol);
                 return realized;
             }
             double avg;
@@ -1573,6 +1778,7 @@ namespace AccessibleTrader.Core.Services
                         Trail = o.Trail?.ToString(), TrailValue = o.TrailValue, TrailAnchor = o.TrailAnchor,
                         Activation = o.Activation, Armed = o.Armed, Oco = o.OcoGroupId,
                         ReduceOnly = o.ReduceOnly,
+                        Margin = o.MarginMode == MarginMode.None ? null : o.MarginMode.ToString(),
                         PlacedAt = o.PlacedAt, PlacedBarHigh = o.PlacedBarHigh,
                         PlacedBarLow = o.PlacedBarLow, PlacedBarClose = o.PlacedBarClose,
                         Bracket = o.Bracket == null ? null : new BracketDto
@@ -1585,6 +1791,11 @@ namespace AccessibleTrader.Core.Services
                     }).ToList(),
                     History = _history.ToList(),
                     Collateral = _collateral.Select(kv => new LevDto { Symbol = kv.Key, Value = kv.Value }).ToList(),
+                    // Only the positions that actually have collateral behind them: a
+                    // mode recorded against a long describes nothing, and reloading it
+                    // would put a margin label on a spot holding.
+                    Margins = _marginMode.Where(kv => CollateralOf(kv.Key) > 0 && kv.Value != MarginMode.None)
+                        .Select(kv => new ModeDto { Symbol = kv.Key, Value = kv.Value.ToString() }).ToList(),
                     Charts = _exposureIdentity.Select(kv => new IdentDto
                     {
                         Symbol = kv.Key, Market = kv.Value.Market,
@@ -1627,7 +1838,8 @@ namespace AccessibleTrader.Core.Services
                             Enum.TryParse<TrailMode>(o.Bracket.TrailStopMode, out var bsm) ? bsm : (TrailMode?)null,
                             o.Bracket.TrailStopValue,
                             Enum.TryParse<TrailMode>(o.Bracket.TrailTpMode, out var btm) ? btm : (TrailMode?)null,
-                            o.Bracket.TrailTpValue, o.Bracket.TrailTpActivation, o.Bracket.Oco));
+                            o.Bracket.TrailTpValue, o.Bracket.TrailTpActivation, o.Bracket.Oco),
+                        ParseMarginMode(o.Margin));
                     // Restored, not re-minted: stamping these with "now" would let a
                     // restart hand every resting order the whole current bar to fill
                     // against, which is the exploit this field closes.
@@ -1639,6 +1851,11 @@ namespace AccessibleTrader.Core.Services
                 }
                 if (dto.History != null) _history.AddRange(dto.History);
                 foreach (var c in dto.Collateral ?? new List<LevDto>()) _collateral[c.Symbol] = c.Value;
+                foreach (var m in dto.Margins ?? new List<ModeDto>())
+                {
+                    var mode = ParseMarginMode(m.Value);
+                    if (mode != MarginMode.None) _marginMode[m.Symbol] = mode;
+                }
                 foreach (var c in dto.Charts ?? new List<IdentDto>())
                     _exposureIdentity[c.Symbol] = new ChartIdentity(c.Market, c.Provider, c.Symbol, c.Timeframe);
                 foreach (var a in dto.Aliases ?? new List<AliasDto>())
@@ -1703,6 +1920,14 @@ namespace AccessibleTrader.Core.Services
             public bool ReduceOnly { get; }
 
             /// <summary>
+            /// The margin mode this entry asked for, carried to the fill. A resting
+            /// order can wait days; reading the mode off whatever the ticket happens
+            /// to be set to when it finally triggers would margin the position on a
+            /// choice made for a different trade.
+            /// </summary>
+            public MarginMode MarginMode { get; }
+
+            /// <summary>
             /// Protective legs to attach when this order fills, for an entry that is
             /// still resting. Null for market entries (which attach immediately) and
             /// for orders carrying no protection.
@@ -1726,13 +1951,14 @@ namespace AccessibleTrader.Core.Services
                 double? price, double? trigger, bool isStop, bool isTp,
                 TrailMode? trail = null, double? trailValue = null, double? trailAnchor = null,
                 double? activation = null, bool armed = true, string? ocoGroupId = null,
-                bool reduceOnly = false, BracketSpec? bracket = null)
+                bool reduceOnly = false, BracketSpec? bracket = null,
+                MarginMode marginMode = MarginMode.None)
             {
                 Id = id; Symbol = symbol; Side = side; Type = type; Quantity = quantity;
                 Price = price; Trigger = trigger; IsStop = isStop; IsTp = isTp;
                 Trail = trail; TrailValue = trailValue; TrailAnchor = trailAnchor;
                 Activation = activation; Armed = armed; OcoGroupId = ocoGroupId;
-                ReduceOnly = reduceOnly; Bracket = bracket;
+                ReduceOnly = reduceOnly; Bracket = bracket; MarginMode = marginMode;
             }
         }
 
@@ -1765,6 +1991,11 @@ namespace AccessibleTrader.Core.Services
             // Locked against open shorts. Restoring positions without it would hand
             // back collateral the account still owes — free money on every restart.
             public List<LevDto> Collateral { get; set; } = new();
+            // How each short's collateral is held. Absent for accounts written before
+            // cross margin existed, and those are all isolated — MarginModeOf reads
+            // them that way rather than defaulting, so a restart cannot quietly move
+            // an existing short's liquidation price.
+            public List<ModeDto> Margins { get; set; } = new();
             // Chart spellings that resolved onto another position's key. Without these
             // a restart loses the venue lookup that produced them, and the fill engine
             // goes back to missing the position it should be filling against.
@@ -1780,6 +2011,7 @@ namespace AccessibleTrader.Core.Services
             public string Timeframe { get; set; } = "";
         }
         private sealed class LevDto { public string Symbol { get; set; } = ""; public double Value { get; set; } }
+        private sealed class ModeDto { public string Symbol { get; set; } = ""; public string Value { get; set; } = ""; }
         private sealed class OrderDto
         {
             public string Id { get; set; } = "";
@@ -1802,6 +2034,11 @@ namespace AccessibleTrader.Core.Services
             // open a position, and a pending bracket that does not survive a restart
             // is a silently unprotected entry — the same bug in different clothes.
             public bool ReduceOnly { get; set; }
+
+            // The mode the entry asked for. Null in files written before cross margin
+            // existed, and null is "did not ask" — the position it opens then lands on
+            // the isolated behaviour those files were written under.
+            public string? Margin { get; set; }
 
             // When the order joined the book, and what its bar had already printed by
             // then. Absent in files written before EligibleRange existed, which

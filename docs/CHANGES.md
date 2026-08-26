@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The trading dashboard stops asking what chart you are looking at (2026-08-26)
+
+- **You could not cancel your own orders.** Every action in the dialog resolved its venue from the
+  focused chart — `var provider = Store.State.Identity.Provider; if (string.IsNullOrEmpty(provider))
+  return;`, at seven separate sites. With no chart up, Cancel did nothing and said nothing, which on
+  a terminal built for people who cannot see the screen is indistinguishable from a dead control.
+  Rows now carry the account they came from, so Cancel, Close and the inline stop/target editor read
+  their venue off the row and there is no guess left to make.
+- **The Orders tab hid the orders it was opened to show.** It was filtered by the focused chart's
+  symbol with an exact string match, so orders resting on `BTC/USD` vanished behind a `BTCUSDT`
+  chart and the tab rendered empty — which reads as "you have no orders", the opposite of the truth.
+  Meanwhile the Positions tab, which takes no symbol, showed the position you could not act on. The
+  tab is unfiltered now.
+- **Every table names its exchange.** Balances, Positions, Orders and History each carry an
+  **Exchange** column, and the Orders table gained the **Symbol** column it never had — once the
+  chart filter is gone, a resting limit order is unreadable without knowing what it is on and where.
+- **A position says what it is.** The leading column is the instrument as held — `BTCUSDT isolated
+  1x` — and **Direction** is spelled out as Long or Short. Both were previously reachable only by
+  reading across ten columns and noticing a minus sign, and a leading minus is exactly the character
+  screen readers drop at default punctuation settings, which turns a short into a long silently.
+- **Buttons say what they do to what.** `✕` became `Cancel order` and `Close` became `Close
+  position`, each with an aria-label naming the side, the symbol and the exchange. `✕` is announced
+  as "times", as "ex", or skipped entirely depending on the screen reader; a bare "Close" never said
+  whether it closed the position or the dialog.
+- **The dialog opens with no chart at all,** and a venue that cannot execute orders no longer
+  replaces the whole dashboard with a wall — it replaces the order ticket, which is the only part
+  that genuinely needs a chart. Your positions exist whatever is in the front tab.
+- **One venue failing costs that venue and nothing else.** Accounts load concurrently with
+  per-account failure isolation, and a failed read is reported beside the rows that did arrive, not
+  only in place of them — with the venue named, because "could not be read" is not actionable until
+  you know which one.
+- **Withdrawal keys are never enumerated as trading accounts,** even when active on a venue that
+  trades. Nothing on the trading path may touch a credential that can move funds off the exchange.
+
+### Cross margin, so the paper account can offer the choice it was hiding (2026-08-26)
+
+- **The cross/isolated selector was invisible in paper mode,** because it is gated on
+  `ProviderCapabilities.IsolatedMargin` and the paper broker did not claim it. That was honest: it
+  held collateral per position — real isolated margin — and had no cross concept at all. Revealing
+  the control without the behaviour would have been two options and one outcome.
+- **Cross is simulated now, and it differs where it matters.** Isolated still liquidates against the
+  position's own collateral and takes nothing else with it. Cross is judged on the pooled collateral
+  of every cross short plus the account's free cash, so it survives well past the price that would
+  have closed an isolated one — and when it finally goes, every cross position goes at once while
+  isolated positions are untouched. A cross position's liquidation price moves when *another* cross
+  short loses, which is the whole reason the mode belongs on the row rather than in a setting.
+- **The ticket now defaults to Isolated, not Cross.** Cross is the mode that can take the rest of
+  the account with it, and a default nobody chose should not be the one with the larger blast
+  radius. It is also what the broker did before it honoured the field, so no existing account
+  changes behaviour by accident — and an account saved before this shipped reloads as isolated,
+  which is what those positions genuinely are rather than a default.
+
 ### An order result is a type now, and "Order placed" waits until someone has read it (2026-08-26)
 
 - **"Order placed" was spoken before anything looked at the answer.** `ReportSuccess("Order placed:

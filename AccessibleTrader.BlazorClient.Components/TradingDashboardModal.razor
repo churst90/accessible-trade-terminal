@@ -45,32 +45,48 @@
                 }
             </div>
 
-            @if (_tradingNotSupported)
-            {
-                <div class="alert-box warning" style="margin-top: 40px; text-align: center; padding: 30px;">
-                    <div style="font-size: 2rem; margin-bottom: 15px;">🚫</div>
-                    <h3>Trading Not Supported</h3>
-                    <p>The current provider <strong>@(Store.State.Identity.Provider ?? "Unknown")</strong> does not support order execution.</p>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">Please switch to a supported exchange (e.g., Binance, Coinbase, Alpaca) to enable trading features.</p>
-                </div>
-                <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
-                    <button @onclick="Close">Close</button>
-                </div>
+            @{
+                // The "this provider cannot trade" wall used to replace the WHOLE dialog,
+                // which is the chart coupling in its purest form: a data-only chart in
+                // the front tab hid an account full of live positions on other venues.
+                // It now replaces the order TICKET only — that is the part a venue
+                // without order execution genuinely cannot offer — and the account
+                // column renders regardless, because those positions exist whatever
+                // chart happens to be focused.
             }
-            else
+            @if (_paperMode)
             {
-                @if (_paperMode)
-                {
-                    <div class="alert-box" style="background:#332a00; color:#ffb300; border:1px solid #665500; font-weight:bold; padding:10px; border-radius:4px; margin-bottom:15px;">📄 PAPER TRADING — simulated orders, no real funds.</div>
-                }
-                else if (_isLiveEnvironment)
-                {
-                    <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk.</div>
-                }
+                <div class="alert-box" style="background:#332a00; color:#ffb300; border:1px solid #665500; font-weight:bold; padding:10px; border-radius:4px; margin-bottom:15px;">📄 PAPER TRADING — simulated orders, no real funds.</div>
+            }
+            else if (_isLiveEnvironment)
+            {
+                <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk.</div>
+            }
 
                 <div class="dashboard-grid">
                     @* Left Column: Market & Order Entry *@
                     <div class="dash-col">
+                        @if (_tradingNotSupported)
+                        {
+                            <section class="panel">
+                                <h3>Place Order</h3>
+                                <div class="alert-box warning" style="text-align: center; padding: 20px;">
+                                    <div style="font-size: 2rem; margin-bottom: 15px;" aria-hidden="true">🚫</div>
+                                    <p>
+                                        @(string.IsNullOrEmpty(Store.State.Identity.Provider)
+                                          ? "No chart is focused, so there is nothing to place an order on. Your accounts are shown alongside."
+                                          : $"The current provider {Store.State.Identity.Provider} does not support order execution.")
+                                    </p>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">
+                                        @(string.IsNullOrEmpty(Store.State.Identity.Provider)
+                                          ? "Open a chart to place an order. Cancelling orders and closing positions works from here either way."
+                                          : "Switch to a supported exchange (for example Binance, Coinbase or Alpaca) to place orders. Cancelling orders and closing positions on your existing accounts works from here either way.")
+                                    </p>
+                                </div>
+                            </section>
+                        }
+                        else
+                        {
                         <section class="panel">
                             <h3>Market: @(Store.State.Identity.Symbol ?? "—")</h3>
                             <div class="market-stats">
@@ -233,11 +249,18 @@
                             {
                                 <div class="entry-row">
                                     <label for="margin-type-select">Margin</label>
+                                    @* The option text says what each mode DOES, because the two words
+                                       alone assume the trader already knows which one can take the rest
+                                       of the account with it — and this is the control that decides
+                                       that. Isolated leads and is the default: it is the mode that caps
+                                       the loss at this one position, and it is what the paper broker
+                                       has always done, so a user who never touches this control gets
+                                       the behaviour their account already had. *@
                                     <select id="margin-type-select"
-                                            aria-label="Select margin type"
+                                            aria-label="Margin mode for this order"
                                             @bind="_marginType">
-                                        <option value="Cross">Cross</option>
-                                        <option value="Isolated">Isolated</option>
+                                        <option value="Isolated">Isolated — loss capped at this position's collateral</option>
+                                        <option value="Cross">Cross — draws on the whole balance, and takes it</option>
                                     </select>
                                 </div>
                             }
@@ -341,6 +364,7 @@
                                 </section>
                             }
                         </section>
+                        }
                     </div>
 
                     @* Right Column: Order Book & Account *@
@@ -368,23 +392,35 @@
                                     @* The summary leads, because "what is this worth" is the question
                                        the tab is opened to answer and it was the one thing the table
                                        could not say. When the total is partial it says so here rather
-                                       than quietly excluding a holding from a number people act on. *@
-                                    @if (_portfolio is { TotalCount: > 0 })
+                                       than quietly excluding a holding from a number people act on.
+                                       One per account: two venues' holdings added into a single
+                                       sentence would be a number the user cannot act on anywhere. *@
+                                    @foreach (var acct in _accounts)
                                     {
-                                        <p class="portfolio-summary" role="status">@PortfolioValuationService.Summarise(_portfolio)</p>
+                                        var snap = PortfolioFor(acct);
+                                        @if (snap is { TotalCount: > 0 })
+                                        {
+                                            <p class="portfolio-summary" role="status">
+                                                @(_accounts.Count > 1 ? acct.DisplayName + ": " : "")@PortfolioValuationService.Summarise(snap)
+                                            </p>
+                                        }
                                     }
                                     <table class="mini-table">
                                         <caption class="sr-only">Account balances and value</caption>
                                         <thead><tr>
-                                            <th scope="col">Asset</th><th scope="col">Free</th><th scope="col">Locked</th>
+                                            <th scope="col">Asset</th><th scope="col">Exchange</th>
+                                            <th scope="col">Free</th><th scope="col">Locked</th>
                                             <th scope="col">Value</th><th scope="col">Share</th><th scope="col">Day</th>
                                         </tr></thead>
                                         <tbody>
-                                            @foreach (var b in _balances.Where(b => b.Free > 0 || b.Locked > 0))
+                                            @foreach (var row in _balances.Where(r => r.Balance.Free > 0 || r.Balance.Locked > 0))
                                             {
-                                                var v = _portfolio?.Assets.FirstOrDefault(a => a.Asset == b.Asset);
-                                                <tr @key="b.Asset">
+                                                var b = row.Balance;
+                                                var snap = PortfolioFor(row.Account);
+                                                var v = snap?.Assets.FirstOrDefault(a => a.Asset == b.Asset);
+                                                <tr @key="@($"{row.Account.Slug}:{b.Asset}")">
                                                     <td>@b.Asset</td>
+                                                    <td>@row.Account.DisplayName</td>
                                                     <td>@PriceFormatter.FormatQuantity(b.Free)</td>
                                                     <td>@PriceFormatter.FormatQuantity(b.Locked)</td>
                                                     @* An unpriceable holding shows WHY, never a zero.
@@ -393,37 +429,53 @@
                                                     <td>@(v is null ? "—"
                                                           : v.IsPriced ? PriceFormatter.FormatPrice(v.Value ?? 0)
                                                           : "unpriced")</td>
-                                                    <td>@(PortfolioValuationService.AllocationPercent(v ?? new AssetValuation(b.Asset, 0, null, null, null, "x"), _portfolio!) is double p
+                                                    <td>@(snap is not null && PortfolioValuationService.AllocationPercent(v ?? new AssetValuation(b.Asset, 0, null, null, null, "x"), snap) is double p
                                                           ? p.ToString("0.#") + "%" : "—")</td>
                                                     <td class='@(v?.DayChangePct >= 0 ? "plus" : "minus")'>
                                                         @(v?.DayChangePct is double d ? (d >= 0 ? "+" : "") + d.ToString("0.##") + "%" : "—")
                                                     </td>
                                                 </tr>
                                             }
-                                            @if (!_balances.Any(b => b.Free > 0 || b.Locked > 0))
+                                            @if (!_balances.Any(r => r.Balance.Free > 0 || r.Balance.Locked > 0))
                                             {
-                                                <tr><td colspan="6">@(_balancesNote ?? "No balances.")</td></tr>
+                                                <tr><td colspan="7">@(_balancesNote ?? "No balances.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
-                                    @if (_portfolio is { IsComplete: false })
+                                    @TabNote(_balancesNote, _balances.Any(r => r.Balance.Free > 0 || r.Balance.Locked > 0))
+                                    @foreach (var acct in _accounts)
                                     {
-                                        <p class="portfolio-note">
-                                            The total covers @_portfolio.PricedCount of @_portfolio.TotalCount assets.
-                                            @string.Join(", ", _portfolio.Assets.Where(a => !a.IsPriced).Select(a => $"{a.Asset}: {a.Unpriced}"))
-                                        </p>
+                                        var snap = PortfolioFor(acct);
+                                        @if (snap is { IsComplete: false })
+                                        {
+                                            <p class="portfolio-note">
+                                                @(_accounts.Count > 1 ? acct.DisplayName + ": " : "")The total covers @snap.PricedCount of @snap.TotalCount assets.
+                                                @string.Join(", ", snap.Assets.Where(a => !a.IsPriced).Select(a => $"{a.Asset}: {a.Unpriced}"))
+                                            </p>
+                                        }
                                     }
                                 }
                                 else if (_accountTab == "Positions")
                                 {
                                     <table class="mini-table">
                                         <caption class="sr-only">Open positions</caption>
-                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Stop loss</th><th scope="col">Take profit</th><th scope="col">Leverage</th><th scope="col">Liq. price</th><th scope="col">Action</th></tr></thead>
+                                        @* The leading column is the instrument AS HELD — "BTCUSDT isolated 1x" —
+                                           rather than a bare symbol, and Direction is spelled out rather than
+                                           left to the sign of the quantity. Both were reachable before only by
+                                           reading across ten columns and noticing a minus sign, which is the
+                                           kind of thing a sighted glance does for free and a screen reader
+                                           does not. Leverage folds into the first cell for the same reason:
+                                           the mode and the multiplier are one fact about how far this can go
+                                           wrong, and they were columns one and eight. *@
+                                        <thead><tr><th scope="col">Instrument</th><th scope="col">Direction</th><th scope="col">Exchange</th><th scope="col">Quantity</th><th scope="col">Avg price</th><th scope="col">Value</th><th scope="col">Unrealized P&amp;L</th><th scope="col">Stop loss</th><th scope="col">Take profit</th><th scope="col">Liq. price</th><th scope="col">Action</th></tr></thead>
                                         <tbody>
-                                            @foreach (var p in _positions)
+                                            @foreach (var row in _positions)
                                             {
-                                                <tr @key="p.Symbol">
-                                                    <td>@p.Symbol</td>
+                                                var p = row.Position;
+                                                <tr @key="@($"{row.Account.Slug}:{p.Symbol}")">
+                                                    <td>@PositionLabel.Instrument(p)</td>
+                                                    <td>@PositionLabel.Direction(p)</td>
+                                                    <td>@row.Account.DisplayName</td>
                                                     <td>@SymbolAssets.WithBaseUnit(p.Quantity, p.Symbol, PriceFormatter.FormatQuantity(p.Quantity))</td>
                                                     <td>@PriceFormatter.FormatPrice(p.AveragePrice)</td>
                                                     <td>@PriceFormatter.FormatPrice(p.MarketValue)</td>
@@ -432,11 +484,13 @@
                                                        and what it can make, and they were the two the table did not show. Each
                                                        cell is a button that becomes a field: type, press Enter, and the value
                                                        is checked against the current price before anything is sent. *@
-                                                    <td>@RenderProtective(p, ProtectiveLevel.StopLoss)</td>
-                                                    <td>@RenderProtective(p, ProtectiveLevel.TakeProfit)</td>
-                                                    <td>@p.Leverage.ToString("0.##")×</td>
+                                                    <td>@RenderProtective(row, ProtectiveLevel.StopLoss)</td>
+                                                    <td>@RenderProtective(row, ProtectiveLevel.TakeProfit)</td>
                                                     <td>@(p.LiquidationPrice > 0 ? PriceFormatter.FormatPrice(p.LiquidationPrice) : "—")</td>
-                                                    <td><button aria-label="@($"Close {p.Symbol} position")" disabled="@_orderInFlight" @onclick="() => ClosePosition(p)">Close</button></td>
+                                                    @* Verb first, and the subject named. "Close" alone gave no clue whether
+                                                       it closed the position or the dialog, and a row full of identical
+                                                       "Close" buttons is unnavigable by button list. *@
+                                                    <td><button aria-label="@($"Close position, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}, market order")" disabled="@_orderInFlight" @onclick="() => ClosePosition(row)">Close position</button></td>
                                                 </tr>
                                             }
                                             @if (!_positions.Any())
@@ -445,7 +499,7 @@
                                                    worse as "your position has gone". On spot there is
                                                    no positions concept: what you hold IS your balance,
                                                    so say that and point at the tab that has it. *@
-                                                <tr><td colspan="10">
+                                                <tr><td colspan="11">
                                                     @(_positionsNote
                                                       ?? (IsSpotOnly
                                                           ? "This provider is spot only, so it has no separate positions — what you hold is shown on the Balances tab."
@@ -454,42 +508,60 @@
                                             }
                                         </tbody>
                                     </table>
+                                    @TabNote(_positionsNote, _positions.Any())
                                 }
                                 else if (_accountTab == "Orders")
                                 {
                                     <table class="mini-table">
                                         <caption class="sr-only">Open orders</caption>
-                                        <thead><tr><th scope="col">Side</th><th scope="col">Type</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+                                        @* Symbol and Exchange lead, and neither column existed. The tab used
+                                           to be filtered to the focused chart's symbol, so one symbol was the
+                                           only possibility and naming it looked redundant — but the filter was
+                                           an exact string match, so orders resting on BTC/USD vanished while a
+                                           BTCUSDT chart was up and the tab read as "you have no orders". With
+                                           the filter gone, a resting limit order is unreadable without knowing
+                                           what it is on and where. *@
+                                        <thead><tr><th scope="col">Symbol</th><th scope="col">Exchange</th><th scope="col">Side</th><th scope="col">Type</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                                         <tbody>
-                                            @foreach (var o in _openOrders)
+                                            @foreach (var row in _openOrders)
                                             {
-                                                <tr @key="o.Id">
+                                                var o = row.Order;
+                                                <tr @key="@($"{row.Account.Slug}:{o.Id}")">
+                                                    <td>@o.Symbol</td>
+                                                    <td>@row.Account.DisplayName</td>
                                                     <td>@o.Side</td>
                                                     <td>@o.Type</td>
                                                     <td>@PriceFormatter.FormatQuantity(o.Quantity)</td>
                                                     <td>@PriceFormatter.FormatPrice(o.Price)</td>
                                                     <td>@o.Status</td>
-                                                    <td><button aria-label="@($"Cancel {o.Side} {o.Type} order for {o.Symbol}")" disabled="@_orderInFlight" @onclick="() => CancelOrder(o.Id, o.Symbol)">✕</button></td>
+                                                    @* Visible text, not "✕": that character is announced as "times",
+                                                       as "ex", or skipped entirely depending on the screen reader and
+                                                       its punctuation level, and a button whose name might be nothing
+                                                       at all is the worst control on a money screen. *@
+                                                    <td><button aria-label="@($"Cancel order, {o.Side} {o.Type} {PriceFormatter.FormatQuantity(o.Quantity)} {o.Symbol} on {row.Account.DisplayName}")" disabled="@_orderInFlight" @onclick="() => CancelOrder(row)">Cancel order</button></td>
                                                 </tr>
                                             }
                                             @if (!_openOrders.Any())
                                             {
-                                                <tr><td colspan="6">@(_openOrdersNote ?? "No open orders.")</td></tr>
+                                                <tr><td colspan="8">@(_openOrdersNote ?? "No open orders.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
+                                    @TabNote(_openOrdersNote, _openOrders.Any())
                                 }
                                 else if (_accountTab == "History")
                                 {
                                     <table class="mini-table">
                                         <caption class="sr-only">Trade history</caption>
-                                        <thead><tr><th scope="col">Time</th><th scope="col">Symbol</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th><th scope="col">Fee</th></tr></thead>
+                                        <thead><tr><th scope="col">Time</th><th scope="col">Symbol</th><th scope="col">Exchange</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th><th scope="col">Fee</th></tr></thead>
                                         <tbody>
-                                            @foreach (var f in _fills)
+                                            @foreach (var row in _fills)
                                             {
-                                                <tr @key="f.Id">
+                                                var f = row.Fill;
+                                                <tr @key="@($"{row.Account.Slug}:{f.Id}")">
                                                     <td>@f.FilledAt.ToLocalTime().ToString("HH:mm:ss")</td>
                                                     <td>@f.Symbol</td>
+                                                    <td>@row.Account.DisplayName</td>
                                                     <td>@f.Side</td>
                                                     <td>@PriceFormatter.FormatQuantity(f.Quantity)</td>
                                                     <td>@PriceFormatter.FormatPrice(f.Price)</td>
@@ -499,10 +571,11 @@
                                             }
                                             @if (!_fills.Any())
                                             {
-                                                <tr><td colspan="7">@(_fillsNote ?? "No trade history.")</td></tr>
+                                                <tr><td colspan="8">@(_fillsNote ?? "No trade history.")</td></tr>
                                             }
                                         </tbody>
                                     </table>
+                                    @TabNote(_fillsNote, _fills.Any())
                                 }
                                 else if (_accountTab == "Book")
                                 {
@@ -577,7 +650,6 @@
                     <button @onclick="RefreshAccount">Refresh</button>
                     <button @onclick="Close">Close</button>
                 </div>
-            }
         </div>
     </div>
 }
@@ -641,6 +713,7 @@
     
     .mini-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
     .mini-table td { padding: 4px 0; border-bottom: 1px solid #222; }
+    .tab-note { font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0; }
     .plus { color: #4f4; }
     .minus { color: #f44; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -678,7 +751,12 @@
     private bool   _reduceOnly;
     private bool   _postOnly;
     private string _positionSide  = "BOTH";
-    private string _marginType  = "Cross";
+    // Isolated, not Cross. Cross is the mode that lets one position take the rest of
+    // the account with it, and a default nobody chose should not be the one with the
+    // larger blast radius. It also matches what the paper broker did before it
+    // honoured the field at all, so no existing account changes behaviour by
+    // accident.
+    private string _marginType  = "Isolated";
     private double _leverage    = 1.0;
     private string? _orderStatus;
     private bool _orderError;
@@ -701,7 +779,12 @@
     /// </summary>
     private string? _balancesNote, _positionsNote, _openOrdersNote, _fillsNote;
 
-    private PortfolioSnapshot? _portfolio;
+    /// <summary>Valuation per account slug. One venue's holdings summed into another's
+    /// would be a total the user cannot act on in either place.</summary>
+    private Dictionary<string, PortfolioSnapshot?> _portfolios = new();
+
+    private PortfolioSnapshot? PortfolioFor(TradingAccount a) =>
+        _portfolios.TryGetValue(a.Slug, out var s) ? s : null;
 
     /// <summary>
     /// Which book the order goes to — "Spot", "Futures", and whatever else a venue
@@ -725,6 +808,28 @@
     /// the read succeeded — an empty table is then the honest answer, because the
     /// account really does hold nothing.
     /// </summary>
+    /// <summary>
+    /// The "why some of this is missing" note, shown BESIDE rows rather than only in
+    /// place of them.
+    ///
+    /// <para>
+    /// The empty-table note has always existed, and it was enough while the dialog
+    /// showed one account: no rows and a reason meant the read failed. With several
+    /// accounts it stopped being enough — one venue timing out while another returns
+    /// rows produced a table full of data and no mention that a whole account was
+    /// missing from it, which is the "a failed read renders as you-have-none" defect
+    /// wearing a different hat. The note is worse when the table looks complete.
+    /// </para>
+    /// </summary>
+    private RenderFragment? TabNote(string? note, bool hasRows) => note == null || !hasRows ? null : builder =>
+    {
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "tab-note");
+        builder.AddAttribute(2, "role", "status");
+        builder.AddContent(3, note);
+        builder.CloseElement();
+    };
+
     private static string? EmptyNote<T>(ProviderResult<List<T>> r) => r.Kind switch
     {
         ResultKind.Ok           => null,
@@ -734,18 +839,44 @@
         _                       => $"Could not be read — {r.Reason}. This is NOT a statement that you have none.",
     };
 
+    /// <summary>
+    /// True when NO connected account has a positions concept — every one of them is
+    /// a spot venue, where what you hold IS your balance. Judged across the accounts
+    /// rather than off the focused chart: with a spot chart in front and a futures
+    /// account connected, the old reading told the user their venue has no positions
+    /// while the tab sat there holding one.
+    /// </summary>
     private bool IsSpotOnly =>
-        !Can(ProviderCapabilities.MarginTrading) && !Can(ProviderCapabilities.FuturesTrading);
+        _accountCaps.Count > 0
+        && _accountCaps.Values.All(c => !c.HasFlag(ProviderCapabilities.MarginTrading)
+                                     && !c.HasFlag(ProviderCapabilities.FuturesTrading));
+
+    /// <summary>
+    /// What the ORDER TICKET is gated on: the capabilities of the chart's provider,
+    /// because that is the venue an order placed here goes to. Deliberately separate
+    /// from <see cref="_accountCaps"/>, which describes the accounts being VIEWED —
+    /// the ticket stays chart-bound (you place an order on the symbol you are looking
+    /// at) while the account views do not.
+    /// </summary>
     private ProviderCapabilities _caps;
+
+    /// <summary>Capabilities per account slug, for the account views.</summary>
+    private Dictionary<string, ProviderCapabilities> _accountCaps = new();
     private double _maxLeverage = 1.0;
     private bool   _bookLoading;
     private bool   _bookEverLoaded;
 
-    // Account data
-    private List<Balance>   _balances   = new();
-    private List<Position>  _positions  = new();
-    private List<OpenOrder> _openOrders = new();
-    private List<TradeFill> _fills      = new();
+    // ── Account data ─────────────────────────────────────────────────────────
+    //
+    // Every row carries the account it came from. That is the whole decoupling: a
+    // Cancel or a Close reads its venue off the row it was pressed on, so neither
+    // one has to ask what chart is focused — and the answer to that question was
+    // wrong for anyone holding positions on a venue other than the one in front.
+    private List<TradingAccount> _accounts  = new();
+    private List<AccountBalance>  _balances   = new();
+    private List<AccountPosition> _positions  = new();
+    private List<AccountOrder>    _openOrders = new();
+    private List<AccountFill>     _fills      = new();
     private bool            _reviewArmed;
     private List<OrderBookEntry> _bids = new();
     private List<OrderBookEntry> _asks = new();
@@ -853,13 +984,20 @@
         // modal is gated off — so this is belt-and-suspenders over the no-keys backstop.)
         _paperMode = !Demo.AllowLiveTrading
             || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
-        var provider = Store.State.Identity.Provider;
-        if (string.IsNullOrEmpty(provider)) return;
 
-        bool supported = await OrderService.SupportsTradingAsync(provider);
+        // No chart is not a reason to refuse to open. It used to be: this method
+        // returned here, so pressing Alt+T with no chart focused produced a dialog
+        // that never became visible and never said why. The accounts exist whether or
+        // not a chart is up, and they are what this dialog is for. Only the ORDER
+        // TICKET needs a chart, and it says so itself.
+        var provider = Store.State.Identity.Provider ?? "";
+        bool supported = !string.IsNullOrEmpty(provider)
+                      && await OrderService.SupportsTradingAsync(provider);
         _tradingNotSupported = !supported;
-        
-        _availableKeys = await ApiKeyService.GetKeysForProviderAsync(provider);
+
+        _availableKeys = string.IsNullOrEmpty(provider)
+            ? new List<ApiKeyConfig>()
+            : await ApiKeyService.GetKeysForProviderAsync(provider);
         var active = _availableKeys.FirstOrDefault(k => k.IsActive) ?? _availableKeys.FirstOrDefault();
         _activeKeyNickname = active?.Nickname ?? "";
 
@@ -888,8 +1026,6 @@
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "trade-title"); } catch { }
 
-        if (!supported) return;
-
         await LoadAccountDataAsync();
         await RefreshBookAsync();
 
@@ -912,26 +1048,42 @@
     // means what the table shows is the order that actually exists at the venue, rather than a
     // remembered intention that may have been cancelled behind our back.
 
-    /// <summary>Which cell, if any, is currently being edited. Null when nothing is.</summary>
-    private (string Symbol, ProtectiveLevel Level)? _editing;
+    /// <summary>Which cell, if any, is currently being edited. Keyed by account as
+    /// well as symbol: the same symbol can be held on two venues, and editing one
+    /// row's stop must not open the other row's field.</summary>
+    private (string Slug, string Symbol, ProtectiveLevel Level)? _editing;
     private string _editText = "";
 
-    private OpenOrder? ProtectiveOrderFor(Position p, ProtectiveLevel level)
+    /// <summary>
+    /// The resting order that IS this position's stop or target.
+    ///
+    /// <para>
+    /// Matched within the position's own account. Since the orders list stopped being
+    /// filtered to one chart it can hold the same symbol from two venues, and a stop
+    /// resting on Kraken displayed against a Binance position would be a protective
+    /// level the position does not have — read as protection, and edited by
+    /// cancelling a stop on the wrong exchange.
+    /// </para>
+    /// </summary>
+    private OpenOrder? ProtectiveOrderFor(AccountPosition row, ProtectiveLevel level)
     {
         bool wantStop = level == ProtectiveLevel.StopLoss;
-        return _openOrders.FirstOrDefault(o =>
-            string.Equals(o.Symbol, p.Symbol, StringComparison.OrdinalIgnoreCase) &&
+        return _openOrders.FirstOrDefault(r =>
+            r.Account.Slug == row.Account.Slug &&
+            string.Equals(r.Order.Symbol, row.Position.Symbol, StringComparison.OrdinalIgnoreCase) &&
             (wantStop
-                ? o.Type is OrderType.StopMarket or OrderType.StopLimit
-                : o.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit));
+                ? r.Order.Type is OrderType.StopMarket or OrderType.StopLimit
+                : r.Order.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit))?.Order;
     }
 
-    private RenderFragment RenderProtective(Position p, ProtectiveLevel level) => builder =>
+    private RenderFragment RenderProtective(AccountPosition row, ProtectiveLevel level) => builder =>
     {
+        var p = row.Position;
         bool isEditing = _editing.HasValue
+            && _editing.Value.Slug == row.Account.Slug
             && _editing.Value.Symbol == p.Symbol && _editing.Value.Level == level;
 
-        var existing = ProtectiveOrderFor(p, level);
+        var existing = ProtectiveOrderFor(row, level);
         string name = level == ProtectiveLevel.StopLoss ? "stop loss" : "take profit";
         string shown = existing != null ? PriceFormatter.FormatPrice(existing.Price) : "not set";
 
@@ -946,7 +1098,7 @@
             builder.AddAttribute(6, "oninput",
                 EventCallback.Factory.Create<ChangeEventArgs>(this, e => _editText = e.Value?.ToString() ?? ""));
             builder.AddAttribute(7, "onkeydown",
-                EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnProtectiveKeyAsync(e, p, level)));
+                EventCallback.Factory.Create<KeyboardEventArgs>(this, e => OnProtectiveKeyAsync(e, row, level)));
             builder.CloseElement();
             return;
         }
@@ -960,21 +1112,21 @@
             ? $"{name} {PriceFormatter.FormatPrice(existing.Price)}, {ProtectiveLevelValidator.DistanceFromPrice(existing.Price, CurrentPriceFor(p))}. Activate to edit."
             : $"No {name} set for {p.Symbol}. Activate to add one.");
         builder.AddAttribute(4, "onclick",
-            EventCallback.Factory.Create(this, () => BeginEdit(p, level, existing)));
+            EventCallback.Factory.Create(this, () => BeginEdit(row, level, existing)));
         builder.AddContent(5, shown);
         builder.CloseElement();
     };
 
-    private void BeginEdit(Position p, ProtectiveLevel level, OpenOrder? existing)
+    private void BeginEdit(AccountPosition row, ProtectiveLevel level, OpenOrder? existing)
     {
-        _editing = (p.Symbol, level);
+        _editing = (row.Account.Slug, row.Position.Symbol, level);
         _editText = existing != null
             ? existing.Price.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture)
             : "";
         StateHasChanged();
     }
 
-    private async Task OnProtectiveKeyAsync(KeyboardEventArgs e, Position p, ProtectiveLevel level)
+    private async Task OnProtectiveKeyAsync(KeyboardEventArgs e, AccountPosition row, ProtectiveLevel level)
     {
         if (e.Key == "Escape")
         {
@@ -985,7 +1137,7 @@
         }
         if (e.Key != "Enter") return;
 
-        await CommitProtectiveAsync(p, level);
+        await CommitProtectiveAsync(row, level);
     }
 
     /// <summary>The current price the level is judged against.</summary>
@@ -1010,8 +1162,9 @@
     /// the few seconds it takes to notice.
     /// </para>
     /// </summary>
-    private async Task CommitProtectiveAsync(Position p, ProtectiveLevel level)
+    private async Task CommitProtectiveAsync(AccountPosition row, ProtectiveLevel level)
     {
+        var p = row.Position;
         bool isLong = p.Quantity > 0;
         var check = ProtectiveLevelValidator.Validate(_editText, level, isLong, CurrentPriceFor(p));
 
@@ -1023,14 +1176,13 @@
             return;
         }
 
-        var provider = Store.State.Identity.Provider;
-        if (string.IsNullOrEmpty(provider))
-        {
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No trading provider for this chart.", true));
-            return;
-        }
+        // The venue is the position's own, not the focused chart's. This used to read
+        // Store.State.Identity.Provider and refuse with "No trading provider for this
+        // chart" — a refusal about a chart, on a control attached to a position that
+        // knows perfectly well where it lives.
+        string provider = row.Account.ProviderName;
 
-        var existing = ProtectiveOrderFor(p, level);
+        var existing = ProtectiveOrderFor(row, level);
         if (existing != null)
             await OrderService.CancelOrderAsync(provider, existing.Id, p.Symbol);
 
@@ -1056,44 +1208,182 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// Which accounts this user can trade — the question that replaced "what chart am
+    /// I looking at?".
+    ///
+    /// <para>
+    /// Paper mode is one account and it belongs to no venue: the paper broker is
+    /// returned for any provider name at all. It is named <c>"Paper"</c> rather than
+    /// left blank because <c>SupportsTradingAsync</c> refuses an empty string before
+    /// the routing that would have ignored it.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>A key that can withdraw is never enumerated.</b> Nothing on the trading path
+    /// may touch a withdrawal credential, so such a profile does not become an account
+    /// here even when it is active and its provider trades — see the doc comment on
+    /// <c>ApiKeyConfig.AllowsWithdrawal</c>.
+    /// </para>
+    /// </summary>
+    private async Task<List<TradingAccount>> EnumerateAccountsAsync()
+    {
+        if (_paperMode)
+            return new List<TradingAccount> { new("Paper", "Paper", "paper", IsPaper: true) };
+
+        List<ApiKeyConfig> keys;
+        try { keys = await ApiKeyService.GetAllKeysAsync(); }
+        catch (Exception ex)
+        {
+            _layoutLogger?.LogWarning(ex, "Could not enumerate trading accounts.");
+            return new List<TradingAccount>();
+        }
+
+        var usable = keys.Where(k => k.IsActive && !k.AllowsWithdrawal).ToList();
+        var accounts = new List<TradingAccount>();
+        foreach (var provider in usable.Select(k => k.Provider)
+                                       .Distinct(StringComparer.OrdinalIgnoreCase)
+                                       .Where(p => !string.IsNullOrEmpty(p))
+                                       .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!await OrderService.SupportsTradingAsync(provider)) continue;
+
+            // The nickname only earns its place when there is more than one key for
+            // this venue; otherwise "Kraken (main)" is a longer way to say "Kraken"
+            // in a column that is read on every row.
+            var forProvider = usable.Where(k => string.Equals(k.Provider, provider, StringComparison.OrdinalIgnoreCase)).ToList();
+            string display = forProvider.Count > 1
+                ? $"{provider} ({(forProvider.FirstOrDefault(k => k.Nickname == _activeKeyNickname) ?? forProvider[0]).Nickname})"
+                : provider;
+            accounts.Add(new TradingAccount(provider, display, Slugify(provider), IsPaper: false));
+        }
+        return accounts;
+    }
+
+    private static string Slugify(string s) =>
+        new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+
+    /// <summary>Everything one account has to say, and why any of it is missing.</summary>
+    private sealed record AccountData(
+        TradingAccount Account,
+        List<AccountBalance> Balances, List<AccountPosition> Positions,
+        List<AccountOrder> Orders, List<AccountFill> Fills,
+        string? BalancesNote, string? PositionsNote, string? OrdersNote, string? FillsNote,
+        ProviderCapabilities Caps, PortfolioSnapshot? Portfolio);
+
     private async Task LoadAccountDataAsync()
     {
-        var provider = Store.State.Identity.Provider;
-        if (string.IsNullOrEmpty(provider)) return;
+        // Before anything reads it: a user who toggled paper mode off in Settings
+        // while this dialog stayed open must not have their live venues enumerated
+        // under a stale paper flag, or the reverse.
+        RefreshTradingEnvironment();
 
-        // Each tab keeps WHY it is empty, so a failed read never renders as "you
-        // have none". Those are opposite messages and a trader would act
-        // differently on each.
-        var balances   = await OrderService.GetBalancesAsync(provider);
-        var positions  = await OrderService.GetPositionsAsync(provider);
-        var openOrders = await OrderService.GetOpenOrdersAsync(provider, Store.State.Identity.Symbol);
-        var fills      = await OrderService.GetFillsAsync(provider);
+        _accounts = await EnumerateAccountsAsync();
+        if (_accounts.Count == 0)
+        {
+            // The one thing worse than an empty account view is an empty account view
+            // that does not say it is empty because nothing is connected.
+            _balances = new(); _positions = new(); _openOrders = new(); _fills = new();
+            _portfolios = new(); _accountCaps = new();
+            const string none = "No trading account is connected. Add an API key in the API keys "
+                              + "modal, or turn on paper trading in Settings.";
+            _balancesNote = _positionsNote = _openOrdersNote = _fillsNote = none;
+            StateHasChanged();
+            return;
+        }
 
-        _balances   = balances.OrElse(new List<Balance>());
-        _positions  = positions.OrElse(new List<Position>());
-        _openOrders = openOrders.OrElse(new List<OpenOrder>());
-        _fills      = fills.OrElse(new List<TradeFill>());
+        // Concurrently, with each account's failure isolated: one venue timing out
+        // costs that venue's rows and nothing else. Serially, a single slow exchange
+        // held up every other account's data behind it.
+        var loaded = await Task.WhenAll(_accounts.Select(LoadOneAccountAsync));
 
-        // Valued after the balances land, and never allowed to take the tab down
-        // with it — a pricing outage must cost the value column, not the balances.
+        _balances   = loaded.SelectMany(a => a.Balances).ToList();
+        _positions  = loaded.SelectMany(a => a.Positions).ToList();
+        _openOrders = loaded.SelectMany(a => a.Orders).ToList();
+        _fills      = loaded.SelectMany(a => a.Fills).OrderByDescending(r => r.Fill.FilledAt).ToList();
+
+        _portfolios  = loaded.ToDictionary(a => a.Account.Slug, a => a.Portfolio);
+        _accountCaps = loaded.ToDictionary(a => a.Account.Slug, a => a.Caps);
+
+        _balancesNote   = CombineNotes(loaded.Select(a => (a.Account, a.BalancesNote)));
+        _positionsNote  = CombineNotes(loaded.Select(a => (a.Account, a.PositionsNote)));
+        _openOrdersNote = CombineNotes(loaded.Select(a => (a.Account, a.OrdersNote)));
+        _fillsNote      = CombineNotes(loaded.Select(a => (a.Account, a.FillsNote)));
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// One account's four reads. Nothing here throws: a provider that falls over
+    /// reports it as a note on its own tabs, which is the difference between "this
+    /// venue could not be read" and "you have nothing", and a trader acts differently
+    /// on each.
+    /// </summary>
+    private async Task<AccountData> LoadOneAccountAsync(TradingAccount account)
+    {
+        string provider = account.ProviderName;
         try
         {
-            _portfolio = await Portfolio.ValueAsync(provider, _balances, PortfolioQuote);
+            // NOT filtered by the focused chart's symbol. That filter was an exact
+            // string match, so a user with BTC/USD orders and a BTCUSDT chart saw an
+            // empty Orders tab and could not cancel them — while the Positions tab,
+            // which takes no symbol, showed the position they could not act on.
+            var balancesTask  = OrderService.GetBalancesAsync(provider);
+            var positionsTask = OrderService.GetPositionsAsync(provider);
+            var ordersTask    = OrderService.GetOpenOrdersAsync(provider, null);
+            var fillsTask     = OrderService.GetFillsAsync(provider);
+            var capsTask      = OrderService.GetCapabilitiesAsync(provider);
+            await Task.WhenAll(balancesTask, positionsTask, ordersTask, fillsTask, capsTask);
+
+            var balances  = await balancesTask;
+            var positions = await positionsTask;
+            var orders    = await ordersTask;
+            var fills     = await fillsTask;
+
+            var balanceList = balances.OrElse(new List<Balance>());
+
+            // Valued after the balances land, and never allowed to take the tab down
+            // with it — a pricing outage must cost the value column, not the balances.
+            PortfolioSnapshot? snapshot = null;
+            try { snapshot = await Portfolio.ValueAsync(provider, balanceList, PortfolioQuote); }
+            catch (Exception ex)
+            {
+                _layoutLogger?.LogWarning(ex, "Portfolio valuation failed for {Provider}", provider);
+            }
+
+            return new AccountData(account,
+                balanceList.Select(b => new AccountBalance(account, b)).ToList(),
+                positions.OrElse(new List<Position>()).Select(p => new AccountPosition(account, p)).ToList(),
+                orders.OrElse(new List<OpenOrder>()).Select(o => new AccountOrder(account, o)).ToList(),
+                fills.OrElse(new List<TradeFill>()).Select(f => new AccountFill(account, f)).ToList(),
+                EmptyNote(balances), EmptyNote(positions), EmptyNote(orders), EmptyNote(fills),
+                await capsTask, snapshot);
         }
         catch (Exception ex)
         {
-            _layoutLogger?.LogWarning(ex, "Portfolio valuation failed for {Provider}", provider);
-            _portfolio = null;
+            _layoutLogger?.LogWarning(ex, "Account read failed for {Provider}", provider);
+            string note = $"Could not be read — {ex.Message}. This is NOT a statement that you have none.";
+            return new AccountData(account, new(), new(), new(), new(),
+                note, note, note, note, ProviderCapabilities.None, null);
         }
+    }
 
-        _balancesNote   = EmptyNote(balances);
-        _positionsNote  = EmptyNote(positions);
-        _openOrdersNote = EmptyNote(openOrders);
-        _fillsNote      = EmptyNote(fills);
-
-        RefreshTradingEnvironment();
-
-        StateHasChanged();
+    /// <summary>
+    /// The per-tab "why it is empty" note, across however many accounts there are.
+    /// With one account it reads exactly as it always did; with several, each note is
+    /// attributed, because "could not be read" is only actionable once you know which
+    /// venue could not be read.
+    /// </summary>
+    private string? CombineNotes(IEnumerable<(TradingAccount Account, string? Note)> notes)
+    {
+        var real = notes.Where(n => !string.IsNullOrEmpty(n.Note)).ToList();
+        if (real.Count == 0) return null;
+        // Attribution is keyed on how many accounts EXIST, not on how many of them
+        // had something to say: with three venues connected and one unreachable, an
+        // unattributed "could not be read" names none of them and is unactionable.
+        return _accounts.Count <= 1
+            ? real[0].Note
+            : string.Join(" ", real.Select(n => $"{n.Account.DisplayName}: {n.Note}"));
     }
 
     /// <summary>
@@ -1164,6 +1454,20 @@
 
     private async Task RefreshAccount() => await LoadAccountDataAsync();
 
+    /// <summary>
+    /// The balances of the account an order from the TICKET would be placed on — the
+    /// chart's venue, or the single paper account. Empty when no account matches,
+    /// which is the honest answer: there is nothing to size from.
+    /// </summary>
+    private IEnumerable<Balance> TicketBalances()
+    {
+        var account = _accounts.FirstOrDefault(a => a.IsPaper)
+                   ?? _accounts.FirstOrDefault(a => string.Equals(
+                          a.ProviderName, Store.State.Identity.Provider, StringComparison.OrdinalIgnoreCase));
+        if (account == null) return Enumerable.Empty<Balance>();
+        return _balances.Where(r => r.Account.Slug == account.Slug).Select(r => r.Balance);
+    }
+
     private void SelectAccountTab(string tab)
     {
         _accountTab = tab;
@@ -1172,7 +1476,7 @@
             "Positions" => _positions.Count,
             "Orders"    => _openOrders.Count,
             "History"   => _fills.Count,
-            "Balances"  => _balances.Count(b => b.Free > 0 || b.Locked > 0),
+            "Balances"  => _balances.Count(r => r.Balance.Free > 0 || r.Balance.Locked > 0),
             _           => 0
         };
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{tab}, {count}", true));
@@ -1287,7 +1591,7 @@
             // never blocking) rides along with the fill confirmation instead.
             string sectorHint = !_orderError
                 ? AccessibleTrader.Core.Services.SectorClassifier.BuildSectorHint(
-                      Store.State.Identity.Symbol, _positions.Select(p => p.Symbol)) ?? ""
+                      Store.State.Identity.Symbol, _positions.Select(r => r.Position.Symbol)) ?? ""
                 : "";
             if (sectorHint.Length > 0) sectorHint = " " + sectorHint;
             string placed = $"Order placed. {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sectorHint}";
@@ -1358,16 +1662,32 @@
         return true;
     }
 
-    private async Task CancelOrder(string orderId, string symbol)
+    /// <summary>
+    /// Cancels the order on the account it is resting on.
+    ///
+    /// <para>
+    /// This method used to open <c>var provider = Store.State.Identity.Provider; if
+    /// (string.IsNullOrEmpty(provider)) return;</c> — the reported bug, twice over.
+    /// The venue came from whatever chart was focused rather than from the order, so
+    /// with no chart up it returned in silence: the user pressed Cancel and the
+    /// terminal did nothing and said nothing, which is indistinguishable from a dead
+    /// control and is the worst available outcome on a screen nobody can see. The
+    /// row now carries its own account, so there is no guess left to make and no
+    /// early return left to be silent about.
+    /// </para>
+    /// </summary>
+    private async Task CancelOrder(AccountOrder row)
     {
-        var provider = Store.State.Identity.Provider;
-        if (string.IsNullOrEmpty(provider)) return;
+        string symbol = row.Order.Symbol;
         if (!BeginOrderAction($"Cancel {symbol}")) return;
 
         try
         {
-            bool ok = await OrderService.CancelOrderAsync(provider, orderId, symbol);
-            EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.StateChange : FeedbackType.Error, ok ? $"Order canceled. {symbol}." : $"Cancel failed for {symbol}.", true));
+            bool ok = await OrderService.CancelOrderAsync(row.Account.ProviderName, row.Order.Id, symbol);
+            EventBus.Publish(new FeedbackRequestEvent(
+                ok ? FeedbackType.StateChange : FeedbackType.Error,
+                ok ? $"Order canceled. {symbol} on {row.Account.DisplayName}."
+                   : $"Cancel failed for {symbol} on {row.Account.DisplayName}.", true));
 
             if (ok) await LoadAccountDataAsync();
         }
@@ -1391,7 +1711,11 @@
         // currency is not held, fall back to the largest single cash line rather than to
         // a made-up number, and say which currency was used.
         string quote = SymbolAssets.QuoteOf(Store.State.Identity.Symbol ?? "") ?? "";
-        var cash = _balances
+        // Only the account this order would actually go to. The balances list now
+        // spans every connected venue, and sizing a Kraken order from the cash sitting
+        // on Binance produces a position the destination account cannot fund — a
+        // number that looks like risk management and is not.
+        var cash = TicketBalances()
             .Where(b => AccessibleTrader.Core.Services.Trading.QuickTradeEquity.IsCashAsset(b.Asset))
             .Select(b => (b.Asset, Amount: b.Free))
             .ToList();
@@ -1471,17 +1795,37 @@
         if (ok) await LoadAccountDataAsync();
     }
 
-    // Close (or reduce-to-flat) a position by submitting an opposing market order.
-    private async Task ClosePosition(Position p)
+    // Close (or reduce-to-flat) a position by submitting an opposing market order,
+    // on the account the position is held in rather than on whatever chart is up.
+    private async Task ClosePosition(AccountPosition row)
     {
-        var provider = Store.State.Identity.Provider;
-        if (string.IsNullOrEmpty(provider) || Math.Abs(p.Quantity) < 1e-12) return;
+        var p = row.Position;
+        string provider = row.Account.ProviderName;
+        if (Math.Abs(p.Quantity) < 1e-12)
+        {
+            // Was a silent return. A flat row should not be closable at all, but if
+            // one is reached — a stale snapshot between refreshes — saying so beats
+            // a button that does nothing.
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                $"{p.Symbol} is already flat — nothing to close.", true));
+            return;
+        }
         if (!BeginOrderAction($"Close {p.Symbol}")) return;
 
         var side = p.Quantity > 0 ? OrderSide.Sell : OrderSide.Buy;
+
+        // The book to close on — spot or futures — taken from the chart ONLY when the
+        // chart is actually looking at this position. It used to be taken from the
+        // focused chart unconditionally, so closing a spot holding while a futures
+        // chart was in front routed the exit to the futures book, where the position
+        // is not. Null means "the venue's default", which is what it always was for
+        // anyone with no market suffix.
         string? subType = null;
-        var marketKey = Store.State.Identity.Market ?? "";
-        if (marketKey.Contains("|")) subType = marketKey.Split('|')[1];
+        var id = Store.State.Identity;
+        if (string.Equals(id.Provider, provider, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(id.Symbol, p.Symbol, StringComparison.OrdinalIgnoreCase)
+            && (id.Market ?? "").Contains('|'))
+            subType = id.Market!.Split('|')[1];
 
         // ReduceOnly is UNCONDITIONAL here, and is not gated on the capability flag
         // the way the ticket's checkbox is. `p` is a snapshot from a timer-refreshed
@@ -1576,7 +1920,7 @@
 
         var hint = AccessibleTrader.Core.Services.SectorClassifier.BuildSectorHint(
             Store.State.Identity.Symbol,
-            _positions.Select(p => p.Symbol));
+            _positions.Select(r => r.Position.Symbol));
         if (hint != null) warnings.Append(' ').Append(hint);
 
         return warnings.ToString();

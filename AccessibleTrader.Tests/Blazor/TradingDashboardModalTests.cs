@@ -19,6 +19,7 @@
 // will offer to delete this line; it is used. See the same note in WebHost/Program.cs.
 using AccessibleTrader.BlazorClient.Components;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Plugins;
 using Bunit;
@@ -45,6 +46,15 @@ public class TradingDashboardModalTests
         // test about what happens next.
         h.Ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         h.Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
+
+        // An enumerable trading account. The dashboard no longer derives the account
+        // from the focused chart, so with no keys and paper mode off there is nothing
+        // to read and it correctly reads nothing — which would make every assertion
+        // below vacuously true rather than red.
+        h.ApiKeyService.GetAllKeysAsync().Returns(new List<ApiKeyConfig>
+        {
+            new("kraken", "main", "key", "secret", Environment: "Live", IsActive: true),
+        });
 
         h.OrderService.SupportsTradingAsync(default!).ReturnsForAnyArgs(true);
         h.OrderService.GetCapabilitiesAsync(default!).ReturnsForAnyArgs(ProviderCapabilities.None);

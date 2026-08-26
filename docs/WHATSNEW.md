@@ -2,6 +2,29 @@
 
 ## 2.3.0 — the account, not just the chart
 
+- **The trading dashboard is your account now, not your chart.** It used to answer every
+  question from whichever chart happened to be in front: the Orders tab only showed orders
+  on that exact symbol, and Cancel refused — silently — if no chart was open at all. So
+  three resting orders on BTC/USD could be invisible behind a BTCUSDT chart, on a tab that
+  said nothing rather than saying "not these". Open it from anywhere now, with no chart at
+  all if you like, and it shows everything you hold and everything resting, on every venue
+  you have connected. Each row says which exchange it belongs to, and Cancel and Close send
+  to that one.
+- **A position tells you what kind of position it is.** The first column now reads like
+  "BTCUSDT isolated 1x" — the symbol, how its margin is held, and the leverage, in one
+  phrase instead of spread across the table. Beside it, Long or Short spelled out as a word,
+  because a minus sign in front of a number is the first thing a screen reader drops.
+- **Buttons say what they do to what.** "Cancel order" and "Close position", each announcing
+  the side, the symbol and the exchange. The Cancel button used to be an "✕", which is read
+  as "times", as "ex", or not at all depending on your screen reader and its settings.
+- **Cross or isolated margin, and the paper account really does both.** The choice was in the
+  order ticket but invisible unless you were on an exchange that offered it — which the paper
+  account did not, because it only ever did isolated. It does both now, and they behave
+  differently rather than just being labelled differently: isolated caps the damage at that
+  one position, cross keeps the position alive much longer by drawing on your whole balance
+  and then takes every other cross position with it when it finally goes. New orders default
+  to isolated, which is the safer of the two, and anything you already hold stays exactly
+  where it was.
 - **You can short again, and this time the account does the arithmetic that makes it
   honest.** Shorting was withdrawn in 2.2.0 because it was offered and did not work.
   It is back at 1x, modelled properly: selling something you do not own means somebody
