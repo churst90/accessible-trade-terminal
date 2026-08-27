@@ -4039,7 +4039,7 @@ layer is one rung down and is where these findings sit.
   **CLOSED 2026-08-25** with the item above — same helper, same guard file. `SeriesReducer.cs:81`
   (named here as the same class outside the area) was fixed in the same pass; it sits in a
   reducer, so its throw surfaced inside `Dispatch` rather than tearing down a subscription.
-- [ ] **There is no speech priority anywhere; `interrupt: true` is the default and any navigation
+- [x] **There is no speech priority anywhere; `interrupt: true` is the default and any navigation
   keystroke clobbers an in-flight critical message.** `ISpeechManager.cs:13` exposes only
   `Speak(string, bool interrupt)` — no priority, no queue, no politeness level.
   `SpeechFeedbackRouter.cs:41` and `:82` default `interrupt` to **true**, and the subscription at
@@ -4054,7 +4054,19 @@ layer is one rung down and is where these findings sit.
   and have the router refuse to interrupt a strictly-higher-priority utterance still in flight (a
   monotonic "speaking-until" timestamp per priority is enough; NVDA and speech-dispatcher both queue by
   priority natively). CONFIRMED. HIGH.
-- [ ] **`WebHostSpeechManager.cs:180`/`:183` fire every phrase through `_ = Task.Run(...)`, so spoken
+  **CLOSED 2026-08-27.** Priority arbitration in `SpeechFeedbackRouter`, where the channel is
+  already known — rather than widening `ISpeechManager`, which would put the same decision in
+  three platform implementations that could then disagree. Critical > OrderEvent > Event >
+  Manual, with a monotonic "speaking-until" stamp estimated from message length (15 chars a
+  second, deliberately on the FAST side: over-estimating would suppress a legitimate interrupt
+  for longer than the speech actually lasts) and a 4-second ceiling so no single utterance can
+  lock out navigation.
+  A lower-priority message arriving while a strictly-higher one is in flight is still SPOKEN —
+  it simply does not interrupt, so the screen reader queues it. Equal or higher priority
+  interrupts exactly as before, because a second order outcome does supersede the first and
+  key-repeat on the arrow keys has to stay responsive. Both of those directions have their own
+  test, because a fix that queued everything would be a worse bug than the one it replaces.
+- [x] **`WebHostSpeechManager.cs:180`/`:183` fire every phrase through `_ = Task.Run(...)`, so spoken
   order is not guaranteed — and `SpeakViaSpdSay:248-249` races its own interrupt.** Two `Speak` calls in
   quick succession each schedule an independent thread-pool work item; the pool gives no ordering
   guarantee, so the process-start order (which determines speech-dispatcher's queue order) can invert.
@@ -4064,7 +4076,14 @@ layer is one rung down and is where these findings sit.
   the cancel can land *after* the text and clip the message it was meant to precede. `SpeakViaOrca:219`
   has the same shape. Fix: serialise the out-of-band path through a single consumer
   (a `Channel<(string,bool)>` with one reader), and `WaitForExit` the `-S` first. CONFIRMED. HIGH.
-- [ ] **`NavigationFeedbackManager.cs:523` decides support-vs-resistance from the component's *audio
+  **CLOSED 2026-08-27.** Both halves. The out-of-band path is a single-reader
+  `Channel<SpeechWork>` with one pump, so phrases reach speech-dispatcher in the order they
+  were spoken instead of in whatever order the thread pool happened to start them — `Silence`
+  goes through the same queue, or it could overtake the phrase it was meant to follow. And
+  `spd-say -S` is now awaited to completion before the text starts (bounded at 1 s, because a
+  hung spd-say must not stall the queue), so the cancel can no longer land after the text and
+  clip the very message it was clearing the way for.
+- [x] **`NavigationFeedbackManager.cs:523` decides support-vs-resistance from the component's *audio
   frequency*.** `if (freq >= 500f)` classifies the zone as resistance, else support, where
   `freq = (float)comp.BaseFrequency` — a sonification setting. The spoken output at `:551`/`:553` is
   "Near resistance at X" / "Near support at X". A zone line whose `BaseFrequency` was tuned for
@@ -4073,6 +4092,13 @@ layer is one rung down and is where these findings sit.
   Fix: classify by `zoneVal` against the bar's price (or by the component's declared `Role`/name) and
   keep the frequency purely for the tone. CONFIRMED (code path); the mislabel depends on a provider
   setting `BaseFrequency` across the 500 boundary — SUSPECTED in practice. HIGH.
+  **CLOSED 2026-08-27.** Classified by where the level SITS: at or above the bar's close is
+  resistance, below it is support, nearest on each side wins because that is the level price is
+  about to interact with. No constant, and it cannot go wrong because someone re-voiced an
+  indicator. `BaseFrequency` stays purely for the tone.
+  The tests straddle the old magic 500 on purpose — a level at 105 voiced at 100 Hz and one at
+  95 voiced at 900 Hz — with a vacuity check saying so, because fixtures on the same side of
+  the threshold would make the old and new classifiers agree.
 - [ ] **`AutoNarrationService.cs:395` classifies a zone as resistance with two case-sensitive `Contains`
   calls.** `comp.Name.Contains("Resistance") || comp.Name.Contains("resistance")` covers two spellings of
   many; a component named `"RESISTANCE_1"` or `"res_upper"` falls through and its break is announced as
@@ -4080,7 +4106,7 @@ layer is one rung down and is where these findings sit.
   `:403-406` calls "arguably the most consequential thing this narrator says". Fix:
   `Contains("resistance", StringComparison.OrdinalIgnoreCase)`, or read the component's `Role`.
   CONFIRMED. MEDIUM.
-- [ ] **Fifteen confirmed silent-failure paths — an operation fails, refuses, or lands somewhere with
+- [x] **Fifteen confirmed silent-failure paths — an operation fails, refuses, or lands somewhere with
   nothing to say, and nothing is spoken and no earcon plays.** Beyond S1/S2 above:
   `AccessibilityFeedbackCoordinator.cs:533` swallows any message containing "Audio mode:"/"Playback
   mode:" *before* the type switch, so it eats an `Error` or `Alert` too — and it has **zero publishers
@@ -4102,6 +4128,23 @@ layer is one rung down and is where these findings sit.
   `WebHostSpeechManager.cs:237-241`, `:252-256`, an Orca/`spd-say` invocation failure logs "one speech
   phrase dropped" and the user hears nothing, including for an order rejection, with no fallback to the
   live region (deliberately disabled for server-side backends by `:130-131`). CONFIRMED. HIGH as a class.
+  **CLOSED 2026-08-27.** All fourteen remaining paths now say something:
+  `NavigationEngine.NavigateY` publishes `FeedbackType.Boundary` in the situation `NavigateX`
+  always did (the X axis told you where its edge was and the Y axis did not, so Up on a
+  zero-component series was indistinguishable from a dead key); `SpeechFormatter` returns the
+  caller's PREFIX for a zero-component series instead of discarding it with the value, so Home
+  says "Home" rather than nothing; `NavigationFeedbackManager`'s two bare returns speak on the
+  Critical channel — and only when `isUserInitiated`, since a state change arriving on its own
+  has no keypress to answer; `BarDetailService`'s two bare returns answer Ctrl+Shift+D, which
+  is an EXPLICIT request and the worst possible place for silence; and both
+  `WebHostSpeechManager` failure paths fall back to the ARIA live region for one phrase instead
+  of logging "one speech phrase dropped" — the live region is disabled for server-side backends
+  to avoid double-speaking what Orca already said, and a phrase Orca did NOT say is exactly the
+  case it should cover.
+  **Four existing tests were pinning the silence**: `BarDetail_EmptyData_PublishesNothing` and
+  `BarDetail_MissingSeries_PublishesNothing`, plus their de-DE variants, asserted
+  `Assert.Empty(bus.Log)`. They now assert that it says WHY, while still refusing to describe a
+  bar that is not there.
 - [ ] **`GlobalErrorCoordinator.cs:52-53` silently suppresses a repeated error, and `:30`'s dedup cache is
   never pruned.** The dedup key is `$"{ev.Source}|{ev.Message}"` with a 3 s window, so two orders rejected
   for the same reason inside three seconds produce one announcement — and a blind trader has no other
@@ -4207,7 +4250,7 @@ layer is one rung down and is where these findings sit.
   "Play" and the doc spends a paragraph explaining that it *no longer* plays a tone, while `:497-540`
   still computes `resistanceFreq`/`supportFreq` as `float?` purely as a "was anything found" flag, which
   is what makes the frequency-based classification above look intentional. CONFIRMED. LOW.
-- [ ] **(amends the test suite)** **No test anywhere constructs a series with an empty `Components`
+- [x] **(amends the test suite)** **No test anywhere constructs a series with an empty `Components`
   list** — every `ChartSeries` fixture in the speech tests adds at least one `ComponentConfig`, and
   `FocusedComponentIndex` is never set out of range, so the two CRITICAL findings above are entirely
   unguarded. No test drives `HandleNavigationFeedback` against empty data or an out-of-range index. No
@@ -4220,7 +4263,34 @@ layer is one rung down and is where these findings sit.
   **zero** tests; `GlobalErrorCoordinator` has two; `ComponentRoleMapper` has no dedicated test file. The
   candle-summary tests assert only the *bullish* prefix (`AccessibilityPipelineTests.cs:106`), which is
   why "Bearish Bearish Marubozu" ships. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** `EmptyComponentSpeechTests` is the file that was missing: a real
+  `ChartSeries` with no `Components` at all, driven through `SpeechFormatter` and
+  `NavigationFeedbackManager`, plus `FocusedComponentIndex` set to -5, 0 and 99. It carries the
+  prefix-preservation assertion, the "still says nothing when there is no prefix" counterpart
+  (there is genuinely no value to read, and inventing one would be worse), and a vacuity check
+  that a state change nobody asked for stays quiet — otherwise "No chart data yet" would fire
+  on every store tick.
+  `SpeechPriorityAndSilenceTests` and `ZoneProximityClassificationTests` cover the priority and
+  zone findings above; 4 of the 21 go red when the three fixes are removed.
+  **Not closed by this** and filed separately: `NotificationHub` still has zero tests,
+  `GlobalErrorCoordinator` has two, `ComponentRoleMapper` has no dedicated file, `MuteTierTests`
+  still asserts with `Arg.Any<string>()` throughout, and there is still no
+  "exactly one Speak per keypress" assertion.
 
+- [ ] **The speech-layer components that still have no tests.** Carved out of the
+  empty-`Components` finding closed above, which built the fixture that was missing but did
+  not close these: `NotificationHub` has **zero** tests; `GlobalErrorCoordinator` has two;
+  `ComponentRoleMapper` has no dedicated test file; `SpeechFeedbackRouter`'s only direct tests
+  (`MuteTierTests`, 13 of them) use `Arg.Any<string>()` on every speech assertion, so they are
+  a pure gating suite guarding nothing about CONTENT; and there is still no "exactly one
+  `Speak` per keypress" assertion — `NavigationUtteranceTests` uses
+  `Assert.True(spoken.Length > clause.Length)`, which any non-empty suffix passes, and
+  `AccessibilityPipelineTests:270` uses `Assert.True(spy.SpeakCallCount > 0)`, which passes
+  just as happily when the reading is overwritten. MEDIUM (amends the test suite).
+- [ ] **The candle-summary tests assert only the *bullish* prefix**
+  (`AccessibilityPipelineTests.cs:106`), which is why "Bearish Bearish Marubozu" ships. Carved
+  out of the same finding. A one-sided assertion on a two-sided formatter cannot see a
+  duplicated adjective on the side it never checks. LOW (amends the test suite).
 ---
 
 ### Health audit — workspace state, settings, persistence (grade C+)

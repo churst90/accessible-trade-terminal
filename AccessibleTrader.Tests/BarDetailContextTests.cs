@@ -18,17 +18,26 @@ namespace AccessibleTrader.Tests
         // ── BarDetailService ────────────────────────────────────────────────
 
         [Fact]
-        public void BarDetail_EmptyData_PublishesNothing()
+        public void BarDetail_EmptyData_SaysSoRatherThanNothing()
         {
+            // This used to assert Assert.Empty(bus.Log) — it PINNED the silent failure.
+            // Ctrl+Shift+D is an explicit request, and answering an explicit request with
+            // pure silence leaves the user unable to tell a broken key from an empty chart.
+            // What must not happen is a bar DESCRIPTION when there is no bar; saying why is
+            // the whole point.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
             var state = BaseState();  // no bars, no series
+
             svc.AnnounceDetails(state);
-            Assert.Empty(bus.Log);
+
+            var ev = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
+            Assert.Equal(FeedbackType.Error, ev.Type);
+            Assert.Contains("No chart data", ev.Message!, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
-        public void BarDetail_MissingSeries_PublishesNothing()
+        public void BarDetail_MissingSeries_SaysSoRatherThanNothing()
         {
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
@@ -40,8 +49,14 @@ namespace AccessibleTrader.Tests
                 FocusedSeriesId = "unknown-series",
                 PrimarySeriesId = "unknown-series",
             };
+
             svc.AnnounceDetails(state);
-            Assert.Empty(bus.Log);
+
+            // Same correction as above: it named the silence as the expected behaviour.
+            // Naming the unresolved focus is what makes it actionable.
+            var ev = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
+            Assert.Equal(FeedbackType.Error, ev.Type);
+            Assert.Contains("No series in focus", ev.Message!, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

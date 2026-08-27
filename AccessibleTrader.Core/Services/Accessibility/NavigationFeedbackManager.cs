@@ -66,6 +66,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (state.Data == null || !state.Data.Any() || state.CurrentDataIndex < 0 || state.CurrentDataIndex >= state.Data.Count)
             {
+                // SAY SOMETHING. This was a bare return, so every arrow key before data loaded
+                // — or with the cursor out of range — was total silence, and a user could not
+                // tell an empty chart from a dead keyboard. Only when the user actually pressed
+                // a key: a state change that arrives on its own has nothing to answer.
+                // Critical channel: this is a refusal, and a refusal the user cannot hear is
+                // the silent-failure class the feedback contract forbids.
+                if (isUserInitiated)
+                    _speechRouter.Speak("No chart data yet.", interrupt: true, SpeechChannel.Critical);
                 _previousState = state;
                 return;
             }
@@ -85,6 +93,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
             if (s == null)
             {
+                // Also a bare return: every navigation key was silent until focus was fixed,
+                // with no way for the user to discover WHY. Naming the unresolved series is
+                // what turns "the keyboard stopped working" into something actionable.
+                if (isUserInitiated)
+                    _speechRouter.Speak("No series in focus. Press Page Up or Page Down to pick one.",
+                        interrupt: true, SpeechChannel.Critical);
                 _previousState = state;
                 return;
             }
@@ -509,8 +523,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (dataIndex < 0 || dataIndex >= state.Data.Count) return clauses;
             var bar = state.Data[dataIndex];
 
-            float? resistanceFreq = null;
-            float? supportFreq = null;
+            // Distance from price to the nearest level on each side. Nearest wins, because
+            // the nearest level is the one price is about to interact with.
+            double resistanceDist = double.PositiveInfinity;
+            double supportDist = double.PositiveInfinity;
             double resistanceVal = double.NaN;
             double supportVal = double.NaN;
 
@@ -533,23 +549,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     bool inRange = bar.High + tolerance >= zoneVal && bar.Low - tolerance <= zoneVal;
                     if (!inRange) continue;
 
-                    // Classify by base frequency: higher frequency = resistance (ceiling), lower = support (floor).
-                    float freq = (float)comp.BaseFrequency;
-                    if (freq >= 500f)
+                    // Classify by WHERE THE LEVEL IS, not by how it sounds.
+                    //
+                    // This used to be `if ((float)comp.BaseFrequency >= 500f)` → resistance,
+                    // else support. BaseFrequency is a SONIFICATION setting: a zone line whose
+                    // tone was chosen for audibility rather than semantics was announced as
+                    // the OPPOSITE STRUCTURAL LEVEL. "Near resistance at X" versus "near
+                    // support at X" is a directional claim a trader acts on, and the magic 500
+                    // was undocumented.
+                    //
+                    // A level above the price is a ceiling and a level below it is a floor.
+                    // That is what the words mean, it needs no constant, and it cannot be
+                    // wrong because someone re-voiced an indicator. Frequency stays purely for
+                    // the tone.
+                    double distance = Math.Abs(zoneVal - bar.Close);
+                    if (zoneVal >= bar.Close)
                     {
-                        // Resistance zone — keep highest freq found (most recent/active level wins).
-                        if (resistanceFreq == null || freq > resistanceFreq.Value)
+                        if (distance < resistanceDist)
                         {
-                            resistanceFreq = freq;
+                            resistanceDist = distance;
                             resistanceVal = zoneVal;
                         }
                     }
                     else
                     {
-                        // Support zone — keep lowest freq found.
-                        if (supportFreq == null || freq < supportFreq.Value)
+                        if (distance < supportDist)
                         {
-                            supportFreq = freq;
+                            supportDist = distance;
                             supportVal = zoneVal;
                         }
                     }
@@ -562,9 +588,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // read every sub-dollar asset's level as "0" — Kaspa near $0.083 announced "Near support
             // at 0", which is not a wrong price so much as no price at all. Any spoken price goes
             // through the formatter; it is the only thing that knows an instrument's magnitude.
-            if (resistanceFreq.HasValue && !double.IsNaN(resistanceVal))
+            if (!double.IsNaN(resistanceVal))
                 clauses.Add($"Near resistance at {SpeechPriceFormatter.FormatPrice(resistanceVal)}.");
-            if (supportFreq.HasValue && !double.IsNaN(supportVal))
+            if (!double.IsNaN(supportVal))
                 clauses.Add($"Near support at {SpeechPriceFormatter.FormatPrice(supportVal)}.");
 
             return clauses;

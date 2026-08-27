@@ -74,11 +74,100 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 });
         }
 
+        // ── Speech priority ──────────────────────────────────────────────────
+        //
+        // <b>What went wrong.</b> There was no priority anywhere. ISpeechManager exposes only
+        // Speak(string, bool interrupt) — no priority, no queue, no politeness level — and
+        // `interrupt` defaults to TRUE on this router, with the subscription above
+        // implementing it as Silence() then Speak(). SpeechChannel is a MUTE TIER, not a
+        // priority: IsChannelAudible only decides whether to emit at all.
+        //
+        // So OrderRejectedEvent speaks "Order rejected for BTCUSDT. Insufficient balance." on
+        // the OrderEvent channel with interrupt: true, and the user's next arrow key ~200 ms
+        // later calls Speak(barReading, interrupt: true) on the Manual channel — which calls
+        // Silence() and truncates the rejection mid-word. The user hears "Order rejec—" and a
+        // price. Key-repeat on the arrow keys is the NORMAL way this terminal is read, so this
+        // is not an edge case; it is the common one.
+        //
+        // <b>The fix.</b> A monotonic "speaking-until" stamp per utterance, as the finding
+        // suggests. A lower-priority message that arrives while a strictly-higher-priority one
+        // is still in flight does not interrupt it — it is spoken WITHOUT interrupting, so the
+        // screen reader queues it behind. Equal or higher priority interrupts as before,
+        // because a second order outcome genuinely does supersede the first.
+        //
+        // The arbitration lives here rather than in ISpeechManager on purpose: this is the one
+        // place that already knows the channel, and widening the platform interface would put
+        // the same decision in three implementations that could then disagree.
+
+        private static int PriorityOf(SpeechChannel channel) => channel switch
+        {
+            SpeechChannel.Critical   => 3,
+            SpeechChannel.OrderEvent => 2,
+            SpeechChannel.Event      => 1,
+            _                        => 0,   // Manual
+        };
+
+        /// <summary>
+        /// Characters a screen reader gets through in a second. ~180 wpm at ~5 characters a
+        /// word is 15; deliberately on the FAST side, because over-estimating the duration
+        /// would suppress a legitimate interrupt for longer than the speech actually lasts,
+        /// and a chart that stops responding to arrow keys is a worse bug than a clipped word.
+        /// </summary>
+        private const double SpeechCharsPerSecond = 15.0;
+
+        /// <summary>
+        /// Ceiling on how long one utterance may hold priority. A pathological message must
+        /// not be able to lock out navigation.
+        /// </summary>
+        private static readonly TimeSpan MaxProtectedSpeech = TimeSpan.FromSeconds(4);
+
+        private readonly object _priorityGate = new();
+        private int _inFlightPriority;
+        private DateTime _inFlightUntilUtc = DateTime.MinValue;
+
+        /// <summary>
+        /// Decides whether this message may interrupt, and records it as in flight.
+        /// </summary>
+        private bool MayInterrupt(string message, bool requested, SpeechChannel channel)
+        {
+            int priority = PriorityOf(channel);
+            var now = DateTime.UtcNow;
+
+            var estimated = TimeSpan.FromSeconds(message.Length / SpeechCharsPerSecond);
+            if (estimated > MaxProtectedSpeech) estimated = MaxProtectedSpeech;
+
+            lock (_priorityGate)
+            {
+                bool higherStillSpeaking = _inFlightPriority > priority && now < _inFlightUntilUtc;
+
+                // A message that is not allowed to interrupt still becomes the in-flight one
+                // only if it outranks what is there; otherwise the protected utterance keeps
+                // its slot for the rest of its estimated duration.
+                if (priority >= _inFlightPriority || now >= _inFlightUntilUtc)
+                {
+                    _inFlightPriority = priority;
+                    _inFlightUntilUtc = now + estimated;
+                }
+
+                return requested && !higherStillSpeaking;
+            }
+        }
+
+        /// <summary>Test seam: forget any in-flight utterance.</summary>
+        internal void ResetSpeechPriorityForTests()
+        {
+            lock (_priorityGate)
+            {
+                _inFlightPriority = 0;
+                _inFlightUntilUtc = DateTime.MinValue;
+            }
+        }
+
         public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
         {
             if (string.IsNullOrEmpty(message)) return;
             if (!IsChannelAudible(channel)) return;
-            _speechSubject.OnNext((message, interrupt));
+            _speechSubject.OnNext((message, MayInterrupt(message, interrupt, channel)));
         }
 
         private bool IsChannelAudible(SpeechChannel channel)

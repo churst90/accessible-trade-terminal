@@ -160,6 +160,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Speak error/boundary messages even when navigation didn't change state.
                 _eventBus.Publish(new FeedbackRequestEvent(result.FeedbackType, result.FeedbackMessage, true, IsYMove: true));
             }
+            else
+            {
+                // THE Y AXIS GETS ITS BOUNDARY EARCON TOO.
+                //
+                // NavigateX publishes FeedbackType.Boundary in exactly this situation
+                // (see above). NavigateY had no else at all, so Up/Down on a zero-component
+                // series, or at the first/last component or bin, produced no speech AND no
+                // earcon — total silence. The X axis told you where its edge was and the Y
+                // axis did not, so a user pressing Up could not tell "nothing above this"
+                // from "the key is not working".
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, null, false));
+            }
         }
 
         private void NavigateSeries(int delta)

@@ -30,11 +30,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <inheritdoc />
         public void AnnounceDetails(WorkspaceState state)
         {
-            if (state.Data == null || state.Data.Count == 0) return;
+            // Ctrl+Shift+D is an EXPLICIT request. Answering it with pure silence is the
+            // worst shape a failure can take here: the user asked a direct question and got
+            // nothing back, with no way to tell a broken key from an empty chart. Both of
+            // these were bare returns.
+            if (state.Data == null || state.Data.Count == 0)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Error, "No chart data to describe.", true));
+                return;
+            }
 
             var seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
-            if (series == null) return;
+            if (series == null)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Error,
+                    "No series in focus to describe. Press Page Up or Page Down to pick one.", true));
+                return;
+            }
 
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             var bar = BarAsDrawn(state, idx);

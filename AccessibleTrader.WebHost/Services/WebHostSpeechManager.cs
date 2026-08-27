@@ -126,6 +126,42 @@ namespace AccessibleTrader.WebHost.Services
         internal static bool ShouldEnableLiveRegion(SpeechBackend backend, SpeechOutputMode mode)
             => backend == SpeechBackend.BrowserTts && mode != SpeechOutputMode.BrowserVoice;
 
+        /// <summary>
+        /// Emits one phrase through the ARIA live region when the out-of-band voice failed.
+        ///
+        /// <para>Both failure paths used to log "one speech phrase dropped" and stop there, so
+        /// the user heard NOTHING — <b>including for an order rejection</b>. The live region is
+        /// deliberately disabled for server-side backends (<see cref="ShouldEnableLiveRegion"/>)
+        /// because leaving it on would double-speak every phrase Orca already said; but a
+        /// phrase Orca did NOT say is exactly the case it should cover.</para>
+        ///
+        /// <para>One-shot: the flag is restored immediately, so the normal double-speak
+        /// suppression is untouched.</para>
+        /// </summary>
+        private void FallBackToLiveRegion(string text)
+        {
+            try
+            {
+                if (_inner is not AccessibleTrader.BlazorClient.Services.BlazorSpeechManager b) return;
+
+                bool previous = b.LiveRegionEnabled;
+                try
+                {
+                    b.LiveRegionEnabled = true;
+                    b.Speak(text, interrupt: false);
+                }
+                finally
+                {
+                    b.LiveRegionEnabled = previous;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Last resort failed too. Nothing further to try; at least say so in the log.
+                _logger.LogWarning(ex, "Live-region speech fallback also failed; phrase dropped.");
+            }
+        }
+
         private void ApplyLiveRegionPolicy()
         {
             if (_inner is AccessibleTrader.BlazorClient.Services.BlazorSpeechManager b)
@@ -172,11 +208,16 @@ namespace AccessibleTrader.WebHost.Services
 
             switch (_backend)
             {
+                // ONE consumer, in order — not a Task.Run per phrase.
+                //
+                // Two Speak calls in quick succession each used to schedule an independent
+                // thread-pool work item, and the pool gives no ordering guarantee. Since the
+                // process-start order is what determines speech-dispatcher's queue order,
+                // "Stop loss hit. Sold 1 BTC at 61,200." followed by "Order rejected." could
+                // be spoken in the WRONG ORDER, with no cue that it had happened.
                 case SpeechBackend.OrcaDBus:
-                    _ = Task.Run(() => SpeakViaOrca(text, interrupt));
-                    break;
                 case SpeechBackend.SpdSay:
-                    _ = Task.Run(() => SpeakViaSpdSay(text, interrupt));
+                    Enqueue(new SpeechWork(text, interrupt, IsSilence: false));
                     break;
                 case SpeechBackend.BrowserTts:
                     // "Screen reader" mode: the live region (written by _inner
@@ -196,7 +237,9 @@ namespace AccessibleTrader.WebHost.Services
                 case SpeechBackend.SpdSay:
                     // spd-say -S stops every priority on the dispatcher, which
                     // is what Orca's voice flows through too — clips both.
-                    _ = Task.Run(SilenceViaSpdSay);
+                    // Through the SAME queue as Speak, or a Silence can overtake the phrase
+                    // it was meant to follow.
+                    Enqueue(new SpeechWork("", Interrupt: false, IsSilence: true));
                     break;
                 case SpeechBackend.BrowserTts:
                     _eventBus.Publish(new BrowserSpeakRequest(string.Empty, true));
@@ -233,7 +276,8 @@ namespace AccessibleTrader.WebHost.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "Orca PresentMessage failed; one speech phrase dropped.");
+                    "Orca PresentMessage failed; falling back to the live region.");
+                FallBackToLiveRegion(text);
             }
         }
 
@@ -241,20 +285,101 @@ namespace AccessibleTrader.WebHost.Services
         {
             try
             {
-                if (interrupt) StartSpdSay("-S");
+                // AWAIT the cancel before starting the text.
+                //
+                // These were two separate un-awaited processes: StartSpdSay did Process.Start
+                // and never waited. So the cancel could land AFTER the text and clip the very
+                // message it was meant to clear the way for — the interrupt eating its own
+                // utterance.
+                if (interrupt) RunSpdSayToCompletion("-S");
                 StartSpdSay(text);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "spd-say invocation failed; one speech phrase dropped.");
+                    "spd-say invocation failed; falling back to the live region.");
+                FallBackToLiveRegion(text);
             }
         }
 
         private void SilenceViaSpdSay()
         {
-            try { if (_spdSayPath != null) StartSpdSay("-S"); }
+            try { if (_spdSayPath != null) RunSpdSayToCompletion("-S"); }
             catch (Exception ex) { _logger.LogWarning(ex, "spd-say -S failed."); }
+        }
+
+        /// <summary>
+        /// Starts spd-say and waits for it to exit, so whatever follows is genuinely after it.
+        /// Bounded: a hung spd-say must not stall the whole speech queue, and speaking late is
+        /// better than never speaking again.
+        /// </summary>
+        private void RunSpdSayToCompletion(string arg)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = _spdSayPath!,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            psi.ArgumentList.Add(arg);
+            using var p = Process.Start(psi);
+            p?.WaitForExit(1000);
+        }
+
+        // ── The single speech consumer ───────────────────────────────────────
+
+        private readonly record struct SpeechWork(string Text, bool Interrupt, bool IsSilence);
+
+        private readonly System.Threading.Channels.Channel<SpeechWork> _speechQueue =
+            System.Threading.Channels.Channel.CreateUnbounded<SpeechWork>(
+                new System.Threading.Channels.UnboundedChannelOptions
+                {
+                    SingleReader = true,
+                    SingleWriter = false,
+                });
+
+        private Task? _speechPump;
+        private readonly object _pumpGate = new();
+
+        private void Enqueue(SpeechWork work)
+        {
+            EnsurePump();
+            _speechQueue.Writer.TryWrite(work);
+        }
+
+        private void EnsurePump()
+        {
+            if (_speechPump != null) return;
+            lock (_pumpGate)
+            {
+                _speechPump ??= Task.Run(PumpAsync);
+            }
+        }
+
+        private async Task PumpAsync()
+        {
+            await foreach (var work in _speechQueue.Reader.ReadAllAsync().ConfigureAwait(false))
+            {
+                try
+                {
+                    if (work.IsSilence)
+                    {
+                        SilenceViaSpdSay();
+                        continue;
+                    }
+
+                    if (_backend == SpeechBackend.OrcaDBus) SpeakViaOrca(work.Text, work.Interrupt);
+                    else SpeakViaSpdSay(work.Text, work.Interrupt);
+                }
+                catch (Exception ex)
+                {
+                    // The pump must survive anything: if it dies the user goes permanently
+                    // silent, which is the worst failure this component has.
+                    _logger.LogWarning(ex, "Speech pump item failed; continuing.");
+                }
+            }
         }
 
         private void StartSpdSay(string arg)

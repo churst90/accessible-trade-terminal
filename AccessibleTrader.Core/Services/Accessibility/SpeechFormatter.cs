@@ -104,7 +104,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             else
             {
-                if (series.Components.Count == 0) return "";
+                // A series with no components has no VALUE to read — but the caller's prefix
+                // is a separate thing that still needs saying: a series-switch announcement,
+                // a pane label, "Home"/"End". Returning "" here discarded the prefix along
+                // with the value, so pressing Home on a component-less series said nothing at
+                // all rather than "Home." The concatenation at the end of this method is the
+                // only thing that ever emits the prefix, so the early return had to stop
+                // skipping it.
+                if (series.Components.Count == 0)
+                    return string.IsNullOrEmpty(prefixMessage) ? "" : prefixMessage.TrimEnd();
                 var compIndex = series.ClampComponent(state.FocusedComponentIndex);
                 var comp = series.Components[compIndex];
                 // Provider contextual speech applies in Component context only (the
