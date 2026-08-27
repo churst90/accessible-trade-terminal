@@ -5894,6 +5894,48 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
     `LoukasCyclesProvider.cs:352-356` says so in a comment; it is a deliberate choice that is wrong
     under prepend.
   - `CIPHER_S.Candle Phase`, `TOP_BOTTOM_DETECTOR.Distribution Confidence`.
+  **Located 2026-08-27, not yet fixed — the anchors, so the next pass does not re-find them.**
+  - `VALUE_DEVIATION` has TWO, and they are independent. (a)
+    `ValueDeviationAnalyzer.WindowAt` is `min(maxWindow, max(40, (barIndex + 1) / 3))` — the
+    profile window grows with the bar's ARRAY index and only saturates at the configured maximum
+    at bar `3 * window - 1`, which is bar 719 at the default 240. Every bar left of that re-cuts
+    its profile when history arrives. (b) `Reference` rebuilds the profile on `i % RebuildEvery
+    == 0`, so the phase of the 5-bar POC cache shifts whenever the number of prepended bars is
+    not a multiple of 5 and every cached bar then reads a profile built at a different bar. One
+    fix covers both: a FIXED window (`w = window`, NaN until it has filled) and a rebuild on
+    every bar. Rebuilding every bar is ~336k bar-visits on a 1400-bar series — the "makes the
+    indicator quadratic" note in the comment was about the UNCAPPED window, not about this. The
+    cost of the fixed window is that a chart shorter than the window shows nothing at its left
+    edge, which is the honest outcome: prepending then ADDS information instead of changing an
+    answer, and the guard compares from bar 700 so it never sees the gap.
+  - `CIPHER_S.Candle Phase` — `ResolveWindow` maps the `0` = Auto sentinel to **1500**, and
+    `wStart = Math.Max(0, i - windowBars + 1)` is therefore 0 for every bar of any chart shorter
+    than that: the percentile channel is an EXPANDING window anchored at index 0. The EMA seed
+    converges at alpha 0.5 and is not the cause. Two readings, and this one needs a decision
+    before code: it is the same defect as VALUE_DEVIATION's old one-third cap (the same bar,
+    two answers, decided by how much history was fetched), or it is inherent-by-definition — the
+    indicator's own phase legend says "the highest level in the observable window". The tension
+    to weigh: requiring a filled window blanks the overlay on every chart under 1500 bars, and it
+    is a candle-COLOUR overlay, so that is total feature loss rather than a left-edge gap.
+    Suggested direction: require the fill, but take the fallback from the adaptive cycle
+    detection (`SuggestParameters`, which already returns a real window) instead of the 1500
+    constant.
+  - `LOUKAS_CYCLES.IC DC Count` / `ICL Confirmed` — the anchor is `currentDcOfIc = 1` at bar 0
+    incremented once per confirmed DCL, so the published value is (DCLs since the array start)
+    mod `IcDcCount`. Prepending history that contains even one DCL rotates the count on every bar
+    on screen and moves every ICL marker. Note that `DcDayCount` is NOT on the exemption list and
+    passes, which proves the DCL DETECTION is already prepend-stable after warmup — only the
+    counter's phase is not. Fix direction: give the counter a data anchor. An ICL is the LOWEST
+    DCL of the last `IcDcCount` DCLs (bounded lookback, causal, prepend-stable), and IC DC Count
+    becomes DCLs-since-the-last-ICL plus one, with a minimum separation so a downtrend does not
+    fire an ICL on every DCL. That changes what the indicator CLAIMS, so `LoukasCyclesProviderTests`
+    has to be revisited rather than just the guard.
+  - `TOP_BOTTOM_DETECTOR.Distribution Confidence` — not investigated.
+  Guard mechanics to work against: `SuffixWarmup` is 700 on a 1400-bar series with drops
+  {17, 40, 91, 140}, so a fix only has to hold from full index 717 onward; and
+  `TheSuffixGuardComparesRealNumbersAndItsExemptionsAreStillEarned` FAILS if a component is fixed
+  and left on the list, so each fix must delete its own line from
+  `NotStableWhenHistoryIsPrepended` in the same change.
   Separately excused and genuinely inherent: `Obv.Obv`, `Adl.Adl`/`AdlSma`, `Vwap.Vwap` (cumulative
   from the first bar held — the only fix would be a session anchor, which is a different indicator),
   and the long recursions that have not converged in 700 bars (`SPIDER_LINES.EMA 144`/`200` and the
