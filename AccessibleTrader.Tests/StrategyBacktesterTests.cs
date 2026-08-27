@@ -322,17 +322,22 @@ namespace AccessibleTrader.Tests
             // Slippage is ADVERSE for a buyer: 101 + (101 × 2%) = 103.02. With the sign flipped
             // (M28) this would be 98.98 — a better price than the market's, which is the tell.
             Assert.Equal(103.02, trade.EntryPrice, 6);
-            Assert.Equal(109.0, trade.ExitPrice!.Value, 6);
 
-            // Trade P&L carries the EXIT commission only (109 × 1 × 1% = 1.09):
-            //   (109 − 103.02) × 1 − 1.09 = 4.89
-            Assert.Equal(4.89, trade.PnL!.Value, 6);
+            // ...and adverse on the EXIT as well. This used to assert a flat 109.0, because
+            // slippage was applied to entries only — BarFill.StopExit, BarFill.TargetExit and
+            // the end-of-data lastBar.Close all filled at the exact modelled price. Closing a
+            // long is a SELL, so it fills lower: 109 − (109 × 2%) = 106.82.
+            Assert.Equal(106.82, trade.ExitPrice!.Value, 6);
+
+            // Trade P&L carries the EXIT commission only (106.82 × 1 × 1% = 1.0682):
+            //   (106.82 − 103.02) × 1 − 1.0682 = 2.7318
+            Assert.Equal(2.7318, trade.PnL!.Value, 6);
 
             // The ENTRY commission (103.02 × 1 × 1% = 1.0302) is charged against equity rather
             // than against the trade row, so TotalPnL is the only place it shows up — which is
             // exactly why M27 could zero it without a single assertion noticing.
-            //   4.89 − 1.0302 = 3.8598
-            Assert.Equal(3.8598, result.Metrics.TotalPnL, 6);
+            //   2.7318 − 1.0302 = 1.7016
+            Assert.Equal(1.7016, result.Metrics.TotalPnL, 6);
         }
 
         [Fact]
@@ -358,11 +363,17 @@ namespace AccessibleTrader.Tests
             // the market — free money, and the direction M28 introduces.
             Assert.Equal(98.98, trade.EntryPrice, 6);
 
-            //   (98.98 − 109) × 1 − 1.09 = −11.11
-            Assert.Equal(-11.11, trade.PnL!.Value, 6);
+            // Closing a short is a BUY, so it fills HIGHER: 109 + (109 × 2%) = 111.18. The
+            // sign flip relative to the long case is the whole point — slippage is a cost at
+            // both ends and in both directions.
+            Assert.Equal(111.18, trade.ExitPrice!.Value, 6);
 
-            // Entry commission 98.98 × 1% = 0.9898.  −11.11 − 0.9898 = −12.0998
-            Assert.Equal(-12.0998, result.Metrics.TotalPnL, 6);
+            // Exit commission 111.18 × 1% = 1.1118.
+            //   (98.98 − 111.18) × 1 − 1.1118 = −13.3118
+            Assert.Equal(-13.3118, trade.PnL!.Value, 6);
+
+            // Entry commission 98.98 × 1% = 0.9898.  −13.3118 − 0.9898 = −14.3016
+            Assert.Equal(-14.3016, result.Metrics.TotalPnL, 6);
         }
     }
 }

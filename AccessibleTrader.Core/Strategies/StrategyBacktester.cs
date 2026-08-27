@@ -30,6 +30,62 @@ public class StrategyBacktester : IStrategyBacktester
         _indicatorCache = indicatorCache;
     }
 
+    /// <summary>
+    /// A fill price moved against the trader by <paramref name="slippagePercent"/>.
+    ///
+    /// <para>An ENTRY pays up to buy and down to sell.</para>
+    /// </summary>
+    /// <summary>
+    /// Net P&amp;L per POSITION: exit rows sharing a <c>PositionId</c> are summed.
+    ///
+    /// <para>Rows with <c>PositionId == 0</c> are unattributed — a hand-built row, or a result
+    /// from before the field existed — and each counts as its own position, which is exactly
+    /// the pre-2026-08-27 behaviour. Attributing them all to one position instead would score
+    /// an old result as a single enormous trade.</para>
+    /// </summary>
+    internal static List<double> PositionPnLs(IReadOnlyList<BacktestTrade> trades)
+    {
+        var byPosition = new Dictionary<int, double>();
+        var unattributed = new List<double>();
+
+        foreach (var t in trades)
+        {
+            double pnl = t.PnL.GetValueOrDefault();
+            if (t.PositionId == 0) unattributed.Add(pnl);
+            else byPosition[t.PositionId] = byPosition.GetValueOrDefault(t.PositionId) + pnl;
+        }
+
+        var result = new List<double>(byPosition.Count + unattributed.Count);
+        result.AddRange(byPosition.Values);
+        result.AddRange(unattributed);
+        return result;
+    }
+
+    private static double WithSlippage(double price, OrderSide side, double slippagePercent)
+    {
+        double slip = price * slippagePercent;
+        return side == OrderSide.Buy ? price + slip : price - slip;
+    }
+
+    /// <summary>
+    /// The same, for an EXIT of a position held on <paramref name="heldSide"/>.
+    ///
+    /// <para>Closing a long is a SELL, so it fills lower; closing a short is a BUY, so it fills
+    /// higher. Slippage is a cost in both directions and at both ends — that is the whole
+    /// point of the sign flip here relative to <see cref="WithSlippage"/>.</para>
+    ///
+    /// <para>Slippage used to be applied to entries ONLY: <c>BarFill.StopExit</c>,
+    /// <c>BarFill.TargetExit</c> and the end-of-data <c>lastBar.Close</c> all filled at the
+    /// exact modelled price. The asymmetry is systematically flattering and worst exactly where
+    /// real slippage is worst — a stop firing into a fast move — and it meant the default
+    /// <c>SlippagePercent</c> of 0.0005 covered only half the round trip.</para>
+    /// </summary>
+    private static double ExitWithSlippage(double price, OrderSide heldSide, double slippagePercent)
+    {
+        double slip = price * slippagePercent;
+        return heldSide == OrderSide.Buy ? price - slip : price + slip;
+    }
+
     public Task<BacktestResult> RunAsync(
         ITradingStrategy strategy,
         IReadOnlyList<Ohlcv> data,
@@ -135,7 +191,10 @@ public class StrategyBacktester : IStrategyBacktester
         StopAdjustOnTp1 openStopAdjust = StopAdjustOnTp1.MoveToBreakeven;
         int openTrailAtrPeriod = 14;
         double openTrailAtrMultiple = 1.5;
-        int winningTrades = 0;
+        // Which POSITION the exit rows below belong to. Every row this method emits is an
+        // EXIT: a 3-rung take-profit ladder produces three rows from one entry. Stamping the
+        // position lets the metrics aggregate per position while the log keeps every rung.
+        int positionId = 0;
 
         // v11 diagnostic: feature snapshot captured at the entry decision bar of the open
         // position. Persists across the open-position lifecycle so every BacktestTrade row
@@ -245,7 +304,13 @@ public class StrategyBacktester : IStrategyBacktester
                     // gapped through it and was never at that price — booking the loss
                     // at the stop invents a fill nobody could have got, and does it in
                     // the direction that flatters every strategy this engine scores.
-                    double exitPrice = BarFill.StopExit(openStop.Value, bar.Open, openSide.Value);
+                    // Slippage on the EXIT too. It used to be applied only to entries, which
+                    // is systematically flattering and worst exactly where real slippage is
+                    // worst — a stop firing into a fast move. With SlippagePercent covering
+                    // only half the round trip, the default 0.0005 was really 0.00025.
+                    double exitPrice = ExitWithSlippage(
+                        BarFill.StopExit(openStop.Value, bar.Open, openSide.Value),
+                        openSide.Value, config.SlippagePercent);
                     double commission = exitPrice * openRemainingQty * config.CommissionRate;
                     double pnl = openSide.Value == OrderSide.Buy
                         ? (exitPrice - openEntryPrice) * openRemainingQty - commission
@@ -255,7 +320,6 @@ public class StrategyBacktester : IStrategyBacktester
                     if (equity > peakEquity) peakEquity = equity;
                     double dd2 = peakEquity > 0 ? (peakEquity - equity) / peakEquity : 0;
                     if (dd2 > maxDrawdown) maxDrawdown = dd2;
-                    if (pnl > 0) winningTrades++;
 
                     trades.Add(new BacktestTrade(
                         openTime, openEntryPrice, openSide.Value, openRemainingQty,
@@ -263,7 +327,8 @@ public class StrategyBacktester : IStrategyBacktester
                         stopMovedToBreakeven ? "Breakeven stop" : "Stop hit",
                         StopPrice:   openStop,
                         BarsInTrade: i - openBarIndex,
-                        FeatureSnapshot: openFeatureSnapshot));
+                        FeatureSnapshot: openFeatureSnapshot,
+                        PositionId: positionId));
 
                     equityCurve.Add((bar.Date, equity));
 
@@ -293,7 +358,9 @@ public class StrategyBacktester : IStrategyBacktester
                 // beyond the rung filled there, which is better than the rung, not at
                 // it. Leaving this uncorrected while correcting the stop would make
                 // the two exit paths disagree about what a gap means.
-                double fillPx = BarFill.TargetExit(tpPrice, bar.Open, openSide.Value);
+                double fillPx = ExitWithSlippage(
+                    BarFill.TargetExit(tpPrice, bar.Open, openSide.Value),
+                    openSide.Value, config.SlippagePercent);
 
                 double commission = fillPx * closeQty * config.CommissionRate;
                 double pnl = openSide.Value == OrderSide.Buy
@@ -304,7 +371,6 @@ public class StrategyBacktester : IStrategyBacktester
                 if (equity > peakEquity) peakEquity = equity;
                 double dd3 = peakEquity > 0 ? (peakEquity - equity) / peakEquity : 0;
                 if (dd3 > maxDrawdown) maxDrawdown = dd3;
-                if (pnl > 0) winningTrades++;
 
                 trades.Add(new BacktestTrade(
                     openTime, openEntryPrice, openSide.Value, closeQty,
@@ -312,7 +378,8 @@ public class StrategyBacktester : IStrategyBacktester
                     $"TP rung hit at {tpPrice:F4}",
                     StopPrice:   openStop,
                     BarsInTrade: i - openBarIndex,
-                    FeatureSnapshot: openFeatureSnapshot));
+                    FeatureSnapshot: openFeatureSnapshot,
+                    PositionId: positionId));
 
                 openRemainingQty -= closeQty;
                 equityCurve.Add((bar.Date, equity));
@@ -370,18 +437,27 @@ public class StrategyBacktester : IStrategyBacktester
                 double qty = signal.Quantity ?? sizer.CalculateSize(signal, equity, liveMetrics);
 
                 // Simulate fill at next bar open + slippage
-                double fillPrice = data[i + 1].Open;
-                double slippage = fillPrice * config.SlippagePercent;
-                fillPrice += signal.Side == OrderSide.Buy ? slippage : -slippage;
+                double fillPrice = WithSlippage(data[i + 1].Open, signal.Side, config.SlippagePercent);
 
-                double commission = fillPrice * qty * config.CommissionRate;
+                // A REVERSAL IS TWO FILLS, and they are different sizes.
+                //
+                // This used to compute one `commission` from the incoming signal's `qty` and
+                // then (a) subtract it from the CLOSING trade's PnL, which should have used
+                // `openRemainingQty`, and (b) skip the entry charge entirely — the guard was
+                // `if (!openSide.HasValue) equity -= commission;`, and in the reverse branch
+                // `openSide` has not been cleared yet, so it is still non-null and the entry
+                // commission was never charged at all. With `AllowReverseOnSignal: true` — the
+                // default and the documented live behaviour — a reversal-heavy strategy
+                // under-reported its costs by one full commission per reversal.
+                double entryCommission = fillPrice * qty * config.CommissionRate;
+                double closeCommission = fillPrice * openRemainingQty * config.CommissionRate;
 
                 if (openSide.HasValue)
                 {
                     // Reverse: close existing remainder at next-bar open, then open new in signal direction.
                     double pnl = openSide.Value == OrderSide.Buy
-                        ? (fillPrice - openEntryPrice) * openRemainingQty - commission
-                        : (openEntryPrice - fillPrice) * openRemainingQty - commission;
+                        ? (fillPrice - openEntryPrice) * openRemainingQty - closeCommission
+                        : (openEntryPrice - fillPrice) * openRemainingQty - closeCommission;
 
                     equity += pnl;
                     if (equity > peakEquity) peakEquity = equity;
@@ -394,14 +470,16 @@ public class StrategyBacktester : IStrategyBacktester
                         $"Reversed by {signal.Rationale}",
                         StopPrice:   openStop,
                         BarsInTrade: (i + 1) - openBarIndex,
-                        FeatureSnapshot: openFeatureSnapshot));
+                        FeatureSnapshot: openFeatureSnapshot,
+                        PositionId: positionId));
 
-                    if (pnl > 0) winningTrades++;
                     equityCurve.Add((data[i + 1].Date, equity));
                 }
 
-                // Open new position (whether reversing or opening fresh)
-                if (!openSide.HasValue) equity -= commission;
+                // Open new position (whether reversing or opening fresh). The entry is charged
+                // UNCONDITIONALLY — a reversal pays to get out and pays again to get in.
+                equity -= entryCommission;
+                positionId++;
                 openSide = signal.Side;
                 openEntryPrice = fillPrice;
                 openInitialQty = qty;
@@ -447,21 +525,21 @@ public class StrategyBacktester : IStrategyBacktester
         if (openSide.HasValue && data.Count > 0 && openRemainingQty > 0)
         {
             var lastBar = data[^1];
-            double fillPrice = lastBar.Close;
+            double fillPrice = ExitWithSlippage(lastBar.Close, openSide.Value, config.SlippagePercent);
             double commission = fillPrice * openRemainingQty * config.CommissionRate;
             double pnl = openSide.Value == OrderSide.Buy
                 ? (fillPrice - openEntryPrice) * openRemainingQty - commission
                 : (openEntryPrice - fillPrice) * openRemainingQty - commission;
 
             equity += pnl;
-            if (pnl > 0) winningTrades++;
 
             trades.Add(new BacktestTrade(
                 openTime, openEntryPrice, openSide.Value, openRemainingQty,
                 lastBar.Date, fillPrice, pnl, "End of data",
                 StopPrice:   openStop,
                 BarsInTrade: (data.Count - 1) - openBarIndex,
-                FeatureSnapshot: openFeatureSnapshot));
+                FeatureSnapshot: openFeatureSnapshot,
+                PositionId: positionId));
 
             equityCurve.Add((lastBar.Date, equity));
         }
@@ -472,8 +550,25 @@ public class StrategyBacktester : IStrategyBacktester
         // to Debug output so the user can find the file after the run.
         TryWriteDiagnosticCsv(trades);
 
-        int totalTrades = trades.Count;
-        double winRate = totalTrades > 0 ? (double)winningTrades / totalTrades : 0.0;
+        // ── Metrics are per POSITION, not per exit row ────────────────────────
+        //
+        // Every row in `trades` is an EXIT. A 3-rung take-profit ladder emits three rows for
+        // one entry, and `totalTrades = trades.Count` with `winningTrades` incremented per row
+        // made win rate and profit factor incomparable to any external number: a ladder that
+        // filled TP1 and then stopped out at breakeven reported 1 win / 1 loss = 50% WR on
+        // what was a small NET WIN, and one that filled all three rungs reported three wins
+        // from a single entry. LabRunner.HalfStats ranks its survivor gate on per-row
+        // R-multiples, so the inflation propagated into the bootstrap CI.
+        //
+        // The rows stay — the log wants every rung — and the aggregation groups them.
+        // PositionId 0 means "not attributed" (a hand-built row, or a result deserialised from
+        // before this field existed); those fall back to per-row counting so an old result is
+        // scored exactly as it was rather than collapsing into one enormous position.
+        var positions = PositionPnLs(trades);
+
+        int totalTrades = positions.Count;
+        int winners = positions.Count(p => p > 0);
+        double winRate = totalTrades > 0 ? (double)winners / totalTrades : 0.0;
         double totalPnL = equity - config.StartingCapital;
         double totalReturn = config.StartingCapital > 0 ? totalPnL / config.StartingCapital * 100.0 : 0.0;
 
@@ -481,13 +576,14 @@ public class StrategyBacktester : IStrategyBacktester
         double sharpe = ComputeSharpe(equityCurve);
 
         // Gross profit/loss feed both the profit factor below and position sizers
-        // (Kelly needs real avg win/loss, not a net-PnL approximation).
-        double grossProfit = trades.Where(t => t.PnL.GetValueOrDefault() > 0).Sum(t => t.PnL!.Value);
-        double grossLoss   = trades.Where(t => t.PnL.GetValueOrDefault() < 0).Sum(t => -t.PnL!.Value);
+        // (Kelly needs real avg win/loss, not a net-PnL approximation) — so they are per
+        // position too, or Kelly sizes off an average win that is really an average RUNG.
+        double grossProfit = positions.Where(p => p > 0).Sum();
+        double grossLoss   = positions.Where(p => p < 0).Sum(p => -p);
 
         var metrics = new StrategyMetrics(
             TotalSignals: totalTrades,
-            WinningTrades: winningTrades,
+            WinningTrades: winners,
             WinRate: winRate,
             MaxDrawdown: maxDrawdown,
             TotalPnL: totalPnL,

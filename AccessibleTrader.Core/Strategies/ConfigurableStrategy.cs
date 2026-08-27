@@ -113,6 +113,14 @@ public class ConfigurableStrategy : BaseStrategy
     // The builder UI (Session D) produces the StrategySpec directly.
     public override IReadOnlyList<StrategyParameter> Parameters { get; } = Array.Empty<StrategyParameter>();
 
+    /// <summary>
+    /// The account equity to size against, when the host knows it. Null means "size against
+    /// the plan's static notional", and so does a provider that returns null — which is the
+    /// only honest answer before a balance has been reported. A caller that has no
+    /// equity figure — the StrategyLab batteries among them.
+    /// </summary>
+    private readonly Func<double?>? _accountEquity;
+
     public ConfigurableStrategy(
         StrategySpec spec,
         IConditionEvaluator evaluator,
@@ -121,8 +129,10 @@ public class ConfigurableStrategy : BaseStrategy
         IEventBus eventBus,
         string instanceId,
         IMultiTimeframeDataService? mtf = null,
-        int liveWarmupBars = 0)
+        int liveWarmupBars = 0,
+        Func<double?>? accountEquity = null)
     {
+        _accountEquity = accountEquity;
         _spec       = spec;
         _evaluator  = evaluator;
         _resolver   = resolver;
@@ -437,7 +447,16 @@ public class ConfigurableStrategy : BaseStrategy
 
         // Inactive + conditions true → first-time confirmation. Resolve the risk plan; abort
         // silently if it fails the R:R gate or references unimplemented Phase-4 stop/target sources.
-        var resolved = _resolver.Resolve(_spec.Risk, _spec.Side, history, state);
+        // Size against LIVE equity when the host can supply it.
+        //
+        // Without this the plan's static NotionalEquity — a number typed into RiskPlanEditor
+        // — governed every trade: a backtest had no compounding and no drawdown-driven size
+        // reduction, so its TotalReturn and MaxDrawdown described a strategy nobody could
+        // trade, and live, that same number went to the exchange with no reconciliation
+        // against the actual balance. A user who left the default 10000 while holding a $500
+        // account was sized 20x too large, and GeneralOrderService's only guard is
+        // MaxOrderQuantity.
+        var resolved = _resolver.Resolve(_spec.Risk, _spec.Side, history, state, _accountEquity?.Invoke());
         if (resolved == null) return null;
 
         // EntryTrigger.Immediate → transition straight to Active and emit the order.

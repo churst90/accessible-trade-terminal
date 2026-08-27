@@ -294,7 +294,10 @@ public class TradingDashboardDecouplingTests
 
         cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
         cut.Find("button[aria-label^='Close at limit']").Click();
-        cut.Find("input[id^='close-limit-']").Input("3150");
+        // WaitForElement, not Find: the limit field is rendered BY the click above, and bUnit
+        // queues the handler on the renderer's dispatcher, so Click returns before the field
+        // exists. Passed every time locally; failed roughly one full-suite run in seven.
+        cut.WaitForElement("input[id^='close-limit-']").Input("3150");
 
         cut.Find("button[aria-label^='Close position at market']").Click();
 
@@ -317,7 +320,7 @@ public class TradingDashboardDecouplingTests
 
         cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
         cut.Find("button[aria-label^='Close at limit']").Click();
-        var field = cut.Find("input[id^='close-limit-']");
+        var field = cut.WaitForElement("input[id^='close-limit-']");
         field.Input("about three thousand");
         field.KeyDown(new KeyboardEventArgs { Key = "Enter" });
 
@@ -345,7 +348,8 @@ public class TradingDashboardDecouplingTests
 
         cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
         cut.Find("button[aria-label^='Close at limit']").Click();
-        cut.Find("input[id^='close-limit-']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        cut.WaitForElement("input[id^='close-limit-']")
+           .KeyDown(new KeyboardEventArgs { Key = "Escape" });
 
         // WaitForAssertion, not a bare assert: bUnit queues the handler on the
         // renderer's dispatcher, so KeyDown returns before it has run. Asserting

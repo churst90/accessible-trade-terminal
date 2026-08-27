@@ -216,7 +216,7 @@ public sealed class ConfigurableStrategyPrewarmTests
 
     private sealed class StubResolver : IRiskPlanResolver
     {
-        public ResolvedRiskPlan? Resolve(RiskPlan plan, OrderSide side, IReadOnlyList<Ohlcv> history, WorkspaceState state)
+        public ResolvedRiskPlan? Resolve(RiskPlan plan, OrderSide side, IReadOnlyList<Ohlcv> history, WorkspaceState state, double? accountEquity = null)
             => null;
     }
 

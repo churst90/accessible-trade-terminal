@@ -27,13 +27,24 @@ namespace AccessibleTrader.Core.Services.Strategies
         private readonly IMultiTimeframeDataService? _mtf;
         private readonly IBacktestWarmupAnalyzer? _warmupAnalyzer;
 
+        /// <summary>
+        /// The account's live cash, already maintained for the quick-trade sizing path.
+        ///
+        /// <para>Optional: absent, every strategy sizes against its plan's static
+        /// <c>NotionalEquity</c>, which is the pre-2026-08-27 behaviour and the only honest
+        /// answer for a host with no account attached. Present, a strategy on a $500 account
+        /// stops being sized against a 10000 someone left in the risk editor.</para>
+        /// </summary>
+        private readonly AccessibleTrader.Core.Services.Trading.QuickTradeEquity? _equity;
+
         public ConfigurableStrategyFactory(
             IConditionEvaluator evaluator,
             IRiskPlanResolver resolver,
             ISignalCatalog catalog,
             AccessibleTrader.Core.Services.IEventBus eventBus,
             IMultiTimeframeDataService? mtf = null,
-            IBacktestWarmupAnalyzer? warmupAnalyzer = null)
+            IBacktestWarmupAnalyzer? warmupAnalyzer = null,
+            AccessibleTrader.Core.Services.Trading.QuickTradeEquity? equity = null)
         {
             _evaluator = evaluator;
             _resolver  = resolver;
@@ -41,6 +52,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             _eventBus  = eventBus;
             _mtf       = mtf;
             _warmupAnalyzer = warmupAnalyzer;
+            _equity    = equity;
         }
 
         public AccessibleTrader.Sdk.Strategies.ITradingStrategy Create(StrategySpec spec, string? instanceId = null)
@@ -59,7 +71,15 @@ namespace AccessibleTrader.Core.Services.Strategies
                 _eventBus,
                 instanceId ?? System.Guid.NewGuid().ToString("N"),
                 _mtf,
-                warmup);
+                warmup,
+                // Returns NULL until a balance has actually been reported: QuickTradeEquity
+                // .Latest is 0 before then, and 0 would read as "an account with nothing in
+                // it" rather than "we do not know yet". Sizing must fall back to the plan's
+                // notional in that window, not refuse — a strategy that silently never fires
+                // is indistinguishable from a market with no signals.
+                _equity == null
+                    ? null
+                    : () => _equity.Latest > 0 ? _equity.Latest : (double?)null);
         }
     }
 }

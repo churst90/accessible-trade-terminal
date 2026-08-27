@@ -2360,7 +2360,7 @@ closed the indicator-provider half and missed the paths below.
   walked, correctly, because the position did not exist for most of it. The two disagree about a
   position stopped out on its own entry bar; the replay is the pessimistic one. Both are documented
   in `ManagedExitRules` / `StrategyPositionManager`; neither is a bug today. LOW.
-- [ ] **`BaseStrategy.OnOrderFilled:107-137` assumes strict open→close alternation, so any partial fill
+- [x] **`BaseStrategy.OnOrderFilled:107-137` assumes strict open→close alternation, so any partial fill
   or ladder exit corrupts live metrics — which then feed `KellyPositionSizer`.** The branch is
   `if (_openSide.HasValue && _openPrice > 0)` → treat as close, `else` → treat as open; side and
   quantity are never compared. A partially-filled entry books a ~zero-PnL "closed trade" and clears the
@@ -2368,7 +2368,16 @@ closed the indicator-provider half and missed the paths below.
   `GetMetrics()` (`:146-171`) feeds `GrossProfit`/`GrossLoss` to the sizers via
   `StrategyBacktester.cs:380-381`, and `KellyPositionSizer` sizes off avg win/loss — so garbage metrics
   become position sizes. CONFIRMED. HIGH.
-- [ ] **`StrategyBacktester.cs:388-415` charges one commission for a reversal that is two fills, and
+  **CLOSED 2026-08-27.** Proper position accounting: a fill on the SAME side ADDS
+  (weighted-average entry), one on the OPPOSITE side REDUCES, and an opposite fill larger than
+  the position closes it and opens the remainder the other way. A round trip is booked when the
+  position actually reaches flat, not on every second fill.
+  **A test-writing note worth keeping.** The first draft asserted that two partial buys left
+  `GrossProfit` and `GrossLoss` at zero — which is ALSO true of the defect, because the phantom
+  close it books has a PnL of exactly zero. Sabotage caught it. The harm is in the trade COUNT,
+  not the money: the phantom close counts as a completed trade that was not a win, and the real
+  exit then finds no position to close. The test adds the exit fill and asserts the win rate.
+- [x] **`StrategyBacktester.cs:388-415` charges one commission for a reversal that is two fills, and
   charges the closing leg at the *new* position's quantity.** `commission` is computed once at `:388`
   from `fillPrice * qty` where `qty` is the incoming signal's size. In the reverse branch it is
   subtracted from the *closing* trade's PnL (`:393-395`) — which should have used `openRemainingQty`.
@@ -2376,7 +2385,12 @@ closed the indicator-provider half and missed the paths below.
   the reverse branch, so it is still non-null and the entry commission is **never charged at all**.
   With `AllowReverseOnSignal: true` (the default and the documented live behaviour) a reversal-heavy
   strategy under-reports costs by one full commission per reversal. CONFIRMED. HIGH.
-- [ ] **Slippage is applied only to entries; stop exits, TP-rung exits and the end-of-data close all
+  **CLOSED 2026-08-27.** Two commissions, at two different quantities: `closeCommission`
+  on `openRemainingQty` for the leg being closed and `entryCommission` on `qty` for the new
+  one, with the entry charged UNCONDITIONALLY. The old `if (!openSide.HasValue) equity -=
+  commission;` never fired on a reversal, because `openSide` is not cleared until afterwards —
+  so a reversal-heavy strategy under-reported its costs by one full commission every time.
+- [x] **Slippage is applied only to entries; stop exits, TP-rung exits and the end-of-data close all
   fill at the exact modelled price.** `StrategyBacktester.cs:385-386` applies `config.SlippagePercent`
   to the entry; `:226` (`BarFill.StopExit`), `:277` (`BarFill.TargetExit`) and `:475`
   (`lastBar.Close`) do not. The asymmetry is systematically flattering and worst exactly where real
@@ -2384,7 +2398,34 @@ closed the indicator-provider half and missed the paths below.
   (`BacktestConfig.cs:54`) then covers only half the round trip. Also missing entirely: spread, funding
   for perpetuals, borrow for shorts — `BacktestConfig` has no field for any of them, which for a
   crypto-perp research corpus materially overstates every held short. CONFIRMED. HIGH.
-- [ ] **`StrategyBacktester.cs:236,288,410,482` counts each TP rung as its own "trade", so win rate and
+  **CLOSED 2026-08-27.** A shared `ExitWithSlippage` applied at all three exit sites —
+  `BarFill.StopExit`, `BarFill.TargetExit` and the end-of-data `lastBar.Close` — with the sign
+  flipped relative to the entry helper, because closing a long is a SELL and closing a short is
+  a BUY. Slippage is a cost at both ends and in both directions, and applying it to entries
+  only meant the default `SlippagePercent` of 0.0005 really covered 0.00025.
+  The two non-zero-cost tests written in the last session had to have their arithmetic updated
+  — they encoded the old exit-without-slippage behaviour, which is exactly what they were for.
+  **Still open and filed separately:** spread, funding for perpetuals and borrow for shorts.
+  `BacktestConfig` has no field for any of them, and for a crypto-perp research corpus that
+  materially overstates every held short.
+- [ ] **`BacktestConfig` models no spread, no funding and no borrow cost.** Carved out of the
+  slippage finding closed above (which fixed the entries-only asymmetry). There is no field
+  for any of the three, so a perpetual-futures backtest pays no funding and a short pays no
+  borrow. For this repo's crypto-perp research corpus that materially overstates **every held
+  short**, and the error grows with hold time — so it is worst exactly on the swing strategies
+  the catalogue favours. MEDIUM-HIGH (research honesty).
+- [ ] **The backtester's date-range test uses a strategy that ignores `WorkspaceState`, so it
+  cannot catch the offset bug it looks like it covers.** Carved out of the zero-cost test
+  finding closed above. `featureCaptureOffset` exists because H1 and H2 both read
+  `arr[0..filtered.Count-1]` from the same shared workspace arrays; a strategy that never
+  reads those arrays cannot tell a correct offset from a wrong one. Needs a strategy whose
+  signal depends on an indicator component value at a known bar. MEDIUM (amends the test suite).
+- [ ] **An account selector for Schwab.** Carved out of the multi-account finding closed
+  2026-08-26, which scoped reads to the account orders are routed to so that what you SEE is
+  what you can TRADE. A user with a brokerage account and an IRA can still only reach the
+  first one Schwab lists. `_accountHashes` already holds them all; what is missing is a way to
+  choose, and a place to remember the choice. MEDIUM.
+- [x] **`StrategyBacktester.cs:236,288,410,482` counts each TP rung as its own "trade", so win rate and
   profit factor are not comparable to any external number.** `totalTrades = trades.Count` (`:500`) and
   `winningTrades` increments per row. A 3-rung ladder that fills TP1 then stops out at breakeven
   reports 1 win / 1 loss = 50% WR on what was a small net win; one that fills all three reports 3 wins
@@ -2392,6 +2433,14 @@ closed the indicator-provider half and missed the paths below.
   (`BootstrapCi.ExtractRs(result.Trades)`), so the inflation propagates into the CI. Fix: emit exit
   rows for the log but aggregate metrics per *position*, or add a `PositionId` to `BacktestTrade`.
   CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** `BacktestTrade` gained a `PositionId` and every exit row the
+  backtester emits is stamped with it. Metrics — `TotalSignals`, `WinningTrades`, `WinRate`,
+  `GrossProfit`, `GrossLoss` — aggregate per POSITION through a new `PositionPnLs`, while the
+  rows themselves stay so the log keeps every rung. Gross profit and loss had to move too, or
+  `KellyPositionSizer` would go on sizing off an average win that is really an average RUNG.
+  `PositionId == 0` means "not attributed" — a hand-built row, or a result deserialised from
+  before the field existed — and those still count per row, so an old result is scored exactly
+  as it was rather than collapsing into one enormous position.
 - [x] **`StrategyEngine.cs:154-156` dedups signals on a 30-second wall clock, not on bar identity, and
   two independent drivers can evaluate the same closed bar.** `OnDataUpdated` (`:76-89`, fired on
   load/tab switch/prepend) and `OnFocusedFeedUpdated` (`:91-115`, fired on live append) both call
@@ -2480,7 +2529,7 @@ closed the indicator-provider half and missed the paths below.
   but keeps `openStop = signal.StopLoss` unchanged. So realised risk per unit is `fillPrice - stop`,
   not `close - stop`, while the quantity was sized on the latter. On a gapping instrument the user is
   told "R:R 2.4" and gets something else, and the position is mis-sized by the gap. CONFIRMED. MEDIUM.
-- [ ] **Position size never responds to equity: `RiskPlanResolver.ResolveQuantity:317-335` sizes against
+- [x] **Position size never responds to equity: `RiskPlanResolver.ResolveQuantity:317-335` sizes against
   `plan.NotionalEquity` (a static number typed into `RiskPlanEditor.razor:182`), and the backtester's
   `config.StartingCapital` is bypassed entirely.** `StrategyBacktester.cs:381` reads `signal.Quantity ??
   sizer.CalculateSize(...)`; `ConfigurableStrategy.BuildSignal:530` always sets `Quantity`, so the `??`
@@ -2491,6 +2540,17 @@ closed the indicator-provider half and missed the paths below.
   who left the default 10000 and holds a $500 account is sized 20× too large, and
   `GeneralOrderService`'s only guard is `MaxOrderQuantity`. CONFIRMED. MEDIUM (HIGH with Auto mode on a
   real account).
+  **CLOSED 2026-08-27.** `IRiskPlanResolver.Resolve` takes an optional `accountEquity`
+  that overrides the plan's static `NotionalEquity`, `ConfigurableStrategy` takes a
+  `Func<double?>` provider, and `ConfigurableStrategyFactory` wires it to `QuickTradeEquity` —
+  the live-cash seam the quick-trade sizing path already maintained. So a strategy on a $500
+  account stops being sized against a 10000 someone left in the risk editor.
+  **The nullability is the careful part.** `QuickTradeEquity.Latest` is 0 before any balance has
+  been reported, and 0 would read as "an account with nothing in it" rather than "we do not know
+  yet". The provider returns null in that window and the resolver falls back to the notional —
+  because a strategy that silently never fires is indistinguishable from a market with no
+  signals, which in this app is a worse failure than one bar sized off the notional. Hosts with
+  no account attached (the StrategyLab batteries) pass nothing and are unchanged.
 - [ ] **Three verbatim copies of SMA/RSI/Bollinger, and the RSI in all of them is not the standard one.**
   `BaseStrategy.cs:245-253/256-274/277-291` and `StrategyIndicatorCache.cs:86-93/109-125/127-141` are
   line-for-line the same three functions. Both RSI implementations use a *simple* mean of the last
@@ -2526,10 +2586,18 @@ closed the indicator-provider half and missed the paths below.
 - [ ] **(amends TODO:2084/2092)** Add two more copies to the hand-rolled-ATR census:
   `StrategyBacktester.cs:339-349` (trail) and `RiskPlanResolver.cs:379-393` (stop), both simple-mean
   rather than Wilder. CONFIRMED. LOW.
-- [ ] **(amends the test suite)** All 10 backtester tests set `CommissionRate: 0, SlippagePercent: 0`.
+- [x] **(amends the test suite)** All 10 backtester tests set `CommissionRate: 0, SlippagePercent: 0`.
   The cost model, the fill price, the PnL arithmetic and the entire live-vs-backtest boundary are
   unguarded. The date-range test uses a strategy that ignores `WorkspaceState`, so it cannot catch the
   offset bug it looks like it covers. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** The cost model, the fill price and the PnL arithmetic are all
+  exercised at non-zero commission and slippage now — the two `Costs_*` tests added in the
+  2026-08-26 tests block, whose expectations this pass had to UPDATE because they encoded the
+  entries-only slippage that was the defect. `BacktestCostAndPositionTests` adds ten more over
+  per-position aggregation and `BaseStrategy`'s fill accounting.
+  **Not closed by this:** the date-range test still uses a strategy that ignores
+  `WorkspaceState`, so it still cannot catch the offset bug it looks like it covers. Filed
+  separately rather than left implied here.
 
 ---
 

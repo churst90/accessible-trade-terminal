@@ -29,7 +29,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             RiskPlan plan,
             OrderSide side,
             IReadOnlyList<Ohlcv> history,
-            WorkspaceState state)
+            WorkspaceState state,
+            double? accountEquity = null)
         {
             if (plan == null || history.Count == 0) return null;
 
@@ -78,7 +79,16 @@ namespace AccessibleTrader.Core.Services.Strategies
             double rr = firstTpReward / riskPerUnit;
             if (rr < plan.MinRewardRiskRatio) return null;
 
-            double qty = ResolveQuantity(plan.Sizing, plan.NotionalEquity, riskPerUnit);
+            // LIVE equity when the caller knows it, the plan's static notional otherwise.
+            //
+            // A non-positive figure means the host has an equity source but no balance has
+            // been reported yet — NOT an empty account. Refusing to size there would stop
+            // every strategy on a fresh session, silently, which in this app is a worse
+            // failure than sizing against the notional for one bar. The caller is expected to
+            // pass null rather than 0 for "unknown"; this is the belt-and-braces reading.
+            double sizingEquity = accountEquity is > 0 ? accountEquity.Value : plan.NotionalEquity;
+
+            double qty = ResolveQuantity(plan.Sizing, sizingEquity, riskPerUnit);
             double riskCash = qty * riskPerUnit;
 
             string notes = BuildNotes(plan.Stop, side, stop, history);

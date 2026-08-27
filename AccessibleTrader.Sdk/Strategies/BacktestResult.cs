@@ -20,7 +20,23 @@ public record BacktestTrade(
     string ExitReason,
     double? StopPrice = null,
     int BarsInTrade = 0,
-    IReadOnlyDictionary<string, double>? FeatureSnapshot = null
+    IReadOnlyDictionary<string, double>? FeatureSnapshot = null,
+
+    /// <summary>
+    /// Which POSITION this row belongs to. Rows sharing a value are exits from one entry.
+    ///
+    /// <para>Every row here is an EXIT, not a trade — a 3-rung take-profit ladder emits three
+    /// rows for one entry. Counting rows as trades made win rate and profit factor
+    /// incomparable to any external number: a ladder that fills TP1 and then stops out at
+    /// breakeven reported 1 win / 1 loss = 50% WR on what was a small net win, and one that
+    /// filled all three rungs reported three wins from a single entry.</para>
+    ///
+    /// <para>Zero means "not attributed", which is what a hand-built row or an older
+    /// deserialised result carries. Metrics fall back to per-row counting for those, so an
+    /// unattributed result is scored exactly as it was before rather than collapsing into one
+    /// giant position.</para>
+    /// </summary>
+    int PositionId = 0
 );
 
 /// <param name="WarmupBars">Bars at the start of the input that were fed-only (no signals taken).</param>

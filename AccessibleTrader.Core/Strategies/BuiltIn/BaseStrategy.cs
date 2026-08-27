@@ -31,6 +31,8 @@ public abstract class BaseStrategy : ITradingStrategy
     // Last open trade tracking (null when no position is open)
     private OrderSide? _openSide;
     private double _openPrice;
+    /// <summary>Units currently held. Zero exactly when <see cref="_openSide"/> is null.</summary>
+    private double _openQty;
 
     // ── Theoretical-fill metrics state (Suggestion mode) ─────────────────────
     // Each StrategySignal returned from ComputeSignal is treated as a theoretical
@@ -102,16 +104,52 @@ public abstract class BaseStrategy : ITradingStrategy
     /// </summary>
     protected abstract StrategySignal? ComputeSignal(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state);
 
+    /// <summary>
+    /// Books a fill against the running position.
+    ///
+    /// <para><b>What went wrong.</b> This used to be
+    /// <c>if (_openSide.HasValue &amp;&amp; _openPrice &gt; 0)</c> → treat as CLOSE, <c>else</c> →
+    /// treat as OPEN. Side and quantity were never compared, so it assumed strict
+    /// open→close→open alternation and any fill that was not one corrupted the metrics:</para>
+    /// <list type="bullet">
+    /// <item>A <b>partially filled entry</b> booked a near-zero-PnL "closed trade" against
+    /// itself and cleared the position; the remainder then re-opened at the same price.</item>
+    /// <item>A <b>3-rung take-profit ladder</b> booked close / open / close — the middle rung
+    /// opening a phantom position in the exit direction.</item>
+    /// </list>
+    ///
+    /// <para>Those metrics are not cosmetic: <c>GetMetrics()</c> feeds <c>GrossProfit</c> and
+    /// <c>GrossLoss</c> to the sizers, and <c>KellyPositionSizer</c> sizes off average win and
+    /// average loss — so garbage in here becomes <b>position sizes</b> out there.</para>
+    ///
+    /// <para>Now: a fill on the SAME side adds to the position (weighted-average entry), a
+    /// fill on the OPPOSITE side reduces it, and an opposite fill LARGER than the position
+    /// closes it and opens the remainder the other way. A round trip is booked when the
+    /// position actually reaches flat, not on every second fill.</para>
+    /// </summary>
     public void OnOrderFilled(OrderUpdate fill)
     {
         _totalFills++;
 
-        if (_openSide.HasValue && _openPrice > 0)
+        double qty = fill.FilledQuantity;
+        if (qty <= 0) return;   // nothing filled; nothing to book
+
+        if (_openSide.HasValue && _openQty > 0 && fill.Side == _openSide.Value)
         {
-            // Closing an existing position — compute P&L and update metrics.
+            // ADDING to the position: weighted-average the entry price. Scaling in is not a
+            // closed trade, and booking it as one was worth a fictitious win or loss.
+            _openPrice = ((_openPrice * _openQty) + (fill.FilledPrice * qty)) / (_openQty + qty);
+            _openQty += qty;
+            return;
+        }
+
+        if (_openSide.HasValue && _openQty > 0)
+        {
+            // REDUCING the position. Only the overlapping quantity realises P&L.
+            double closed = Math.Min(qty, _openQty);
             double pnl = _openSide.Value == AccessibleTrader.Sdk.Plugins.OrderSide.Buy
-                ? (fill.FilledPrice - _openPrice) * fill.FilledQuantity
-                : (_openPrice - fill.FilledPrice) * fill.FilledQuantity;
+                ? (fill.FilledPrice - _openPrice) * closed
+                : (_openPrice - fill.FilledPrice) * closed;
 
             _totalPnL += pnl;
             if (pnl > 0) { _winningTrades++; _grossProfit += pnl; }
@@ -122,22 +160,39 @@ public abstract class BaseStrategy : ITradingStrategy
             double drawdown = _peakEquity > 0 ? (_peakEquity - _currentEquity) / _peakEquity : 0.0;
             if (drawdown > _maxDrawdown) _maxDrawdown = drawdown;
 
-            _closedTrades++;
-            _openSide  = null;
-            _openPrice = 0;
+            _openQty -= closed;
+            double remainder = qty - closed;
+
+            if (_openQty <= 1e-12)
+            {
+                // Flat. THIS is a completed round trip — not "every second fill".
+                _closedTrades++;
+                _openSide  = null;
+                _openPrice = 0;
+                _openQty   = 0;
+
+                // An opposite fill larger than the position reverses into the remainder.
+                if (remainder > 1e-12)
+                {
+                    _openSide  = fill.Side;
+                    _openPrice = fill.FilledPrice;
+                    _openQty   = remainder;
+                }
+            }
+            return;
         }
-        else
-        {
-            // Opening a new position.
-            _openSide  = fill.Side;
-            _openPrice = fill.FilledPrice;
-        }
+
+        // Opening a new position.
+        _openSide  = fill.Side;
+        _openPrice = fill.FilledPrice;
+        _openQty   = qty;
     }
 
     public void OnStop()
     {
         _openSide = null;
         _openPrice = 0;
+        _openQty = 0;
         _openTheoreticals.Clear();
     }
 
