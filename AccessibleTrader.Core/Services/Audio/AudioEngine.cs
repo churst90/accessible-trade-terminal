@@ -215,6 +215,22 @@ namespace AccessibleTrader.Core.Services.Audio
         private float _userMasterGain = 1.0f;
         private volatile bool _stopAllFaded;
 
+        private const double TwoPi = 2.0 * Math.PI;
+
+        /// <summary>
+        /// A phase folded into <c>[0, 2π)</c> whatever its magnitude or sign.
+        ///
+        /// <para>The old wrap was a single subtraction, which is correct only while the
+        /// per-sample increment is below 2π. See the call site in <c>Read()</c> for what that
+        /// cost.</para>
+        /// </summary>
+        private static double WrapPhase(double phase)
+        {
+            if (!double.IsFinite(phase)) return 0.0;
+            phase %= TwoPi;
+            return phase < 0 ? phase + TwoPi : phase;
+        }
+
         // ── Output limiter ──────────────────────────────────────────────────────────────
         //
         // Read() sums every active voice and used to write the total straight into the host
@@ -282,6 +298,36 @@ namespace AccessibleTrader.Core.Services.Audio
                 StopVoice(slot);
                 return;
             }
+
+            // ── Frequency bound: HEARING SAFETY ──────────────────────────────────────────
+            //
+            // The non-finite check above stops NaN and ±∞. Nothing stopped a merely LARGE
+            // frequency, and above SampleRate the sawtooth phase accumulator ran away (see the
+            // wrap in Read()) and the linear sawtooth reader turned that into unbounded
+            // amplitude: f=50000 peaked at 4843, f=200000 at 127983, against a full scale of 1.
+            //
+            // This is reachable without any bug on the caller's side. `freq` arrives as
+            // `comp.BaseFrequency × comp.FreqMultiplier` or
+            // `patch.BaseFrequency × patch.FreqMultiplier × layer.FreqRatio`, and nothing
+            // clamped any of those: the Sound Designer's inputs carry HTML min/max but the
+            // handlers are bare double.TryParse with no server-side clamp, layer.FreqRatio has
+            // no bound in the UI at all, and SoundPatchLibrary.ImportPatchJson deserializes a
+            // user-supplied patch validating nothing but the id. **An imported patch with a
+            // sawtooth layer and a large base frequency was a full-scale-x10^5 blast into
+            // headphones worn by a blind user.**
+            //
+            // Clamped to [0, Nyquist): above Nyquist there is no audible tone to render anyway,
+            // only aliasing, so nothing musical is lost. A negative frequency is meaningless —
+            // it is a phase direction, not a pitch — and ran the accumulator downward, so it
+            // clamps to silence rather than to its magnitude.
+            double nyquist = _sampleRate / 2.0;
+            if (freq < 0) freq = 0;
+            else if (freq >= nyquist) freq = Math.BitDecrement(nyquist);
+
+            // Volume and pan get the same treatment: finite is not the same as in range, and a
+            // volume of 50 is 50x full scale on a channel nobody can turn down in time.
+            vol = Math.Clamp(vol, 0f, 1f);
+            pan = Math.Clamp(pan, -1f, 1f);
 
             // A Ping's decay is computed as 1 − (Remaining / Total), so a zero-length Ping
             // divides by zero and writes NaN for the life of the voice. Reachable through
@@ -469,13 +515,35 @@ namespace AccessibleTrader.Core.Services.Audio
                 anyPending = true;
             }
 
-            // When stop-all is requested, fade master gain to zero.  The per-frame master-gain
-            // loop below deactivates all voices once gain reaches 0.0f — that is the ONLY safe
-            // write path to _voices[].IsActive, because it executes on this (audio callback) thread.
+            // A stop-all RELEASES EVERY VOICE, and does not rely on the master gain to do it.
+            //
+            // The master fade stays — it is the declick, and snapping the master to zero is an
+            // audible click. But the voice-kill used to hang off it: the per-frame loop below
+            // deactivates voices only `if (_masterGain == 0.0f)`, and the apply-commands block
+            // immediately after this one re-arms `_targetMasterGain = _userMasterGain` for ANY
+            // voice command queued behind the stop-all in the same pass. So the gain never
+            // reached zero, the deactivation never ran, and every voice that was sounding kept
+            // sounding. Measured: engine primed with a continuous voice, then StopAll()
+            // followed immediately by SetVoice(16, …) — residual RMS 0.397307 after 40
+            // buffers, against 0.000000 without the trailing SetVoice.
+            //
+            // The window is the whole fade (FADE_SAMPLES = 882, ~20 ms) plus whatever is
+            // queued. This is the path behind NavigationSonifier.Silence() →
+            // AudioFeedbackRouter.Silence() — the user's "make it stop" control. One arrow key
+            // inside 20 ms and it did nothing at all.
+            //
+            // Releasing is set on this (audio callback) thread, which is the same thread that
+            // owns _voices[], so it is the safe write path the old comment was protecting.
+            // The apply block below clears it for any voice it genuinely activates, so a new
+            // sound arriving in the same pass is not caught by this release.
             if (stopAllRequested)
             {
                 _targetMasterGain = 0.0f;
                 _stopAllFaded = true;
+                foreach (var v in _voices)
+                {
+                    if (v.IsActive) { v.Releasing = true; v.Continuous = false; }
+                }
             }
 
             // 2. APPLY EFFECTIVE COMMANDS
@@ -503,6 +571,10 @@ namespace AccessibleTrader.Core.Services.Audio
                         voice.Continuous = false;
                         continue;
                     }
+
+                    // A genuinely new sound is not part of the stop-all that may have arrived
+                    // ahead of it in this same pass — clear the release so it is heard.
+                    voice.Releasing = false;
 
                     voice.TargetFrequency = cmd.Frequency;
                     voice.TargetVolume = cmd.Volume;
@@ -685,8 +757,23 @@ namespace AccessibleTrader.Core.Services.Audio
                     leftSum += sample * renderVolume * (float)Math.Cos(panAngle);
                     rightSum += sample * renderVolume * (float)Math.Sin(panAngle);
 
+                    // MODULO, not one subtraction.
+                    //
+                    // A single `if (Phase >= 2π) Phase -= 2π` wraps correctly only while the
+                    // per-sample increment is below 2π — i.e. while frequency < SampleRate.
+                    // Above that the phase grows without bound every frame, and the sawtooth
+                    // reader `2·(Phase/2π) − 1` is a LINEAR function of phase with no clamp, so
+                    // the sample amplitude ramps upward forever. Measured peaks for a
+                    // 0.5-volume sawtooth: f=44100 → 0.35 (fine); f=44200 → 81.7; f=50000 →
+                    // 4843; f=200000 → 127983. A negative frequency does the same downward:
+                    // f=−440 → −361.6. Sine, triangle and square are unaffected, which is why
+                    // this hid for so long.
+                    //
+                    // Frequencies are clamped at the SetVoice boundary now (see there), so this
+                    // is belt and braces — but the wrap was independently wrong and a defensive
+                    // audio path should not depend on its caller for correctness.
                     v.Phase += 2.0 * Math.PI * v.CurrentFrequency / _sampleRate;
-                    if (v.Phase >= 2.0 * Math.PI) v.Phase -= 2.0 * Math.PI;
+                    if (v.Phase >= TwoPi || v.Phase < 0) v.Phase = WrapPhase(v.Phase);
 
                     // One-shot sample advance: natural speed (source rate / engine rate).
                     // Start the declick release just before the clip end so the tail never snaps.
@@ -698,8 +785,9 @@ namespace AccessibleTrader.Core.Services.Audio
                     }
 
                     // Sub-octave sawtooth phase: advances at half frequency (one octave down).
+                    // Same modulo wrap as the main phase, for the same reason.
                     v.SubPhase += Math.PI * v.CurrentFrequency / _sampleRate;
-                    if (v.SubPhase >= 2.0 * Math.PI) v.SubPhase -= 2.0 * Math.PI;
+                    if (v.SubPhase >= TwoPi || v.SubPhase < 0) v.SubPhase = WrapPhase(v.SubPhase);
 
                     if (!v.Continuous)
                     {

@@ -260,8 +260,11 @@ public class AlertsModalTests
         var cut = OpenModal(ctx, bus);
         cut.Find("input#alert-name").Change("RSI watch");
         cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
-        cut.Find("select#alert-indicator").Change("RSI");
-        cut.Find("select#alert-component").Change("Rsi");
+        // WaitForElement, not Find: the indicator and component pickers are rendered
+        // conditionally BY the Change above, so a bare Find races the re-render. It passed
+        // every time locally and failed once in a full-suite run, which is the signature.
+        cut.WaitForElement("select#alert-indicator").Change("RSI");
+        cut.WaitForElement("select#alert-component").Change("Rsi");
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();
@@ -312,8 +315,8 @@ public class AlertsModalTests
         var cut = OpenModal(ctx, bus);
         cut.Find("input#alert-name").Change("RSI overbought");
         cut.Find("select#alert-condition").Change(AlertCondition.EntersZone.ToString());
-        cut.Find("select#alert-indicator").Change("RSI");
-        cut.Find("select#alert-zone").Change(AlertZone.Overbought.ToString());
+        cut.WaitForElement("select#alert-indicator").Change("RSI");
+        cut.WaitForElement("select#alert-zone").Change(AlertZone.Overbought.ToString());
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();

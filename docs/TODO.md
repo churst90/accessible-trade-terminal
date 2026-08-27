@@ -4401,7 +4401,7 @@ layer is one rung down and is where these findings sit.
 
 Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.cs` standalone and drove it.
 
-- [ ] **`StopAll`/`Reset` silently does nothing if any voice command arrives before the fade completes —
+- [x] **`StopAll`/`Reset` silently does nothing if any voice command arrives before the fade completes —
   `AudioEngine.cs:429-433`.** `Read()` drains the ring buffer, sets `_targetMasterGain = 0` and
   `_stopAllFaded = true` on a stop-all (`:413-417`), then in the same pass the apply loop hits
   `if (cmd.IsActive && _stopAllFaded) { _targetMasterGain = _userMasterGain; _stopAllFaded = false; }` for
@@ -4418,7 +4418,15 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   — latch "stop-all pending" until `_masterGain` actually reaches 0, or better, have the stop-all enqueue
   a release on every voice rather than routing voice-kill through the master gain. CONFIRMED
   (empirically). HIGH.
-- [ ] **Sawtooth and sub-saw phase are wrapped by a single subtraction, so any frequency above
+  **CLOSED 2026-08-27.** A stop-all now RELEASES EVERY VOICE directly instead of routing
+  the voice-kill through the master gain — the audit's own preferred shape. The master fade
+  stays, because it is the declick, but the deactivation no longer depends on `_masterGain`
+  reaching zero, which the re-arm in the same pass prevented. `Releasing` is set on the audio
+  callback thread, which is the thread that owns `_voices[]`, so it is the safe write path the
+  old comment was protecting. The apply-commands block clears `Releasing` for any voice it
+  genuinely activates, so a sound arriving in the same pass is still heard — a "make it stop"
+  that also silences the next thing would be its own bug, and there is a test for it.
+- [x] **Sawtooth and sub-saw phase are wrapped by a single subtraction, so any frequency above
   `SampleRate` produces unbounded output — `AudioEngine.cs:626-627` and `:639-640`.**
   `v.Phase += 2π·f/sr; if (v.Phase >= 2π) v.Phase -= 2π;` wraps correctly only while the increment is
   below 2π, i.e. `f < SampleRate`. Above that the phase grows without bound every frame, and the sawtooth
@@ -4438,6 +4446,20 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   and reject non-finite `freq`/`vol`/`pan` at the `SetVoice` boundary, and use `Phase %= 2π` rather than
   one subtraction. Related but distinct from TODO:2172, whose fix shape mentions rejecting non-finite
   values but not the wrap defect or the above-Nyquist case. CONFIRMED (empirically). HIGH (hearing safety).
+  **CLOSED 2026-08-27.** `Phase %= 2π` via a `WrapPhase` helper on both accumulators, plus
+  a clamp at the `SetVoice` boundary: frequency to `[0, Nyquist)`, volume to `[0, 1]`, pan to
+  `[-1, 1]`. A negative frequency clamps to SILENCE rather than to its magnitude, because it is
+  a phase direction and not a pitch.
+  **The audit's measured peaks are pre-limiter, and that changed how this had to be tested.**
+  The brickwall limiter added in the 2026-08-26 chart-clipping fix now sits downstream of every
+  voice, so a peak assertion on the output buffer passes whatever the oscillator does — it
+  guards the limiter, not this. Written that way first and caught by sabotage: the peak tests
+  stayed green with the defect restored. Measured properly, the defect does not overflow, it
+  **pins the output at the limiter ceiling** — RMS 0.990000 against a normal 0.252309, a
+  sustained full-scale roar in headphones worn by a blind user. That is what the tests assert
+  against now, and 7 of them go red when the wrap and the clamp are removed.
+  **So the harm is real but smaller than filed**: full scale, not full-scale-x10^5. The
+  limiter got there first.
 - [ ] **A self-terminating voice is deactivated with no release fade, and the note envelope's
   attack/release branches are mutually exclusive — a click on every Ping above ~3.3× playback speed
   (`AudioEngine.cs:538-545`, `:642-646`).** The declick machinery (`FadeGain`, `Releasing`,
