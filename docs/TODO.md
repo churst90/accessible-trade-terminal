@@ -4525,7 +4525,7 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
 
 ### Health audit — chart rendering, drawing tools, coordinate math, theming (grade C+)
 
-- [ ] **Pointer→price mapping divides by the whole canvas height, not the price pane —
+- [x] **Pointer→price mapping divides by the whole canvas height, not the price pane —
   `DrawingInteractionManager.cs:229` and `:738`.** `HandleMouseEvent` receives `width`/`height` from
   `keyboard.js:255` as `el.getBoundingClientRect()` of `chart-interact-zone`, which is the *entire* chart
   div (`ChartArea.razor:66-67`, `width:100%; height:100%`). It then calls
@@ -4539,7 +4539,21 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   bands from `IPaneLayoutService.Dividers` — so two code paths on the same click disagree. Fix: thread
   `_paneLayout.Dividers` + `AxisHeightFraction` into `MapYToPrice`/`PriceToScreenY` as the hit-tester
   already does. CONFIRMED. HIGH.
-- [ ] **Pointer→bar mapping ignores the Y-axis strip — `ChartMath.cs:135-140` as called from
+  **CLOSED 2026-08-27.** Fixed at the CHOKEPOINT, not the six call sites:
+  `DrawingInteractionManager`'s private `MapYToPrice` / `MapXToIndex` / `PriceToScreenY`
+  wrappers now apply the pane and axis correction, so everything routed through them inherits
+  it. `IPaneLayoutService` gained `AxisWidthFraction` as the symmetric partner to the
+  `AxisHeightFraction` it already published, and `ChartMath` gained `PlotWidth`, `PlotHeight`,
+  `PaneBandPx`, `MapYToPriceInPane` and `PriceToCanvasY` — the pane-band walk hoisted out of
+  `ChartHitTester` so the two code paths on one click cannot disagree again.
+  **One thing the audit could not have predicted:** the forward and inverse maps disagreed at
+  exactly the pane boundary. `PaneBandPx` resolves the divider pixel to the pane BELOW (as
+  `ChartHitTester` always has, via `yFrac >= frac`), so a price at the main pane's minimum
+  mapped to a Y the inverse read as the top of the volume pane. One pixel — but it is the pixel
+  a drawing anchored at the low of the range sits on, and with a 10 px grab tolerance a handle
+  attributed to the wrong pane cannot be picked up. `PriceToCanvasY` now stays a hair inside
+  the band.
+- [x] **Pointer→bar mapping ignores the Y-axis strip — `ChartMath.cs:135-140` as called from
   `DrawingInteractionManager.cs:230,331,540,581`, `ChartHitTester.cs:46`, `ChartHoverTracker.cs:100`.**
   `MapXToIndex(x, width, …)` spreads the viewport across the full `width`, but the renderer lays bars
   across `rect.Width = width − _axisWidth` where `_axisWidth = theme.AxisWidth (60) × density`
@@ -4549,7 +4563,14 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   `round(1220/1280 × 119) = 113` — six bars off, error growing linearly left-to-right to ~5% of the
   viewport. Affects click-to-select, hover crosshair readout, Shift+click range measurement, right-click
   "play from here", and every drawing anchor. CONFIRMED. HIGH.
-- [ ] **The indicator-pane crosshair reads a viewport-local index into an absolute component array —
+  **CLOSED 2026-08-27.** Same fix, same chokepoint — plus `ChartHitTester` and
+  `ChartHoverTracker`, which take the fraction as a parameter and from an optional
+  `IPaneLayoutService` respectively. `ChartHoverTracker`'s hairline `barX` was spread across
+  the canvas width too, so the vertical line sat beside the candle it claimed to be on; it now
+  uses the plot width. `PointerToPlotMappingTests` states both defects as arithmetic — 119 vs
+  113 at the right edge, 100 vs 140 at the pane bottom — so the fix cannot later be mistaken
+  for a rounding preference.
+- [x] **The indicator-pane crosshair reads a viewport-local index into an absolute component array —
   `ChartRenderer.cs:641`.** `RenderCrosshair` is called with `cursorIndex - viewportStart` (`:267`), then
   does `data != null && localIndex < data.Length && !double.IsNaN(data[localIndex])` and
   `val = data[localIndex]`. Component arrays are absolute (indexed `ViewportStart + i` everywhere else —
@@ -4559,7 +4580,12 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   as the current reading. Fix: `data[localIndex + viewportStart]`. Note TODO:5516 (crosshair upper-bound
   clamp, closed) fixed the local-index *bound*, not the local-vs-absolute *indexing* bug in the same
   method. CONFIRMED. HIGH.
-- [ ] **Duplicating a drawing silently drops half its data — `DrawingContextMenu.razor:186-196`.**
+  **CLOSED 2026-08-27.** `RenderCrosshair` takes `viewportStart` and the lookup moved into
+  `ChartRenderer.CrosshairValueAt`, internal so it can be tested against real component data
+  rather than through a canvas. Note why this survived: **at `ViewportStart = 0` the buggy and
+  correct readings are identical**, and that is the state of every freshly loaded chart, so it
+  only ever showed itself after a pan. There is a test for that too.
+- [x] **Duplicating a drawing silently drops half its data — `DrawingContextMenu.razor:186-196`.**
   `OnDuplicate` hand-copies seven `DrawingData` fields and omits `Text`, `ChannelWidth`, `IsLocked`,
   `ExtendLeft`, `StopLoss`, `TakeProfit`, `RiskRewardRatio`, `MeasureResult` — while `DrawingData.Clone()`
   exists at `Sdk/Models/ChartSeries.cs:275-286` and copies all of them. Duplicate a Text Label → the copy
@@ -4568,7 +4594,14 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   — **the duplicate is invisible *and* inaudible**. Duplicate a Risk/Reward → stop and target become 0.
   Duplicate a locked drawing → the copy is unlocked. The user is told "created" either way (`:204`). Fix:
   `src.Drawing?.Clone()`. CONFIRMED. HIGH.
-- [ ] **No undo/redo exists anywhere; drawing edits are destructive and irreversible —
+  **CLOSED 2026-08-27.** `src.Drawing?.Clone()`, as filed. The guard is the interesting
+  part: rather than a hand-written field list — which is exactly what `OnDuplicate` was, and
+  exactly how eight fields went missing — `CrosshairAndDrawingCopyTests` walks
+  `DrawingData`'s properties by reflection and asserts `Clone()` copies each one, so adding a
+  property without adding it to `Clone` fails. It carries a vacuity check confirming every
+  property in the fixture is set to a NON-default value, without which the test could not tell
+  a copied field from an uncopied one.
+- [x] **No undo/redo exists anywhere; drawing edits are destructive and irreversible —
   `ChartCommandManager.cs` (whole file), `DrawingInteractionManager.cs:667-714`.**
   `grep -rn "Undo\|Redo" --include=*.cs --include=*.razor` over the repo returns **zero** files.
   `UpdateEditDrag` (`:667`) writes straight into `series.Drawing.AnchorDate1/Price1` and overwrites
@@ -4579,6 +4612,20 @@ Findings 1-3 were confirmed **empirically** — the agent compiled `AudioEngine.
   gone with Ctrl+Z doing nothing. Fix: capture `Drawing.Clone()` in `TryBeginEditDrag`, push an inverse
   command onto a bounded stack, bind Ctrl+Z/Ctrl+Y, and scope the stack per chart identity so it cannot
   cross a symbol/timeframe change. CONFIRMED (absence). HIGH.
+  **CLOSED 2026-08-27.** Undo/redo now exists: `ChartUndoStack` (bounded at 50, cleared on
+  tab switch so an undo can never reach across a symbol change into a chart that is no longer
+  on screen), `DrawingEditUndo` and `SeriesDeleteUndo`, `Ctrl+Z` / `Ctrl+Y` bound as
+  chart-scoped commands, and both the anchor-drag path and the delete path recording.
+  The capture is a `Clone()` taken in `TryBeginEditDrag` before the first `UpdateEditDrag`
+  writes into the live object — a reference would be a "before" that changes as the drag
+  proceeds, which is nothing at all. `RecomputeDrawingGeometry` is shared by the live drag and
+  by undo, so a restored anchor and the line drawn through it cannot disagree. A grab that
+  releases without moving is not recorded, or `Ctrl+Z` would spend its first press undoing
+  nothing — indistinguishable from broken, for someone who cannot see the chart. **Every
+  branch speaks, including "Nothing to undo".**
+  Three existing guards did their job and had to be satisfied: the keyboard-scope
+  categorisation, the F1 Help dialog parity test, and `docs/SHORTCUTS.md` parity. That is the
+  `F1`-missing-bindings class being prevented rather than repeated.
 - [ ] **The renderer seeds Heikin-Ashi from the visible slice while speech and audio seed it from bar 0 —
   `ChartRenderer.cs:110-111` vs `ChartMath.cs:110-111`.** `CalculateHeikinAshi` seeds
   `prevOpen = data[0].Open; prevClose = data[0].Close`, and the renderer hands it only `rawVisibleData`

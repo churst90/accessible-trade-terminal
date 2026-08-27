@@ -82,7 +82,7 @@ public sealed class ChartHitTesterAndRangeTests
         // Screen y of value 100.5 in the main range across a 720px pane.
         float lineY = ChartMath.MapY(100.5, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
 
-        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, x: 640, y: lineY + 3, 1280, 720);
+        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, 0f, x: 640, y: lineY + 3, width: 1280, height: 720);
 
         Assert.NotNull(hit);
         Assert.Equal("ema-1", hit!.SeriesId);
@@ -100,7 +100,7 @@ public sealed class ChartHitTesterAndRangeTests
         // 100px above the line — far outside the 12px grab distance. Bar-value
         // components (candles at close=100) sit near the line too, so aim well away.
         double farY = Math.Max(5, lineY - 200);
-        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, x: 640, y: farY, 1280, 720);
+        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, 0f, x: 640, y: farY, width: 1280, height: 720);
 
         // Either nothing, or at least NOT the line we planted far away.
         if (hit != null) Assert.NotEqual("ema-1", hit.SeriesId);
@@ -115,7 +115,7 @@ public sealed class ChartHitTesterAndRangeTests
         var state = h.Store.State;
         float lineY = ChartMath.MapY(100.5, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
 
-        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, 640, lineY, 1280, 720);
+        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, 0f, 640, lineY, 1280, 720);
 
         if (hit != null) Assert.NotEqual("ema-1", hit.SeriesId);
     }
@@ -127,7 +127,7 @@ public sealed class ChartHitTesterAndRangeTests
         h.AddOverlayLine("ema-1", "EMA 20", constantValue: 100.5);
 
         // Bottom 5% is the x-axis strip; cursor there must not hit chart components.
-        var hit = ChartHitTester.HitTest(h.Store.State, NoDividers, 0.05f, 640, 719, 1280, 720);
+        var hit = ChartHitTester.HitTest(h.Store.State, NoDividers, 0.05f, 0f, 640, 719, 1280, 720);
 
         Assert.Null(hit);
     }

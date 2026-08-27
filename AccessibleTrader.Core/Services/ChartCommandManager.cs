@@ -22,13 +22,20 @@ namespace AccessibleTrader.Core.Services
         private readonly IWorkspaceStore _store;
         private readonly ILogger<ChartCommandManager>? _logger;
 
+        /// <summary>
+        /// Optional so every existing construction site keeps working; a null stack means
+        /// edits are not recorded and Ctrl+Z is inert, which is the pre-2026-08-27 behaviour.
+        /// </summary>
+        private readonly Accessibility.IChartUndoStack? _undo;
+
         public ChartCommandManager(
             IEventBus eventBus,
             IDataManager dataManager,
             IDrawingInteractionManager drawingManager,
             ISeriesManagementService seriesManager,
             IWorkspaceStore store,
-            ILogger<ChartCommandManager>? logger = null)
+            ILogger<ChartCommandManager>? logger = null,
+            Accessibility.IChartUndoStack? undo = null)
         {
             _eventBus = eventBus;
             _dataManager = dataManager;
@@ -36,6 +43,7 @@ namespace AccessibleTrader.Core.Services
             _seriesManager = seriesManager;
             _store = store;
             _logger = logger;
+            _undo = undo;
 
             InitializeSubscriptions();
         }
@@ -202,6 +210,27 @@ namespace AccessibleTrader.Core.Services
                     if (series != null)
                     {
                         _store.Dispatch(new RemoveSeriesAction(id));
+                        // Recorded so Ctrl+Z brings it back. Delete has no confirmation step —
+                        // a deliberate choice, because a confirmation on every delete is its
+                        // own accessibility cost — which only works if the deletion is
+                        // reversible. The whole ChartSeries is held rather than a description
+                        // of it: a drawing's identity is its Id and its component arrays are
+                        // recomputed from its anchors, so anything less restores a different
+                        // drawing that merely looks similar.
+                        _undo?.Push(new Accessibility.SeriesDeleteUndo(
+                            $"Delete {series.Name}",
+                            series,
+                            restore: s =>
+                            {
+                                _store.Dispatch(new AddSeriesAction(s));
+                                _eventBus.Publish(new RedrawEvent());
+                            },
+                            remove: seriesId =>
+                            {
+                                _store.Dispatch(new RemoveSeriesAction(seriesId));
+                                _eventBus.Publish(new RedrawEvent());
+                            }));
+
                         // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{series.Name} deleted"));
                         _eventBus.Publish(new RedrawEvent());
@@ -212,6 +241,51 @@ namespace AccessibleTrader.Core.Services
                     _logger?.LogError(ex, "[ChartCommandManager] DeleteSeriesEvent error");
                 }
             }));
+
+            // ── UNDO / REDO ──────────────────────────────────────────────────────────
+            //
+            // Every branch SPEAKS, including the two that do nothing. Silence on Ctrl+Z is
+            // indistinguishable from undo being broken when you cannot see the chart, and the
+            // one thing a user needs to know after pressing it is which of the two happened.
+            _subscriptions.Add(_eventBus.Subscribe<UndoChartEditEvent>(_ => {
+                try
+                {
+                    if (_undo == null) return;
+                    string? what = _undo.NextUndoDescription;
+                    if (_undo.Undo())
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.StateChange, $"Undone: {what}."));
+                    else
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.StateChange, "Nothing to undo."));
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "[ChartCommandManager] UndoChartEditEvent error");
+                }
+            }));
+
+            _subscriptions.Add(_eventBus.Subscribe<RedoChartEditEvent>(_ => {
+                try
+                {
+                    if (_undo == null) return;
+                    string? what = _undo.NextRedoDescription;
+                    if (_undo.Redo())
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.StateChange, $"Redone: {what}."));
+                    else
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.StateChange, "Nothing to redo."));
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "[ChartCommandManager] RedoChartEditEvent error");
+                }
+            }));
+
+            // The stack is scoped to one chart: an undo must never reach across a symbol or
+            // timeframe change into a chart that is no longer on screen.
+            _subscriptions.Add(_eventBus.Subscribe<TabSwitchedEvent>(_ => _undo?.Clear()));
 
             // ── TOOLS ────────────────────────────────────────────────────────────────
             _subscriptions.Add(_eventBus.Subscribe<ToggleToolEvent>(ev => {

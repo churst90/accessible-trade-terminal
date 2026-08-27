@@ -79,6 +79,9 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.OpenProperties)]
         // Series management
         [InlineData(SystemCommand.RemoveSelectedSeries)]
+        // Undo / redo — chart-scoped, like every other edit they reverse
+        [InlineData(SystemCommand.UndoChartEdit)]
+        [InlineData(SystemCommand.RedoChartEdit)]
         // Detail / drawing
         [InlineData(SystemCommand.DetailedPointSummary)]
         [InlineData(SystemCommand.CancelDrawing)]
@@ -215,7 +218,9 @@ namespace AccessibleTrader.Tests
                 SystemCommand.ToggleHeatmap, SystemCommand.ToggleIndicatorVisibility,
                 SystemCommand.ToggleIndicatorAudio, SystemCommand.ToggleNarration,
                 SystemCommand.AddReferenceLevel, SystemCommand.OpenProperties,
-                SystemCommand.RemoveSelectedSeries, SystemCommand.DetailedPointSummary,
+                SystemCommand.RemoveSelectedSeries,
+                SystemCommand.UndoChartEdit, SystemCommand.RedoChartEdit,
+                SystemCommand.DetailedPointSummary,
                 SystemCommand.CancelDrawing, SystemCommand.ConfirmCoordinateEntry,
                 SystemCommand.DrawTrend, SystemCommand.DrawHorizontal,
                 SystemCommand.DrawVertical, SystemCommand.DrawChannel,

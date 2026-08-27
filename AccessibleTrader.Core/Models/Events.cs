@@ -109,6 +109,10 @@ namespace AccessibleTrader.Core.Models
     public record OpenDrawingToolsEvent();
     public record OpenPropertiesEvent(string? SeriesId = null);
     public record DeleteSeriesEvent(string? SeriesId = null);
+    /// <summary>Ctrl+Z — reverse the last recorded chart edit.</summary>
+    public record UndoChartEditEvent();
+    /// <summary>Ctrl+Y — re-apply the last undone chart edit.</summary>
+    public record RedoChartEditEvent();
     public record AddDrawingEvent(string DrawingType);
     public record CancelDrawingEvent();
     /// <summary>Place the next anchor of the in-progress drawing at the current cursor

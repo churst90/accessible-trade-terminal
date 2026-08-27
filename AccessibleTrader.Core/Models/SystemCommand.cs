@@ -202,6 +202,14 @@ namespace AccessibleTrader.Core.Models
         /// <summary>Ctrl+Alt+Shift+H: make every hidden component visible again.</summary>
         ShowAllComponents,
         /// <summary>Ctrl+Alt+Shift+M: unmute every muted component.</summary>
-        UnmuteAllComponents
+        UnmuteAllComponents,
+
+        // Undo / redo
+        /// <summary>Ctrl+Z: reverse the last chart edit (drawing anchor move, series delete).
+        /// Before 2026-08-27 nothing in the repo implemented undo at all, so a drawing grabbed
+        /// by accident — the anchor tolerance is 10 px — was gone with no way back.</summary>
+        UndoChartEdit,
+        /// <summary>Ctrl+Y: re-apply the last undone chart edit.</summary>
+        RedoChartEdit
     }
 }

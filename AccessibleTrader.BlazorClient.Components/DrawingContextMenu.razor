@@ -181,19 +181,18 @@
         foreach (var kvp in src.Data.ComponentData)
             newBuffer.ComponentData[kvp.Key] = (double[])kvp.Value.Clone();
 
-        // DrawingData is a mutable reference type; clone is cheap via a fresh copy of
-        // the anchor fields so later edits to the duplicate don't follow the original.
-        DrawingData? newDrawing = src.Drawing == null ? null : new DrawingData
-        {
-            Type = src.Drawing.Type,
-            AnchorDate1 = src.Drawing.AnchorDate1,
-            AnchorPrice1 = src.Drawing.AnchorPrice1,
-            AnchorDate2 = src.Drawing.AnchorDate2,
-            AnchorPrice2 = src.Drawing.AnchorPrice2,
-            AnchorDate3 = src.Drawing.AnchorDate3,
-            AnchorPrice3 = src.Drawing.AnchorPrice3,
-            ExtendRight = src.Drawing.ExtendRight,
-        };
+        // DrawingData is a mutable reference type, so the duplicate needs its own copy or
+        // later edits would follow the original. Use Clone(), not a hand-written field list.
+        //
+        // This used to copy seven fields by hand and omit Text, ChannelWidth, IsLocked,
+        // ExtendLeft, StopLoss, TakeProfit, RiskRewardRatio and MeasureResult — while
+        // DrawingData.Clone() existed the whole time and copies all of them. Duplicating a
+        // Text Label produced a copy with empty Text, which OverlayLayer.RenderTextLabels
+        // skips entirely AND which never gets the "Label: …" treatment in its series name, so
+        // the duplicate was invisible *and* inaudible. Duplicating a Risk/Reward zeroed the
+        // stop and the target. Duplicating a locked drawing produced an unlocked one. The user
+        // was told "created" in every case.
+        DrawingData? newDrawing = src.Drawing?.Clone();
 
         var dup = new ChartSeries(newConfig, newBuffer) { Drawing = newDrawing };
         Close();

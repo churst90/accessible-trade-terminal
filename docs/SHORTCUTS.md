@@ -296,6 +296,8 @@ Also on the toolbar's second row as **Split**, which shows its own pressed state
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
 | 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane a new line goes at zero; on the **price** pane there is no meaningful zero, so it goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Level removed." / "No price under the cursor to place a level at." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
+| Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |
+| Ctrl+Y | Redo the last undone chart edit | Says what was redone, or "Nothing to redo" |
 
 ---
 

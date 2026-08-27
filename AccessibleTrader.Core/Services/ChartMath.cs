@@ -243,6 +243,129 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        // ── Pointer space → plot space ───────────────────────────────────────
+        //
+        // The renderer does not draw into the whole canvas. A y-axis column of
+        // `theme.AxisWidth * density` runs down the right and an x-axis strip of
+        // `_axisHeight` along the bottom; bars are laid across what is left. Every mapping
+        // from a pixel back to a bar or a price has to subtract the same two strips, and
+        // before 2026-08-27 none of them did:
+        //
+        //   * MapXToIndex was handed the FULL canvas width by DrawingInteractionManager,
+        //     ChartHitTester and ChartHoverTracker, so on a 1280 px chart with a 120-bar
+        //     viewport a click on the rightmost candle resolved to bar 113 instead of 119.
+        //   * MapYToPrice was handed the FULL canvas height, while the renderer maps the
+        //     price range into a main pane of `height - axisHeight - Σ indicatorHeights`.
+        //     With a volume pane on screen the main pane is roughly 47% of the canvas, so a
+        //     click at the visual bottom of the price pane returned Min + 0.53 × (Max − Min).
+        //     Every mouse-placed drawing anchor landed at the wrong price.
+        //
+        // ChartHitTester already resolved pane BANDS correctly from IPaneLayoutService; it
+        // simply never applied the same treatment to the horizontal. These helpers are the
+        // one place that knows the rule, so the two code paths on a single click can no
+        // longer disagree.
+
+        /// <summary>
+        /// The plot width — canvas width minus the y-axis column.
+        /// <paramref name="axisWidthFraction"/> comes from <c>IPaneLayoutService</c>.
+        /// </summary>
+        public static double PlotWidth(double canvasWidth, float axisWidthFraction)
+            => canvasWidth * (1.0 - Math.Clamp(axisWidthFraction, 0f, 0.5f));
+
+        /// <summary>
+        /// The plot height — canvas height minus the x-axis strip.
+        /// </summary>
+        public static double PlotHeight(double canvasHeight, float axisHeightFraction)
+            => canvasHeight * (1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f));
+
+        /// <summary>
+        /// The vertical band occupied by the pane under <paramref name="y"/>, in pixels, given
+        /// the rendered dividers. Returns null when the cursor is over the x-axis strip, where
+        /// there is no price to report.
+        ///
+        /// <para>The same band walk <c>ChartHitTester</c> does — hoisted here so the pointer
+        /// mappings can use it instead of assuming the price pane owns the whole canvas.</para>
+        /// </summary>
+        public static (double Top, double Bottom)? PaneBandPx(
+            double y,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction)
+        {
+            if (canvasHeight <= 0) return null;
+
+            double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
+            double yFrac = y / canvasHeight;
+            if (yFrac < 0 || yFrac > plotBottomFrac) return null;
+
+            double bandTopFrac = 0.0;
+            double bandBottomFrac = plotBottomFrac;
+            if (dividers != null)
+            {
+                foreach (var (_, frac) in dividers)
+                {
+                    if (yFrac >= frac) bandTopFrac = frac;
+                    else { bandBottomFrac = Math.Min(bandBottomFrac, frac); break; }
+                }
+            }
+
+            double top = bandTopFrac * canvasHeight;
+            double bottom = bandBottomFrac * canvasHeight;
+            return bottom > top ? (top, bottom) : null;
+        }
+
+        /// <summary>
+        /// A cursor Y within the whole canvas mapped to a price in the pane it actually falls
+        /// in. Returns <see cref="double.NaN"/> over the x-axis strip.
+        /// </summary>
+        public static double MapYToPriceInPane(
+            double y,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction,
+            double min, double max, bool isLog)
+        {
+            var band = PaneBandPx(y, canvasHeight, dividers, axisHeightFraction);
+            if (band == null) return double.NaN;
+            return MapYToPrice(y - band.Value.Top, band.Value.Bottom - band.Value.Top, min, max, isLog);
+        }
+
+        /// <summary>
+        /// A price mapped to a cursor Y within the whole canvas — the forward companion of
+        /// <see cref="MapYToPriceInPane"/>, for the MAIN pane. Anchor-handle hit-testing needs
+        /// the two to agree or a handle sits where the drawing is not.
+        /// </summary>
+        public static double PriceToCanvasY(
+            double price,
+            double canvasHeight,
+            IReadOnlyList<(string BelowPaneName, float DividerFraction)>? dividers,
+            float axisHeightFraction,
+            double min, double max, bool isLog)
+        {
+            // The main pane runs from the top of the plot to the first divider.
+            double plotBottomFrac = 1.0 - Math.Clamp(axisHeightFraction, 0f, 0.5f);
+            double bottomFrac = plotBottomFrac;
+            if (dividers != null && dividers.Count > 0)
+                bottomFrac = Math.Min(bottomFrac, dividers[0].DividerFraction);
+
+            double top = 0.0;
+            double bottom = bottomFrac * canvasHeight;
+            if (bottom <= top) return 0;
+
+            double y = top + PriceToScreenY(price, bottom - top, min, max, isLog);
+
+            // The divider pixel belongs to the pane BELOW — PaneBandPx (and ChartHitTester,
+            // which has always worked this way) resolve it with `yFrac >= frac`. So a price
+            // exactly at the main pane's minimum would otherwise map to a Y that the inverse
+            // reads as the top of the VOLUME pane, and the forward and inverse mappings would
+            // disagree at exactly the bottom edge. That is one pixel, but it is the pixel a
+            // drawing anchored at the low of the range sits on, and with a 10 px grab
+            // tolerance a handle attributed to the wrong pane is a handle that cannot be
+            // picked up. Stay a hair inside the band the price actually belongs to.
+            const double edge = 1e-3;
+            return Math.Clamp(y, top, bottom - edge);
+        }
+
         // Deleted 2026-08-24: InverseMapY and GetIndexFromX. Both were public, both had
         // ZERO callers anywhere in the solution (including plugins), and both were second
         // implementations of arithmetic that already exists here — MapYToPrice and

@@ -53,15 +53,24 @@ namespace AccessibleTrader.BlazorClient.Services
         /// <summary>Raised whenever <see cref="Current"/> or <see cref="IsEnabled"/> changes.</summary>
         public event Action? Changed;
 
+        /// <summary>
+        /// Rendered pane geometry. Optional so every existing construction keeps working;
+        /// when it is absent the mapping degrades to the old whole-canvas behaviour rather
+        /// than reporting a price from a pane it cannot locate.
+        /// </summary>
+        private readonly Core.Services.Rendering.IPaneLayoutService? _paneLayout;
+
         public ChartHoverTracker(IInputService input, IWorkspaceStore store,
             ISonificationManager? sonification = null, ISettingsManager? settings = null,
-            Core.Services.Accessibility.ISpeechFeedbackRouter? speech = null)
+            Core.Services.Accessibility.ISpeechFeedbackRouter? speech = null,
+            Core.Services.Rendering.IPaneLayoutService? paneLayout = null)
         {
             _input = input;
             _store = store;
             _sonification = sonification;
             _settings = settings;
             _speech = speech;
+            _paneLayout = paneLayout;
             _input.MouseEvent += OnMouse;
         }
 
@@ -95,7 +104,16 @@ namespace AccessibleTrader.BlazorClient.Services
                 return;
             }
 
-            int index = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            // The plot is the canvas minus the y-axis column and the x-axis strip. Mapping
+            // against the whole canvas put the readout up to six bars out at the right edge
+            // and, with a volume pane on screen, returned a price from roughly halfway up the
+            // main pane's range for a cursor at its visual bottom.
+            var dividers = _paneLayout?.Dividers;
+            float axisH = _paneLayout?.AxisHeightFraction ?? 0f;
+            float axisW = _paneLayout?.AxisWidthFraction ?? 0f;
+            double plotWidth = ChartMath.PlotWidth(width, axisW);
+
+            int index = ChartMath.MapXToIndex(x, plotWidth, state.ViewportStartIndex, state.ViewportLength);
             if (index < 0 || index >= state.Data.Count)
             {
                 Clear();
@@ -103,13 +121,20 @@ namespace AccessibleTrader.BlazorClient.Services
             }
 
             var bar = state.Data[index];
-            double price = ChartMath.MapYToPrice(
-                y, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+            double price = ChartMath.MapYToPriceInPane(
+                y, height, dividers, axisH,
+                state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+
+            // Over the x-axis strip there is no price to report; the bar under the cursor
+            // still is, so the crosshair keeps its date and OHLC.
+            if (double.IsNaN(price)) price = state.ViewportRange.Min;
 
             // Snap the vertical hairline to the hovered bar's slot centre so the
             // line answers "which bar am I on", not just "where is my cursor".
+            // Across the PLOT width, not the canvas width, or the hairline sits beside the
+            // candle it claims to be on.
             double barX = state.ViewportLength > 1
-                ? (index - state.ViewportStartIndex) / (double)(state.ViewportLength - 1) * width
+                ? (index - state.ViewportStartIndex) / (double)(state.ViewportLength - 1) * plotWidth
                 : x;
 
             Current = new ChartHoverInfo(

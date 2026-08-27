@@ -32,16 +32,24 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <param name="dividers">Rendered pane dividers (fractions of total height), from IPaneLayoutService.</param>
         /// <param name="axisHeightFraction">Bottom x-axis strip fraction, from IPaneLayoutService.</param>
+        /// <param name="axisWidthFraction">Right y-axis column fraction, from IPaneLayoutService.</param>
         public static ChartHit? HitTest(
             WorkspaceState state,
             IReadOnlyList<(string BelowPaneName, float DividerFraction)> dividers,
             float axisHeightFraction,
+            float axisWidthFraction,
             double x, double y, double width, double height,
             double tolerancePx = TolerancePx)
         {
             if (state.Data == null || state.Data.Count == 0 || width <= 0 || height <= 0) return null;
 
-            int barIndex = ChartMath.MapXToIndex(x, width, state.ViewportStartIndex, state.ViewportLength);
+            // The bars are laid across the canvas MINUS the y-axis column. This class already
+            // resolved pane bands correctly for the vertical and then spread the viewport
+            // across the full width for the horizontal, so it was six bars out at the right
+            // edge of a 1280 px chart while being pixel-correct vertically.
+            int barIndex = ChartMath.MapXToIndex(
+                x, ChartMath.PlotWidth(width, axisWidthFraction),
+                state.ViewportStartIndex, state.ViewportLength);
             if (barIndex < 0 || barIndex >= state.Data.Count) return null;
 
             // ── Resolve the pane band under the cursor ──────────────────────

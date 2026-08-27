@@ -603,6 +603,10 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<AccessibleTrader.Core.Services.Analysis.ChartPatternNavigator>();
             services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
             services.AddSingleton<IInputRouter, InputRouter>();
+            // Chart undo/redo. Same lifetime as the two managers that write to it, so
+            // the stack a drag pushes onto is the stack Ctrl+Z reads.
+            services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.IChartUndoStack,
+                             AccessibleTrader.Core.Services.Accessibility.ChartUndoStack>();
             services.AddSingleton<IDrawingInteractionManager, DrawingInteractionManager>();
             services.AddSingleton<IChartCommandManager, ChartCommandManager>();
 

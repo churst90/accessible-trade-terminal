@@ -287,6 +287,10 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenProperties, "P"));
             // Delete removes the focused indicator series (guards against deleting "candles").
             s.Add(new(SystemCommand.RemoveSelectedSeries, "DELETE"));
+            // Undo / redo. Ctrl+Z and Ctrl+Y are the bindings every user's hands already
+            // know; being absent was the whole finding, not the choice of key.
+            s.Add(new(SystemCommand.UndoChartEdit, "Z", Ctrl: true));
+            s.Add(new(SystemCommand.RedoChartEdit, "Y", Ctrl: true));
 
             // Chart display toggles (Alt+key) — require no data gate, so always work.
             s.Add(new(SystemCommand.ToggleHeikinAshi, "C", Alt: true)); // Alt+C

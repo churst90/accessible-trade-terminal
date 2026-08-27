@@ -555,6 +555,10 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<AccessibleTrader.Core.Services.Analysis.ChartPatternNavigator>();
             services.AddScoped<ICommandDispatcher, CommandDispatcher>();
             services.AddScoped<IInputRouter, InputRouter>();
+            // Chart undo/redo. Same lifetime as the two managers that write to it, so
+            // the stack a drag pushes onto is the stack Ctrl+Z reads.
+            services.AddScoped<AccessibleTrader.Core.Services.Accessibility.IChartUndoStack,
+                             AccessibleTrader.Core.Services.Accessibility.ChartUndoStack>();
             services.AddScoped<IDrawingInteractionManager, DrawingInteractionManager>();
             services.AddScoped<IChartCommandManager, ChartCommandManager>();
 

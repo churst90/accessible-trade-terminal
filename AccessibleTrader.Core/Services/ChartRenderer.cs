@@ -253,7 +253,7 @@ namespace AccessibleTrader.Core.Services
                 }
 
                 // Update shared layout service so ChartArea.razor can position drag handles.
-                _paneLayout.Update(dividers, _axisHeight / height);
+                _paneLayout.Update(dividers, _axisHeight / height, _axisWidth / width);
 
                 // Separator lines: vertical between chart area and Y-axis column; horizontal above X-axis strip.
                 using var sepPaint = new SKPaint { Color = _theme.Current.GridLine.WithAlpha(160), StrokeWidth = 1 * density, Style = SKPaintStyle.Stroke };
@@ -261,7 +261,7 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawLine(0, height - _axisHeight, width - _axisWidth, height - _axisHeight, sepPaint);
 
                 RenderXAxis(canvas, new SKRect(0, height - _axisHeight, width - _axisWidth, height), visibleData, itemWidthForAxis, density);
-                RenderCrosshair(canvas, new SKRect(0, 0, width - _axisWidth, totalPaneHeight), visibleData, cursorIndex - viewportStart, mainMin, mainMax, isLogScale, itemWidthForAxis, density, mainPaneHeight, indicatorPaneInfos);
+                RenderCrosshair(canvas, new SKRect(0, 0, width - _axisWidth, totalPaneHeight), visibleData, cursorIndex - viewportStart, viewportStart, mainMin, mainMax, isLogScale, itemWidthForAxis, density, mainPaneHeight, indicatorPaneInfos);
             }
             catch (Exception ex)
             {
@@ -598,7 +598,53 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private void RenderCrosshair(SKCanvas canvas, SKRect area, List<Ohlcv> visibleData, int localIndex, double min, double max, bool isLogScale, float itemWidth, float density, float mainPaneHeight, List<(SKRect Rect, double Min, double Max, List<ChartSeries> Series)> indicatorPanes)
+        /// <summary>
+        /// The crosshair, and the indicator readings beside it.
+        ///
+        /// <para><paramref name="localIndex"/> is VIEWPORT-LOCAL — it indexes
+        /// <paramref name="visibleData"/> and positions the vertical line. Component arrays are
+        /// ABSOLUTE, indexed <c>ViewportStart + i</c> everywhere else in the renderer, which is
+        /// why <paramref name="viewportStart"/> has to come in too: the indicator pane's
+        /// crosshair label used to read <c>data[localIndex]</c> straight, so panning back to
+        /// bar 500 and putting the cursor on bar 560 drew the RSI line and its numeric label
+        /// from <c>rsi[60]</c> — a value from five hundred bars ago — and rendered it as the
+        /// current reading. The earlier upper-bound clamp fix in this method corrected the
+        /// local index's BOUND, not the local-versus-absolute indexing.</para>
+        /// </summary>
+        /// <summary>
+        /// The first non-NaN component reading in an indicator pane at the cursor's bar, or
+        /// null when nothing in the pane has a value there.
+        ///
+        /// <para><paramref name="localIndex"/> is VIEWPORT-LOCAL and component arrays are
+        /// ABSOLUTE, so this is where the two index spaces meet. The crosshair label used to
+        /// read <c>data[localIndex]</c> straight: pan back to <c>ViewportStartIndex = 500</c>,
+        /// put the cursor on bar 560, and the RSI pane's line and its number came from
+        /// <c>rsi[60]</c> — a reading from five hundred bars ago, rendered as the current one.
+        /// Every other renderer path indexes components as <c>ViewportStart + i</c>.</para>
+        ///
+        /// <para>Internal rather than private so it can be tested against real component data.
+        /// The rest of <c>RenderCrosshair</c> is canvas work; this is the arithmetic that was
+        /// wrong.</para>
+        /// </summary>
+        internal static double? CrosshairValueAt(
+            IReadOnlyList<ChartSeries> paneSeries, int localIndex, int viewportStart)
+        {
+            int absIndex = localIndex + viewportStart;
+            if (absIndex < 0) return null;
+
+            foreach (var s in paneSeries)
+            {
+                foreach (var comp in s.Components)
+                {
+                    var data = s.GetComponentData(comp.Name);
+                    if (data != null && absIndex < data.Length && !double.IsNaN(data[absIndex]))
+                        return data[absIndex];
+                }
+            }
+            return null;
+        }
+
+        private void RenderCrosshair(SKCanvas canvas, SKRect area, List<Ohlcv> visibleData, int localIndex, int viewportStart, double min, double max, bool isLogScale, float itemWidth, float density, float mainPaneHeight, List<(SKRect Rect, double Min, double Max, List<ChartSeries> Series)> indicatorPanes)
         {
             if (visibleData.Count == 0) return;
             // Upper-bound clamp: never draw the crosshair past the last real data bar,
@@ -628,21 +674,7 @@ namespace AccessibleTrader.Core.Services
             using var labelBgPaint = new SKPaint { Color = new SKColor(40, 40, 40, 210), Style = SKPaintStyle.Fill };
             foreach (var (paneRect, paneMin, paneMax, paneSeries) in indicatorPanes)
             {
-                // Find the first non-NaN component value at localIndex
-                double? val = null;
-                foreach (var s in paneSeries)
-                {
-                    foreach (var comp in s.Components)
-                    {
-                        var data = s.GetComponentData(comp.Name);
-                        if (data != null && localIndex < data.Length && !double.IsNaN(data[localIndex]))
-                        {
-                            val = data[localIndex];
-                            break;
-                        }
-                    }
-                    if (val.HasValue) break;
-                }
+                double? val = CrosshairValueAt(paneSeries, localIndex, viewportStart);
 
                 if (!val.HasValue) continue;
                 float iy = ChartMath.MapY(val.Value, paneRect.Top, paneRect.Bottom, paneMin, paneMax, false);

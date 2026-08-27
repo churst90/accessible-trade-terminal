@@ -80,6 +80,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // drawing can be in "edit" mode only when no new drawing is being placed.
         private string? _editSeriesId;
         private int _editAnchorSlot;   // 1, 2, or 3
+
+        /// <summary>
+        /// The drawing's state when the current edit-drag began, or null when no drag is in
+        /// flight. Captured in <c>TryBeginEditDrag</c> and consumed in <c>CommitEditDrag</c>.
+        /// </summary>
+        private DrawingData? _editUndoBefore;
         // Anchor-handle hit-test tolerance in pixels. 10 px matches the rendered
         // anchor handle radius with a small overshoot for easier grabbing.
         private const double AnchorHitToleranceSquared = 10.0 * 10.0;
@@ -100,7 +106,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IInputService inputService,
             Rendering.IPaneLayoutService? paneLayout = null,
             ISettingsManager? settings = null,
-            Rendering.ISplitViewCoordinator? splitView = null)
+            Rendering.ISplitViewCoordinator? splitView = null,
+            IChartUndoStack? undo = null)
         {
             _eventBus = eventBus;
             _drawingService = drawingService;
@@ -110,6 +117,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _paneLayout = paneLayout;
             _settings = settings;
             _splitView = splitView;
+            _undo = undo;
 
             _subs.Add(_eventBus.Subscribe<CancelDrawingEvent>(_ => CancelPendingDrawing()));
             _subs.Add(_eventBus.Subscribe<LabelTextEnteredEvent>(e => ApplyLabelText(e.SeriesId, e.Text)));
@@ -121,6 +129,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// means "no split view", which is also the state of a chart that has never been split.
         /// </summary>
         private readonly Rendering.ISplitViewCoordinator? _splitView;
+
+        /// <summary>
+        /// Optional for the same reason. A null stack means edits are not recorded, which is the
+        /// pre-2026-08-27 behaviour — the fix must not turn every existing construction site
+        /// into a compile error to be worth having.
+        /// </summary>
+        private readonly IChartUndoStack? _undo;
 
         /// <summary>
         /// Rewrites pointer coordinates into the ACTIVE chart's own space.
@@ -557,10 +572,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private ChartHit? HitTestComponents(double x, double y, double width, double height)
         {
             if (height <= 0) return null;
-            var dividers = _paneLayout?.Dividers
-                ?? (IReadOnlyList<(string BelowPaneName, float DividerFraction)>)Array.Empty<(string, float)>();
-            float axisFrac = _paneLayout?.AxisHeightFraction ?? 0f;
-            return ChartHitTester.HitTest(_store.State, dividers, axisFrac, x, y, width, height);
+            return ChartHitTester.HitTest(
+                _store.State, Dividers, AxisHeightFraction, AxisWidthFraction, x, y, width, height);
         }
 
         /// <summary>
@@ -652,6 +665,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _editSeriesId = bestSeriesId;
             _editAnchorSlot = bestSlot;
+
+            // Snapshot BEFORE the first UpdateEditDrag writes into the live DrawingData.
+            // A Clone(), not a reference: UpdateEditDrag mutates the object in place, so a
+            // reference would be a "before" that changes as the drag proceeds. This is the
+            // capture the whole undo story rests on, and its absence is why the pre-drag
+            // values were unrecoverable.
+            _editUndoBefore = state.ActiveSeries
+                .FirstOrDefault(s => s.Id == bestSeriesId)?.Drawing?.Clone();
             return true;
         }
 
@@ -685,12 +706,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     break;
             }
 
+            RecomputeDrawingGeometry(series);
+            _eventBus.Publish(new RedrawEvent());
+        }
+
+        /// <summary>Recomputes a drawing's rendered component arrays from its anchors.
+        /// Shared by the live drag and by undo/redo, so a restored anchor and the line drawn
+        /// through it can never disagree.</summary>
+        private void RecomputeDrawingGeometry(ChartSeries series)
+        {
+            if (series.Drawing == null) return;
             var results = _drawingService.CalculateDrawingData(series.Drawing, _store.State.Data.ToList());
             foreach (var kvp in results)
             {
                 series.Data.ComponentData[kvp.Key] = kvp.Value;
             }
-            _eventBus.Publish(new RedrawEvent());
         }
 
         /// <summary>
@@ -706,8 +736,43 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string label = series?.FriendlyName ?? "Drawing";
             _eventBus.Publish(new AnnouncementEvent(
                 $"{label} anchor {_editAnchorSlot} moved to {SpeechPriceFormatter.FormatPrice(price)}."));
+
+            RecordEditForUndo(label, series);
+
             _editSeriesId = null;
             _editAnchorSlot = 0;
+            _editUndoBefore = null;
+        }
+
+        /// <summary>
+        /// Files the completed drag on the undo stack, if anything actually moved.
+        ///
+        /// <para>A click that grabs a handle and releases without moving is not an edit and
+        /// must not consume an undo slot — otherwise Ctrl+Z spends its first press undoing
+        /// nothing, which for a speech user is indistinguishable from undo being broken.</para>
+        /// </summary>
+        private void RecordEditForUndo(string label, ChartSeries? series)
+        {
+            if (_undo == null || _editUndoBefore == null || series?.Drawing == null) return;
+
+            var after = series.Drawing.Clone();
+            if (!DrawingEditUndo.IsChange(_editUndoBefore, after)) return;
+
+            string id = series.Id;
+            _undo.Push(new DrawingEditUndo(
+                $"Move {label}",
+                resolve: () => _store.State.ActiveSeries.FirstOrDefault(s => s.Id == id),
+                before: _editUndoBefore,
+                after: after,
+                afterApply: () =>
+                {
+                    // Recompute the rendered geometry from the restored anchors and repaint,
+                    // exactly as an edit-drag does — an undo that moved the anchors but left
+                    // the drawn line where it was would be worse than no undo.
+                    var s = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == id);
+                    if (s != null) RecomputeDrawingGeometry(s);
+                    _eventBus.Publish(new RedrawEvent());
+                }));
         }
 
         private static double DateToScreenX(DateTime date, WorkspaceState state, double width)
@@ -731,8 +796,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return lo;
         }
 
-        private static double PriceToScreenY(double price, WorkspaceState state, double height)
-            => ChartMath.PriceToScreenY(price, height, state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
+        /// <summary>
+        /// A price → a cursor Y over the whole canvas. The forward companion of
+        /// <c>MapYToPrice</c> above, and it has to agree with it or an anchor HANDLE sits
+        /// where the drawing is not — which is how a 10 px grab tolerance turns into a
+        /// drawing the user cannot pick up.
+        /// </summary>
+        private double PriceToScreenY(double price, WorkspaceState state, double height)
+            => ChartMath.PriceToCanvasY(price, height, Dividers, AxisHeightFraction,
+                                        state.ViewportRange.Min, state.ViewportRange.Max, state.IsLogScale);
 
         /// <summary>
         /// Create a preview drawing series seeded with anchor1 on both ends so the user
@@ -863,11 +935,43 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // Pointer↔chart coordinate mapping lives in ChartMath so the hover crosshair,
         // click-select, and drawing placement all share one tested implementation.
-        private static double MapYToPrice(double y, double height, double min, double max, bool isLog)
-            => ChartMath.MapYToPrice(y, height, min, max, isLog);
+        //
+        // These wrappers are the CHOKEPOINT, and they are the reason the fix is here rather
+        // than at six call sites. `width` and `height` arrive from keyboard.js as the bounding
+        // rect of `chart-interact-zone`, which is the entire chart div — but the renderer draws
+        // bars across `width - axisWidth` and maps the price range into a main pane of
+        // `height - axisHeight - Σ indicatorHeights`. Passing the raw canvas size straight
+        // through meant:
+        //
+        //   * With a volume pane on screen (equal split, so the main pane is ~47% of the
+        //     canvas) a click at the visual bottom of the PRICE pane returned
+        //     Min + 0.53 × (Max − Min). Every mouse-placed drawing anchor landed at a wrong
+        //     price, and the horizontal-line tool drew where the user did not click.
+        //   * On a 1280 px chart with a 120-bar viewport, a click on the rightmost candle
+        //     (x ≈ 1220, truly bar 119) resolved to bar 113 — six bars out, with the error
+        //     growing linearly left to right.
+        //
+        // ChartHitTester.HitTest got the vertical RIGHT all along by resolving pane bands from
+        // IPaneLayoutService, so two code paths on the same click disagreed about what the user
+        // had pointed at.
 
-        private static int MapXToIndex(double x, double width, int startIndex, int length)
-            => ChartMath.MapXToIndex(x, width, startIndex, length);
+        /// <summary>Rendered pane dividers, or empty when nothing has been rendered yet.</summary>
+        private IReadOnlyList<(string BelowPaneName, float DividerFraction)> Dividers
+            => _paneLayout?.Dividers ?? Array.Empty<(string, float)>();
+
+        private float AxisHeightFraction => _paneLayout?.AxisHeightFraction ?? 0f;
+        private float AxisWidthFraction  => _paneLayout?.AxisWidthFraction ?? 0f;
+
+        /// <summary>
+        /// A cursor Y over the whole canvas → a price in the pane it actually falls in.
+        /// Returns NaN over the x-axis strip, where there is no price to report.
+        /// </summary>
+        private double MapYToPrice(double y, double height, double min, double max, bool isLog)
+            => ChartMath.MapYToPriceInPane(y, height, Dividers, AxisHeightFraction, min, max, isLog);
+
+        /// <summary>A cursor X over the whole canvas → a bar index, excluding the y-axis column.</summary>
+        private int MapXToIndex(double x, double width, int startIndex, int length)
+            => ChartMath.MapXToIndex(x, ChartMath.PlotWidth(width, AxisWidthFraction), startIndex, length);
 
         private void HandleDrawingStep(DateTime date, double price)
         {

@@ -584,6 +584,8 @@ namespace AccessibleTrader.Core.Services.Input
                     break;
                 // Delete key: remove focused indicator series (ChartCommandManager guards against "candles").
                 case SystemCommand.RemoveSelectedSeries: _eventBus.Publish(new DeleteSeriesEvent()); break;
+                case SystemCommand.UndoChartEdit: _eventBus.Publish(new UndoChartEditEvent()); break;
+                case SystemCommand.RedoChartEdit: _eventBus.Publish(new RedoChartEditEvent()); break;
 
                 // Escape: cancel whatever placement is in progress.
                 //
@@ -817,6 +819,11 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.AddReferenceLevel:
                 case SystemCommand.OpenProperties:        // Shift+F12 — the F-key exception
                 case SystemCommand.RemoveSelectedSeries:
+                // Undo/redo are chart-scoped for the same reason Delete is: they act on the
+                // chart's own edits, and Ctrl+Z must stay available to every text box in the
+                // application when the chart does not have focus.
+                case SystemCommand.UndoChartEdit:
+                case SystemCommand.RedoChartEdit:
                 case SystemCommand.DetailedPointSummary:
                 case SystemCommand.CancelDrawing:
                 case SystemCommand.ConfirmCoordinateEntry:
