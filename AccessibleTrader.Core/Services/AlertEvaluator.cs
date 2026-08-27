@@ -13,7 +13,16 @@ namespace AccessibleTrader.Core.Services
         private readonly ILevelService? _levels;
         // Tracks the trend direction seen on the previous bar per alert+series pair,
         // so EvaluateTrendChange detects actual direction flips rather than any non-flat trend.
-        private readonly Dictionary<string, TrendDirection> _previousTrends =
+        //
+        // CONCURRENT, like _treeState below and for the same reason — which _treeState's own
+        // comment spelled out while its two siblings stayed plain Dictionary. IAlertEvaluator
+        // is a singleton on desktop and BackgroundMonitoringService hands that SAME INSTANCE
+        // to every BackgroundWorkspaceMonitor, each running its own Task.Run loop. Three
+        // monitored tabs firing near-simultaneously write concurrently, and a plain Dictionary
+        // resize race ends in a corrupted bucket chain or an infinite loop that hangs the
+        // monitor thread permanently — which presents to the user as "my alerts stopped",
+        // with nothing said and nothing logged.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, TrendDirection> _previousTrends =
             new(StringComparer.OrdinalIgnoreCase);
 
         // Part D: strategy condition evaluator for advanced (tree) alerts.
@@ -26,7 +35,12 @@ namespace AccessibleTrader.Core.Services
         // Tree alerts whose degradation has already been reported once, so a leaf that
         // cannot be evaluated is announced on the bar it first goes quiet rather than on
         // every tick for the rest of the session.
-        private readonly HashSet<string> _reportedDegradations = new(StringComparer.OrdinalIgnoreCase);
+        // Concurrent for the same reason as _previousTrends and _lastSimpleFire. A HashSet
+        // has no thread-safe form, so this is a ConcurrentDictionary used as a set — Add
+        // becomes TryAdd, which keeps the "report once" semantics the call site relies on
+        // (it uses the return value to decide whether to speak).
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte>
+            _reportedDegradations = new(StringComparer.OrdinalIgnoreCase);
 
         // Edge-trigger memory per tree alert: was the tree true on the last
         // evaluation, and when did it last fire? Concurrent because the focused
@@ -63,7 +77,7 @@ namespace AccessibleTrader.Core.Services
         /// <summary>Lets the orchestrator re-arm the once-per-alert gates when an alert is
         /// edited, so a fixed alert can report a NEW problem instead of staying quiet
         /// because its old one was already announced.</summary>
-        public void ResetDegradationGate(string alertId) => _reportedDegradations.Remove(alertId);
+        public void ResetDegradationGate(string alertId) => _reportedDegradations.TryRemove(alertId, out _);
 
         public IEnumerable<AlertFired> EvaluateAlerts(
             IReadOnlyList<AlertDefinition> alerts,
@@ -119,7 +133,7 @@ namespace AccessibleTrader.Core.Services
             // the tree just stayed false forever while the user believed it was armed.
             // Reported once per alert; the gate re-arms when the alert is edited.
             string? degraded = _conditionEvaluator.LastDegradation;
-            if (degraded != null && !eval.OverallTrue && _reportedDegradations.Add(alert.Id))
+            if (degraded != null && !eval.OverallTrue && _reportedDegradations.TryAdd(alert.Id, 0))
                 EvaluationDegraded?.Invoke(alert, degraded);
 
             var prev = _treeState.TryGetValue(alert.Id, out var st)
@@ -169,7 +183,10 @@ namespace AccessibleTrader.Core.Services
                 var comp = series?.Components.FirstOrDefault(c =>
                     c.Name.Equals(alert.ComponentName, StringComparison.OrdinalIgnoreCase));
 
-                int idx = state.CurrentDataIndex;
+                // The LIVE BAR, not the navigation cursor — see AlertOrchestrator.EvaluateAlerts
+                // for the full account. An indicator alert must watch the market, not wherever
+                // the user's arrow keys have left the reading cursor.
+                int idx = (state.Data?.Count ?? 0) - 1;
                 if (series == null || comp == null || idx < 0 || idx >= series.GetComponentData(comp.Name).Length) return null;
                 currentValue = series.GetComponentData(comp.Name)[idx];
                 prevValue    = previousValues.TryGetValue(key, out var pv) ? pv : double.NaN;
@@ -252,13 +269,18 @@ namespace AccessibleTrader.Core.Services
         }
 
         // Last fire time per simple alert — powers RepeatIfStillActive/Cooldown.
-        private readonly Dictionary<string, DateTime> _lastSimpleFire = new();
+        // Concurrent — see _previousTrends. This one is written on EVERY simple fire, so it
+        // is the likeliest of the three to lose a race.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>
+            _lastSimpleFire = new();
 
         // Timestamp of the bar a simple alert last fired for. This is the crossing-edge state
         // the simple path was missing; see the dedupe gate in TryEvaluate. Keyed on the bar's
         // own Date rather than a wall clock so a poll interval that is short relative to the
         // timeframe cannot re-announce the same crossing.
-        private readonly Dictionary<string, DateTime> _lastFiredBar = new(StringComparer.OrdinalIgnoreCase);
+        // Concurrent — see _previousTrends. Written on every fire from any monitor thread.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>
+            _lastFiredBar = new(StringComparer.OrdinalIgnoreCase);
 
         private static bool IsLevelStillActive(AlertDefinition alert, double currentValue) =>
             alert.Condition switch
@@ -317,7 +339,6 @@ namespace AccessibleTrader.Core.Services
             var curCtx = _contextAnalyzer.Analyze(series, state);
             if (curCtx == null) return false;
 
-            // Simplified: if current is in zone and prev was not (or vice versa)
             bool inZone = alert.Zone switch
             {
                 AlertZone.Overbought => curCtx.Zone == ZoneStatus.Overbought,
@@ -327,8 +348,40 @@ namespace AccessibleTrader.Core.Services
                 _                    => false
             };
 
-            return entering ? inZone : !inZone;
+            // A TRANSITION, not a level test.
+            //
+            // The body used to be `return entering ? inZone : !inZone;` — neither of the two
+            // value parameters was referenced at all, and the comment above it ("if current is
+            // in zone and prev was not (or vice versa)") described semantics the code did not
+            // implement. So an EntersZone alert fired on EVERY bar the indicator sat in the
+            // zone: RSI parked above 70 meant one alert per bar, spoken, until it came back
+            // down. An ExitsZone alert fired on every bar it was NOT in the zone — i.e. almost
+            // always. This was masked only by the modal being unable to set IndicatorCode at
+            // all; any alert restored from an older alerts.json with one set would storm.
+            //
+            // Prior zone status is tracked per alert+series, exactly as EvaluateTrendChange
+            // tracks prior trend. The value parameters remain unused because the ZONE is what
+            // matters here, not the raw reading — but the state that makes it a transition is
+            // now real.
+            string key = $"{alert.Id}|{series.Id}";
+            bool hadPrior = _previousZones.TryGetValue(key, out bool wasInZone);
+            _previousZones[key] = inZone;
+
+            // First evaluation has no "before", so there is no transition yet. Firing here is
+            // what turns "RSI is overbought" into an alert the user never asked for, on the
+            // first bar after they open the chart.
+            if (!hadPrior) return false;
+
+            return entering ? (inZone && !wasInZone) : (!inZone && wasInZone);
         }
+
+        /// <summary>
+        /// Prior in-zone status per alert+series, so EnterZone/ExitsZone detect an actual
+        /// crossing of the zone boundary rather than the level the indicator happens to sit at.
+        /// Concurrent for the same reason as <c>_previousTrends</c>.
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _previousZones =
+            new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Resolve the nearest POC price from any registered volume-profile provider. Returns

@@ -91,11 +91,25 @@ namespace AccessibleTrader.WebHost.Services
             foreach (var userKey in userKeys)
             {
                 ct.ThrowIfCancellationRequested();
-                if (WebHostBrowserCircuitHandler.ActiveCircuitsForUser(userKey) > 0) continue;
+
+                // Suppression is per SYMBOL, not per user.
+                //
+                // This used to be `if (ActiveCircuitsForUser(userKey) > 0) continue;` —
+                // skipping the user entirely while any of their circuits was connected, on
+                // the grounds that the in-session pipeline owns delivery then. But the
+                // in-session pipeline only evaluates alerts whose Symbol matches the chart on
+                // screen, BackgroundWorkspaceMonitor covers other open TABS only and is
+                // opt-in and desktop-gated. So an alert on a symbol with no tab open was
+                // evaluated by NOBODY while the browser was connected: **closing your browser
+                // made more of your alerts work than leaving it open.**
+                //
+                // Now the in-session pipeline keeps the alerts it can genuinely see and the
+                // server takes the rest. An empty set (user offline) suppresses nothing.
+                var onScreen = WebHostBrowserCircuitHandler.OnScreenSymbolsForUser(userKey);
 
                 try
                 {
-                    await EvaluateUserAsync(userKey, data, barsCache, ct);
+                    await EvaluateUserAsync(userKey, data, barsCache, onScreen, ct);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
@@ -135,6 +149,7 @@ namespace AccessibleTrader.WebHost.Services
             string userKey,
             IDataService data,
             Dictionary<(string, string, string, string), List<Ohlcv>?> barsCache,
+            IReadOnlySet<string> onScreenSymbols,
             CancellationToken ct)
         {
             using var scope = _scopes.CreateScope();
@@ -164,6 +179,10 @@ namespace AccessibleTrader.WebHost.Services
             {
                 ct.ThrowIfCancellationRequested();
 
+                // The in-session pipeline is already watching this one; evaluating it here
+                // too would double-deliver every email, Telegram message and push.
+                if (onScreenSymbols.Contains(watch.Symbol)) continue;
+
                 // Market is part of the key: two users watching one symbol on
                 // different sub-types (Spot vs Futures) must not share a fetch.
                 var key = (watch.Provider, watch.Symbol, watch.Timeframe, watch.Market);
@@ -172,7 +191,23 @@ namespace AccessibleTrader.WebHost.Services
                     bars = await FetchBarsAsync(data, watch, ct);
                     barsCache[key] = bars; // nulls cached too — one failed fetch per poll, not per user
                 }
-                if (bars == null || bars.Count < 2) continue;
+
+                // A dead feed is reported, not just skipped.
+                //
+                // This used to be a bare `continue`: no consecutive-failure counter, no
+                // notification, nothing that ever said "we can no longer watch BTC/USD". The
+                // provider's API key expires at 02:00 and the user's stop-loss alert is
+                // watching nothing until they happen to notice. Being told your alerts have
+                // stopped is strictly more useful than being told nothing, even though the
+                // news is bad.
+                if (bars == null)
+                {
+                    await ReportFeedFailureAsync(userKey, watch, ct);
+                    continue;
+                }
+                NoteFeedRecovered(userKey, watch.Symbol);
+
+                if (bars.Count < 2) continue;
 
                 var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
                 var fired = evaluator.EvaluateAlerts(
@@ -193,6 +228,52 @@ namespace AccessibleTrader.WebHost.Services
                     }
                 }
             }
+        }
+
+        // ── Dead-feed detection ──────────────────────────────────────────────
+        //
+        // Keyed on (user, symbol) rather than symbol alone: two users can watch the same
+        // symbol through different credentials, so one user's key expiring is not the other's
+        // feed going down, and telling them both would be a false alarm for one of them.
+
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<(string User, string Symbol), int>
+            _consecutiveFeedFailures = new();
+
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<(string User, string Symbol), byte>
+            _reportedDeadFeeds = new();
+
+        /// <summary>Consecutive failed polls before the user is told. Above one, because a
+        /// single transient failure is normal and reporting it would be noise.</summary>
+        private const int FeedFailuresBeforeReporting = 3;
+
+        private async Task ReportFeedFailureAsync(
+            string userKey, LocalBackgroundMonitor.Watch watch, CancellationToken ct)
+        {
+            var key = (userKey, watch.Symbol);
+            int n = _consecutiveFeedFailures.AddOrUpdate(key, 1, (_, prev) => prev + 1);
+
+            if (n < FeedFailuresBeforeReporting) return;
+            if (!_reportedDeadFeeds.TryAdd(key, 0)) return;
+
+            string text = $"Alert monitoring stopped for {watch.Symbol}: {watch.Provider} has "
+                        + $"failed {n} times in a row. Alerts on this symbol are not being watched.";
+            _logger.LogWarning("Hosted alert feed dead for {User}/{Symbol}: {Text}",
+                userKey, watch.Symbol, text);
+
+            if (_push == null) return;
+            try { await _push.SendToUserAsync(userKey, "Alert monitoring stopped", text, ct); }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not push the dead-feed notice to {User}.", userKey);
+            }
+        }
+
+        private void NoteFeedRecovered(string userKey, string symbol)
+        {
+            var key = (userKey, symbol);
+            _consecutiveFeedFailures.TryRemove(key, out _);
+            _reportedDeadFeeds.TryRemove(key, out _);
         }
 
         private async Task<List<Ohlcv>?> FetchBarsAsync(

@@ -144,8 +144,10 @@ namespace AccessibleTrader.WebHost.Services
                 {
                     _logger.LogDebug(ex, "Background fetch failed for {Symbol} on {Provider}.",
                         watch.Symbol, watch.Provider);
+                    NoteFeedFailure(watch.Symbol, watch.Provider);
                     continue;
                 }
+                NoteFeedRecovered(watch.Symbol);
                 if (bars.Count < 2) continue;
 
                 var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
@@ -155,6 +157,73 @@ namespace AccessibleTrader.WebHost.Services
 
                 foreach (var f in fired) Deliver(f);
             }
+        }
+
+        // ── Dead-feed detection ──────────────────────────────────────────────
+        //
+        // A fetch failure used to be a LogDebug and a `continue`. There was no
+        // consecutive-failure counter, no FeedbackRequestEvent, nothing that ever said
+        // "we can no longer watch BTC/USD". The provider's API key expires at 02:00 and the
+        // user's stop-loss alert is watching nothing until they happen to notice.
+        //
+        // On THIS class that is worse than a design limit: it exists precisely because it can
+        // speak through Orca, spd-say and notify-send, and it did not use any of them to
+        // report its own failure. So the report goes out on the same channel the alerts do.
+
+        /// <summary>Consecutive failed polls per symbol.</summary>
+        private readonly Dictionary<string, int> _consecutiveFeedFailures = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Symbols already reported as dead, so the warning is said once and not
+        /// once a minute for the rest of the session — which trains a user to ignore it.</summary>
+        private readonly HashSet<string> _reportedDeadFeeds = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// How many polls in a row must fail before the user is told. Above one, because a
+        /// single transient failure is normal and announcing it would be noise; low enough
+        /// that a genuinely dead feed is reported within a few minutes rather than never.
+        /// </summary>
+        private const int FeedFailuresBeforeSpeaking = 3;
+
+        private void NoteFeedFailure(string symbol, string provider)
+        {
+            _consecutiveFeedFailures.TryGetValue(symbol, out int n);
+            n++;
+            _consecutiveFeedFailures[symbol] = n;
+
+            if (n < FeedFailuresBeforeSpeaking) return;
+            if (!_reportedDeadFeeds.Add(symbol)) return;
+
+            string text = $"Alert monitoring stopped for {symbol}: {provider} has failed "
+                        + $"{n} times in a row. Alerts on this symbol are not being watched.";
+            _logger.LogWarning("{Text}", text);
+            Announce(text);
+        }
+
+        private void NoteFeedRecovered(string symbol)
+        {
+            _consecutiveFeedFailures.Remove(symbol);
+            if (!_reportedDeadFeeds.Remove(symbol)) return;
+
+            // Recovery is worth saying too: a user who heard the failure has no other way to
+            // learn that their alerts are live again, and would keep watching manually.
+            string text = $"Alert monitoring resumed for {symbol}.";
+            _logger.LogInformation("{Text}", text);
+            Announce(text);
+        }
+
+        /// <summary>
+        /// Speaks and notifies, without the earcon or the recent-alerts entry — this is the
+        /// monitor reporting on itself, not an alert firing, and filing it as an alert would
+        /// put a fake row in the tray's list.
+        /// </summary>
+        private void Announce(string text)
+        {
+            if (_notifySend != null)
+                Run(_notifySend, "--app-name=Accessible Trade Terminal",
+                    "--urgency=critical", "Alert monitoring", text);
+
+            if (_gdbus != null && TrySpeakViaOrca(text)) return;
+            if (_spdSay != null) Run(_spdSay, text);
         }
 
         // Warn once per distinct set, not once per poll: the monitor polls every

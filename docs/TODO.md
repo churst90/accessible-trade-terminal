@@ -2589,7 +2589,7 @@ Two of these are "the feature does not work", not "the feature has a bug".
   `RepeatIfStillActiveStillReAnnouncesWithinTheSameBar`. Found on the way: the existing
   `CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold` stamped all four of its "successive" bars
   at the same instant — the `Bar()` helper now takes a bar index, and that fixture is honest.
-- [ ] **`LocalBackgroundMonitorTests.cs:156`
+- [x] **`LocalBackgroundMonitorTests.cs:156`
   `Persistent_evaluator_fires_a_cross_once_not_every_poll` is vacuous — it advances the bar pair on
   every "poll", which the monitor never does.** `:168-171` call `EvaluateAlerts(Bar(101), Bar(99))`,
   then `(Bar(105), Bar(101))`, then `(Bar(95), Bar(105))` — the previous *current* bar becomes the next
@@ -2599,7 +2599,15 @@ Two of these are "the feature does not work", not "the feature has a bug".
   `AlertEvaluatorTests.cs:88 CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold`. Fix: call
   `EvaluateAlerts` twice with the *same* two bars and assert the second returns empty — it currently
   returns a fire, so the guard is provable-red today. CONFIRMED. HIGH.
-- [ ] **A dead or failing data feed silently stops every background alert —
+  **CLOSED 2026-08-27 — and the finding's premise was HALF STALE.** The audit said the
+  production guard was "provable-red today"; it is not. `_lastFiredBar` already keys the
+  dedupe on the bar's own `Date`, so the same-pair case was fixed at some earlier point and the
+  recount caught it. **The TEST was still vacuous**, exactly as filed: it advanced the bar pair
+  on every "poll", so the previous *current* bar became the next *previous* bar and
+  `prev < threshold` went false all by itself — it was measuring the harness. It now calls the
+  way the monitor actually calls: the same two bar objects, ten times in a row, plus a vacuity
+  check asserting the pair really is identical in everything the evaluator keys on.
+- [x] **A dead or failing data feed silently stops every background alert —
   `LocalBackgroundMonitor.cs:153-158` and `HostedAlertMonitor.cs:210-215` swallow the fetch exception
   at `LogDebug` and `continue`.** `HostedAlertMonitor.FetchBarsAsync` additionally caches the `null`
   result (`:174`) so one failure suppresses that symbol for every user in the poll. There is no
@@ -2608,7 +2616,18 @@ Two of these are "the feature does not work", not "the feature has a bug".
   it *can* speak through Orca/`spd-say`/`notify-send` (`:264-271`) — it has the delivery mechanism and
   does not use it for its own failure. The provider's API key expires at 02:00; the user's stop-loss
   alert is watching nothing until they notice, and nothing ever tells them. CONFIRMED. HIGH.
-- [ ] **Indicator alerts read the series at the *navigation cursor*, not the live bar —
+  **CLOSED 2026-08-27.** Both monitors count consecutive failures per symbol and report
+  after three in a row, once — not once a minute, which trains a user to ignore it. The local
+  monitor reports through **the channel it already owned and was not using for its own
+  failure**: `notify-send` at critical urgency, then Orca, then `spd-say`. It also announces
+  RECOVERY, because a user who heard the failure has no other way to learn their alerts are
+  live again and would otherwise keep watching manually. The hosted monitor pushes to the
+  affected user, keyed on `(user, symbol)` — two users can watch one symbol through different
+  credentials, so one user's key expiring is not the other's feed going down.
+  **One thing the audit got wrong:** `HostedAlertMonitor`'s cached `null` is scoped to a single
+  poll, not the process, so "one failure suppresses that symbol for every user" is the intended
+  one-fetch-per-poll dedup rather than a defect.
+- [x] **Indicator alerts read the series at the *navigation cursor*, not the live bar —
   `AlertEvaluator.cs:147-151` and `AlertOrchestrator.cs:100,114,152`.** `state.CurrentDataIndex` is the
   user's keyboard cursor: `PointNavigationStrategy.cs:17` moves it on every arrow key, and
   `ViewportReducer.cs:82-84` explicitly refuses to move it on live data ("Preserve user focus — do NOT
@@ -2620,7 +2639,15 @@ Two of these are "the feature does not work", not "the feature has a bug".
   market**. Fix: evaluate indicator alerts at `Data.Count - 1`
   (`BackgroundWorkspaceMonitor.cs:203` already does this in its private state, which is why it is
   unaffected). CONFIRMED. HIGH.
-- [ ] **`AlertEvaluator`'s per-alert state dictionaries are unsynchronised while the instance is shared
+  **CLOSED 2026-08-27.** Both sites read `Data.Count - 1`. The second half of this finding
+  is the one worth remembering: `_previousValues` was snapshotted at the OLD cursor and
+  compared against the value at the NEW one, so **moving the cursor across a threshold between
+  two ticks synthesised a crossover that never happened in the market** — an alert fired, and
+  spoke, about a price movement that did not occur. `AlertEvaluatorCursorAndZoneTests` uses an
+  RSI whose value at index i is i, so reading the wrong index is unmistakable, and carries the
+  vacuity check that the cursor really is parked away from the live bar (with it at the live
+  bar the buggy and correct readings are identical).
+- [x] **`AlertEvaluator`'s per-alert state dictionaries are unsynchronised while the instance is shared
   across background-monitor threads — `AlertEvaluator.cs:19` (`_previousTrends`) and `:208`
   (`_lastSimpleFire`).** `_treeState` at `:31-32` is a `ConcurrentDictionary` with a comment explaining
   exactly this hazard; its two siblings are plain `Dictionary`. `IAlertEvaluator` is a singleton on
@@ -2630,7 +2657,13 @@ Two of these are "the feature does not work", not "the feature has a bug".
   every simple fire, so three monitored tabs firing near-simultaneously can write concurrently — the
   classic `Dictionary` resize race, whose outcomes are a corrupted bucket chain or an infinite loop
   that hangs the monitor thread permanently (presenting as "my alerts stopped"). CONFIRMED. HIGH.
-- [ ] **`AlertsModal.razor:81-96` offers Target=Indicator and Condition=Enters/ExitsZone with no way to
+  **CLOSED 2026-08-27.** All four are `ConcurrentDictionary` now — `_previousTrends`,
+  `_lastSimpleFire`, `_lastFiredBar`, and `_reportedDegradations` (a `HashSet` has no
+  thread-safe form, so it became a `ConcurrentDictionary<string, byte>` used as a set, with
+  `Add` → `TryAdd`, which preserves the "report once" semantics the call site's return value
+  relies on). `_lastFiredBar` was NOT in the filed list and is written on every fire.
+  `_treeState`'s own comment had explained the hazard while its siblings stayed plain.
+- [x] **`AlertsModal.razor:81-96` offers Target=Indicator and Condition=Enters/ExitsZone with no way to
   name the indicator, component or zone — every such alert is permanently silent, and `:246` tells the
   user the opposite.** `AddAlert` (`:221-237`) never sets `IndicatorCode`, `ComponentName` or `Zone`.
   In `AlertEvaluator.TryEvaluate` the Indicator arm at `:139` requires `IndicatorCode != null &&
@@ -2640,7 +2673,17 @@ Two of these are "the feature does not work", not "the feature has a bug".
   cannot watch it", which is actively false: it works nowhere, ever. **A blind user is told their alert
   is live.** Fix: add the pickers, or remove those options and make `WhyUnwatchable` (or a new
   `WhyUnfireable`) cover "cannot fire at all". CONFIRMED. HIGH.
-- [ ] **`EvaluateZone` ignores both of its value parameters, so zone alerts are level tests, not
+  **CLOSED 2026-08-27 — by adding the pickers, not by removing the options.** The modal
+  now offers an indicator picker (from the chart's active series), a component picker, and a
+  zone picker, shown only for the targets and conditions that need them; `AddAlert` sets
+  `IndicatorCode`, `ComponentName` and `Zone`. **And the backstop the finding asked for
+  exists**: `BackgroundWatchability.WhyUnfireable` sits beside `WhyUnwatchable` and answers the
+  wider question — "can this fire at all, anywhere, ever" — and an alert that cannot is
+  REFUSED rather than added and called live. Answering only the narrower question is what let
+  the modal tell a user their alert worked while this chart was open when it worked nowhere.
+  That backstop also covers alerts restored from an `alerts.json` written before the pickers
+  existed.
+- [x] **`EvaluateZone` ignores both of its value parameters, so zone alerts are level tests, not
   transitions — `AlertEvaluator.cs:257-278`.** The signature takes `double current, double prev` and
   the body references neither; the return at `:277` is `entering ? inZone : !inZone`. An EntersZone
   alert fires on *every* bar the indicator sits in the zone (RSI parked above 70 = one alert per bar),
@@ -2649,7 +2692,13 @@ Two of these are "the feature does not work", not "the feature has a bug".
   semantics the code does not implement. Masked today by the previous finding, but any alert restored
   from an older `alerts.json` with an `IndicatorCode` set will storm. Fix: track prior zone status per
   alert+series, as `EvaluateTrendChange` does at `:251-254`. CONFIRMED. HIGH.
-- [ ] **An alert scoped to a symbol with no open tab is evaluated by nobody while the browser is
+  **CLOSED 2026-08-27.** Prior in-zone status is tracked per alert+series in a new
+  `_previousZones`, exactly as `EvaluateTrendChange` tracks prior trend, and the first
+  evaluation returns false — there is no "before" yet, and firing there turns "RSI is
+  overbought" into an alert the user never asked for on the first bar after opening the chart.
+  The value parameters stay unused on purpose: the ZONE is what matters, not the raw reading;
+  what was missing was the state that makes it a transition.
+- [x] **An alert scoped to a symbol with no open tab is evaluated by nobody while the browser is
   connected — `HostedAlertMonitor.cs:95` vs `AlertOrchestrator.cs:128-131`.** The hosted monitor skips
   any user with a live circuit (`ActiveCircuitsForUser(userKey) > 0`), handing ownership to the
   in-session pipeline; the in-session pipeline only evaluates alerts whose `Symbol` matches
@@ -2658,6 +2707,14 @@ Two of these are "the feature does not work", not "the feature has a bug".
   Service_NeverMonitors_OnServerHostedBuilds`). Net effect on the hosted terminal: **closing your
   browser makes more of your alerts work than leaving it open.** Fix: narrow the hosted suppression to
   the symbols the user's circuits actually have on screen. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** Suppression is per SYMBOL now, not per user.
+  `WebHostBrowserCircuitHandler` tracks which symbol each of a user's circuits has on screen —
+  subscribing to that circuit's `IWorkspaceStore.StateStream`, so it follows tab and symbol
+  changes — and exposes `OnScreenSymbolsForUser`. The hosted monitor evaluates every alert
+  except those whose symbol a live circuit is genuinely showing, so the in-session pipeline
+  keeps what it can actually see and the server takes the rest. If the tracking fails to start
+  the set is empty, which suppresses nothing: a possible duplicate delivery is far better than
+  the silence this replaces.
 - [x] **Tree alerts discard `ConditionEvaluator.LastDegradation`, so a leaf that cannot be evaluated is
   indistinguishable from a market that did not trigger — `AlertEvaluator.cs:98` vs
   `ConditionEvaluator.cs:41`.** `LastDegradation` is set when an HTF leaf has no pre-warmed data

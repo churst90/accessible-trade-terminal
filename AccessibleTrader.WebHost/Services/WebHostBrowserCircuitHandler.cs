@@ -45,6 +45,60 @@ namespace AccessibleTrader.WebHost.Services
         internal static int ActiveCircuitsForUser(string userKey) =>
             _circuitsByUser.TryGetValue(userKey, out var n) ? n : 0;
 
+        // ── Which symbols a user actually has on screen ──────────────────────
+        //
+        // The hosted monitor used to skip a user ENTIRELY while any of their circuits was
+        // connected, handing ownership to the in-session pipeline. But the in-session
+        // pipeline only evaluates alerts whose Symbol matches the chart on screen, and
+        // BackgroundWorkspaceMonitor covers other open TABS only, is opt-in, and is gated
+        // to desktop. Net effect on the hosted terminal: an alert on a symbol with no tab
+        // open was evaluated by NOBODY while the browser was connected — so **closing your
+        // browser made more of your alerts work than leaving it open.**
+        //
+        // Suppression is now per SYMBOL rather than per user: the in-session pipeline keeps
+        // the alerts it can genuinely see, and the server takes the rest.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<
+            string, System.Collections.Concurrent.ConcurrentDictionary<string, string>> _symbolsByUser
+            = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Symbols this user's live circuits currently have on screen, upper-cased for the
+        /// case-insensitive comparison the alert pipeline uses. Empty when they are offline —
+        /// which correctly means "suppress nothing".
+        /// </summary>
+        internal static IReadOnlySet<string> OnScreenSymbolsForUser(string userKey)
+        {
+            if (!_symbolsByUser.TryGetValue(userKey, out var perCircuit))
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            return perCircuit.Values
+                .Where(v => !string.IsNullOrEmpty(v))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Test seam: forget every recorded on-screen symbol.</summary>
+        internal static void ResetOnScreenSymbolsForTests() => _symbolsByUser.Clear();
+
+        /// <summary>Test seam: record a symbol as on screen for a user's circuit.</summary>
+        internal static void RecordOnScreenSymbol(string userKey, string circuitId, string? symbol)
+        {
+            var perCircuit = _symbolsByUser.GetOrAdd(userKey,
+                _ => new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.Ordinal));
+            perCircuit[circuitId] = symbol ?? "";
+        }
+
+        private static void ForgetCircuitSymbol(string userKey, string circuitId)
+        {
+            if (!_symbolsByUser.TryGetValue(userKey, out var perCircuit)) return;
+            perCircuit.TryRemove(circuitId, out _);
+            if (perCircuit.IsEmpty) _symbolsByUser.TryRemove(userKey, out _);
+        }
+
+        /// <summary>Live subscription to this circuit's workspace state, tracking the symbol
+        /// on screen. Disposed with the circuit.</summary>
+        private IDisposable? _symbolWatch;
+        private string? _circuitId;
+
         /// <summary>Live browser sessions on this process. The local background
         /// monitor pauses while any session is connected (the in-session alert
         /// pipeline owns delivery then — same Orca, would double-speak).</summary>
@@ -122,15 +176,42 @@ namespace AccessibleTrader.WebHost.Services
             // resting order stops being evaluated as soon as another tab takes focus.
             try { _scope.GetService<PaperAccountAttachment>(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Paper account attach skipped."); }
+
+            // Track which symbol THIS circuit is showing, so the hosted alert monitor can
+            // suppress per symbol instead of per user. See OnScreenSymbolsForUser.
+            try
+            {
+                if (_userKey != null && _scope.GetService<IWorkspaceStore>() is { } store)
+                {
+                    _circuitId = circuit.Id;
+                    var key = _userKey;
+                    var id = _circuitId;
+                    RecordOnScreenSymbol(key, id, store.State.SymbolDisplayName);
+                    _symbolWatch = store.StateStream.Subscribe(
+                        st => RecordOnScreenSymbol(key, id, st.SymbolDisplayName));
+                }
+            }
+            catch (Exception ex)
+            {
+                // Failing to track means the server evaluates an alert the in-session pipeline
+                // may also see — a possible duplicate, which is far better than the silence
+                // this replaces.
+                _logger.LogDebug(ex, "On-screen symbol tracking could not start for this circuit.");
+            }
         }
         public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
         {
             int now = System.Threading.Interlocked.Decrement(ref _activeCircuits);
             _logger.LogInformation("Browser circuit closed ({Active} active).", now);
 
+            _symbolWatch?.Dispose();
+            _symbolWatch = null;
+
             if (_userKey != null)
             {
                 var key = _userKey;
+                if (_circuitId != null) ForgetCircuitSymbol(key, _circuitId);
+                _circuitId = null;
                 _userKey = null;
                 while (_circuitsByUser.TryGetValue(key, out var n))
                 {

@@ -128,7 +128,25 @@ namespace AccessibleTrader.Core.Services
 
             var lastBar = dataList[^1];
             var prevBar = dataList[^2];
-            int idx = state.CurrentDataIndex;
+
+            // The LIVE BAR, not the navigation cursor.
+            //
+            // This read `state.CurrentDataIndex`, which is the user's keyboard cursor:
+            // PointNavigationStrategy moves it on every arrow key, and ViewportReducer
+            // explicitly refuses to move it on live data ("Preserve user focus — do NOT move
+            // the cursor based on live data arrivals"). So while price alerts used data[^1],
+            // an Indicator-target alert evaluated whatever bar the user happened to be parked
+            // on. Arrow-key back 200 bars to inspect history and "RSI crosses 70" watched bar
+            // N-200 forever.
+            //
+            // Worse: _previousValues was snapshotted at the OLD cursor and compared against
+            // the value at the NEW one, so moving the cursor across a threshold between two
+            // ticks SYNTHESISED A CROSSOVER THAT NEVER HAPPENED IN THE MARKET — an alert
+            // fired, and spoke, about a price movement that did not occur.
+            //
+            // BackgroundWorkspaceMonitor already evaluated at Data.Count - 1 in its own
+            // private state, which is why it was unaffected and why this is the right index.
+            int idx = dataList.Count - 1;
 
             if (!_initialized)
             {

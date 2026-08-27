@@ -30,5 +30,49 @@ namespace AccessibleTrader.Core.Services.Alerts
                 return "it has no explicit symbol and provider to fetch by";
             return null;
         }
+
+        /// <summary>
+        /// Why this alert cannot fire <b>at all</b>, anywhere, ever; null = it can.
+        ///
+        /// <para><see cref="WhyUnwatchable"/> answers a narrower question — "can the
+        /// background monitors watch it with no chart open" — and answering only that
+        /// question is what let the alerts modal tell a user
+        /// <i>"It works while this chart is open, but background and server-side monitoring
+        /// cannot watch it"</i> about an alert that <b>worked nowhere</b>. The modal offered
+        /// Target=Indicator and Condition=EntersZone/ExitsZone with no way to name the
+        /// indicator, the component or the zone, and <c>AddAlert</c> never set
+        /// <c>IndicatorCode</c>, <c>ComponentName</c> or <c>Zone</c>. In
+        /// <c>AlertEvaluator.TryEvaluate</c> the Indicator arm requires both
+        /// <c>IndicatorCode</c> and <c>ComponentName</c>, so such an alert fell through every
+        /// arm to <c>return null</c>, and <c>EvaluateZone</c> returned false immediately for a
+        /// null <c>IndicatorCode</c>. <b>A blind user was told their alert was live.</b></para>
+        ///
+        /// <para>The pickers now exist, so this is a backstop rather than the primary fix —
+        /// but it is the backstop that makes "the alert is armed" a claim the app can
+        /// actually stand behind, including for alerts restored from an older
+        /// <c>alerts.json</c> written before the pickers did.</para>
+        /// </summary>
+        public static string? WhyUnfireable(AlertDefinition a)
+        {
+            // A tree alert carries its own conditions and does not use these fields.
+            if (a.ConditionTree != null) return null;
+
+            if (a.Target == AlertTarget.Indicator
+                && (string.IsNullOrWhiteSpace(a.IndicatorCode) || string.IsNullOrWhiteSpace(a.ComponentName)))
+                return "it targets an indicator but names no indicator and component";
+
+            if (a.Condition is AlertCondition.EntersZone or AlertCondition.ExitsZone)
+            {
+                if (string.IsNullOrWhiteSpace(a.IndicatorCode))
+                    return "a zone condition needs an indicator to read the zone from";
+                if (a.Zone == null)
+                    return "a zone condition needs a zone to watch";
+            }
+
+            if (a.Condition == AlertCondition.TrendChange && string.IsNullOrWhiteSpace(a.IndicatorCode))
+                return "a trend-change condition needs an indicator to read the trend from";
+
+            return null;
+        }
     }
 }

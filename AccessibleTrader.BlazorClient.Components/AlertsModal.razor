@@ -94,13 +94,58 @@
                         <option value="@AlertCondition.ChangesDirection">Changes Direction</option>
                     </select>
                 </div>
-                <div class="modal-row">
-                    <label for="alert-threshold">Price Level:</label>
-                    <input id="alert-threshold"
-                           type="number"
-                           step="any"
-                           @bind="_newAlertThreshold" />
-                </div>
+                @* The indicator and component pickers. Without these, Target=Indicator built
+                   an alert with no IndicatorCode and no ComponentName, which AlertEvaluator's
+                   Indicator arm requires — so the alert fell through every arm and could
+                   never fire, while the modal announced that it worked. *@
+                @if (_newAlertTarget == AlertTarget.Indicator || IsZoneCondition || IsTrendCondition)
+                {
+                    <div class="modal-row">
+                        <label for="alert-indicator">Indicator:</label>
+                        <select id="alert-indicator" @bind="_newAlertIndicatorCode">
+                            <option value="">(choose an indicator)</option>
+                            @foreach (var s in IndicatorSeries)
+                            {
+                                <option value="@s.IndicatorCode">@s.FriendlyName</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (_newAlertTarget == AlertTarget.Indicator)
+                {
+                    <div class="modal-row">
+                        <label for="alert-component">Component:</label>
+                        <select id="alert-component" @bind="_newAlertComponentName">
+                            <option value="">(choose a component)</option>
+                            @foreach (var c in ComponentsOfChosenIndicator)
+                            {
+                                <option value="@c.Name">@(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (IsZoneCondition)
+                {
+                    <div class="modal-row">
+                        <label for="alert-zone">Zone:</label>
+                        <select id="alert-zone" @bind="_newAlertZone">
+                            <option value="@AlertZone.Overbought">Overbought</option>
+                            <option value="@AlertZone.Oversold">Oversold</option>
+                            <option value="@AlertZone.UpperBand">Upper band</option>
+                            <option value="@AlertZone.LowerBand">Lower band</option>
+                        </select>
+                    </div>
+                }
+                @if (!IsZoneCondition && _newAlertCondition != AlertCondition.ChangesDirection)
+                {
+                    <div class="modal-row">
+                        <label for="alert-threshold">@(_newAlertTarget == AlertTarget.Indicator ? "Value:" : "Price Level:")</label>
+                        <input id="alert-threshold"
+                               type="number"
+                               step="any"
+                               @bind="_newAlertThreshold" />
+                    </div>
+                }
                 }
                 <div class="modal-row">
                     <label for="alert-delivery">Delivery:</label>
@@ -150,6 +195,31 @@
     private AlertTarget _newAlertTarget = AlertTarget.Price;
     private AlertCondition _newAlertCondition = AlertCondition.CrossesAbove;
     private double _newAlertThreshold;
+
+    // Indicator / component / zone selection. These three fields did not exist, which is
+    // why every Target=Indicator and every zone alert was permanently silent.
+    private string _newAlertIndicatorCode = "";
+    private string _newAlertComponentName = "";
+    private AlertZone _newAlertZone = AlertZone.Overbought;
+
+    private bool IsZoneCondition =>
+        _newAlertCondition is AlertCondition.EntersZone or AlertCondition.ExitsZone;
+
+    private bool IsTrendCondition => _newAlertCondition == AlertCondition.TrendChange;
+
+    /// <summary>Indicator series currently on the chart — the only ones an alert can read.</summary>
+    private IEnumerable<ChartSeries> IndicatorSeries =>
+        Store.State.ActiveSeries
+            .Where(s => !s.IsDrawing
+                     && !string.IsNullOrEmpty(s.IndicatorCode)
+                     && s.Components.Count > 0)
+            .GroupBy(s => s.IndicatorCode, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First());
+
+    private IEnumerable<ComponentConfig> ComponentsOfChosenIndicator =>
+        IndicatorSeries
+            .FirstOrDefault(s => s.IndicatorCode.Equals(_newAlertIndicatorCode, StringComparison.OrdinalIgnoreCase))
+            ?.Components ?? Enumerable.Empty<ComponentConfig>();
     private AlertDelivery _newAlertDelivery = AlertDelivery.Both;
     private bool _newAlertBreakThrough;
 
@@ -234,7 +304,26 @@
             WebhookTarget = string.IsNullOrWhiteSpace(_newAlertWebhookTarget) ? null : _newAlertWebhookTarget,
             ConditionTree = tree,
             BreakThroughMutes = _newAlertBreakThrough,
+            // These three were never set. AlertEvaluator's Indicator arm requires both
+            // IndicatorCode and ComponentName, and EvaluateZone returns false immediately for
+            // a null IndicatorCode — so every Target=Indicator and every zone alert built here
+            // was permanently silent while the modal said it worked.
+            IndicatorCode = string.IsNullOrWhiteSpace(_newAlertIndicatorCode) ? null : _newAlertIndicatorCode,
+            ComponentName = string.IsNullOrWhiteSpace(_newAlertComponentName) ? null : _newAlertComponentName,
+            Zone = IsZoneCondition ? _newAlertZone : null,
         };
+
+        // REFUSE an alert that cannot fire, rather than adding it and calling it live.
+        // "Your alert is watching the market" is the single claim this app must never make
+        // falsely, because a user who believes it stops watching themselves.
+        var unfireable = AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnfireable(def);
+        if (unfireable != null)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"Alert not added: {unfireable}.", true));
+            return;
+        }
+
         AlertOrchestrator.AddAlert(def);
 
         // If the background monitors cannot evaluate this alert, SAY so now —

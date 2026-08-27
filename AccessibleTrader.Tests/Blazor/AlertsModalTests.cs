@@ -53,7 +53,17 @@ public class AlertsModalTests
         // ISettingsManager (webhook-target dropdown). Provide substitutes with a
         // non-null state so Store.State.SymbolDisplayName doesn't NRE.
         var store = Substitute.For<IWorkspaceStore>();
-        store.State.Returns(WorkspaceState.Initial with { SymbolDisplayName = "BTC/USD" });
+        // An indicator series on the chart, so the indicator/component pickers have something
+        // to offer. Without one, "choose an indicator" is the only option and every
+        // Target=Indicator alert is correctly refused — which is a different test.
+        var rsiConfig = new SeriesConfig { Id = "rsi-1", Name = "RSI", IndicatorCode = "RSI" };
+        rsiConfig.Components.Add(new ComponentConfig { Name = "Rsi", DisplayName = "RSI" });
+        var rsi = new ChartSeries(rsiConfig, new SeriesDataBuffer { SeriesId = "rsi-1" });
+        store.State.Returns(WorkspaceState.Initial with
+        {
+            SymbolDisplayName = "BTC/USD",
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(rsi),
+        });
         ctx.Services.AddSingleton(store);
         ctx.Services.AddSingleton(Substitute.For<ISettingsManager>());
         // Part D: the Advanced toggle renders ConditionTreeEditor, which injects
@@ -238,6 +248,11 @@ public class AlertsModalTests
         // "Nothing warns the user" was the finding: an indicator alert saved
         // fine and then silently never evaluated in the background. The moment
         // of creation is where the limitation must be spoken.
+        //
+        // The indicator and component are CHOSEN here. They used to be unchoosable — the
+        // modal offered Target=Indicator with no picker and AddAlert never set IndicatorCode
+        // or ComponentName — so this alert could not fire anywhere, ever, while being
+        // announced as merely un-watchable in the background.
         var (ctx, orch, bus) = BuildContext();
         var spoken = new List<string>();
         bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
@@ -245,14 +260,69 @@ public class AlertsModalTests
         var cut = OpenModal(ctx, bus);
         cut.Find("input#alert-name").Change("RSI watch");
         cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.Find("select#alert-indicator").Change("RSI");
+        cut.Find("select#alert-component").Change("Rsi");
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(orch.Added);
+            var added = Assert.Single(orch.Added);
+            // The fields that make it fireable at all.
+            Assert.Equal("RSI", added.IndicatorCode);
+            Assert.Equal("Rsi", added.ComponentName);
             Assert.Contains(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
+    [Fact]
+    public void AnIndicatorAlertWithNoIndicatorChosen_IsRefused_NotAddedAndCalledLive()
+    {
+        // The finding, stated as a test. The modal used to add this and then say
+        // "It works while this chart is open, but background and server-side monitoring
+        // cannot watch it" — which was actively false: it worked NOWHERE. A blind user was
+        // told their alert was live.
+        var (ctx, orch, bus) = BuildContext();
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("input#alert-name").Change("RSI watch");
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        // Deliberately leave the indicator picker on "(choose an indicator)".
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Empty(orch.Added);
+            Assert.Contains(spoken, m => m.Contains("not added", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
+    [Fact]
+    public void AZoneAlertCarriesTheZoneItWasGiven()
+    {
+        // EvaluateZone returns false immediately for a null IndicatorCode, and the Zone was
+        // never set either — so every Enters/ExitsZone alert built here was permanently silent.
+        var (ctx, orch, bus) = BuildContext();
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("input#alert-name").Change("RSI overbought");
+        cut.Find("select#alert-condition").Change(AlertCondition.EntersZone.ToString());
+        cut.Find("select#alert-indicator").Change("RSI");
+        cut.Find("select#alert-zone").Change(AlertZone.Overbought.ToString());
+        cut.WaitForAssertion(() =>
+            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+        cut.Find("button[aria-label='Add alert']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var added = Assert.Single(orch.Added);
+            Assert.Equal("RSI", added.IndicatorCode);
+            Assert.Equal(AlertZone.Overbought, added.Zone);
         });
     }
 

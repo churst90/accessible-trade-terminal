@@ -148,23 +148,69 @@ public class LocalBackgroundMonitorTests
 
     // ── The evaluation contract the monitor relies on ────────────────────────
 
+    /// <summary>
+    /// A crossing fires once for the bar it happened on, even though the monitor re-polls
+    /// that same bar for the whole timeframe.
+    ///
+    /// <para><b>This test used to measure the harness, not the evaluator.</b> It advanced the
+    /// bar pair on every "poll" — <c>(101, 99)</c>, then <c>(105, 101)</c>, then
+    /// <c>(95, 105)</c> — so the previous <i>current</i> bar became the next <i>previous</i>
+    /// bar each time and <c>prev &lt; threshold</c> went false all by itself. The production
+    /// monitor does no such thing: it fetches the last three bars every 60 seconds and
+    /// evaluates <c>bars[^1]</c> against <c>bars[^2]</c>, so on a 1h chart it passes the
+    /// <b>identical pair</b> up to 59 times. The test's own comment ("The monitor keeps ONE
+    /// evaluator across polls precisely for this") named an invariant it never exercised.</para>
+    ///
+    /// <para>The 2026-08-27 recount found the production side of this <b>already fixed</b> —
+    /// <c>_lastFiredBar</c> keys the dedupe on the bar's own Date — so the audit's claim that
+    /// the guard was "provable-red today" was stale. The test was not. It is now written the
+    /// way the monitor actually calls: same bars, repeatedly.</para>
+    /// </summary>
     [Fact]
     public void Persistent_evaluator_fires_a_cross_once_not_every_poll()
     {
-        // The monitor keeps ONE evaluator across polls precisely for this:
-        // price crosses the level → fire; price STAYS above on later polls →
-        // silence, until it dips back below and crosses again.
         var evaluator = new AlertEvaluator(new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer());
         var alert = Alert(threshold: 100);
         var state = WorkspaceState.Initial with { SymbolDisplayName = "BTC/USD" };
         var none = new Dictionary<string, double>();
 
-        Ohlcv Bar(double close) => new(DateTime.UtcNow, close, close, close, close, 0);
+        var t0 = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc);
+        Ohlcv Bar(double close, int hour) =>
+            new(t0.AddHours(hour), close, close, close, close, 0);
 
-        Assert.Single(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(101), Bar(99), none));  // cross → fires
-        Assert.Empty(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(105), Bar(101), none));  // still above → quiet
-        Assert.Empty(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(95), Bar(105), none));   // fell back → re-arms
-        Assert.Single(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(102), Bar(95), none));  // crosses again → fires
+        // The bar that crosses, and the bar before it. These two objects are what every poll
+        // for the next hour will see.
+        var crossed = Bar(101, 1);
+        var before  = Bar(99, 0);
+
+        Assert.Single(evaluator.EvaluateAlerts(new[] { alert }, state, crossed, before, none));
+
+        // Nine more polls of the SAME pair — the shape that produced up to 59 duplicate
+        // emails, Telegram messages and push notifications for one crossing.
+        for (int poll = 0; poll < 9; poll++)
+            Assert.Empty(evaluator.EvaluateAlerts(new[] { alert }, state, crossed, before, none));
+
+        // A genuinely new bar that holds above stays quiet (prev is no longer below).
+        Assert.Empty(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(105, 2), crossed, none));
+
+        // Fell back below, then crossed again on a new bar → fires again.
+        Assert.Empty(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(95, 3), Bar(105, 2), none));
+        Assert.Single(evaluator.EvaluateAlerts(new[] { alert }, state, Bar(102, 4), Bar(95, 3), none));
+    }
+
+    [Fact]
+    public void The_repeat_poll_really_does_re_present_the_identical_pair()
+    {
+        // Vacuity check for the loop above: if the two bars differed in any way the evaluator
+        // keys on, the loop would be testing ordinary crossing hysteresis rather than the
+        // same-bar dedupe, which is exactly how the old version of this test passed while
+        // guarding nothing.
+        var t0 = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc);
+        var a = new Ohlcv(t0.AddHours(1), 101, 101, 101, 101, 0);
+        var b = new Ohlcv(t0.AddHours(1), 101, 101, 101, 101, 0);
+
+        Assert.Equal(a.Date, b.Date);
+        Assert.Equal(a.Close, b.Close);
     }
 
     // ── Default notification sound ───────────────────────────────────────────
