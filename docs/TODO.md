@@ -5454,7 +5454,7 @@ structural; p=0.004 and "+1.26 ATR" are overstated). **Do not trust as stated:**
 halving-anchored top timing (n=3, one asset, collinear with the US election cycle — the registry already
 marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-08-21 lookahead fixes.
 
-- [ ] **The flagship edge's p-value is post-selection: `XsMomentumCommand.cs:312` picks the best of 16 grid
+- [x] **The flagship edge's p-value is post-selection: `XsMomentumCommand.cs:312` picks the best of 16 grid
   cells and `:353-364` then runs the permutation test on that cell.**
   `var best = results.OrderByDescending(r => r.Top - r.Random).First();` selects the configuration with the
   largest excess over the control out of the 4×2×2 grid built at `:193-195`. Lines 318-343 rebuild the
@@ -5468,7 +5468,15 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   signature of a real effect; one lone winner is a fit") shows the author understands the shape; the code
   still tests the winner. Fix: run the same permutation over *all* configurations and report the
   max-statistic's null, or pre-register one configuration. CONFIRMED. HIGH.
-- [ ] **The survivorship stress at `XsMomentumRobustness.cs:176-190` is algebraically incapable of
+  **CLOSED 2026-08-27.** The command now builds the per-period spreads for EVERY grid cell —
+  a new `PerPeriodSpreads` helper, extracted precisely because inlining it for the winner alone
+  is what made the post-selection p structurally hard to see — and on each permutation takes the
+  MAXIMUM across cells. That is the standard maxT null: the reference distribution is the
+  distribution of the statistic actually computed.
+  Both numbers are printed, the max-statistic one used by the verdict gate and the
+  fixed-configuration one labelled POST-SELECTION for contrast, because the difference between
+  them IS the size of the selection effect and is worth seeing rather than silently absorbing.
+- [x] **The survivorship stress at `XsMomentumRobustness.cs:176-190` is algebraically incapable of
   failing.** `dragTop` and `dragAll` (`:182-183`) are constants that do not depend on the ranking, and they
   are added uniformly to every period's log return at `:185-186`. When `topShare = 0.33`,
   `wTop = perPeriod*0.33/(names/3)` and `wAll = perPeriod/names` are equal by construction, so
@@ -5482,7 +5490,19 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   evidence. This is the same criticism the lab correctly levels at the Trading Cross video's Monte Carlo in
   `TradingCrossCommand.cs:20-28`. Fix: remove names from the eligible set at each rebalance (drawing
   preferentially from the bottom of the trailing-return ranking) and re-rank. CONFIRMED. HIGH.
-- [ ] **Every permutation test in the lab treats overlapping forward-return rows as exchangeable, which
+  **CLOSED 2026-08-27.** The stress RE-RANKS a truncated universe instead of applying a
+  uniform haircut. `CollectWithDelistings` removes a share of names at each rebalance, drawn
+  preferentially from the bottom of the trailing-return ranking, applies the shock to their final
+  forward return, and then **removes them from the universe** so the momentum book is selected
+  from a smaller cross-section thereafter.
+  That last part is the whole difference: survivorship bias in a RANKING study is a truncation of
+  the cross-section, and a haircut cannot touch the ranking — which is exactly why the old table
+  reduced to `cleanExcess` times a positive constant and could never change sign. The grid's
+  third axis changed from "share in top" to "share drawn from the bottom half", because with real
+  truncation the question is where the deaths come from, not what they cost. `Survivorship` now
+  takes the same inputs the clean run had; a haircut needed only the results, which is itself the
+  tell.
+- [x] **Every permutation test in the lab treats overlapping forward-return rows as exchangeable, which
   inflates significance by roughly √horizon.** `OnChainCommand.cs:138-147` emits one observation per bar
   with `FwdAtr` over `horizon = 20` bars; `VolumeCommand.cs:74-98` does the same with `HorizonBars = 20`;
   `PocDeviationCommand`, `EventsCommand`, `GateCommand` follow the pattern. `LabStats.PermutationP`
@@ -5493,7 +5513,15 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   is the row count, not the independent-observation count) and the on-chain era splits. Fix: sample
   non-overlapping observations (every `horizon`-th bar), or block-permute in blocks of at least `horizon`.
   CONFIRMED. HIGH.
-- [ ] **Multiple-comparison accounting is printed by the commands that returned nulls and omitted by every
+  **CLOSED 2026-08-27.** `LabStats.BlockPermutationP` shuffles CONTIGUOUS BLOCKS of
+  `horizon` rows rather than individual rows, so the dependence inside a block survives into the
+  null. `OnChainCommand`, `VolumeCommand`, `EventsCommand` and `GateCommand` route through it —
+  and because their wrappers now require a block size, **the compiler forced every call site to
+  state its horizon**, which is the right way for this to be unforgettable.
+  Block permutation rather than the finding's other option, sampling every horizon-th bar: at
+  horizon 20 that discards 95% of the data. A pool of fewer than four blocks returns 1.0 rather
+  than a p that looks computed — at that point the data cannot distinguish anything.
+- [x] **Multiple-comparison accounting is printed by the commands that returned nulls and omitted by every
   command that produced a ControlTested edge.** `FomcCommand.cs:335-336`, `MacroEventCommand.cs:170-174`
   and `OnChainCommand.cs:247-250` all print a test count and a Bonferroni threshold — and all three
   returned nulls or decayed effects. The commands behind the eight `ControlTested` edges print none:
@@ -5507,7 +5535,17 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   variants swept, and `EdgeRegistry.Validate()` does not require one. Fix: add a `variantsTried` field to
   `EdgeEffect`, make `Validate()` require it for `ControlTested`, and have each command print its own test
   count the way `FomcCommand` does. CONFIRMED. HIGH.
-- [ ] **No archived finding is reproducible from this repository: `strategy-lab-data/` is gitignored
+  **PARTIALLY CLOSED 2026-08-27 — the mechanism is in, the eight backfills are not, deliberately.**
+  `EdgeEffect` gained `VariantsTried` and `EdgeRegistry.Validate()` requires it for any
+  `ControlTested` edge measured on or after 2026-08-27.
+  **The eight existing edges are grandfathered on purpose.** The only honest way to fill them in
+  is to re-run their commands and read the count off; estimating them from the source would put
+  a guessed number into a research archive, which is worse than the gap it fills. Counting
+  "starred print sites" is not counting tests run — a site inside a loop runs many — so it could
+  not be derived by reading either. The gate stops the NEXT un-accounted edge; backfilling the
+  eight is a research act and is filed below.
+  Still open and filed: having each command print its own test count the way `FomcCommand` does.
+- [x] **No archived finding is reproducible from this repository: `strategy-lab-data/` is gitignored
   (`.gitignore:91`) and `git ls-files strategy-lab-data` returns zero.** Every `docs/*_FINDINGS.md` number
   was computed against a snapshot that is not versioned, and `SnapshotCommand.cs:167` writes to a fixed
   `{provider}_{symbol}_{tf}.json` name, so a re-fetch silently replaces the sample a stored verdict was
@@ -5522,6 +5560,15 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   the derivation from the committed-looking `fred_raw_*.json` blobs is an uncommitted manual step. Fix:
   hash the snapshot into the result, or commit content-addressed snapshots for the samples that back a
   recorded edge. CONFIRMED. HIGH.
+  **PARTIALLY CLOSED 2026-08-27.** `SnapshotFile` carries a `BarsSha256` — a
+  culture-invariant content hash over the bar series — written by both snapshot paths, so a
+  result can name the sample it was computed on. **The finding's own evidence is now testable**:
+  the `xs-momentum-equities` decay note reads "reproduced exactly … p = 0.0044 vs the recorded
+  0.0045 (permutation noise)", but the routine is seeded with `new Random(555)` and deterministic,
+  so the p could not have moved unless the DATA moved. It was a different sample, unrecorded.
+  **Not closed:** committing content-addressed snapshots, and the uncommitted manual step that
+  derives `events_*.json` from the `fred_raw_*.json` blobs. Both are repository-policy decisions
+  rather than code changes; filed below.
 - [ ] **`ExitCommand.cs:164-165` asserts trades do not overlap; for at least four of the eight exit rules
   they do.** The comment reads "Trades from the fixed entry rule do not overlap, so sequential compounding
   is the correct model of actually trading it", and `Score` (`:167-179`) compounds every trade into one
@@ -5666,7 +5713,7 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   `OnChainRobustness.cs:143` (2,000), `MacroEventCommand.cs:135` (2,000), `CrowdingCommand.cs:467`
   (2,000). `exits --permutations 20000` silently runs 2,000, and `signal-reversed-exit-crypto`'s p = 0.003
   has a floor of 1/2001. CONFIRMED. LOW.
-- [ ] **(amends the test suite)** **59 of the 80 lab files have zero test references.** The 21 that are
+- [x] **(amends the test suite)** **59 of the 80 lab files have zero test references.** The 21 that are
   referenced are the primitives and the archive plumbing — `LabStats` (16 tests), `SurrogateTest` (19),
   `StableSeed`, `EdgeRegistry`, `CatalogueProvenance`, `StrategyCatalogue`, `UniverseRecorderCommand`,
   `ScreenerCommand`, `GradesCommand`, `GdeltRecorderCommand`, `ProviderCapabilityAudit`,
@@ -5681,7 +5728,46 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   equity multiple, return, drawdown or CAGR for any lab command**. `StrategyLabTests.cs` (146 lines) covers
   `TradeR`, a bootstrap CI, marker-side classification and snapshot cache-key round-tripping — none of the
   backtest arithmetic. CONFIRMED. HIGH.
+  **PARTIALLY CLOSED 2026-08-27.** `LabStatisticsTests` is the first arithmetic guard the lab
+  has had: ten cases over the permutation machinery whose defects made published p-values wrong,
+  and over the snapshot hash. It includes the vacuity check that matters most here — a
+  "correction" that returned 1.0 for everything would satisfy the conservatism assertion and
+  destroy the tool, so there is a test that a real difference is still detected.
+  **Not closed:** the 59 unreferenced lab files, and the absence of any known-input/known-output
+  assertion for an equity multiple, return, drawdown or CAGR from any lab command. Filed below —
+  that is the larger half and it is its own piece of work.
 
+- [ ] **RE-RUN the five findings whose statistics are now known to be wrong, and backfill
+  `variantsTried` while doing it.** The banner added to `docs/XSMOMENTUM_FINDINGS.md`,
+  `ONCHAIN_FINDINGS.md`, `POLARITY_AND_GATE_FINDINGS.md`, `POSITIONING_AND_EVENTS_FINDINGS.md`
+  and `EXIT_FINDINGS.md` on 2026-08-27 marks every number in them as provisional. Three fixes
+  landed that day — the max-statistic null, block permutation over overlapping rows, and a
+  survivorship stress that can actually fail — and **nothing has been recomputed**. Each re-run
+  also yields the true `variantsTried` for its edge, which `EdgeRegistry.Validate()` now
+  requires for anything measured from that date. Expect some p-values to move by a lot: the
+  overlap correction alone is worth roughly a factor of √horizon, and at horizon 20 that is
+  ~4.5x. A finding that survives is worth more than it was; one that does not was never real.
+  HIGH (research truth, not runtime).
+- [ ] **Have each command print its own test count and a Bonferroni threshold, the way
+  `FomcCommand` does.** Carved out of the multiple-comparison finding closed above, which added
+  the registry field and the validation gate but not the reporting.
+  `FomcCommand`, `MacroEventCommand` and `OnChainCommand` already print one — and all three
+  returned nulls. Every command behind a `ControlTested` edge prints none, which is the
+  asymmetry the finding is really about: the tools that found nothing were honest about how
+  hard they looked, and the tools that found something were not. MEDIUM.
+- [ ] **Commit content-addressed snapshots for the samples that back a recorded edge, and
+  commit the step that derives `events_*.json` from `fred_raw_*.json`.** Carved out of the
+  reproducibility finding closed above, which added `barsSha256` so a result can NAME its
+  sample but does not preserve the sample itself. `strategy-lab-data/` is gitignored and
+  `SnapshotCommand` writes to a fixed filename, so a re-fetch still replaces the data a stored
+  verdict was computed on. The derivation of the events files is an uncommitted manual step,
+  so `MacroEventCommand` and `FomcCommand` cannot be reproduced from a clean clone at all.
+  Both are repository-policy decisions rather than code changes. MEDIUM.
+- [ ] **The 59 lab files with zero test references, and the absent arithmetic guards.** Carved
+  out of the lab-coverage finding partially closed above. `LabStatisticsTests` covers the
+  permutation machinery and the snapshot hash; **there is still no test anywhere asserting a
+  known-input/known-output equity multiple, return, drawdown or CAGR for any lab command**, and
+  none of the 22 commands behind a `docs/*_FINDINGS.md` is guarded. MEDIUM (amends the test suite).
 ---
 
 ### Not assessed in this pass

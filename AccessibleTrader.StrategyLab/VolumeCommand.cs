@@ -307,6 +307,16 @@ public static class VolumeCommand
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
+    /// <summary>
+    /// Two-sample permutation test over rows that OVERLAP in time.
+    ///
+    /// <para>Each row is a forward return over the horizon, emitted once per bar, so
+    /// consecutive rows share all but one of their forward bars. Shuffling rows individually
+    /// treats them as independent draws and inflates significance by roughly the square root of
+    /// the horizon — see <see cref="LabStats.BlockPermutationP(double[], int, int, double, int, int, int, int?, out int)"/>.
+    /// Blocks of one horizon are what make two of them genuinely non-overlapping.</para>
+    /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 8181, cap: PermutationCap);
+        LabStats.BlockPermutationP(pool, nA, nB, observed, runs, seed: 8181,
+            blockSize: HorizonBars, cap: PermutationCap);
 }

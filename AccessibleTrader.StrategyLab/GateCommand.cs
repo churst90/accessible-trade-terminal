@@ -435,8 +435,18 @@ public static class GateCommand
     /// Two-sample permutation test — see <see cref="LabStats.PermutationP(double[], int, int, double, int, int, int?, out int)"/>. The seed lives here,
     /// not in the shared helper, because it is this command's research parameter.
     /// </summary>
+    /// <summary>
+    /// Two-sample permutation test over rows that OVERLAP in time.
+    ///
+    /// <para>Each row is a forward return over the horizon, emitted once per bar, so
+    /// consecutive rows share all but one of their forward bars. Shuffling rows individually
+    /// treats them as independent draws and inflates significance by roughly the square root of
+    /// the horizon — see <see cref="LabStats.BlockPermutationP(double[], int, int, double, int, int, int, int?, out int)"/>.
+    /// Blocks of one horizon are what make two of them genuinely non-overlapping.</para>
+    /// </summary>
     private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 4242);
+        LabStats.BlockPermutationP(pool, nA, nB, observed, runs, seed: 4242,
+            blockSize: HorizonBars);
     private static double[]? Exact(Dictionary<string, double[]> data, string name) =>
         data.TryGetValue(name, out var v) ? v : null;
 }

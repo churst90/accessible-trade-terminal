@@ -122,6 +122,12 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         /// Structural problems, as human-readable lines. Empty means the registry is internally
         /// consistent — it says nothing about whether the science is right.
         /// </summary>
+        /// <summary>
+        /// The date <c>variantsTried</c> became mandatory for a <c>ControlTested</c> edge.
+        /// Edges measured before it are grandfathered — see the note at the check itself.
+        /// </summary>
+        internal const string VariantsTriedRequiredFrom = "2026-08-27";
+
         public IReadOnlyList<string> Validate()
         {
             var problems = new List<string>();
@@ -182,6 +188,31 @@ namespace AccessibleTrader.StrategyLab.Catalogue
                         problems.Add($"{where}: breadth records {e.Breadth.Held} held but nothing tested.");
                     else if (e.Breadth.Held > e.Breadth.Tested)
                         problems.Add($"{where}: breadth held ({e.Breadth.Held}) exceeds tested ({e.Breadth.Tested}).");
+
+                    // How many hypotheses were tried, for the same reason breadth is required.
+                    // A p of 0.04 from one pre-registered test and a p of 0.04 that is the best
+                    // of twenty-eight are different claims. The commands that returned NULLS
+                    // printed their test counts and a Bonferroni threshold; every command
+                    // behind a ControlTested edge printed none, so the registry could not tell
+                    // the two apart.
+                    //
+                    // REQUIRED FOR EDGES MEASURED FROM THE DAY THE FIELD EXISTED, and no
+                    // earlier. The eight edges already in the registry predate it, and the only
+                    // honest way to fill them in is to re-run their commands and read the count
+                    // off — not to have someone estimate it from the source, which would put a
+                    // guessed number into a research archive and be worse than the gap. The
+                    // gate stops the NEXT un-accounted edge; backfilling the eight is filed
+                    // separately and is a research act, not a code change.
+                    if (e.Effect?.VariantsTried is { } tried)
+                    {
+                        if (tried < 1)
+                            problems.Add($"{where}: variantsTried is {tried}; a reported result required at least one test.");
+                    }
+                    else if (string.CompareOrdinal(e.LastMeasured ?? "", VariantsTriedRequiredFrom) >= 0)
+                    {
+                        problems.Add($"{where}: ControlTested with no variantsTried recorded — "
+                                   + "how many hypotheses were tried before this one was reported?");
+                    }
                 }
 
                 if (e.Breadth != null && e.Breadth.Held < 0)
@@ -284,6 +315,30 @@ namespace AccessibleTrader.StrategyLab.Catalogue
         public string? Unit { get; init; }
         public double? P { get; init; }
         public double? N { get; init; }
+
+        /// <summary>
+        /// How many hypotheses the command that produced this number actually tried.
+        ///
+        /// <para><b>Nothing anywhere recorded this.</b> The commands that returned NULLS printed
+        /// their test count and a Bonferroni threshold — <c>FomcCommand</c>,
+        /// <c>MacroEventCommand</c>, <c>OnChainCommand</c> all do — and every command behind a
+        /// <c>ControlTested</c> edge printed none. <c>VolumeCommand</c> runs about nine starred
+        /// tests per asset class across two classes with no correction;
+        /// <c>PolarityCommand</c> runs roughly twenty-eight, each starred at p ≤ 0.05, and
+        /// <c>polarity-asset-class-fork</c> is recorded at exactly p = 0.04;
+        /// <c>ExitCommand</c> prints eight p-values and then names the best rule.</para>
+        ///
+        /// <para>A p of 0.04 from one pre-registered test and a p of 0.04 that is the best of
+        /// twenty-eight are different claims, and the registry could not tell them apart. This
+        /// field makes the difference recordable, and <c>Validate()</c> requires it for any
+        /// edge claiming <c>ControlTested</c> — an edge that cannot say how many hypotheses it
+        /// tried has not earned that status.</para>
+        ///
+        /// <para>One means a single pre-registered test. It is not a default: a caller has to
+        /// say so.</para>
+        /// </summary>
+        public int? VariantsTried { get; init; }
+
         public string? Notes { get; init; }
     }
 

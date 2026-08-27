@@ -160,7 +160,8 @@ public static class SnapshotCommand
             BarCount = ordered.Count,
             FirstDate = ordered[0].Date,
             LastDate = ordered[^1].Date,
-            Bars = ordered
+            Bars = ordered,
+            BarsSha256 = SnapshotFile.HashBars(ordered),
         };
 
         var safeSymbol = symbol.Replace("/", "_").Replace("\\", "_");
@@ -220,6 +221,7 @@ public static class SnapshotCommand
             FirstDate  = aggBars[0].Date,
             LastDate   = aggBars[^1].Date,
             Bars       = aggBars,
+            BarsSha256 = SnapshotFile.HashBars(aggBars),
         };
 
         var dir = Path.GetDirectoryName(srcPath) ?? ".";
@@ -278,4 +280,57 @@ public sealed class SnapshotFile
     public DateTime FirstDate { get; set; }
     public DateTime LastDate { get; set; }
     public List<Ohlcv> Bars { get; set; } = new();
+
+    /// <summary>
+    /// A content hash of the bars, so a recorded verdict can name the sample it was computed on.
+    ///
+    /// <para>
+    /// ── Why ────────────────────────────────────────────────────────────────────
+    /// <c>strategy-lab-data/</c> is gitignored and <c>git ls-files</c> returns zero, so every
+    /// number in <c>docs/*_FINDINGS.md</c> was computed against a snapshot that is not
+    /// versioned. <see cref="SnapshotCommand"/> writes to a FIXED
+    /// <c>{provider}_{symbol}_{tf}.json</c> name, so a re-fetch silently replaces the sample a
+    /// stored verdict was computed on, and <see cref="FetchedUtc"/> pinned nothing to a result.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The evidence that this had already happened is in the archive.</b> The
+    /// <c>xs-momentum-equities</c> decay note in <c>Catalogue/edges.json</c> reads "RE-MEASURED
+    /// and reproduced exactly … p = 0.0044 vs the recorded 0.0045 (permutation noise)" — but
+    /// <c>XsMomentumCommand</c> seeds its permutations with <c>new Random(555)</c> and the
+    /// permutation count is a fixed default, so the routine is <b>deterministic</b>. The p
+    /// cannot move unless the input data changed. It was not permutation noise; it was a
+    /// different sample, unrecorded.
+    /// </para>
+    ///
+    /// <para>
+    /// Committing content-addressed snapshots is the fuller fix and is a repository-policy
+    /// decision rather than a code change. This is the half that can be made now: a result that
+    /// carries the hash can at least SAY it was computed on different data, instead of the
+    /// difference being read as noise.
+    /// </para>
+    /// </summary>
+    public string? BarsSha256 { get; set; }
+
+    /// <summary>
+    /// Computes <see cref="BarsSha256"/> over the bar series — dates and all five legs, in
+    /// order, invariant-formatted so the hash does not depend on the machine's culture.
+    /// </summary>
+    public static string HashBars(IReadOnlyList<Ohlcv> bars)
+    {
+        var sb = new System.Text.StringBuilder(bars.Count * 48);
+        foreach (var b in bars)
+        {
+            sb.Append(b.Date.Ticks).Append('|')
+              .Append(b.Open.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+              .Append(b.High.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+              .Append(b.Low.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+              .Append(b.Close.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+              .Append(b.Volume.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        }
+
+        var bytes = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
 }

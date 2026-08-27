@@ -103,6 +103,103 @@ public static class LabStats
         PermutationP(pool, nA, nB, observed, runs, seed, cap, out _);
 
     /// <summary>
+    /// A two-sample permutation test for pools whose rows OVERLAP in time.
+    ///
+    /// <para>
+    /// ── Why the plain test is wrong here ───────────────────────────────────────
+    /// <see cref="PermutationP(double[], int, int, double, int, int, int?, out int)"/> shuffles
+    /// individual rows, which assumes they are exchangeable. They are not when each row is a
+    /// forward return over <c>horizon</c> bars emitted once per bar: consecutive rows share
+    /// <c>horizon − 1</c> of their forward bars, and the underlying returns are autocorrelated
+    /// on top of that. The effective sample size is closer to <c>n / horizon</c> than to
+    /// <c>n</c>, so the null is far too narrow and <b>significance is inflated by roughly
+    /// √horizon</b>. A p of 0.004 computed that way is not a p of 0.004.
+    /// </para>
+    ///
+    /// <para>
+    /// This affected every permutation test in the lab that emits one observation per bar over
+    /// a multi-bar horizon — <c>OnChainCommand</c> and <c>VolumeCommand</c> at horizon 20,
+    /// <c>PocDeviationCommand</c>, <c>EventsCommand</c>, <c>GateCommand</c> — including
+    /// <c>volume-informative-crypto</c> (p = 0.004) and <c>poc-mean-reversion-equities</c>
+    /// (p = 0.0004 on n = 348,000, where the n is the ROW count and not the
+    /// independent-observation count).
+    /// </para>
+    ///
+    /// <para>
+    /// ── What this does instead ─────────────────────────────────────────────────
+    /// Shuffles CONTIGUOUS BLOCKS of <paramref name="blockSize"/> rows rather than individual
+    /// rows, so whatever dependence exists inside a block survives into the null. Blocks of at
+    /// least the horizon are what make two blocks genuinely non-overlapping. This keeps every
+    /// row — the alternative the finding also offers, sampling every horizon-th bar, throws
+    /// away 95% of the data at horizon 20.
+    /// </para>
+    ///
+    /// <para><b>The pool must be in TIME ORDER</b>, group A then group B, or the blocks are not
+    /// contiguous in time and this degrades to the plain test with extra steps.</para>
+    /// </summary>
+    /// <param name="blockSize">
+    /// Rows per block — at least the forward horizon. One or less means the rows do not
+    /// overlap, and this falls through to the plain row-wise test.
+    /// </param>
+    public static double BlockPermutationP(
+        double[] pool, int nA, int nB, double observed, int runs, int seed, int blockSize,
+        int? cap, out int runsUsed)
+    {
+        if (blockSize <= 1)
+            return PermutationP(pool, nA, nB, observed, runs, seed, cap, out runsUsed);
+
+        runsUsed = cap is { } c ? System.Math.Min(runs, c) : runs;
+        if (nA <= 0 || nB <= 0 || runsUsed <= 0) { runsUsed = System.Math.Max(0, runsUsed); return 1.0; }
+
+        // Partition the time-ordered pool into contiguous blocks. The tail block may be short;
+        // dropping it would bias the null toward whichever group the series ends in.
+        var blocks = new List<double[]>();
+        for (int i = 0; i < pool.Length; i += blockSize)
+            blocks.Add(pool[i..System.Math.Min(i + blockSize, pool.Length)]);
+
+        // Two blocks is not a permutation test. Say so by returning 1.0 rather than a p that
+        // looks computed: at that point the data cannot distinguish anything.
+        if (blocks.Count < 4) return 1.0;
+
+        var rng = new Random(seed);
+        var order = new int[blocks.Count];
+        var work = new double[pool.Length];
+        int extreme = 0;
+
+        for (int p = 0; p < runsUsed; p++)
+        {
+            for (int i = 0; i < order.Length; i++) order[i] = i;
+            for (int i = order.Length - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (order[i], order[j]) = (order[j], order[i]);
+            }
+
+            int w = 0;
+            foreach (int bi in order)
+            {
+                var b = blocks[bi];
+                System.Array.Copy(b, 0, work, w, b.Length);
+                w += b.Length;
+            }
+
+            double a = 0, bsum = 0;
+            for (int i = 0; i < nA && i < work.Length; i++) a += work[i];
+            for (int i = nA; i < nA + nB && i < work.Length; i++) bsum += work[i];
+            if (System.Math.Abs(a / nA - bsum / nB) >= System.Math.Abs(observed)) extreme++;
+        }
+
+        return (extreme + 1.0) / (runsUsed + 1.0);
+    }
+
+    /// <inheritdoc cref="BlockPermutationP(double[], int, int, double, int, int, int, int?, out int)"/>
+    public static double BlockPermutationP(
+        double[] pool, int nA, int nB, double observed, int runs, int seed, int blockSize,
+        int? cap = null) =>
+        BlockPermutationP(pool, nA, nB, observed, runs, seed, blockSize, cap, out _);
+
+
+    /// <summary>
     /// Rolling z-score of <paramref name="v"/> over a trailing window that INCLUDES the current
     /// bar, which is what makes it usable as a signal: the value at bar i is derived from bars
     /// i-win..i and never from anything later.

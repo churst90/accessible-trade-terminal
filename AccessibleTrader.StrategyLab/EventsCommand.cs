@@ -105,7 +105,7 @@ public static class EventsCommand
             int per = sorted.Count / 5;
             double baseline = rows.Average(r => r.Fwd);
             double gap = sorted.Take(per).Average(r => r.Fwd) - sorted.TakeLast(per).Average(r => r.Fwd);
-            double p = PermutationP(rows.Select(r => r.Fwd).ToArray(), per, per, gap, permutations);
+            double p = PermutationP(rows.Select(r => r.Fwd).ToArray(), per, per, gap, permutations, horizon);
 
             Console.WriteLine($"    {label,-10} net-short quintile {sorted.Take(per).Average(r => r.Fwd),+6:+0.00;-0.00;0} ATR   " +
                               $"net-long quintile {sorted.TakeLast(per).Average(r => r.Fwd),+6:+0.00;-0.00;0} ATR   " +
@@ -175,7 +175,7 @@ public static class EventsCommand
             var tom = rets.Where(r => r.D.Day <= 3 || r.D.Day >= 28).ToList();
             var rest = rets.Where(r => !(r.D.Day <= 3 || r.D.Day >= 28)).ToList();
             double gap = tom.Average(r => r.R) - rest.Average(r => r.R);
-            double p = PermutationP(rets.Select(r => r.R).ToArray(), tom.Count, rest.Count, gap, permutations);
+            double p = PermutationP(rets.Select(r => r.R).ToArray(), tom.Count, rest.Count, gap, permutations, horizon);
             Console.WriteLine($"      turn of month: {tom.Average(r => r.R),+8:+0.000%;-0.000%;0} vs rest {rest.Average(r => r.R),+8:+0.000%;-0.000%;0}   " +
                               $"gap {gap,+8:+0.000%;-0.000%;0}   p = {p:0.0000}" + (p <= 0.05 ? "  *" : ""));
 
@@ -230,6 +230,17 @@ public static class EventsCommand
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 4747, cap: PermutationCap);
+    /// <summary>
+    /// Two-sample permutation test over rows that OVERLAP in time.
+    ///
+    /// <para>Each row is a forward return over the horizon, emitted once per bar, so
+    /// consecutive rows share all but one of their forward bars. Shuffling rows individually
+    /// treats them as independent draws and inflates significance by roughly the square root of
+    /// the horizon — see <see cref="LabStats.BlockPermutationP(double[], int, int, double, int, int, int, int?, out int)"/>.
+    /// Blocks of one horizon are what make two of them genuinely non-overlapping.</para>
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs,
+        int horizon) =>
+        LabStats.BlockPermutationP(pool, nA, nB, observed, runs, seed: 4747,
+            blockSize: horizon, cap: PermutationCap);
 }

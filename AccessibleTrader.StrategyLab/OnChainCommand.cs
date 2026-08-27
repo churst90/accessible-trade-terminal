@@ -115,7 +115,7 @@ public static class OnChainCommand
 
         if (obs.Count < 2000) { Console.WriteLine($"Too few observations ({obs.Count})."); return 1; }
 
-        Report(obs, permutations);
+        Report(obs, permutations, horizon);
         OnChainRobustness.Run(panels, permutations);
         return 0;
     }
@@ -181,7 +181,7 @@ public static class OnChainCommand
 
     // ── Reporting ────────────────────────────────────────────────────────────
 
-    private static void Report(List<Obs> all, int permutations)
+    private static void Report(List<Obs> all, int permutations, int horizon)
     {
         foreach (var g in all.GroupBy(o => o.Metric).OrderBy(g => g.Key))
         {
@@ -199,12 +199,12 @@ public static class OnChainCommand
             }
 
             double metricGap = byZ.Take(per).Average(o => o.FwdAtr) - byZ.TakeLast(per).Average(o => o.FwdAtr);
-            double pM = PermutationP(set.Select(o => o.FwdAtr).ToArray(), per, per, metricGap, permutations);
+            double pM = PermutationP(set.Select(o => o.FwdAtr).ToArray(), per, per, metricGap, permutations, horizon);
 
             // THE CONTROL, on the same rows: the matched-speed price/SMA ratio, bucketed identically.
             var byMa = set.OrderBy(o => o.MaRatio).ToList();
             double maGap = byMa.Take(per).Average(o => o.FwdAtr) - byMa.TakeLast(per).Average(o => o.FwdAtr);
-            double pMa = PermutationP(set.Select(o => o.FwdAtr).ToArray(), per, per, maGap, permutations);
+            double pMa = PermutationP(set.Select(o => o.FwdAtr).ToArray(), per, per, maGap, permutations, horizon);
 
             Console.WriteLine($"    LOW − HIGH quintile:  metric {metricGap,+6:+0.00;-0.00;0} ATR (p={pM:0.0000})   " +
                               $"│ matched price/SMA {maGap,+6:+0.00;-0.00;0} ATR (p={pMa:0.0000})");
@@ -238,7 +238,7 @@ public static class OnChainCommand
                 var slice = era.OrderBy(o => o.Z).ToList();
                 int k = Math.Max(30, slice.Count / 5);
                 double gap = slice.Take(k).Average(o => o.FwdAtr) - slice.TakeLast(k).Average(o => o.FwdAtr);
-                double pe = PermutationP(slice.Select(o => o.FwdAtr).ToArray(), k, k, gap, permutations);
+                double pe = PermutationP(slice.Select(o => o.FwdAtr).ToArray(), k, k, gap, permutations, horizon);
                 Console.Write($"{from:yyyy-MM}→{to:yyyy-MM} {gap,+6:+0.00;-0.00;0}(p={pe:0.000})   ");
             }
             Console.WriteLine();
@@ -251,11 +251,11 @@ public static class OnChainCommand
         Console.WriteLine("    that AND hold across eras AND beat their matched price baseline should be believed.");
         Console.WriteLine();
 
-        Folklore(all, permutations);
+        Folklore(all, permutations, horizon);
     }
 
     /// <summary>The specific claim in circulation: MVRV above ~3.7 marks tops, below ~1 marks bottoms.</summary>
-    private static void Folklore(List<Obs> all, int permutations)
+    private static void Folklore(List<Obs> all, int permutations, int horizon)
     {
         var mvrv = all.Where(o => o.Metric == "capmvrvcur").ToList();
         if (mvrv.Count < 500) return;
@@ -269,7 +269,7 @@ public static class OnChainCommand
             if (s.Count < 30) { Console.WriteLine($"    {name,-24} n={s.Count} — too few"); continue; }
             var rest = mvrv.Where(o => o.Value < lo || o.Value >= hi).ToList();
             double gap = s.Average(o => o.FwdAtr) - rest.Average(o => o.FwdAtr);
-            double p = PermutationP(mvrv.Select(o => o.FwdAtr).ToArray(), s.Count, rest.Count, gap, permutations);
+            double p = PermutationP(mvrv.Select(o => o.FwdAtr).ToArray(), s.Count, rest.Count, gap, permutations, horizon);
             Console.WriteLine($"    {name,-24} fwd {s.Average(o => o.FwdAtr),+6:+0.00;-0.00;0} ATR (n={s.Count,5:N0})   " +
                               $"vs rest {gap,+6:+0.00;-0.00;0} ATR   p = {p:0.0000}" + (p <= 0.05 ? "  *" : ""));
         }
@@ -345,6 +345,17 @@ public static class OnChainCommand
     /// Capped at 4,000 permutations: this command runs the test inside a loop over
     /// many buckets, and the full count would dominate its runtime.
     /// </summary>
-    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs) =>
-        LabStats.PermutationP(pool, nA, nB, observed, runs, seed: 6161, cap: PermutationCap);
+    /// <summary>
+    /// Two-sample permutation test over rows that OVERLAP in time.
+    ///
+    /// <para>Each row is a forward return over the horizon, emitted once per bar, so
+    /// consecutive rows share all but one of their forward bars. Shuffling rows individually
+    /// treats them as independent draws and inflates significance by roughly the square root of
+    /// the horizon — see <see cref="LabStats.BlockPermutationP(double[], int, int, double, int, int, int, int?, out int)"/>.
+    /// Blocks of one horizon are what make two of them genuinely non-overlapping.</para>
+    /// </summary>
+    private static double PermutationP(double[] pool, int nA, int nB, double observed, int runs,
+        int horizon) =>
+        LabStats.BlockPermutationP(pool, nA, nB, observed, runs, seed: 6161,
+            blockSize: horizon, cap: PermutationCap);
 }

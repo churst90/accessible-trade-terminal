@@ -1,4 +1,30 @@
 # Polarity and the gate — two tests, two negative results, one usable edge
+> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+>
+> Every p-value below was computed with machinery that has since been found wrong, and the
+> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+>
+> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
+>    ran the permutation test on that cell against a fixed-configuration null. The statistic
+>    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
+>    by roughly the effective number of independent cells. The command now reports a
+>    max-statistic null alongside the naive one.
+> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
+>    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
+>    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
+>    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
+>    block-permute.
+> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
+>    that did not depend on the ranking, which reduces algebraically to the clean excess times a
+>    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
+>    removes names from the universe and re-ranks.
+>
+> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
+> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
+> Snapshots now carry a `barsSha256` so future results can name their sample.
+>
+> **Treat every number below as provisional until the commands are re-run.**
+
 
 Run 2026-07-29. Commands: `dotnet run -- polarity` and `dotnet run -- gate`.
 51 daily series (33 equities/ETFs, 10 crypto, 4 commodities, 2 bonds); 55k gated trades.

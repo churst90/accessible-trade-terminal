@@ -288,6 +288,52 @@ public static class XsMomentumCommand
     /// sorting at random — which is the whole claim.
     /// </para>
     /// </summary>
+
+    /// <summary>
+    /// The per-period top-minus-bottom spreads for ONE grid configuration, plus the pooled
+    /// (past, forward) rows each period was ranked from — the raw material a permutation
+    /// shuffles.
+    ///
+    /// <para>Extracted so the max-statistic null can build this for EVERY cell, not just the
+    /// winner. It was inlined for the winner alone, which is what made the post-selection
+    /// p-value structurally hard to notice.</para>
+    /// </summary>
+    private static (List<double> Spreads, List<(double Past, double Fwd)[]> Pooled) PerPeriodSpreads(
+        List<Series> series, DateTime start, DateTime end, Result cfg, bool volNorm)
+    {
+        var spreads = new List<double>();
+        var pooled = new List<(double Past, double Fwd)[]>();
+
+        for (var t = start.AddDays(cfg.Lookback + cfg.Skip); t.AddDays(cfg.Hold) <= end; t = t.AddDays(cfg.Hold))
+        {
+            var ranked = new List<(double Past, double Fwd)>();
+            foreach (var s in series)
+            {
+                double? now = s.CloseAsOf(t.AddDays(-cfg.Skip));
+                double? then = s.CloseAsOf(t.AddDays(-cfg.Skip - cfg.Lookback));
+                double? fwdNow = s.CloseAsOf(t);
+                double? fwd = s.CloseAsOf(t.AddDays(cfg.Hold));
+                if (now is null || then is null || fwd is null || fwdNow is null) continue;
+                double past = Math.Log(now.Value / then.Value);
+                if (volNorm)
+                {
+                    double? vol = s.VolOver(t.AddDays(-cfg.Skip), cfg.Lookback);
+                    if (vol is null) continue;
+                    past /= vol.Value;
+                }
+                ranked.Add((past, Math.Log(fwd.Value / fwdNow.Value)));
+            }
+            if (ranked.Count < MinNames) continue;
+
+            int k = Math.Max(1, ranked.Count / 3);
+            var byMom = ranked.OrderByDescending(r => r.Past).ToList();
+            spreads.Add(byMom.Take(k).Average(r => r.Fwd) - byMom.TakeLast(k).Average(r => r.Fwd));
+            pooled.Add(ranked.ToArray());
+        }
+
+        return (spreads, pooled);
+    }
+
     private static void Report(List<Result> results, List<Series> series,
         DateTime start, DateTime end, bool volNorm, int permutations)
     {
@@ -310,60 +356,82 @@ public static class XsMomentumCommand
         var best = results.OrderByDescending(r => r.Top - r.Random).First();
         Console.WriteLine($"  ── per-period test on look={best.Lookback} skip={best.Skip} hold={best.Hold} ──");
 
-        var spreads = new List<double>();
-        var pooled = new List<(double Past, double Fwd)[]>();
-
-        for (var t = start.AddDays(best.Lookback + best.Skip); t.AddDays(best.Hold) <= end; t = t.AddDays(best.Hold))
+        // ── The null has to be the null of the STATISTIC WE COMPUTED ──────────
+        //
+        // `best` is the argmax over the 4x2x2 grid built above. Testing it against a
+        // FIXED-configuration null answers "would THIS configuration produce this spread by
+        // chance" — but the statistic actually computed is `max` over sixteen configurations,
+        // and the maximum of sixteen draws is extreme far more often than any one of them.
+        // The p was too small by roughly the effective number of independent cells.
+        //
+        // This is the p = 0.0045 recorded in Catalogue/edges.json for xs-momentum-equities —
+        // the only edge with a full robustness pass — and quoted as the headline in
+        // docs/XSMOMENTUM_FINDINGS.md. The file's own comment at the grid ("A plateau of
+        // positives is the signature of a real effect; one lone winner is a fit") shows the
+        // author understood the shape; the code still tested the winner.
+        //
+        // The fix is the standard max-statistic (maxT) null: build the per-period data for
+        // EVERY cell, and on each permutation shuffle all of them and take the maximum, so the
+        // reference distribution is the distribution of the maximum. Both numbers are printed,
+        // because the difference between them is the size of the selection effect and is worth
+        // seeing rather than silently absorbing.
+        var cells = new List<(Result Cfg, List<double> Spreads, List<(double Past, double Fwd)[]> Pooled)>();
+        foreach (var cfg in results)
         {
-            var ranked = new List<(double Past, double Fwd)>();
-            foreach (var s in series)
-            {
-                double? now = s.CloseAsOf(t.AddDays(-best.Skip));
-                double? then = s.CloseAsOf(t.AddDays(-best.Skip - best.Lookback));
-                double? fwdNow = s.CloseAsOf(t);
-                double? fwd = s.CloseAsOf(t.AddDays(best.Hold));
-                if (now is null || then is null || fwd is null || fwdNow is null) continue;
-                double past = Math.Log(now.Value / then.Value);
-                if (volNorm)
-                {
-                    double? vol = s.VolOver(t.AddDays(-best.Skip), best.Lookback);
-                    if (vol is null) continue;
-                    past /= vol.Value;
-                }
-                ranked.Add((past, Math.Log(fwd.Value / fwdNow.Value)));
-            }
-            if (ranked.Count < MinNames) continue;
-
-            int k = Math.Max(1, ranked.Count / 3);
-            var byMom = ranked.OrderByDescending(r => r.Past).ToList();
-            spreads.Add(byMom.Take(k).Average(r => r.Fwd) - byMom.TakeLast(k).Average(r => r.Fwd));
-            pooled.Add(ranked.ToArray());
+            var (sp, po) = PerPeriodSpreads(series, start, end, cfg, volNorm);
+            if (sp.Count >= 8) cells.Add((cfg, sp, po));
         }
 
-        if (spreads.Count < 8) { Console.WriteLine("    too few rebalances"); return; }
+        var bestCell = cells.FirstOrDefault(c => ReferenceEquals(c.Cfg, best));
+        if (bestCell.Spreads == null || bestCell.Spreads.Count < 8)
+        {
+            Console.WriteLine("    too few rebalances");
+            return;
+        }
+
+        var spreads = bestCell.Spreads;
+        var pooled = bestCell.Pooled;
 
         double mean = spreads.Average();
         double sd = Math.Sqrt(spreads.Sum(v => (v - mean) * (v - mean)) / (spreads.Count - 1));
         int positive = spreads.Count(v => v > 0);
 
         var rng = new Random(555);
-        int extreme = 0;
+        int extreme = 0;            // naive: this cell against its own null
+        int extremeMax = 0;         // honest: this cell against the null of the MAXIMUM
+
         for (int p = 0; p < permutations; p++)
         {
-            double acc = 0;
-            foreach (var arr in pooled)
+            double bestUnderNull = double.NegativeInfinity;
+            double thisCellUnderNull = 0;
+
+            foreach (var cell in cells)
             {
-                int k = Math.Max(1, arr.Length / 3);
-                var shuf = arr.OrderBy(_ => rng.Next()).ToArray();
-                acc += shuf.Take(k).Average(r => r.Fwd) - shuf.TakeLast(k).Average(r => r.Fwd);
+                double acc = 0;
+                foreach (var arr in cell.Pooled)
+                {
+                    int k = Math.Max(1, arr.Length / 3);
+                    var shuf = arr.OrderBy(_ => rng.Next()).ToArray();
+                    acc += shuf.Take(k).Average(r => r.Fwd) - shuf.TakeLast(k).Average(r => r.Fwd);
+                }
+                double cellMean = Math.Abs(acc / cell.Pooled.Count);
+                if (cellMean > bestUnderNull) bestUnderNull = cellMean;
+                if (ReferenceEquals(cell.Cfg, best)) thisCellUnderNull = cellMean;
             }
-            if (Math.Abs(acc / pooled.Count) >= Math.Abs(mean)) extreme++;
+
+            if (thisCellUnderNull >= Math.Abs(mean)) extreme++;
+            if (bestUnderNull >= Math.Abs(mean)) extremeMax++;
         }
-        double pv = (extreme + 1.0) / (permutations + 1.0);
+
+        double pv = (extremeMax + 1.0) / (permutations + 1.0);        // the one the verdict uses
+        double pvNaive = (extreme + 1.0) / (permutations + 1.0);
 
         Console.WriteLine($"    mean top−bottom spread per {best.Hold}d period: {mean:+0.00%;-0.00%;0}   " +
-                          $"sd {sd:0.00%}   positive {positive}/{spreads.Count}   p = {pv:0.0000}" +
+                          $"sd {sd:0.00%}   positive {positive}/{spreads.Count}");
+        Console.WriteLine($"    p = {pv:0.0000}  (max-statistic null over {cells.Count} grid cells)" +
                           (pv <= 0.05 ? "  *" : ""));
+        Console.WriteLine($"    p = {pvNaive:0.0000}  (fixed-configuration null — POST-SELECTION, shown for contrast:");
+        Console.WriteLine( "                  this cell was chosen as the grid maximum, so its own null is too narrow)");
         Console.WriteLine();
 
         Console.WriteLine("  ── VERDICT ──");

@@ -44,7 +44,10 @@ internal static class XsMomentumRobustness
         Costs(periods);
         Eras(periods);
         Noise(series, start, end, look, skip, hold, volNorm, periods);
-        Survivorship(periods, hold);
+        // Survivorship now RE-RANKS a truncated universe, so it needs the same inputs the
+        // clean run had — a haircut needed only the results, which is exactly what made it
+        // incapable of failing.
+        Survivorship(periods, series, start, end, look, skip, hold, volNorm);
     }
 
     // ── 1. Transaction costs ─────────────────────────────────────────────────
@@ -150,7 +153,9 @@ internal static class XsMomentumRobustness
     /// frauds, so both bounds are reported rather than one being chosen.
     /// </para>
     /// </summary>
-    private static void Survivorship(List<Period> periods, int hold)
+    private static void Survivorship(List<Period> periods,
+        List<XsMomentumCommand.Series> series, DateTime start, DateTime end,
+        int look, int skip, int hold, bool volNorm)
     {
         Console.WriteLine("  ── survivorship stress (cannot be fixed without delisting data) ──");
 
@@ -160,42 +165,153 @@ internal static class XsMomentumRobustness
         double periodsPerYear = 365.25 / hold;
 
         Console.WriteLine($"    Universe {names:0} names, {periodsPerYear:0.0} rebalances/year, {periods.Count} periods.");
-        Console.WriteLine($"    {"annual",7} {"shock",7} {"in top",7} {"momentum",11} {"basket",11} {"excess",11} {"vs clean",10}");
+        Console.WriteLine($"    {"annual",7} {"shock",7} {"frm bot",7} {"momentum",11} {"basket",11} {"excess",11} {"vs clean",10}");
         Console.WriteLine($"    {"0%",7} {"—",7} {"—",7} {cleanMom,11:+0.0%;-0.0%;0} {cleanAll,11:+0.0%;-0.0%;0} " +
                           $"{cleanMom - cleanAll,11:+0.0%;-0.0%;0} {"100%",10}");
 
         double cleanExcess = cleanMom - cleanAll;
 
+        // ── The stress RE-RANKS. It used to be a uniform haircut. ─────────────
+        //
+        // The old version computed two constants — dragTop and dragAll — that did not depend
+        // on the ranking at all, and added them uniformly to every period's log return. At the
+        // headline topShare of 0.33, wTop = perPeriod * 0.33 / (names/3) equals wAll by
+        // construction, so dragTop == dragAll and the whole table collapsed to
+        // `excess = e^(drag*N) * cleanExcess` — the clean excess rescaled by a POSITIVE
+        // CONSTANT. **It could never change sign.** Verify against the published table in
+        // docs/XSMOMENTUM_FINDINGS.md: at 5%/33% the drag works out to e^-0.875 = 0.417, and
+        // the doc's "vs clean" column reads 42%. At topShare = 0 the drag on the momentum book
+        // is exactly zero, so the excess mechanically GROWS — which the doc then reported as a
+        // finding. "The edge survives every cell" was arithmetic, not evidence.
+        //
+        // Survivorship bias in a RANKING study is a TRUNCATION OF THE CROSS-SECTION, not a
+        // haircut on the book: the names that vanish are gone from the universe you rank, so
+        // they cannot be selected and the ranking itself changes. Modelled as a haircut it
+        // cannot touch the ranking, which is precisely why the old table was incapable of
+        // failing. This is the same criticism the lab correctly levels at the Trading Cross
+        // video's Monte Carlo.
+        //
+        // So: at each rebalance, remove `annual/periodsPerYear` of the names, drawn
+        // PREFERENTIALLY from the bottom of the trailing-return ranking (that is where
+        // delistings actually come from), apply `shock` to the removed names' forward returns
+        // for the basket that held them, and re-rank the survivors.
         foreach (double annual in new[] { 0.005, 0.02, 0.05 })
             foreach (double shock in new[] { -0.50, -1.00 })
-                foreach (double topShare in new[] { 0.0, 0.33 })
+                foreach (double bottomBias in new[] { 1.0, 0.5 })
                 {
-                    // Expected number of names delisting per rebalance, and the weight they carry.
-                    double perPeriod = names * annual / periodsPerYear;
-                    double wAll = perPeriod / names;                       // basket holds everything
-                    double wTop = perPeriod * topShare / (names / 3.0);    // strategy holds a third
+                    var stressed = CollectWithDelistings(
+                        series, start, end, look, skip, hold, volNorm,
+                        annualDelistRate: annual, shock: shock, bottomBias: bottomBias,
+                        seed: 20260827);
 
-                    // A delisted position is a one-off loss of `shock` on that weight, not a
-                    // recurring drag on the whole book.
-                    double dragAll = Math.Log(1 + wAll * shock);
-                    double dragTop = Math.Log(1 + wTop * shock);
+                    if (stressed.Count == 0) continue;
 
-                    double m = Math.Exp(periods.Sum(p => p.Top) + dragTop * periods.Count) - 1;
-                    double a = Math.Exp(periods.Sum(p => p.All) + dragAll * periods.Count) - 1;
+                    double m = Math.Exp(stressed.Sum(p => p.Top)) - 1;
+                    double a = Math.Exp(stressed.Sum(p => p.All)) - 1;
                     double ex = m - a;
 
-                    Console.WriteLine($"    {annual,7:P1} {shock,7:P0} {topShare,7:P0} {m,11:+0.0%;-0.0%;0} {a,11:+0.0%;-0.0%;0} " +
+                    Console.WriteLine($"    {annual,7:P1} {shock,7:P0} {bottomBias,7:P0} {m,11:+0.0%;-0.0%;0} {a,11:+0.0%;-0.0%;0} " +
                                       $"{ex,11:+0.0%;-0.0%;0} {(cleanExcess == 0 ? 0 : ex / cleanExcess),10:P0}");
                 }
 
-        Console.WriteLine("    'in top' = share of delisted names that were in the top third when they died.");
-        Console.WriteLine("    At 0% the excess GROWS (only the basket is hurt); at 33% it shrinks but survives.");
-        Console.WriteLine("    Neither bound erases the edge at any plausible delisting rate. This does NOT");
-        Console.WriteLine("    clear the long-short spread, which is biased the usual way and is not traded here.");
+        Console.WriteLine("    'from bottom' = share of delistings drawn from the bottom half of the");
+        Console.WriteLine("    trailing-return ranking; 100% is the harshest realistic assumption and 50%");
+        Console.WriteLine("    is delisting-at-random. Removed names are gone from the RANKING, not merely");
+        Console.WriteLine("    charged a fee — so this stress CAN change the sign, which the previous");
+        Console.WriteLine("    uniform-haircut version could not. This does NOT clear the long-short");
+        Console.WriteLine("    spread, which is biased the usual way and is not traded here.");
         Console.WriteLine();
     }
 
     // ── Shared machinery ─────────────────────────────────────────────────────
+
+
+    /// <summary>
+    /// <see cref="Collect"/> with names DELISTING out of the universe as it runs.
+    ///
+    /// <para>At each rebalance a share of the surviving names is removed, drawn preferentially
+    /// from the bottom of the trailing-return ranking — which is where delistings actually come
+    /// from. A removed name takes <paramref name="shock"/> on its final forward return for the
+    /// basket that held it, and is then <b>gone from the ranking</b>, so the momentum book is
+    /// selected from a smaller cross-section for the rest of the run.</para>
+    ///
+    /// <para>That last part is the whole difference from the uniform haircut this replaced: a
+    /// haircut cannot touch the ranking, so it can only rescale the answer. Truncation can
+    /// change which names are held, and therefore can change the sign.</para>
+    /// </summary>
+    private static List<Period> CollectWithDelistings(
+        List<XsMomentumCommand.Series> series, DateTime start, DateTime end,
+        int look, int skip, int hold, bool volNorm,
+        double annualDelistRate, double shock, double bottomBias, int seed)
+    {
+        var outp = new List<Period>();
+        var alive = series.Select(s => s.Symbol).ToHashSet(StringComparer.Ordinal);
+        var rng = new Random(seed);
+        HashSet<string>? prevHeld = null;
+
+        double periodsPerYear = 365.0 / Math.Max(1, hold);
+
+        for (var t = start.AddDays(look + skip); t.AddDays(hold) <= end; t = t.AddDays(hold))
+        {
+            var ranked = new List<(string Sym, double Past, double Fwd)>();
+            foreach (var s in series)
+            {
+                if (!alive.Contains(s.Symbol)) continue;   // already delisted — not rankable
+
+                double? now = s.CloseAsOf(t.AddDays(-skip));
+                double? then = s.CloseAsOf(t.AddDays(-skip - look));
+                double? fwdNow = s.CloseAsOf(t);
+                double? fwd = s.CloseAsOf(t.AddDays(hold));
+                if (now is null || then is null || fwd is null || fwdNow is null) continue;
+                double past = Math.Log(now.Value / then.Value);
+                if (volNorm)
+                {
+                    double? vol = s.VolOver(t.AddDays(-skip), look);
+                    if (vol is null) continue;
+                    past /= vol.Value;
+                }
+                ranked.Add((s.Symbol, past, Math.Log(fwd.Value / fwdNow.Value)));
+            }
+            if (ranked.Count < 8) continue;
+
+            var byMom = ranked.OrderByDescending(r => r.Past).ToList();
+
+            // Who dies this period. Expected count from the annual rate; each draw comes from
+            // the bottom half with probability `bottomBias`, from anywhere otherwise.
+            int dying = (int)Math.Round(byMom.Count * annualDelistRate / periodsPerYear);
+            var doomed = new HashSet<string>(StringComparer.Ordinal);
+            int half = Math.Max(1, byMom.Count / 2);
+            for (int i = 0; i < dying && doomed.Count < byMom.Count; i++)
+            {
+                bool fromBottom = rng.NextDouble() < bottomBias;
+                int idx = fromBottom
+                    ? byMom.Count - 1 - rng.Next(half)
+                    : rng.Next(byMom.Count);
+                doomed.Add(byMom[idx].Sym);
+            }
+
+            // A doomed name's forward return for THIS period is the shock.
+            double FwdOf((string Sym, double Past, double Fwd) r) =>
+                doomed.Contains(r.Sym) ? Math.Log(Math.Max(1e-6, 1 + shock)) : r.Fwd;
+
+            int k = Math.Max(1, byMom.Count / 3);
+            var held = byMom.Take(k).Select(r => r.Sym).ToHashSet(StringComparer.Ordinal);
+            double turnover = prevHeld == null ? 1.0 : held.Except(prevHeld).Count() / (double)k;
+            prevHeld = held;
+
+            outp.Add(new Period(t,
+                byMom.Take(k).Average(FwdOf),
+                byMom.Average(FwdOf),
+                turnover,
+                byMom.TakeLast(Math.Max(1, byMom.Count / 10)).Average(FwdOf),
+                byMom.Count));
+
+            // They are gone from here on — this is the truncation the haircut could not model.
+            foreach (var sym in doomed) alive.Remove(sym);
+        }
+
+        return outp;
+    }
 
     private static List<Period> Collect(List<XsMomentumCommand.Series> series, DateTime start, DateTime end,
         int look, int skip, int hold, bool volNorm)
