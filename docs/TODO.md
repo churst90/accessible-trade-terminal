@@ -5205,7 +5205,7 @@ head cannot create). No path was found from a hosted user to a live venue or a w
 credential. The recurring problem in this area is different: **a security control that is documented and
 implemented, but not actually running on the internet-facing head.**
 
-- [ ] **A Blazor circuit never revalidates its principal, so password reset, 2FA enrollment, lockout and
+- [x] **A Blazor circuit never revalidates its principal, so password reset, 2FA enrollment, lockout and
   sign-out do not evict an already-open session — `AccountsServiceExtensions.cs:101-102`,
   `Program.cs:343-355`, `WebHostBrowserCircuitHandler.cs:87-88`.**
   `AddCascadingAuthenticationState()` is registered but nothing registers a
@@ -5223,6 +5223,13 @@ implemented, but not actually running on the internet-facing head.**
   restarts. This directly defeats the property `Security.cshtml.cs:17-18` claims. Fix: register an
   `IdentityRevalidatingAuthenticationStateProvider` with a short interval (what the stock .NET
   Identity-on-Blazor template does) and re-seed `ICurrentUser` when it fires. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** `IdentityRevalidatingAuthenticationStateProvider` registered, plus
+  `SecurityStampValidatorOptions.ValidationInterval` at five minutes so the HTTP side's window
+  matches the circuit's — this is the stock .NET Identity-on-Blazor arrangement the app had
+  simply never wired up.
+  **One addition beyond the finding:** the check also refuses a LOCKED-OUT account. Lockout does
+  not rotate the security stamp, so a stamp-only check would let a circuit ride through it — the
+  same hole under another name.
 - [x] **The plugin outbound-host allow-list is never installed on the WebHost — every one of 42
   `PluginHostServices.CreateHttpClient` call sites gets an unrestricted `HttpClient` on the public head
   (`Program.cs:184-188`, `ServiceCollectionExtensions.cs:126`).** `Program.cs` assigns exactly one bridge
@@ -5260,7 +5267,7 @@ implemented, but not actually running on the internet-facing head.**
   `WindowsAppContainerLauncher`) and `AlertDeliveryService` push to `PluginHostServices.SecurityEvents`,
   which is null here, so those audit records are dropped on the floor on the hosted server.
   CONFIRMED. MEDIUM.
-- [ ] **`auth.db` has no migration path: `Program.cs:191-196` calls `EnsureCreated()` and the repo contains
+- [x] **`auth.db` has no migration path: `Program.cs:191-196` calls `EnsureCreated()` and the repo contains
   no EF migrations at all.** `find` for `*Migration*` returns one markdown file and nothing else.
   `EnsureCreated` is create-or-nothing — it will not alter a database that already has tables.
   `SERVER_SETUP.md:195-198` documents this risk, but only for `trader_local.db`, and its advice ("delete it
@@ -5273,7 +5280,21 @@ implemented, but not actually running on the internet-facing head.**
   accounts.** Fix: add an initial EF migration matching the current shape, switch to `Database.Migrate()`,
   and document the backup-before-deploy step. (TODO:2984 files the same defect for the cache DB only; this
   one is authoritative.) CONFIRMED. HIGH.
-- [ ] **The plugin allow-list handler follows redirects out of its own allow-list —
+  **CLOSED 2026-08-27.** An initial migration now exists (`Account/Migrations/`), generated
+  against a new `AuthDbContextFactory` because the EF tooling could not build the host to find
+  the context, and startup calls `Migrate()` instead of `EnsureCreated()`.
+  **The part that needed care, and it is the reason this is not a one-liner.** Every existing
+  deployment has an `auth.db` built by `EnsureCreated()`: Identity's tables present, no
+  `__EFMigrationsHistory`. A plain `Migrate()` on one of those tries to apply the initial
+  migration and dies on "table AspNetUsers already exists" — so the fix for the upgrade problem
+  would itself have broken every upgrade. `AuthDbSchema.BringUpToDate` detects that shape and
+  BASELINES it: records the initial migration as applied without running it, then migrates
+  normally. `AuthDbMigrationTests` walks the real upgrade with a real user row in the database,
+  because an upgrade that "worked" by dropping `AspNetUsers` would pass every other assertion.
+  Also deliberately guarded: a database that does not exist yet is NOT baselined — recording a
+  schema as present when it is not would make `Migrate()` skip creating it, which is worse than
+  the defect being fixed.
+- [x] **The plugin allow-list handler follows redirects out of its own allow-list —
   `WebHostPluginHttpClientFactory.cs:26` and `MauiPluginHttpClientFactory.cs:31`.** `HostAllowListHandler`
   is a `DelegatingHandler` layered *above* `new HttpClientHandler()`, which has `AllowAutoRedirect = true`
   by default. The redirect is followed inside the inner handler, below the delegating handler, so the
@@ -5285,6 +5306,14 @@ implemented, but not actually running on the internet-facing head.**
   `new HttpClientHandler { AllowAutoRedirect = false }` in both, plus a test that a 302 to an off-list host
   throws. CONFIRMED. MEDIUM today (needs a hostile upstream) — **HIGH the moment the bridge finding above
   is fixed and the handler is actually in the path.**
+  **CLOSED 2026-08-27.** `new HttpClientHandler { AllowAutoRedirect = false }` in both copies.
+  Tested on the object that ships rather than the source that builds it: the test walks the
+  returned `HttpClient`'s private handler chain to the inner handler and asserts the flag, with
+  a vacuity check that the allow-list delegating handler is still in the chain — an `HttpClient`
+  with no delegating handler at all would otherwise satisfy the assertion by having no
+  allow-list to escape from. The MAUI copy cannot be referenced from the test project (no MAUI
+  workloads on this box), so it is covered by a source scan across both files — stated as a
+  scan rather than dressed up as a behavioural check.
 - [ ] **`/account/security` is an unthrottled, non-lockout password-verification oracle —
   `Security.cshtml.cs:106-112` with `SecurityPolicy.cs:125-132`.** `ConfirmPasswordAsync` uses
   `UserManager.CheckPasswordAsync`, which verifies the hash but — unlike

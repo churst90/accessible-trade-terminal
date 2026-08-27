@@ -99,6 +99,21 @@ namespace AccessibleTrader.WebHost
             services.AddAuthorization();
             services.AddCascadingAuthenticationState();
 
+            // Re-check a LIVE CIRCUIT's principal, not just the request that booted it.
+            //
+            // Blazor's default ServerAuthenticationStateProvider captures the principal once
+            // and never looks again, so password reset, 2FA enrollment, lockout and sign-out
+            // did not evict an already-open session — a stolen session survived the victim's
+            // own remediation until the tab closed or the process restarted. This is the stock
+            // .NET Identity-on-Blazor arrangement, which this app had simply never registered.
+            services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
+                               IdentityRevalidatingAuthenticationStateProvider>();
+
+            // ...and make the HTTP side's window match. Without this the cookie's stamp is
+            // revalidated on the framework default, which is looser than the circuit's.
+            services.Configure<Microsoft.AspNetCore.Identity.SecurityStampValidatorOptions>(o =>
+                o.ValidationInterval = TimeSpan.FromMinutes(5));
+
             // Razor Pages host the accessible login/register/logout forms — server-rendered
             // (built-in antiforgery), independent of the Blazor render-mode pipeline.
             services.AddRazorPages();

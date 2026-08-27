@@ -18,7 +18,16 @@ namespace AccessibleTrader.WebHost.Services
                     $"HttpClientPolicy for '{policy.ProviderId}' must declare at least one allowed host.",
                     nameof(policy));
 
-            var inner = new HttpClientHandler();
+            // AllowAutoRedirect = FALSE. HostAllowListHandler is a DelegatingHandler layered
+            // ABOVE this inner handler, so a redirect followed inside the inner handler never
+            // passes the allow-list at all: it is checked once, on the initial URI, and never
+            // on the hop. An allow-listed host answering
+            // `302 Location: http://169.254.169.254/latest/meta-data/` was followed and the
+            // body handed straight back to the plugin.
+            //
+            // OutboundNetworkGuard already did this and documented why; the plugin factory did
+            // not, and the two copies of this file were byte-identical in that respect.
+            var inner = new HttpClientHandler { AllowAutoRedirect = false };
             var handler = new HostAllowListHandler(policy, inner);
             var http = new HttpClient(handler)
             {

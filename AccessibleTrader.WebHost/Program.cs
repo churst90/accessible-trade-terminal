@@ -209,12 +209,32 @@ if (hostMode == HostMode.Full)
 AccessibleTrader.Sdk.Services.PluginHostServices.HttpClientFactory =
     app.Services.GetRequiredService<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory>();
 
-// Create the accounts (Identity) schema on first run.
+// Bring the accounts (Identity) schema up to date.
+//
+// This was `EnsureCreated()`, and the repo contained NO EF migrations at all — `find` for
+// *Migration* returned one markdown file. EnsureCreated is create-or-nothing: it will not
+// alter a database that already has tables. So the moment anyone added a property to AppUser
+// (which already carries three custom columns — CreatedUtc, LastSeenUtc, Tier — so it has
+// happened before and will again), or an Identity minor version added one, the next deploy
+// would see tables, do nothing, and every query against AspNetUsers would throw
+// `SqliteException: no such column`. **Sign-in breaks for every existing account, with no
+// recovery short of hand-editing SQLite or deleting the accounts.**
+//
+// SERVER_SETUP.md documents that risk for trader_local.db only, and its advice there —
+// "delete it on deploy and let it rebuild — it is a cache, and nothing in it is
+// authoritative" — is exactly the advice that CANNOT be followed for auth.db.
+//
+// Migrate() applies pending migrations and creates the database when it does not exist, so it
+// covers both the first run and every subsequent shape change. An existing auth.db created by
+// EnsureCreated has no __EFMigrationsHistory table, so the initial migration would try to
+// re-create tables that are already there; MarkExistingDatabaseAsBaselined handles that case
+// by recording the initial migration as already applied.
 if (accountsEnabled)
 {
     using var scope = app.Services.CreateScope();
-    scope.ServiceProvider.GetRequiredService<AccessibleTrader.WebHost.Account.AuthDbContext>()
-        .Database.EnsureCreated();
+    var db = scope.ServiceProvider.GetRequiredService<AccessibleTrader.WebHost.Account.AuthDbContext>();
+    AccessibleTrader.WebHost.Account.AuthDbSchema.BringUpToDate(
+        db, app.Services.GetService<ILoggerFactory>()?.CreateLogger("AuthDbSchema"));
 }
 
 // One-time owner/admin seed: provision a pre-set account from env vars, BYPASSING the public
