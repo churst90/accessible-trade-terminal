@@ -259,9 +259,19 @@ namespace AccessibleTrader.Tests
         ///
         /// <para>
         /// <b>DEFECT.</b> Something is pinned to array index 0 and re-cuts when the array start
-        /// moves. Each of these is filed in docs/TODO.md under the prepend-causality section and
-        /// each is a bar on the user's chart silently changing its answer during a scroll-back.
-        /// They sit here so the guard is green on everything else — not because they are accepted.
+        /// moves. Each of these was filed in docs/TODO.md under the prepend-causality section and
+        /// each was a bar on the user's chart silently changing its answer during a scroll-back.
+        /// They sat here so the guard was green on everything else — not because they were
+        /// accepted. <b>That section is empty as of 2026-08-27</b>, and anything added back to it
+        /// is a known bug wearing an exemption, not a settled question.
+        /// </para>
+        ///
+        /// <para>
+        /// Telling the two apart is not a judgement call and must not be made as one. A residue
+        /// that converges shrinks with distance from the array start; an anchor re-cuts and the
+        /// disagreement stays the same size forever. Measure it — the last entry to move between
+        /// the sections did so on a five-orders-of-magnitude decay curve, having been filed under
+        /// the wrong heading purely because nobody had.
         /// </para>
         /// </summary>
         private static readonly string[] NotStableWhenHistoryIsPrepended =
@@ -281,22 +291,20 @@ namespace AccessibleTrader.Tests
             "SPIDER_LINES.EMA 200",     // three time constants in 700 bars is not enough to reach 1e-6
             "SPIDER_LINES.Stacking Score",   // ranks those EMAs; flips wherever two sit inside the residue
             "REGIME.AboveEma200",            // boolean over a 200-EMA, same knife edge
+            // Seeded at zero in BOTH runs, so its own seed is not the source — it multiplies the
+            // Wilder ATR/RSI residue underneath it by the accumulator's steady-state gain of
+            // 1/(1 - 0.5^(1/30)) ~= 43, which is what lifts it above 1e-6 at bar 700 when the
+            // filters feeding it are under 5e-7. It converges: prepend 91 bars and the
+            // disagreement falls from 4e-2 to 1e-7 across the series, measured in
+            // TopBottomDetectorProviderTests.DistributionConfidence_ResidueConverges_ItIsNotAnchoredToArrayIndexZero.
+            // It sat under DEFECT until 2026-08-27 on the strength of nobody having looked.
+            "TOP_BOTTOM_DETECTOR.Distribution Confidence",
 
             // ── DEFECT: anchored to array index 0, filed in docs/TODO.md ─────────────────────
-            "CIPHER_S.Candle Phase",
-            "LOUKAS_CYCLES.IC DC Count",     // counts cycles since bar 0, so prepending adds cycles to every count
-            "LOUKAS_CYCLES.ICL Confirmed",
-            "TOP_BOTTOM_DETECTOR.Distribution Confidence",
-            "VALUE_DEVIATION.DeviationTier",
-            "VALUE_DEVIATION.ResistanceDeep",
-            "VALUE_DEVIATION.ResistanceMid",
-            "VALUE_DEVIATION.ResistanceShallow",
-            "VALUE_DEVIATION.SupportDeep",
-            "VALUE_DEVIATION.SupportMid",
-            "VALUE_DEVIATION.SupportShallow",
-            "VALUE_DEVIATION.ValueHigh",
-            "VALUE_DEVIATION.ValueLow",
-            "VALUE_DEVIATION.ValuePoc",
+            // Empty since 2026-08-27, and the aim is to keep it that way. The four that were
+            // here — VALUE_DEVIATION's twelve components, LOUKAS_CYCLES' IC counter, CIPHER_S's
+            // candle phase, and the TOP_BOTTOM_DETECTOR entry reclassified above — are the last
+            // HIGH item of the 2026-08-27 severity pass.
         };
 
         /// <summary>
@@ -626,6 +634,15 @@ namespace AccessibleTrader.Tests
             "TOP_BOTTOM_DETECTOR.Bottom Confirmed",
             "TPO.Profile",
             "Tma.Tma",
+            // Genuinely rare, and newly so. Until 2026-08-27 the profile window grew with the
+            // bar's array index, so early bars had a tiny profile, a collapsed value area, and a
+            // deviation measured in "many value-area widths" for free — the deepest tiers fired
+            // on that artifact. Against a full 240-bar profile they need price roughly 1.2 value
+            // areas from the POC, which these synthetic series never reach.
+            // ValueDeviationTests.Provider_TheDeepestTierIsStillReachable proves they are rare
+            // rather than dead: a real flush below a settled value area still fires them.
+            "VALUE_DEVIATION.ResistanceDeep",
+            "VALUE_DEVIATION.SupportDeep",
             "VOLUME.Volume",
             "VPFR.Profile",
             "VPVR.Profile",

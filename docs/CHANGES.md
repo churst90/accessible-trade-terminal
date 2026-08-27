@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A text label that spoke the price instead of the text (2026-08-27)
+
+- **The Text Label tool put your wording in the series name and nowhere else.** The prompt took the
+  text, the plate drew it on the chart — and the bar it was pinned to read out the anchor's CLOSE
+  PRICE, because a label's component array stores the anchor as a price and every speech path in
+  the terminal treats a component array as a value to read. A series name is announced once, when
+  you switch onto the series; arrowing along the bars, which is how a label is actually found, got
+  a number that says nothing. The one thing on the chart the terminal did not compute was the one
+  thing it would not say.
+- **It also played the price line at the label.** Same cause: the component is created through the
+  ordinary factory, so it arrived as a Line and was sonified as one — a tone at a bar where nothing
+  was measured, indistinguishable from the price series itself.
+- Now: a label reads its own wording wherever the cursor meets it — on its own series, and while
+  arrowing or jumping across any other series over the bar it is pinned to — and it plays a short
+  high two-note tick well above the price register instead of a tone. Nothing about a label is a
+  measurement, so it no longer sounds like one. The earcon fires on ARRIVAL, not on every state
+  push, so standing on a labelled bar does not machine-gun it; leaving and coming back sounds it
+  again. Off its bar the label says so rather than "no data", which on a one-point series is
+  indistinguishable from a broken one.
+- The series-switch line for a label is gone too. "Label: sold half here. 1 component. Label. Sold
+  half here." was the whole utterance; a label has exactly one component and it is the label.
+- **The stale claim that sent this report:** `SystemCommand.SpeakChartLayout`'s comment still said
+  `Alt+Shift+L`, months after all three orientation keys moved to three-modifier chords precisely
+  BECAUSE the WebHost rewrite lands `Alt+Shift+letter` on the drawing tools. The layout key is
+  `Ctrl+Alt+Shift+Y`, show-all is `Ctrl+Alt+Shift+K`, unmute-all is `Ctrl+Alt+Shift+U`, and
+  `Alt+Shift+L` on the WebHost is the Text Label tool and nothing else.
+
+### Four indicators that rewrote their own past when you scrolled back (2026-08-27)
+
+- The last open item of the high-severity pass. Each was a bar already on your chart quietly
+  changing its answer when older bars loaded in front of it — invisible from the inside, and on a
+  component published to the strategy builder it also means a backtest and the live chart it was
+  run from disagreeing about the same bar.
+- **Value Deviation had two anchors and one fix.** The profile window grew with the bar's ARRAY
+  INDEX (`(i + 1) / 3`, reaching the configured 240 only at bar 719) and the profile cache rebuilt
+  on `i % 5`, so a prepend that was not a multiple of five shifted the phase of every cached bar.
+  The window is now exactly the configured length and every bar rebuilds. **A chart shorter than
+  the window now reads nothing** rather than quietly using a shorter profile — that "degrade rather
+  than go quiet" cap was the defect, because a profile that shrinks to fit the chart changes length
+  when history arrives. The blank is not mute: the detail line says how many bars the profile needs
+  and how many the chart has.
+- **Loukas Cycles counted intermediate cycles from the start of the array.** The published IC DC
+  Count was "daily cycle lows since the array began, modulo three", so any scroll-back containing
+  one cycle low renumbered every cycle on screen and moved every ICL marker. An intermediate low is
+  now the lowest of the last three daily-cycle lows — bounded, causal, and anchored to price — and
+  the count is how many daily cycles have printed since it. In a straight downtrend that means
+  every daily low is an intermediate low and the count sits at one; the old rotation looked more
+  informative there and was not, since its phase came from where the fetch began.
+- **Cipher S ranked each candle against however much history was loaded.** The percentile channel
+  clamped its window to the array start, so on any chart shorter than the window — at the old
+  1500-bar Auto fallback, essentially every chart — the candle colour was a rank against an
+  expanding window. It now requires a full window, and the Auto fallback drops from 1500 to 200,
+  which is the floor the indicator's own cycle detector already clamps to. A four-year scale is
+  still available by setting the window by hand; the cost is now a visible uncoloured left edge
+  instead of a colour that changed when you scrolled.
+- **Top/Bottom Detector's Distribution Confidence was misfiled and is not a defect.** It was listed
+  as "not investigated" under the index-0 heading. Measured: prepend 91 bars and the disagreement
+  falls from 4e-2 to 1e-7 across the series — five orders of magnitude of decay, which an anchor
+  cannot do. It is a decaying accumulator multiplying the Wilder residue beneath it by a gain of
+  about 43, and the measurement is kept as a test so the classification is evidence rather than an
+  opinion.
+- The exemption list's DEFECT section is now empty, and the guard fails if anything is added back
+  to it without a reason.
+
 ### An order that succeeded could report as failed (2026-08-26)
 
 - **A single faulty listener on the order stream made a filled order look like a failed one.** The

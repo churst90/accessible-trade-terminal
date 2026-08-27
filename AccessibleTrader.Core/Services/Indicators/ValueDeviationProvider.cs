@@ -190,13 +190,13 @@ namespace AccessibleTrader.Core.Services.Indicators
             double maxTier = GetParam(parameters, ParamMaxTier, 2.0);
             bool requireMomentum = GetParam(parameters, ParamRequireMomentum, 1) != 0;
             int minTier = Math.Clamp((int)GetParam(parameters, ParamMinTier, 2), 1, 5);
-            // The window is a MAXIMUM, not a fixed length: ValueDeviationAnalyzer.WindowAt grows it
-            // with each bar's own history, up to this value. That keeps the reason the cap existed
-            // — a fresh ~200-bar chart has to show something rather than a blank left half — while
-            // removing the part that made it wrong: the cap used to be a third of the TOTAL loaded
-            // bar count, so the same bar answered differently depending on how much history was
-            // fetched after it. The research found the slower anchor measured best, so a larger
-            // maximum is still strictly better where the history exists to fill it.
+            // The window is EXACTLY this many bars, and it is deliberately not clamped to the
+            // length of the loaded series. Two earlier versions did clamp — first to a third of
+            // the total bar count, then to a third of the bar's own array index — and both made
+            // the same bar answer differently depending on how much history happened to be
+            // fetched around it. A chart shorter than the window therefore reads nothing at all,
+            // which GetDetailFact explains in bars; scrolling back then ADDS readings rather than
+            // rewriting the ones already on screen.
             window = Math.Max(ValueDeviationAnalyzer.MinWindow, window);
 
             var bars = new Ohlcv[n];
@@ -280,6 +280,21 @@ namespace AccessibleTrader.Core.Services.Indicators
             double tier = At(calculatedResults, CompTier, index);
             double poc = At(calculatedResults, CompPoc, index);
             var sb = new StringBuilder();
+
+            // NO POC, AND THE REASON IS KNOWABLE. The profile is a fixed number of bars and it
+            // does not shrink to fit — a bar with fewer than `window` bars behind it has no
+            // reading, by design, so that scrolling back adds readings instead of changing them.
+            // Saying "no data" and stopping would make a deliberate refusal look like a fault,
+            // and the user has no way to see that the chart is simply too short. The counts are
+            // in the sentence because they are what turns it into an action: load more history,
+            // or lower the window.
+            int window = Math.Max(ValueDeviationAnalyzer.MinWindow, (int)GetParam(parameters, ParamWindow, 240));
+            if (double.IsNaN(poc) && index < window)
+            {
+                return $"No value profile yet. The profile is built from the {window} bars before " +
+                       $"each bar, and this one has {index}. Load more history, or lower the " +
+                       "profile window in the indicator's settings.";
+            }
 
             if (double.IsNaN(tier) || tier == 0)
                 sb.Append("Price is inside the value band.");

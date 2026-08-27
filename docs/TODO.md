@@ -3083,7 +3083,7 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   **CLOSED 2026-08-27.** `DataStatus.Stale` exists, `WorkspaceState.LastTickUtc` exists, the
   watchdogs set the first and the live-tick path sets the second — and **a tick CLEARS Stale**,
   because a status that only ever goes one way is one nobody can trust the second time.
-  `ChartLayoutDescriber` reports it, so Alt+Shift+L — the orientation key, "the one thing a
+  `ChartLayoutDescriber` reports it, so Ctrl+Alt+Shift+Y — the orientation key, "the one thing a
   sighted user gets for free by glancing at the screen" — can finally answer the question that
   matters most about a trading chart. It reports the ELAPSED TIME, not just the word: "no data
   for eleven minutes" is actionable in a way that "stale" is not.
@@ -5883,7 +5883,7 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
   minutes land the same way.
   Chart-pattern detection still has no causality guard of its own — see the item below.
 
-- [ ] **The components still anchored to array index 0, pinned in
+- [x] **The components still anchored to array index 0, pinned in
   `NotStableWhenHistoryIsPrepended`.** Each one is a bar on the user's chart that silently changes
   its answer during a scroll-back. They are excused from the guard so it is green on everything
   else, not because they are accepted; the guard fails if any of them is fixed and left on the list.
@@ -5941,6 +5941,63 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
   and the long recursions that have not converged in 700 bars (`SPIDER_LINES.EMA 144`/`200` and the
   `Stacking Score` that ranks them, `REGIME.AboveEma200`, `PULSE.AnchorMtf`/`AnchorSlope`/
   `AnchorSlow`). HIGH.
+
+  **CLOSED 2026-08-27 — the DEFECT section of `NotStableWhenHistoryIsPrepended` is now empty.**
+  Three of the four were real and are fixed; the fourth was misfiled and the measurement says so.
+
+  - **`VALUE_DEVIATION` — both anchors, one fix.** The window is now exactly the configured
+    number of bars and the profile is rebuilt on every bar. Both halves mattered and neither
+    alone was enough: the growing `(i + 1) / 3` window re-cut every bar left of 719 at the
+    default, and the `i % 5` rebuild cache shifted phase whenever the prepend count was not a
+    multiple of five. All twelve components came off the exemption list.
+    **The cost is a real behaviour change, and it is visible.** A chart shorter than the window
+    now reads NOTHING rather than quietly using a shorter profile — that "degrade rather than go
+    quiet" cap was the defect, because a profile that shrinks to fit the chart changes length
+    when history arrives. `Provider_OversizedWindowIsCappedRatherThanSilencingEverything`
+    asserted the OLD contract and was rewritten to assert the new one; the 200-bar case left
+    `Provider_ProducesOutputAtBarCountsARealChartActuallyLoads`. `GetDetailFact` now says how
+    many bars the profile needs and how many the chart has, so the blank is never mute.
+    Also found by the change: the two DEEP-tier components stopped firing on the causality
+    harness's synthetic series, because they had been firing on the collapsed value area of the
+    old tiny early windows. `Provider_TheDeepestTierIsStillReachable` proves they are rare and
+    not dead, and they moved to `NotExercisedByTheseSeries` rather than being quietly dropped.
+
+  - **`LOUKAS_CYCLES` — the IC counter is anchored to price now.** An ICL is the lowest of the
+    last `IcDcCount` daily-cycle lows (a bounded backward window over events that are themselves
+    prepend-stable, which `DcDayCount` passing the guard already proved), and IC DC Count is how
+    many DCLs have printed since that ICL. The search back for the last ICL is capped at
+    `IcDcCount * 3` DCLs on purpose — an uncapped "DCLs since the last ICL" is the array-start
+    anchor coming back in through the side door — and the count is NaN when no ICL is found in
+    that span, and NaN before `IcDcCount` DCLs exist at all.
+    **What the indicator now claims is different, and the difference is worth stating:** a
+    straight downtrend makes every DCL the lowest of its last three, so every DCL is an ICL and
+    the count sits at 1. The old fixed 1-2-3 rotation looked more informative there and was not —
+    its phase was an artifact of where the fetch began.
+
+  - **`CIPHER_S.Candle Phase` — the design decision was made in favour of the fill.** The
+    percentile channel now requires a full window; a bar with fewer bars behind it than the
+    window gets no reading. This is the case the item flagged as "needs a decision", and the
+    deciding fact is that Candle Phase is declared Causal and `SignalCatalog` publishes it as a
+    strategy leaf: the old expanding window put a backtest and the live chart it was run from
+    into disagreement about the phase of the same bar, which is worse than a blank overlay.
+    The blank is kept small by moving the Auto fallback from **1500 to 200** — the same floor
+    `SuggestParameters` already clamps its own detected windows to, and only ever in force until
+    detection replaces it. At 1500 a full-window rule would have blanked the overlay on
+    essentially every chart. `GetDetailFact` explains the blank in bars.
+
+  - **`TOP_BOTTOM_DETECTOR.Distribution Confidence` — MISFILED, not a defect.** Filed here as
+    "not investigated" and it turns out to be in the other population. The accumulator is seeded
+    at zero in both runs, so its own seed is not the source; it multiplies the Wilder ATR/RSI
+    residue underneath it by its steady-state gain of 1/(1 - 0.5^(1/30)) ≈ 43, which is what
+    lifts it above the guard's 1e-6 at bar 700 while the filters feeding it sit under 5e-7.
+    Prepend 91 bars and the disagreement falls from 4e-2 to 1e-7 across the series — five orders
+    of magnitude, which an index anchor cannot do.
+    `TopBottomDetectorProviderTests.DistributionConfidence_ResidueConverges_ItIsNotAnchoredToArrayIndexZero`
+    is that measurement, kept so the classification is evidence and not an opinion. It moved to
+    the inherent section of the exemption list.
+    **The lesson is procedural and it is the same one this repo keeps relearning:** the two
+    populations are told apart by measuring whether the residue decays, and "not investigated"
+    filed under a defect heading reads as a defect to everyone who comes after.
 
 - [x] **Chart-pattern detection had no causality guard at all, in either direction.**
   `ChartPatternDetector` is not an `IIndicatorProvider`, so neither sweep ever touched it — and the

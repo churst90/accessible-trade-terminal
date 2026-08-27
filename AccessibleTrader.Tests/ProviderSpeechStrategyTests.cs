@@ -8,7 +8,7 @@ using NSubstitute;
 namespace AccessibleTrader.Tests
 {
     /// <summary>
-    /// Debt item 4: provider contextual speech is now strategy #1 of the single
+    /// Debt item 4: provider contextual speech is now strategy #2 of the single
     /// utterance precedence list in SpeechFormatter (it used to be a separate
     /// "path 1" in NavigationFeedbackManager). These tests pin the contract that
     /// moved: provider speech wins in Component context, declines fall through to

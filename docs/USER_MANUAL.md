@@ -790,10 +790,18 @@ then a small dialog asks what the label should say — so the position and the
 wording are two separate decisions, which matters when you cannot see where the
 anchor landed.
 
-The text is drawn on the chart beside the anchor, and it becomes the label's name
-everywhere else: navigating onto the label speaks it, the object tree lists it, and
-the chart legend shows it. A label reading "Label (3)" would be a label you have to
-go and look at, which is the one thing that does not work here.
+The text is drawn on the chart beside the anchor, and it is read wherever you meet
+the label. Arrow or jump onto the bar it is pinned to — from the label's own series
+or from any other — and you hear a short high two-note tick followed by the wording.
+The tick is deliberately unlike any tone the chart makes from data: a label is an
+annotation, not a measurement, and it plays no price tone at all. The wording is also
+the label's name, so the object tree lists it and the legend shows it. A label reading
+"Label (3)" would be a label you have to go and look at, which is the one thing that
+does not work here.
+
+Off its bar, the label's own series says the wording and "not on this bar" — a label
+is a single point, so most bars of its series are empty and silence there would be
+indistinguishable from a series that had stopped working.
 
 Cancelling the dialog leaves the label in place with no text, and says so — deleting
 something you had just deliberately positioned would be the worse surprise. Remove

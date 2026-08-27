@@ -339,7 +339,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             var dcInWindow   = NanArray(n);
             var dcOverdue    = NanArray(n);
             var dclConfirmed = NanArray(n);
-            var icDcCountArr = new double[n];
+            var icDcCountArr = NanArray(n);
             var iclConfirmed = NanArray(n);
             var fyDayCount   = NanArray(n);
             var fyPhase      = NanArray(n);
@@ -349,7 +349,39 @@ namespace AccessibleTrader.Core.Services.Indicators
             // we treat bar 0 as the anchor — day count climbs from 0 and the "in window"
             // / "overdue" flags behave sensibly from the start of the series.
             int lastDclBarIndex = 0;
-            int currentDcOfIc   = 1;
+
+            // ── THE IC COUNTER IS ANCHORED TO PRICE, NOT TO ARRAY INDEX ──────
+            //
+            // It used to start at 1 on bar 0 and increment once per confirmed DCL, wrapping
+            // at IcDcCount — so the published value was (DCLs since the ARRAY START) mod
+            // IcDcCount. Prepending history containing even one DCL rotated the count on every
+            // bar on screen and moved every ICL marker: the user scrolls left and the cycle
+            // they were counting changes number under them. Nothing about the market changed;
+            // only where the array began.
+            //
+            // The fix is to let the DATA say where an intermediate cycle ends. An ICL is the
+            // lowest of the last IcDcCount daily-cycle lows — a bounded backward window over
+            // events that are themselves prepend-stable — and IC DC Count is how many DCLs
+            // have printed since that ICL, counting it as one. Nothing in either depends on
+            // where the array starts, which is what makes a scroll-back add information
+            // instead of rewriting it.
+            //
+            // WHAT THIS CHANGES about the indicator's claim, stated plainly because it is a
+            // different claim: a straight downtrend makes every DCL the lowest of its last
+            // three, so every DCL is an ICL and the count sits at 1. That is the honest
+            // reading of a market where every daily cycle fails, and it is the price of a rule
+            // with no memory of where the chart begins. The old fixed 1-2-3 rotation looked
+            // more informative there and was not — its phase was an artifact of the fetch.
+            //
+            // Before IcDcCount DCLs exist there is no answer, and the count is NaN rather than
+            // a number the data does not support.
+            var dclLows   = new List<double>();
+            var dclWasIcl = new List<bool>();
+            // How far back an ICL is looked for. Bounded on purpose: an unbounded search is
+            // the array-start anchor coming back in through the side door, because "the last
+            // ICL" would then be answerable only by reading to the beginning of the data.
+            int iclSearchDcls = icDcCount * 3;
+            double currentDcOfIc = double.NaN;
 
             for (int i = 0; i < n; i++)
             {
@@ -425,16 +457,26 @@ namespace AccessibleTrader.Core.Services.Indicators
                                 dclConfirmed[i] = 0.0;
                                 lastDclBarIndex = k;
 
-                                // Rolling IC-of-DC counter. When the Nth DC of an IC
-                                // is terminated by a DCL, that DCL is also an ICL.
-                                currentDcOfIc += 1;
-                                if (currentDcOfIc > icDcCount)
+                                // This DCL is an ICL when its low is the lowest of the
+                                // last IcDcCount daily-cycle lows, itself included — the
+                                // intermediate cycle bottoms at the lowest of the daily
+                                // cycles it contains. Strictly lower, so a tie leaves the
+                                // earlier low holding the title and one flat stretch
+                                // cannot mint two intermediate lows.
+                                dclLows.Add(data[k].Low);
+                                bool isIcl = dclLows.Count >= icDcCount;
+                                for (int q = dclLows.Count - icDcCount; isIcl && q < dclLows.Count - 1; q++)
+                                    if (q >= 0 && dclLows[q] <= dclLows[^1]) isIcl = false;
+                                dclWasIcl.Add(isIcl);
+
+                                if (isIcl)
                                 {
                                     // ICL marker also count-scale (placed at DcMaxBars
                                     // so it visually anchors to the upper band line).
                                     iclConfirmed[i] = (double)dcMaxBars;
-                                    currentDcOfIc = 1;
                                 }
+
+                                currentDcOfIc = DclsSinceIcl(dclWasIcl, iclSearchDcls);
 
                                 // Recompute current bar outputs after the reset.
                                 day = i - lastDclBarIndex;
@@ -604,6 +646,28 @@ namespace AccessibleTrader.Core.Services.Indicators
             3 => "bear",
             _ => "unknown",
         };
+
+        /// <summary>
+        /// Which daily cycle of the current intermediate cycle the latest DCL is: 1 at the ICL
+        /// itself, 2 at the next DCL, and so on. NaN when no ICL is found within
+        /// <paramref name="searchDcls"/> confirmed DCLs.
+        ///
+        /// <para>
+        /// The cap is the whole point. "DCLs since the last ICL" with no bound is a question
+        /// answerable only by reading back to the start of the loaded data, which is the array
+        /// anchor this counter was rewritten to remove — a chart scrolled back would find an
+        /// older ICL and renumber every cycle on screen. A market that has gone this long with
+        /// no intermediate low has no cycle number that the visible data supports, and saying
+        /// nothing is the honest answer.
+        /// </para>
+        /// </summary>
+        private static double DclsSinceIcl(List<bool> dclWasIcl, int searchDcls)
+        {
+            int limit = Math.Min(searchDcls, dclWasIcl.Count);
+            for (int back = 0; back < limit; back++)
+                if (dclWasIcl[dclWasIcl.Count - 1 - back]) return back + 1;
+            return double.NaN;
+        }
 
         private static double[] NanArray(int length)
         {

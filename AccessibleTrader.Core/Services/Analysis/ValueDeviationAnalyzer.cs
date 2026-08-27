@@ -33,8 +33,9 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// <para>
     /// CAUSAL BY CONSTRUCTION. The profile at bar i is built from bars i-Window..i-1 only. A
     /// profile spanning the whole series would compute the POC partly from the bars whose
-    /// behaviour it is supposed to anticipate. The window itself has to be causal too — see
-    /// <see cref="ValueDeviationAnalyzer.WindowAt"/> for the one that was not.
+    /// behaviour it is supposed to anticipate. The window itself has to be independent of the
+    /// array too — see the note on <see cref="IValueDeviationAnalyzer.Reference"/> for the two
+    /// ways it was not.
     /// </para>
     /// </summary>
     public interface IValueDeviationAnalyzer
@@ -59,35 +60,10 @@ namespace AccessibleTrader.Core.Services.Analysis
         private const double ValueAreaFraction = 0.70;
 
         /// <summary>
-        /// Bars between profile rebuilds. The POC of a multi-hundred-bar window barely moves from
-        /// one bar to the next, and rebuilding every bar makes the indicator quadratic for no
-        /// visible benefit.
-        /// </summary>
-        private const int RebuildEvery = 5;
-
-        /// <summary>
         /// Shortest profile that means anything. Below this the value area is a handful of bins and
         /// the deviation tiers are noise.
         /// </summary>
         public const int MinWindow = 40;
-
-        /// <summary>
-        /// The profile window in force at a bar: as much history as the bar has behind it, up to
-        /// the configured maximum, never below <see cref="MinWindow"/>.
-        ///
-        /// <para>
-        /// It grows with the BAR'S OWN position, not with the length of the loaded series. The
-        /// provider used to cap the window at a third of the total bar count, so bar 40 had a
-        /// 40-bar profile on a 130-bar chart and no profile at all on a 400-bar one — the same bar,
-        /// two answers, decided by how much data happened to be fetched after it. That is invisible
-        /// on a chart and fatal in a backtest, where the whole series is loaded and every early bar
-        /// silently uses a window a live trader would never have had. The intent behind the cap —
-        /// a fresh 200-bar chart should show something rather than a blank left half — is kept, and
-        /// is better served this way: the profile starts at bar <see cref="MinWindow"/> either way.
-        /// </para>
-        /// </summary>
-        public static int WindowAt(int barIndex, int maxWindow) =>
-            Math.Min(maxWindow, Math.Max(MinWindow, (barIndex + 1) / 3));
 
         public ValueDeviation[] Analyze(IReadOnlyList<Ohlcv> bars, int window, int tiers, double maxTierVa)
         {
@@ -121,6 +97,38 @@ namespace AccessibleTrader.Core.Services.Analysis
             return result;
         }
 
+        /// <summary>
+        /// THE WINDOW IS FIXED, AND EVERY BAR REBUILDS. Both halves are prepend-stability, and both
+        /// were violations until 2026-08-27.
+        ///
+        /// <para>
+        /// <b>The window.</b> It used to be <c>min(maxWindow, max(40, (barIndex + 1) / 3))</c> — a
+        /// profile that grew with the bar's ARRAY INDEX and only reached the configured maximum at
+        /// bar <c>3 * window - 1</c>, which is bar 719 at the default 240. Every bar left of that
+        /// re-cut its profile the moment older bars arrived and its index moved. This is the same
+        /// defect as the one-third-of-total-bar-count cap it replaced, one level down: the same
+        /// bar, two answers, decided by how much history happened to be loaded around it. The only
+        /// window that survives a scroll-back is one that depends on nothing but the parameter.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>The rebuild.</b> The profile used to be rebuilt on <c>i % 5 == 0</c> and cached
+        /// between, so the PHASE of the cache was pinned to array index 0 — prepend a number of
+        /// bars that is not a multiple of five and every cached bar reads a profile built at a
+        /// different bar. Rebuilding every bar is ~336k bar-visits on a 1400-bar series at the
+        /// default window; the "makes the indicator quadratic" note that justified the cache was
+        /// written about the UNCAPPED window, not about this.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>What it costs.</b> A chart with fewer bars than the window shows nothing, and one
+        /// with a few more shows nothing at its left edge. That is the honest outcome and the
+        /// point of the change: scrolling back now ADDS readings instead of altering existing
+        /// ones. Silence with no explanation is not acceptable here, so
+        /// <c>ValueDeviationProvider.GetDetailFact</c> says how many bars the profile needs and
+        /// how many the chart has.
+        /// </para>
+        /// </summary>
         public (double[] Poc, double[] ValueHigh, double[] ValueLow) Reference(
             IReadOnlyList<Ohlcv> bars, int window)
         {
@@ -133,19 +141,14 @@ namespace AccessibleTrader.Core.Services.Analysis
             Array.Fill(lo, double.NaN);
             if (n == 0 || window < 10) return (poc, hi, lo);
 
-            double curPoc = double.NaN, curHi = double.NaN, curLo = double.NaN;
-
-            // The rebuild cadence keys off the bar index alone. It used to be (i - window) %
-            // RebuildEvery, which was fine while the window was a constant but would have made the
-            // phase — and so every cached value — shift with the window as it grows.
-            for (int i = MinWindow; i < n; i++)
+            // A bar's profile is the `window` bars immediately behind it — no more, no fewer, and
+            // never a partial one. `i >= window` is the whole warmup rule, and it is expressed in
+            // the parameter only, so a bar's reading is a property of the bar and not of where it
+            // happens to sit in the loaded array.
+            for (int i = window; i < n; i++)
             {
-                int w = WindowAt(i, window);
-                if (i - w < 0) continue;
-                if (i % RebuildEvery == 0 || double.IsNaN(curPoc))
-                    (curPoc, curHi, curLo) = BuildProfile(bars, i - w, i);
-
-                poc[i] = curPoc; hi[i] = curHi; lo[i] = curLo;
+                var (p, h, l) = BuildProfile(bars, i - window, i);
+                poc[i] = p; hi[i] = h; lo[i] = l;
             }
             return (poc, hi, lo);
         }

@@ -189,9 +189,20 @@ namespace AccessibleTrader.Core.Services.Indicators
             var rawPct = new double[n];
             for (int i = 0; i < n; i++) rawPct[i] = double.NaN;
 
-            for (int i = 0; i < n; i++)
+            // THE WINDOW MUST BE FULL. `wStart = Math.Max(0, i - windowBars + 1)` used to clamp
+            // to the array start, which made every bar of any chart shorter than the window an
+            // EXPANDING window anchored at index 0 — and at the old 1500-bar Auto fallback that
+            // was every bar of essentially every chart. Scroll back and each of those bars is
+            // ranked against a different span, so the candle changes colour with no change in
+            // the market. This component is declared Causal and SignalCatalog publishes it as a
+            // strategy leaf, so the same defect also puts a backtest and the live chart it was
+            // run from into disagreement about the phase of the same bar.
+            //
+            // A percentile rank against a partial window is not a weaker answer, it is a
+            // different question, so bars without a full window get none.
+            for (int i = windowBars - 1; i < n; i++)
             {
-                int wStart = Math.Max(0, i - windowBars + 1);
+                int wStart = i - windowBars + 1;
                 int wLen   = i - wStart + 1;
 
                 var scratch = new double[wLen];
@@ -274,7 +285,22 @@ namespace AccessibleTrader.Core.Services.Indicators
 
             int i          = n - 1;
             int windowBars = ResolveWindow(parameters);
-            int wStart     = Math.Max(0, i - windowBars + 1);
+
+            var phaseSpan = buffer.GetComponentSpan(CompCandlePhase);
+            var pctSpan   = buffer.GetComponentSpan(BufKeyPercentile);
+            if (i >= phaseSpan.Length) return;
+
+            // Same full-window rule as Calculate(). Without it the live bar would carry a
+            // reading its own history cannot support while every bar behind it carried none —
+            // the tick path quietly contradicting the full recalculation.
+            if (i < windowBars - 1)
+            {
+                phaseSpan[i] = double.NaN;
+                pctSpan[i]   = double.NaN;
+                return;
+            }
+
+            int wStart     = i - windowBars + 1;
             int wLen       = i - wStart + 1;
 
             // Robust extremes — same logic as Calculate().
@@ -287,10 +313,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             int    hiIdx = Math.Min(wLen - 1, (int)(wLen * 0.95));
             double wLow  = scratch[loIdx];
             double wHigh = scratch[hiIdx];
-
-            var phaseSpan = buffer.GetComponentSpan(CompCandlePhase);
-            var pctSpan   = buffer.GetComponentSpan(BufKeyPercentile);
-            if (i >= phaseSpan.Length) return;
 
             if (wHigh <= wLow)
             {
@@ -495,7 +517,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             double pct      = GetVal(calculatedResults, BufKeyPercentile, index);
 
             if (double.IsNaN(phaseVal))
-                return "Cipher S — warming up. Needs at least 2 bars of data.";
+            {
+                // Name the two numbers. A blank overlay with no explanation is indistinguishable
+                // from a broken one, and the phase is a candle COLOUR — there is nothing else on
+                // the bar for a listener to notice is missing. The window does not shrink to fit
+                // the chart on purpose (that is what made the same bar change colour on a
+                // scroll-back), so "load more history" is the actual remedy.
+                return $"Cipher S — no reading yet. The phase ranks each bar against the " +
+                       $"{windowBars} bars before it, and this one has {index}. " +
+                       "Load more history, or set a smaller window in the indicator's settings.";
+            }
 
             int    phase     = Math.Clamp((int)Math.Round(phaseVal), 0, PhaseNames.Length - 1);
             string phaseName = PhaseNames[phase];
@@ -555,13 +586,38 @@ namespace AccessibleTrader.Core.Services.Indicators
         // ─────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Resolves the effective window size from parameters, applying the 1500-bar
-        /// fallback when WindowBars = 0 (Auto) and detection hasn't run yet.
+        /// The narrowest window this indicator's own cycle detector will ever suggest —
+        /// <see cref="SuggestParameters"/> clamps to [200, 5000] — and therefore the smallest
+        /// span the indicator itself considers a meaningful sentiment scale.
+        ///
+        /// <para>
+        /// It is also the Auto fallback, and that is a deliberate change from the 1500 it used
+        /// to be. Once the window has to be FULL before a bar gets a reading (see the loop in
+        /// <c>Calculate</c>), the fallback stops being a harmless default and becomes the number
+        /// of bars a chart must have before the overlay appears at all. 1500 is roughly four
+        /// years of daily bars; almost no freshly loaded chart has that, so every one of them
+        /// would have shown no candle colour whatsoever. 200 is the same floor the detector
+        /// already sanctions, and it is only ever in force until Auto detection runs and
+        /// replaces it with a window measured from the instrument's own cycles.
+        /// </para>
+        ///
+        /// <para>
+        /// A user who wants the four-year scale sets WindowBars explicitly, and the cost is now
+        /// visible: the left of the chart stays uncoloured until the window fills. That is the
+        /// honest trade. The alternative — ranking a bar against however much history happened
+        /// to be loaded — is what made the same bar two different colours.
+        /// </para>
+        /// </summary>
+        private const int AutoFallbackWindow = 200;
+
+        /// <summary>
+        /// Resolves the effective window size from parameters, applying
+        /// <see cref="AutoFallbackWindow"/> when WindowBars = 0 (Auto) and detection hasn't run.
         /// </summary>
         private static int ResolveWindow(Dictionary<string, object> parameters)
         {
             int w = Math.Max(0, GetInt(parameters, "WindowBars", 0));
-            return w == 0 ? 1500 : w;
+            return w == 0 ? AutoFallbackWindow : w;
         }
 
         private static void WriteToBuffer(IIndicatorResultBuffer buffer, string name, double[] data, int n)

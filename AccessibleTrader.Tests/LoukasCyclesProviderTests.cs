@@ -237,6 +237,63 @@ namespace AccessibleTrader.Tests
             Assert.True(iclCount >= 1, $"expected ≥1 ICL, got {iclCount}");
         }
 
+        // ── 7b. The IC counter is anchored to price, not to array index ───────
+
+        [Fact]
+        public void IcCounter_DoesNotRenumberWhenOlderBarsArrive()
+        {
+            // The defect this replaced, at the level the user meets it: scroll left, older bars
+            // load in front of everything on the chart, and the cycle you were counting changes
+            // number. The old counter was (DCLs since the ARRAY START) mod IcDcCount, so any
+            // prepend containing one DCL rotated every value on screen and moved every ICL.
+            //
+            // 137 is deliberately not a multiple of the 40-bar cycle period: a prepend that
+            // happens to be a whole number of cycles leaves the old rotation intact and the
+            // test proves nothing.
+            var full  = BuildSawtoothFromHalving(700, 40);
+            var short_ = full.Skip(137).ToArray();
+
+            var a = Run(full);
+            var b = Run(short_);
+
+            int compared = 0;
+            for (int j = 200; j < short_.Length; j++)
+            {
+                int i = j + 137;
+                foreach (var key in new[] { LoukasCyclesProvider.CompIcDcCount,
+                                            LoukasCyclesProvider.CompIclConfirmed })
+                {
+                    double x = a[key][i], y = b[key][j];
+                    if (double.IsNaN(x) && double.IsNaN(y)) continue;
+                    Assert.Equal(x, y, 9);
+                    compared++;
+                }
+            }
+            Assert.True(compared > 100,
+                $"only {compared} values were non-NaN in both runs — the series produced too few cycles to prove anything");
+        }
+
+        [Fact]
+        public void IcCounter_IsUnknownUntilAnIntermediateLowHasPrinted()
+        {
+            // NaN, not 1. The count is "daily cycles since the intermediate low", and before an
+            // intermediate low has been identified there is no such number — publishing 1 would
+            // be inventing a cycle boundary at whichever bar the data happened to start on,
+            // which is the anchor this whole rewrite removes.
+            var bars    = BuildSawtoothFromHalving(500, 40);
+            var results = Run(bars);
+
+            var count = results[LoukasCyclesProvider.CompIcDcCount];
+            var icl   = results[LoukasCyclesProvider.CompIclConfirmed];
+
+            int firstIcl = Array.FindIndex(icl, v => !double.IsNaN(v));
+            Assert.True(firstIcl > 0, "no ICL in the series — nothing to test against");
+
+            for (int i = 0; i < firstIcl; i++)
+                Assert.True(double.IsNaN(count[i]), $"bar {i} published a cycle number before any ICL: {count[i]}");
+            Assert.Equal(1.0, count[firstIcl]);
+        }
+
         /// <summary>
         /// Bull-market regression test. Each successive cycle low is HIGHER than the
         /// previous one (an uptrend with cycle structure, like BTC 2020-2024). The

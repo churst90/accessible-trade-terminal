@@ -439,5 +439,77 @@ namespace AccessibleTrader.Tests
             Assert.True(distJitter < capJitter,
                 $"Expected distribution jitter ({distJitter:F2}) < capitulation jitter ({capJitter:F2})");
         }
+        // ── Prepend stability: which population is the residue in? ────────────
+
+        /// <summary>
+        /// <c>TOP_BOTTOM_DETECTOR.Distribution Confidence</c> disagrees with itself when older
+        /// bars are prepended, and it is exempted from
+        /// <c>IndicatorCausalityTests.NotStableWhenHistoryIsPrepended</c>. That list holds two
+        /// populations and the whole value of it is knowing which one an entry is in: a filter
+        /// still forgetting its seed CONVERGES, and something pinned to array index 0 does not —
+        /// it re-cuts, and the disagreement stays the same size forever.
+        ///
+        /// <para>
+        /// The TODO filed this one as "not investigated", sitting among the index-0 defects. It
+        /// is not one. The accumulator is <c>dist = dist * 0.5^(1/30) + evidence</c>, seeded at
+        /// zero in BOTH runs, so the seed is not the source at all — the source is the Wilder
+        /// ATR and RSI feeding <c>evidence</c>, whose own seed residue this multiplies by the
+        /// accumulator's steady-state gain of 1/(1 - 0.5^(1/30)) ≈ 43. That is why it is still
+        /// above the guard's 1e-6 at bar 700 when every other converging filter is under 5e-7.
+        /// </para>
+        ///
+        /// <para>
+        /// This test is the measurement that settles it: prepend 91 bars and watch the
+        /// disagreement across the series. It falls from ~4e-2 near the short run's start to
+        /// ~1e-7 a thousand bars later — five orders of magnitude of decay. An index anchor
+        /// cannot do that, so the exemption is inherent and there is nothing to fix.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void DistributionConfidence_ResidueConverges_ItIsNotAnchoredToArrayIndexZero()
+        {
+            var provider = new TopBottomDetectorProvider();
+            var meta = provider.GetIndicators()[0];
+            var pars = new Dictionary<string, object>();
+            foreach (var q in meta.Parameters) pars[q.Name] = q.DefaultValue;
+
+            const int drop = 91;
+            var full  = IndicatorCausalityTests.Bars(0, 1400);
+            var trimmed = full.Skip(drop).ToList();
+
+            var a = RunOn(provider, meta.Code, pars, full);
+            var b = RunOn(provider, meta.Code, pars, trimmed);
+
+            double WorstRelativeGap(int fromShortIndex, int count)
+            {
+                double worst = 0;
+                for (int j = fromShortIndex; j < Math.Min(fromShortIndex + count, trimmed.Count); j++)
+                {
+                    double x = a[TopBottomDetectorProvider.CompDistribution][j + drop];
+                    double y = b[TopBottomDetectorProvider.CompDistribution][j];
+                    if (double.IsNaN(x) || double.IsNaN(y)) continue;
+                    worst = Math.Max(worst, Math.Abs(x - y) / Math.Max(1e-9, Math.Abs(x)));
+                }
+                return worst;
+            }
+
+            double early = WorstRelativeGap(300, 200);
+            double late  = WorstRelativeGap(1100, 200);
+
+            // Vacuity check first: if the early window already agreed there would be no residue
+            // to classify and the decay assertion below would pass for the wrong reason.
+            Assert.True(early > 1e-3, $"no measurable residue near the array start ({early:E2}) — nothing was tested");
+            Assert.True(late < 1e-5, $"residue was still {late:E2} a thousand bars in — that is not convergence");
+            Assert.True(late < early / 1000.0, $"residue barely decayed: {early:E2} -> {late:E2}");
+        }
+
+        private static Dictionary<string, double[]> RunOn(TopBottomDetectorProvider provider, string code,
+            Dictionary<string, object> pars, List<Ohlcv> bars)
+        {
+            var rd = new Dictionary<string, double[]>();
+            var buf = new IndicatorResultBuffer(rd, bars.Count);
+            provider.Calculate(code, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(bars), pars, buf);
+            return rd;
+        }
     }
 }

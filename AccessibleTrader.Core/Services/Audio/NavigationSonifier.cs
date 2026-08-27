@@ -122,9 +122,26 @@ namespace AccessibleTrader.Core.Services.Audio
             int idx = state.CurrentDataIndex;
             if (idx < 0 || idx >= state.Data.Count) return;
 
+            // Text labels are announced wherever the cursor meets them, not only when their
+            // own series is focused — a label is a note pinned to a BAR, and the bar is what
+            // the user is arrowing across. Fired before any of the early returns below so a
+            // heatmap or profile in focus does not swallow it.
+            FireTextLabelEarcon(state, idx);
+
             string seriesId = state.FocusedSeriesId ?? "candles";
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (series == null || !series.IsVisible || series.IsMuted)
+            {
+                MuteAllNavigationSlots();
+                return;
+            }
+
+            // A text label has no value to sonify. Its component array holds the close price
+            // of the bar it was pinned to — an artifact of how the anchor is stored — so the
+            // generic path played the PRICE LINE at a label, which is both meaningless and
+            // indistinguishable from the price series itself. The earcon above is the whole
+            // audio for a label; there is deliberately no tone.
+            if (series.Drawing is { Type: DrawingType.TextLabel })
             {
                 MuteAllNavigationSlots();
                 return;
@@ -413,6 +430,64 @@ namespace AccessibleTrader.Core.Services.Audio
         private void MuteAllNavigationSlots()
         {
             for (int i = 0; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);
+        }
+
+        /// <summary>
+        /// The bar index the text-label earcon last fired for. Navigation state is pushed on
+        /// every change, not only on an X move — moving between components, toggling a series,
+        /// a live tick — so without this the earcon would repeat while the user stood still on
+        /// a labelled bar. -1 = never fired, and leaving a labelled bar resets it, so arrowing
+        /// back onto the same label sounds again.
+        /// </summary>
+        private int _lastLabelEarconIndex = -1;
+
+        /// <summary>
+        /// Plays the text-label earcon when the cursor arrives on a bar carrying one.
+        ///
+        /// <para>
+        /// A short high two-note tick, well above the price register and unlike any tone the
+        /// sonifier produces from data: a label is an annotation, not a measurement, and the
+        /// point of the sound is that it cannot be mistaken for the chart. It is a marker
+        /// sound rather than an <see cref="Accessibility.IEarconService"/> one because that
+        /// service is built on <c>ISonificationManager</c>, which owns this class — asking for
+        /// it here would close a DI cycle.
+        /// </para>
+        /// </summary>
+        private void FireTextLabelEarcon(WorkspaceState state, int idx)
+        {
+            bool labelled = false;
+            foreach (var s in state.ActiveSeries)
+            {
+                if (s.Drawing is not { Type: DrawingType.TextLabel }) continue;
+                if (!s.IsVisible || s.IsMuted) continue;
+                var data = s.GetComponentData("Label");
+                if (data == null || idx >= data.Length || double.IsNaN(data[idx])) continue;
+                labelled = true;
+                break;
+            }
+
+            if (!labelled)
+            {
+                _lastLabelEarconIndex = -1;
+                return;
+            }
+
+            if (_lastLabelEarconIndex == idx) return;
+            _lastLabelEarconIndex = idx;
+
+            // Two mutes reach this, and both are deliberate. Shift+F3 (IsEarconsEnabled) is
+            // checked here; F3 is checked by SonificationManager, which is the only caller and
+            // does not call this method at all when chart sonification is off. That means F3
+            // silences the label tick as well — correct, because this is a per-bar navigation
+            // sound of exactly the family F3 turns off, and unlike an error earcon nothing is
+            // lost by it: the label is still SPOKEN on the same bar.
+            if (!state.IsEarconsEnabled) return;
+
+            float pan = (float)AudioConstants.CalculatePan(
+                idx - state.ViewportStartIndex, AudioConstants.ComputePanWidth(state));
+            float vol = Math.Clamp(0.11f * state.ChartVolume, 0f, 1f);
+            PlayNote(1567.98, 0.045, "triangle", vol, pan);           // G6
+            PlayNote(1046.50, 0.055, "triangle", vol, pan, delay: 55); // C6
         }
 
         public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null)

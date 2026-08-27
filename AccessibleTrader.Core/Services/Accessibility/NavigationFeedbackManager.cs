@@ -51,7 +51,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// This used to document the utterance precedence as "3 paths evaluated in order" and
         /// listed them here. That chain no longer lives in this class: it is the strategy list in
         /// <c>SpeechFormatter</c>'s constructor, and the old "path 1" provider block that sat here
-        /// is strategy #1 there. Read it there, not here — this note exists only so the next
+        /// is strategy #2 there. Read it there, not here — this note exists only so the next
         /// person to go looking does not conclude the precedence was deleted.
         /// </para>
         ///
@@ -167,38 +167,51 @@ namespace AccessibleTrader.Core.Services.Accessibility
                                    : s.IsAutoNarrated ? ", narrating"
                                    : "";
 
-                string countMsg;
-                if (isHeatmap)
+                // A text label announces nothing on the switch itself. Its NAME is its wording,
+                // and the component reading that follows in the same utterance is that wording
+                // again — "Label: sold half here. 1 component. Label. Sold half here." was the
+                // whole line. The count is noise too: a label has exactly one component and it
+                // is the label. Only the state suffix survives, because a hidden or muted label
+                // still has to explain its own silence.
+                if (s.Drawing is { Type: DrawingType.TextLabel })
                 {
-                    // FirstOrDefault() always hits historical bars with empty inner lists.
-                    // Use the last non-empty bar so the count reflects actual accumulated live data.
-                    int levelCount = s.HeatmapData?.LastOrDefault(l => l != null && l.Count > 0)?.Count ?? 0;
-                    countMsg = levelCount > 0 ? $"Liquidity heatmap, {levelCount} levels" : "Liquidity heatmap, no live data yet";
-                }
-                else if (isProfile)
-                {
-                    int binCount = s.Data.ProfileBins?.Count ?? 0;
-                    countMsg = $"{binCount} {(binCount == 1 ? "bin" : "bins")}";
+                    if (stateSuffix.Length > 0) speechPrefix = $"Text label{stateSuffix}. " + speechPrefix;
                 }
                 else
                 {
-                    // Count distinct sub-panes (components with a non-null/non-empty SubPaneName).
-                    int distinctSubPanes = s.Components
-                        .Select(c => c.SubPaneName)
-                        .Where(n => !string.IsNullOrEmpty(n))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Count();
-                    // Total pane count = 1 (main) + sub-pane count.
-                    int totalPanes = 1 + distinctSubPanes;
+                    string countMsg;
+                    if (isHeatmap)
+                    {
+                        // FirstOrDefault() always hits historical bars with empty inner lists.
+                        // Use the last non-empty bar so the count reflects actual accumulated live data.
+                        int levelCount = s.HeatmapData?.LastOrDefault(l => l != null && l.Count > 0)?.Count ?? 0;
+                        countMsg = levelCount > 0 ? $"Liquidity heatmap, {levelCount} levels" : "Liquidity heatmap, no live data yet";
+                    }
+                    else if (isProfile)
+                    {
+                        int binCount = s.Data.ProfileBins?.Count ?? 0;
+                        countMsg = $"{binCount} {(binCount == 1 ? "bin" : "bins")}";
+                    }
+                    else
+                    {
+                        // Count distinct sub-panes (components with a non-null/non-empty SubPaneName).
+                        int distinctSubPanes = s.Components
+                            .Select(c => c.SubPaneName)
+                            .Where(n => !string.IsNullOrEmpty(n))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .Count();
+                        // Total pane count = 1 (main) + sub-pane count.
+                        int totalPanes = 1 + distinctSubPanes;
 
-                    countMsg = $"{count} {compWord}";
-                    if (totalPanes > 1)
-                        countMsg += $", {totalPanes} panes";
+                        countMsg = $"{count} {compWord}";
+                        if (totalPanes > 1)
+                            countMsg += $", {totalPanes} panes";
+                    }
+                    // Use Name (base indicator name without parameter values) for speech.
+                    // FriendlyName includes baked-in parameter values (e.g. "RSI 14") which are
+                    // noise in navigation context — the user knows what they added.
+                    speechPrefix = $"{s.Name}{stateSuffix}. {countMsg}. " + speechPrefix;
                 }
-                // Use Name (base indicator name without parameter values) for speech.
-                // FriendlyName includes baked-in parameter values (e.g. "RSI 14") which are
-                // noise in navigation context — the user knows what they added.
-                speechPrefix = $"{s.Name}{stateSuffix}. {countMsg}. " + speechPrefix;
             }
 
             // 2b. Sub-pane boundary announcement during Up/Down component navigation.
@@ -251,7 +264,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Provider contextual speech, series summaries, component templates —
                 // the ENTIRE utterance precedence now lives in SpeechFormatter (see the
                 // strategy list in its ctor; debt item 4). The old "path 1" provider
-                // block that lived here is strategy #1 there.
+                // block that lived here is strategy #2 there.
                 finalSpeech = _formatter.FormatPointFeedback(state, isXMove, isYMove, s, pt, speechPrefix);
 
                 // Cipher S / CandleColor overlay: prepend the sentiment phase name so it is
@@ -318,6 +331,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //    this is that speech.
             if (!isJump && isXMove && focusedOnCandleSeries)
                 utterance.AddRange(DescribeZoneProximity(state, state.CurrentDataIndex));
+
+            // 2b. Text labels pinned to this bar.
+            //
+            //     A label is a note the user wrote to themselves about a BAR, so it has to be
+            //     readable from wherever they are standing when they reach that bar — the same
+            //     rule as the marker signals below, and for a stronger reason: a label is the
+            //     only thing on the chart that the terminal did not compute and cannot restate.
+            //     Its own series is excluded because the component strategy already reads it
+            //     when that series is what is focused; without the exclusion the wording would
+            //     be spoken twice in one utterance.
+            //
+            //     Jumps are NOT suppressed here, unlike the zone and marker clauses. Ctrl+Left /
+            //     Ctrl+Right is how a label gets found again after it is off screen, and a jump
+            //     that lands on a label and says nothing about it is the one case that matters.
+            if (isXMove)
+                utterance.AddRange(DescribeTextLabels(state, state.CurrentDataIndex, seriesId));
 
             // 3. Marker signals from OTHER series on this same bar, in the tier order used by the
             //    cluster audio tick system (Phase F).
@@ -511,6 +540,37 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// once used <c>:F0</c> and read every sub-dollar asset's level as "0".
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The wording of every visible text label pinned to <paramref name="dataIndex"/>,
+        /// excluding <paramref name="excludeSeriesId"/> (the focused series reads its own label
+        /// through <c>TextLabelStrategy</c>, and saying it twice in one utterance is worse than
+        /// not saying it).
+        ///
+        /// <para>
+        /// Muted labels are skipped, matching every other cross-series clause: muting a drawing
+        /// is how a user silences an annotation they have finished with.
+        /// </para>
+        /// </summary>
+        private static List<string> DescribeTextLabels(WorkspaceState state, int dataIndex, string excludeSeriesId)
+        {
+            var clauses = new List<string>(1);
+            if (dataIndex < 0 || dataIndex >= state.Data.Count) return clauses;
+
+            foreach (var series in state.ActiveSeries)
+            {
+                if (series.Drawing is not { Type: DrawingType.TextLabel }) continue;
+                if (series.Id == excludeSeriesId) continue;
+                if (!series.IsVisible || series.IsMuted) continue;
+
+                var data = series.GetComponentData("Label");
+                if (data == null || dataIndex >= data.Length || double.IsNaN(data[dataIndex])) continue;
+
+                clauses.Add(TextLabelStrategy.Describe(series));
+            }
+
+            return clauses;
+        }
+
         /// <summary>
         /// The zone clauses for this bar, in the order they should be heard — nearest ceiling
         /// first, then nearest floor. Returns them rather than speaking them: everything true

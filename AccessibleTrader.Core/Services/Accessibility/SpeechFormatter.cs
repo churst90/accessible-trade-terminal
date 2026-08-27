@@ -39,15 +39,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // three branches at the top of FormatPointFeedback).
             _strategies = new IComponentSpeechStrategy[]
             {
-                new ProviderSpeechStrategy(),   // 1. indicator's own contextual narrative
-                new HiddenComponentStrategy(),  // 2. "hidden" state announcement
-                new CloudComponentStrategy(),   // 3. Ichimoku-style cloud narration
-                new PhaseNameStrategy(),        // 4. sentiment-phase names
-                new MarkerSignalStrategy(),     // 5. signal-marker templates
-                new CandleBodyStrategy(),       // 6. body = open→close span
-                new VolumeBarStrategy(),        // 7. signed exact volume
+                new TextLabelStrategy(),        // 1. a pinned text label reads its own wording
+                new ProviderSpeechStrategy(),   // 2. indicator's own contextual narrative
+                new HiddenComponentStrategy(),  // 3. "hidden" state announcement
+                new CloudComponentStrategy(),   // 4. Ichimoku-style cloud narration
+                new PhaseNameStrategy(),        // 5. sentiment-phase names
+                new MarkerSignalStrategy(),     // 6. signal-marker templates
+                new CandleBodyStrategy(),       // 7. body = open→close span
+                new VolumeBarStrategy(),        // 8. signed exact volume
             };
-            _fallback = new StandardTemplateStrategy(); // 8. {name}.{type}.{value} templates
+            _fallback = new StandardTemplateStrategy(); // 9. {name}.{type}.{value} templates
         }
 
         public void RegisterTemplate(string indicatorCode, string componentName, string template)
@@ -116,7 +117,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var compIndex = series.ClampComponent(state.FocusedComponentIndex);
                 var comp = series.Components[compIndex];
                 // Provider contextual speech applies in Component context only (the
-                // old NavigationFeedbackManager "path 1" gate, now strategy #1).
+                // old NavigationFeedbackManager "path 1" gate, now strategy #2).
                 var provider = state.LastInteractionContext == InteractionContext.Component
                                && !string.IsNullOrEmpty(series.IndicatorCode)
                     ? _indicatorEngine?.GetProvider(series.IndicatorCode)
@@ -431,7 +432,49 @@ namespace AccessibleTrader.Core.Services.Accessibility
         int ViewportLength = -1);
 
     /// <summary>
-    /// Strategy #1: the indicator provider's own contextual speech
+    /// Strategy #1: a Text Label drawing reads the wording the user typed.
+    ///
+    /// <para>
+    /// A label's component array holds the CLOSE PRICE of the bar it was pinned to — that is
+    /// only how the anchor is stored, and it is the one thing about a label that carries no
+    /// information at all. Every other strategy here treats a component's array as a value to
+    /// read, so a label spoke a price and the text was audible nowhere on the chart. It went
+    /// into the drawing's series NAME, which is announced once on a series switch and then
+    /// never again; arrowing along the bars — the way a label is actually found — got the
+    /// price. This strategy is first in the list precisely because the value must never reach
+    /// the other strategies.
+    /// </para>
+    /// </summary>
+    internal sealed class TextLabelStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) =>
+            ctx.Series.Drawing is { Type: DrawingType.TextLabel };
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            // NaN = this is not the bar the label is pinned to. A label is a single point, so
+            // most bars of its series are empty; saying so is what tells the user they have
+            // arrowed past it rather than that the label is broken.
+            return double.IsNaN(ctx.Value)
+                ? $"{Describe(ctx.Series)}, not on this bar"
+                : Describe(ctx.Series);
+        }
+
+        /// <summary>
+        /// The spoken form of a label: "Label. &lt;wording&gt;", or "Label, no text" when the
+        /// prompt was cancelled. Shared with <see cref="NavigationFeedbackManager"/>, which
+        /// speaks the same phrase when the cursor crosses a labelled bar from another series —
+        /// one wording, so the label sounds the same wherever it is met.
+        /// </summary>
+        internal static string Describe(ChartSeries series)
+        {
+            string text = series.Drawing?.Text?.Trim() ?? string.Empty;
+            return string.IsNullOrEmpty(text) ? "Label, no text" : $"Label. {text}";
+        }
+    }
+
+    /// <summary>
+    /// Strategy #2: the indicator provider's own contextual speech
     /// (IIndicatorProvider.GetComponentSpeech) — e.g. Cipher's "Greed Phase 7,
     /// volatility expanding". Moved here from NavigationFeedbackManager's old
     /// "path 1" so the whole utterance precedence lives in one list. Declines

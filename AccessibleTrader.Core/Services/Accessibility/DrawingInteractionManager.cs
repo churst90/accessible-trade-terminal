@@ -1212,15 +1212,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Stores a label's text and folds it into the series NAME.
+        /// Stores a label's text on the drawing, and mirrors it onto the series name and the
+        /// component's display name.
         ///
         /// <para>
-        /// The name is what gets announced when you navigate onto the drawing, what the object
-        /// tree lists, and what the chart legend shows. Putting the text there means one change
-        /// makes the label audible, findable and visible in the same move — where a dedicated
-        /// speech path would have covered only the first, and only for whoever remembered to
-        /// write it. A label reading "Label (3)" is a label you have to go and look at, which is
-        /// the one thing the user cannot do.
+        /// The drawing's <c>Text</c> is the authority — <c>TextLabelStrategy</c> reads it, the
+        /// overlay renderer draws it, and the workspace round-trips it. The names are mirrors,
+        /// each for a surface that only ever shows a name: the object tree, the legend, and the
+        /// series-switch announcement.
+        /// </para>
+        ///
+        /// <para>
+        /// Until 2026-08-27 the series name was the ONLY place the text went, and that was the
+        /// defect. A series name is announced once, when you switch onto the series; the label
+        /// itself — the bar it is pinned to — read out the anchor's close price, because a
+        /// label's component array stores the anchor as a price and every speech path treats a
+        /// component array as a value. So the wording the user typed was audible exactly once,
+        /// and never at the place it was about.
         /// </para>
         /// </summary>
         private void ApplyLabelText(string seriesId, string text)
@@ -1235,6 +1243,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 series.Config.Name = $"Label: {trimmed}";
                 series.Config.FriendlyName = $"Text label: {trimmed}";
+                foreach (var comp in series.Components) comp.DisplayName = trimmed;
             }
 
             _eventBus.Publish(new RedrawEvent());

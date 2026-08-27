@@ -196,12 +196,20 @@ namespace AccessibleTrader.Core.Models
         NavComponentInPanePrev, // Ctrl+Up:   previous component within the same pane (wraps)
 
         // Orientation and recovery
-        /// <summary>Alt+Shift+L: describe the chart's LAYOUT — axes, scales, panes, series counts.
-        /// The one thing a sighted user gets for free by glancing at the screen.</summary>
+        /// <summary>Ctrl+Alt+Shift+Y: describe the chart's LAYOUT — axes, scales, panes, series
+        /// counts, and whether the feed has gone stale. The one thing a sighted user gets for
+        /// free by glancing at the screen.
+        /// <para>
+        /// These three were Alt+Shift+L / H / M when they landed, and this comment still said so
+        /// long after they moved. On the WebHost every Ctrl+Shift+letter chord is rewritten to
+        /// Alt+Shift+letter, so all three sat on top of the Text Label, Horizontal Line and
+        /// Measure tools; they moved to three-modifier chords, which the rewrite does not touch.
+        /// Alt+Shift+L on the WebHost is the TEXT LABEL tool, and nothing else.
+        /// </para></summary>
         SpeakChartLayout,
-        /// <summary>Ctrl+Alt+Shift+H: make every hidden component visible again.</summary>
+        /// <summary>Ctrl+Alt+Shift+K: make every hidden component visible again.</summary>
         ShowAllComponents,
-        /// <summary>Ctrl+Alt+Shift+M: unmute every muted component.</summary>
+        /// <summary>Ctrl+Alt+Shift+U: unmute every muted component.</summary>
         UnmuteAllComponents,
 
         // Undo / redo

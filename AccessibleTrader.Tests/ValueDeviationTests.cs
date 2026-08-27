@@ -201,6 +201,23 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void Provider_TheDeepestTierIsStillReachable()
+        {
+            // Guards the fixed-window change from one side the causality guard cannot see. With
+            // the old growing window, early bars had tiny profiles and collapsed value areas, so
+            // a deviation of "many value-area widths" was easy to manufacture — and the deep-tier
+            // components fired on that artifact. With a full 240-bar profile they no longer fire
+            // on the causality harness's synthetic series at all, which is either "genuinely
+            // rare" or "dead". This says which: a real flush below a settled value area still
+            // reaches the deepest tier.
+            var (buf, bars) = RunProvider();
+            int last = bars.Count - 1;
+
+            Assert.False(double.IsNaN(buf.Data[ValueDeviationProvider.CompSupportDeep][last]),
+                "the deepest support tier no longer fires on a 17-point flush below a settled value area");
+        }
+
+        [Fact]
         public void Provider_SupportZoneValueIsTheBarLowItMarks()
         {
             var (buf, bars) = RunProvider();
@@ -293,17 +310,45 @@ namespace AccessibleTrader.Tests
         }
 
         [Theory]
-        [InlineData(200)]
         [InlineData(300)]
         [InlineData(600)]
+        [InlineData(1000)]
         public void Provider_ProducesOutputAtBarCountsARealChartActuallyLoads(int barCount)
         {
             // The first release defaulted the profile window to 480 while a fresh chart fetches
             // about 200 bars, so every component came back entirely NaN and read "no data".
+            //
+            // 200 left this list on 2026-08-27 and that is a deliberate behaviour change, not a
+            // weakened test. The window is now exactly the configured 240 bars and does not
+            // shrink to fit the chart, because a window that shrinks to fit is a window that
+            // changes when the chart grows — the prepend-causality defect. A 200-bar chart is
+            // genuinely shorter than the profile and reads nothing; the test below pins that it
+            // SAYS so rather than going quiet.
             var buf = CalcDefaults(Realistic(barCount));
 
             int poc = buf.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v));
             Assert.True(poc > 0, $"no POC values at {barCount} bars — the window is larger than the data");
+        }
+
+        [Fact]
+        public void Provider_AChartShorterThanTheWindow_ExplainsItsSilence()
+        {
+            // Default window 240 against a 200-bar chart. Blank is correct; blank and mute is
+            // not — a deliberate refusal that looks identical to a fault is the silent-failure
+            // class this app forbids, and a blind user has no way to see that the chart is short.
+            var bars = Realistic(200);
+            var buf = CalcDefaults(bars);
+
+            Assert.All(buf.Data[ValueDeviationProvider.CompPoc], v => Assert.True(double.IsNaN(v)));
+
+            string fact = new ValueDeviationProvider().GetDetailFact(ValueDeviationProvider.Code,
+                bars.ToArray(), buf.Data, bars.Count - 1, new Dictionary<string, object>());
+
+            // Both counts, because the number is what makes it actionable: how many bars the
+            // profile needs, and how many this chart has.
+            Assert.Contains("240", fact);
+            Assert.Contains("199", fact);
+            Assert.Contains("history", fact, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -353,15 +398,51 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Provider_OversizedWindowIsCappedRatherThanSilencingEverything()
+        public void Provider_AnOversizedWindowReadsNothingAndSaysWhy()
         {
-            // Asking for far more history than exists must degrade, not go quiet.
+            // This test used to assert the opposite — that an oversized window was CAPPED to the
+            // data so the indicator still printed something. That cap was the defect: capping to
+            // the available data means the profile changes length when more history arrives, so
+            // a bar already on screen gets a new answer during a scroll-back. Asking for a
+            // 2000-bar profile on a 300-bar chart is a question the data cannot answer, and the
+            // honest reply is to say so with the numbers rather than to answer a different one.
             var bars = Realistic(300);
             var buf = new Buf(bars.Count);
-            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(),
-                new Dictionary<string, object> { ["Window"] = 2000 }, buf);
+            var p = new Dictionary<string, object> { ["Window"] = 2000 };
+            new ValueDeviationProvider().Calculate(ValueDeviationProvider.Code, bars.ToArray(), p, buf);
 
-            Assert.True(buf.Data[ValueDeviationProvider.CompPoc].Count(v => !double.IsNaN(v)) > 0);
+            Assert.All(buf.Data[ValueDeviationProvider.CompPoc], v => Assert.True(double.IsNaN(v)));
+
+            string fact = new ValueDeviationProvider().GetDetailFact(ValueDeviationProvider.Code,
+                bars.ToArray(), buf.Data, bars.Count - 1, p);
+            Assert.Contains("2000", fact);
+            Assert.Contains("299", fact);
+        }
+
+        [Fact]
+        public void Provider_TheSameBarReadsTheSameWhenOlderHistoryArrives()
+        {
+            // The defect in one assertion, at the level a user meets it: the POC printed at a
+            // given DATE must not move when the chart is scrolled back and older bars load in
+            // front of it. Both halves of the old code broke this — a window of (i + 1) / 3 grew
+            // with the array index, and a profile cache rebuilt on i % 5 shifted phase whenever
+            // the prepend count was not a multiple of five.
+            var full = Realistic(900);
+            var short_ = full.Skip(137).ToList();   // not a multiple of 5, on purpose
+
+            var analyzer = new ValueDeviationAnalyzer();
+            var pocFull = analyzer.Reference(full, 240).Poc;
+            var pocShort = analyzer.Reference(short_, 240).Poc;
+
+            int compared = 0;
+            for (int j = 300; j < short_.Count; j++)
+            {
+                int i = j + 137;                     // the same bar, the same date
+                if (double.IsNaN(pocFull[i]) && double.IsNaN(pocShort[j])) continue;
+                Assert.Equal(pocFull[i], pocShort[j], 9);
+                compared++;
+            }
+            Assert.True(compared > 200, $"only {compared} bars actually carried a POC — the test proved nothing");
         }
 
         [Fact]
