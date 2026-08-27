@@ -190,7 +190,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayError(ErrorSeverity severity)
         {
-            if (!CanPlay("error")) return;
+            // High and Critical are NEVER throttled; the lower two are throttled per severity.
+            //
+            // The key used to be the bare string "error" for all four, so a Critical arriving
+            // within the 200 ms window of an unrelated Low played no tone at all — the single
+            // most important earcon in the app, silenced by the least important one. That also
+            // contradicted this file's own comment that error earcons "NEVER gate". Keying per
+            // severity stops a chattering Low from muting a Critical; exempting the top two
+            // outright stops a burst of Criticals from muting each other.
+            if (severity < ErrorSeverity.High && !CanPlay($"error_{severity}")) return;
             SignalVisual($"Error ({severity})", "alert");
 
             if (TryPlayPatch("Error")) return;

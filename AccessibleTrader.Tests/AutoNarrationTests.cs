@@ -357,5 +357,83 @@ namespace AccessibleTrader.Tests
 
             Assert.Empty(router.Spoken);
         }
+
+        // ── Zone lines: support and resistance are not decided by spelling ──────
+
+        [Theory]
+        [InlineData("Resistance Zone")]   // the spelling that always worked
+        [InlineData("RESISTANCE_1")]      // shouted — fell through before 2026-08-27
+        [InlineData("resistance_upper")]  // lower-cased with a suffix
+        public void AResistanceLine_IsCalledResistance_WhateverItsSpelling(string componentName)
+        {
+            // The classifier was two literal `Contains` calls, "Resistance" and "resistance", so
+            // any other casing fell through to the else arm and the line was announced as
+            // SUPPORT — the opposite structural claim, and the one thing a trader acts on. There
+            // is no visual to catch it: "Approaching support at 105.20" on a resistance level
+            // reads as an invitation to buy.
+            var router = RunZoneScan(componentName);
+
+            Assert.Contains(router.Spoken, m => m.Contains("resistance", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(router.Spoken, m => m.Contains("support", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void ASupportLine_IsStillCalledSupport()
+        {
+            // Vacuity guard: a fix that classified everything as resistance would satisfy every
+            // case of the theory above. The else arm has to still be reachable.
+            var router = RunZoneScan("Support Zone");
+
+            Assert.Contains(router.Spoken, m => m.Contains("support", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(router.Spoken, m => m.Contains("resistance", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Drives <c>ScanZoneLines</c> to the proximity announcement for a single zone line.
+        /// The bar close is 105 and the zone sits at 105.2 — inside the 0.5% proximity band, so
+        /// the first scan that sees it announces an approach. Bar 2 is the one scanned, per the
+        /// seed-then-grow sequence the other tests in this file use.
+        /// </summary>
+        private static CapturingSpeechRouter RunZoneScan(string componentName)
+        {
+            var cfg = new SeriesConfig
+            {
+                Name = "Zones",
+                FriendlyName = "Zones",
+                IndicatorCode = "ZONES",
+                IsAutoNarrated = true
+            };
+            cfg.Components.Add(new ComponentConfig
+            {
+                Name = componentName,
+                DisplayName = componentName,
+                DisplayType = ComponentDisplayType.Line,
+                IsVisible = true,
+                IsZoneLine = true
+            });
+
+            ChartSeries Build(double[] values)
+            {
+                var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
+                buf.ComponentData[componentName] = values;
+                return new ChartSeries(cfg, buf);
+            }
+
+            var bus = new SpyEventBus();
+            var store = new MockWorkspaceStore();
+            var router = new CapturingSpeechRouter();
+            var svc = new AutoNarrationService(store, bus, router, new StubContextAnalyzer());
+
+            store.EmitState(BuildState(Build(new[] { 105.2 }), 1));
+            bus.Publish(new RedrawEvent());                       // scanIndex 0 — seeded, skipped
+
+            store.EmitState(BuildState(Build(new[] { 105.2, 105.2, 105.2 }), 3));
+            bus.Publish(new RedrawEvent());                       // scanIndex 0 — still skipped
+
+            store.EmitState(BuildState(Build(new[] { 105.2, 105.2, 105.2, 105.2 }), 4));
+            bus.Publish(new RedrawEvent());                       // scanIndex 2 — scans
+
+            return router;
+        }
     }
 }

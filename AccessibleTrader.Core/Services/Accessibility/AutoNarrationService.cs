@@ -388,7 +388,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 double currentVal = data[barIndex];
                 string zoneKey = $"{series.Id}:{comp.Name}";
-                bool isResistance = comp.Name.Contains("Resistance") || comp.Name.Contains("resistance");
+                // Case-INSENSITIVE. Until 2026-08-27 this was two literal spellings
+                // ("Resistance" and "resistance") out of many a provider actually ships:
+                // "RESISTANCE_1" and "res_upper" both fell through to the else arm and had
+                // their break announced as "Support at 61,200 broken." — the OPPOSITE
+                // structural claim, on what the comment below calls the most consequential
+                // thing this narrator says. An abbreviation still falls through, but a
+                // spelling that contains the word no longer can.
+                bool isResistance = comp.Name.Contains("resistance", StringComparison.OrdinalIgnoreCase);
                 string lineName = comp.DisplayName ?? comp.Name;
 
                 // ── Break detection ──────────────────────────────────────────────────

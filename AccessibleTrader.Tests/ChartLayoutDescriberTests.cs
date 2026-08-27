@@ -21,7 +21,9 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class ChartLayoutDescriberTests
     {
-        private static readonly DateTime Start = new(2026, 1, 1);
+        // UTC, explicitly — that is what TimestampParser hands every real bar, and since
+        // 2026-08-27 every spoken timestamp is converted to the user's zone before it is read.
+        private static readonly DateTime Start = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private static WorkspaceState StateWith(int barCount = 200, int viewportStart = 0,
             int viewportLength = 60, params ChartSeries[] series)
@@ -68,7 +70,14 @@ namespace AccessibleTrader.Tests
                 StateWith(barCount: 200, viewportLength: 60, series: Series("Candles", "Main", "Close")));
 
             Assert.Contains("60 bars in view of 200 loaded", text);
-            Assert.Contains("January 1 2026", text);
+
+            // The date is read in the USER'S zone, so the literal "January 1 2026" this used to
+            // assert only held on a box at or east of UTC. Derived here through the BCL rather
+            // than through SpeechTimeFormatter on purpose: asking production what it would print
+            // and then asserting it printed that is not a test.
+            string expectedDate = TimeZoneInfo.ConvertTimeFromUtc(Start, TimeZoneInfo.Local)
+                .ToString("MMMM d yyyy", System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Contains(expectedDate, text);
         }
 
         [Fact]

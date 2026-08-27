@@ -387,7 +387,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (initStatusChanged && state.InitStatus == InitializationStatus.Error)
             {
-                _speechRouter.Speak("Chart failed to load.", interrupt: true);
+                // Critical channel and an earcon, like every other failure in this class.
+                //
+                // This was the one failure here left on the default Manual channel, which F2
+                // silences — so a user who had muted manual speech watched a chart fail to load
+                // in complete silence, with no earcon either, while "Chart ready." on the line
+                // above would have been just as silent. A load failure is not a courtesy
+                // announcement; FeedbackRouters' contract forbids a silent failure outright.
+                var failedId = state.Identity;
+                string failMsg = !string.IsNullOrEmpty(failedId.Symbol)
+                    ? $"{failedId.Symbol} on {failedId.Provider} failed to load."
+                    : "Chart failed to load.";
+                _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
+                _speechRouter.Speak(failMsg, interrupt: true, channel: SpeechChannel.Critical);
             }
 
             // 5. NAVIGATION FEEDBACK is handled exclusively via FeedbackRequestEvent (OnFeedbackRequest).

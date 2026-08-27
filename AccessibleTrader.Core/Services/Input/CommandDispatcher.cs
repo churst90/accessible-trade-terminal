@@ -682,13 +682,19 @@ namespace AccessibleTrader.Core.Services.Input
             }
             if (newCompIdx < 0) return;
 
-            string paneLabel = GetPaneDisplayLabel(targetPane, series);
-
             _store.Dispatch(new SelectComponentAction(newCompIdx));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
             // Publish IsYMove feedback so NavigationFeedbackManager speaks component name/type/value.
-            // The prefix message carries the pane label so it is prepended to the component speech.
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, paneLabel + ". ", true, IsYMove: true));
+            //
+            // The prefix is EMPTY, and deliberately so. This used to carry a pane label built here
+            // from the raw SubPaneName ("MF pane"), while NavigationFeedbackManager's own
+            // pane-transition block independently detected the same move and prepended ITS label,
+            // resolved from a component's friendlier DisplayName ("Money Flow pane"). Both fired,
+            // so Ctrl+PageUp on a Cipher-style indicator said the pane twice under two different
+            // names: "Money Flow pane. MF pane. Money Flow Wave. …". One announcement, one name,
+            // and it belongs to the manager — which is the only one of the two that can tell a
+            // transition from a move within a pane.
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsYMove: true));
         }
 
         /// <summary>
@@ -731,16 +737,6 @@ namespace AccessibleTrader.Core.Services.Input
             _store.Dispatch(new SelectComponentAction(newCompIdx));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsYMove: true));
-        }
-
-        /// <summary>
-        /// Returns a human-readable display label for a sub-pane name.
-        /// null/empty → "Main pane"; any other value → the SubPaneName appended with " pane".
-        /// </summary>
-        internal static string GetPaneDisplayLabel(string? subPaneName, ChartSeries series)
-        {
-            if (string.IsNullOrEmpty(subPaneName)) return "Main pane";
-            return subPaneName + " pane";
         }
 
         /// <summary>

@@ -44,7 +44,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var start = data[startIndex].Date;
             var end = data[startIndex + actualLength - 1].Date;
 
-            return $"Viewing {actualLength} bars from {start.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture)} to {end.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture)}";
+            return $"Viewing {actualLength} bars from {SpeechTimeFormatter.FormatLongDate(start)} to {SpeechTimeFormatter.FormatLongDate(end)}";
         }
 
         public void HandleZoom(string direction, IReadOnlyList<Ohlcv> data)

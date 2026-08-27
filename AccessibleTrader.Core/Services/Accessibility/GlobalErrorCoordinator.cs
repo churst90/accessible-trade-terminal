@@ -25,9 +25,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IAudioFeedbackRouter _audioRouter;
         private readonly IDisposable _subscription;
 
-        // Dedup: track last announced message per source, suppress within 3 seconds
+        // Dedup: a repeat inside the window is announced SHORTER, never dropped. See OnAppError.
         private readonly ConcurrentDictionary<string, DateTime> _announcedCache = new(StringComparer.Ordinal);
         private static readonly TimeSpan DedupWindow = TimeSpan.FromSeconds(3);
+
+        // Sweep bound. Provider messages usually embed a symbol or a timestamp, so the key space
+        // is effectively unbounded over a long session and this dictionary was write-only.
+        private const int CacheSweepThreshold = 256;
+        private static readonly TimeSpan CacheEntryLifetime = TimeSpan.FromMinutes(5);
 
         public GlobalErrorCoordinator(
             IEventBus eventBus,
@@ -48,17 +53,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             string dedupKey = $"{ev.Source}|{ev.Message}";
             var now = DateTime.UtcNow;
-            if (_announcedCache.TryGetValue(dedupKey, out var lastAnnounced) && (now - lastAnnounced) < DedupWindow)
-                return;
+
+            // A repeat inside the window is announced, just SHORTER.
+            //
+            // This used to `return`, so two orders rejected for the same reason three seconds
+            // apart produced one announcement — and a blind trader has no second channel on
+            // which to notice that the second one also failed. Silence is indistinguishable
+            // from success here. The dedup window exists to stop a chattering provider from
+            // reading the same sentence over and over, and "Order rejected, again." does that
+            // without ever claiming an event did not happen.
+            bool isRepeat = _announcedCache.TryGetValue(dedupKey, out var lastAnnounced)
+                            && (now - lastAnnounced) < DedupWindow;
 
             _announcedCache[dedupKey] = now;
+            SweepAnnouncedCache(now);
 
-            string speechText = ev.Severity >= ErrorSeverity.Critical
-                ? $"{ev.Category} - CRITICAL: {ev.Message}"
-                : $"{ev.Category}: {ev.Message}";
+            string speechText = isRepeat
+                ? $"{ev.Category}: again."
+                : ev.Severity >= ErrorSeverity.Critical
+                    ? $"{ev.Category} - CRITICAL: {ev.Message}"
+                    : $"{ev.Category}: {ev.Message}";
 
             bool interrupt = ev.Severity >= ErrorSeverity.High;
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, speechText, interrupt, IsUserInitiated: false));
+        }
+
+        /// <summary>
+        /// Drops entries older than <see cref="CacheEntryLifetime"/> once the dictionary grows
+        /// past <see cref="CacheSweepThreshold"/>. An entry older than the lifetime can no longer
+        /// suppress anything — the dedup window is three seconds — so nothing behavioural rides
+        /// on it; it was pure growth.
+        /// </summary>
+        private void SweepAnnouncedCache(DateTime now)
+        {
+            if (_announcedCache.Count <= CacheSweepThreshold) return;
+            foreach (var entry in _announcedCache)
+            {
+                if (now - entry.Value > CacheEntryLifetime)
+                    _announcedCache.TryRemove(entry.Key, out _);
+            }
         }
 
         public void ReportError(string message, ErrorSeverity severity = ErrorSeverity.Medium, ErrorCategory category = ErrorCategory.Systemic)

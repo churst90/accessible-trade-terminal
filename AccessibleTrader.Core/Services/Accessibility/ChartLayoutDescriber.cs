@@ -51,7 +51,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var first = bars[start];
             var last = bars[end];
             parts.Add($"X axis, time: {length} bars in view of {bars.Count.ToString("N0", CultureInfo.InvariantCulture)} loaded, " +
-                      $"{first.Date.ToString("MMMM d yyyy", CultureInfo.InvariantCulture)} to {last.Date.ToString("MMMM d yyyy", CultureInfo.InvariantCulture)}.");
+                      $"{SpeechTimeFormatter.FormatLongDate(first.Date)} to {SpeechTimeFormatter.FormatLongDate(last.Date)}.");
 
             // ── Y axis: the range, and the step between gridlines ─────────
             var (min, max) = state.ViewportRange;

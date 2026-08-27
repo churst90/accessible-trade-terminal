@@ -115,7 +115,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // ── Coordinate Entry mode: always speak price + timestamp regardless of other settings ──
             if (state.IsCoordinateEntryMode)
             {
-                string ts = pt.Date.ToString("t", CultureInfo.InvariantCulture);
+                string ts = SpeechTimeFormatter.FormatTime(pt.Date);
                 string ceMsg = $"{SpeechPriceFormatter.FormatPrice(pt.Close)}, {ts}";
 
                 // When anchor 1 is already confirmed, also speak the change from that anchor.
@@ -248,7 +248,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 int heatmapIdx = FindNearestHeatmapIndex(s, state.CurrentDataIndex);
                 if (heatmapIdx >= 0)
-                    finalSpeech = _formatter.FormatHeatmapFeedback(state, isXMove, isYMove, s, heatmapIdx, state.FocusedBinIndex, speechPrefix);
+                    finalSpeech = _formatter.FormatHeatmapFeedback(state, isXMove, isYMove, s, heatmapIdx, state.FocusedBinIndex, speechPrefix, state.CurrentDataIndex);
                 else
                     finalSpeech = string.IsNullOrEmpty(speechPrefix) ? "No live data yet" : $"{speechPrefix} No live data yet";
             }

@@ -4269,13 +4269,19 @@ layer is one rung down and is where these findings sit.
   The tests straddle the old magic 500 on purpose — a level at 105 voiced at 100 Hz and one at
   95 voiced at 900 Hz — with a vacuity check saying so, because fixtures on the same side of
   the threshold would make the old and new classifiers agree.
-- [ ] **`AutoNarrationService.cs:395` classifies a zone as resistance with two case-sensitive `Contains`
+- [x] **`AutoNarrationService.cs:395` classifies a zone as resistance with two case-sensitive `Contains`
   calls.** `comp.Name.Contains("Resistance") || comp.Name.Contains("resistance")` covers two spellings of
   many; a component named `"RESISTANCE_1"` or `"res_upper"` falls through and its break is announced as
   **"Support at 61,200 broken."** — the opposite structural claim, on what the file's own comment at
   `:403-406` calls "arguably the most consequential thing this narrator says". Fix:
   `Contains("resistance", StringComparison.OrdinalIgnoreCase)`, or read the component's `Role`.
   CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27.** `Contains("resistance", StringComparison.OrdinalIgnoreCase)`. An
+  abbreviation ("res_upper") still falls through — no substring test can catch that — but a
+  spelling that CONTAINS the word no longer can. Pinned by a theory in `AutoNarrationTests`
+  over three spellings plus a support case as the vacuity guard (a fix that classified
+  everything as resistance would satisfy the theory alone). Sabotage: restoring the two
+  literal `Contains` calls turns `RESISTANCE_1` red.
 - [x] **Fifteen confirmed silent-failure paths — an operation fails, refuses, or lands somewhere with
   nothing to say, and nothing is spoken and no earcon plays.** Beyond S1/S2 above:
   `AccessibilityFeedbackCoordinator.cs:533` swallows any message containing "Audio mode:"/"Playback
@@ -4315,14 +4321,22 @@ layer is one rung down and is where these findings sit.
   `BarDetail_MissingSeries_PublishesNothing`, plus their de-DE variants, asserted
   `Assert.Empty(bus.Log)`. They now assert that it says WHY, while still refusing to describe a
   bar that is not there.
-- [ ] **`GlobalErrorCoordinator.cs:52-53` silently suppresses a repeated error, and `:30`'s dedup cache is
+- [x] **`GlobalErrorCoordinator.cs:52-53` silently suppresses a repeated error, and `:30`'s dedup cache is
   never pruned.** The dedup key is `$"{ev.Source}|{ev.Message}"` with a 3 s window, so two orders rejected
   for the same reason inside three seconds produce one announcement — and a blind trader has no other
   channel on which to notice the second one also failed. The right shape for a repeat is "Order rejected,
   again" or a count, not silence. Separately `_announcedCache` is a `ConcurrentDictionary` only ever
   written (`:55`), never swept: a long session with varying error text (provider messages usually embed a
   symbol or timestamp) grows it without bound. CONFIRMED. MEDIUM.
-- [ ] **The same bar's timestamp is spoken in three different time zones depending on which key you
+  **CLOSED 2026-08-27.** A repeat inside the window is now announced SHORTER rather than
+  dropped: the first says the full message, the second says "{Category}: again." The dedup
+  window keeps its real job (stopping a flapping provider reciting the same sentence) and
+  loses the silence, which was indistinguishable from the second order having succeeded.
+  `_announcedCache` is swept of entries older than five minutes once it passes 256 keys —
+  an entry older than the three-second window cannot suppress anything, so nothing
+  behavioural rode on keeping it. Three tests including a vacuity guard proving "again" is
+  triggered by the message REPEATING and not merely by a previous error existing.
+- [x] **The same bar's timestamp is spoken in three different time zones depending on which key you
   press.** `SpeechFormatter.cs:140` (arrow keys), `:188`, `:206` and `:65` all call `.ToLocalTime()`. But
   `BarDetailService.cs:154` (Ctrl+Shift+D) formats `bar.Date` directly,
   `NavigationFeedbackManager.cs:114` (coordinate-entry mode, where the user is placing a drawing anchor)
@@ -4331,7 +4345,19 @@ layer is one rung down and is where these findings sit.
   Ctrl+Shift+D says "18:30". For a user whose only picture of the chart is the spoken one, two
   authoritative-sounding different times for one bar is worse than either being wrong. Fix: one
   `SpeechTimeFormatter` used by all seven sites. CONFIRMED. MEDIUM.
-- [ ] **`SpeechFormatter.FormatVolume:324-327` reads fractional crypto volume as "0", while the strategy
+  **CLOSED 2026-08-27.** New `SpeechTimeFormatter` owns the conversion; all sites route
+  through it. **There were NINE sites, not seven** — the scan guard written for this item
+  found two the report never listed: `DrawingInteractionManager`'s range readout (`:611`)
+  and its vertical-line confirmation (`:1123`), both reading UTC. Unspecified Kind is
+  treated as UTC, matching what `TimestampParser` produces, because assuming local there
+  would leave exactly the round-tripped bars unconverted — the hardest version to notice,
+  since most bars would still agree. Tested in three tiers (formatter against explicit
+  zones; cross-path agreement; a source scan with its own vacuity check) because a
+  cross-path agreement test alone is VACUOUS on a UTC build agent, where local == UTC and
+  every path agrees by accident. `ChartLayoutDescriberTests` asserted the literal
+  "January 1 2026" and now derives the expectation through `TimeZoneInfo`, since that
+  literal only held on a box at or east of UTC.
+- [x] **`SpeechFormatter.FormatVolume:324-327` reads fractional crypto volume as "0", while the strategy
   30 lines away formats it correctly.** `vol.ToString("F0")` for anything under 1,000 means a candle
   summary on a spot BTC pair with 0.35 BTC of volume speaks "Volume 0", and a volume-profile bin with 0.4
   contracts speaks "0 contracts, 12.3 percent". `VolumeBarStrategy.FormatExactVolume:706-707` already has
@@ -4339,7 +4365,12 @@ layer is one rung down and is where these findings sit.
   `FormatVolume` is used at `:90` (candle summary), `:179` (profile bin), `:226` and `:244` (heatmap).
   Note the `PriceFormatScanTests` guard bans a fixed `F0`/`F1`/`F2` next to a **quote-currency** word, so
   an `F0` next to a *volume* word slips past — that is how this is still live. CONFIRMED. MEDIUM.
-- [ ] **Ctrl+PageUp/PageDown announces the pane twice, under two different names.**
+  **CLOSED 2026-08-27.** Sub-1,000 volumes keep their significant figures via
+  `QuantityFormatter.Format`; whole numbers still read whole (350, not "350.00") because
+  padding every share count with a fake ".00" is its own noise. NaN reads "unknown" rather
+  than the literal "NaN". Theory over 0.35 / 0.4 / 0.0034 plus two guards for the
+  large-volume and whole-number bands.
+- [x] **Ctrl+PageUp/PageDown announces the pane twice, under two different names.**
   `CommandDispatcher.HandleSubPaneNavigation:694` publishes the feedback event with
   `prefixMessage = paneLabel + ". "`, where `paneLabel` comes from
   `CommandDispatcher.GetPaneDisplayLabel:743-747` (raw `SubPaneName + " pane"`).
@@ -4349,7 +4380,14 @@ layer is one rung down and is where these findings sit.
   Result on a Cipher-style indicator: **"Money Flow pane. MF pane. Money Flow Wave. …"**. Fix: delete
   `GetPaneDisplayLabel` and let `NavigationFeedbackManager` own the transition announcement.
   CONFIRMED. MEDIUM.
-- [ ] **`ProfileBinClassifier.Classify:48` computes the session mean without filtering NaN, so a single
+  **CLOSED 2026-08-27.** `GetPaneDisplayLabel` deleted and the dispatcher's prefix is now
+  empty, exactly as prescribed: `NavigationFeedbackManager` owns the transition
+  announcement because it is the only one of the two that can tell a pane CHANGE from a
+  move within a pane. One residual edge, recorded rather than fixed: on the very first
+  feedback event of a session `_previousState` is null, so that one keypress names no pane
+  (the component is still named). Tested with a vacuity guard that the move still happens —
+  emptying the message would otherwise be satisfiable by making the command do nothing.
+- [x] **`ProfileBinClassifier.Classify:48` computes the session mean without filtering NaN, so a single
   NaN bin silently strips every structural label from profile speech.**
   `allBins.Sum(b => b.TotalVolume) / count` → `NaN`, then `mean > 0` at `:49` is false, so HVN / LVN /
   ValueArea are all skipped and every bin classifies as `Normal`, whose `GetLabel:106` is `""`. The user
@@ -4357,20 +4395,40 @@ layer is one rung down and is where these findings sit.
   entire point of a volume profile — with nothing indicating the classifier gave up. That NaN bins occur
   is established by `SpeechFormatter.cs:152` and `:162`, which both guard for exactly that.
   CONFIRMED. MEDIUM.
-- [ ] **`AccessibilityFeedbackCoordinator.cs:385` announces a chart load failure on the muteable `Manual`
+  **CLOSED 2026-08-27.** The mean is taken over bins that HAVE a volume, and a NaN bin is
+  no longer classified against it. **Test trap worth recording:** the obvious two-bin
+  fixture proves nothing — POC/VAH/VAL are checked BEFORE the mean, so the outermost
+  value-area bins are claimed by an earlier branch and never reach the arithmetic under
+  test. The fixture needs four value-area bins and asserts on the two INTERIOR ones.
+- [x] **`AccessibilityFeedbackCoordinator.cs:385` announces a chart load failure on the muteable `Manual`
   channel with no earcon and no reason.** `_speechRouter.Speak("Chart failed to load.", interrupt: true)`
   uses the default `SpeechChannel.Manual`, so F2 silences it — whereas every other failure in this class
   routes to `SpeechChannel.Critical` (`:250`, `:257`, `:577`) precisely because "silent failures are
   forbidden by the feedback contract" (`FeedbackRouters.cs:34-36`). It also plays no earcon, unlike the
   `Error` arm at `:575`, and drops whatever the underlying reason was. CONFIRMED. MEDIUM.
-- [ ] **Heatmap navigation speaks another bar's timestamp as if it were the cursor's.**
+  **CLOSED 2026-08-27.** `SpeechChannel.Critical` plus an Error earcon, and the message
+  now names which chart failed (`"{Symbol} on {Provider} failed to load."`) since the
+  identity is on the state already. **The underlying reason is still not plumbed** —
+  `RequestInitializationStatusAction(InitializationStatus.Error)` carries no text, and the
+  reason reaches the user separately through the error path. Filed below rather than
+  bodged. Test note: the suite's usual `SpySpeechRouter` DISCARDS the channel argument, so
+  a channel assertion written against it would pass no matter what; this one uses a router
+  that records it.
+- [x] **Heatmap navigation speaks another bar's timestamp as if it were the cursor's.**
   `NavigationFeedbackManager.cs:232` resolves `heatmapIdx = FindNearestHeatmapIndex(s,
   state.CurrentDataIndex)` — which walks backwards, then forwards, to the nearest bar with data
   (`:562-578`) — and passes that index to `FormatHeatmapFeedback`, whose time label at
   `SpeechFormatter.cs:206` reads `state.Data[dataIndex].Date`. With the cursor on a historical bar the
   user hears the *live snapshot's* time and liquidity with no indication the data is not from where they
   are standing. CONFIRMED. MEDIUM.
-- [ ] **`ShortcutManager` reports both load and save failures through `Debug.WriteLine`, which is compiled
+  **CLOSED 2026-08-27.** `FormatHeatmapFeedback` takes the cursor index as well as the
+  resolved one. The CURSOR's time now leads — it is the one thing the user cannot
+  cross-check — and a borrowed snapshot says so: "09:30, no book here, showing 09:32, …".
+  The caveat is deliberately NOT gated on `SpeakTimestamps`: turning timestamps off asks
+  for less chatter, not to be told another bar's liquidity as though it were this one's.
+  Three tests, including a guard that no caveat appears when the book IS the cursor's own
+  bar (a caveat on every reading would be noise and would make the main test unfailable).
+- [x] **`ShortcutManager` reports both load and save failures through `Debug.WriteLine`, which is compiled
   out of Release.** `:69-72` catches a corrupt/unreadable `shortcuts.json` and silently falls back to
   defaults — a user whose custom bindings vanish gets no announcement and no log. `:82-85` catches a
   failed save, so `UpdateBinding:165` can report success (and `:169-171` even carefully reports
@@ -4378,16 +4436,33 @@ layer is one rung down and is where these findings sit.
   `System.Diagnostics.Debug.WriteLine` is a no-op, so there is not even a diagnostic. Same defect class
   TODO:3919 records as fixed in `ChartCommandManager` (seven `Debug.WriteLine` → `ILogger.LogError`), left
   in place here. CONFIRMED. MEDIUM.
-- [ ] **`EarconService.CanPlay:183-192` throttles every error severity under one key, so a Critical error
+  **CLOSED 2026-08-27.** Both paths go to `ILogger` (optional ctor param, same shape as
+  `ChartCommandManager`). The save path also sets a new `IShortcutManager.LastSaveSucceeded`,
+  and `SettingsModal.OnKeyCaptured` announces on the Error channel when a rebind could not
+  be written — the change is live this session and gone on restart, which the user
+  previously discovered by pressing a dead key days later with no way to connect the two.
+  Tested by pointing the path at a DIRECTORY named `shortcuts.json` so the atomic write
+  fails, with a success case as the vacuity guard.
+- [x] **`EarconService.CanPlay:183-192` throttles every error severity under one key, so a Critical error
   can be silent.** `PlayError(severity)` calls `CanPlay("error")` — the key does not include the severity
   — and the 200 ms window means a `Critical` immediately following a `Low` plays no tone at all. The
   comment at `:105-107` states error earcons "NEVER gate", which the throttle quietly contradicts. Fix:
   key on `$"error_{severity}"`, or exempt `High`/`Critical` entirely. CONFIRMED. LOW-MEDIUM.
-- [ ] **A bearish marubozu is announced as "Bearish Bearish Marubozu".** `SpeechFormatter.cs:77` computes
+  **CLOSED 2026-08-27.** `High` and `Critical` are exempt from the throttle entirely; `Low`
+  and `Medium` throttle per-severity on `$"error_{severity}"`. Three tests, the third being
+  the vacuity guard that two `Low`s in a row are STILL throttled — removing the throttle
+  wholesale would satisfy the other two. Note for future edits: `PlayError` renders a
+  dissonant PAIR of notes, so an assertion on an exact `PlayNote` call count is a hostage
+  to how the patch is voiced.
+- [x] **A bearish marubozu is announced as "Bearish Bearish Marubozu".** `SpeechFormatter.cs:77` computes
   `trend = pt.Close >= pt.Open ? "Bullish" : "Bearish"`, and `ClassifyCandleType:363` returns the
   *asymmetric* label `"Bearish Marubozu"` for the same condition; `:89` concatenates them as
   `$"{trend}{typeStr}."`. TODO:2068 records the label asymmetry between the three classifiers but not the
   doubled word it produces in live speech. CONFIRMED. LOW.
+  **CLOSED 2026-08-27.** `ClassifyCandleType` returns the symmetric `"Marubozu"`. Direction
+  belongs to the trend prefix the single call site already adds; this method names the
+  SHAPE, and the shape is the same either way. Vacuity guard asserts a bullish marubozu is
+  still named, since deleting the label outright would satisfy the main test.
 - [x] **`SpeechTemplateService.cs` is 97 lines of dead code that does disk I/O in its constructor and
   would emit unresolvable tokens if it were ever wired up.** A grep for
   `SpeechTemplateService|ISpeechTemplateService` over the whole repo returns only the file itself and two
@@ -4400,12 +4475,31 @@ layer is one rung down and is where these findings sit.
   **CLOSED 2026-08-24:** Deleted (96 lines). Re-verified before removal: not registered in any container, no
   resolutions, only self-references plus one stale mention in `AtomicFile`'s doc comment,
   which was corrected in the same change.
-- [ ] **`ViewportManager.GetRichViewportDescription:40-51` is a second, divergent viewport describer.** It
+- [x] **`ViewportManager.GetRichViewportDescription:40-51` is a second, divergent viewport describer.** It
   produces "Viewing 120 bars from March 03, 2026 to …" (UTC, `"MMMM dd, yyyy"`) while
   `SpeechFormatter.FormatViewportDescription:62-66` produces "Viewing 120 bars from March 3 2026 to …"
   (local, `"MMMM d yyyy"`). Both reach speech — the former via `AnnounceViewport:94-99` →
   `AnnouncementEvent`, the latter via `AccessibilityFeedbackCoordinator.cs:348`. Two phrasings and two
   time zones for one fact. CONFIRMED. LOW.
+  **CLOSED 2026-08-27** as a side effect of the timezone unification above. Both describers now
+  call `SpeechTimeFormatter.FormatLongDate`, so both the zone AND the phrasing agree — the two
+  readings are now the same string. They remain two methods; that duplication is covered by the
+  five-formatters item below and is no longer a correctness problem, only a tidiness one.
+- [ ] **A chart load failure still cannot say WHY.** Filed out of the 2026-08-27 MEDIUM batch, which
+  moved the announcement onto the Critical channel and gave it an earcon but could not give it a
+  reason: `RequestInitializationStatusAction(InitializationStatus.Error)`
+  (`MarketOrchestrator.cs:689`) carries a status and nothing else, and the `catch` that dispatches
+  it rethrows without recording what failed. The reason does reach the user, separately, via the
+  error path — so this is a "the two announcements are not joined up" defect rather than a silent
+  one. Fix: give the action an optional reason string and have the coordinator append it. LOW.
+- [ ] **Sub-pane navigation names no pane on the first feedback event of a session.** Filed out of
+  the same batch. `NavigationFeedbackManager`'s pane-transition block requires `_previousState`,
+  which is null until the second event, so the very first Ctrl+PageUp after load names the
+  component but not the pane it moved to. Previously masked by the dispatcher's own (duplicated)
+  label. One keypress per session; the component is still named. Fix: seed `_previousState` on
+  first state, or let the block fall back to naming the pane when there is no previous state and
+  the target component sits in a sub-pane. LOW.
+
 - [ ] **Five price/size formatters coexist in the speech layer.** `SpeechPriceFormatter.FormatPrice`
   (`:13`, the canonical one), `SpeechFormatter.FormatVolume` (`:324`),
   `VolumeBarStrategy.FormatExactVolume` (`:706`), `QuantityFormatter.Format`/`FormatCompact`/
@@ -4414,6 +4508,10 @@ layer is one rung down and is where these findings sit.
   the edges — `Money(0.0000123)` gives `"0.000012"`, `FormatPrice` gives `"0.0000123"`, `FormatVolume`
   gives `"0"`. Fix: `SpeechPriceFormatter` for price-space, `QuantityFormatter` for sizes, delete the
   rest. CONFIRMED. LOW.
+  **Partly addressed 2026-08-27:** `SpeechFormatter.FormatVolume` now delegates to
+  `QuantityFormatter.Format` below 1,000, so `FormatVolume(0.0000123)` no longer returns `"0"` and
+  the worst of the edge disagreement is gone. The consolidation itself — six formatters down to
+  two — is still open.
 - [ ] **(amends TODO:960-968)** Those citations have drifted ~17 lines since the 2026-08-23 edits: the
   current lines are `:323`, `:329`, `:551-553`, `:264-291`. Also
   `NavigationFeedbackManager.cs:478-491` documents `CheckAndPlayZoneProximity` — the method is still named

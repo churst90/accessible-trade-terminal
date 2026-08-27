@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Models;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace AccessibleTrader.Core.Services
@@ -26,6 +27,14 @@ namespace AccessibleTrader.Core.Services
         /// than discovering it silently later. Empty when nothing was displaced.
         /// </returns>
         IReadOnlyList<SystemCommand> UpdateBinding(SystemCommand command, string key, bool shift = false, bool ctrl = false, bool alt = false);
+
+        /// <summary>
+        /// False when the last <see cref="SaveToDisk"/> threw, so the in-memory profile no longer
+        /// matches what will be loaded next start. Callers that report a rebind as done must check
+        /// this: a rebind that only survives until restart, announced as a success, is a keyboard
+        /// user being told a lie they will discover by pressing a dead key days later.
+        /// </summary>
+        bool LastSaveSucceeded { get; }
     }
 
     public class ShortcutManager : IShortcutManager
@@ -47,10 +56,15 @@ namespace AccessibleTrader.Core.Services
         // already had to solve this — see the note there.
         private ShortcutProfile? _profile;
         private string? _filepath;
+        private readonly ILogger<ShortcutManager>? _logger;
 
-        public ShortcutManager(IPlatformPathService pathService)
+        /// <inheritdoc />
+        public bool LastSaveSucceeded { get; private set; } = true;
+
+        public ShortcutManager(IPlatformPathService pathService, ILogger<ShortcutManager>? logger = null)
         {
             _pathService = pathService;
+            _logger = logger;
         }
 
         public ShortcutProfile CurrentProfile
@@ -102,7 +116,11 @@ namespace AccessibleTrader.Core.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load shortcuts: {ex.Message}");
+                // ILogger, not Debug.WriteLine: Debug.WriteLine is compiled out of Release, so a
+                // user whose customised bindings silently reverted to defaults after a corrupt
+                // shortcuts.json had no announcement AND no diagnostic to send anyone.
+                // Same defect class already fixed in ChartCommandManager.
+                _logger?.LogError(ex, "Failed to load shortcuts from {Path}; falling back to defaults", _filepath);
             }
         }
 
@@ -113,10 +131,12 @@ namespace AccessibleTrader.Core.Services
             {
                 string json = JsonConvert.SerializeObject(CurrentProfile, Formatting.Indented);
                 AtomicFile.WriteAllText(_filepath!, json);
+                LastSaveSucceeded = true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to save shortcuts: {ex.Message}");
+                LastSaveSucceeded = false;
+                _logger?.LogError(ex, "Failed to save shortcuts to {Path}; the rebind will not survive restart", _filepath);
             }
         }
 

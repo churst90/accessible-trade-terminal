@@ -2156,6 +2156,17 @@
                 $"{reboundName} rebound. This removed the only shortcut for {string.Join(", ", names)}; " +
                 "rebind from the Keyboard tab if you still need it.", true));
         }
+
+        // A rebind that could not be written is still LIVE this session but gone on restart.
+        // Saying nothing meant the user learned about it by pressing a dead key days later,
+        // with no way to connect the two. Error, not StateChange: this needs the failure
+        // channel, which is not muteable.
+        if (!ShortcutService.LastSaveSucceeded)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"{reboundName} rebound, but the shortcut file could not be saved. " +
+                "This change will be lost when you restart.", true));
+        }
     }
 
     private void CancelCapture()

@@ -11,7 +11,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         string FormatPointFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, Ohlcv pt, string prefixMessage);
         string FormatProfileFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int binIndex, string prefixMessage);
-        string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage);
+        /// <param name="dataIndex">The bar the liquidity being described actually came from.</param>
+        /// <param name="cursorDataIndex">
+        /// Where the user is standing. Differs from <paramref name="dataIndex"/> when the caller
+        /// had to fall back to the nearest bar carrying a book snapshot; pass -1 when they are
+        /// the same by construction.
+        /// </param>
+        string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage, int cursorDataIndex = -1);
         string FormatViewportDescription(int count, DateTime start, DateTime end);
         void RegisterTemplate(string indicatorCode, string componentName, string template);
     }
@@ -59,8 +65,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public string FormatViewportDescription(int count, DateTime start, DateTime end)
         {
-            string fmt = "MMMM d yyyy";
-            return $"Viewing {count} bars from {start.ToLocalTime().ToString(fmt, CultureInfo.InvariantCulture)} to {end.ToLocalTime().ToString(fmt, CultureInfo.InvariantCulture)}";
+            return $"Viewing {count} bars from {SpeechTimeFormatter.FormatLongDate(start)} to {SpeechTimeFormatter.FormatLongDate(end)}";
         }
 
         public string FormatPointFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, Ohlcv pt, string prefixMessage)
@@ -139,11 +144,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 else if (state.TimestampReadLocation == "None") shouldSpeakTimestamp = false;
             }
 
-            string timestampFormat = "MMMM dd, yyyy, HH:mm";
-            if (state.SpeechOrder.Contains("TimeOnly")) timestampFormat = "HH:mm";
-            else if (state.SpeechOrder.Contains("DateOnly")) timestampFormat = "MMMM dd";
+            string timestampFormat = SpeechTimeFormatter.DateTimeFormat;
+            if (state.SpeechOrder.Contains("TimeOnly")) timestampFormat = SpeechTimeFormatter.TimeFormat;
+            else if (state.SpeechOrder.Contains("DateOnly")) timestampFormat = SpeechTimeFormatter.DateFormat;
 
-            string timestamp = shouldSpeakTimestamp ? pt.Date.ToLocalTime().ToString(timestampFormat, CultureInfo.InvariantCulture) + ". " : "";
+            string timestamp = shouldSpeakTimestamp ? SpeechTimeFormatter.Format(pt.Date, timestampFormat) + ". " : "";
 
             return timestamp + prefixMessage + msg;
         }
@@ -191,13 +196,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool shouldSpeakTimestamp = state.SpeakTimestamps && isXMove
                 && state.Data != null && state.CurrentDataIndex >= 0 && state.CurrentDataIndex < state.Data.Count;
             string timestamp = shouldSpeakTimestamp
-                ? state.Data![state.CurrentDataIndex].Date.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + ". "
+                ? SpeechTimeFormatter.FormatTime(state.Data![state.CurrentDataIndex].Date) + ". "
                 : "";
 
             return timestamp + prefixMessage + dataMsg;
         }
 
-        public string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage)
+        public string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage, int cursorDataIndex = -1)
         {
             if (series.HeatmapData == null || dataIndex < 0 || dataIndex >= series.HeatmapData.Count)
                 return "No data.";
@@ -207,9 +212,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return "No data at this bar.";
 
             // Time label for the bar — always relevant for heatmaps (both axes navigable).
+            //
+            // It is the CURSOR's time, not the snapshot's. The caller resolves the nearest bar
+            // carrying a book (order-book snapshots are sparse; a historical bar usually has
+            // none), and before 2026-08-27 this read that resolved bar's stamp — so standing on
+            // a bar from Tuesday and hearing the live snapshot's 14:30 was indistinguishable
+            // from the book actually being Tuesday's. The user's own position is the one thing
+            // they cannot cross-check, so it leads; the borrowed snapshot then says so.
+            int cursorIdx = cursorDataIndex >= 0 ? cursorDataIndex : dataIndex;
             string timeLabel = "";
-            if (state.Data != null && dataIndex >= 0 && dataIndex < state.Data.Count)
-                timeLabel = state.Data[dataIndex].Date.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture) + ", ";
+            if (state.Data != null && cursorIdx >= 0 && cursorIdx < state.Data.Count)
+                timeLabel = SpeechTimeFormatter.FormatTime(state.Data[cursorIdx].Date) + ", ";
+
+            string borrowedLabel = "";
+            if (cursorIdx != dataIndex && state.Data != null && dataIndex >= 0 && dataIndex < state.Data.Count)
+                borrowedLabel = $"no book here, showing {SpeechTimeFormatter.FormatTime(state.Data[dataIndex].Date)}, ";
 
             string dataMsg;
             if (binIndex < 0 || binIndex >= bar.Count)
@@ -252,8 +269,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             // Timestamp first, then prefix, then data — consistent with FormatPointFeedback ordering.
+            // The borrowed-snapshot caveat rides immediately before the data it qualifies, and is
+            // NOT gated on SpeakTimestamps: turning timestamps off asks for less chatter, not to
+            // be told about another bar's liquidity as though it were this one's.
             string timestampPrefix = state.SpeakTimestamps ? timeLabel : "";
-            return timestampPrefix + prefixMessage + dataMsg;
+            return timestampPrefix + prefixMessage + borrowedLabel + dataMsg;
         }
 
         // ── Dispatcher ───────────────────────────────────────────────────────────
@@ -326,11 +346,36 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _                                 => dt.ToString().ToLower()
         };
 
-        /// <summary>Formats large volume numbers for natural speech (e.g., 24350 → "24,350").</summary>
+        /// <summary>
+        /// Formats a volume for natural speech (24350 → "24,350").
+        ///
+        /// <para>
+        /// Below 1,000 the significant figures are kept. The old <c>F0</c> here was written for
+        /// share and contract counts, which are whole numbers, and it silently rounded every
+        /// fractional size to nothing: a spot BTC candle carrying 0.35 BTC of volume spoke
+        /// "Volume 0", and a profile bin holding 0.4 contracts spoke "0 contracts, 12.3 percent"
+        /// — a bin that plainly has volume, reported as having none. Crypto pairs are the common
+        /// case in this app, so the sub-1 band is the one that mattered most and read worst.
+        /// </para>
+        /// <para>
+        /// Whole numbers still read whole — 350 is "350", not "350.00" — because padding every
+        /// share count with a fake ".00" is its own kind of noise.
+        /// </para>
+        /// <para>
+        /// The <c>PriceFormatScanTests</c> guard bans a fixed <c>F0</c>/<c>F1</c>/<c>F2</c> next
+        /// to a QUOTE-CURRENCY word, which is why an <c>F0</c> next to a *volume* word survived
+        /// this long.
+        /// </para>
+        /// </summary>
         private static string FormatVolume(double vol)
-            => vol >= 1_000_000 ? $"{(vol / 1_000_000).ToString("F2", CultureInfo.InvariantCulture)}M"
-             : vol >= 1_000     ? $"{vol.ToString("N0", CultureInfo.InvariantCulture)}"
-             : vol.ToString("F0", CultureInfo.InvariantCulture);
+        {
+            if (double.IsNaN(vol)) return "unknown";
+            double abs = Math.Abs(vol);
+            if (abs >= 1_000_000) return $"{(vol / 1_000_000).ToString("F2", CultureInfo.InvariantCulture)}M";
+            if (abs >= 1_000)     return vol.ToString("N0", CultureInfo.InvariantCulture);
+            if (vol == Math.Floor(vol)) return vol.ToString("N0", CultureInfo.InvariantCulture);
+            return QuantityFormatter.Format(vol);
+        }
 
         /// <summary>
         /// Builds a temporary ProfileBin list for classification from heatmap bar data.
@@ -366,7 +411,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (upperPct > 0.6 && lowerPct < 0.1) return "Gravestone Doji";
                 return "Doji";
             }
-            if (bodyPct > 0.90) return bar.Close >= bar.Open ? "Marubozu" : "Bearish Marubozu";
+            // Symmetric on purpose. The ONE call site prefixes the trend word already
+            // ("{trend}{typeStr}."), so the asymmetric "Bearish Marubozu" it used to return on
+            // the down side was spoken as "Bearish Bearish Marubozu." Direction belongs to the
+            // trend prefix; this method names the SHAPE, and the shape is the same either way.
+            if (bodyPct > 0.90) return "Marubozu";
             if (bodyPct < 0.30 && lowerPct > 0.60 && upperPct < 0.10) return "Hammer";
             if (bodyPct < 0.30 && upperPct > 0.60 && lowerPct < 0.10) return "Shooting Star";
             if (bodyPct < 0.30 && upperPct > 0.25 && lowerPct > 0.25) return "Spinning Top";

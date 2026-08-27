@@ -39,11 +39,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // LVN: single print or volume well below the session mean.
             if (bin.IsSinglePrint) return ProfileNodeType.LVN;
 
-            int count = allBins.Count;
-            if (count > 0)
+            // The mean is taken over bins that HAVE a volume. A single NaN bin used to poison the
+            // sum, making `mean` NaN, making `mean > 0` false, and skipping HVN / LVN / ValueArea
+            // for every bin in the profile — each one classifying as Normal, whose label is "".
+            // The user then heard prices and volumes but never "Point of Control", "Value Area
+            // High" or "Low Volume Node": the entire point of a volume profile, gone, with
+            // nothing said to indicate the classifier had given up. That NaN bins occur is not
+            // hypothetical — SpeechFormatter guards for exactly that two places over.
+            var measured = allBins.Where(b => !double.IsNaN(b.TotalVolume)).ToList();
+            if (measured.Count > 0)
             {
-                double mean = allBins.Sum(b => b.TotalVolume) / count;
-                if (mean > 0)
+                double mean = measured.Sum(b => b.TotalVolume) / measured.Count;
+                if (mean > 0 && !double.IsNaN(bin.TotalVolume))
                 {
                     if (bin.TotalVolume < mean * LvnThreshold)  return ProfileNodeType.LVN;
                     if (bin.IsValueArea && bin.TotalVolume > mean * HvnThreshold) return ProfileNodeType.HVN;

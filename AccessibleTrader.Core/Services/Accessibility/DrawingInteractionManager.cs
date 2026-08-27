@@ -608,7 +608,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int bars = hi - lo + 1;
             string dir = change >= 0 ? "up" : "down";
             _eventBus.Publish(new AnnouncementEvent(
-                $"Range: {bars} bars, {state.Data[lo].Date.ToString("MMM d HH:mm", CultureInfo.InvariantCulture)} to {state.Data[hi].Date.ToString("MMM d HH:mm", CultureInfo.InvariantCulture)}. " +
+                $"Range: {bars} bars, {SpeechTimeFormatter.Format(state.Data[lo].Date, "MMM d HH:mm")} to {SpeechTimeFormatter.Format(state.Data[hi].Date, "MMM d HH:mm")}. " +
                 $"High {SpeechPriceFormatter.FormatPrice(high)}, low {SpeechPriceFormatter.FormatPrice(low)}. " +
                 $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct).ToString("0.##", CultureInfo.InvariantCulture)} percent."));
         }
@@ -1120,7 +1120,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (dType == DrawingType.VerticalLine)
             {
                 CreateDrawingSeries("Vertical", new DrawingData { Type = DrawingType.VerticalLine, AnchorDate1 = pt.Date }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {pt.Date.ToString("MMMM dd, HH:mm", CultureInfo.InvariantCulture)}"));
+                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {SpeechTimeFormatter.Format(pt.Date, "MMMM dd, HH:mm")}"));
             }
             else if (dType == DrawingType.TextLabel)
             {
