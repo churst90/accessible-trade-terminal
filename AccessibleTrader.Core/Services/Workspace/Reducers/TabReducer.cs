@@ -179,6 +179,13 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             };
         }
 
+        /// <summary>
+        /// <paramref name="index"/> after the tab at <paramref name="closed"/> is removed:
+        /// everything above it moves down one, everything below is untouched. Tab indices are
+        /// a dense 0..TabCount-1 range and this is the only thing that keeps them dense.
+        /// </summary>
+        private static int ShiftDownPast(int index, int closed) => index > closed ? index - 1 : index;
+
         private static WorkspaceState CloseTab(WorkspaceState state, int tabIndex)
         {
             int tabCount = state.TabCount;
@@ -195,23 +202,53 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 var targetSnapshot = snapshots.FirstOrDefault(t => t.TabIndex == switchTo);
                 if (targetSnapshot == null) return state;
 
-                // Re-index remaining snapshots to fill the gap
+                // Close the gap by RANK, never by list position.
+                //
+                // This used to be
+                //   .Select((t, i) => t with { TabIndex = i >= switchTo ? i : i })
+                // whose two ternary arms are both `i`, so it always assigned the
+                // ENUMERATION POSITION. The snapshot list is not kept sorted by TabIndex —
+                // SwitchTab appends the outgoing tab to the end — so position is unrelated to
+                // identity. With four tabs: AddTab x3 gives snapshots [0,1,2] active 3;
+                // SwitchTab(0) gives snapshots [1,2,3] active 0; CloseTab(0) then produced
+                // reindexed [snap2 -> 0, snap3 -> 1] with ActiveTabIndex 1, i.e. live indices
+                // {0, 1(active), 1} for a TabCount of 3. Index 2 did not exist, so
+                // TabBar.GetAllTabs rendered two tabs while claiming three, SwitchTabAction(2)
+                // found no snapshot and returned state unchanged, and old tab 3 — its symbol,
+                // its indicators, its drawings — was unreachable for the rest of the session.
+                // A subsequent CloseTab(1) then dropped two tabs at once.
+                //
+                // Closing index N means every index above N shifts down by one. That is the
+                // whole rule, and it is a function of the tab's own index, not of where it
+                // happens to sit in the list.
                 var reindexed = snapshots
                     .RemoveAll(t => t.TabIndex == switchTo || t.TabIndex == tabIndex)
-                    .Select((t, i) => t with { TabIndex = i >= switchTo ? i : i })
+                    .Select(t => t with { TabIndex = ShiftDownPast(t.TabIndex, tabIndex) })
                     .ToImmutableList();
 
                 return RestoreSnapshot(state, targetSnapshot) with
                 {
                     TabSnapshots = reindexed,
-                    ActiveTabIndex = switchTo
+                    ActiveTabIndex = ShiftDownPast(switchTo, tabIndex)
                 };
             }
             else
             {
-                // Closing an inactive tab — just remove its snapshot
-                var newSnapshots = snapshots.RemoveAll(t => t.TabIndex == tabIndex);
-                return state with { TabSnapshots = newSnapshots };
+                // Closing an inactive tab. The same renumbering applies — this branch used to
+                // drop the snapshot and leave every higher index where it was, so closing tab
+                // 1 of four left live indices {0, 2, 3(active)} for a TabCount of 3 and the
+                // ACTIVE tab's own index was past the end of what the tab bar would render.
+                // Not filed with the active-tab case above; same defect, same fix.
+                var newSnapshots = snapshots
+                    .RemoveAll(t => t.TabIndex == tabIndex)
+                    .Select(t => t with { TabIndex = ShiftDownPast(t.TabIndex, tabIndex) })
+                    .ToImmutableList();
+
+                return state with
+                {
+                    TabSnapshots = newSnapshots,
+                    ActiveTabIndex = ShiftDownPast(state.ActiveTabIndex, tabIndex)
+                };
             }
         }
 

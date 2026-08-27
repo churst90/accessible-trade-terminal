@@ -36,6 +36,35 @@ namespace AccessibleTrader.Core.Services.Workspace
         public const string LastSessionProfileName = "__last-session__";
         public static readonly TimeSpan DefaultSampleInterval = TimeSpan.FromSeconds(30);
 
+        /// <summary>
+        /// How many session slots are kept before the oldest are pruned. Small: the only one
+        /// that is ever read is the most recent, and the rest exist so that a session which is
+        /// still running does not have its slot deleted out from under it.
+        /// </summary>
+        private const int SlotsToKeep = 4;
+
+        /// <summary>
+        /// This session's own autosave slot.
+        ///
+        /// <para><b>What went wrong.</b> <c>ISessionAutosaveService</c> is <c>AddScoped</c> on
+        /// the WebHost — one per Blazor circuit, each with its own <see cref="IWorkspaceStore"/>
+        /// — and every one of them sampled its own state and wrote
+        /// <c>SaveWorkspaceProfile("__last-session__", …)</c> into the same directory. Two
+        /// browser tabs on different charts made that one file flip between them every sample
+        /// interval, and <c>OnCircuitClosedAsync</c> made the LAST TAB CLOSED the winner
+        /// regardless of which one the user had actually been working in. The same class was
+        /// filed for <c>MyDataStore</c> and the <c>PaperAccountHub</c> solution to the identical
+        /// two-tab problem was never extended here.</para>
+        ///
+        /// <para><b>What this does.</b> Each session writes its own slot, so no session can
+        /// clobber another's, and resume reads the slot that was written most recently — which
+        /// is the tab the user was last working in, which is the one they meant. The legacy
+        /// unsuffixed name is still readable so an existing user's saved session survives the
+        /// upgrade.</para>
+        /// </summary>
+        private readonly string _slotName =
+            $"{LastSessionProfileName}{Guid.NewGuid():N}";
+
         private readonly IWorkspaceStore _store;
         private readonly IWorkspaceLibraryService _library;
         private readonly IWorkspaceInitializer _initializer;
@@ -88,11 +117,37 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             try
             {
-                _library.SaveWorkspaceProfile(LastSessionProfileName, _store);
+                _library.SaveWorkspaceProfile(_slotName, _store);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Session autosave failed; will retry on the next sample.");
+            }
+        }
+
+        /// <summary>Every session slot on disk, newest first. Includes the legacy unsuffixed
+        /// name so a session saved before per-slot autosave still resumes.</summary>
+        private List<(string Name, DateTime LastWriteUtc)> SessionSlots() =>
+            _library.GetAllProfilesWithTimes()
+                    .Where(p => p.Name.StartsWith(LastSessionProfileName, StringComparison.Ordinal))
+                    .OrderByDescending(p => p.LastWriteUtc)
+                    .ToList();
+
+        /// <summary>
+        /// Drops the oldest slots beyond <see cref="SlotsToKeep"/>. Never touches this
+        /// session's own slot, and never runs often enough to matter — once, at resume.
+        /// </summary>
+        private void PruneOldSlots(IReadOnlyList<(string Name, DateTime LastWriteUtc)> slots)
+        {
+            foreach (var stale in slots.Skip(SlotsToKeep))
+            {
+                if (stale.Name == _slotName) continue;
+                try { _library.DeleteProfile(stale.Name); }
+                catch (Exception ex)
+                {
+                    // Housekeeping only: a slot that will not delete costs a few KB.
+                    _logger.LogDebug(ex, "Could not prune old session slot {Slot}.", stale.Name);
+                }
             }
         }
 
@@ -102,9 +157,13 @@ namespace AccessibleTrader.Core.Services.Workspace
             if (IsMeaningful(_store.State)) return false; // something is already loaded
 
             WorkspaceConfiguration? config;
+            List<(string Name, DateTime LastWriteUtc)> slots;
             try
             {
-                config = _library.LoadProfile(LastSessionProfileName);
+                // The most recently WRITTEN slot is the tab the user was last working in.
+                // Reading a fixed name is what made two browser tabs fight over one file.
+                slots = SessionSlots();
+                config = slots.Count == 0 ? null : _library.LoadProfile(slots[0].Name);
             }
             catch (Exception ex)
             {
@@ -112,6 +171,8 @@ namespace AccessibleTrader.Core.Services.Workspace
                 return false;
             }
             if (config == null) return false;
+
+            PruneOldSlots(slots);
 
             try
             {

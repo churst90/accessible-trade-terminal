@@ -14,6 +14,14 @@ namespace AccessibleTrader.Core.Services
         void DeleteProfile(string name);
 
         /// <summary>
+        /// Every profile file on disk, including the machinery ones
+        /// <see cref="GetAvailableProfiles"/> deliberately hides, paired with when it was last
+        /// written. Used by session autosave to find the most recently active session slot.
+        /// Returns an empty list on any I/O failure.
+        /// </summary>
+        IReadOnlyList<(string Name, DateTime LastWriteUtc)> GetAllProfilesWithTimes();
+
+        /// <summary>
         /// Captures the full current workspace state (all tabs) into a named profile on disk.
         /// </summary>
         void SaveWorkspaceProfile(string name, IWorkspaceStore store);
@@ -99,10 +107,14 @@ namespace AccessibleTrader.Core.Services
                 return Directory.GetFiles(_libraryDir, "*.json")
                     .Select(Path.GetFileNameWithoutExtension)
                     .Where(x => x != null && x != "alerts"
-                             // The session-autosave slot is machinery, not a user
-                             // profile — hearing "__last-session__" in the list
-                             // (or deleting it by accident) helps nobody.
-                             && x != Workspace.SessionAutosaveService.LastSessionProfileName)
+                             // The session-autosave slots are machinery, not user
+                             // profiles — hearing "__last-session__" in the list
+                             // (or deleting one by accident) helps nobody. StartsWith,
+                             // not equality: each session now writes its OWN slot so that
+                             // two browser tabs cannot clobber each other, and every one of
+                             // them carries this prefix.
+                             && !x.StartsWith(Workspace.SessionAutosaveService.LastSessionProfileName,
+                                              StringComparison.Ordinal))
                     .Cast<string>()
                     .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -111,6 +123,23 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogError(ex, "Failed to list workspace profiles.");
                 return new List<string>();
+            }
+        }
+
+        public IReadOnlyList<(string Name, DateTime LastWriteUtc)> GetAllProfilesWithTimes()
+        {
+            try
+            {
+                return Directory.GetFiles(_libraryDir, "*.json")
+                    .Select(p => (Name: Path.GetFileNameWithoutExtension(p) ?? "",
+                                  LastWriteUtc: File.GetLastWriteTimeUtc(p)))
+                    .Where(x => x.Name.Length > 0 && x.Name != "alerts")
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to list workspace profile timestamps.");
+                return Array.Empty<(string, DateTime)>();
             }
         }
 
@@ -163,34 +192,34 @@ namespace AccessibleTrader.Core.Services
                     .ToList();
             }
 
-            // Capture the active tab.
-            config.Tabs.Add(CreateTabConfig(state));
-
-            // Capture all inactive tab snapshots.
-            if (state.TabSnapshots != null)
+            // Every tab is filed under ITS OWN TabIndex, from one source of truth.
+            //
+            // This used to build config.Tabs from `TabSnapshots.OrderBy(s => s.TabIndex)` and
+            // then map indices by reading `state.TabSnapshots![i - 1]` — the RAW, unsorted
+            // list. The snapshot list is not sorted after any SwitchTab (it appends the
+            // outgoing tab to the end), so each tab config was filed under ANOTHER tab's
+            // index: with raw snapshots [snap1, snap3, snap0] the config for snap0 landed at
+            // index 1, snap1 at 3 and snap3 at 0. Symbols, indicator stacks and drawings were
+            // written to disk against the wrong tab slots. A `sortedTabs` local was allocated
+            // and never used — the leftover of an earlier attempt at this fix.
+            //
+            // Building the index→config map first and deriving config.Tabs from it means
+            // there is no second ordering to disagree with.
+            var indexedTabs = new SortedDictionary<int, TabConfiguration>
             {
-                foreach (var snap in state.TabSnapshots.OrderBy(s => s.TabIndex))
-                {
-                    config.Tabs.Add(CreateTabConfigFromSnapshot(snap));
-                }
+                [state.ActiveTabIndex] = CreateTabConfig(state),
+            };
+            foreach (var snap in state.TabSnapshots ?? Enumerable.Empty<TabSnapshot>())
+            {
+                indexedTabs[snap.TabIndex] = CreateTabConfigFromSnapshot(snap);
             }
 
-            // Sort tabs by their original index so the saved order matches the tab bar.
-            // The active tab's index is state.ActiveTabIndex; snapshots carry their own TabIndex.
-            // We inserted active first then snapshots, so re-sort by index.
-            var sortedTabs = new List<TabConfiguration>(config.Tabs.Count);
-            // Build a mapping: active tab at ActiveTabIndex, snapshots at their indices.
-            var indexedTabs = new SortedDictionary<int, TabConfiguration>();
-            indexedTabs[state.ActiveTabIndex] = config.Tabs[0]; // active tab
-            for (int i = 1; i < config.Tabs.Count; i++)
-            {
-                var snap = state.TabSnapshots![i - 1];
-                indexedTabs[snap.TabIndex] = config.Tabs[i];
-            }
             config.Tabs = indexedTabs.Values.ToList();
 
-            // Remap ActiveTabIndex to the position in the sorted list.
-            config.ActiveTabIndex = config.Tabs.IndexOf(indexedTabs[state.ActiveTabIndex]);
+            // ActiveTabIndex is saved as a POSITION in the saved list, which is what the
+            // restore path indexes with. Because indexedTabs is sorted by TabIndex, that
+            // position is the rank of ActiveTabIndex among the live indices.
+            config.ActiveTabIndex = indexedTabs.Keys.ToList().IndexOf(state.ActiveTabIndex);
 
             SaveProfile(name, config);
         }

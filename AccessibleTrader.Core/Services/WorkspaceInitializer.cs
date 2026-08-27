@@ -446,47 +446,22 @@ namespace AccessibleTrader.Core.Services
             // Additional tabs are added via AddTabAction + SwitchTabAction.
             if (config.Tabs.Count == 0) return;
 
-            // Restore the active tab first (the one at config.ActiveTabIndex).
+            // Tabs are restored IN CONFIG ORDER, so store index N holds config tab N.
+            //
+            // This used to restore the SAVED ACTIVE tab into the store's existing slot
+            // (store 0) and then append the others in config order at store 1..n, before
+            // dispatching SwitchTabAction with the CONFIG index. With config.Tabs = [A, B, C]
+            // and ActiveTabIndex = 1: B landed at store 0, A at store 1, C at store 2, and the
+            // switch activated store 1 — which is A. The user resumed on the wrong chart with
+            // the tab bar in the wrong order, every single time they saved while any tab but
+            // the first was focused.
+            //
+            // Restoring in config order makes the two index spaces the same one, so the
+            // SwitchTabAction below means what it says.
             int activeIdx = Math.Clamp(config.ActiveTabIndex, 0, config.Tabs.Count - 1);
-            var activeTab = config.Tabs[activeIdx];
 
-            // Set identity for the active tab
-            if (!string.IsNullOrEmpty(activeTab.Symbol))
+            void RestoreTabInto(TabConfiguration tab)
             {
-                _store.Dispatch(new SetIdentityAction(new ChartIdentity
-                {
-                    Market = activeTab.Market,
-                    Provider = activeTab.Provider,
-                    Symbol = activeTab.Symbol,
-                    Timeframe = activeTab.Timeframe
-                }));
-            }
-
-            // Restore display toggles
-            if (activeTab.IsHeikinAshi != _store.State.IsHeikinAshi)
-                _store.Dispatch(new ToggleHeikinAshiAction());
-            if (activeTab.IsLogScale != _store.State.IsLogScale)
-                _store.Dispatch(new ToggleLogScaleAction());
-
-            // Restore series
-            RestoreSeriesFromTab(activeTab, allMeta);
-
-            // Restore pane height ratios
-            RestorePaneHeightRatios(activeTab.PaneHeightRatios);
-
-            // Restore the saved zoom width (before data loads — see RestoreViewportLength).
-            RestoreViewportLength(activeTab.ViewportLength);
-
-            // Now add the remaining tabs as snapshots.
-            for (int i = 0; i < config.Tabs.Count; i++)
-            {
-                if (i == activeIdx) continue;
-                var tab = config.Tabs[i];
-
-                // Open a new tab (saves current to snapshot, creates blank active)
-                _store.Dispatch(new AddTabAction());
-
-                // Set identity for this tab
                 if (!string.IsNullOrEmpty(tab.Symbol))
                 {
                     _store.Dispatch(new SetIdentityAction(new ChartIdentity
@@ -507,14 +482,26 @@ namespace AccessibleTrader.Core.Services
                 // Restore series
                 RestoreSeriesFromTab(tab, allMeta);
 
-                // Restore pane ratios
+                // Restore pane height ratios
                 RestorePaneHeightRatios(tab.PaneHeightRatios);
 
-                // Restore this tab's saved zoom width before its snapshot is taken.
+                // Restore this tab's saved zoom width before its snapshot is taken
+                // (before data loads — see RestoreViewportLength).
                 RestoreViewportLength(tab.ViewportLength);
             }
 
-            // Switch back to the originally active tab.
+            // Config tab 0 goes into the slot the store already has.
+            RestoreTabInto(config.Tabs[0]);
+
+            // The rest each open a new tab, which snapshots the current one and creates a
+            // blank active — so they land at store 1, 2, ... in config order.
+            for (int i = 1; i < config.Tabs.Count; i++)
+            {
+                _store.Dispatch(new AddTabAction());
+                RestoreTabInto(config.Tabs[i]);
+            }
+
+            // Switch back to the originally active tab. Store index == config index now.
             if (config.Tabs.Count > 1)
             {
                 _store.Dispatch(new SwitchTabAction(activeIdx));

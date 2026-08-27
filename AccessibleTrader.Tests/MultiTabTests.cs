@@ -179,7 +179,102 @@ namespace AccessibleTrader.Tests
             Assert.Equal(1, after.TabCount);
             Assert.NotNull(after.TabSnapshots);
             Assert.Empty(after.TabSnapshots!);
-            Assert.Equal(1, after.ActiveTabIndex); // Tab 1 is still active
+
+            // The surviving tab is index 0, NOT 1.
+            //
+            // This assertion used to read `Assert.Equal(1, after.ActiveTabIndex)`, which
+            // pinned the defect: one tab with TabCount 1 whose only live index was 1 means
+            // index 0 does not exist, and TabBar.GetAllTabs loops `i < TabCount` so it looked
+            // for tab 0, found nothing, and rendered an empty bar over a live chart. Tab
+            // indices are a dense 0..TabCount-1 range; closing an index below the active one
+            // shifts the active one down, exactly as closing one above it does not.
+            Assert.Equal(0, after.ActiveTabIndex);
+        }
+
+        /// <summary>
+        /// After any close, the live tab indices are exactly <c>0..TabCount-1</c> — no gap, no
+        /// duplicate. This is the invariant both <c>CloseTab</c> branches broke, and the reason
+        /// a tab could become permanently unreachable while the bar claimed it was there.
+        /// </summary>
+        private static void AssertIndicesAreDense(WorkspaceState s)
+        {
+            var live = (s.TabSnapshots ?? ImmutableList<TabSnapshot>.Empty)
+                       .Select(t => t.TabIndex)
+                       .Append(s.ActiveTabIndex)
+                       .OrderBy(i => i)
+                       .ToList();
+
+            Assert.Equal(s.TabCount, live.Count);
+            Assert.Equal(Enumerable.Range(0, s.TabCount).ToList(), live);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        public void Closing_any_tab_of_four_leaves_a_dense_index_range(int closing)
+        {
+            // Four tabs, and — this is the part that mattered — a SwitchTab first, so the
+            // snapshot list is no longer in TabIndex order. The old renumbering assigned the
+            // enumeration POSITION, which is only ever right while the list happens to be
+            // sorted. That is why the two-tab tests stayed green through this for so long.
+            var s = State(BTC);
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());   // tabs 0..3, tab 3 active
+            s = ReduceDirectly(s, new SwitchTabAction(0)); // snapshots now [1,2,3], active 0
+
+            AssertIndicesAreDense(s); // sanity: the setup itself is well-formed
+
+            var after = ReduceDirectly(s, new CloseTabAction(closing));
+
+            Assert.Equal(3, after.TabCount);
+            AssertIndicesAreDense(after);
+        }
+
+        [Fact]
+        public void Closing_the_active_tab_does_not_strand_the_others()
+        {
+            // The audit's exact trace. Old behaviour produced live indices {0, 1(active), 1}
+            // for a TabCount of 3: index 2 did not exist, SwitchTabAction(2) found no snapshot
+            // and returned state unchanged, and one tab's symbol, indicators and drawings were
+            // unreachable for the rest of the session.
+            var s = State(BTC);
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new SwitchTabAction(0));
+
+            var after = ReduceDirectly(s, new CloseTabAction(0));
+
+            Assert.Equal(3, after.TabCount);
+            // Every index the tab bar will ask for resolves to a real tab.
+            for (int i = 0; i < after.TabCount; i++)
+            {
+                bool exists = after.ActiveTabIndex == i
+                           || (after.TabSnapshots ?? ImmutableList<TabSnapshot>.Empty).Any(t => t.TabIndex == i);
+                Assert.True(exists, $"Tab index {i} does not exist but TabCount is {after.TabCount}.");
+            }
+        }
+
+        [Fact]
+        public void Closing_two_tabs_in_a_row_drops_exactly_two()
+        {
+            // The follow-on symptom: once the indices were corrupt, a second CloseTab took
+            // two tabs at once.
+            var s = State(BTC);
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new AddTabAction());
+            s = ReduceDirectly(s, new SwitchTabAction(0));
+
+            var after = ReduceDirectly(s, new CloseTabAction(0));
+            Assert.Equal(3, after.TabCount);
+
+            after = ReduceDirectly(after, new CloseTabAction(1));
+            Assert.Equal(2, after.TabCount);
+            AssertIndicesAreDense(after);
         }
 
         [Fact]

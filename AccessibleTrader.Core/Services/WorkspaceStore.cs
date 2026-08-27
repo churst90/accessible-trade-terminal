@@ -23,6 +23,7 @@ namespace AccessibleTrader.Core.Services
         private readonly BehaviorSubject<WorkspaceState> _stateSubject = new(WorkspaceState.Initial);
         private readonly object _lock = new();
         private readonly IEventBus _eventBus;
+        private readonly DeferredEventBus _deferredBus;
         private readonly IViewportRangeCalculator _rangeCalculator;
         private readonly IViewportNavigationService _navService;
         private readonly IVolumeStateService _volumeService;
@@ -44,11 +45,66 @@ namespace AccessibleTrader.Core.Services
             IVolumeStateService volumeService)
         {
             _eventBus = eventBus;
+            _deferredBus = new DeferredEventBus(eventBus);
             _rangeCalculator = rangeCalculator;
             _navService = navService;
             _volumeService = volumeService;
             // Removed redundant Connect().Subscribe() calls that caused circular state updates.
             // Cache synchronization is now handled surgically within the Dispatch method.
+        }
+
+        /// <summary>
+        /// The bus handed to reducers that publish from inside <c>Reduce</c>.
+        ///
+        /// <para><b>What went wrong.</b> <c>WorkspaceStore.Dispatch</c> carried the comment
+        /// "EventBus.Publish is non-blocking so this is safe". It is not:
+        /// <c>EventBus.Publish</c> is <c>GetSubject&lt;T&gt;().OnNext(eventData)</c> over a
+        /// plain <c>Subject&lt;T&gt;</c>, fully synchronous on the caller's thread. Four
+        /// <c>SeriesReducer</c> paths — <c>RestoreAll</c>, <c>ToggleMute</c>,
+        /// <c>ToggleHide</c>, <c>ToggleNarration</c> — publish from inside <c>Reduce</c>,
+        /// which runs inside <c>lock (_lock)</c> and <b>before</b> <c>_currentState</c> is
+        /// assigned. <c>lock</c> is re-entrant, so a subscriber that dispatched synchronously
+        /// re-entered <c>Dispatch</c>, computed from the <i>pre-commit</i> state, committed,
+        /// notified — and was then overwritten when the outer dispatch assigned its own
+        /// candidate. <b>The nested update was silently lost.</b> The comment further up
+        /// claiming notifications happen outside the lock specifically to prevent this was
+        /// true of the tab announcements and false of the reducer-level publishes.</para>
+        ///
+        /// <para><b>What this does.</b> Captures anything a reducer publishes during
+        /// <c>Reduce</c> and replays it after the commit, on the same thread, in order. The
+        /// reducers keep their signatures and their announcements — a reducer is still the
+        /// only place that knows <i>what</i> to say — they simply no longer decide
+        /// <i>when</i>. Everything else on <see cref="IEventBus"/> passes straight through,
+        /// because a reducer has no business subscribing to anything.</para>
+        /// </summary>
+        private sealed class DeferredEventBus : IEventBus
+        {
+            private readonly IEventBus _inner;
+            private readonly List<Action> _pending = new();
+
+            public DeferredEventBus(IEventBus inner) => _inner = inner;
+
+            public void Publish<T>(T eventData) => _pending.Add(() => _inner.Publish(eventData));
+
+            /// <summary>Replays and clears. Called after the commit, never inside it.</summary>
+            public void Drain()
+            {
+                if (_pending.Count == 0) return;
+                var toSend = _pending.ToArray();
+                _pending.Clear();
+                foreach (var send in toSend) send();
+            }
+
+            /// <summary>Discards without publishing — used when a reduce produced no state
+            /// change, so the announcements describe something that did not happen.</summary>
+            public void Discard() => _pending.Clear();
+
+            public IDisposable Subscribe<T>(Action<T> handler) => _inner.Subscribe(handler);
+            public IObservable<T> AsObservable<T>() => _inner.AsObservable<T>();
+            public IDisposable SubscribeCoalesced<T>(Action<T> handler, TimeSpan quietWindow)
+                => _inner.SubscribeCoalesced(handler, quietWindow);
+            public IDisposable SubscribeSampled<T>(Action<T> handler, TimeSpan window)
+                => _inner.SubscribeSampled(handler, window);
         }
 
         public void Dispatch(WorkspaceAction action)
@@ -90,13 +146,36 @@ namespace AccessibleTrader.Core.Services
                     _currentState = candidate;
                     newState = candidate;
                 }
-            }
+                else
+                {
+                    // Nothing changed, so anything a reducer queued describes something that
+                    // did not happen. Saying it anyway is worse than saying nothing.
+                    _deferredBus.Discard();
+                }
 
-            // NOTIFY OUTSIDE THE LOCK
-            // This prevents deadlocks and infinite recursion where a subscriber
-            // might try to Dispatch again synchronously.
-            if (newState != null)
-            {
+                // NOTIFY AFTER THE COMMIT, STILL UNDER THE LOCK.
+                //
+                // This block used to sit outside the lock, on the grounds that a subscriber
+                // dispatching synchronously would otherwise deadlock. It cannot: `lock` is
+                // re-entrant on the same thread, and the commit above has already happened,
+                // so a re-entrant dispatch reduces from the NEW state, commits, and publishes
+                // — in order, and without being overwritten afterwards.
+                //
+                // What the old arrangement did cost was ORDERING. `_currentState = candidate`
+                // was inside the lock while `_seriesSource.Edit`, `_dataSource.Edit` and
+                // `_stateSubject.OnNext` were outside it, so two concurrent dispatchers (the
+                // live-tick thread and the UI thread — WorkspaceStoreTests treats concurrent
+                // dispatch as supported) could commit S1 then S2 and publish S2 then S1. The
+                // BehaviorSubject's retained value then ended up STALE relative to `State`,
+                // every late subscriber received it, and the `updater.Load(newState.ActiveSeries)`
+                // fallback could resurrect a series the newer state had removed. Neither
+                // concurrency test asserted anything about stream ordering — they read
+                // `store.State`, which was the half that was already safe.
+                //
+                // Serialising commit and publication under one lock is what makes the stream
+                // order and the commit order the same order.
+                if (newState != null)
+                {
                 // Sync DynamicData caches surgically.
                 // These triggers downstream structural change events (SeriesStream/DataStream).
                 if (seriesListChanged)
@@ -138,8 +217,11 @@ namespace AccessibleTrader.Core.Services
 
                 _stateSubject.OnNext(newState);
 
-                // Publish live-bar events AFTER state is committed (outside the lock is ideal,
-                // but we need newState here; EventBus.Publish is non-blocking so this is safe).
+                // Whatever the reducers queued during Reduce, replayed now that the state
+                // they describe is the committed one. See DeferredEventBus.
+                _deferredBus.Drain();
+
+                // Publish live-bar events AFTER state is committed.
                 if (isLiveDataAction && dataChanged)
                 {
                     int newCount = newState.Data?.Count ?? 0;
@@ -158,21 +240,21 @@ namespace AccessibleTrader.Core.Services
                     }
                 }
 
-                // Announce the newly active tab identity for switch and close operations.
-                // Done outside the lock so speech subscribers can safely dispatch back.
-                if (action is SwitchTabAction or CloseTabAction)
-                {
-                    string label = TabReducer.GetTabLabel(newState.Identity);
-                    _eventBus.Publish(new AnnouncementEvent(
-                        $"Tab {newState.ActiveTabIndex + 1}: {label}", true));
-                }
+                    // Announce the newly active tab identity for switch and close operations.
+                    if (action is SwitchTabAction or CloseTabAction)
+                    {
+                        string label = TabReducer.GetTabLabel(newState.Identity);
+                        _eventBus.Publish(new AnnouncementEvent(
+                            $"Tab {newState.ActiveTabIndex + 1}: {label}", true));
+                    }
 
-                // Publish TabSwitchedEvent so audio engine, sonification, and data services
-                // can stop playback and trigger a gap-fill catch-up for the restored tab.
-                if (isTabSwitchAction)
-                {
-                    string label = TabReducer.GetTabLabel(newState.Identity);
-                    _eventBus.Publish(new TabSwitchedEvent(newState.ActiveTabIndex, label));
+                    // Publish TabSwitchedEvent so audio engine, sonification, and data services
+                    // can stop playback and trigger a gap-fill catch-up for the restored tab.
+                    if (isTabSwitchAction)
+                    {
+                        string label = TabReducer.GetTabLabel(newState.Identity);
+                        _eventBus.Publish(new TabSwitchedEvent(newState.ActiveTabIndex, label));
+                    }
                 }
             }
         }
@@ -228,7 +310,10 @@ namespace AccessibleTrader.Core.Services
                 or AddSeriesAction or RemoveSeriesAction or AddLevelAction or RemoveLevelAction
                 or UpdateSeriesAction or UpdateSeriesDataAction
                 or UpdateSeriesZoneBandsAction or UpdateSeriesParametersAction
-                => SeriesReducer.Reduce(state, action, _eventBus),
+                // The DEFERRED bus, not the real one. SeriesReducer publishes announcements
+                // from inside Reduce (RestoreAll, ToggleMute, ToggleHide, ToggleNarration) and
+                // Reduce runs under `lock (_lock)` — see DeferredEventBus for what that cost.
+                => SeriesReducer.Reduce(state, action, _deferredBus),
 
             // ── Playback + accessibility + chart display ─────────────────────
             AdjustPlaybackSpeedAction

@@ -4099,7 +4099,7 @@ layer is one rung down and is where these findings sit.
   tests that already exist hand each service its own, so they cannot fail for a service that
   captures too early), and a structural one asserting the circuit handler's constructor takes
   nothing but `ILogger<T>` and `IServiceProvider`.
-- [ ] **Closing a tab renumbers by list position and permanently orphans a tab — `TabReducer.cs:201-204`.**
+- [x] **Closing a tab renumbers by list position and permanently orphans a tab — `TabReducer.cs:201-204`.**
   `reindexed` is `snapshots.RemoveAll(...).Select((t, i) => t with { TabIndex = i >= switchTo ? i : i })`
   — both arms of the ternary are `i`, so it is a no-op conditional that always assigns the enumeration
   position. The snapshot list is *not* kept sorted by `TabIndex` (`SwitchTab` at `:173-175` appends the
@@ -4113,7 +4113,17 @@ layer is one rung down and is where these findings sit.
   `CloseTab(1)` then drops *two* tabs at once. Only the two-tab case is tested
   (`MultiTabTests.cs:188-199`). Fix: renumber by rank of the original `TabIndex` among the survivors.
   CONFIRMED. HIGH (silent loss of user workspace state).
-- [ ] **Restoring a workspace activates the wrong tab and reorders every tab —
+  **CLOSED 2026-08-27.** Renumbering is by RANK now — `ShiftDownPast(index, closed)` —
+  so closing index N moves everything above N down one, which is a function of the tab's own
+  index rather than of where it happens to sit in an unsorted list. **The inactive branch had
+  the same defect and was not filed**: it dropped the snapshot and left every higher index
+  where it was, so closing tab 1 of four left live indices {0, 2, 3(active)} for a TabCount of
+  3 and the ACTIVE tab's own index was past the end of what the tab bar renders. Both branches
+  fixed. `MultiTabTests` gained an `AssertIndicesAreDense` invariant plus a four-tab theory
+  over every closable index; 3 cases go red under the original one-line defect. **One existing
+  test was pinning the bug** — `CloseInactiveTab_RemovesSnapshot` asserted
+  `ActiveTabIndex == 1` with `TabCount == 1`, i.e. a single tab whose only live index was 1.
+- [x] **Restoring a workspace activates the wrong tab and reorders every tab —
   `WorkspaceInitializer.cs:459-529`.** The saved active tab is restored into the store's existing slot
   (store index 0) at `:459-486`; the loop at `:489-523` then appends the *other* config tabs in config
   order, so they occupy store indices 1..n. Line 528 dispatches `SwitchTabAction(activeIdx)` using the
@@ -4122,7 +4132,13 @@ layer is one rung down and is where these findings sit.
   with the tab bar in the wrong order, every time they save while any tab but the first is focused. Fix:
   restore tabs in config order (tab 0 into the existing slot) and only then `SwitchTabAction(activeIdx)`.
   CONFIRMED. HIGH.
-- [ ] **Saving a workspace assigns tab configs to the wrong tab indices —
+  **CLOSED 2026-08-27.** Tabs are restored IN CONFIG ORDER — config tab 0 into the slot
+  the store already has, the rest each opening a new tab — so store index N holds config tab N
+  and the `SwitchTabAction(activeIdx)` at the end means what it says. The per-tab restore body
+  was duplicated between the active tab and the loop; it is now one local function, which is
+  also what made the ordering bug easy to see. Guarded by `WorkspaceTabIndexRoundTripTests`
+  together with the save-side item below.
+- [x] **Saving a workspace assigns tab configs to the wrong tab indices —
   `WorkspaceLibraryService.cs:176-197`.** `config.Tabs[1..]` are appended from
   `state.TabSnapshots.OrderBy(s => s.TabIndex)` (`:176`), but the index-mapping loop at `:189-193` reads
   `state.TabSnapshots![i - 1]` — the **raw**, unsorted list. Whenever the snapshot list is not already
@@ -4131,6 +4147,14 @@ layer is one rung down and is where these findings sit.
   `indexedTabs[3]=cfg(snap1)`, `indexedTabs[0]=cfg(snap3)`. Symbols, indicator stacks and drawings are
   written to disk against the wrong tab slots. Line 185 also allocates a `sortedTabs` local that is never
   used — dead code from the attempted fix. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** The index→config map is now built first and `config.Tabs` derived
+  from it, so there is no second ordering to disagree with. The dead `sortedTabs` local is
+  gone. `WorkspaceTabIndexRoundTripTests` round-trips four tabs through a real store and a real
+  temp directory across all four possible active indices; 4 of its 9 cases go red when the
+  raw-list mapping is put back. **Its vacuity check earned its place**: the first fixture did
+  ONE `SwitchTab` before saving, and one switch leaves the snapshot list sorted — so the buggy
+  and correct mappings agreed and the tests proved nothing. It takes two switches to unsort
+  the list, and there is now a test that fails if that ever stops being true.
 - [x] **`RestoreAllComponentsAction` is never routed — `WorkspaceStore.cs:208-214`.** The action is
   defined (`WorkspaceState.cs:319`), dispatched from two keybindings (`CommandDispatcher.cs:276`, `:279`)
   and fully implemented in `SeriesReducer.cs:35` → `:174-205` — but it is absent from the `SeriesReducer`
@@ -4147,7 +4171,7 @@ layer is one rung down and is where these findings sit.
   allow-list that also fails if an 'unrouted' entry turns out to be routed. Proven red by
   removing the line. **This closes the whole bug class** — WheelZoom and
   ToggleEventSpeech/ToggleEarcons were instances one and two.
-- [ ] **`StateStream` can deliver a state older than `State`, and the DynamicData caches with it —
+- [x] **`StateStream` can deliver a state older than `State`, and the DynamicData caches with it —
   `WorkspaceStore.cs:92` vs `:141`.** `_currentState = candidate` happens inside `lock (_lock)`;
   `_seriesSource.Edit`/`_dataSource.Edit` (`:106`, `:127`) and `_stateSubject.OnNext(newState)` (`:141`)
   happen **outside** it. Two concurrent dispatchers (the live-tick thread and the UI thread —
@@ -4158,7 +4182,19 @@ layer is one rung down and is where these findings sit.
   stream ordering — they only read `store.State`, the half that is safe. Fix: publish inside the lock (the
   reducers already run there), or serialise dispatch through a single-threaded scheduler.
   CONFIRMED (race window read from source; not observed live). HIGH.
-- [ ] **Reducers publish to a synchronous EventBus while the store lock is held, and the comment that says
+  **CLOSED 2026-08-27.** Commit and publication happen under the same lock acquisition.
+  The old comment said notifications were outside the lock to prevent deadlock and re-entrancy;
+  they cannot deadlock, because `lock` is re-entrant on the same thread and the commit has
+  already happened, so a re-entrant dispatch reduces from the NEW state.
+  **Honest note on the guard.** A behavioural test was written first — two threads dispatching
+  interleaved sequences, asserting the last state published is the state the store holds — and
+  it was then run with the defect restored and **passed, repeatedly**. The window between
+  releasing the lock and calling `OnNext` is a few instructions wide with no seam to widen it
+  through, so that test could not fail and was guarding nothing. It was replaced with a lexical
+  assertion that `_currentState = candidate`, `_stateSubject.OnNext`, `_seriesSource.Edit` and
+  `_dataSource.Edit` all sit inside the same `lock (_lock)` block — which is precisely the
+  property that was wrong, and which does go red when the braces are moved back.
+- [x] **Reducers publish to a synchronous EventBus while the store lock is held, and the comment that says
   this is safe is wrong — `WorkspaceStore.cs:144`.** The comment reads "EventBus.Publish is non-blocking so
   this is safe". `EventBus.Publish` is `GetSubject<T>().OnNext(eventData)` (`EventBus.cs:52-53`) — a plain
   `Subject<T>`, fully synchronous on the caller's thread; TODO:508 says so in as many words. Worse, four
@@ -4170,7 +4206,16 @@ layer is one rung down and is where these findings sit.
   The comment at `:97-99` claims notifications are outside the lock specifically to prevent this; the
   reducer-level publishes defeat it. Fix: collect announcements into the returned state or a side-channel
   list and publish after the lock, as the tab announcements at `:165-178` already do. CONFIRMED. HIGH.
-- [ ] **Two browser tabs of the same hosted user clobber each other's session autosave every 30 seconds —
+  **CLOSED 2026-08-27.** A `DeferredEventBus` is handed to `SeriesReducer` in place of the
+  real one: it captures anything published during `Reduce` and replays it after the commit, on
+  the same thread, in order. No reducer signature changed and no announcement moved — a reducer
+  is still the only place that knows WHAT to say, it just no longer decides WHEN. Two things
+  fell out of it. A reduce that changes nothing now **discards** its queued announcements,
+  because an announcement describing a change that did not happen is worse than silence for
+  someone who acts on what they hear. And the nested-dispatch loss is directly testable:
+  `WorkspaceStoreOrderingTests` drives a subscriber that re-dispatches and asserts the inner
+  update survives.
+- [x] **Two browser tabs of the same hosted user clobber each other's session autosave every 30 seconds —
   `SessionAutosaveService.cs:74-77` + `:93`.** `ISessionAutosaveService` is `AddScoped`
   (`WebHost/ServiceCollectionExtensions.cs:528`), i.e. one per circuit, each with its own
   `IWorkspaceStore`, each sampling its own state and calling `SaveWorkspaceProfile("__last-session__", …)`
@@ -4181,6 +4226,17 @@ layer is one rung down and is where these findings sit.
   autosave, and the `PaperAccountHub` solution to the identical two-tab problem (TODO:1912) was not
   extended here. Fix: a per-user autosave hub (one writer shared across that user's circuits) or a
   per-circuit slot name. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** Each session writes its OWN slot —
+  `__last-session__{guid}` — so no circuit can clobber another's, and resume reads the slot
+  that was written most recently, which is the tab the user was last working in. The legacy
+  unsuffixed name is still readable, so an existing user's saved session survives the upgrade.
+  Slots are pruned to the four newest at resume (never the running session's own, and never a
+  recent one, because another tab may still be writing to it). `GetAvailableProfiles`' filter
+  changed from an equality check to a prefix check, or every per-session slot would have leaked
+  into the user's workspace list. Needed one new library method,
+  `GetAllProfilesWithTimes` — the existing surface could list names but not say which was
+  newest. **Not the per-user autosave hub the finding asks for**; that is still the tidier
+  answer and is filed below.
 - [ ] **`ImportVisualProfile`/`ImportAudioProfile` mutate live state objects without dispatching —
   `WorkspaceLibraryService.cs:390-402` and `:416-429`.** Both loop over `store.State.ActiveSeries` and
   assign `comp.ColorHex`, `comp.Thickness`, `comp.Waveform`, `comp.Volume`, `comp.IsMuted` directly on the
