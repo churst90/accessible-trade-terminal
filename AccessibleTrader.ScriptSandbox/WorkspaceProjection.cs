@@ -117,6 +117,11 @@ public static class WorkspaceProjection
     /// </summary>
     public static readonly IReadOnlyList<string> NotCarried = new[]
     {
+        // When the last live tick arrived. Host-side by design: a strategy decides from BARS,
+        // and a bar's own Date already says when it closed. Handing a script the wall-clock
+        // freshness of the feed would invite exactly the kind of rule that behaves differently
+        // in a backtest than it does live — the replay has no live feed at all.
+        nameof(WorkspaceState.LastTickUtc),
         nameof(WorkspaceState.PaneRanges),
         nameof(WorkspaceState.PaneHeightRatios),
         nameof(WorkspaceState.TabSnapshots),

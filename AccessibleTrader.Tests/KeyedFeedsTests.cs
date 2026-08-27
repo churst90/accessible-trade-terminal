@@ -21,7 +21,13 @@ namespace AccessibleTrader.Tests
         private static Ohlcv Bar(int daysFromEpoch, double close = 100, double vol = 1) =>
             new(new DateTime(2026, 1, 1).AddDays(daysFromEpoch), close, close + 1, close - 1, close, vol);
 
-        private static ChartIdentity Id(string symbol = "BTC/USD", string tf = "1h") =>
+        /// <summary>
+        /// The default timeframe MATCHES <see cref="Bar"/>'s spacing, which is days.
+        /// It said "1h" while the bars were a day apart — harmless until GapFillAsync learned
+        /// to detect a hole, at which point a one-day step on an hourly chart reads as a
+        /// 24-bar gap and the feed correctly refuses to splice it.
+        /// </summary>
+        private static ChartIdentity Id(string symbol = "BTC/USD", string tf = "1d") =>
             new("Spot", "TestProv", symbol, tf);
 
         /// <summary>
@@ -51,7 +57,8 @@ namespace AccessibleTrader.Tests
             public IObservable<DataState> StateChanged => System.Reactive.Linq.Observable.Never<DataState>();
 
             public async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol,
-                string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false)
+                string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false,
+                CancellationToken ct = default)
             {
                 FetchCalls.Add((symbol, limit, until));
                 var gate = FetchGate;
@@ -301,7 +308,7 @@ namespace AccessibleTrader.Tests
             feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0) }));
 
             await hub.StartFocusedLiveAsync();
-            Assert.Equal(new[] { "BTC/USD@1h" }, orch.LiveStarts);
+            Assert.Equal(new[] { "BTC/USD@1d" }, orch.LiveStarts);
 
             orch.PushTick(Id("BTC/USD"), Bar(1, close: 77));
             await WaitUntil(() => feed.Bars.Count == 2);

@@ -33,8 +33,14 @@ public sealed class GapFillOverlapTests
     private static Ohlcv Bar(int daysFromEpoch, double close = 100) =>
         new(new DateTime(2026, 1, 1).AddDays(daysFromEpoch), close, close + 1, close - 1, close, 1);
 
+    /// <summary>
+    /// The identity's timeframe must MATCH the spacing <see cref="Bar"/> uses, which is days.
+    /// It said "1h" while the bars were a day apart, which was harmless until GapFillAsync
+    /// learned to detect a hole: a one-day step on an hourly chart is a 24-bar gap, and the
+    /// feed correctly refused to splice it. The fixture was the incoherent part, not the check.
+    /// </summary>
     private static ChartFeed Feed(KeyedFeedsTests.FakeOrchestrator orch) =>
-        new(new ChartIdentity("Spot", "TestProv", "BTC/USD", "1h"), orch, NullLogger.Instance);
+        new(new ChartIdentity("Spot", "TestProv", "BTC/USD", "1d"), orch, NullLogger.Instance);
 
     /// <summary>
     /// The invariant, stated once. Strictly ascending — equal timestamps are as wrong as
@@ -205,5 +211,66 @@ public sealed class GapFillOverlapTests
         }
 
         Assert.True(feed.Bars.Count > 1, "nothing was ever merged — the loop proved nothing");
+    }
+
+    // ── The hole a fixed-size fetch cannot fill ─────────────────────────────────────
+
+    /// <summary>
+    /// <c>GapFillAsync</c> fetches a fixed window from the LIVE EDGE. If the feed was cold for
+    /// longer than that window — a 1m tab left in the background for four hours, or any resumed
+    /// session — then every fetched bar is newer than the buffer's last, all of them append, and
+    /// the missing interval between them is simply GONE. There was no continuity check, no log
+    /// and no announcement; <c>Updated(GapFill)</c> fired as if it had succeeded. Every indicator
+    /// over that buffer is wrong at the seam, and the chart's bar-index arithmetic treats a
+    /// four-hour jump as one bar.
+    /// </summary>
+    [Fact]
+    public async Task AGapBiggerThanOneFetchIsRefusedRatherThanSplicedSilently()
+    {
+        var orch = new KeyedFeedsTests.FakeOrchestrator();
+        var feed = Feed(orch);
+        feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1), Bar(2) }));
+
+        // The feed was cold for a month; the fetch comes back from the live edge only.
+        orch.FetchResults.Enqueue(new List<Ohlcv> { Bar(40), Bar(41), Bar(42) });
+
+        Assert.False(await feed.GapFillAsync());
+
+        // The buffer is untouched — a partial splice is worse than no splice, because a hole
+        // nobody knows about is indistinguishable from real price action.
+        Assert.Equal(3, feed.Bars.Count);
+        Assert.Equal(Bar(2).Date, feed.Bars[^1].Date);
+    }
+
+    [Fact]
+    public async Task AGapThatIsTooLargeRaisesAnEventSoSomeoneCanSaySo()
+    {
+        var orch = new KeyedFeedsTests.FakeOrchestrator();
+        var feed = Feed(orch);
+        feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1), Bar(2) }));
+        orch.FetchResults.Enqueue(new List<Ohlcv> { Bar(40), Bar(41) });
+
+        TimeSpan? reported = null;
+        feed.GapTooLarge += (_, missing) => reported = missing;
+
+        await feed.GapFillAsync();
+
+        Assert.NotNull(reported);
+        Assert.True(reported!.Value > TimeSpan.FromDays(30), $"reported {reported}");
+    }
+
+    [Fact]
+    public async Task AnOrdinaryGapStillMergesWithNoFuss()
+    {
+        // Vacuity check for both tests above: a guard that refused every gap would satisfy
+        // them and break the feature. One bar of tolerance is deliberate — venues are not
+        // perfectly punctual and a boundary a little late is not a hole.
+        var orch = new KeyedFeedsTests.FakeOrchestrator();
+        var feed = Feed(orch);
+        feed.RestoreSnapshot(new TimeSeriesBuffer<Ohlcv>(new[] { Bar(0), Bar(1), Bar(2) }));
+        orch.FetchResults.Enqueue(new List<Ohlcv> { Bar(3), Bar(4) });
+
+        Assert.True(await feed.GapFillAsync());
+        Assert.Equal(5, feed.Bars.Count);
     }
 }

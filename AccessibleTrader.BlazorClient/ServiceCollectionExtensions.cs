@@ -232,7 +232,16 @@ namespace AccessibleTrader.BlazorClient
             // Historical fetcher and live stream manager are internal building blocks
             // consumed by DataOrchestrator — registered as concrete types for easy mocking.
             services.AddSingleton<HistoricalDataFetcher>();
-            services.AddSingleton<LiveStreamManager>();
+            // Lazy hub + store so a reconnect can gap-fill the outage and record feed
+            // freshness. Func<>, not the interface: MarketFeedHub -> IDataOrchestrator ->
+            // LiveStreamManager -> IMarketFeedHub is a cycle, and deferring the lookup to
+            // first use is what breaks it.
+            services.AddSingleton<LiveStreamManager>(sp => new LiveStreamManager(
+                sp.GetRequiredService<IDataService>(),
+                sp.GetRequiredService<IGlobalErrorCoordinator>(),
+                sp.GetRequiredService<ILogger<LiveStreamManager>>(),
+                () => sp.GetService<AccessibleTrader.Core.Services.Feeds.IMarketFeedHub>(),
+                sp.GetService<IWorkspaceStore>()));
 
             // Orchestration façade — ties historical fetch + live stream together with
             // Polly resilience policies and a DataStateMachine.

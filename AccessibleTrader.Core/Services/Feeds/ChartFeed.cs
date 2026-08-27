@@ -39,6 +39,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         // writers contend. Without this, a live tick interleaving with a prepend
         // could be silently dropped because both produce a new _cache snapshot
         // from the pre-mutation reference.
+        //
+        // That immutability claim was FALSE until 2026-08-27 and this comment was the reason
+        // nobody checked: TimeSeriesBuffer.ReplaceLast wrote into the shared backing array and
+        // returned a new wrapper over it, so a reader doing state.Data[^1] during a live
+        // replace could see a 48-byte Ohlcv half-written — the new Close with the old High.
+        // ReplaceLast copies now, so the sentence above is true rather than aspirational.
         private readonly object _cacheLock = new();
         private readonly SemaphoreSlim _prependLock = new(1, 1);
 
@@ -54,6 +60,21 @@ namespace AccessibleTrader.Core.Services.Feeds
         public DateTime LastUpdateUtc { get; private set; }
 
         public event Action<ChartFeed, FeedUpdateKind>? Updated;
+
+        /// <summary>
+        /// Raised when a gap-fill found MORE missing bars than one fetch can supply, carrying
+        /// the size of the hole. The feed does not repair it — the honest repair is a clean
+        /// refresh, and the owner of the identity is the only thing that can do one. What must
+        /// never happen again is the silent splice.
+        /// </summary>
+        public event Action<ChartFeed, TimeSpan>? GapTooLarge;
+
+        /// <summary>
+        /// How many bars a gap-fill fetches from the live edge. It was a bare literal 200 at
+        /// the call site; naming it makes the shortfall check above legible, and makes it
+        /// obvious that the limit is what bounds how big a gap can be repaired in one pass.
+        /// </summary>
+        private const int GapFillLimit = 200;
 
         public ChartFeed(ChartIdentity identity, IDataOrchestrator orchestrator, ILogger logger)
         {
@@ -74,8 +95,17 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             _logger.LogInformation("ChartFeed: Refreshing data for {Symbol} (Initial Load: 200 bars).", Identity.Symbol);
 
+            // The token goes INTO the fetch, not just after it.
+            //
+            // These three call sites checked `ct` only once the round trip had already
+            // returned, because nothing in the path took a token at all. So the tab-switch CTS
+            // could not abort anything: six rapid tab switches queued six unabortable HTTP
+            // requests that each ran to completion, burning provider quota and counting
+            // against the per-provider circuit breaker, and a provider that hangs held the tab
+            // switch until its own HttpClient timeout. The post-fetch checks stay — they are
+            // still what stops a stale result being applied.
             var newData = await _orchestrator.FetchOhlcvAsync(
-                Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe, limit: 200).ConfigureAwait(false);
+                Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe, limit: 200, ct: ct).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
 
@@ -111,7 +141,7 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             var lastKnownDate = _cache[^1].Date;
             var recent = await _orchestrator.FetchOhlcvAsync(
-                Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe, limit: 200).ConfigureAwait(false);
+                Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe, limit: GapFillLimit, ct: ct).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
 
@@ -121,6 +151,43 @@ namespace AccessibleTrader.Core.Services.Feeds
                 .Where(b => b.Date > lastKnownDate)
                 .OrderBy(b => b.Date)
                 .ToList();
+
+            // ── Is there a HOLE between what we have and what we just fetched? ───
+            //
+            // The fetch is a fixed window from the LIVE EDGE. If the feed was cold for
+            // longer than that window — a 1m tab left in the background for four hours, or
+            // any resumed session — then every fetched bar is newer than lastKnownDate, all
+            // of them append, and the missing interval between them is simply GONE. There was
+            // no continuity check, no log and no announcement; Updated(GapFill) fired as if it
+            // had succeeded. Every indicator over that buffer is wrong at the seam, and the
+            // chart's bar-index arithmetic treats a four-hour jump as one bar.
+            //
+            // A shortfall is detected by comparing the OLDEST fetched bar against the bar
+            // that should immediately follow what we hold. When there is one, a partial
+            // splice is refused outright: a clean refresh is the only honest repair, and
+            // saying which happened matters more than the repair itself.
+            if (gapBars.Count > 0)
+            {
+                long barMs = Sdk.Models.TimeframeUtility.ToMilliseconds(Identity.Timeframe);
+                if (barMs > 0)
+                {
+                    var expectedNext = lastKnownDate.AddMilliseconds(barMs);
+                    // One bar of tolerance: venues are not perfectly punctual and a
+                    // boundary that is a few seconds late is not a four-hour hole.
+                    if (gapBars[0].Date > expectedNext.AddMilliseconds(barMs))
+                    {
+                        var missing = gapBars[0].Date - lastKnownDate;
+                        _logger.LogWarning(
+                            "ChartFeed: gap-fill for {Symbol} would splice a hole of {Missing} "
+                            + "(have up to {Last:o}, oldest fetched {First:o}); refusing the partial "
+                            + "splice — a full refresh is needed.",
+                            Identity.Symbol, missing, lastKnownDate, gapBars[0].Date);
+
+                        GapTooLarge?.Invoke(this, missing);
+                        return false;
+                    }
+                }
+            }
 
             if (gapBars.Any())
             {
@@ -171,7 +238,7 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// prepend lock is acquired, before any network traffic — the focused binder
         /// uses it to flip DataStatus so live ticks and recalcs pause.
         /// </summary>
-        public async Task<int> PrependOlderAsync(Action? onStarted = null)
+        public async Task<int> PrependOlderAsync(Action? onStarted = null, CancellationToken ct = default)
         {
             if (_disposed || string.IsNullOrEmpty(Identity.Symbol)) return -1;
             try
@@ -191,7 +258,7 @@ namespace AccessibleTrader.Core.Services.Feeds
 
                 var olderData = await _orchestrator.FetchOhlcvAsync(
                     Identity.Market, Identity.Provider, Identity.Symbol, Identity.Timeframe,
-                    limit: 200, until: since - 1).ConfigureAwait(false);
+                    limit: 200, until: since - 1, ct: ct).ConfigureAwait(false);
 
                 if (olderData == null || !olderData.Any()) return 0;
 

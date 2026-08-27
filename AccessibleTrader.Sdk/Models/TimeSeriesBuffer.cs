@@ -84,12 +84,37 @@ namespace AccessibleTrader.Sdk.Models
             }
         }
 
+        /// <summary>
+        /// A buffer whose last element is <paramref name="item"/>, leaving this one untouched.
+        ///
+        /// <para><b>This COPIES, and it has to.</b> It used to do
+        /// <c>_data[Count - 1] = item;</c> — writing into the SHARED backing array and
+        /// returning a new wrapper over it. Every reader holding any previously returned
+        /// buffer saw that write, and <c>Ohlcv</c> is a 48-byte <c>readonly record struct</c>,
+        /// so the write is not atomic: a reader on the render, sonification or paper-fill
+        /// thread doing <c>state.Data[^1]</c> during a live <c>ReplaceLast</c> could read a bar
+        /// with the NEW close and the OLD high.</para>
+        ///
+        /// <para>That mattered because <c>ChartFeed</c>'s locking scheme rests on a comment
+        /// asserting this type is immutable, and readers deliberately do not take
+        /// <c>_cacheLock</c> on the strength of it. The assertion is true now.</para>
+        ///
+        /// <para><c>Append</c> is deliberately NOT changed: its in-place write targets index
+        /// <c>Count</c>, which is one past the end of every published buffer, so no reader can
+        /// see it. Copying there would cost an allocation on the common path for no
+        /// correctness gain.</para>
+        ///
+        /// <para>The cost here is one array copy per intra-bar tick. At the 5000-bar cache
+        /// ceiling that is ~240 KB; a torn OHLC bar reaching the fill engine is worse.</para>
+        /// </summary>
         public TimeSeriesBuffer<T> ReplaceLast(T item)
         {
             if (Count == 0) return Append(item);
-            _data[Count - 1] = item;
-            // Return a new instance to ensure reference inequality for state change detection
-            return new TimeSeriesBuffer<T>(_data, Count);
+
+            var copy = new T[_data.Length];
+            Array.Copy(_data, copy, Count);
+            copy[Count - 1] = item;
+            return new TimeSeriesBuffer<T>(copy, Count);
         }
 
         public TimeSeriesBuffer<T> PrependRange(IReadOnlyList<T> items)

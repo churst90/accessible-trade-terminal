@@ -36,7 +36,7 @@ namespace AccessibleTrader.Core.Services
         // What this class contributed and the orchestrator did not — TimeoutException
         // in the retry set, and the 429/rate-limit breaker — moved with it.
 
-        public virtual async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)
+        public virtual async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, CancellationToken ct = default)
         {
             _logger.LogInformation("Orchestrating fetch for {Market}:{ProviderName}:{Symbol} @ {Timeframe}.", market, providerName, symbol, timeframe);
             
@@ -103,7 +103,7 @@ namespace AccessibleTrader.Core.Services
             // and an audible "failed to load data". Swallowing them here — as this method
             // and DataService both used to — is what left an empty chart as the only
             // symptom of a dead network.
-            var (nativeBars, _) = await _dataService.FetchOhlcvAsync(providerName, request).ConfigureAwait(false);
+            var (nativeBars, _) = await _dataService.FetchOhlcvAsync(providerName, request, ct).ConfigureAwait(false);
 
             if (nativeBars.Any())
             {

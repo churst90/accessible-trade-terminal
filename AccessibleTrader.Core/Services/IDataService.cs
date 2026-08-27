@@ -30,7 +30,7 @@ namespace AccessibleTrader.Core.Services
         /// value that's always available without I/O.</summary>
         bool IsProviderConfigured(string provider);
         Task<bool> ProviderRequiresApiKeyAsync(string provider);
-        Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string provider, MarketDataRequest request);
+        Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string provider, MarketDataRequest request, CancellationToken ct = default);
         Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string provider, string symbol, int limit = 10);
         Task<List<MarketType>> GetSupportedMarketsForProviderAsync(string provider);
         Task<IMarketDataProvider?> GetProviderAsync(string name);

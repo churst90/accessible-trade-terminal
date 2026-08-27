@@ -49,7 +49,7 @@ namespace AccessibleTrader.Tests
 
             public override Task<List<Ohlcv>> FetchOhlcvAsync(
                 string market, string provider, string symbol, string timeframe,
-                long? since = null, int? limit = null, long? until = null)
+                long? since = null, int? limit = null, long? until = null, CancellationToken ct = default)
             {
                 Calls.Enqueue(provider);
                 return Next(provider);

@@ -7,7 +7,31 @@ namespace AccessibleTrader.Sdk.Models
     public enum InteractionContext { Series, Component, Bin }
     public enum PlaybackScope { Chart, Series, Component }
     public enum InitializationStatus { Booting, Loading, Resetting, Ready, Error }
-    public enum DataStatus { Idle, LoadingHistorical, Filling, Ready, Error }
+    /// <summary>
+    /// What the chart's data is doing, as a value anyone can ASK for.
+    ///
+    /// <para><see cref="Stale"/> was added 2026-08-27 with the feed-honesty fix. Three
+    /// watchdogs each spoke ONCE into a transient channel — <c>LiveStreamManager</c> announced
+    /// connected-but-quiet once per subscription, <c>MarketFeedHub</c> announced
+    /// background-feed quiet/restart/give-up, <c>DataOrchestrator</c>'s breaker announced a
+    /// trip and a reset — and after that there was <b>no queryable state at all</b>. A user who
+    /// missed the spoken line (a screen reader interrupted mid-sentence, an announcement fired
+    /// while they were in a modal) had <b>no way to ask</b> whether the chart in front of them
+    /// was live. <c>DataState</c> on the orchestrator has <c>Stalled</c> and
+    /// <c>NetworkLagged</c>, but they are unreachable and its <c>StateChanged</c> has no
+    /// consumers outside the class; <c>ConnectionManager</c> is dead.</para>
+    /// </summary>
+    public enum DataStatus
+    {
+        Idle,
+        LoadingHistorical,
+        Filling,
+        Ready,
+        Error,
+        /// <summary>Connected, but nothing has arrived for long enough that the chart may no
+        /// longer reflect the market. Distinct from <see cref="Error"/>: nothing failed.</summary>
+        Stale,
+    }
 
     /// <summary>
     /// Frozen snapshot of all per-chart state fields for an inactive tab.
@@ -118,6 +142,13 @@ namespace AccessibleTrader.Sdk.Models
         int WasapiLatency = 100,
         InitializationStatus InitStatus = InitializationStatus.Booting,
         DataStatus DataStatus = DataStatus.Idle,
+        /// <summary>
+        /// When the last live tick arrived, or null when none has. The queryable half of
+        /// <see cref="Models.DataStatus.Stale"/>: "is this live" needs an answer a
+        /// speak-on-demand key can read, not only a status word — "no data for eleven
+        /// minutes" is actionable in a way that "stale" is not.
+        /// </summary>
+        DateTime? LastTickUtc = null,
         // Per-pane height as a fraction of totalPaneHeight (canvas height minus x-axis).
         // Key = pane name (e.g. "Pane_RSI"). Absent key = use auto 30%-split layout.
         // Ratios are clamped to [0.05, 0.75] during dispatch.
@@ -324,6 +355,20 @@ namespace AccessibleTrader.Sdk.Models
     public record UpdateSettingsAction(Func<WorkspaceState, WorkspaceState> Updater) : WorkspaceAction;
     public record RequestInitializationStatusAction(InitializationStatus Status) : WorkspaceAction;
     public record SetDataStatusAction(DataStatus Status) : WorkspaceAction;
+
+    /// <summary>
+    /// A live tick arrived. Stamps <see cref="WorkspaceState.LastTickUtc"/> and clears
+    /// <see cref="DataStatus.Stale"/> if it was set — recovery has to be as visible as the
+    /// failure, or a user who heard "stale" keeps distrusting a feed that came back.
+    /// </summary>
+    public record LiveTickObservedAction(DateTime AtUtc) : WorkspaceAction;
+
+    /// <summary>
+    /// A watchdog decided the feed has gone quiet. Sets <see cref="DataStatus.Stale"/> without
+    /// touching <see cref="WorkspaceState.LastTickUtc"/>, so "how long has it been quiet" stays
+    /// answerable.
+    /// </summary>
+    public record MarkFeedStaleAction : WorkspaceAction;
     /// <summary>Enters or leaves bar-replay mode. See <see cref="WorkspaceState.IsReplaying"/>.</summary>
     public record SetReplayModeAction(bool Active) : WorkspaceAction;
     /// <summary>Adjusts the chart-level (master) sonification volume by <paramref name="Delta"/>.</summary>

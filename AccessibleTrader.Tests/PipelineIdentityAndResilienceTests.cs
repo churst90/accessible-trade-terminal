@@ -554,11 +554,21 @@ namespace AccessibleTrader.Tests
         {
             var provider = Substitute.For<IMarketDataProvider>();
             provider.Name.Returns("Throwing");
-            provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(_ =>
+
+            // BOTH overloads. DataService calls the cancellable one added 2026-08-27, and a
+            // substitute intercepts it rather than falling through to the default interface
+            // implementation — so stubbing only the one-arg form made this double return an
+            // empty result instead of throwing, and the test read as "the transport failure
+            // was swallowed" when nothing had even been asked to fail.
+            Task<(List<Ohlcv>, List<(long Timestamp, double Volume)>)> Behaviour()
             {
                 if (TransportFailure.IsTransient(ex)) throw ex;
                 return Task.FromResult((new List<Ohlcv>(), new List<(long Timestamp, double Volume)>()));
-            });
+            }
+
+            provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(_ => Behaviour());
+            provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>(), Arg.Any<CancellationToken>())
+                    .Returns(_ => Behaviour());
             return provider;
         }
 
@@ -572,7 +582,8 @@ namespace AccessibleTrader.Tests
                 => _behaviour = behaviour;
 
             public override Task<List<Ohlcv>> FetchOhlcvAsync(string market, string providerName,
-                string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)
+                string symbol, string timeframe, long? since = null, int? limit = null, long? until = null,
+                CancellationToken ct = default)
             {
                 Interlocked.Increment(ref Calls);
                 try { return Task.FromResult(_behaviour()); }

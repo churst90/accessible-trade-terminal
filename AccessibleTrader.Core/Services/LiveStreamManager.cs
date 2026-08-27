@@ -69,14 +69,36 @@ namespace AccessibleTrader.Core.Services
 
         internal enum WatchdogAction { None, AnnounceQuiet, Reconnect, GiveUp }
 
+        /// <summary>
+        /// The keyed-feed registry, used to gap-fill after a reconnect.
+        ///
+        /// <para>Resolved LAZILY through a factory, because the graph is circular:
+        /// <c>MarketFeedHub → IDataOrchestrator → LiveStreamManager → IMarketFeedHub</c>.
+        /// Deferring the lookup to first use breaks the cycle without anyone having to own a
+        /// weaker reference to the other. Optional so every existing construction (tests,
+        /// minimal hosts) keeps working; without it a reconnect behaves as it did before —
+        /// which is the defect, so DI supplies it in both hosts.</para>
+        /// </summary>
+        private readonly Func<Feeds.IMarketFeedHub?>? _feedHub;
+
+        /// <summary>
+        /// The store, so a watchdog verdict survives as queryable state rather than only as a
+        /// spoken line. Optional for the same reason as the hub above.
+        /// </summary>
+        private readonly IWorkspaceStore? _store;
+
         public LiveStreamManager(
             IDataService dataService,
             IGlobalErrorCoordinator errorCoordinator,
-            ILogger<LiveStreamManager> logger)
+            ILogger<LiveStreamManager> logger,
+            Func<Feeds.IMarketFeedHub?>? feedHub = null,
+            IWorkspaceStore? store = null)
         {
             _dataService = dataService;
             _errorCoordinator = errorCoordinator;
             _logger = logger;
+            _feedHub = feedHub;
+            _store = store;
         }
 
         public virtual async Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe)
@@ -268,6 +290,9 @@ namespace AccessibleTrader.Core.Services
                     _errorCoordinator.ReportError(
                         $"{provider} live stream is connected but has sent nothing for a minute. The chart may only update on refresh.",
                         ErrorSeverity.Low, ErrorCategory.Informational);
+                    // ...and leave it ASKABLE. Saying it once is not enough: this line can be
+                    // interrupted mid-sentence, or fire while the user is inside a modal.
+                    _store?.Dispatch(new MarkFeedStaleAction());
                     _fallbackAnnounced = true;
                     break;
 
@@ -278,6 +303,7 @@ namespace AccessibleTrader.Core.Services
                         _errorCoordinator.ReportError(
                             $"{provider} stream lost after {MaxReconnectAttempts} reconnect attempts. Reload chart to retry.",
                             ErrorSeverity.High, ErrorCategory.Provider);
+                        _store?.Dispatch(new MarkFeedStaleAction());
                         _fallbackAnnounced = true;
                     }
                     break;
@@ -336,9 +362,55 @@ namespace AccessibleTrader.Core.Services
             await provider.SetSubscriptionAsync(market, symbol, timeframe).ConfigureAwait(false);
 
             _logger.LogInformation("Reconnected live stream for {Provider} {Symbol} @ {Timeframe}.", providerName, symbol, timeframe);
+
+            // GAP-FILL THE OUTAGE before announcing success.
+            //
+            // The reconnect disposed the old subscription, reconnected, resubscribed and said
+            // "stream reconnected successfully" — and never fetched the bars that closed while
+            // it was down. With SilenceThreshold at 60 s and MaxReconnectAttempts at 5, a
+            // routine flap costs at least a minute of bars and five failed attempts spans four
+            // minutes; on a 1m chart that is 1-5 bars spliced invisibly into the buffer.
+            // ChartFeed.ApplyLiveTick then appends the first post-reconnect tick straight onto
+            // the pre-outage bar with no continuity check, so indicators, sonification and
+            // StrategyEngine.OnFocusedFeedUpdated all compute across a discontinuity they
+            // cannot see.
+            //
+            // The original design knew this: a `private readonly HistoricalDataFetcher
+            // _historicalFetcher` was assigned in the constructor and referenced NOWHERE else
+            // in the file. The gap-fill was designed and never wired. A later cleanup removed
+            // the dead field, which tidied the evidence away without doing the work.
+            await GapFillAfterReconnectAsync(market, providerName, symbol, timeframe).ConfigureAwait(false);
+
             _errorCoordinator.ReportError(
                 $"{providerName} stream reconnected successfully.",
                 ErrorSeverity.Low, ErrorCategory.Informational);
+        }
+
+        /// <summary>
+        /// Catches the focused feed up on bars that closed during the outage. Best effort: a
+        /// failure here must not undo a reconnect that otherwise worked, because a live feed
+        /// with a seam is still better than no live feed.
+        /// </summary>
+        private async Task GapFillAfterReconnectAsync(
+            string market, string providerName, string symbol, string timeframe)
+        {
+            if (_feedHub == null) return;
+            try
+            {
+                var hub = _feedHub();
+                if (hub == null) return;
+
+                var identity = new ChartIdentity(market, providerName, symbol, timeframe);
+                var feed = hub.TryGetFeed(identity) ?? hub.FocusedFeed;
+                if (feed == null) return;
+
+                await feed.GapFillAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Gap-fill after reconnect failed for {Provider} {Symbol}.",
+                    providerName, symbol);
+            }
         }
 
 

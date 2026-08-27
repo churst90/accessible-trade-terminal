@@ -10,7 +10,12 @@ namespace AccessibleTrader.Core.Services
 {
     public interface IDataOrchestrator
     {
-        Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false);
+        /// <param name="ct">
+        /// Aborts the fetch, including the network call, for providers that honour it.
+        /// Added 2026-08-27: nothing in this path took a token, so the tab-switch CTS could
+        /// not abort anything and six rapid tab switches queued six unabortable requests.
+        /// </param>
+        Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false, CancellationToken ct = default);
         /// <summary>Consolidated live bars, each stamped with the identity its
         /// subscription was opened for. Consumers MUST route on that identity —
         /// see <see cref="LiveTick"/> for why "whatever holds focus now" is wrong.</summary>
@@ -209,7 +214,7 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false)
+        public async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false, CancellationToken ct = default)
         {
             // Validate at the choke point so every provider inherits the same shape check
             // without each plugin having to reimplement it. Rejects path/query injection
@@ -241,7 +246,7 @@ namespace AccessibleTrader.Core.Services
                 // breaker only affects this one provider.
                 var (policy, _) = GetResiliencePolicy(provider);
                 var results = await policy.ExecuteAsync(() =>
-                    _historicalFetcher.FetchOhlcvAsync(market, provider, symbol, timeframe, since, limit, until)).ConfigureAwait(false);
+                    _historicalFetcher.FetchOhlcvAsync(market, provider, symbol, timeframe, since, limit, until, ct)).ConfigureAwait(false);
                 
                 if (!silent)
                 {

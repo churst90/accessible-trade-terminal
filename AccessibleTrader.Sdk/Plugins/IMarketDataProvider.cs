@@ -133,6 +133,29 @@ namespace AccessibleTrader.Sdk.Plugins
         Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot");
         Task<List<string>> GetSupportedTimeframesAsync();
         Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request);
+
+        /// <summary>
+        /// <see cref="FetchOhlcvAsync(MarketDataRequest)"/>, abortable.
+        ///
+        /// <para><b>Why this exists.</b> No cancellation token reached the network anywhere in
+        /// the fetch path: not <c>IDataOrchestrator.FetchOhlcvAsync</c>, not
+        /// <c>DataService.FetchOhlcvAsync</c>, not <c>HistoricalDataFetcher</c>, and not this
+        /// interface — <c>IOhlcvStore</c> was the only thing in the area that took one. So the
+        /// tab-switch CTS in <c>MarketOrchestrator</c> could not abort anything:
+        /// <c>ChartFeed</c> only checked its token AFTER the round trip returned. A user
+        /// tabbing quickly through six symbols queued six unabortable HTTP requests, each
+        /// running to completion, burning provider quota and counting against the per-provider
+        /// circuit breaker — and a provider that hangs held the tab switch until its own
+        /// HttpClient timeout.</para>
+        ///
+        /// <para><b>Default implementation forwards to the uncancellable overload</b>, so every
+        /// existing provider keeps compiling and behaves exactly as before. A provider that
+        /// wants real abort overrides this and threads the token into its HttpClient calls;
+        /// the honest ones do, and the rest are no worse than they were.</para>
+        /// </summary>
+        Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(
+            MarketDataRequest request, CancellationToken ct)
+            => FetchOhlcvAsync(request);
         Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10);
     }
 }

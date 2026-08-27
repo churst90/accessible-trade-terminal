@@ -90,7 +90,7 @@ namespace AccessibleTrader.Tests
         public Task<List<Ohlcv>>? FetchTask { get; set; }
 
         public MockHistoricalFetcher() : base(null!, null!, null!, null!) { }
-        public override Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null)
+        public override Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, CancellationToken ct = default)
         {
             return FetchTask ?? Task.FromResult(new List<Ohlcv>());
         }

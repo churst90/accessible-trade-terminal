@@ -95,6 +95,17 @@ namespace AccessibleTrader.Core.Services
                     _logger.LogDebug("DataManager: focused {Kind} {Symbol} close {Close}.",
                         kind, feed.Identity.Symbol, bars[bars.Count - 1].Close);
                 _store.Dispatch(new UpdateDataAction(bars, false));
+
+                // Record that the feed is ALIVE, as a value anyone can ask for.
+                //
+                // Three watchdogs each spoke once into a transient channel and left no
+                // queryable state behind, so a user who missed the spoken line — a screen
+                // reader interrupted mid-sentence, an announcement fired while they were in a
+                // modal — had no way to ask whether the chart in front of them was live. This
+                // stamp is the answer, and it also CLEARS DataStatus.Stale: recovery has to be
+                // as visible as the failure, or someone who heard "stale" keeps distrusting a
+                // feed that came back.
+                _store.Dispatch(new LiveTickObservedAction(DateTime.UtcNow));
             }
         }
 

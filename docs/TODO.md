@@ -2889,7 +2889,7 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   empty list was guarded too. Audited every other `Data.Count - 1` clamp in the tree: all
   guarded. Guards in `EmptyLoadHonestyTests`, each with its negative half (a load that DID
   return bars still lands them, still reaches Ready, and says nothing about being empty).
-- [ ] **A websocket reconnect never gap-fills the outage, and the field that was meant to do it is dead
+- [x] **A websocket reconnect never gap-fills the outage, and the field that was meant to do it is dead
   (`LiveStreamManager.cs:17`, `:68`, `:249-279`).** `AttemptReconnectAsync` disposes the old
   subscription, reconnects, resubscribes and announces "stream reconnected successfully" — it never
   fetches the bars that closed during the outage. With `SilenceThreshold` at 60 s and
@@ -2901,7 +2901,18 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   gun is `private readonly HistoricalDataFetcher _historicalFetcher;` at `:17`, assigned at `:68` and
   **referenced nowhere else in the file** — the gap-fill was designed and never wired.
   `MarketFeedHub.RestartFeedAsync` (`:362-376`) has the identical hole. CONFIRMED. HIGH.
-- [ ] **`ChartFeed.GapFillAsync` fetches a fixed 200 bars and silently splices a hole when the gap is
+  **CLOSED 2026-08-27.** Both reconnect paths gap-fill now: `LiveStreamManager.AttemptReconnectAsync`
+  before it announces success, and `MarketFeedHub.RestartFeedAsync` after it restarts. Best
+  effort in both — a live feed with a seam is still better than no live feed, so a failed
+  gap-fill does not undo a reconnect that worked.
+  **A note on the "smoking gun".** The dead `_historicalFetcher` field the finding points at is
+  already gone: a later cleanup removed it, which tidied the evidence away without doing the
+  work. The gap-fill was still missing.
+  The wiring needed a lazy `Func<IMarketFeedHub?>` rather than the interface, because
+  `MarketFeedHub → IDataOrchestrator → LiveStreamManager → IMarketFeedHub` is a DI cycle —
+  caught by the WebHost integration tests' container validation, which is what that validation
+  is for.
+- [x] **`ChartFeed.GapFillAsync` fetches a fixed 200 bars and silently splices a hole when the gap is
   bigger (`ChartFeed.cs:112-148`).** It captures `lastKnownDate` at `:116`, fetches `limit: 200` from
   the live edge at `:117-118`, and appends everything `> lastKnownDate` at `:124-127`. If the feed was
   cold for longer than 200 bars — a 1m tab left in the background for four hours, or any resumed session
@@ -2911,7 +2922,16 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   the chart's bar-index arithmetic treats a four-hour jump as one bar. Fix: compare `gapBars[0].Date`
   against `lastKnownDate + barMs`; on a shortfall page backwards or do a clean `RefreshAsync`, and say
   which. CONFIRMED. HIGH.
-- [ ] **`TimeSeriesBuffer` is not immutable, and the comment the whole `ChartFeed` locking scheme rests
+  **CLOSED 2026-08-27.** `GapFillAsync` compares the oldest fetched bar against
+  `lastKnownDate + barMs` and, on a shortfall, **refuses the splice entirely** and raises a new
+  `GapTooLarge` event carrying the size of the hole. A partial splice is worse than none: a hole
+  nobody knows about is indistinguishable from real price action. One bar of tolerance, because
+  venues are not perfectly punctual and a boundary a little late is not an outage.
+  **Two test fixtures were quietly incoherent** and this found them: `GapFillOverlapTests` and
+  `KeyedFeedsTests` both spaced their bars by DAYS while declaring an HOURLY identity. Harmless
+  until the feed learned to detect a hole, at which point a one-day step reads as a 24-bar gap
+  — and the feed was right. Both fixtures now agree with themselves.
+- [x] **`TimeSeriesBuffer` is not immutable, and the comment the whole `ChartFeed` locking scheme rests
   on says it is (`TimeSeriesBuffer.cs:71-95`, `ChartFeed.cs:40-46`).** `ChartFeed`'s lock comment reads
   "TimeSeriesBuffer&lt;Ohlcv&gt; is immutable so reads (reference assignment from a single field) are
   atomic on any 64-bit runtime; only writers contend." That is false. `ReplaceLast` (`:89-95`) writes
@@ -2922,7 +2942,15 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   doing `state.Data[^1]` while a live `ReplaceLast` runs can read a bar with the new `Close` and the old
   `High`. The `_cacheLock` does not help because readers deliberately do not take it — on the strength
   of this comment. CONFIRMED (by construction; not reproduced under a race). HIGH.
-- [ ] **No cancellation token reaches the network anywhere in the fetch path**
+  **CLOSED 2026-08-27.** `ReplaceLast` copies instead of writing into the shared backing
+  array, so the immutability the `ChartFeed` lock comment rests on is now true rather than
+  aspirational — and that comment says so, since it was the reason nobody checked.
+  **`Append` is deliberately NOT changed.** Its in-place write targets index `Count`, which is
+  one past the end of every published buffer, so no reader can reach it; copying there would
+  cost an allocation on the common path for no correctness gain. The cost of the fix is one
+  array copy per intra-bar tick, ~240 KB at the 5000-bar ceiling — cheaper than a torn OHLC bar
+  reaching the fill engine.
+- [x] **No cancellation token reaches the network anywhere in the fetch path**
   (`IDataOrchestrator.FetchOhlcvAsync` `DataOrchestrator.cs:18`, `DataService.cs:289`,
   `HistoricalDataFetcher.cs:50`, `IMarketDataProvider.cs:138`). Not one of these four signatures takes a
   `CancellationToken`; `IOhlcvStore` is the only thing in the area that does. The tab-switch CTS
@@ -2932,6 +2960,26 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   per-provider circuit breaker; a provider that hangs holds the tab switch until its own `HttpClient`
   timeout. The `catch (OperationCanceledException)` handlers in `DataManager` (`:157`, `:242`) can only
   catch a *post-fetch* cancellation. Closely related to TODO:1731. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27.** The token is threaded through the whole chain:
+  `IDataOrchestrator.FetchOhlcvAsync` → `HistoricalDataFetcher` → `IDataService` → the provider,
+  and `ChartFeed`'s three fetch sites pass their `ct` INTO the call rather than only checking it
+  afterwards. The post-fetch checks stay; they are still what stops a stale result being applied.
+  **The plugin contract change is additive.** `IMarketDataProvider` gained a cancellable
+  overload as a DEFAULT INTERFACE METHOD forwarding to the existing one, so all 30+ providers
+  keep compiling and behave exactly as before; a provider that wants real abort overrides it and
+  threads the token into its HttpClient calls. So this is genuinely abortable wherever a provider
+  opts in, and no worse than before everywhere else. **Filed separately:** actually opting the
+  providers in, one at a time.
+  One test double had to learn the new contract: NSubstitute intercepts the two-arg overload
+  rather than falling through to the default implementation, so stubbing only the one-arg form
+  made a "transport failure reaches the policy" test pass while nothing had been asked to fail.
+- [ ] **Opt the providers into the cancellable fetch, one at a time.** Carved out of the
+  cancellation-token finding closed above, which threaded the token through the whole core
+  chain and added the overload to `IMarketDataProvider` as a default interface method. Every
+  provider still uses the forwarding default, so the token reaches the plugin boundary and
+  stops there — a hanging Binance request is still unabortable. The work per provider is
+  small (pass `ct` to the `HttpClient` calls the fetch already makes) and independent, so it
+  can be done a few at a time; start with the ones a user tabs through fastest. MEDIUM.
 - [ ] **`OrderBookHistoryService` hardcodes a 1-minute bar, so heatmap history is empty on every other
   timeframe (`OrderBookHistoryService.cs:57`).** The per-bar lookup is
   `snapshots.Where(s => s.Timestamp <= bar.Date.AddMinutes(1))` with the comment "Assuming 1m bars for
@@ -3018,7 +3066,7 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   parameter is never assigned to a field — the class takes it again as a parameter on
   `InitializeAsync(:34)`. `_errorCoordinator` is assigned at `:31` and referenced nowhere else, which is
   notable given this class is where a provider fetch failure now originates (`:289`). CONFIRMED. LOW.
-- [ ] **A stale or degraded feed is not distinguishable from a live one at any consumer, permanently.**
+- [x] **A stale or degraded feed is not distinguishable from a live one at any consumer, permanently.**
   Three watchdogs each speak *once*, into a transient channel: `LiveStreamManager` announces
   connected-but-quiet once per subscription (`:198-211`, guarded by `_fallbackAnnounced`);
   `MarketFeedHub` announces background-feed quiet/restart/give-up (`:333-357`); `DataOrchestrator`'s
@@ -3032,6 +3080,17 @@ take ten minutes to tell apart. Renaming those two would remove more confusion t
   fix: a `DataStatus.Stale` (or `LastTickUtc` on `WorkspaceState`) that the watchdogs set and clear,
   surfaced in the chart's aria status region and on a speak-on-demand key. CONFIRMED. HIGH
   (accessibility).
+  **CLOSED 2026-08-27.** `DataStatus.Stale` exists, `WorkspaceState.LastTickUtc` exists, the
+  watchdogs set the first and the live-tick path sets the second — and **a tick CLEARS Stale**,
+  because a status that only ever goes one way is one nobody can trust the second time.
+  `ChartLayoutDescriber` reports it, so Alt+Shift+L — the orientation key, "the one thing a
+  sighted user gets for free by glancing at the screen" — can finally answer the question that
+  matters most about a trading chart. It reports the ELAPSED TIME, not just the word: "no data
+  for eleven minutes" is actionable in a way that "stale" is not.
+  Two deliberate non-behaviours, each with a test: a chart that has NEVER ticked is not called
+  stale (a historical-only provider is working as intended, and a warning that fires when
+  nothing is wrong stops being read), and a tick does not overwrite a genuine `Error` (that
+  would hide a real failure behind a coincidence).
 
 ---
 

@@ -372,6 +372,16 @@ namespace AccessibleTrader.Core.Services
                 ? state with { InitStatus = a.Status }
                 : state,
             SetDataStatusAction a => state with { DataStatus = a.Status },
+
+            // A tick is the ONLY thing that can clear Stale — a status that only ever goes one
+            // way is a status nobody can trust the second time.
+            LiveTickObservedAction t => state with
+            {
+                LastTickUtc = t.AtUtc,
+                DataStatus = state.DataStatus == DataStatus.Stale ? DataStatus.Ready : state.DataStatus,
+            },
+
+            MarkFeedStaleAction => state with { DataStatus = DataStatus.Stale },
             SetReplayModeAction a => state with { IsReplaying = a.Active },
 
             // ── User settings (caller-supplied projection) ───────────────────

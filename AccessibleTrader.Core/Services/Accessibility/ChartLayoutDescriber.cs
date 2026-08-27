@@ -92,7 +92,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (state.IsHeikinAshi) parts.Add("Heikin Ashi candles.");
 
+            // ── Is this chart LIVE? ──────────────────────────────────────────
+            //
+            // Alt+Shift+L is the orientation key — "the one thing a sighted user gets for free
+            // by glancing at the screen" — and until now it could not answer the question that
+            // matters most about a trading chart. Three watchdogs each spoke once into a
+            // transient channel and left nothing to ask. A user who missed the line had no way
+            // to find out whether the prices in front of them were current.
+            //
+            // The elapsed time, not just the word: "no data for eleven minutes" is actionable
+            // in a way that "stale" is not.
+            parts.Add(DescribeFeedFreshness(state));
+
             return string.Join(" ", parts);
+        }
+
+        /// <summary>
+        /// Whether the feed is live, and how long since anything arrived.
+        /// </summary>
+        internal static string DescribeFeedFreshness(WorkspaceState state)
+        {
+            if (state.LastTickUtc is not { } last)
+            {
+                // Never having ticked is not the same as having gone quiet — a historical-only
+                // provider is working exactly as intended, and calling that "stale" would cry
+                // wolf on every analytics chart.
+                return state.DataStatus == DataStatus.Stale
+                    ? "Feed reported quiet; no live data has arrived."
+                    : "No live data yet.";
+            }
+
+            var since = DateTime.UtcNow - last;
+            string ago = since.TotalMinutes < 1
+                ? $"{Math.Max(0, (int)since.TotalSeconds)} seconds"
+                : $"{(int)since.TotalMinutes} minutes";
+
+            return state.DataStatus == DataStatus.Stale
+                ? $"Feed is QUIET: last update {ago} ago."
+                : $"Feed live, last update {ago} ago.";
         }
 
         /// <summary>"1 series" / "3 series", "1 pane" / "2 panes" — pluralised without the

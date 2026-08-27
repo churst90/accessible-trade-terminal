@@ -277,7 +277,7 @@ namespace AccessibleTrader.Core.Services
         /// letting the exception out costs nothing and is what makes the layer real.
         /// </para>
         /// </summary>
-        public async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string providerName, MarketDataRequest request)
+        public async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string providerName, MarketDataRequest request, CancellationToken ct = default)
         {
             if (!_isInitialized) return (new List<Ohlcv>(), new List<(long, double)>());
             var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
@@ -321,7 +321,12 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            var fetched = await provider.FetchOhlcvAsync(request).ConfigureAwait(false);
+            // The CANCELLABLE overload. Providers that have not opted in get the default
+            // interface implementation, which forwards to the uncancellable one — so this is
+            // never worse than before, and is genuinely abortable wherever a provider threads
+            // the token into its HttpClient calls.
+            ct.ThrowIfCancellationRequested();
+            var fetched = await provider.FetchOhlcvAsync(request, ct).ConfigureAwait(false);
 
             if (cacheKey != null && fetched.Ohlcv is { Count: > 0 })
             {

@@ -368,6 +368,27 @@ namespace AccessibleTrader.Core.Services.Feeds
             }
             try { await TryStartFeedLiveAsync(identity).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "Feed restart failed for {Identity}.", identity); }
+
+            // GAP-FILL THE OUTAGE. A restart resubscribes and announces success; it does not
+            // fetch the bars that closed while the feed was down. With the silence threshold
+            // at a minute and several restart attempts before giving up, a routine flap costs
+            // minutes of bars — on a 1m chart, several bars spliced invisibly into the buffer.
+            // ChartFeed.ApplyLiveTick then appends the first post-restart tick straight onto
+            // the pre-outage bar with no continuity check, so indicators, sonification and the
+            // strategy engine's bar-close driver all compute across a discontinuity they
+            // cannot see.
+            //
+            // GapFillAsync refuses a splice it cannot make whole and raises GapTooLarge, so a
+            // long outage is reported rather than papered over.
+            try
+            {
+                if (_feeds.TryGetValue(identity, out var feed))
+                    await feed.GapFillAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Gap-fill after feed restart failed for {Identity}.", identity);
+            }
         }
 
         private void AddProviderErrorSubscription(string providerName, IMarketDataProvider provider)

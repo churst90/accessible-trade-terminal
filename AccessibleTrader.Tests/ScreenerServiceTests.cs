@@ -33,7 +33,7 @@ namespace AccessibleTrader.Tests
 
             public FakeDataService(Func<string, List<Ohlcv>> bars) => _bars = bars;
 
-            public async Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r)
+            public async Task<(List<Ohlcv>, List<(long, double)>)> FetchOhlcvAsync(string p, MarketDataRequest r, CancellationToken ct = default)
             {
                 Interlocked.Increment(ref FetchCount);
                 int now = Interlocked.Increment(ref _current);
