@@ -704,13 +704,21 @@ namespace AccessibleTrader.Plugins.Kraken
                     // from the sign, and Abs made a short read as a long.
                     double vol = Math.Abs(pos?["vol"]?.Value<double>() ?? 0);
                     bool isShort = string.Equals(pos?["type"]?.ToString(), "sell", StringComparison.OrdinalIgnoreCase);
+                    // Kraken's "cost" is the TOTAL quote-currency cost of the position, not the
+                    // per-unit average that Position.AveragePrice is contracted to carry — a
+                    // 0.5 BTC position entered at 60,000 reports cost 30,000. This number is
+                    // spoken in the positions panel and feeds risk math, so it is divided here.
+                    // A zero volume has no average price to report.
+                    double cost = pos?["cost"]?.Value<double>() ?? 0;
                     return new Position(
                         pos?["pair"]?.ToString() ?? p.Name,
                         isShort ? -vol : vol,
-                        pos?["cost"]?.Value<double>() ?? 0,
+                        vol != 0 ? cost / vol : 0,
                         pos?["value"]?.Value<double>() ?? 0,
                         pos?["net"]?.Value<double>() ?? 0,
-                        pos?["margin"]?.Value<double>() > 0 ? (pos?["cost"]?.Value<double>() ?? 0) / (pos?["margin"]?.Value<double>() ?? 1) : 1.0);
+                        // Leverage is total-cost over margin posted, so this one genuinely
+                        // wants the undivided "cost".
+                        pos?["margin"]?.Value<double>() > 0 ? cost / (pos?["margin"]?.Value<double>() ?? 1) : 1.0);
                 }).ToList();
             });
         }

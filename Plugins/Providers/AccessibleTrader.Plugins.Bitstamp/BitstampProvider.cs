@@ -602,7 +602,14 @@ namespace AccessibleTrader.Plugins.Bitstamp
             // a transient 502 read as "account flat" and overwrote the snapshot.
             return await _rateLimiter.ExecuteAsync(async () =>
             {
-                string endpoint = !string.IsNullOrEmpty(symbol) ? $"/api/v2/open_orders/{symbol.Replace("/", "").ToLower()}/" : "/api/v2/open_orders/all/";
+                // ToBitstampPair, not a bare Replace: the usdt→usd remap is what makes the
+                // pair name a real Bitstamp book. Charting "BTC/USDT" reads btcusd correctly
+                // while this path used to ask for open orders on "btcusdt", a pair Bitstamp
+                // does not list — so the user's resting orders on the book they are looking at
+                // were invisible here.
+                string endpoint = !string.IsNullOrEmpty(symbol)
+                    ? $"/api/v2/open_orders/{ToBitstampPair(symbol)}/"
+                    : "/api/v2/open_orders/all/";
                 var response = await PostAuthenticatedAsync(endpoint, new Dictionary<string, string>());
                 var arr = JArray.Parse(response);
                 return arr.Select(o => new OpenOrder(
@@ -624,7 +631,12 @@ namespace AccessibleTrader.Plugins.Bitstamp
             {
                 return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
-                    var pair   = signal.Symbol.Replace("/", "").ToLower();
+                    // ToBitstampPair, not a bare Replace. Every DATA path on this venue goes
+                    // through the usdt→usd remap, so charting "BTC/USDT" gives correct data
+                    // from btcusd — while this line posted the order to /api/v2/buy/btcusdt/,
+                    // a pair Bitstamp does not list. This is the call-site half of the bug
+                    // GetCanonicalSymbol was added to fix.
+                    var pair   = ToBitstampPair(signal.Symbol);
                     bool isMkt = signal.Type == OrderType.Market;
                     string endpoint = signal.Side == OrderSide.Buy
                         ? $"/api/v2/buy/{(isMkt ? "market/" : "")}{pair}/"

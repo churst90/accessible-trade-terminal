@@ -96,7 +96,10 @@ namespace AccessibleTrader.Plugins.Finnhub
                     return (false, "Invalid API key");
                 return (false, $"Key validation failed ({response.StatusCode})");
             }
-            catch (Exception ex) { return (false, $"Key validation error: {ex.Message}"); }
+            // Finnhub's token is a URL query param, and HttpRequestException messages
+            // routinely carry the request URI — so ex.Message here would read the user's
+            // live API key onto a channel that is both spoken and logged. Type name only.
+            catch (Exception ex) { return (false, $"Key validation error: {ex.GetType().Name}"); }
         }
 
         // ── Connection ──────────────────────────────────────────────────────
@@ -268,7 +271,7 @@ namespace AccessibleTrader.Plugins.Finnhub
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"Finnhub fetch error: {ex.Message}");
+                _errorStream.OnNext($"Finnhub fetch error: {ex.GetType().Name}");
                 // Transport faults belong to the pipeline's retry + circuit breaker
                 // (see TransportFailure). Swallowing them here is what made all three
                 // Polly layers above this call decorative and left an empty chart as
@@ -312,7 +315,7 @@ namespace AccessibleTrader.Plugins.Finnhub
             }
             catch (HttpRequestException ex)
             {
-                _errorStream.OnNext($"Finnhub: network error fetching symbol list: {ex.Message}");
+                _errorStream.OnNext($"Finnhub: network error fetching symbol list: {ex.GetType().Name}");
                 return new List<string>();
             }
             catch (TaskCanceledException)
@@ -321,12 +324,12 @@ namespace AccessibleTrader.Plugins.Finnhub
             }
             catch (Newtonsoft.Json.JsonException ex)
             {
-                _errorStream.OnNext($"Finnhub: malformed symbol-list response: {ex.Message}");
+                _errorStream.OnNext($"Finnhub: malformed symbol-list response: {ex.GetType().Name}");
                 return new List<string>();
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"Finnhub: symbol-list error: {ex.Message}");
+                _errorStream.OnNext($"Finnhub: symbol-list error: {ex.GetType().Name}");
                 return new List<string>();
             }
         }

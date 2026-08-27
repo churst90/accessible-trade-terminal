@@ -473,8 +473,13 @@ namespace AccessibleTrader.Plugins.Schwab
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
+            // Status in the property as well as the message: a 400 here means the refresh
+            // token is spent and the user must re-authorise, which retrying cannot fix.
+            // TransportFailure.IsTransient treats a status-less HttpRequestException as
+            // transient, so leaving it out sent a dead grant round the retry loop.
             if (!resp.IsSuccessStatusCode)
-                throw new HttpRequestException($"Schwab token endpoint returned {(int)resp.StatusCode}: {body}");
+                throw new HttpRequestException(
+                    $"Schwab token endpoint returned {(int)resp.StatusCode}: {body}", null, resp.StatusCode);
 
             var token = JsonConvert.DeserializeObject<SchwabTokenResponse>(body)
                         ?? throw new InvalidOperationException("Schwab token endpoint returned an empty body.");

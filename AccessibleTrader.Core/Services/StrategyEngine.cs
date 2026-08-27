@@ -32,7 +32,12 @@ namespace AccessibleTrader.Core.Services
         private readonly object _evalGate = new();
 
         private ImmutableList<ActiveStrategy> _activeStrategies = ImmutableList<ActiveStrategy>.Empty;
-        private readonly Dictionary<string, DateTime> _lastSignalTimes = new();
+        /// <summary>
+        /// Instance id → the <c>Date</c> of the last bar that instance signalled on. Keyed on
+        /// the BAR, not on a wall clock: two drivers can reach the same closed bar, and "one
+        /// signal per instance per bar" is the rule the backtest replay obeys.
+        /// </summary>
+        private readonly Dictionary<string, DateTime> _lastSignalBars = new();
         // Pending signals awaiting user confirmation (Suggestion mode)
         private readonly Dictionary<string, StrategySignal> _pendingSignals = new();
 
@@ -82,10 +87,51 @@ namespace AccessibleTrader.Core.Services
             int idx = state.CurrentDataIndex;
             if (idx < 1 || idx >= state.Data.Count) return;
 
+            // A STILL-FORMING bar is not a bar to trade on.
+            //
+            // No provider in the fleet drops the partial trailing candle: Binance /klines,
+            // Kraken /0/public/OHLC, Schwab /pricehistory and Tradier /timesales all return
+            // the currently-forming interval as the final element, IMarketDataProvider
+            // documents nothing about it, and the one attempt at a filter anywhere
+            // (OandaProvider's `|| candles.Last == c`) is a structural no-op for exactly the
+            // one bar it exists to drop.
+            //
+            // The LiveAppend driver is safe by construction — it takes bars[Count-2], so the
+            // forming bar is never the one evaluated. THIS driver is not: on load, tab switch
+            // and prepend, CurrentDataIndex is normally the last index, which is the partial
+            // candle straight from the fetch. In Auto mode that placed a real order off an
+            // incomplete bar whose high, low and close were all still moving.
+            //
+            // Dropping it in the provider would be the wrong place: the chart WANTS to draw
+            // and speak the forming bar. It is only untradeable, so the gate belongs here.
+            if (!IsBarClosed(state.Data[idx], state.Identity.Timeframe))
+                return;
+
             lock (_evalGate)
             {
                 EvaluateBar(state.Data[idx], state.Data, state);
             }
+        }
+
+        /// <summary>
+        /// True when <paramref name="bar"/>'s interval has finished, i.e. the venue can no
+        /// longer revise it. Derived from the clock rather than trusted from the payload,
+        /// because no provider marks it.
+        ///
+        /// <para>An unparseable or absent timeframe returns <c>true</c>: the pre-existing
+        /// behaviour was to evaluate unconditionally, and a gate that silently stopped every
+        /// strategy on a timeframe this cannot parse would be a worse failure than the one it
+        /// prevents — a strategy that never fires is indistinguishable from a market with no
+        /// signals, and nothing would say which.</para>
+        /// </summary>
+        internal static bool IsBarClosed(Sdk.Models.Ohlcv bar, string? timeframe)
+        {
+            if (string.IsNullOrEmpty(timeframe)) return true;
+
+            long ms = Sdk.Models.TimeframeUtility.ToMilliseconds(timeframe);
+            if (ms <= 0) return true;
+
+            return bar.Date.AddMilliseconds(ms) <= DateTime.UtcNow;
         }
 
         private void OnFocusedFeedUpdated(Feeds.ChartFeed feed, Feeds.FeedUpdateKind kind)
@@ -157,12 +203,25 @@ namespace AccessibleTrader.Core.Services
                     var signal = active.Strategy.OnBar(newBar, history, state);
                     if (signal == null) continue;
 
-                    // Deduplication: skip if a signal was already published for this instance recently
-                    if (_lastSignalTimes.TryGetValue(active.InstanceId, out var last)
-                        && (DateTime.UtcNow - last).TotalSeconds < 30)
+                    // Deduplication is keyed on BAR IDENTITY, not on a wall clock.
+                    //
+                    // This used to be `(DateTime.UtcNow - last).TotalSeconds < 30`, which is
+                    // wrong in both directions. Two independent drivers can land on the same
+                    // closed bar — OnDataUpdated fires on load, tab switch and prepend;
+                    // OnFocusedFeedUpdated fires on live append — so a prepend or a tab switch
+                    // 31 seconds after a bar closed re-signalled that same bar and, in Auto
+                    // mode, placed a SECOND order for it. GeneralOrderService's ClientOid dedup
+                    // cannot help, because the engine mints a fresh signal object each time.
+                    // Conversely, on a sub-30-second timeframe the window suppressed
+                    // consecutive-bar signals that were entirely legitimate.
+                    //
+                    // One signal per instance per bar is the rule a backtest replay obeys, and
+                    // matching it is the whole point.
+                    if (_lastSignalBars.TryGetValue(active.InstanceId, out var lastBar)
+                        && lastBar == newBar.Date)
                         continue;
 
-                    _lastSignalTimes[active.InstanceId] = DateTime.UtcNow;
+                    _lastSignalBars[active.InstanceId] = newBar.Date;
                     _logger.LogInfo($"Strategy '{active.Strategy.Name}' signal: {signal.Side} — {signal.Rationale}",
                         nameof(StrategyEngine));
 
@@ -396,7 +455,7 @@ namespace AccessibleTrader.Core.Services
                 ReleaseStrategy(active.Strategy);
                 _activeStrategies = _activeStrategies.RemoveAll(a => a.InstanceId == instanceId);
                 _pendingSignals.Remove(instanceId);
-                _lastSignalTimes.Remove(instanceId);
+                _lastSignalBars.Remove(instanceId);
                 // Removing the strategy stops the managed exits, so the record must go too —
                 // otherwise it is persisted forever and re-adopted by the next instance of the
                 // same spec, which would run a stop against a position the user has since closed.

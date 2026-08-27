@@ -87,7 +87,10 @@ namespace AccessibleTrader.Plugins.Fmp
                     return (false, "Your FMP plan does not include this endpoint.");
                 return (false, $"Validation failed: HTTP {(int)response.StatusCode}");
             }
-            catch (Exception ex) { return (false, $"Validation error: {ex.Message}"); }
+            // FMP authenticates with ?apikey=KEY on every request, and HttpRequestException
+            // messages routinely carry the request URI — ex.Message here would read the
+            // user's live key onto a channel that is both spoken and logged.
+            catch (Exception ex) { return (false, $"Validation error: {ex.GetType().Name}"); }
         }
 
         public override Task EnsureConnectedAsync()
@@ -233,7 +236,7 @@ namespace AccessibleTrader.Plugins.Fmp
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"FMP FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name}): {ex.Message}");
+                _errorStream.OnNext($"FMP FetchOhlcvAsync failed for {request.Symbol} ({ex.GetType().Name})");
                 // Transport faults belong to the pipeline's retry + circuit breaker
                 // (see TransportFailure). Swallowing them here is what made all three
                 // Polly layers above this call decorative and left an empty chart as
@@ -419,7 +422,7 @@ namespace AccessibleTrader.Plugins.Fmp
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"FMP request error: {ex.Message}");
+                _errorStream.OnNext($"FMP request error: {ex.GetType().Name}");
                 return null;
             }
         }

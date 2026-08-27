@@ -142,12 +142,65 @@ namespace AccessibleTrader.Tests
         public void Bitstamp_ToBitstampPair_LowercasesAndMapsUsdtToUsd(string input, string expected)
         {
             // Bitstamp REST paths are lowercase and list pairs in /usd form only.
-            // ALL Bitstamp paths (fetch, order-book, live subscribe, private
-            // channel) now route through this one helper, so historical and live
-            // feeds can never target different markets — the bug that left the
-            // keyed live feed on a dead usdt channel.
+            //
+            // This test covers the FUNCTION. It said "ALL Bitstamp paths now route through this
+            // one helper" and that was not true: PlaceOrderAsync and the symbol-scoped
+            // GetOpenOrdersAsync both did a bare `symbol.Replace("/","").ToLower()` instead, so
+            // charting BTC/USDT read btcusd correctly while the ORDER posted to
+            // /api/v2/buy/btcusdt/ — a pair Bitstamp does not list. A guard on the function
+            // cannot see that; the call-site tests below are the half that was missing.
             string actual = AccessibleTrader.Plugins.Bitstamp.BitstampProvider.ToBitstampPair(input);
             Assert.Equal(expected, actual);
+        }
+
+        /// <summary>
+        /// The order path uses the venue's own normalisation, not a bare separator strip.
+        /// Asserted on the URL that actually goes out, because that is the thing that was wrong.
+        /// </summary>
+        [Theory]
+        [InlineData(OrderSide.Buy,  OrderType.Market, "/api/v2/buy/market/btcusd/")]
+        [InlineData(OrderSide.Sell, OrderType.Market, "/api/v2/sell/market/btcusd/")]
+        [InlineData(OrderSide.Buy,  OrderType.Limit,  "/api/v2/buy/btcusd/")]
+        [InlineData(OrderSide.Sell, OrderType.Limit,  "/api/v2/sell/btcusd/")]
+        public async Task Bitstamp_PlaceOrder_posts_a_usdt_symbol_to_the_usd_book(
+            OrderSide side, OrderType type, string expectedPath)
+        {
+            var handler = new FakeHttpMessageHandler()
+                .Post(@"/api/v2/(buy|sell)/", """{"id":"1","datetime":"2024-01-01 00:00:00","type":"0","price":"100","amount":"1"}""");
+            var provider = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+            provider.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "k", ["ApiSecret"] = "s",
+            });
+            SwapHttpClient(provider, handler);
+
+            // The UI symbol is the USDT spelling; the book is the USD one.
+            await provider.PlaceOrderAsync(new TradeSignal(
+                "BTC/USDT", side, 1.0, type, Price: type == OrderType.Limit ? 100.0 : null));
+
+            Assert.NotEmpty(handler.Captured);
+            var url = handler.Captured[0].RequestUri!.ToString();
+            Assert.Contains(expectedPath, url);
+            Assert.DoesNotContain("btcusdt", url);
+        }
+
+        [Fact]
+        public async Task Bitstamp_GetOpenOrders_asks_the_usd_book_for_a_usdt_symbol()
+        {
+            var handler = new FakeHttpMessageHandler().Post(@"/api/v2/open_orders/", "[]");
+            var provider = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+            provider.Configure(new Dictionary<string, string>
+            {
+                ["ApiKey"] = "k", ["ApiSecret"] = "s",
+            });
+            SwapHttpClient(provider, handler);
+
+            await provider.GetOpenOrdersAsync("BTC/USDT");
+
+            Assert.NotEmpty(handler.Captured);
+            var url = handler.Captured[0].RequestUri!.ToString();
+            Assert.Contains("/api/v2/open_orders/btcusd/", url);
+            Assert.DoesNotContain("btcusdt", url);
         }
 
         // ── Oanda: forex "EUR_USD" underscore convention ─────────────────────

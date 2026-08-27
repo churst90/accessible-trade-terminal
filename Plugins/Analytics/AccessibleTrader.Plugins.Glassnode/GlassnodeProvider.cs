@@ -109,7 +109,10 @@ namespace AccessibleTrader.Plugins.Glassnode
             }
             catch (Exception ex)
             {
-                return (false, $"Glassnode validation error: {ex.Message}");
+                // Glassnode's api_key is a URL query param and HttpRequestException messages
+                // carry the request URI, so ex.Message would read the key onto a channel
+                // that is both spoken and logged. Same rule as TwelveData/FRED/FMP.
+                return (false, $"Glassnode validation error: {ex.GetType().Name}");
             }
         }
 
@@ -181,7 +184,7 @@ namespace AccessibleTrader.Plugins.Glassnode
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"Glassnode fetch error ({symbol}): {ex.Message}");
+                _errorStream.OnNext($"Glassnode fetch error ({symbol}): {ex.GetType().Name}");
                 // Transport faults belong to the pipeline's retry + circuit breaker
                 // (see TransportFailure). Swallowing them here is what made all three
                 // Polly layers above this call decorative and left an empty chart as

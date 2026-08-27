@@ -84,6 +84,14 @@ namespace AccessibleTrader.Plugins.Schwab
                                              && !string.IsNullOrEmpty(_clientSecret)
                                              && _oauth.HasRefreshToken;
         public override bool SupportsLiveUpdates => true;
+        // Schwab has no push feed: PollLatestCandleAsync re-fetches the last
+        // /pricehistory candle every 15-30 s and pushes the WHOLE re-sent bar,
+        // whose Volume is the interval's running total — cumulative-bar semantics.
+        // Without this the consolidator adds each poll's total to the running bar
+        // and a 1-minute bar accumulates roughly 4x its true volume before the
+        // next REST refresh corrects it.
+        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle =>
+            AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 20000;
         public override ProviderCapabilities Capabilities => ProviderCapabilities.Brackets;
@@ -412,6 +420,10 @@ namespace AccessibleTrader.Plugins.Schwab
                 {
                     var sec = account["securitiesAccount"];
                     if (sec == null) continue;
+                    // Only the account orders are routed to — see IsTradedAccount. Emitting a
+                    // "Cash"/"Equity"/"Buying Power" row per account under identical asset
+                    // names made the dashboard's numbers belong to no particular account.
+                    if (!IsTradedAccount(sec)) continue;
 
                     double equity      = sec["currentBalances"]?["equity"]?.Value<double>()              ?? 0;
                     double cash        = sec["currentBalances"]?["cashBalance"]?.Value<double>()         ?? 0;
@@ -441,7 +453,13 @@ namespace AccessibleTrader.Plugins.Schwab
                 var positions = new List<Position>();
                 foreach (var account in arr)
                 {
-                    var posArr = account["securitiesAccount"]?["positions"] as JArray;
+                    var sec = account["securitiesAccount"];
+                    // Only the account orders are routed to — see IsTradedAccount. Showing an
+                    // IRA's positions next to a Sell button that trades the brokerage account
+                    // is the shape of this bug.
+                    if (!IsTradedAccount(sec)) continue;
+
+                    var posArr = sec?["positions"] as JArray;
                     if (posArr == null) continue;
 
                     foreach (var p in posArr)
@@ -773,11 +791,20 @@ namespace AccessibleTrader.Plugins.Schwab
                     continue;
                 }
 
+                // The status code goes in the PROPERTY, not just the message.
+                // TransportFailure.IsTransient returns true for any HttpRequestException with
+                // no StatusCode, so putting the code only in the text made a Schwab 401 or 404
+                // read as a transient network fault: retried by the pipeline, counted against
+                // the circuit breaker, and announced to the user as a connection problem
+                // rather than "your session expired". RateLimiter.ShouldRetry was defeated the
+                // same way. 429 genuinely IS transient and keeps the retry it wants.
                 if (resp.StatusCode == (HttpStatusCode)429)
-                    throw new HttpRequestException("Schwab rate limit (429) hit; backing off.");
+                    throw new HttpRequestException(
+                        "Schwab rate limit (429) hit; backing off.", null, resp.StatusCode);
 
                 if (!resp.IsSuccessStatusCode)
-                    throw new HttpRequestException($"Schwab {method} {url} → {(int)resp.StatusCode}: {body}");
+                    throw new HttpRequestException(
+                        $"Schwab {method} {url} → {(int)resp.StatusCode}: {body}", null, resp.StatusCode);
 
                 // Order placement returns 201 with an EMPTY body; the new order id
                 // exists ONLY in the Location header. Discarding it here is what
@@ -801,11 +828,62 @@ namespace AccessibleTrader.Plugins.Schwab
             _primaryAccountHash = _accountHashes.FirstOrDefault()?.HashValue;
         }
 
+        /// <summary>
+        /// The plain account number of the account every order actually goes to.
+        ///
+        /// <para>Schwab addresses orders by an opaque <c>hashValue</c>, but the
+        /// <c>/accounts?fields=positions</c> payload identifies each account by its plain
+        /// <c>accountNumber</c>. This is the join between the two, and it exists because
+        /// balances and positions used to be read from <b>every</b> account while
+        /// <c>PlaceOrderAsync</c>, <c>CancelOrderAsync</c>, <c>GetOpenOrdersAsync</c>,
+        /// <c>GetFillsAsync</c> and <c>GetOrderStatusAsync</c> all addressed
+        /// <see cref="_primaryAccountHash"/> alone. A user holding a brokerage account and an
+        /// IRA saw the IRA's positions in the dashboard, pressed sell, and the order went to
+        /// whichever account Schwab happened to list first. Balances compounded it: "Cash",
+        /// "Equity" and "Buying Power" were emitted once per account under identical asset
+        /// names, so the dashboard summed or last-wrote them with no way to tell which was
+        /// which.</para>
+        ///
+        /// <para>Until there is an account selector in the UI, the honest behaviour is for the
+        /// account you can SEE to be the account you can TRADE. Reads are scoped here.</para>
+        /// </summary>
+        private string? PrimaryAccountNumber =>
+            _accountHashes.FirstOrDefault(a => a.HashValue == _primaryAccountHash)?.AccountNumber;
+
+        /// <summary>
+        /// True when this <c>securitiesAccount</c> node is the one orders are routed to.
+        /// When the account number cannot be resolved at all, no account matches and the
+        /// caller reports nothing — an empty positions list is recoverable, a list mixing
+        /// two accounts is not.
+        /// </summary>
+        private bool IsTradedAccount(JToken? securitiesAccount)
+        {
+            var number = PrimaryAccountNumber;
+            if (string.IsNullOrEmpty(number)) return false;
+            return string.Equals(
+                securitiesAccount?["accountNumber"]?.ToString(), number, StringComparison.Ordinal);
+        }
+
         // ── Order mapping ───────────────────────────────────────────────────
 
         /// <summary>Test seam: the bracket/order builder is where SL/TP were once
         /// silently dropped — BrokerParityTests pins its payload shapes.</summary>
         internal static SchwabOrderRequest? BuildSchwabOrderForTest(TradeSignal signal) => BuildSchwabOrder(signal);
+
+        /// <summary>
+        /// A price as Schwab must receive it: every digit the user chose, invariant culture.
+        ///
+        /// <para>These four call sites used <c>ToString("0.##")</c>. Schwab lists sub-dollar
+        /// equities, which quote in $0.0001 increments under Reg NMS Rule 612 — a limit at
+        /// 0.4567 was submitted at 0.46, two percent away from the level chosen, and anything
+        /// under half a cent became "0.00". This is the same defect the repo already fixed on
+        /// Bitstamp; that sweep did not reach Schwab.</para>
+        ///
+        /// <para><c>"R"</c>-style round-tripping via the default <c>ToString</c> keeps full
+        /// precision. Rounding an order price is the venue's job, not ours: it knows the tick
+        /// size for the instrument and we do not.</para>
+        /// </summary>
+        private static string Wire(double price) => price.ToString(CultureInfo.InvariantCulture);
 
         private static SchwabOrderRequest? BuildSchwabOrder(TradeSignal signal)
         {
@@ -845,18 +923,18 @@ namespace AccessibleTrader.Plugins.Schwab
 
                 case OrderType.Limit when signal.Price.HasValue:
                     order.OrderType = "LIMIT";
-                    order.Price = signal.Price.Value.ToString("0.##", CultureInfo.InvariantCulture);
+                    order.Price = Wire(signal.Price.Value);
                     break;
 
                 case OrderType.StopMarket when signal.StopLoss.HasValue:
                     order.OrderType = "STOP";
-                    order.StopPrice = signal.StopLoss.Value.ToString("0.##", CultureInfo.InvariantCulture);
+                    order.StopPrice = Wire(signal.StopLoss.Value);
                     break;
 
                 case OrderType.StopLimit when signal.Price.HasValue && signal.StopLoss.HasValue:
                     order.OrderType = "STOP_LIMIT";
-                    order.Price     = signal.Price.Value.ToString("0.##", CultureInfo.InvariantCulture);
-                    order.StopPrice = signal.StopLoss.Value.ToString("0.##", CultureInfo.InvariantCulture);
+                    order.Price     = Wire(signal.Price.Value);
+                    order.StopPrice = Wire(signal.StopLoss.Value);
                     break;
 
                 default:
@@ -874,6 +952,15 @@ namespace AccessibleTrader.Plugins.Schwab
             entry.Duration = "GTC"; // protective legs must outlive the session
 
             string exitInstruction = signal.Side == OrderSide.Buy ? "SELL" : "BUY";
+            // The exit legs are the same instrument as the entry, so they carry the same
+            // asset type. They used to be hardcoded "EQUITY" while the entry honoured
+            // signal.SubType: a single-leg OPTION order with a stop or target built a TRIGGER
+            // tree whose parent was OPTION and whose children claimed to be EQUITY on the same
+            // symbol. Schwab rejects that tree — or, worse, accepts the parent and leaves the
+            // user in an option position whose protective legs never armed. The class doc
+            // scopes MULTI-leg options out; a single-leg option with a bracket reaches here.
+            string exitAssetType =
+                string.Equals(signal.SubType, "Options", StringComparison.OrdinalIgnoreCase) ? "OPTION" : "EQUITY";
             SchwabOrderRequest ExitLeg(string orderType, double price, bool stop)
             {
                 var leg = new SchwabOrderRequest
@@ -891,12 +978,12 @@ namespace AccessibleTrader.Plugins.Schwab
                             Instrument = new SchwabOrderInstrument
                             {
                                 Symbol = signal.Symbol,
-                                AssetType = "EQUITY",
+                                AssetType = exitAssetType,
                             },
                         },
                     },
                 };
-                string px = price.ToString("0.##", CultureInfo.InvariantCulture);
+                string px = Wire(price);
                 if (stop) leg.StopPrice = px; else leg.Price = px;
                 return leg;
             }

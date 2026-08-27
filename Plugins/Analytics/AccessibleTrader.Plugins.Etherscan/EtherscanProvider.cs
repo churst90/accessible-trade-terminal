@@ -118,7 +118,10 @@ namespace AccessibleTrader.Plugins.Etherscan
             }
             catch (Exception ex)
             {
-                return (false, $"Etherscan validation error: {ex.Message}");
+                // Etherscan's apikey is a URL query param and HttpRequestException messages
+                // carry the request URI, so ex.Message would read the key onto a channel
+                // that is both spoken and logged. Same rule as TwelveData/FRED/FMP.
+                return (false, $"Etherscan validation error: {ex.GetType().Name}");
             }
         }
 
@@ -176,7 +179,7 @@ namespace AccessibleTrader.Plugins.Etherscan
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"Etherscan fetch error ({symbol}): {ex.Message}");
+                _errorStream.OnNext($"Etherscan fetch error ({symbol}): {ex.GetType().Name}");
                 // Transport faults belong to the pipeline's retry + circuit breaker
                 // (see TransportFailure). Swallowing them here is what made all three
                 // Polly layers above this call decorative and left an empty chart as

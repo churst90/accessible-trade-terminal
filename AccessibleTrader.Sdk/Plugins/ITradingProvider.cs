@@ -73,7 +73,17 @@ namespace AccessibleTrader.Sdk.Plugins
     /// </summary>
     public enum MarginMode { None, Cross, Isolated }
 
-    /// <summary>An open futures/margin position with live P&amp;L data.</summary>
+    /// <summary>An open futures/margin position with live P&amp;L data.
+    ///
+    /// <para><b><see cref="AveragePrice"/> is PER UNIT, not the position's total cost.</b>
+    /// Several venues report the total quote-currency cost instead — Kraken's
+    /// <c>cost</c> and Tradier's <c>cost_basis</c> are both totals — and passing one
+    /// of those straight in makes a 0.5 BTC position entered at 60,000 report an
+    /// average price of 30,000. This number is *spoken* in the positions panel and it
+    /// feeds risk math, so divide by <c>Math.Abs(quantity)</c> with a zero guard at
+    /// the provider boundary. Binance's <c>entryPrice</c> and Schwab's
+    /// <c>averagePrice</c> are already per-unit and need no division.</para>
+    /// </summary>
     public record Position(
         string Symbol,
         double Quantity,

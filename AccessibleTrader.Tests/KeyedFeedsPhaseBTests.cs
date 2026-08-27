@@ -296,23 +296,90 @@ namespace AccessibleTrader.Tests
             Assert.False(AccessibleTrader.Plugins.Kraken.KrakenProvider.TryParseOhlcItem(empty, out _));
         }
 
-        [Fact]
-        public void Kline_style_providers_declare_cumulative_ticks()
+        /// <summary>
+        /// Every live-capable provider in the fleet, and the tick semantics it declares.
+        ///
+        /// <para>This used to be five hand-picked assertions. That is how <b>Schwab</b> went
+        /// three fleet audits without an override: it was never named, so nothing was ever
+        /// green or red about it. Schwab has no push feed at all — <c>PollLatestCandleAsync</c>
+        /// re-fetches the last <c>/pricehistory</c> candle every 15-30 s and pushes the whole
+        /// re-sent bar, which is textbook <see cref="LiveTickStyle.CumulativeBars"/>, and it
+        /// inherited <see cref="LiveTickStyle.TradeDeltas"/>. A 1-minute Schwab bar accumulated
+        /// roughly 4x its true volume between REST refreshes.</para>
+        ///
+        /// <para>The table is exhaustive on purpose and
+        /// <see cref="Every_live_capable_provider_is_named_in_the_tick_style_table"/> fails if a
+        /// provider is missing from it, so the 17th provider forces the decision rather than
+        /// silently taking the default.</para>
+        /// </summary>
+        public static TheoryData<string, LiveTickStyle> TickStyleTable() => new()
         {
-            // The 2026-07-22 fleet audit: these providers' live streams carry the
-            // current period's TOTAL volume, so accumulating them double-counted.
-            // Trade-tick providers (Bitstamp, Coinbase, Finnhub, Oanda, TwelveData,
-            // Tradier) correctly keep the TradeDeltas default.
-            Assert.Equal(LiveTickStyle.CumulativeBars,
-                ((IMarketDataProvider)new AccessibleTrader.Plugins.Mexc.MexcProvider()).LiveTickStyle);
-            Assert.Equal(LiveTickStyle.CumulativeBars,
-                ((IMarketDataProvider)new AccessibleTrader.Plugins.Kraken.KrakenProvider()).LiveTickStyle);
-            Assert.Equal(LiveTickStyle.CumulativeBars,
-                ((IMarketDataProvider)new AccessibleTrader.Plugins.Alpaca.AlpacaProvider()).LiveTickStyle);
-            Assert.Equal(LiveTickStyle.CumulativeBars,
-                ((IMarketDataProvider)new AccessibleTrader.Plugins.Polygon.PolygonProvider()).LiveTickStyle);
-            Assert.Equal(LiveTickStyle.TradeDeltas,
-                ((IMarketDataProvider)new AccessibleTrader.Plugins.Bitstamp.BitstampProvider()).LiveTickStyle);
+            // Kline / bar-shaped feeds: each message carries the period's TOTAL volume.
+            { "Binance",            LiveTickStyle.CumulativeBars },
+            { "Mexc",               LiveTickStyle.CumulativeBars },
+            { "Kraken",             LiveTickStyle.CumulativeBars },
+            { "Alpaca",             LiveTickStyle.CumulativeBars },
+            { "Polygon",            LiveTickStyle.CumulativeBars },
+            { "Finnhub",            LiveTickStyle.CumulativeBars },
+            { "Schwab",             LiveTickStyle.CumulativeBars },
+            // Trade-tick feeds: each message is one execution, so volume accumulates.
+            { "Bitstamp",           LiveTickStyle.TradeDeltas },
+            { "Coinbase",           LiveTickStyle.TradeDeltas },
+            { "Oanda",              LiveTickStyle.TradeDeltas },
+            { "TwelveData",         LiveTickStyle.TradeDeltas },
+            { "Tradier",            LiveTickStyle.TradeDeltas },
+            { "InteractiveBrokers", LiveTickStyle.TradeDeltas },
+        };
+
+        private static IMarketDataProvider NamedProvider(string name) => name switch
+        {
+            "Binance"            => new AccessibleTrader.Plugins.Binance.BinanceProvider(),
+            "Mexc"               => new AccessibleTrader.Plugins.Mexc.MexcProvider(),
+            "Kraken"             => new AccessibleTrader.Plugins.Kraken.KrakenProvider(),
+            "Alpaca"             => new AccessibleTrader.Plugins.Alpaca.AlpacaProvider(),
+            "Polygon"            => new AccessibleTrader.Plugins.Polygon.PolygonProvider(),
+            "Finnhub"            => new AccessibleTrader.Plugins.Finnhub.FinnhubProvider(),
+            "Schwab"             => new AccessibleTrader.Plugins.Schwab.SchwabProvider(),
+            "Bitstamp"           => new AccessibleTrader.Plugins.Bitstamp.BitstampProvider(),
+            "Coinbase"           => new AccessibleTrader.Plugins.Coinbase.CoinbaseProvider(),
+            "Oanda"              => new AccessibleTrader.Plugins.Oanda.OandaProvider(),
+            "TwelveData"         => new AccessibleTrader.Plugins.TwelveData.TwelveDataProvider(),
+            "Tradier"            => new AccessibleTrader.Plugins.Tradier.TradierProvider(),
+            "InteractiveBrokers" => new AccessibleTrader.Plugins.InteractiveBrokers.InteractiveBrokersProvider(),
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Not in the tick-style table."),
+        };
+
+        [Theory]
+        [MemberData(nameof(TickStyleTable))]
+        public void Live_capable_providers_declare_the_tick_style_their_feed_actually_emits(
+            string providerName, LiveTickStyle expected)
+        {
+            Assert.Equal(expected, NamedProvider(providerName).LiveTickStyle);
+        }
+
+        [Fact]
+        public void Every_live_capable_provider_is_named_in_the_tick_style_table()
+        {
+            // The point of this test is that the table above cannot go stale. A provider
+            // that declares SupportsLiveUpdates has a tick style that matters, and leaving
+            // it unnamed is exactly how Schwab's double-counted volume survived.
+            var tabled = TickStyleTable().Select(row => (string)row[0]!).ToHashSet();
+
+            var liveCapable = new[]
+            {
+                "Binance", "Mexc", "Kraken", "Alpaca", "Polygon", "Finnhub", "Schwab",
+                "Bitstamp", "Coinbase", "Oanda", "TwelveData", "Tradier", "InteractiveBrokers",
+            };
+
+            foreach (var name in liveCapable)
+            {
+                var p = NamedProvider(name);
+                if (!p.SupportsLiveUpdates) continue;
+                Assert.True(tabled.Contains(name),
+                    $"{name} declares SupportsLiveUpdates but is absent from TickStyleTable. "
+                    + "Decide whether its feed sends whole bars (CumulativeBars) or single "
+                    + "executions (TradeDeltas) and add it — the default is not a decision.");
+            }
         }
 
         [Fact]

@@ -23,6 +23,32 @@ namespace AccessibleTrader.Tests
     [Collection("ProviderCredentialBridge")]
     public class BrokerPlacementParityTests
     {
+
+        /// <summary>
+        /// The one venue call this operation is about.
+        ///
+        /// <para>Binance and MEXC now probe <c>/api/v3/time</c> before signing, so that a
+        /// desktop with a drifted clock does not have every signed call rejected with
+        /// <c>-1021</c>. That probe is captured like any other request, so a bare
+        /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
+        /// assertions were always for: exactly ONE order left the process.</para>
+        /// </summary>
+        private static int VenueCallIndex(FakeHttpMessageHandler h)
+        {
+            var idx = Enumerable.Range(0, h.Captured.Count)
+                .Where(i => !h.Captured[i].RequestUri!.AbsolutePath
+                              .EndsWith("/api/v3/time", StringComparison.Ordinal))
+                .ToList();
+            return Assert.Single(idx);
+        }
+
+        private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h)
+            => h.Captured[VenueCallIndex(h)];
+
+        /// <summary>The body of that same call — <c>CapturedBodies</c> runs parallel to
+        /// <c>Captured</c>, so the clock probe occupies a slot there too.</summary>
+        private static string OnlyVenueBody(FakeHttpMessageHandler h)
+            => h.CapturedBodies[VenueCallIndex(h)];
         private static void SwapField(object target, string fieldName, object? value)
         {
             var f = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
@@ -58,7 +84,7 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 95000.5));
 
             Assert.Equal("123", id);
-            var req = h.Captured.Single();
+            var req = OnlyVenueCall(h);
             // RAW query, no unescaping: the signature must verify over what left
             // the process, not over a normalized copy of it.
             string query = req.RequestUri!.Query.TrimStart('?');
@@ -89,7 +115,7 @@ namespace AccessibleTrader.Tests
             await p.PlaceOrderAsync(new TradeSignal("BTCUSDT", OrderSide.Sell, 0.5,
                 OrderType.StopMarket, TriggerPrice: 90000));
 
-            var pairs = FormPairs(h.Captured.Single().RequestUri!.Query.TrimStart('?'));
+            var pairs = FormPairs(OnlyVenueCall(h).RequestUri!.Query.TrimStart('?'));
             Assert.Equal("STOP_LOSS", pairs["type"]);
             Assert.Equal("90000", pairs["stopPrice"]);
             Assert.Equal("SELL", pairs["side"]);
@@ -118,7 +144,7 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 0.0363));
 
             Assert.Equal("9911", id);
-            var pairs = FormPairs(h.CapturedBodies.Single());
+            var pairs = FormPairs(OnlyVenueBody(h));
             Assert.Equal("0.5", pairs["amount"]);
             Assert.Equal("0.0363", pairs["price"]);
 
@@ -140,7 +166,7 @@ namespace AccessibleTrader.Tests
             string id = await p.PlaceOrderAsync(new TradeSignal("BTC/USD", OrderSide.Sell, 0.25, OrderType.Market));
 
             Assert.Equal("9912", id);
-            var pairs = FormPairs(h.CapturedBodies.Single());
+            var pairs = FormPairs(OnlyVenueBody(h));
             Assert.False(pairs.ContainsKey("price"), "market orders carry no price field");
             Assert.False(pairs.ContainsKey("limit_price"), "no ceiling was asked for");
         }
@@ -182,7 +208,7 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 95000.5));
 
             Assert.Equal("C02__443", id);
-            var req = h.Captured.Single();
+            var req = OnlyVenueCall(h);
             string query = req.RequestUri!.Query.TrimStart('?');
             int sigAt = query.IndexOf("&signature=", StringComparison.Ordinal);
             Assert.True(sigAt > 0, "signature missing from query");
@@ -207,8 +233,8 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 95000, StopLoss: 90000, TakeProfit: 105000, SubType: "Futures"));
 
             Assert.Equal("102015012431", id);
-            var req = h.Captured.Single();
-            string body = h.CapturedBodies.Single();
+            var req = OnlyVenueCall(h);
+            string body = OnlyVenueBody(h);
             var order = JObject.Parse(body);
             Assert.Equal("BTC_USDT", order["symbol"]?.ToString());
             Assert.Equal(1, order["side"]?.Value<int>());   // open long
@@ -233,7 +259,7 @@ namespace AccessibleTrader.Tests
             await p.PlaceOrderAsync(new TradeSignal("BTCUSDT", OrderSide.Sell, 2,
                 OrderType.Market, SubType: "Futures", ReduceOnly: true));
 
-            var order = JObject.Parse(h.CapturedBodies.Single());
+            var order = JObject.Parse(OnlyVenueBody(h));
             Assert.Equal(4, order["side"]?.Value<int>()); // close long — 3 would OPEN a short
             Assert.Equal(5, order["type"]?.Value<int>()); // market
         }
@@ -260,7 +286,7 @@ namespace AccessibleTrader.Tests
                 OrderType.Market, StopLoss: 1.05, TakeProfit: 1.15));
 
             Assert.Equal("6367", id);
-            var order = (JObject)JObject.Parse(h.CapturedBodies.Single())["order"]!;
+            var order = (JObject)JObject.Parse(OnlyVenueBody(h))["order"]!;
             Assert.Equal("MARKET", order["type"]?.ToString());
             Assert.Equal("EUR_USD", order["instrument"]?.ToString());
             Assert.Equal("10000", order["units"]?.ToString());   // positive = buy
@@ -280,7 +306,7 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 1.12, StopLoss: 1.15));
 
             Assert.Equal("6368", id);
-            var order = (JObject)JObject.Parse(h.CapturedBodies.Single())["order"]!;
+            var order = (JObject)JObject.Parse(OnlyVenueBody(h))["order"]!;
             Assert.Equal("LIMIT", order["type"]?.ToString());
             Assert.Equal("-10000", order["units"]?.ToString()); // negative = sell
             Assert.Equal("1.12", order["price"]?.ToString());
@@ -325,8 +351,8 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 95000.5));
 
             Assert.Equal("106817811", id);
-            var req = h.Captured.Single();
-            Assert.Equal("", h.CapturedBodies.Single()); // everything travels in the headers
+            var req = OnlyVenueCall(h);
+            Assert.Equal("", OnlyVenueBody(h)); // everything travels in the headers
 
             string b64 = req.Headers.GetValues("X-GEMINI-PAYLOAD").Single();
             var payload = JObject.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(b64)));
@@ -382,8 +408,8 @@ namespace AccessibleTrader.Tests
                 OrderType.Limit, Price: 50000));
 
             Assert.Equal("OID-1", id);
-            var req = h.Captured.Single();
-            string body = h.CapturedBodies.Single(); // RAW — the same encoded string must be signed and sent
+            var req = OnlyVenueCall(h);
+            string body = OnlyVenueBody(h); // RAW — the same encoded string must be signed and sent
             var pairs = FormPairs(body);
             Assert.Equal("lmt", pairs["orderType"]);
             Assert.Equal("pi_xbtusd", pairs["symbol"]);
@@ -424,7 +450,7 @@ namespace AccessibleTrader.Tests
             await p.PlaceOrderAsync(new TradeSignal("PI_XBTUSD", OrderSide.Buy, 1,
                 OrderType.Limit, Price: 50000, PostOnly: true));
 
-            var pairs = FormPairs(h.CapturedBodies.Single());
+            var pairs = FormPairs(OnlyVenueBody(h));
             Assert.Equal("post", pairs["orderType"]); // the venue's spelling of maker-only
         }
     }

@@ -2392,7 +2392,7 @@ closed the indicator-provider half and missed the paths below.
   (`BootstrapCi.ExtractRs(result.Trades)`), so the inflation propagates into the CI. Fix: emit exit
   rows for the log but aggregate metrics per *position*, or add a `PositionId` to `BacktestTrade`.
   CONFIRMED. HIGH.
-- [ ] **`StrategyEngine.cs:154-156` dedups signals on a 30-second wall clock, not on bar identity, and
+- [x] **`StrategyEngine.cs:154-156` dedups signals on a 30-second wall clock, not on bar identity, and
   two independent drivers can evaluate the same closed bar.** `OnDataUpdated` (`:76-89`, fired on
   load/tab switch/prepend) and `OnFocusedFeedUpdated` (`:91-115`, fired on live append) both call
   `EvaluateBar` and can both land on the same closed bar. The only thing preventing a duplicate live
@@ -2401,6 +2401,14 @@ closed the indicator-provider half and missed the paths below.
   timeframe the window suppresses *legitimate* consecutive-bar signals. `GeneralOrderService`'s
   ClientOid dedup does not help (the engine generates a fresh signal object each time). Fix: key the
   dedup on `(instanceId, bar.Date)`. CONFIRMED. HIGH.
+  **CLOSED 2026-08-26.** Keyed on `(instanceId, bar.Date)`. The wall clock was wrong in
+  both directions and the fix removes both: a prepend or tab switch 31 seconds after a bar
+  closed no longer re-signals that bar (which in Auto mode placed a *second* real order for
+  it), and a sub-30-second timeframe no longer suppresses legitimate consecutive-bar signals.
+  `_lastSignalTimes` became `_lastSignalBars`. One signal per instance per bar is the rule the
+  backtest replay obeys, which is the whole point of the dedup. Guarded by
+  `StrategyBarIdentityAndClosureTests` — including the case that matters most, a repeat on the
+  same bar staying suppressed *however much time passes*.
 - [x] **`SetupSonifier.cs:56-70` speaks the "only the first target fires live" warning on
   `SetupArmedEvent` only — Immediate-trigger and pure-pulse setups never emit that event and never hear
   it.** `ConfigurableStrategy.cs:455-456` computes `effectiveImmediate = Entry.Kind == Immediate ||
@@ -2957,7 +2965,7 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   **CLOSED 2026-08-24.** Hoisted above the limiter call, with a guard
   (`Coinbase_mints_its_idempotency_key_outside_the_limiter_call`) asserting the declaration
   precedes the call site.
-- [ ] **Finnhub and FMP put the API key in every URL and then speak the raw exception message, so a
+- [x] **Finnhub and FMP put the API key in every URL and then speak the raw exception message, so a
   failure can read the user's live credential out loud.** Both authenticate by query string —
   `FinnhubProvider.cs:101`, `:131` (`wss://ws.finnhub.io?token={_apiKey}`), `:219`; and
   `FmpProvider.cs:18` states it outright ("Auth: ?apikey=KEY query param on every request") with URLs at
@@ -2969,7 +2977,17 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   the comment explaining the leak and returns `ex.GetType().Name`; TODO:5331 records that sweep as done
   for FRED and TwelveData. 10 call sites across 3 files. CONFIRMED. HIGH (credential disclosure on an
   audible + logged channel).
-- [ ] **Two providers report a position's total cost as its average entry price.**
+  **CLOSED 2026-08-26.** All 10 filed sites, plus **four more the audit did not find**:
+  `EtherscanProvider.cs:121,179` and `GlassnodeProvider.cs:112,184` carry the identical defect
+  and were never filed. 14 sites across 5 plugins now return `ex.GetType().Name`, which keeps
+  the whole diagnostic value the message had (timeout vs DNS vs JSON fault) without the key.
+  FRED and TwelveData were re-checked and were already clean — their remaining `ex.Message`
+  hits are the comments explaining the fix. **The durable part is `CredentialLeakScanTests`**,
+  which *derives* the provider list by looking for a key-bearing query parameter in the source
+  rather than hardcoding it, so a brand-new query-string-auth provider is covered the day it
+  lands. It carries a vacuity check (at least 5 files must actually be scanned) and was proven
+  red by reintroducing the Glassnode leak.
+- [x] **Two providers report a position's total cost as its average entry price.**
   `KrakenProvider.cs:717` passes `pos["cost"]` into `Position.AveragePrice`, and
   `TradierProvider.cs:646` passes `p["cost_basis"]`. Both fields are the *total* quote-currency cost of
   the position, not the per-unit average. A 0.5 BTC Kraken position entered at 60,000 reports
@@ -2977,7 +2995,15 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   *spoken* number in the positions panel and it feeds risk math. Contrast `BinanceProvider.cs:662`
   (`entryPrice`) and `SchwabProvider.cs:462` (`averagePrice`), which read the correct per-unit field.
   Fix: divide by `Math.Abs(quantity)` with a zero guard. CONFIRMED. HIGH.
-- [ ] **Schwab reads positions from every account and trades only the first.**
+  **CLOSED 2026-08-26.** Both divide by the magnitude of the position with a zero guard.
+  Kraken's leverage calculation genuinely wants the undivided `cost` (total over margin posted)
+  and keeps it, which is why the fix is at the two `AveragePrice` arguments and not a blanket
+  rename. `Position.AveragePrice`'s own doc now states the rule and names the venues that
+  report a total, so the next provider author does not have to rediscover it.
+  `PositionAveragePriceTests` pins six cases per the "a fixture with quantity 1 cannot tell a
+  total from an average" rule — 4 of the 6 go red under sabotage, and the two that do not are
+  the zero-quantity guards, which are correctly insensitive to it.
+- [x] **Schwab reads positions from every account and trades only the first.**
   `SchwabProvider.cs:808` sets `_primaryAccountHash = _accountHashes.FirstOrDefault()?.HashValue`, and
   `PlaceOrderAsync:668`, `CancelOrderAsync:715`, `GetOpenOrdersAsync:598`, `GetFillsAsync:498` and
   `GetOrderStatusAsync:536` all address that single hash. But `GetPositionsAsync:444` and
@@ -2987,7 +3013,16 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   account Schwab listed first. There is no account selector anywhere in the file. Balances compound it:
   `:427-429` emits `"Cash"`, `"Equity"` and `"Buying Power"` rows **per account** with identical asset
   names. CONFIRMED. HIGH.
-- [ ] **`SchwabProvider` never overrides `LiveTickStyle`, so its live bar's volume is double-counted.**
+  **CLOSED 2026-08-26.** Reads are scoped to the account orders actually go to.
+  `PrimaryAccountNumber` joins `_primaryAccountHash` back to the plain `accountNumber` the
+  `/accounts?fields=positions` payload is keyed by, and `IsTradedAccount` gates both loops.
+  An unresolvable hash reports **nothing** rather than everything: an empty positions list is
+  recoverable, a list silently mixing two accounts is not. This is not the account selector the
+  finding asks for — that is still wanted and is now filed as its own item — but until there is
+  one, the account you can SEE being the account you can TRADE is the honest behaviour.
+  `SchwabAccountScopingTests` puts the traded account **second** in the fixture on purpose, and
+  carries the vacuity check that says so.
+- [x] **`SchwabProvider` never overrides `LiveTickStyle`, so its live bar's volume is double-counted.**
   `PollLatestCandleAsync` (`:207-228`) re-fetches the last candle every 15-30 s and pushes the whole
   re-sent bar to `_liveStream` at `:218` — the textbook `CumulativeBars` shape, and
   `IMarketDataProvider.cs:107-113` states it as a MUST ("Kline-style providers MUST override to
@@ -2997,7 +3032,15 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   Schwab**, which inherits `TradeDeltas` from `BaseMarketDataProvider.cs:101`. A 1-minute Schwab bar
   accumulates roughly 4× its true volume before the next REST refresh corrects it. One-line fix.
   CONFIRMED. HIGH.
-- [ ] **Binance and Schwab throw `HttpRequestException` with no `StatusCode`, which silently defeats
+  **CLOSED 2026-08-26.** One-line override, as filed. The more useful half is why it
+  survived three fleet audits: `KeyedFeedsPhaseBTests.Kline_style_providers_declare_cumulative_ticks`
+  was five hand-picked assertions and **Schwab was never named in it**, so nothing was ever
+  green or red about Schwab. That test is now an exhaustive `TheoryData` table over all 13
+  live-capable providers, plus a companion test that fails if a provider declaring
+  `SupportsLiveUpdates` is missing from the table — so the 17th provider forces the decision
+  instead of silently taking the default. A sweep of the rest of the fleet confirmed Schwab was
+  the only outlier; the trade-tick providers are all correctly on `TradeDeltas`.
+- [x] **Binance and Schwab throw `HttpRequestException` with no `StatusCode`, which silently defeats
   both 4xx-is-not-transient policies.** `BinanceProvider.cs:1153`, `:1172`, `:1185` and
   `SchwabProvider.cs:787` all do `throw new HttpRequestException($"{(int)resp.StatusCode} …")` — status
   code in the *message*, never in the property. `TransportFailure.IsTransient:57` reads
@@ -3009,7 +3052,16 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   message-substring fallback for exactly this habit, so order classification survives while the two
   retry policies do not — the asymmetry is the tell. Fix:
   `new HttpRequestException(msg, null, resp.StatusCode)`. CONFIRMED. HIGH.
-- [ ] **Nothing in the plugin tier handles clock skew, and Binance/MEXC sign a hardcoded
+  **CLOSED 2026-08-26.** `new HttpRequestException(msg, null, resp.StatusCode)` at all
+  three Binance sites (via a documented `HttpFailure` helper), both Schwab sites, and
+  **`SchwabOAuthService.cs:477`, which was not filed** — a 400 from the token endpoint means
+  the refresh grant is spent and no amount of retrying will fix it. Gemini's status-less throw
+  was examined and left: it is classifying by the venue's own `reason` field, and the one case
+  that reaches it (`InvalidNonce`) genuinely IS transient, so the absent status gives the right
+  answer for the right reason. `ProviderStatusCodeClassificationTests` asserts the **observable
+  consequence** rather than the constructor call — whether the fault propagates into the retry
+  and breaker or is eaten locally — because that branch is what produced the visible defect.
+- [x] **Nothing in the plugin tier handles clock skew, and Binance/MEXC sign a hardcoded
   `recvWindow=5000` against the local clock.** `BinanceProvider.cs:1165` appends
   `recvWindow=5000&timestamp=` + `DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()`; `MexcRestApi.cs:51`
   does the same. Grepping `serverTime|/api/v3/time|timeOffset|_clockOffset` across `Plugins/Providers`
@@ -3019,7 +3071,18 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   positions and orders all fail, and because the exception has no status code (above) it is announced as
   a network problem. Fix: one `/api/v3/time` call at connect and an offset applied at sign time.
   CONFIRMED. HIGH.
-- [ ] **`TradierProvider.cs:374` starts each live candle at an arbitrary wall-clock instant instead of
+  **CLOSED 2026-08-26.** Both venues sync against `/api/v3/time` and apply the offset at
+  sign time. The offset is taken as the midpoint of the round trip so half the network latency
+  does not land in it, refreshed every 30 minutes, and — the part the filed fix did not cover —
+  **re-synced and re-signed once on a `-1021`**, because syncing only at connect still strands a
+  session whose clock drifts mid-run. The probe is best-effort by design: a failed probe leaves
+  the offset alone and the signed call proceeds on the local clock, which is the old behaviour
+  and no worse. A clock probe that could block trading would be a worse bug than the one it
+  fixes, and there is a test that says so. Note for future work: the probe is a real extra
+  request, so `Captured.Single()` in provider tests now means "the venue call, excluding the
+  clock probe" — `OcoPairTests` and `BrokerPlacementParityTests` gained an `OnlyVenueCall`
+  helper for this.
+- [x] **`TradierProvider.cs:374` starts each live candle at an arbitrary wall-clock instant instead of
   the period boundary.** In `StreamEventsAsync` the first trade tick after a subscription does
   `_lastCandleStart = now; _lastCandle = new Ohlcv(now, …)`, and every subsequent bucket rolls forward by
   exactly `interval` from that seed (`:361-364`). There is no floor-to-period call — contrast
@@ -3029,7 +3092,12 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   10:05, 10:10 that the same provider returns from `FetchIntradayAsync:475`. The live bar does not merge
   with the historical buffer; it appends as a phantom bar at the wrong timestamp and indicators
   recompute across it. CONFIRMED. HIGH.
-- [ ] **`BitstampProvider.cs:640` and `:618` skip the venue's own `ToBitstampPair` normalisation that
+  **CLOSED 2026-08-26.** `TimeframeUtility.GetPeriodStart` on the seed, which is the same
+  call `BarBucketConsolidator` makes for every other provider's keyed feeds. Once the seed is
+  floored the existing roll-forward is aligned for free. `TradierLiveBarAlignmentTests` drives
+  the real SSE loop with a canned stream body and checks the emitted bar against the period
+  grid across four timeframes; all 5 cases go red when the floor is removed.
+- [x] **`BitstampProvider.cs:640` and `:618` skip the venue's own `ToBitstampPair` normalisation that
   every data path uses (`:495`, `:556`, the WS channels).** `ToBitstampPair` remaps a Tether-quoted
   symbol to the USD book (`btcusdt → btcusd`); `PlaceOrderAsync` and the symbol-scoped
   `GetOpenOrdersAsync` instead do `symbol.Replace("/","").ToLower()`. So charting "BTC/USDT" on Bitstamp
@@ -3038,7 +3106,13 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   `ProviderSymbolNormalisationTests` tests `ToBitstampPair` as a standalone function without asserting
   that either call site uses it — the "guard tests the function, not the call site" shape.
   CONFIRMED. HIGH.
-- [ ] **`SchwabProvider` rounds every order price to two decimals with `ToString("0.##")`** at `:855`
+  **CLOSED 2026-08-26.** Both call sites go through `ToBitstampPair`. The other half of
+  the finding was the guard: `ProviderSymbolNormalisationTests` tested the FUNCTION and its
+  comment asserted "ALL Bitstamp paths now route through this one helper", which was simply not
+  true. That comment is corrected, and the file now carries **call-site** tests that assert on
+  the URL that actually goes out — five cases over `PlaceOrderAsync` and `GetOpenOrdersAsync`,
+  each checking both that `btcusd` is present and that `btcusdt` is absent.
+- [x] **`SchwabProvider` rounds every order price to two decimals with `ToString("0.##")`** at `:855`
   (limit), `:860` (stop), `:865-866` (stop-limit) and `:906` (both bracket exit legs). Same defect the
   repo already fixed on Bitstamp and wrote up at TODO:1409 ("A limit on XRP/USD at 0.4567 goes out at
   0.46"); that sweep did not reach Schwab. Schwab lists sub-dollar equities, which quote in $0.0001
@@ -3046,20 +3120,40 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   and anything under half a cent becomes `0.00`. The guard
   `PriceFormatScanTests.OrderPricesGoOnTheWireAtFullPrecisionAndInvariantCulture` is green on these
   lines, so it is checking the culture argument and not the format string. CONFIRMED. MEDIUM-HIGH.
-- [ ] **`SchwabProvider.BuildBracket` hardcodes `AssetType = "EQUITY"` on both exit legs (`:901`) while
+  **CLOSED 2026-08-26.** All four sites go through a documented `Wire()` helper that
+  formats at full precision, invariant culture. **The guard gap was the real finding**:
+  `PriceFormatScanTests.OrderPricesGoOnTheWireAtFullPrecisionAndInvariantCulture` enforces "full
+  precision AND invariant culture" and only ever checked the culture half, so
+  `ToString("0.##", CultureInfo.InvariantCulture)` was green on every one of these lines. It now
+  also rejects a lossy format string, with the line drawn at **eight fractional digits** — 1e-8
+  is the smallest unit any venue in this fleet quotes, so Kraken's and Coinbase's deliberate
+  `F8` is lossless and stays, while anything coarser rounds away a level the user chose. Proven
+  red by putting `0.##` back.
+- [x] **`SchwabProvider.BuildBracket` hardcodes `AssetType = "EQUITY"` on both exit legs (`:901`) while
   the entry honours the signal (`:835`).** A single-leg option order carrying a stop or target therefore
   builds a TRIGGER tree whose parent is `OPTION` and whose children claim to be `EQUITY` on the same
   symbol. Schwab rejects the tree, or — worse, if it accepts the parent — the user is left in an option
   position whose protective legs never armed. The class doc at `:39-41` scopes *multi-leg* options out,
   but a single-leg option with a bracket reaches this code. CONFIRMED. MEDIUM-HIGH.
-- [ ] **`BinanceProvider.cs:876-877` ignores the result of `SetLeverageAsync` and places the order
+  **CLOSED 2026-08-26.** The exit legs take the entry's asset type instead of a
+  hardcoded `"EQUITY"`, so a single-leg option with a bracket no longer builds a TRIGGER tree
+  whose parent is `OPTION` and whose children claim `EQUITY` on the same symbol. Fixed in the
+  same pass as the `0.##` rounding above, which lives in the same builder.
+- [x] **`BinanceProvider.cs:876-877` ignores the result of `SetLeverageAsync` and places the order
   anyway.** `if (signal.Leverage.HasValue && signal.Leverage.Value > 1) await SetLeverageAsync(…);` —
   and `SetLeverageAsync` swallows every failure into `return 1.0` at `:1109-1113`. If the leverage change
   is refused (insufficient margin tier, symbol not enabled, the -1021 clock case above), the futures
   entry still goes in at **whatever leverage the account already had**, which may be 20× from a previous
   session. The `_errorStream.OnNext` at `:1111` means the user hears *something*, but the order proceeds
   and the message does not say "your order is going in at the old leverage". CONFIRMED. MEDIUM-HIGH.
-- [ ] **Tradier's SSE market stream has no staleness watchdog, so a half-open connection goes silent
+  **CLOSED 2026-08-26.** The leverage change is treated as part of the order rather than
+  a preamble to it: the result of `SetLeverageAsync` is compared against the clamped request,
+  and a mismatch **refuses the order** with `ORDER_FAILED:` and a spoken reason that names both
+  the leverage asked for and the leverage the account is actually on. A position's leverage is a
+  property of the trade, so a leverage the venue will not grant means the trade the user asked
+  for cannot be placed — going in at whatever was left over from a previous session is the one
+  outcome nobody chose.
+- [x] **Tradier's SSE market stream has no staleness watchdog, so a half-open connection goes silent
   forever.** `_streamClient` is built with `Timeout.InfiniteTimeSpan` (`TradierProvider.cs:105`) —
   correct for a long-lived SSE body — but the read loop at `:337-341` blocks in
   `reader.ReadLineAsync(ct)` with no idle deadline and no keepalive expectation. If the TCP connection is
@@ -3068,6 +3162,13 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   failure `ReconnectingWebSocket.MaxConsecutiveHeartbeatFailures` (`:256`) exists to catch — Tradier's
   data path is the one that doesn't get it. Fix: wrap the read in a
   `CancellationTokenSource.CancelAfter(2 × interval)`. CONFIRMED. MEDIUM-HIGH (silent data death).
+  **CLOSED 2026-08-26.** The SSE read carries an idle deadline via a linked
+  `CancellationTokenSource`, set to `StreamSilenceSeconds = 60` to match
+  `LiveStreamManager.SilenceThreshold` so the provider watchdog and the app-level one agree on
+  what "quiet" means. On expiry it **says so** and breaks to the outer reconnect loop, which
+  already re-establishes the session from scratch. Safe outside market hours because the
+  subscription requests `linebreak=true`, so Tradier emits keepalive newlines that arrive as
+  blank lines and reset the deadline.
 - [ ] **`TradierProvider.DisconnectAsync` (`:397-405`) scrubs nothing and tears down nothing.** It
   cancels `_streamCts` and nulls two strings, then returns. It does **not** call `ScrubCredentials`
   (every other provider does — `KrakenProvider.cs:469`, `BinanceProvider.cs:468`,
@@ -3141,7 +3242,7 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   from the one every other path produces. `CleanSymbol` is the symbol every Binance call goes to the wire
   with (`BinanceProvider.cs:511`, `:557`, `:682`, `:745`, `:824`, `:865`, `:1073`, `:1104`) and it is the
   default `GetCanonicalSymbol` (`:202`), which the paper ledger keys positions on. CONFIRMED. MEDIUM.
-- [ ] **The `FetchOhlcvAsync` contract never says whether the last bar is closed, and no provider drops
+- [x] **The `FetchOhlcvAsync` contract never says whether the last bar is closed, and no provider drops
   it.** The fetch path in Binance (`:509-553`), Kraken (`:510-580`), Schwab (`:251-300`) and Tradier
   (`:409-531`) applies no partial-bar filter; the sweep over the other twelve found no `isClosed` /
   drop-last-bar logic either. Binance `/klines`, Kraken `/0/public/OHLC`, Schwab `/pricehistory` and
@@ -3156,6 +3257,22 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   closed-bar gate re-derives closure from the clock). Fix: state the rule on `FetchOhlcvAsync` and drop
   the trailing bar when `Date + timeframe > UtcNow`. MEDIUM-HIGH if the engine trusts it, LOW if it
   re-derives.
+  **CLOSED 2026-08-26 — and the SUSPECTED half is now CONFIRMED, worse than filed.**
+  The open question was whether `StrategyEngine` re-derives closure from the clock. It does not.
+  There are two drivers and they differ: `OnFocusedFeedUpdated` (live append) is safe by
+  construction because it takes `bars[Count-2]`, so the forming bar is never the one evaluated —
+  but `OnDataUpdated` (load, tab switch, prepend) evaluated `Data[CurrentDataIndex]`, which on
+  load IS the partial candle straight from the fetch. In Auto mode that placed a real order off
+  a bar whose high, low and close were all still moving. So this was HIGH, not LOW.
+  **The fix is at the consumer, not the provider.** Dropping the trailing bar in
+  `FetchOhlcvAsync` would be wrong: the chart *wants* to draw and speak the forming bar, and it
+  is only untradeable. `StrategyEngine.IsBarClosed` derives closure from the bar date plus the
+  timeframe and gates `OnDataUpdated`. An unparseable timeframe deliberately returns `true` —
+  a gate that silently stopped every strategy would be a worse failure than the one it prevents,
+  since a strategy that never fires is indistinguishable from a market with no signals and
+  nothing would say which. **Still open and filed separately:** the `FetchOhlcvAsync` contract
+  still says nothing about the trailing bar, and `OandaProvider.cs:549`'s
+  `|| candles.Last == c` is still a structural no-op.
 - [ ] **`GetOrderStatusAsync`'s XML doc contradicts the code directly beneath it, on both providers that
   implement it.** `SchwabProvider.cs:527` and `TradierProvider.cs:746` both say "Returns null on a
   transient failure (the poller retries)", and the very next comment (`:531-533` / `:750-752`) says the

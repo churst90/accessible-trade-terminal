@@ -865,8 +865,29 @@ namespace AccessibleTrader.Plugins.Binance
                         // futures user-data stream (or by polling if it is down).
                         await EnsureFuturesUserDataStreamAsync();
 
+                        // The leverage change is part of the order, not a preamble to it.
+                        //
+                        // This used to be a bare `await SetLeverageAsync(...)` with the result
+                        // discarded, and SetLeverageAsync swallows every failure into
+                        // `return 1.0`. If the venue refused the change — insufficient margin
+                        // tier, symbol not enabled for that leverage, a clock-skew -1021 — the
+                        // futures entry still went in at WHATEVER LEVERAGE THE ACCOUNT ALREADY
+                        // HAD, which may be 20x left over from a previous session. The user
+                        // heard the SetLeverageAsync error, but it does not say "your order is
+                        // going in at the old leverage", and the order proceeded anyway.
+                        //
+                        // A position's leverage is a property of the trade, so a leverage the
+                        // venue would not grant means the trade the user asked for cannot be
+                        // placed. Refuse it and say so; the ticket is still there to retry.
                         if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
-                            await SetLeverageAsync(symbol, signal.Leverage.Value);
+                        {
+                            int requested = (int)Math.Clamp(signal.Leverage.Value, 1, MaxLeverage);
+                            double confirmed = await SetLeverageAsync(symbol, signal.Leverage.Value);
+                            if ((int)confirmed != requested)
+                                return $"ORDER_FAILED:the venue would not set {requested} times "
+                                     + $"leverage on {symbol}, so nothing was placed. "
+                                     + $"The account is still at {(int)confirmed} times.";
+                        }
 
                         var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
                         string futType = signal.Type switch
@@ -1137,32 +1158,129 @@ namespace AccessibleTrader.Plugins.Binance
 
         // ── HTTP plumbing ─────────────────────────────────────────────────────
 
+        /// <summary>
+        /// A failed response as an exception that still knows its status code.
+        ///
+        /// <para>These three call sites used to do
+        /// <c>throw new HttpRequestException($"{(int)resp.StatusCode} {body}")</c> — the status
+        /// in the <i>message</i>, never in the property. <c>TransportFailure.IsTransient</c>
+        /// reads <c>if (http.StatusCode is not { } status) return true;</c>, so a Binance
+        /// <b>401 or 404 was classified as transient</b>, rethrown out of
+        /// <c>FetchOhlcvAsync</c> into the pipeline's retry and circuit breaker, and announced
+        /// to the user as a network issue — precisely the outcome TransportFailure's own doc
+        /// says must not happen. <c>RateLimiter.ShouldRetry</c> was defeated the same way and
+        /// retried a bad key three times.</para>
+        ///
+        /// <para>The tell that this was the bug and not the design:
+        /// <c>ProviderResult.IsPermissionError</c> carries a message-substring fallback for
+        /// exactly this habit, so order classification survived while the two retry policies
+        /// did not.</para>
+        /// </summary>
+        private static HttpRequestException HttpFailure(HttpResponseMessage resp, string body)
+            => new($"{(int)resp.StatusCode} {body}", null, resp.StatusCode);
+
         private async Task<string> GetPublicAsync(string baseUrl, string path, string? query)
         {
             string url = $"{baseUrl}{path}" + (string.IsNullOrEmpty(query) ? "" : $"?{query}");
             using var resp = await Http.GetAsync(url).ConfigureAwait(false);
             string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
+            if (!resp.IsSuccessStatusCode) throw HttpFailure(resp, body);
             return body;
         }
+
+        // ── Venue clock ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Milliseconds to add to the local clock to get Binance's. Zero until synced.
+        ///
+        /// <para>Every signed Binance call carries <c>recvWindow=5000</c> and a timestamp taken
+        /// from the local clock, and the venue rejects anything outside that window with
+        /// <c>-1021 Timestamp for this request is outside of the recvWindow</c>. Nothing in the
+        /// plugin tier synced against venue time, so a desktop whose clock had drifted more
+        /// than five seconds — a laptop resuming from sleep, a VM with lazy NTP — got -1021 on
+        /// <b>every</b> signed call: balances, positions and orders all failed at once. Because
+        /// the exception carried no status code (see <see cref="HttpFailure"/>), it was then
+        /// announced as a network problem, which is the wrong thing to tell someone whose real
+        /// problem is that their clock is wrong.</para>
+        /// </summary>
+        private long _clockOffsetMs;
+        private DateTime _clockSyncedAtUtc = DateTime.MinValue;
+        private readonly SemaphoreSlim _clockGate = new(1, 1);
+
+        /// <summary>How long a clock sync is trusted before it is taken again.</summary>
+        private static readonly TimeSpan ClockSyncInterval = TimeSpan.FromMinutes(30);
+
+        /// <summary>
+        /// Syncs <see cref="_clockOffsetMs"/> against <c>/api/v3/time</c>, at most once per
+        /// <see cref="ClockSyncInterval"/> unless <paramref name="force"/> is set. Best effort:
+        /// a failure here leaves the offset alone and lets the signed call proceed on the local
+        /// clock, which is exactly the old behaviour and no worse.
+        /// </summary>
+        private async Task EnsureClockSyncedAsync(bool force = false)
+        {
+            if (!force && DateTime.UtcNow - _clockSyncedAtUtc < ClockSyncInterval) return;
+
+            await _clockGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!force && DateTime.UtcNow - _clockSyncedAtUtc < ClockSyncInterval) return;
+
+                long before = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string body = await GetPublicAsync(SpotRest, "/api/v3/time", null).ConfigureAwait(false);
+                long after = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                using var doc = JsonDocument.Parse(body);
+                if (!doc.RootElement.TryGetProperty("serverTime", out var st)) return;
+
+                // Take the midpoint of the round trip as "local now at the moment the venue
+                // stamped its reply", so half the network latency does not land in the offset.
+                _clockOffsetMs = st.GetInt64() - (before + (after - before) / 2);
+                _clockSyncedAtUtc = DateTime.UtcNow;
+            }
+            catch
+            {
+                // Best effort by design — never let a clock probe break a signed call.
+            }
+            finally
+            {
+                _clockGate.Release();
+            }
+        }
+
+        private long VenueNowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _clockOffsetMs;
 
         // SIGNED request: appends timestamp + recvWindow, HMAC-SHA256 signs the
         // query, sends params in the query string with the API-key header.
         private async Task<string> SignedRequestAsync(HttpMethod method, string baseUrl, string path, Dictionary<string, string> p)
         {
             var (key, secret) = await CheckoutBinanceCredentialsAsync().ConfigureAwait(false);
+            await EnsureClockSyncedAsync().ConfigureAwait(false);
 
-            string query = RestSigning.BuildQuery(p);
-            if (query.Length > 0) query += "&";
-            query += "recvWindow=5000&timestamp=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            string signature = RestSigning.HmacSha256Hex(secret, query);
+            for (int attempt = 0; ; attempt++)
+            {
+                string query = RestSigning.BuildQuery(p);
+                if (query.Length > 0) query += "&";
+                query += "recvWindow=5000&timestamp=" + VenueNowMs();
+                string signature = RestSigning.HmacSha256Hex(secret, query);
 
-            using var req = new HttpRequestMessage(method, $"{baseUrl}{path}?{query}&signature={signature}");
-            req.Headers.Add("X-MBX-APIKEY", key);
-            using var resp = await Http.SendAsync(req).ConfigureAwait(false);
-            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
-            return body;
+                using var req = new HttpRequestMessage(method, $"{baseUrl}{path}?{query}&signature={signature}");
+                req.Headers.Add("X-MBX-APIKEY", key);
+                using var resp = await Http.SendAsync(req).ConfigureAwait(false);
+                string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if (resp.IsSuccessStatusCode) return body;
+
+                // -1021 is the venue telling us our clock is wrong. Re-sync against server
+                // time and sign once more; a second -1021 is a real failure and is reported.
+                // Retrying without re-syncing would just reproduce the same bad timestamp.
+                if (attempt == 0 && body.Contains("-1021", StringComparison.Ordinal))
+                {
+                    await EnsureClockSyncedAsync(force: true).ConfigureAwait(false);
+                    continue;
+                }
+
+                throw HttpFailure(resp, body);
+            }
         }
 
         // Key-only request (user-data stream lifecycle): API-key header, no signature.
@@ -1174,7 +1292,7 @@ namespace AccessibleTrader.Plugins.Binance
             req.Headers.Add("X-MBX-APIKEY", key);
             using var resp = await Http.SendAsync(req).ConfigureAwait(false);
             string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"{(int)resp.StatusCode} {body}");
+            if (!resp.IsSuccessStatusCode) throw HttpFailure(resp, body);
             return body;
         }
 

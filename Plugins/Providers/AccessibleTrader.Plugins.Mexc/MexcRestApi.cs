@@ -23,7 +23,62 @@ namespace AccessibleTrader.Plugins.Mexc
 
         public MexcRestApi(HttpClient http) => _http = http;
 
-        private static long NowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // ── Venue clock ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Milliseconds to add to the local clock to get MEXC's. Zero until synced.
+        ///
+        /// <para>Both signing schemes here are clock-bound: spot sends
+        /// <c>recvWindow=5000</c> with a local timestamp, and futures signs
+        /// <c>apiKey + reqTime + params</c> where <c>reqTime</c> is likewise local. Nothing in
+        /// the plugin tier ever synced against venue time, so a desktop whose clock had drifted
+        /// more than five seconds — a laptop resuming from sleep, a VM with lazy NTP — had
+        /// every signed call rejected at once: balances, positions and orders together.</para>
+        /// </summary>
+        private long _clockOffsetMs;
+        private DateTime _clockSyncedAtUtc = DateTime.MinValue;
+        private readonly SemaphoreSlim _clockGate = new(1, 1);
+
+        private static readonly TimeSpan ClockSyncInterval = TimeSpan.FromMinutes(30);
+
+        /// <summary>
+        /// Syncs the offset against <c>/api/v3/time</c>, at most once per
+        /// <see cref="ClockSyncInterval"/> unless <paramref name="force"/> is set. Best effort:
+        /// a failed probe leaves the offset alone and signing proceeds on the local clock,
+        /// which is the old behaviour and no worse.
+        /// </summary>
+        private async Task EnsureClockSyncedAsync(bool force = false)
+        {
+            if (!force && DateTime.UtcNow - _clockSyncedAtUtc < ClockSyncInterval) return;
+
+            await _clockGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!force && DateTime.UtcNow - _clockSyncedAtUtc < ClockSyncInterval) return;
+
+                long before = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string body = await _http.GetStringAsync(SpotBase + "/api/v3/time").ConfigureAwait(false);
+                long after = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                using var doc = System.Text.Json.JsonDocument.Parse(body);
+                if (!doc.RootElement.TryGetProperty("serverTime", out var st)) return;
+
+                // Midpoint of the round trip, so half the network latency does not land in
+                // the offset.
+                _clockOffsetMs = st.GetInt64() - (before + (after - before) / 2);
+                _clockSyncedAtUtc = DateTime.UtcNow;
+            }
+            catch
+            {
+                // Best effort by design — never let a clock probe break a signed call.
+            }
+            finally
+            {
+                _clockGate.Release();
+            }
+        }
+
+        private long NowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _clockOffsetMs;
 
         // ── Spot: public ─────────────────────────────────────────────────────
 
@@ -40,19 +95,37 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<string> SpotSignedAsync(HttpMethod method, string path, string apiKey, string apiSecret,
             IReadOnlyDictionary<string, string>? parameters = null)
         {
-            var pairs = new List<KeyValuePair<string, string>>();
-            if (parameters != null) pairs.AddRange(parameters);
-            pairs.Add(new("timestamp", NowMs().ToString(CultureInfo.InvariantCulture)));
-            pairs.Add(new("recvWindow", "5000"));
+            await EnsureClockSyncedAsync().ConfigureAwait(false);
 
-            string queryString = RestSigning.BuildQuery(pairs);
-            string signature = RestSigning.HmacSha256Hex(apiSecret, queryString);
-            string url = $"{SpotBase}{path}?{queryString}&signature={signature}";
+            for (int attempt = 0; ; attempt++)
+            {
+                var pairs = new List<KeyValuePair<string, string>>();
+                if (parameters != null) pairs.AddRange(parameters);
+                pairs.Add(new("timestamp", NowMs().ToString(CultureInfo.InvariantCulture)));
+                pairs.Add(new("recvWindow", "5000"));
 
-            using var request = new HttpRequestMessage(method, url);
-            request.Headers.Add("X-MEXC-APIKEY", apiKey);
-            using var response = await _http.SendAsync(request).ConfigureAwait(false);
-            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string queryString = RestSigning.BuildQuery(pairs);
+                string signature = RestSigning.HmacSha256Hex(apiSecret, queryString);
+                string url = $"{SpotBase}{path}?{queryString}&signature={signature}";
+
+                using var request = new HttpRequestMessage(method, url);
+                request.Headers.Add("X-MEXC-APIKEY", apiKey);
+                using var response = await _http.SendAsync(request).ConfigureAwait(false);
+                string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                // -700003 / -1021 is MEXC saying our timestamp is outside recvWindow. Re-sync
+                // against server time and sign once more; retrying without re-syncing would
+                // reproduce the same bad timestamp.
+                if (attempt == 0
+                    && (body.Contains("-1021", StringComparison.Ordinal)
+                     || body.Contains("700003", StringComparison.Ordinal)))
+                {
+                    await EnsureClockSyncedAsync(force: true).ConfigureAwait(false);
+                    continue;
+                }
+
+                return body;
+            }
         }
 
         // ── Futures ──────────────────────────────────────────────────────────
@@ -68,6 +141,8 @@ namespace AccessibleTrader.Plugins.Mexc
         public async Task<string> FuturesSignedAsync(HttpMethod method, string path, string apiKey, string apiSecret,
             IReadOnlyDictionary<string, string>? query = null, string? jsonBody = null)
         {
+            await EnsureClockSyncedAsync().ConfigureAwait(false);
+
             string reqTime = NowMs().ToString(CultureInfo.InvariantCulture);
             string paramString = jsonBody
                 ?? (query != null && query.Count > 0

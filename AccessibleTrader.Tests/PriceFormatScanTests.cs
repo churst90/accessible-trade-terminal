@@ -165,6 +165,40 @@ namespace AccessibleTrader.Tests
                 @"\b(var|double|decimal)\s+\w+\s*=\s*signal\.(Price|StopLoss|TakeProfit|TriggerPrice|Quantity)(\.Value)?\s*;",
                 RegexOptions.Compiled);
 
+            // The 2026-08-26 HIGH pass found the guard's OTHER half missing. The rule is
+            // "full precision AND invariant culture", and only the culture half was ever
+            // checked — so `signal.Price.Value.ToString("0.##", CultureInfo.InvariantCulture)`
+            // was green on all four SchwabProvider call sites while rounding every order price
+            // to two decimals. Schwab lists sub-dollar equities quoting in $0.0001 increments
+            // under Reg NMS 612, so a limit at 0.4567 went to the venue at 0.46 — 2% away from
+            // the level chosen — and anything under half a cent became "0.00".
+            //
+            // The line is drawn at eight fractional digits, not at "any format string". 1e-8 is
+            // the smallest unit any venue in this fleet quotes (one satoshi), so Kraken's and
+            // Coinbase's deliberate "F8" is lossless for every price and size those APIs accept
+            // and is left alone. Anything coarser than that rounds away a level the user
+            // actually chose. Rounding an order price is the venue's job regardless: it knows
+            // the instrument's tick size and we do not.
+            const int LosslessFractionDigits = 8;
+
+            static int? FractionDigitsOf(string formatArgs)
+            {
+                // Standard numeric format: F8, N2, f4 — digits default to 2 when omitted.
+                var std = Regex.Match(formatArgs, @"""[FfNn](\d*)""");
+                if (std.Success)
+                    return std.Groups[1].Value.Length == 0 ? 2 : int.Parse(std.Groups[1].Value);
+
+                // Custom numeric format: "0.##", "0.0000", "#,##0.00" — count the placeholders
+                // after the decimal point.
+                var custom = Regex.Match(formatArgs, @"""[0#][0#,]*\.([0#]+)""");
+                if (custom.Success) return custom.Groups[1].Value.Length;
+
+                // Custom format with no decimal point at all ("0", "#,##0") is zero digits.
+                if (Regex.IsMatch(formatArgs, @"""[0#][0#,]*""")) return 0;
+
+                return null; // no format string — full precision
+            }
+
             foreach (var file in SourceFiles().Where(f => f.Contains("Plugins", StringComparison.Ordinal)))
             {
                 var lines = File.ReadAllLines(file);
@@ -172,8 +206,14 @@ namespace AccessibleTrader.Tests
                 {
                     bool offends = false;
                     foreach (Match m in suspicious.Matches(lines[i]))
-                        if (!m.Groups[4].Value.Contains("InvariantCulture", StringComparison.Ordinal))
+                    {
+                        var args = m.Groups[4].Value;
+                        if (!args.Contains("InvariantCulture", StringComparison.Ordinal))
                             offends = true;
+                        // ...and the culture being right does not make the precision right.
+                        if (FractionDigitsOf(args) is int digits && digits < LosslessFractionDigits)
+                            offends = true;
+                    }
                     if (interpolated.IsMatch(lines[i])
                         && !lines[i].Contains("Invariant", StringComparison.Ordinal))
                         offends = true;

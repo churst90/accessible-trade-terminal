@@ -139,7 +139,8 @@ namespace AccessibleTrader.Plugins.Fmp
                     ? (true, "FMP Analytics API key validated.")
                     : (false, $"Validation failed: HTTP {(int)response.StatusCode}");
             }
-            catch (Exception ex) { return (false, $"Validation error: {ex.Message}"); }
+            // ?apikey=KEY on every request; HttpRequestException messages carry the URI.
+            catch (Exception ex) { return (false, $"Validation error: {ex.GetType().Name}"); }
         }
 
         public override Task EnsureConnectedAsync()
@@ -509,7 +510,7 @@ namespace AccessibleTrader.Plugins.Fmp
             }
             catch (Exception ex)
             {
-                _errorStream.OnNext($"FMP Analytics request error: {ex.Message}");
+                _errorStream.OnNext($"FMP Analytics request error: {ex.GetType().Name}");
                 return null;
             }
         }

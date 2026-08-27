@@ -21,6 +21,19 @@ namespace AccessibleTrader.Tests
     [Collection("ProviderCredentialBridge")]
     public class OcoPairTests
     {
+
+        /// <summary>
+        /// The one venue call this operation is about.
+        ///
+        /// <para>Binance and MEXC now probe <c>/api/v3/time</c> before signing, so that a
+        /// desktop with a drifted clock does not have every signed call rejected with
+        /// <c>-1021</c>. That probe is captured like any other request, so a bare
+        /// <c>Captured.Single()</c> would now see two. Excluding it keeps what these
+        /// assertions were always for: exactly ONE order left the process.</para>
+        /// </summary>
+        private static HttpRequestMessage OnlyVenueCall(FakeHttpMessageHandler h) =>
+            h.Captured.Single(r =>
+                !r.RequestUri!.AbsolutePath.EndsWith("/api/v3/time", StringComparison.Ordinal));
         // ── Order-service routing ────────────────────────────────────────────
 
         private sealed record Harness(GeneralOrderService Svc, ITradingProvider LiveTp,
@@ -183,7 +196,7 @@ namespace AccessibleTrader.Tests
             string result = await provider.PlaceOcoPairAsync("BTC/USDT", OrderSide.Sell, 0.5, 110000, 95000);
 
             Assert.Equal("4276", result);
-            string url = handler.Captured.Single().RequestUri!.ToString();
+            string url = OnlyVenueCall(handler).RequestUri!.ToString();
             Assert.Contains("symbol=BTCUSDT", url);
             Assert.Contains("side=SELL", url);
             Assert.Contains("aboveType=LIMIT_MAKER", url);
@@ -202,7 +215,7 @@ namespace AccessibleTrader.Tests
 
             await provider.PlaceOcoPairAsync("ETH/USDT", OrderSide.Buy, 1.0, 3000, 3500);
 
-            string url = handler.Captured.Single().RequestUri!.ToString();
+            string url = OnlyVenueCall(handler).RequestUri!.ToString();
             Assert.Contains("side=BUY", url);
             Assert.Contains("aboveType=STOP_LOSS", url);
             Assert.Contains("aboveStopPrice=3500", url);

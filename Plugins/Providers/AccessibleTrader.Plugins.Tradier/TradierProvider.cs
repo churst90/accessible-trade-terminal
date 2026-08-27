@@ -288,6 +288,13 @@ namespace AccessibleTrader.Plugins.Tradier
             _ = Task.Run(() => StreamEventsAsync(symbol, _streamCts.Token));
         }
 
+        /// <summary>
+        /// How long the SSE read may block with nothing arriving before the connection is
+        /// treated as dead. Matches <c>LiveStreamManager.SilenceThreshold</c> so the provider
+        /// watchdog and the app-level one agree on what "quiet" means.
+        /// </summary>
+        internal const int StreamSilenceSeconds = 60;
+
         private async Task StreamEventsAsync(string symbol, CancellationToken ct)
         {
             int retryCount = 0;
@@ -328,7 +335,42 @@ namespace AccessibleTrader.Plugins.Tradier
                     // Step 3: Read line by line
                     while (!ct.IsCancellationRequested)
                     {
-                        var line = await reader.ReadLineAsync(ct);
+                        // The read carries an IDLE DEADLINE.
+                        //
+                        // _streamClient is built with Timeout.InfiniteTimeSpan, which is
+                        // correct for a long-lived SSE body but means ReadLineAsync had no
+                        // deadline of any kind. If the TCP connection was silently dropped —
+                        // NAT timeout, a sleeping laptop, a middlebox — the read never returned,
+                        // the outer reconnect loop never iterated, and the chart simply stopped
+                        // updating with NOTHING SPOKEN. This is the exact failure
+                        // ReconnectingWebSocket.MaxConsecutiveHeartbeatFailures exists to
+                        // catch; Tradier's data path is the one that did not get it.
+                        //
+                        // The subscription requests linebreak=true, so Tradier emits newlines
+                        // as keepalive even when nothing is trading. Those arrive as blank
+                        // lines and reset the deadline below, which is why a fixed deadline is
+                        // safe outside market hours. SilenceSeconds matches
+                        // LiveStreamManager.SilenceThreshold so the two watchdogs agree on
+                        // what "quiet" means.
+                        string? line;
+                        using (var idle = CancellationTokenSource.CreateLinkedTokenSource(ct))
+                        {
+                            idle.CancelAfter(TimeSpan.FromSeconds(StreamSilenceSeconds));
+                            try
+                            {
+                                line = await reader.ReadLineAsync(idle.Token);
+                            }
+                            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                            {
+                                // Half-open connection. Say so and reconnect, rather than
+                                // blocking here forever while the user watches a frozen chart.
+                                _errorStream.OnNext(
+                                    $"Tradier market stream went quiet for {StreamSilenceSeconds} seconds; reconnecting.");
+                                _connectionStateStream.OnNext(ConnectionState.Disconnected);
+                                break;
+                            }
+                        }
+
                         if (line == null) break; // Stream ended
                         if (string.IsNullOrWhiteSpace(line)) continue;
 
@@ -363,8 +405,24 @@ namespace AccessibleTrader.Plugins.Tradier
                                 }
                                 else
                                 {
-                                    _lastCandleStart = now;
-                                    _lastCandle = new Ohlcv(now, price, price, price, price, vol);
+                                    // Floor to the PERIOD BOUNDARY, not the wall clock.
+                                    //
+                                    // This used to seed `_lastCandleStart = now`, and the
+                                    // roll-forward above then advanced by exactly `interval`
+                                    // from that seed. A 5-minute subscription started at
+                                    // 10:03:47 emitted bars stamped 10:03:47, 10:08:47,
+                                    // 10:13:47 — none of which line up with the REST timesales
+                                    // bars at 10:00, 10:05, 10:10 that FetchIntradayAsync
+                                    // returns from the same provider. The live bar then never
+                                    // merged with the historical buffer; it appended as a
+                                    // phantom bar at the wrong timestamp and every indicator
+                                    // recomputed across it. This is the call that every other
+                                    // provider's keyed feeds already make via
+                                    // BarBucketConsolidator.
+                                    var start = TimeframeUtility.GetPeriodStart(
+                                        now, _currentTimeframe ?? "1h");
+                                    _lastCandleStart = start;
+                                    _lastCandle = new Ohlcv(start, price, price, price, price, vol);
                                 }
                                 _liveStream.OnNext(_lastCandle.Value);
                             }
@@ -630,15 +688,26 @@ namespace AccessibleTrader.Plugins.Tradier
                 if (positions == null || positions.Type == JTokenType.Null) return new List<Position>();
 
                 JArray items = positions is JArray arr ? arr : new JArray { positions };
-                return items.Select(p => new Position(
-                    p["symbol"]?.ToString() ?? "",
+                return items.Select(p =>
+                {
                     // Signed as the venue reports it (shorts are negative):
                     // consumers derive long/short from the sign.
-                    p["quantity"]?.Value<double>() ?? 0,
-                    p["cost_basis"]?.Value<double>() ?? 0,
-                    (p["quantity"]?.Value<double>() ?? 0) * (p["last_price"]?.Value<double>() ?? 0),
-                    0 // Tradier doesn't provide unrealized P&L directly in positions
-                )).ToList();
+                    double qty = p["quantity"]?.Value<double>() ?? 0;
+                    // Tradier's cost_basis is the TOTAL quote-currency cost of the position,
+                    // not the per-unit average that Position.AveragePrice is contracted to
+                    // carry — 100 shares of a $50 stock reports cost_basis 5000. This number
+                    // is spoken in the positions panel and feeds risk math, so it is divided
+                    // here. A zero quantity has no average price to report.
+                    double costBasis = p["cost_basis"]?.Value<double>() ?? 0;
+                    double avgPrice  = qty != 0 ? costBasis / Math.Abs(qty) : 0;
+                    return new Position(
+                        p["symbol"]?.ToString() ?? "",
+                        qty,
+                        avgPrice,
+                        qty * (p["last_price"]?.Value<double>() ?? 0),
+                        0 // Tradier doesn't provide unrealized P&L directly in positions
+                    );
+                }).ToList();
             });
         }
 
