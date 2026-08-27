@@ -16,7 +16,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Enumerates_only_users_with_saved_alerts_and_skips_anon()
         {
-            var root = Directory.CreateTempSubdirectory("att-hosted-").FullName;
+            var root = TestTemp.NewDir("att-hosted-");
             try
             {
                 void MakeUser(string key, bool withAlerts)

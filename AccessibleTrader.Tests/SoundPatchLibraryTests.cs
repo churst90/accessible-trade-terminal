@@ -15,7 +15,7 @@ public class SoundPatchLibraryTests : IDisposable
 
     public SoundPatchLibraryTests()
     {
-        _dir = Path.Combine(Path.GetTempPath(), "atc-patchlib-" + Guid.NewGuid().ToString("N"));
+        _dir = TestTemp.NewPath("atc-patchlib-");
         Directory.CreateDirectory(_dir);
         _lib = NewLibrary();
     }

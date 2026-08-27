@@ -36,8 +36,7 @@ namespace AccessibleTrader.Tests.WebHost
         {
             public EmptyPaths()
             {
-                AppDataDirectory = Path.Combine(Path.GetTempPath(), "at-webhost-shortcut-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(AppDataDirectory);
+                AppDataDirectory = TestTemp.NewDir("at-webhost-shortcut-");
                 CacheDirectory = AppDataDirectory;
             }
             public string AppDataDirectory { get; }

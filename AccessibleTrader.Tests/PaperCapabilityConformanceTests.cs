@@ -37,7 +37,7 @@ namespace AccessibleTrader.Tests
 
         public PaperCapabilityConformanceTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-paper-conf-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-paper-conf-");
             Directory.CreateDirectory(_tempDir);
         }
 

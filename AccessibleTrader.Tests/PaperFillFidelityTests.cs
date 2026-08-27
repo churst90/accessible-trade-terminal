@@ -23,7 +23,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public sealed class PaperFillFidelityTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-paper-fidelity-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-paper-fidelity-");
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { /* temp */ } }
 
         private PaperTradingProvider Make(out MockWorkspaceStore store, IDataService? data = null,
@@ -290,7 +290,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task ThePlacementStampSurvives_ARestart()
         {
-            var dir = Directory.CreateTempSubdirectory("att-paper-restart-").FullName;
+            var dir = TestTemp.NewDir("att-paper-restart-");
             try
             {
                 var formingBar = Bar(100, 106, 99, 105);

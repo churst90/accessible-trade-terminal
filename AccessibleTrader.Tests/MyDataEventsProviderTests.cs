@@ -15,7 +15,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class MyDataEventsProviderTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-mydata-ev-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-mydata-ev-");
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { } }
 
         private sealed class TempPaths : IPlatformPathService

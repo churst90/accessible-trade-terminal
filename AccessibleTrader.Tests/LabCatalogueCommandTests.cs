@@ -19,7 +19,7 @@ namespace AccessibleTrader.Tests
 
         public LabCatalogueCommandTests()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "att-catalogue-cli-" + Guid.NewGuid().ToString("N"));
+            _dir = TestTemp.NewPath("att-catalogue-cli-");
             Directory.CreateDirectory(_dir);
             _stdout = Console.Out;
             _stderr = Console.Error;

@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
 
         public SettingsManagerTests()
         {
-            _dir = Directory.CreateTempSubdirectory("att-settings-tests-").FullName;
+            _dir = TestTemp.NewDir("att-settings-tests-");
             _paths = new TempPathService(_dir);
         }
 

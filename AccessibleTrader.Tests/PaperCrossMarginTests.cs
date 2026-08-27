@@ -43,7 +43,7 @@ namespace AccessibleTrader.Tests
 
         public PaperCrossMarginTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-cross-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-cross-");
             Directory.CreateDirectory(_tempDir);
         }
 

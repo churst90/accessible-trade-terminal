@@ -23,7 +23,7 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class GdeltRecorderTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "gdelt-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TestTemp.NewPath("gdelt-");
 
     public GdeltRecorderTests() => Directory.CreateDirectory(_dir);
     public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }

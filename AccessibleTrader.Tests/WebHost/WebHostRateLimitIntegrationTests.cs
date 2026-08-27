@@ -12,7 +12,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// </summary>
 public sealed class WebHostRateLimitIntegrationTests : IDisposable
 {
-    private readonly string _dataRoot = Directory.CreateTempSubdirectory("att-ratelimit-int-").FullName;
+    private readonly string _dataRoot = TestTemp.NewDir("att-ratelimit-int-");
     private readonly Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<WebHostDemoMode> _factory;
 
     public WebHostRateLimitIntegrationTests()

@@ -12,7 +12,7 @@ namespace AccessibleTrader.Tests
     {
         public TempWorkspacePaths()
         {
-            AppDataDirectory = Directory.CreateTempSubdirectory("att-paths-").FullName;
+            AppDataDirectory = TestTemp.NewDir("att-paths-");
             CacheDirectory = Path.Combine(AppDataDirectory, "cache");
             Directory.CreateDirectory(CacheDirectory);
         }

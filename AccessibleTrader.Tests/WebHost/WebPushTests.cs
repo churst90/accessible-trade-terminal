@@ -29,7 +29,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Keys_persist_across_service_instances()
         {
-            var root = Directory.CreateTempSubdirectory("att-vapid-").FullName;
+            var root = TestTemp.NewDir("att-vapid-");
             try
             {
                 var first = new VapidKeyService(root, NullLogger<VapidKeyService>.Instance);
@@ -55,7 +55,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Add_dedupes_by_endpoint_and_isolates_users()
         {
-            var root = Directory.CreateTempSubdirectory("att-push-").FullName;
+            var root = TestTemp.NewDir("att-push-");
             try
             {
                 var store = new PushSubscriptionStore(root, NullLogger<PushSubscriptionStore>.Instance);
@@ -75,7 +75,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Malformed_subscriptions_are_rejected()
         {
-            var root = Directory.CreateTempSubdirectory("att-push-").FullName;
+            var root = TestTemp.NewDir("att-push-");
             try
             {
                 var store = new PushSubscriptionStore(root, NullLogger<PushSubscriptionStore>.Instance);
@@ -94,7 +94,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Remove_prunes_one_endpoint_and_persists()
         {
-            var root = Directory.CreateTempSubdirectory("att-push-").FullName;
+            var root = TestTemp.NewDir("att-push-");
             try
             {
                 var store = new PushSubscriptionStore(root, NullLogger<PushSubscriptionStore>.Instance);
@@ -112,7 +112,7 @@ namespace AccessibleTrader.Tests.WebHost
         [Fact]
         public void Subscriptions_cap_sheds_the_oldest()
         {
-            var root = Directory.CreateTempSubdirectory("att-push-").FullName;
+            var root = TestTemp.NewDir("att-push-");
             try
             {
                 var store = new PushSubscriptionStore(root, NullLogger<PushSubscriptionStore>.Instance);

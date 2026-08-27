@@ -17,7 +17,7 @@ namespace AccessibleTrader.Tests;
 /// </summary>
 public class UniverseRecorderTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "uni-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = TestTemp.NewPath("uni-");
 
     public UniverseRecorderTests() => Directory.CreateDirectory(_dir);
     public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }
@@ -162,7 +162,7 @@ public class UniverseRecorderTests : IDisposable
     [Fact]
     public void AnAbsolutePathIsLeftAlone()
     {
-        string abs = Path.Combine(Path.GetTempPath(), "explicit-archive");
+        string abs = TestTemp.NewPath("explicit-archive-");
         Assert.Equal(abs, UniverseRecorderCommand.Anchor(abs));
     }
 

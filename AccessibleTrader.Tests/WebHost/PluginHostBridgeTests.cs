@@ -42,7 +42,7 @@ namespace AccessibleTrader.Tests.WebHost
 
         private static string TempRoot()
         {
-            string dir = Path.Combine(Path.GetTempPath(), "at-bridge-" + Guid.NewGuid().ToString("N"));
+            string dir = TestTemp.NewPath("at-bridge-");
             Directory.CreateDirectory(dir);
             return dir;
         }

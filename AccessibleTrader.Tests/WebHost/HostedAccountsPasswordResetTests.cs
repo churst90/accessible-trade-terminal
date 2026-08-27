@@ -21,7 +21,7 @@ public class HostedAccountsPasswordResetTests : IDisposable
 
     public HostedAccountsPasswordResetTests()
     {
-        _dataRoot = Directory.CreateTempSubdirectory("att-reset-tests-").FullName;
+        _dataRoot = TestTemp.NewDir("att-reset-tests-");
         var services = new ServiceCollection();
         services.AddLogging();
         // AddHostedAccounts assumes the host already registered DataProtection

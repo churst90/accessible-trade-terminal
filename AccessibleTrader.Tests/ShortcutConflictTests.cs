@@ -31,8 +31,7 @@ namespace AccessibleTrader.Tests
         {
             public EmptyPaths()
             {
-                AppDataDirectory = Path.Combine(Path.GetTempPath(), "at-shortcut-tests-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(AppDataDirectory);
+                AppDataDirectory = TestTemp.NewDir("at-shortcut-tests-");
                 CacheDirectory = AppDataDirectory;
             }
             public string AppDataDirectory { get; }

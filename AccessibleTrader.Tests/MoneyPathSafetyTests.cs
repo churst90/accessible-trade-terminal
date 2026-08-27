@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public sealed class MoneyPathSafetyTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-moneypath-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-moneypath-");
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { /* temp */ } }
 
         // ── Close position must be reduce-only ───────────────────────────────

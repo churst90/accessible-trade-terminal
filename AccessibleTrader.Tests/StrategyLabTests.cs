@@ -122,7 +122,7 @@ namespace AccessibleTrader.Tests
             Assert.Equal("cftc:gold_cot:1w", snap.CacheKey);
             Assert.EndsWith(Path.Combine("dir", "xs_cftc_gold_cot_1w.json"), snap.FilePath("dir"));
 
-            string dir = Path.Combine(Path.GetTempPath(), "at-lab-test-" + Guid.NewGuid().ToString("N"));
+            string dir = TestTemp.NewPath("at-lab-test-");
             Directory.CreateDirectory(dir);
             try
             {

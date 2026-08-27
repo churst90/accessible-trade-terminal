@@ -15,7 +15,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class MyDataSeriesProviderTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-mydata-sr-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-mydata-sr-");
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { } }
 
         private sealed class TempPaths : IPlatformPathService

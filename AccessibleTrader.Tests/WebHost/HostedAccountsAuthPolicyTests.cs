@@ -24,7 +24,7 @@ public class HostedAccountsAuthPolicyTests : IDisposable
 
     public HostedAccountsAuthPolicyTests()
     {
-        _dataRoot = Directory.CreateTempSubdirectory("att-auth-tests-").FullName;
+        _dataRoot = TestTemp.NewDir("att-auth-tests-");
         var services = new ServiceCollection();
         // AddHostedAccounts assumes the host already registered DataProtection
         // (Program.cs does); an ephemeral provider keeps the test off the real key ring.
@@ -108,7 +108,7 @@ public class HostedAccountsAuthPolicyTests : IDisposable
         // validates every descriptor, and a leftover Singleton path service would be
         // a captive dependency / wrong-user data path. Pin: exactly one descriptor,
         // Scoped (per-circuit = per-authenticated-user).
-        var root = Directory.CreateTempSubdirectory("att-auth-di-").FullName;
+        var root = TestTemp.NewDir("att-auth-di-");
         try
         {
             var s = new ServiceCollection()

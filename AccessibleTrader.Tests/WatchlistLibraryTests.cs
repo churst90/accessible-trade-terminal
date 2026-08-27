@@ -25,7 +25,7 @@ namespace AccessibleTrader.Tests
 
         public WatchlistLibraryTests()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "at-watchlist-tests-" + Guid.NewGuid().ToString("N"));
+            _dir = TestTemp.NewPath("at-watchlist-tests-");
             Directory.CreateDirectory(_dir);
             _paths = new TempPaths(_dir);
         }

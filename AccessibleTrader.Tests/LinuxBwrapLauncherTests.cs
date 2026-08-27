@@ -58,8 +58,7 @@ public class LinuxBwrapLauncherTests
 
     private static string CreateFakeWorkerFile()
     {
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
-            $"at-fake-worker-{System.Guid.NewGuid():N}");
+        var path = TestTemp.NewPath("at-fake-worker-");
         System.IO.File.WriteAllText(path, "");
         return path;
     }

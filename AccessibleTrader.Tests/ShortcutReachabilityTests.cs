@@ -42,10 +42,8 @@ public class ShortcutReachabilityTests
 {
     private sealed class TempPaths : IPlatformPathService
     {
-        public string AppDataDirectory { get; } =
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "att-shortcut-" + Guid.NewGuid().ToString("N"));
+        public string AppDataDirectory { get; } = TestTemp.NewDir("att-shortcut-");
         public string CacheDirectory => AppDataDirectory;
-        public TempPaths() => System.IO.Directory.CreateDirectory(AppDataDirectory);
     }
 
     private static ShortcutManager Fresh() => new(new TempPaths());

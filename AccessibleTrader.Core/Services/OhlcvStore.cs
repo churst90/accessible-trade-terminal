@@ -61,6 +61,13 @@ namespace AccessibleTrader.Core.Services
         private readonly SemaphoreSlim _writeLock = new(1, 1);
         private int _schemaReady;
 
+        // "Now" as the forming-bar filter sees it. A seam rather than a direct
+        // UtcNow call because the filter's month handling is only WRONG on one
+        // calendar day in a 31-day month — a test tied to the real clock would
+        // pass 30 days out of 31 for no reason of its own. Production never
+        // assigns it.
+        internal Func<DateTimeOffset> UtcNow = () => DateTimeOffset.UtcNow;
+
         public OhlcvStore(IDbContextFactory<AppDbContext> factory, ILogger<OhlcvStore> logger)
         {
             _factory = factory;
@@ -124,8 +131,15 @@ namespace AccessibleTrader.Core.Services
             if (barMs <= 0) return;
 
             // Drop the forming bar: its close, high, low and volume are all still moving.
-            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var closed = bars.Where(b => ToMs(b.Date) + barMs <= nowMs).ToList();
+            //
+            // Via GetPeriodEnd, not `stamp + barMs`: ToMilliseconds approximates "1M"
+            // as 30 days, so the arithmetic version called a 31-day month closed a day
+            // early and persisted a PARTIAL monthly bar — and because the write below
+            // is a dedup that only ever inserts, that partial bar was then permanent
+            // for that series. A month whose true close, high, low and volume were
+            // all a day short, served back from the store forever.
+            long nowMs = UtcNow().ToUnixTimeMilliseconds();
+            var closed = bars.Where(b => ToMs(TimeframeUtility.GetPeriodEnd(b.Date, timeframe)) <= nowMs).ToList();
             if (closed.Count == 0) return;
 
             await _writeLock.WaitAsync(ct).ConfigureAwait(false);
@@ -139,30 +153,55 @@ namespace AccessibleTrader.Core.Services
                     .Where(e => e.Market == market && e.Provider == provider
                              && e.Symbol == symbol && e.Timeframe == timeframe
                              && stamps.Contains(e.Timestamp))
-                    .Select(e => e.Timestamp)
                     .ToListAsync(ct)
                     .ConfigureAwait(false);
 
-                var known = new HashSet<long>(existing);
-                var fresh = closed
-                    .Where(b => known.Add(ToMs(b.Date)))   // also de-dupes within `closed` itself
-                    .Select(b => new OhlcvEntity
+                var byStamp = existing.ToDictionary(e => e.Timestamp);
+                var seen = new HashSet<long>();
+                var fresh = new List<OhlcvEntity>();
+                int corrected = 0;
+
+                foreach (var b in closed)
+                {
+                    long stamp = ToMs(b.Date);
+                    if (!seen.Add(stamp)) continue;   // de-dupe within `closed` itself
+
+                    if (byStamp.TryGetValue(stamp, out var row))
+                    {
+                        // A timestamp we already hold. This used to be skipped outright,
+                        // which made the FIRST value ever written permanent — so a bar
+                        // stored while it was still forming, or one the venue later
+                        // revised (consolidated trades, a corrected print), could never
+                        // be healed by a re-fetch. Take the newer values; the forming
+                        // filter above means anything reaching here is a closed period,
+                        // and a closed period re-fetched is the authoritative version.
+                        if (row.Open == b.Open && row.High == b.High && row.Low == b.Low
+                            && row.Close == b.Close && row.Volume == b.Volume)
+                            continue;
+
+                        row.Open = b.Open; row.High = b.High; row.Low = b.Low;
+                        row.Close = b.Close; row.Volume = b.Volume;
+                        corrected++;
+                        continue;
+                    }
+
+                    fresh.Add(new OhlcvEntity
                     {
                         Market = market, Provider = provider, Symbol = symbol, Timeframe = timeframe,
-                        Timestamp = ToMs(b.Date),
+                        Timestamp = stamp,
                         Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume
-                    })
-                    .ToList();
+                    });
+                }
 
-                if (fresh.Count == 0) return;
+                if (fresh.Count == 0 && corrected == 0) return;
 
                 db.OhlcvData.AddRange(fresh);
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
                 await TrimAsync(db, market, provider, symbol, timeframe, ct).ConfigureAwait(false);
 
-                _logger.LogDebug("OHLCV store: saved {Count} bars for {Provider} {Symbol} {Timeframe}.",
-                    fresh.Count, provider, symbol, timeframe);
+                _logger.LogDebug("OHLCV store: saved {Count} bars ({Corrected} corrected) for {Provider} {Symbol} {Timeframe}.",
+                    fresh.Count, corrected, provider, symbol, timeframe);
             }
             catch (Exception ex)
             {

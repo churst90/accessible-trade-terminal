@@ -23,7 +23,7 @@ public class HostedAccountsTwoFactorTests : IDisposable
 
     public HostedAccountsTwoFactorTests()
     {
-        _dataRoot = Directory.CreateTempSubdirectory("att-2fa-tests-").FullName;
+        _dataRoot = TestTemp.NewDir("att-2fa-tests-");
         var services = new ServiceCollection();
         services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         services.AddHostedAccounts(_dataRoot);

@@ -24,7 +24,7 @@ namespace AccessibleTrader.Tests
 
         public PersistenceHardeningTests()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "atc-persist-tests-" + Guid.NewGuid().ToString("N"));
+            _dir = TestTemp.NewPath("atc-persist-tests-");
             Directory.CreateDirectory(_dir);
         }
 

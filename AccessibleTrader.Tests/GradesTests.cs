@@ -60,7 +60,7 @@ public class GradesTests
     [Fact]
     public void TheEquityUniverseExcludesFunds()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "grades-" + Guid.NewGuid().ToString("N"));
+        string dir = TestTemp.NewPath("grades-");
         Directory.CreateDirectory(dir);
         try
         {
@@ -81,5 +81,5 @@ public class GradesTests
 
     [Fact]
     public void AMissingSnapshotDirectoryYieldsAnEmptyUniverseRatherThanThrowing()
-        => Assert.Empty(GradesCommand.EquityUniverse(Path.Combine(Path.GetTempPath(), "does-not-exist-" + Guid.NewGuid())));
+        => Assert.Empty(GradesCommand.EquityUniverse(TestTemp.NewPath("does-not-exist-")));
 }

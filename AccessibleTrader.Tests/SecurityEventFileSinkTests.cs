@@ -16,7 +16,7 @@ namespace AccessibleTrader.Tests
 
         public SecurityEventFileSinkTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "AccessibleTrader.Tests.SecurityEventFileSinkTests." + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("AccessibleTrader.Tests.SecurityEventFileSinkTests.");
         }
 
         public void Dispose()

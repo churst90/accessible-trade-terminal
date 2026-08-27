@@ -27,7 +27,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// </summary>
 public sealed class WebHostLockoutIntegrationTests : IDisposable
 {
-    private readonly string _dataRoot = Directory.CreateTempSubdirectory("att-lockout-int-").FullName;
+    private readonly string _dataRoot = TestTemp.NewDir("att-lockout-int-");
     private readonly Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<WebHostDemoMode> _factory;
 
     public WebHostLockoutIntegrationTests()

@@ -27,7 +27,7 @@ public class ApiKeyServiceTests
     }
 
     private static string TempLegacyPath()
-        => Path.Combine(Path.GetTempPath(), $"at-apikeys-test-{Guid.NewGuid():N}.json");
+        => TestTemp.NewPath("at-apikeys-test-") + ".json";
 
     private static ApiKeyService NewService(InMemorySecureStorage storage, string? legacyPath = null)
         => new(NullLogger<ApiKeyService>.Instance, storage, legacyPath ?? TempLegacyPath());

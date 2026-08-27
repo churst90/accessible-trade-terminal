@@ -138,17 +138,29 @@ swept over 27 providers), F10 (EMA/SMA warmup), the LOW self-referential mouse e
 subscriber fault isolation (→ found an order reporting failure while the position was open).
 Suite 4,930 → **5,049**, green in both configs.
 
+**2026-08-26, second block — items 1–4 are closed.** Two were written and both found production
+defects (see "Live-stream watchdog and the mid-bar reconnect" and "OhlcvStore: months and
+corrections" below); **two were already done and the list did not know.** That is now five
+recount hits in two sessions on this one list, so the standing instruction is not optional:
+**grep before you write, and expect roughly a third of what remains to be already closed.**
+
 **Still open from the tests-that-should-exist list, in the order they are worth taking:**
 
-1. **`LiveStreamManager`'s watchdog** — no tests at all: the connected-but-quiet branch,
-   `MaxReconnectAttempts`, `AttemptReconnectAsync`, and the consolidator reset that corrupts the
-   in-progress bar. Check `MarketFeedWatchdogTests` first for overlap.
-2. **The focused pump delivering a tick for a different identity** — the list says *"fails today"*,
-   so treat it as a bug report with a test attached, not as a test.
-3. **`OhlcvStore` monthly timeframes and insert-only dedup** — the same persistence path the
-   resampler bug was writing into.
-4. **`DataOrchestratorResilienceTests`' hand-copied `Transition` switch** — it pins a transcript of
-   the production code and passes while `LiveStreaming` is unreachable.
+1. ~~`LiveStreamManager`'s watchdog~~ — **DONE 2026-08-26.** `LiveStreamWatchdogTests`, 10 cases,
+   8 sabotages. Found and fixed the mid-bar reconnect defect that was already filed separately.
+2. ~~The focused pump delivering a tick for a different identity~~ — **ALREADY CLOSED, recount
+   2026-08-26.** `PipelineIdentityAndResilienceTests.Focused_pump_drops_a_tick_belonging_to_the_
+   symbol_that_just_lost_focus` does exactly what the item asks, and `MarketFeedHub`'s pump has
+   carried the identity comparison since the LiveTick work. The *"fails today"* note predates the fix.
+3. ~~`OhlcvStore` monthly timeframes and insert-only dedup~~ — **DONE 2026-08-26**, 14 new cases,
+   5 sabotages, and both halves turned out to be live defects rather than untested behaviour.
+4. ~~`DataOrchestratorResilienceTests`' hand-copied `Transition` switch~~ — **ALREADY CLOSED,
+   recount 2026-08-26.** The file now drives a real `DataOrchestrator` through its public surface;
+   the hand-copied breaker dictionary and `Transition` switch are gone, `InState` reaches every
+   state through the real API (`LiveStreaming` included, via `StartLiveStreamAsync`), and
+   `Every_reachable_state_is_actually_reachable` is a theory over a `ReachableStates` array so a
+   quietly-dropped entry cannot make the sweep vacuous. The item's own complaint about
+   `Stalled`/`NetworkLagged` survives as a named, deliberately-documented unreachable case.
 5. **Audio**: one `Speak` per keypress on a crowded bar; `EarconType` enumerated the way
    `FeedbackType` already is; mute as a theory over every `ComponentDisplayType`; Heikin-Ashi
    component speech; `PlayNote` slots 26–31; Chart-scope output headroom.
@@ -1178,6 +1190,103 @@ dropping `Reason` from `FormatFill` (1 red).
 Suite 4,880 in Debug, +49. The Suggestion-mode item filed under A1 said "fix belongs with B1" —
 **it does not, and it stays open**: whether Suggestion mode announces and offers a confirm is a
 mode-design decision, not part of the result vocabulary.
+
+---
+
+## Live-stream watchdog and the mid-bar reconnect (2026-08-26)
+
+Item 1 of the tests-that-should-exist list. `LiveStreamManager`'s silence watchdog — the safety net
+for the FOCUSED feed — had no tests at all, while its keyed/background counterpart in
+`MarketFeedHub` had six. The gap mattered because the two are not symmetric: the focused watchdog
+is the one that decides whether to *reconnect*, and getting that decision wrong in either direction
+is bad. Reconnect a healthy-but-sparse socket and it loops forever; fail to reconnect a dropped one
+and a blind trader is reading a chart that stopped moving with nothing to say so.
+
+**The seam, mirroring `MarketFeedHub` exactly.** The watchdog was a 60-line loop body inside a
+`SafeFireAndForget` with a 15-second `Task.Delay` in it, which is untestable without waiting. Split
+into `EvaluateSilence` (pure: silent-ms, connection state, announced, attempts → action) and
+`RunWatchdogSweepAsync` (one iteration, no wait, returns the action so the loop can stop on
+`GiveUp`), plus `BackdateLastTickForTest`. The thresholds became `internal` fields. The driving loop
+is now four lines.
+
+**`LiveStreamWatchdogTests`, 10 cases, and 8 sabotages that each turn the right one red:**
+the consolidator rebuilt on reconnect, the quiet branch removed, the budget off by one, a tick not
+resetting the attempt count, a tick not clearing the announcement, the give-up announced every
+sweep, the reconnect not resubscribing, and the consolidator never rebuilt at all.
+
+**The defect it found was already filed and had sat open: the mid-bar reconnect.** A watchdog
+reconnect built a fresh `BarBucketConsolidator`, so for a `TradeDeltas` provider the first tick after
+a reconnect became the bar's Open, High and Low collapsed to the post-reconnect range, and Volume
+counted only the trades since. Reconnect at minute 45 of an hourly bar and the chart's last candle is
+a fifteen-minute one wearing the hour's timestamp — read aloud, sonified by direction, and traded
+from. Fixed by carrying the consolidator across a reconnect while still rebuilding it when the
+timeframe or the provider's tick style changes. Both directions are pinned, because "never rebuild"
+would have been the wrong fix.
+
+**Trap for next time.** `ChartIdentity` is compared by value in the pump, so a test that pushes a
+tick after a reconnect proves nothing unless it also checks the identity stamped on it — a reconnect
+that silently failed to resubscribe would leave the preservation assertions reading a bar nothing
+downstream would ever route. `A_post_reconnect_tick_keeps_the_subscription_identity` is the guard.
+
+---
+
+## OhlcvStore: months and corrections (2026-08-26)
+
+Item 3 of the same list, and the TODO filed it as "no test asserts either behaviour". Both turned
+out to be live defects, and they compounded into a permanent one.
+
+**`"1M"` is 30 days to `TimeframeUtility.ToMilliseconds`.** `SaveAsync`'s forming-bar filter asked
+`stamp + barMs <= now`, so on 31 January the still-forming January bar looked closed and was written
+to disk — a month missing its final day of close, high, low and volume. The same approximation held
+a genuinely finished February back for two days in the other direction. Fixed with a new
+`TimeframeUtility.GetPeriodEnd(periodStart, timeframe)` that walks the calendar for months
+(`AddMonths`) and uses the exact fixed interval for everything else, since for m/h/d/w it *is* exact.
+
+**And the dedup only ever inserted**, skipping any timestamp already present. So the first value ever
+written for a bar was permanent for that series: a bar stored while it was still forming, or one the
+venue later revised, could never be healed by a re-fetch. Combined with the month bug, a wrong
+January was wrong forever. `SaveAsync` now updates a stored row whose values differ, and skips the
+write entirely when they match. The forming filter still runs first, so a still-forming bar cannot
+use the correction path as a back door — that has its own test.
+
+**14 new cases in `OhlcvStoreTests`, 5 sabotages.** Restoring the arithmetic filter, the insert-only
+dedup, `GetPeriodEnd` without its month branch, no forming filter at all, and a correction that
+updates the whole series each turn the expected tests red.
+
+**Trap.** The month defect is only observable on ONE calendar day in a 31-day month, so a test
+against the real clock would pass 30 days out of 31 for no reason of its own. `OhlcvStore` got an
+`internal Func<DateTimeOffset> UtcNow` seam. Second trap: `SaveAsync` returns before
+`EnsureSchemaAsync` when nothing survives the forming filter, so asserting "the table is empty"
+throws *no such table* — the forming-bar cases have to save a genuinely closed bar alongside.
+
+---
+
+## The test suite was leaking ~8,000 temp directories (2026-08-26)
+
+Found by clearing `/tmp` on the dev box at the start of the session: it held 7.7 GB and 25,833
+entries, of which **3,789 `att-shortcut-*`, 1,084 `at-webhost-shortcut-*`, 1,080 `att-paths-*`,
+1,080 `at-shortcut-tests-*`** and several hundred more were directories this test suite had created
+and never removed. Every one is an `IPlatformPathService` fake rooted in a fresh
+`Path.GetTempPath()` subdirectory; six of the classes that build one had no cleanup at all, and the
+rest cleaned up only when they were not killed mid-run. `/tmp` here is an 8 GB tmpfs, so on this
+machine that is a slow leak of real memory; on CI it is runner disk.
+
+Fixed with `TestTemp` — one run-scoped root under the system temp path, deleted on `ProcessExit`,
+with `NewDir` (created) and `NewPath` (not created, for callers asserting on an absent path). All 64
+call sites across 53 files now go through it. A killed run leaves one obviously-named directory
+instead of hundreds of anonymous ones.
+
+**The durable half is `TestTempScanTests`**, which fails if any file in the test project mentions
+`GetTempPath` or `CreateTempSubdirectory` outside `TestTemp.cs` — the reason there were 64 sites is
+that nothing ever said no. It carries its own vacuity check, because a source scan that finds no
+files reports zero offenders and passes.
+
+- [ ] **Backtest CSV exports also accumulate in the system temp path** — 474 of them here.
+  `StrategyBacktester.cs:713` writes `accessible-trader-backtest-<stamp>Z.csv` to
+  `Path.GetTempPath()` and nothing ever removes it. That is production behaviour, not a test leak,
+  and it may well be the right place to put a file the user is about to download — but nothing
+  prunes it, so a heavy StrategyLab user grows an unbounded pile. Decide: prune on startup, write
+  to the user's data directory, or leave it and say so.
 
 ---
 
@@ -5761,11 +5870,17 @@ guards carry an explicit vacuity check proving they do not simply drop everythin
   too, and `Faulted` is unreachable from the common failure path because of the swallow above.
   Blast radius is limited only because `CurrentState`/`StateChanged` have no consumers outside the
   class — which is itself worth knowing.
-- [ ] **A mid-bar reconnect overwrites the in-progress bar with a partial one.**
+- [x] **A mid-bar reconnect overwrites the in-progress bar with a partial one.**
   `LiveStreamManager:151` builds a fresh `BarBucketConsolidator` on every subscribe including every
   watchdog reconnect. For a `TradeDeltas` provider the new bucket starts empty, so the bar's Open
   becomes the reconnect price, High/Low collapse to the post-reconnect range, and Volume counts
   only trades since reconnect — then `ApplyLiveTick` `ReplaceLast`s the correct partial bar away.
+  **DONE 2026-08-26** — the consolidator is now a field that survives a reconnect;
+  `SubscribeToProvider` takes `resetConsolidator`, true only for a caller-initiated subscribe. It
+  still rebuilds if the timeframe or the provider's tick style changed, so a tab switch is unaffected.
+  Proven both ways: `A_mid_bar_reconnect_preserves_the_in_progress_bar` goes red with the old
+  rebuild restored, `Switching_timeframe_does_reset_the_bucket` goes red if the rebuild is removed
+  altogether.
 - [ ] **`AnalyticsDataResolver` ignores its `asset` parameter**, so requesting ETH returns BTC
   data. `Resolve(string metric, string? asset = null)` never reads `asset`, while the registry
   advertises `{ "BTC", "ETH" }` for `ACTIVE_ADDRESSES`, `TX_COUNT`, `FEES_TOTAL`, `FUNDING_RATE`
@@ -8279,12 +8394,14 @@ Ordered by value. Every one of these would have caught something above.
   starts, and a daily bucket does not move across the March DST change. Every expected number is
   hand-derived in the comment beside it, and the fixture is shaped so O, H, L and C each come from
   a *different* input bar — otherwise a swapped field is coincidentally right.
-- [ ] **`OhlcvStore` monthly timeframes** (where the forming filter is wrong) and the insert-only
+- [x] **`OhlcvStore` monthly timeframes** (where the forming filter is wrong) and the insert-only
   dedup (a re-fetch with *different* values for an existing timestamp — no test asserts either
-  behaviour).
-- [ ] **`LiveStreamManager`'s watchdog has no tests at all** — not the connected-but-quiet branch,
+  behaviour). **DONE 2026-08-26 — see "OhlcvStore: months and corrections" below. Both were live
+  defects, and they compounded: the month was stored a day early and then could never be corrected.**
+- [x] **`LiveStreamManager`'s watchdog has no tests at all** — not the connected-but-quiet branch,
   not `MaxReconnectAttempts`, not `AttemptReconnectAsync`, and not the consolidator reset that
-  corrupts the in-progress bar.
+  corrupts the in-progress bar. **DONE 2026-08-26 — see "Live-stream watchdog and the mid-bar
+  reconnect" below.**
 - [ ] **Replace `DataOrchestratorResilienceTests`' hand-copied `Transition` switch** with a test
   that drives a real `DataOrchestrator`. It currently pins a transcript of the production code and
   passes while `LiveStreaming` is unreachable and the breakers never fire.

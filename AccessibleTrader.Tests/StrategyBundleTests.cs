@@ -22,7 +22,7 @@ namespace AccessibleTrader.Tests
 
         public StrategyBundleTests()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "att-bundle-tests-" + Guid.NewGuid().ToString("N"));
+            _dir = TestTemp.NewPath("att-bundle-tests-");
             Directory.CreateDirectory(_dir);
         }
 

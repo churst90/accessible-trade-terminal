@@ -23,8 +23,7 @@ public class WebHostSecureStorageServiceTests : IDisposable
 
     public WebHostSecureStorageServiceTests()
     {
-        _tempDir = Path.Combine(Path.GetTempPath(), $"atst_securestore_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_tempDir);
+        _tempDir = TestTemp.NewDir("atst_securestore_");
 
         var paths = Substitute.For<IPlatformPathService>();
         paths.AppDataDirectory.Returns(_tempDir);

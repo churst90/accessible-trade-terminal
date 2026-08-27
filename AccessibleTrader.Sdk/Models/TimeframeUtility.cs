@@ -48,6 +48,32 @@ namespace AccessibleTrader.Sdk.Models
         public static int ToSeconds(string tf) => (int)(ToMilliseconds(tf) / 1000);
 
         /// <summary>
+        /// The instant a period beginning at <paramref name="periodStart"/> closes.
+        ///
+        /// <para>
+        /// Not the same as <c>periodStart + ToMilliseconds(tf)</c>, and that is the
+        /// whole reason it exists. A month has no fixed length, so <c>"1M"</c> is
+        /// approximated there as 30 days; adding that to a period start makes a
+        /// 31-day month look CLOSED a day early — long enough for a caller checking
+        /// "has this period finished?" to treat a still-forming bar as final. This
+        /// walks the calendar for months and falls back to the fixed interval for
+        /// everything else, where the fixed interval is exact.
+        /// </para>
+        /// </summary>
+        public static DateTime GetPeriodEnd(DateTime periodStart, string timeframe)
+        {
+            var match = string.IsNullOrEmpty(timeframe) ? null : _timeframeRegex.Match(timeframe);
+            if (match is not { Success: true } || !int.TryParse(match.Groups[1].Value, out int value) || value <= 0)
+                return periodStart;
+
+            if (match.Groups[2].Value == "M")
+                return DateTime.SpecifyKind(periodStart, DateTimeKind.Utc).AddMonths(value);
+
+            long ms = ToMilliseconds(timeframe);
+            return ms <= 0 ? periodStart : DateTime.SpecifyKind(periodStart, DateTimeKind.Utc).AddMilliseconds(ms);
+        }
+
+        /// <summary>
         /// True when <paramref name="tf"/> is a well-formed timeframe token
         /// (digits + one of m/h/d/w/M) with a sane magnitude. Companion to
         /// <see cref="Sdk.Services.SymbolValidator"/> at the data-path choke

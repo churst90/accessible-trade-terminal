@@ -29,7 +29,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public sealed class UnclosablePositionTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-unclosable-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-unclosable-");
 
         public void Dispose()
         {

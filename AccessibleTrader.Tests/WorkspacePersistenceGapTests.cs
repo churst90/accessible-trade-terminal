@@ -18,7 +18,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class WorkspacePersistenceGapTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-wsgap-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-wsgap-");
         public void Dispose() { try { Directory.Delete(_dir, recursive: true); } catch { } }
 
         // ── Corrupt-file quarantine (was silently swallowed) ─────────────────

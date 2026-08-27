@@ -23,7 +23,7 @@ namespace AccessibleTrader.Tests
 
         public ShortcutManagerTests()
         {
-            _dir = Directory.CreateTempSubdirectory("att-shortcut-tests-").FullName;
+            _dir = TestTemp.NewDir("att-shortcut-tests-");
             _paths = new TempPathService(_dir);
         }
 

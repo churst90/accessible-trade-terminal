@@ -112,7 +112,7 @@ public class ShortcutHelpParityTests
     /// <summary>The default profile, as a set of canonical combinations.</summary>
     private static Dictionary<Combo, SystemCommand> DefaultBindings()
     {
-        var dir = Directory.CreateTempSubdirectory("att-shortcut-parity-").FullName;
+        var dir = TestTemp.NewDir("att-shortcut-parity-");
         try
         {
             var mgr = new ShortcutManager(new TempPaths(dir));

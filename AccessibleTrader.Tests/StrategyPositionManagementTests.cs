@@ -37,7 +37,7 @@ namespace AccessibleTrader.Tests
 
         public StrategyPositionManagementTests()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "att-managed-positions-" + Guid.NewGuid().ToString("N"));
+            _dir = TestTemp.NewPath("att-managed-positions-");
             Directory.CreateDirectory(_dir);
         }
 

@@ -19,8 +19,9 @@ public class UserScopedPathServiceTests
         public string DataKey { get; init; } = "anon";
     }
 
-    private static string TempRoot() =>
-        Path.Combine(Path.GetTempPath(), "att-paths-" + Guid.NewGuid().ToString("N"));
+    // NewPath, not NewDir: several cases here assert what UserScopedPathService does
+    // when the root does not exist yet, so creating it up front would mask that.
+    private static string TempRoot() => TestTemp.NewPath("att-paths-");
 
     [Fact]
     public void AppDataDirectory_IsPerUser_WhileCacheIsShared()

@@ -21,7 +21,7 @@ namespace AccessibleTrader.Tests
 
         public PaperLegacyStateTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-legacy-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-legacy-");
             Directory.CreateDirectory(_tempDir);
         }
 

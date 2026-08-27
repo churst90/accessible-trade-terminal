@@ -33,7 +33,7 @@ namespace AccessibleTrader.Tests
             // The hosted (--accounts) build pins app-data to its own root; the
             // directory must exist the moment the service is constructed so the
             // secret store can open without a race.
-            string root = Path.Combine(Path.GetTempPath(), "at-test-" + Guid.NewGuid().ToString("N"));
+            string root = TestTemp.NewPath("at-test-");
             try
             {
                 var svc = new WebHostPathService(root);

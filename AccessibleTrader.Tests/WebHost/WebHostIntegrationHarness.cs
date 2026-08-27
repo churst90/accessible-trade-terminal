@@ -156,7 +156,7 @@ internal static class WebHostIntegration
 /// </summary>
 public sealed class HostedWebHostFixture : IDisposable
 {
-    public string DataRoot { get; } = Directory.CreateTempSubdirectory("att-webhost-int-").FullName;
+    public string DataRoot { get; } = TestTemp.NewDir("att-webhost-int-");
     public WebApplicationFactory<WebHostDemoMode> Factory { get; }
 
     public HostedWebHostFixture()

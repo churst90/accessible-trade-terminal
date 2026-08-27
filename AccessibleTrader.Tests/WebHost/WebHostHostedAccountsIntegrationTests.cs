@@ -197,7 +197,7 @@ public sealed class WebHostHostedAccountsIntegrationTests
         // transcript of everything spoken to a user. This boots a separate
         // Development-environment hosted factory so the endpoint exists, then
         // asserts an anonymous GET is turned away at the auth layer.
-        var root = System.IO.Directory.CreateTempSubdirectory("att-diag-").FullName;
+        var root = TestTemp.NewDir("att-diag-");
         try
         {
             using var factory = WebHostIntegration.HostedFactory(root, environment: "Development");

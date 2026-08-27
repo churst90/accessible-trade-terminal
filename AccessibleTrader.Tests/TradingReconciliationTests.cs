@@ -44,7 +44,7 @@ public class TradingReconciliationTests
             settings.GetSetting("trading.paperTradingMode").Returns(JToken.FromObject(true));
 
         var paths = Substitute.For<IPlatformPathService>();
-        paths.AppDataDirectory.Returns(dataDir ?? System.IO.Directory.CreateTempSubdirectory("att-recon-").FullName);
+        paths.AppDataDirectory.Returns(dataDir ?? TestTemp.NewDir("att-recon-"));
         var coordinator = new TradingReconciliationCoordinator(
             bus, orders, paper, settings,
             new DemoPolicy(isDemo: false), paths,
@@ -188,7 +188,7 @@ public class TradingReconciliationTests
     [Fact]
     public async Task Position_closed_while_away_is_reported_with_realized_pnl()
     {
-        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+        var dir = TestTemp.NewDir("att-away-");
 
         // Session 1: long 0.5 BTC on Kraken — snapshot persisted on reconcile.
         var s1 = Build(paperMode: false, dataDir: dir);
@@ -223,7 +223,7 @@ public class TradingReconciliationTests
     [Fact]
     public async Task Pnl_is_approximated_from_entry_when_the_broker_reports_none()
     {
-        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+        var dir = TestTemp.NewDir("att-away-");
 
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Tradier").Returns(true);
@@ -254,7 +254,7 @@ public class TradingReconciliationTests
     [Fact]
     public async Task Still_open_positions_produce_no_away_report()
     {
-        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+        var dir = TestTemp.NewDir("att-away-");
         var positions = new List<Position> { new("BTC/USD", 0.5, 90000, 45000, 0.0) };
 
         var s1 = Build(paperMode: false, dataDir: dir);
@@ -342,7 +342,7 @@ public class TradingReconciliationTests
     [Fact]
     public async Task Reduced_position_is_reported_as_reduced()
     {
-        var dir = System.IO.Directory.CreateTempSubdirectory("att-away-").FullName;
+        var dir = TestTemp.NewDir("att-away-");
 
         var s1 = Build(paperMode: false, dataDir: dir);
         s1.Orders.SupportsTradingAsync("Kraken").Returns(true);
@@ -375,7 +375,7 @@ public class TradingReconciliationTests
     [Fact]
     public async Task A_failed_positions_read_is_never_reported_as_positions_closing()
     {
-        var dir = System.IO.Directory.CreateTempSubdirectory("att-failread-").FullName;
+        var dir = TestTemp.NewDir("att-failread-");
 
         // Session 1: a real position, snapshotted.
         var s1 = Build(paperMode: false, dataDir: dir);

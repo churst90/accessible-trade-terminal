@@ -123,7 +123,7 @@ public class SubscriberFaultIsolationTests
 
         public PaperHarness()
         {
-            _dir = Directory.CreateTempSubdirectory("at-fault-isolation-").FullName;
+            _dir = TestTemp.NewDir("at-fault-isolation-");
             Store = new MockWorkspaceStore();
             var paths = Substitute.For<IPlatformPathService>();
             paths.AppDataDirectory.Returns(_dir);

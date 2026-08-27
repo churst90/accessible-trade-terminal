@@ -37,7 +37,7 @@ namespace AccessibleTrader.Tests
 
         public PaperShortingTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-short-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-short-");
             Directory.CreateDirectory(_tempDir);
         }
 

@@ -155,7 +155,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Reserved_profile_is_hidden_from_the_workspace_list()
         {
-            var dir = System.IO.Directory.CreateTempSubdirectory("att-autosave-").FullName;
+            var dir = TestTemp.NewDir("att-autosave-");
             try
             {
                 var lib = new WorkspaceLibraryService(NullLogger<WorkspaceLibraryService>.Instance, new TempWorkspacePaths())

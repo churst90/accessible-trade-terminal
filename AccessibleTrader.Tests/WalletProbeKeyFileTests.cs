@@ -12,7 +12,7 @@ namespace AccessibleTrader.Tests
     {
         private static (string? Key, string Secret) Load(string contents)
         {
-            string path = Path.Combine(Path.GetTempPath(), "att-keyfile-" + Guid.NewGuid().ToString("N") + ".txt");
+            string path = TestTemp.NewPath("att-keyfile-") + ".txt";
             File.WriteAllText(path, contents);
             try
             {

@@ -22,7 +22,7 @@ namespace AccessibleTrader.Tests
 
         public PaperTradingProviderTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-paper-tests-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-paper-tests-");
             Directory.CreateDirectory(_tempDir);
         }
 

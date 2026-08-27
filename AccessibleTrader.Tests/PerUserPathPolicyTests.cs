@@ -157,8 +157,7 @@ namespace AccessibleTrader.Tests
         /// </summary>
         private sealed class ShiftingPaths : AccessibleTrader.Core.Services.IPlatformPathService
         {
-            private readonly string _root = Path.Combine(Path.GetTempPath(),
-                "atc-shifting-" + Guid.NewGuid().ToString("N"));
+            private readonly string _root = TestTemp.NewPath("atc-shifting-");
             public int Reads { get; private set; }
             public string User { get; set; } = "anon";
             public string AppDataDirectory

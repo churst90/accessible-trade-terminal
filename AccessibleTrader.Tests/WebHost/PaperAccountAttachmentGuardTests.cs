@@ -23,7 +23,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// </summary>
 public sealed class PaperAccountAttachmentGuardTests : IDisposable
 {
-    private readonly string _dir = Directory.CreateTempSubdirectory("att-guard-").FullName;
+    private readonly string _dir = TestTemp.NewDir("att-guard-");
     private readonly PaperAccountHub _hub = new();
 
     public void Dispose()

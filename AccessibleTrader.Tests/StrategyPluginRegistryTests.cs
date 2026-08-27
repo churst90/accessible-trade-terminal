@@ -20,11 +20,7 @@ public sealed class StrategyPluginRegistryTests : IDisposable
 
     public StrategyPluginRegistryTests()
     {
-        _scratchDir = Path.Combine(
-            Path.GetTempPath(),
-            "AccessibleTrader.StrategyPluginTests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_scratchDir);
+        _scratchDir = TestTemp.NewDir("AccessibleTrader.StrategyPluginTests-");
 
         // Fixture DLL lands next to the test assembly's output. Copy it into the
         // scratch dir so the loader scan picks it up without collecting the rest

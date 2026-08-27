@@ -49,9 +49,25 @@ namespace AccessibleTrader.Core.Services
         private string? _currentProviderName;
         private string? _currentSymbol;
         private int _reconnectAttempts;
-        private const int MaxReconnectAttempts = 5;
-        private static readonly TimeSpan SilenceThreshold = TimeSpan.FromSeconds(60);
-        private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(15);
+
+        // Tunable (internal) so tests can drive a sweep without real waits — the
+        // same seam MarketFeedHub's watchdog uses. Production never assigns them.
+        internal int MaxReconnectAttempts = 5;
+        internal long SilenceThresholdMs = 60_000;
+        internal TimeSpan WatchdogInterval = TimeSpan.FromSeconds(15);
+
+        // The consolidator survives a reconnect. It used to be rebuilt inside
+        // SubscribeToProvider, which meant a watchdog reconnect halfway through a
+        // period threw the in-progress bucket away: for a TradeDeltas provider the
+        // bar's Open became the reconnect price, High/Low collapsed to the
+        // post-reconnect range and Volume counted only trades since reconnect —
+        // and that partial bar then ReplaceLast'd the correct one on the chart.
+        // Rebuild it only when the shape it consolidates for actually changes.
+        private BarBucketConsolidator? _consolidator;
+        private string? _consolidatorTimeframe;
+        private LiveTickStyle _consolidatorStyle;
+
+        internal enum WatchdogAction { None, AnnounceQuiet, Reconnect, GiveUp }
 
         public LiveStreamManager(
             IDataService dataService,
@@ -107,7 +123,7 @@ namespace AccessibleTrader.Core.Services
             _reconnectAttempts = 0;
             _lastTickAtMs = Environment.TickCount64;
 
-            SubscribeToProvider(provider, market, providerName, symbol, timeframe);
+            SubscribeToProvider(provider, market, providerName, symbol, timeframe, resetConsolidator: true);
 
             try
             {
@@ -123,7 +139,12 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private void SubscribeToProvider(IMarketDataProvider provider, string market, string providerName, string symbol, string timeframe)
+        /// <param name="resetConsolidator">
+        /// True for a caller-initiated subscribe (a new chart/timeframe), false for a
+        /// watchdog reconnect — a reconnect is the SAME period on the SAME symbol, so
+        /// the partially-filled bucket must be carried across it rather than discarded.
+        /// </param>
+        private void SubscribeToProvider(IMarketDataProvider provider, string market, string providerName, string symbol, string timeframe, bool resetConsolidator)
         {
             _currentErrorSubscription?.Dispose();
             _currentProviderSubscription?.Dispose();
@@ -139,13 +160,26 @@ namespace AccessibleTrader.Core.Services
                 _errorCoordinator.ReportError(err, ErrorSeverity.Medium, ErrorCategory.Provider);
             });
 
-            // Each subscription gets its own consolidator so reconnects/tab switches
-            // reset the bucket naturally. Style-aware: kline providers (Binance)
-            // declare CumulativeBars so their running volume totals are diffed, not
-            // re-added — the old inline UpdateWith accumulation inflated live-bar
-            // volume on every ~1s kline update. Malformed-tick filtering (zero OHLC
-            // legs) lives inside the consolidator now.
-            var consolidator = new BarBucketConsolidator(timeframe, provider.LiveTickStyle);
+            // Style-aware: kline providers (Binance) declare CumulativeBars so their
+            // running volume totals are diffed, not re-added — the old inline
+            // UpdateWith accumulation inflated live-bar volume on every ~1s kline
+            // update. Malformed-tick filtering (zero OHLC legs) lives inside the
+            // consolidator now.
+            //
+            // A tab switch or timeframe change resets the bucket (resetConsolidator);
+            // a reconnect deliberately does not. Rebuild anyway if the timeframe or
+            // the provider's tick style changed under us, since the surviving bucket
+            // would be consolidating for the wrong shape.
+            if (resetConsolidator
+                || _consolidator is null
+                || !string.Equals(_consolidatorTimeframe, timeframe, StringComparison.Ordinal)
+                || _consolidatorStyle != provider.LiveTickStyle)
+            {
+                _consolidator = new BarBucketConsolidator(timeframe, provider.LiveTickStyle);
+                _consolidatorTimeframe = timeframe;
+                _consolidatorStyle = provider.LiveTickStyle;
+            }
+            var consolidator = _consolidator;
             // Captured, not read from the mutable _current* fields: this closure
             // outlives the next StartLiveStreamAsync by however long it takes the
             // outgoing socket to stop delivering, and a tick from the OLD socket
@@ -177,51 +211,82 @@ namespace AccessibleTrader.Core.Services
                 {
                     await Task.Delay(WatchdogInterval, token).ConfigureAwait(false);
 
-                    if (Environment.TickCount64 - _lastTickAtMs <= (long)SilenceThreshold.TotalMilliseconds)
-                        continue;
-
-                    // A socket that is *up but quiet* must NOT be storm-reconnected:
-                    // reconnecting a healthy-but-silent connection (a sparse feed, or a
-                    // tier with no live data such as Twelve Data's free plan) loops
-                    // forever and can wedge the session. Only a dropped/errored
-                    // connection benefits from a reconnect. If it is connected and quiet,
-                    // leave it — a real tick will reset the clock if one ever arrives.
-                    if (_lastConnectionState == ConnectionState.Connected)
-                    {
-                        if (!_fallbackAnnounced)
-                        {
-                            _logger.LogInformation(
-                                "Live stream for {Provider} is connected but quiet ({Seconds}s); leaving it as historical/sparse rather than reconnecting.",
-                                provider, SilenceThreshold.TotalSeconds);
-                            // Say it ONCE too — a blind user staring at a chart
-                            // that never ticks had no way to know whether the
-                            // feed was quiet, dead, or simply not wired (found
-                            // live 2026-07-23: MEXC chart silently static).
-                            _errorCoordinator.ReportError(
-                                $"{provider} live stream is connected but has sent nothing for a minute. The chart may only update on refresh.",
-                                ErrorSeverity.Low, ErrorCategory.Informational);
-                            _fallbackAnnounced = true;
-                        }
-                        continue;
-                    }
-
-                    if (_reconnectAttempts >= MaxReconnectAttempts)
-                    {
-                        if (!_fallbackAnnounced)
-                        {
-                            _logger.LogError("Live stream for {Provider} exceeded {Max} reconnect attempts. Giving up.", provider, MaxReconnectAttempts);
-                            _errorCoordinator.ReportError(
-                                $"{provider} stream lost after {MaxReconnectAttempts} reconnect attempts. Reload chart to retry.",
-                                ErrorSeverity.High, ErrorCategory.Provider);
-                            _fallbackAnnounced = true;
-                        }
+                    var action = await RunWatchdogSweepAsync(market, provider, symbol, timeframe).ConfigureAwait(false);
+                    if (action == WatchdogAction.GiveUp)
                         return; // stop the watchdog — spinning on a dead feed wastes a thread
-                    }
+                }
+            }, _logger, "FallbackWatchdog");
+        }
 
+        /// <summary>
+        /// The watchdog's decision, with no clock and no I/O in it, so it can be
+        /// walked case by case. <paramref name="silentMs"/> is how long since the
+        /// last tick; <paramref name="state"/> is the socket's last reported
+        /// connection state.
+        /// </summary>
+        internal WatchdogAction EvaluateSilence(long silentMs, ConnectionState state, bool announced, int reconnectAttempts)
+        {
+            if (silentMs <= SilenceThresholdMs) return WatchdogAction.None;
+
+            // A socket that is *up but quiet* must NOT be storm-reconnected:
+            // reconnecting a healthy-but-silent connection (a sparse feed, or a
+            // tier with no live data such as Twelve Data's free plan) loops
+            // forever and can wedge the session. Only a dropped/errored
+            // connection benefits from a reconnect. If it is connected and quiet,
+            // leave it — a real tick will reset the clock if one ever arrives.
+            if (state == ConnectionState.Connected)
+                return announced ? WatchdogAction.None : WatchdogAction.AnnounceQuiet;
+
+            // GiveUp is returned even once announced: it is what stops the loop,
+            // and a watchdog that kept spinning after the budget ran out would
+            // burn a thread on a feed nothing is going to revive.
+            if (reconnectAttempts >= MaxReconnectAttempts) return WatchdogAction.GiveUp;
+
+            return WatchdogAction.Reconnect;
+        }
+
+        /// <summary>
+        /// One iteration of the silence watchdog, minus the wait. Returns the action
+        /// it took so the driving loop can stop on <see cref="WatchdogAction.GiveUp"/>
+        /// — and so tests can step it without waiting out a real 15-second interval.
+        /// </summary>
+        internal async Task<WatchdogAction> RunWatchdogSweepAsync(string market, string provider, string symbol, string timeframe)
+        {
+            var action = EvaluateSilence(
+                Environment.TickCount64 - _lastTickAtMs, _lastConnectionState, _fallbackAnnounced, _reconnectAttempts);
+
+            switch (action)
+            {
+                case WatchdogAction.AnnounceQuiet:
+                    _logger.LogInformation(
+                        "Live stream for {Provider} is connected but quiet ({Seconds}s); leaving it as historical/sparse rather than reconnecting.",
+                        provider, SilenceThresholdMs / 1000.0);
+                    // Say it ONCE too — a blind user staring at a chart
+                    // that never ticks had no way to know whether the
+                    // feed was quiet, dead, or simply not wired (found
+                    // live 2026-07-23: MEXC chart silently static).
+                    _errorCoordinator.ReportError(
+                        $"{provider} live stream is connected but has sent nothing for a minute. The chart may only update on refresh.",
+                        ErrorSeverity.Low, ErrorCategory.Informational);
+                    _fallbackAnnounced = true;
+                    break;
+
+                case WatchdogAction.GiveUp:
+                    if (!_fallbackAnnounced)
+                    {
+                        _logger.LogError("Live stream for {Provider} exceeded {Max} reconnect attempts. Giving up.", provider, MaxReconnectAttempts);
+                        _errorCoordinator.ReportError(
+                            $"{provider} stream lost after {MaxReconnectAttempts} reconnect attempts. Reload chart to retry.",
+                            ErrorSeverity.High, ErrorCategory.Provider);
+                        _fallbackAnnounced = true;
+                    }
+                    break;
+
+                case WatchdogAction.Reconnect:
                     _reconnectAttempts++;
                     _logger.LogWarning(
                         "Live stream for {Provider} silent for {Seconds}s. Reconnect attempt {Attempt}/{Max}.",
-                        provider, SilenceThreshold.TotalSeconds, _reconnectAttempts, MaxReconnectAttempts);
+                        provider, SilenceThresholdMs / 1000.0, _reconnectAttempts, MaxReconnectAttempts);
 
                     _errorCoordinator.ReportError(
                         $"{provider} stream delayed. Reconnecting ({_reconnectAttempts}/{MaxReconnectAttempts})...",
@@ -235,9 +300,14 @@ namespace AccessibleTrader.Core.Services
                     {
                         _logger.LogWarning(ex, "Reconnect attempt {Attempt} for {Provider} failed.", _reconnectAttempts, provider);
                     }
-                }
-            }, _logger, "FallbackWatchdog");
+                    break;
+            }
+
+            return action;
         }
+
+        /// <summary>Test seam: pretend the last tick arrived <paramref name="msAgo"/> ago.</summary>
+        internal void BackdateLastTickForTest(long msAgo) => _lastTickAtMs = Environment.TickCount64 - msAgo;
 
         private async Task AttemptReconnectAsync(string market, string providerName, string symbol, string timeframe)
         {
@@ -262,7 +332,7 @@ namespace AccessibleTrader.Core.Services
             _currentLiveProvider = provider;
             _lastTickAtMs = Environment.TickCount64;
 
-            SubscribeToProvider(provider, market, providerName, symbol, timeframe);
+            SubscribeToProvider(provider, market, providerName, symbol, timeframe, resetConsolidator: false);
             await provider.SetSubscriptionAsync(market, symbol, timeframe).ConfigureAwait(false);
 
             _logger.LogInformation("Reconnected live stream for {Provider} {Symbol} @ {Timeframe}.", providerName, symbol, timeframe);

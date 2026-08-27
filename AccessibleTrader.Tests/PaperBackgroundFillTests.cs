@@ -35,7 +35,7 @@ namespace AccessibleTrader.Tests
 
         public PaperBackgroundFillTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), "atc-paper-bg-" + Guid.NewGuid().ToString("N"));
+            _tempDir = TestTemp.NewPath("atc-paper-bg-");
             Directory.CreateDirectory(_tempDir);
         }
 

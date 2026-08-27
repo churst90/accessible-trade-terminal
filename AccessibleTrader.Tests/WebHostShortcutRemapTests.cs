@@ -23,8 +23,7 @@ namespace AccessibleTrader.Tests
         {
             // Point at an empty temp dir so no on-disk profile overrides the defaults.
             var path = Substitute.For<IPlatformPathService>();
-            path.AppDataDirectory.Returns(Path.Combine(Path.GetTempPath(),
-                "att-remap-" + System.Guid.NewGuid().ToString("N")));
+            path.AppDataDirectory.Returns(TestTemp.NewDir("att-remap-"));
             return new ShortcutManager(path);
         }
 

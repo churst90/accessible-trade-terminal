@@ -108,7 +108,7 @@ public sealed class WebHostFullModeIntegrationTests : IDisposable
         // Hosted head: booting and serving must leave the bridge null — its
         // secret store is shared across users, so a static bridge would let
         // one user's persisted Schwab token be read by every other user.
-        var hostedRoot = Directory.CreateTempSubdirectory("att-bridge-hosted-").FullName;
+        var hostedRoot = TestTemp.NewDir("att-bridge-hosted-");
         try
         {
             using (var hosted = WebHostIntegration.HostedFactory(hostedRoot))

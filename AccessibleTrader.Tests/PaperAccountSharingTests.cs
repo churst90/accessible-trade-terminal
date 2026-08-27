@@ -21,7 +21,7 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public sealed class PaperAccountSharingTests : IDisposable
     {
-        private readonly string _dir = Directory.CreateTempSubdirectory("att-hub-").FullName;
+        private readonly string _dir = TestTemp.NewDir("att-hub-");
         private readonly PaperAccountHub _hub = new();
 
         public void Dispose()
