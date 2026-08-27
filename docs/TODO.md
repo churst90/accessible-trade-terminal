@@ -5966,6 +5966,22 @@ indicators is populated. It loads some data, then as I scroll back it deletes it
   (closed above) plus the components still listed in `NotStableWhenHistoryIsPrepended`, which
   pattern detection reads.
 
+- [ ] **Known full-suite flake: `ModalDisposeLeakTests.Dialog_DisposeReleasesEveryEventBusSubscription`
+  for `LoadWorkspaceModal`.** First seen on CI run 33064385017 (commit `6a8eef00`, which changed
+  nothing but two markdown files, and whose parent's xunit job was green). Passes 3/3 locally in
+  isolation and has never failed in a local full run. The message is
+  "leaked EventBus subscriptions after dispose: CloseTopModalEvent, OpenLoadWorkspaceEvent", i.e.
+  **neither** subscription was released — not a partial leak, which is the shape that argues
+  against a slow-teardown reading.
+  **Do NOT just raise the 2000 ms budget in `WaitForRelease`.** The bwrap flake was blamed on a
+  timeout twice before measurement refuted it and found a real production bug
+  (`--die-with-parent` is PDEATHSIG on the spawning THREAD). The hypothesis to test first: under
+  load, `ModalCatalog.OpenDialog` parks inside `ShowModalAsync`'s awaited focus call — bUnit's
+  `SetupVoid` records but never completes, so the modal can sit half-opened — and the dispose path
+  taken from that state differs from the one taken from a fully-opened modal. Reproduce by looping
+  the full suite in a `git worktree` and READING the failure, the way the bwrap one was settled.
+  MEDIUM (amends the test suite).
+
 ---
 
 ## Scripting and the sandbox — audit 2026-08-25
