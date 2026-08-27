@@ -239,7 +239,10 @@ namespace AccessibleTrader.Plugins.CoinMetrics
                                 continue;
                             if (double.IsNaN(val)) continue;
 
-                            var date = dto.UtcDateTime;
+                            // Publication-stamped. This is the ORIGINALLY filed instance of
+                            // the class (TODO:776); the other five were found unfiled in the
+                            // same sweep and all six now share one rule.
+                            var date = AnalyticsPublicationLag.ForWholeDayMetric(dto.UtcDateTime);
                             allBars.Add(new Ohlcv(date, val, val, val, val, 0));
                         }
 

@@ -49,7 +49,10 @@ public class WikipediaPageviewsProviderTests
             new MarketDataRequest("Sentiment", "BTC_VIEWS", "1d", 10));
 
         Assert.Equal(2, bars.Count);
-        Assert.Equal(new DateTime(2026, 7, 1), bars[0].Date);
+        // 2026-07-01's count is stamped at 2026-07-03: one day because a whole-day statistic
+        // is not knowable until the day ends, plus one more because the pageviews API
+        // republishes a day's count for a day or two after. See AnalyticsPublicationLag.
+        Assert.Equal(new DateTime(2026, 7, 3, 0, 0, 0, DateTimeKind.Utc), bars[0].Date);
         Assert.Equal(13137, bars[0].Close);
         Assert.Equal(bars[0].Open, bars[0].Close);
         Assert.Equal(bars[0].High, bars[0].Low);

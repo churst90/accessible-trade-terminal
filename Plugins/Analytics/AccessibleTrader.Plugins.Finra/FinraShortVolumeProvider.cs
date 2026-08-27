@@ -49,6 +49,32 @@ namespace AccessibleTrader.Plugins.Finra
         // settlement + this many calendar days so a backtest can never see a value
         // before it was public — the same release-honesty rule as the CFTC provider.
         private const int ShortIntPublicationLagDays = 13;
+
+        /// <summary>
+        /// Days to shift the DAILY short-volume series so a bar cannot be read before the file
+        /// that carries it was published. The consolidated Reg SHO file for a trading day is
+        /// released after that day's close, so the first bar that may honestly see it is the
+        /// next one.
+        /// </summary>
+        private const int DailyShortVolumePublicationLagDays = 1;
+
+        /// <summary>
+        /// The first TRADING day on which a file published after <paramref name="day"/>'s close
+        /// can be read.
+        ///
+        /// <para>Trading day rather than calendar day: a plain +1 lands Friday's reading on a
+        /// Saturday, and this series is drawn on an equity chart that has no Saturday bar — so
+        /// the value would be forward-filled onto Monday anyway, by a path that does not know
+        /// it is doing so. Naming Monday directly keeps the series weekday-only, which is what
+        /// every consumer already assumes.</para>
+        /// </summary>
+        private static DateTime NextTradingDay(DateTime day)
+        {
+            var d = DateTime.SpecifyKind(day.Date, DateTimeKind.Utc)
+                            .AddDays(DailyShortVolumePublicationLagDays);
+            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(1);
+            return d;
+        }
         private const int MaxConcurrentFetches = 6;
         private const int DefaultDays = 250;   // ~1 trading year
         private const int MaxDays = 1250;      // ~5 years — keep session memory sane
@@ -221,7 +247,17 @@ namespace AccessibleTrader.Plugins.Finra
                 {
                     if (!_dayCache.TryGetValue(day, out var map) || map == null) continue;
                     if (!map.TryGetValue(ticker, out double pct)) continue;
-                    bars.Add(new Ohlcv(DateTime.SpecifyKind(day, DateTimeKind.Utc), pct, pct, pct, pct, 0));
+                    // PUBLICATION-STAMPED, like the short-interest series twelve lines below.
+                    //
+                    // This stamped day D's Reg SHO ratio at 00:00 UTC on day D. The
+                    // consolidated file for day D is published after that day's CLOSE, so a
+                    // daily backtest reading the bar at D's open was using a number that did
+                    // not exist until ~18 hours later. `ShortIntPublicationLagDays` exists a
+                    // few lines up for exactly this reason on the biweekly series, which is
+                    // what makes the omission here an oversight rather than a choice —
+                    // and CrossSeriesForwardFill.Fill admits ties (`ticks[i].Ts <= barTs`), so
+                    // the value was visible from the bar's own open.
+                    bars.Add(new Ohlcv(NextTradingDay(day), pct, pct, pct, pct, 0));
                 }
 
                 if (request.Limit > 0 && bars.Count > request.Limit)

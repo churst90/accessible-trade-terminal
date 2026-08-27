@@ -283,7 +283,11 @@ namespace AccessibleTrader.Plugins.WikipediaPageviews
                 if (!double.TryParse(it["views"]?.ToString(), NumberStyles.Any,
                         CultureInfo.InvariantCulture, out var views)) continue;
 
-                bars.Add(new Ohlcv(date, views, views, views, views, 0));
+                // Publication-stamped, plus a day: the count for day D is not final until D
+                // ends AND the API publishes it, which it does a day or two later.
+                bars.Add(new Ohlcv(
+                    AnalyticsPublicationLag.ForWholeDayMetric(date, extraDays: 1),
+                    views, views, views, views, 0));
             }
 
             return bars.OrderBy(b => b.Date).ToList();

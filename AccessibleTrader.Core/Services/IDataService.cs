@@ -26,7 +26,7 @@ namespace AccessibleTrader.Core.Services
         Task<List<string>> GetSupportedTimeframesAsync(string provider);
         Task<bool> IsProviderConfiguredAsync(string provider);
         /// <summary>Synchronous convenience — same check without the Task wrapper. Use from
-        /// sync call sites (e.g. AnalyticsDataResolver) to avoid GetAwaiter().GetResult() on a
+        /// sync call sites to avoid GetAwaiter().GetResult() on a
         /// value that's always available without I/O.</summary>
         bool IsProviderConfigured(string provider);
         Task<bool> ProviderRequiresApiKeyAsync(string provider);

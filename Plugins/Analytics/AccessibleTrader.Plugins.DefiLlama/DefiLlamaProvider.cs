@@ -243,7 +243,9 @@ namespace AccessibleTrader.Plugins.DefiLlama
             {
                 long dateSec = item["date"]?.Value<long>() ?? 0;
                 double tvl = item["tvl"]?.Value<double>() ?? 0;
-                var dt = DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime;
+                // Publication-stamped — the snapshot describes a whole day.
+                var dt = AnalyticsPublicationLag.ForWholeDayMetric(
+                    DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime);
                 bars.Add(new Ohlcv(dt, tvl, tvl, tvl, tvl, 0));
             }
 
@@ -266,7 +268,9 @@ namespace AccessibleTrader.Plugins.DefiLlama
             {
                 long dateSec = item["date"]?.Value<long>() ?? 0;
                 double tvl = item["totalLiquidityUSD"]?.Value<double>() ?? 0;
-                var dt = DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime;
+                // Publication-stamped — the snapshot describes a whole day.
+                var dt = AnalyticsPublicationLag.ForWholeDayMetric(
+                    DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime);
                 bars.Add(new Ohlcv(dt, tvl, tvl, tvl, tvl, 0));
             }
 
@@ -287,7 +291,9 @@ namespace AccessibleTrader.Plugins.DefiLlama
             {
                 long dateSec = item["date"]?.Value<long>() ?? 0;
                 double supply = item["totalCirculating"]?["peggedUSD"]?.Value<double>() ?? 0;
-                var dt = DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime;
+                // Publication-stamped — the snapshot describes a whole day.
+                var dt = AnalyticsPublicationLag.ForWholeDayMetric(
+                    DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime);
                 bars.Add(new Ohlcv(dt, supply, supply, supply, supply, 0));
             }
 
@@ -307,7 +313,9 @@ namespace AccessibleTrader.Plugins.DefiLlama
             {
                 long dateSec = item["date"]?.Value<long>() ?? 0;
                 double supply = item["totalCirculating"]?["peggedUSD"]?.Value<double>() ?? 0;
-                var dt = DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime;
+                // Publication-stamped — the snapshot describes a whole day.
+                var dt = AnalyticsPublicationLag.ForWholeDayMetric(
+                    DateTimeOffset.FromUnixTimeSeconds(dateSec).UtcDateTime);
                 bars.Add(new Ohlcv(dt, supply, supply, supply, supply, 0));
             }
 

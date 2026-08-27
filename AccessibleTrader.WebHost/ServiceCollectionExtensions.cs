@@ -225,7 +225,6 @@ namespace AccessibleTrader.WebHost
             services.AddSingleton<ICacheService, FileCacheService>();
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
-            services.AddScoped<IAnalyticsDataResolver, AnalyticsDataResolver>();
 
             services.AddScoped<HistoricalDataFetcher>();
             // Lazy hub + store so a reconnect can gap-fill the outage and record feed

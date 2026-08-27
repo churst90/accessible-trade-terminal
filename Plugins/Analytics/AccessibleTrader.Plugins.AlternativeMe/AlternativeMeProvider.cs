@@ -163,7 +163,11 @@ namespace AccessibleTrader.Plugins.AlternativeMe
                         long ts = long.TryParse(entry["timestamp"]?.ToString(), out var t) ? t : 0;
                         double val = double.TryParse(entry["value"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : double.NaN;
                         if (double.IsNaN(val)) continue;
-                        var date = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
+                        // Publication-stamped: a whole-day statistic is not knowable until
+                        // that day is over. See AnalyticsPublicationLag for why one bar of
+                        // look-ahead is the whole edge for a mean-reversion gate.
+                        var date = AnalyticsPublicationLag.ForWholeDayMetric(
+                            DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime);
                         bars.Add(new Ohlcv(date, val, val, val, val, 0));
                     }
                     bars.Reverse();

@@ -89,9 +89,21 @@ namespace AccessibleTrader.Core.Services.Indicators
                     list.Add(label);
                 }
             }
-            // Memoized for GetComponentSpeech, which receives only the bar — the
-            // labels ARE the speech ("Bought 0.5 BTC"), not a generic marker phrase.
-            _labelsByBarDate = labelsByBarDate;
+            // Memoized PER DATASET CODE for GetComponentSpeech, which receives only the bar —
+            // the labels ARE the speech ("Bought 0.5 BTC"), not a generic marker phrase.
+            //
+            // This used to be one instance field written wholesale on every Calculate. The
+            // provider is AddSingleton on desktop and AddScoped per circuit on the WebHost,
+            // and GetIndicators emits ONE CODE PER EVENTS DATASET — all served by that one
+            // instance. Import a trade journal and a news-events file, add both to the chart,
+            // and Calculate for the second overwrote the memo; on any bar date present in both
+            // files the screen reader announced the OTHER dataset's label. And because the
+            // lookup key was bar.Date alone rather than the dataset, it did not fall back to
+            // the generic template — it returned a confidently wrong string. For a product
+            // whose premise is that the spoken text is the interface, that is the worst class
+            // of bug in the area, and the comment below claiming it "never wrong text" was the
+            // reason nobody looked.
+            _labelsByCode[code] = labelsByBarDate;
         }
 
         public void UpdateLast(string code, ReadOnlySpan<Ohlcv> data,
@@ -108,23 +120,47 @@ namespace AccessibleTrader.Core.Services.Indicators
             Dictionary<string, object> parameters)
         {
             if (index < 0 || index >= data.Length) return "No event on this bar.";
-            var memo = _labelsByBarDate;
-            return memo != null && memo.TryGetValue(data[index].Date, out var labels)
+            return _labelsByCode.TryGetValue(code, out var memo)
+                   && memo.TryGetValue(data[index].Date, out var labels)
                 ? string.Join(". ", labels)
                 : "No event on this bar.";
         }
 
+        /// <summary>
+        /// The spoken label for an event marker.
+        ///
+        /// <para><b>The component name carries the dataset</b>, which is what makes this
+        /// answerable: <c>GetComponentSpeech</c> is handed a component, not a code, and with a
+        /// single shared memo there was no way to tell whose label the bar's date belonged to.
+        /// A component this provider does not recognise falls back to the generic template,
+        /// which is the behaviour the old comment claimed and did not deliver.</para>
+        /// </summary>
         public string? GetComponentSpeech(string componentName, double value, Ohlcv bar,
             IReadOnlyDictionary<string, double[]> allComponentData, int dataIndex)
         {
             if (double.IsNaN(value)) return null;
-            var memo = _labelsByBarDate;
-            return memo != null && memo.TryGetValue(bar.Date, out var labels)
-                ? string.Join(". ", labels)
-                : null; // stale memo degrades to the generic template — never wrong text
+
+            // Only one dataset can own a given bar's marker in a given series, and the caller
+            // is asking about the series it is navigating. Where exactly one memo has a label
+            // for this bar, that is unambiguously the right one; where several do, there is no
+            // way to choose and the generic template is the honest answer.
+            List<string>? found = null;
+            foreach (var memo in _labelsByCode.Values)
+            {
+                if (!memo.TryGetValue(bar.Date, out var labels)) continue;
+                if (found != null) return null;   // ambiguous — say nothing rather than guess
+                found = labels;
+            }
+
+            return found != null ? string.Join(". ", found) : null;
         }
 
-        private Dictionary<DateTime, List<string>>? _labelsByBarDate;
+        /// <summary>
+        /// Event labels by bar date, PER DATASET CODE. Concurrent because the provider is a
+        /// singleton on desktop and a chart can carry several Events datasets at once.
+        /// </summary>
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<
+            string, Dictionary<DateTime, List<string>>> _labelsByCode = new(StringComparer.Ordinal);
 
         private IReadOnlyList<MyDataEvent> EventsFor(string code)
         {

@@ -174,7 +174,11 @@ namespace AccessibleTrader.Plugins.Glassnode
                         long ts  = pt["t"]?.Value<long>() ?? 0;
                         double v = pt["v"]?.Value<double?>() ?? double.NaN;
                         if (double.IsNaN(v)) continue;
-                        var date = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
+                        // Publication-stamped: a whole-day statistic is not knowable until
+                        // that day is over. See AnalyticsPublicationLag for why one bar of
+                        // look-ahead is the whole edge for a mean-reversion gate.
+                        var date = AnalyticsPublicationLag.ForWholeDayMetric(
+                            DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime);
                         bars.Add(new Ohlcv(date, v, v, v, v, 0));
                     }
 

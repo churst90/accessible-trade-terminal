@@ -68,11 +68,31 @@ namespace AccessibleTrader.Plugins.Fred
             _               => symbol
         };
 
+        /// <summary>
+        /// FRED publishes macro series at daily, weekly, monthly and quarterly frequencies.
+        ///
+        /// <para>This used to list <c>StandardTimeframes.OneMinute</c> and
+        /// <c>ThreeMinutes</c> — which are <c>"1m"</c> and <c>"3m"</c>. The author plainly
+        /// meant one MONTH and three MONTHS, but the month token is <c>"1M"</c>, and
+        /// <c>MapFrequency</c> lower-cased its input so <c>"1m"</c> and <c>"1M"</c> collapsed
+        /// onto the same branch. Selecting "1 minute" on a FRED chart returned MONTHLY
+        /// observations labelled as minute bars, and because
+        /// <c>TimeframeUtility.ToMilliseconds("1m")</c> returns 60000, the aggregation layer
+        /// and <c>DataService.AnalyticsCacheTtl</c> both treated a monthly macro series as
+        /// minute data — a 15-minute cache TTL instead of 12 hours.</para>
+        /// </summary>
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
             StandardTimeframes.OneDay, StandardTimeframes.OneWeek,
-            StandardTimeframes.OneMinute, StandardTimeframes.ThreeMinutes
+            OneMonthTf, ThreeMonthsTf
         };
+
+        /// <summary>One month. <c>"1M"</c> — capital M — is the month token; <c>"1m"</c> is a
+        /// minute.</summary>
+        private const string OneMonthTf = "1M";
+
+        /// <summary>Three months, i.e. FRED's quarterly frequency.</summary>
+        private const string ThreeMonthsTf = "3M";
 
         public FredProvider()
         {
@@ -313,18 +333,33 @@ namespace AccessibleTrader.Plugins.Fred
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) => Task.FromResult(new List<string> { "Standard" });
-        public override Task<List<string>> GetSupportedTimeframesAsync() => Task.FromResult(new List<string> { "1d", "1w", "1m", "3m", "1y" });
+        /// <summary>
+        /// The same list as <see cref="NativelySupportedTimeframes"/>, and derived from it so
+        /// the two cannot drift. It used to repeat the list by hand AND add a <c>"1y"</c> that
+        /// <c>TimeframeUtility</c>'s grammar (<c>^(\d+)([mhdMw])$</c>) rejects outright — an
+        /// annual FRED series was offered and could never be parsed.
+        /// </summary>
+        public override Task<List<string>> GetSupportedTimeframesAsync()
+            => Task.FromResult(new List<string>(NativelySupportedTimeframes));
         public override Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10) =>
             Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
 
-        private string MapFrequency(string tf) => tf.ToLower() switch
+        /// <summary>
+        /// A timeframe token to FRED's <c>frequency</c> parameter.
+        ///
+        /// <para><b>CASE SENSITIVE, and that is the whole point.</b> This used to call
+        /// <c>tf.ToLower()</c> first, which made <c>"1m"</c> (one minute) and <c>"1M"</c> (one
+        /// month) indistinguishable — so a minute chart was served monthly observations. An
+        /// unrecognised token returns empty, which is what FRED's default frequency handling
+        /// expects, and is the honest answer for a resolution this provider does not publish.</para>
+        /// </summary>
+        private static string MapFrequency(string tf) => tf switch
         {
-            "1d" => "d",
-            "1w" => "w",
-            "1m" => "m",
-            "3m" => "q",
-            "1y" => "a",
-            _    => ""
+            "1d"        => "d",
+            "1w"        => "w",
+            OneMonthTf  => "m",
+            ThreeMonthsTf => "q",
+            _           => ""
         };
 
         protected override void Dispose(bool disposing)

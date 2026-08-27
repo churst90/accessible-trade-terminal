@@ -272,8 +272,10 @@ namespace AccessibleTrader.Plugins.BinanceVision
 
             var points = new SortedDictionary<long, double>();
             var endMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            int failures = 0, transportFailures = 0, attempted = 0;
             for (var month = startMonth; month <= endMonth; month = month.AddMonths(1))
             {
+                attempted++;
                 var url = $"{FundingBase}/{underlying}/{underlying}-fundingRate-{month.ToString("yyyy-MM", CultureInfo.InvariantCulture)}.zip";
                 try
                 {
@@ -283,10 +285,20 @@ namespace AccessibleTrader.Plugins.BinanceVision
                     var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                     ParseFundingZipInto(bytes, points);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Network hiccup on a single monthly file — log and move on.
-                    _errorStream.OnNext($"BinanceVision funding {underlying} {month.ToString("yyyy-MM", CultureInfo.InvariantCulture)}: fetch error");
+                    // A single monthly file failing is normal — the archive genuinely has
+                    // holes. A whole WALK failing is a dead network, and the two must not look
+                    // the same. Count them; the check after the loop decides.
+                    failures++;
+                    if (TransportFailure.IsTransient(ex)) transportFailures++;
+
+                    // ONE message, not one per month. The walk covers ~70 monthly files, so an
+                    // offline user used to get ~70 spoken "fetch error" lines — which is not a
+                    // report, it is a denial of service on the speech channel.
+                    if (failures == 1)
+                        _errorStream.OnNext(
+                            $"BinanceVision funding {underlying}: fetch error ({ex.GetType().Name}).");
                 }
             }
 
@@ -302,6 +314,26 @@ namespace AccessibleTrader.Plugins.BinanceVision
                     return new Ohlcv(dt, pct, pct, pct, pct, 0);
                 })
                 .ToList();
+
+            // DO NOT CACHE A RESULT THE NETWORK BROKE.
+            //
+            // This wrote `_cache[fullSymbol] = bars` unconditionally into a ConcurrentDictionary
+            // with no TTL and no invalidation. So a user whose network dropped during the first
+            // funding fetch had an empty list cached for the rest of the PROCESS LIFETIME:
+            // funding, open interest and the crowding indicator stayed blank with no way to
+            // retry short of restarting. Unlike the other fourteen plugins, this walk also
+            // swallowed the fault instead of rethrowing it through TransportFailure.
+            //
+            // A partial result from an archive that genuinely has holes is still worth caching.
+            // A result whose gaps are TRANSPORT failures is not — it is a snapshot of a network
+            // outage, and caching it makes the outage permanent.
+            if (transportFailures > 0)
+            {
+                _errorStream.OnNext(
+                    $"BinanceVision funding {underlying}: {transportFailures} of {attempted} monthly "
+                    + "files could not be fetched; not caching a partial result. Reload to retry.");
+                return bars;
+            }
 
             _cache[fullSymbol] = bars;
             return bars;
@@ -351,6 +383,10 @@ namespace AccessibleTrader.Plugins.BinanceVision
             for (var d = OiStartDate; d <= endDate; d = d.AddDays(1)) dates.Add(d);
 
             var results = new ConcurrentDictionary<long, double>();
+            // Same reasoning as the funding walk: an individual day 404ing is normal (the
+            // archive has holes), a wall of transport failures is a dead network, and caching
+            // the second makes an outage permanent for the process lifetime.
+            int oiTransportFailures = 0;
             using var sem = new SemaphoreSlim(OiConcurrency, OiConcurrency);
             var tasks = new List<Task>(dates.Count);
             foreach (var date in dates)
@@ -368,7 +404,13 @@ namespace AccessibleTrader.Plugins.BinanceVision
                         var (ts, oi) = ExtractEodOi(bytes);
                         if (ts.HasValue && oi.HasValue) results[ts.Value] = oi.Value;
                     }
-                    catch (HttpRequestException) { /* Single day 404 / network blip -- skip and continue. */ }
+                    catch (HttpRequestException ex)
+                    {
+                        // A 404 is a genuine hole in the archive; anything TransportFailure
+                        // calls transient is the network, and only the latter poisons the cache.
+                        if (TransportFailure.IsTransient(ex))
+                            Interlocked.Increment(ref oiTransportFailures);
+                    }
                     catch (InvalidDataException)  { /* BoundedReadStream tripped (zip bomb) -- skip day. */ }
                     finally { sem.Release(); }
                 }));
@@ -384,6 +426,14 @@ namespace AccessibleTrader.Plugins.BinanceVision
                     return new Ohlcv(dt, oi, oi, oi, oi, 0);
                 })
                 .ToList();
+
+            if (oiTransportFailures > 0)
+            {
+                _errorStream.OnNext(
+                    $"BinanceVision open interest {underlying}: {oiTransportFailures} of {dates.Count} "
+                    + "daily files could not be fetched; not caching a partial result. Reload to retry.");
+                return bars;
+            }
 
             _cache[fullSymbol] = bars;
             return bars;

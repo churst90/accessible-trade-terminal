@@ -367,7 +367,7 @@ public class ProviderFetchOhlcvTests
             {
                 var handler = new FakeHttpMessageHandler().Get(@"alternative\.me", """
                     {"data":[
-                      {"value":"75","timestamp":"1700000060"},
+                      {"value":"75","timestamp":"1700086400"},
                       {"value":"50","timestamp":"1700000000"}
                     ]}
                     """);
@@ -376,7 +376,12 @@ public class ProviderFetchOhlcvTests
                 var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Index", "FNG", "1d", 100));
 
                 Assert.Equal(2, result.Ohlcv.Count);
-                // Reversed: oldest (1700000000) first, newest (1700000060) last.
+                // Reversed: oldest (1700000000) first, newest (1700086400) last.
+                //
+                // A DAY apart, not sixty seconds. Fear & Greed is a daily series and its bars
+                // are publication-stamped to whole days now (AnalyticsPublicationLag), so two
+                // readings sixty seconds apart correctly collapse onto one date — which made
+                // the strictly-ascending assertion below fail for the right reason.
                 Assert.True(result.Ohlcv[0].Date < result.Ohlcv[1].Date);
                 Assert.Equal(50.0, result.Ohlcv[0].Close);
                 Assert.Equal(75.0, result.Ohlcv[1].Close);

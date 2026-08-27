@@ -297,7 +297,11 @@ namespace AccessibleTrader.Plugins.BGeometrics
 
                         if (double.IsNaN(val) || double.IsInfinity(val)) continue;
 
-                        bars.Add(new Ohlcv(date, val, val, val, val, 0));
+                        // Publication-stamped: "d" is the day the metric COVERS, and a
+                        // whole-day statistic is not knowable until that day is over.
+                        bars.Add(new Ohlcv(
+                            AnalyticsPublicationLag.ForWholeDayMetric(date),
+                            val, val, val, val, 0));
                     }
 
                     var vols = bars.Select(b => (new DateTimeOffset(b.Date).ToUnixTimeMilliseconds(), b.Volume)).ToList();

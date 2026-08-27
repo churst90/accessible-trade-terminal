@@ -3546,7 +3546,7 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   produced under the old stamping are still on disk and still wrong** — re-running them is its own
   task, filed below.
 
-- [ ] **Re-run every macro-conditioned StrategyLab result produced before 2026-08-25 — they were all
+- [x] **Re-run every macro-conditioned StrategyLab result produced before 2026-08-25 — they were all
   computed against look-ahead-biased FRED data.** The provider is fixed (item above); the
   *conclusions on disk* are not. Any finding whose gate reads CPI, GDP, unemployment, payrolls or
   any other FRED series saw the number weeks before it was published, and in the worst case saw a
@@ -3556,7 +3556,21 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   real. `docs/MACRO_EVENT_FINDINGS.md` is the obvious first file but is unlikely to be the only
   one. Until this is done, treat every macro-gated verdict in this repo as unverified. HIGH
   (research truth, not runtime).
-- [ ] **`AnalyticsDataResolver` is 378 lines of unreferenced code whose registry is ~30% wrong — twelve
+  **CLOSED 2026-08-27 — REFUTED. The premise does not hold, and the evidence is in the repo.**
+  The finding assumes archived verdicts were computed against FRED OBSERVATIONS carrying the
+  biased stamp. They were not: the StrategyLab never touches `FredProvider` at all. It reads
+  `events_*.json`, and those files are FRED **release_dates** — `fred_raw_cpi.json` is a
+  verbatim `releases/dates` payload (`"order_by":"release_date"`), and `events_cpi.json` is that
+  list of publication dates extracted. `MacroEventCommand`'s own banner says "real FRED dates",
+  and `edges.json` records "457/445/455/487 real FRED dates since 1990".
+  So the macro-gated studies were built on publication dates from the start and never had the
+  look-ahead. A sweep of `docs/*_FINDINGS.md` found no finding gated on a FRED observation
+  series, and no `ControlTested` edge in the catalogue carries a macro-observation gate.
+  **The FredProvider bug was real and is fixed — but its blast radius was the LIVE chart and
+  strategy path, not the archive.** No re-run is owed.
+  (This is the fifth recount hit on this list. The pattern holds: an audit's downstream
+  consequence is worth checking against the data before acting on it.)
+- [x] **`AnalyticsDataResolver` is 378 lines of unreferenced code whose registry is ~30% wrong — twelve
   rows name symbols the target plugin rejects, and five metrics resolve to nothing at all.** The only
   references to `IAnalyticsDataResolver` outside its own two files are the two DI registrations
   (`BlazorClient/ServiceCollectionExtensions.cs:232`, `WebHost/ServiceCollectionExtensions.cs:227`).
@@ -3576,7 +3590,15 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   `IsMetricAvailable` reports `true`. Fix: delete the class and its registrations, or add a startup test
   asserting every `MetricSource.Symbol` appears in the named provider's `GetAvailableSymbolsAsync`.
   (Orthogonal to and worse than TODO:525.) CONFIRMED. HIGH.
-- [ ] **`MyDataEventsProvider.cs:97,130` memoises event labels in a single instance field shared by every
+  **CLOSED 2026-08-27 — DELETED, 375 lines and both DI registrations.** Confirmed
+  unreferenced first: `Resolve`, `GetAvailableMetrics` and `IsMetricAvailable` have no call
+  sites anywhere in the solution and no tests. The finding offers "delete it, or add a startup
+  test asserting every `MetricSource.Symbol` appears in the named provider's
+  `GetAvailableSymbolsAsync`" — deletion is the right half. A registry that is ~30% wrong and
+  that nothing reads is not an asset waiting for a guard; it is a landmine that would hand a
+  future caller `TX_COUNT` when the provider wants `BTC_TX_COUNT`, while `IsMetricAvailable`
+  reported `true`.
+- [x] **`MyDataEventsProvider.cs:97,130` memoises event labels in a single instance field shared by every
   chart and every Events dataset, and the comment at `:127` claiming it "degrades to the generic template
   — never wrong text" is false.** `_labelsByBarDate` is a plain mutable field written wholesale at the end
   of `Calculate` and read by `GetComponentSpeech` (`:125`) and `GetDetailFact` (`:115`). The provider is
@@ -3587,7 +3609,14 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   *other* dataset's label. Since the lookup key is `bar.Date` and not the dataset id, the stale memo
   returns a confidently wrong string rather than falling back. For a product whose whole premise is that
   the spoken text is the interface, this is the worst class of bug in the area. CONFIRMED. HIGH.
-- [ ] **`FredProvider.cs:78-82,249-257` declares 1-minute and 3-minute bars as natively supported and then
+  **CLOSED 2026-08-27.** The memo is keyed per DATASET CODE now, not one shared instance
+  field. `GetDetailFact` has the code and looks up directly; `GetComponentSpeech` is handed only
+  a component, so it accepts a label only when exactly ONE dataset has one for that bar and
+  falls back to the generic template when several do — **which is the behaviour the old comment
+  claimed and did not deliver**. Because the lookup key was `bar.Date` alone, a stale memo
+  returned a confidently wrong string rather than degrading, and for a product whose premise is
+  that the spoken text IS the interface that is the worst class of bug in the area.
+- [x] **`FredProvider.cs:78-82,249-257` declares 1-minute and 3-minute bars as natively supported and then
   maps them to MONTHLY and QUARTERLY FRED data.** `NativelySupportedTimeframes` lists
   `StandardTimeframes.OneMinute` and `StandardTimeframes.ThreeMinutes`, which are `"1m"` and `"3m"`
   (`Sdk/Models/TimeframeUtility.cs:10-11`) — the author clearly meant one month and three months, but
@@ -3597,7 +3626,12 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   aggregation layer and `DataService.AnalyticsCacheTtl` both treat a monthly macro series as minute data
   (15-minute TTL instead of 12 hours). `GetSupportedTimeframesAsync` at `:245` repeats the list plus a
   `"1y"` that `TimeframeUtility`'s grammar rejects outright. CONFIRMED. HIGH.
-- [ ] **`BinanceVisionProvider.cs:313,395` caches a partial or empty result permanently for the process
+  **CLOSED 2026-08-27.** `"1M"` and `"3M"` (month tokens) replace `"1m"` and `"3m"` (minute
+  tokens), and **`MapFrequency` is case-sensitive** — the `tf.ToLower()` was the mechanism that
+  collapsed month and minute onto one branch. `GetSupportedTimeframesAsync` is now derived from
+  `NativelySupportedTimeframes` rather than repeating it by hand, which also drops the `"1y"`
+  that `TimeframeUtility`'s grammar rejects outright.
+- [x] **`BinanceVisionProvider.cs:313,395` caches a partial or empty result permanently for the process
   lifetime after a network failure, and emits one error string per failed month.** The funding walk loops
   `startMonth`→`endMonth` (`:281-298`) with `catch { _errorStream.OnNext(...) }` — no
   `TransportFailure.IsTransient` rethrow, unlike the other fourteen plugins — then unconditionally writes
@@ -3607,7 +3641,14 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   funding, OI and the crowding indicator stay blank for the rest of the session with no way to retry
   short of restarting. The OI path at `:354-395` has the same shape over ~2000 daily files.
   CONFIRMED. HIGH.
-- [ ] **`FinraShortVolumeProvider.cs:230` stamps daily short volume at the trading date, while the same
+  **CLOSED 2026-08-27.** Both walks. Transport failures are counted separately from ordinary
+  404s — the Binance Vision archive genuinely has holes, and a hole is not an outage — and a
+  result with ANY transport failure is returned but **not cached**, so a network drop no longer
+  blanks funding, open interest and the crowding indicator for the rest of the process lifetime.
+  The error spam is capped at one message per walk instead of one per file: ~70 spoken "fetch
+  error" lines for one offline moment is not a report, it is a denial of service on the speech
+  channel.
+- [x] **`FinraShortVolumeProvider.cs:230` stamps daily short volume at the trading date, while the same
   file deliberately lags short interest at `:370` — the inconsistency is unexplained.**
   `bars.Add(new Ohlcv(DateTime.SpecifyKind(day, DateTimeKind.Utc), pct, …))` puts day D's Reg SHO ratio
   on a bar opening at 00:00 UTC on day D. The consolidated file for day D is published after that day's
@@ -3616,7 +3657,15 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   `ShortIntPublicationLagDays` exists twelve lines above for exactly this reason on the biweekly series,
   the omission reads as an oversight. Combined with `CrossSeriesForwardFill.Fill`'s `ticks[i].Ts <= barTs`
   (`CrossSeriesCache.cs:206`) the value is visible from the bar's open. CONFIRMED. HIGH.
-- [ ] **The daily on-chain / sentiment providers all stamp a whole-day statistic at that day's 00:00 UTC,
+  **CLOSED 2026-08-27.** Stamped at the first TRADING day after the file is published, via a
+  `NextTradingDay` helper, so day D's Reg SHO ratio is no longer readable at D's own open — the
+  consolidated file is released after that day's close.
+  **Trading day, not calendar day, and the test caught why.** A plain +1 lands Friday's reading
+  on a Saturday, and this series is drawn on an equity chart with no Saturday bar, so the value
+  would be forward-filled onto Monday anyway by a path that does not know it is doing so. Naming
+  Monday directly keeps the series weekday-only, which every consumer already assumes — the
+  existing weekday assertion in `FinraShortVolumeProviderTests` is what surfaced it.
+- [x] **The daily on-chain / sentiment providers all stamp a whole-day statistic at that day's 00:00 UTC,
   so bar D carries a number derived from bar D's own close.** Same defect already filed against
   CoinMetrics (TODO:776), present unfiled in four more: `GlassnodeProvider.cs:179` (`t` is the metric's
   day, `i=24h`), `BGeometricsProvider.cs:279-283` (`d` = "YYYY-MM-DD"),
@@ -3627,7 +3676,16 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   reads day D's full-day on-chain value at day D's open. One bar — but it is the *whole edge* for a
   mean-reversion gate. Fix: one shared ingest rule — shift daily analytics series by one period at the
   boundary and pin it with a test. CONFIRMED. HIGH.
-- [ ] **`MempoolProvider.cs:174` turns a missing timestamp into a 1970-01-01 bar instead of skipping the
+  **CLOSED 2026-08-27.** All six — the filed CoinMetrics instance plus Glassnode,
+  BGeometrics, DefiLlama, Wikipedia pageviews and Alternative.me — stamp through **one shared
+  rule**, `AnalyticsPublicationLag`, exactly as the finding asks. Six independent copies of one
+  off-by-one is the signature of a rule that lives nowhere.
+  Wikipedia takes an extra day on top: its count for day D is not final until D ends AND the API
+  publishes it, which it does a day or two later. `AnalyticsPublicationLagTests` pins the rule
+  (including that a negative extra lag cannot pull a stamp back into look-ahead) and, because
+  the fetch paths need live HTTP, checks by source scan that every one of the six actually calls
+  it — the "guard tests the function, not the call site" shape this repo keeps hitting.
+- [x] **`MempoolProvider.cs:174` turns a missing timestamp into a 1970-01-01 bar instead of skipping the
   row, and the `DIFFICULTY` symbol probably hits that path for every row.**
   `long ts = entry["timestamp"]?.Value<long>() ?? 0;` then
   `DateTimeOffset.FromUnixTimeSeconds(0).UtcDateTime` at `:178` — the row is kept, so a payload shape
@@ -3637,6 +3695,12 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   `hashrates` entries) carry `time`/`height`/`difficulty` rather than `timestamp` — so every difficulty
   bar would land on 1970-01-01. The missing-timestamp handling is CONFIRMED; the field name is SUSPECTED
   (needs one live call to settle). HIGH if confirmed, MEDIUM otherwise.
+  **CLOSED 2026-08-27 — including the SUSPECTED half, without needing the live call.**
+  A row with no usable timestamp is now SKIPPED rather than kept as an epoch-zero bar that
+  anchors the chart's whole x-range to 1970; a missing bar is legible, a bar in 1970 is a chart
+  nobody can read. And the field name is read as `timestamp` **or** `time`, which is correct
+  whichever the API sends — so the suspicion about `DIFFICULTY`'s array using `time` is settled
+  by accepting both rather than by guessing, at no cost.
 - [ ] **`EtherscanProvider.cs:175-176` returns a one-point series stamped `DateTime.UtcNow.Date`, so
   `GAS_PRICE` and `ETH_SUPPLY` are snapshots masquerading as history.** `FetchCurrentValueAsync` reads
   the gas-oracle / supply endpoints, which have no historical form on the free tier, and wraps the scalar

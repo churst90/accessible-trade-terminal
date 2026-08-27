@@ -166,7 +166,25 @@ namespace AccessibleTrader.Plugins.Mempool
                     var bars = new List<Ohlcv>(dataArr.Count);
                     foreach (var entry in dataArr)
                     {
-                        long ts = entry["timestamp"]?.Value<long>() ?? 0;
+                        // A row with NO USABLE TIMESTAMP IS SKIPPED, not stamped 1970.
+                        //
+                        // This read `entry["timestamp"]?.Value<long>() ?? 0` and then
+                        // `DateTimeOffset.FromUnixTimeSeconds(0)`, KEEPING the row — so a
+                        // payload shape change silently produced an epoch-zero bar that
+                        // anchors the chart's whole x-range to 1970 rather than showing the
+                        // gap it actually is. A missing bar is legible; a bar in 1970 is a
+                        // chart nobody can read.
+                        //
+                        // Both field names, because they differ per array: the `hashrates`
+                        // entries carry `timestamp` while the `difficulty` entries — which
+                        // SymbolMap routes DIFFICULTY to — carry `time`. The audit marked that
+                        // as suspected and unverifiable without a live call; accepting both is
+                        // correct whichever the API sends, and costs nothing.
+                        long ts = entry["timestamp"]?.Value<long?>()
+                               ?? entry["time"]?.Value<long?>()
+                               ?? 0;
+                        if (ts <= 0) continue;
+
                         double val = entry[meta.ValueField]?.Value<double?>() ?? double.NaN;
                         if (double.IsNaN(val)) continue;
 
