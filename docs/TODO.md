@@ -112,10 +112,22 @@ it had only ever done isolated and the selector was gated on a capability it cou
 declare. See "Trading dashboard decoupling" and "Cross margin in the paper broker" below.
 
 **Phase B is complete, and so is the whole dashboard-decoupling roadmap (Phases 1–4 plus tests).
-Next: the tests-that-should-exist list, then the 71 HIGH items — see "What to do next" at the
-bottom of this section.**
+The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2026-08-26 (see
+"The audio surface had no ceiling" below). Next: the 71 HIGH items.**
 
 ### What to do next, and why that order
+
+**As of 2026-08-26 the answer is: the 71 HIGH items.** The tests-that-should-exist list is closed,
+which was the precondition — see the three blocks below for what it cost and what it bought. The
+sequencing argument that follows was written before any of them existed and is kept because the
+reasoning is what justifies starting the HIGH items NOW rather than as an act of faith.
+
+**Take the HIGH list in a fresh context, and recount it first.** Every census in this file has run
+about half stale, most recently the tests list, where five of its own items turned out to be
+already closed and a sixth (the mute theory) LOOKED closed because the rule was stated well in
+prose for one input value out of twenty-six. Expect the same of the 71. The other reason for a
+fresh context is that the HIGH items span areas that share nothing: a session that has just spent
+itself inside the audio engine will carry the wrong priors into the trading and provider items.
 
 **Tests first, HIGH items second.** The A2 audit measured this suite's true mutation catch rate at
 **61%**, and A3 built a browser harness that changes what several of the 38 outstanding tests should
@@ -144,6 +156,19 @@ corrections" below); **two were already done and the list did not know.** That i
 recount hits in two sessions on this one list, so the standing instruction is not optional:
 **grep before you write, and expect roughly a third of what remains to be already closed.**
 
+**2026-08-26, third block — the list is CLOSED.** Items 5, 6 and 7, and the audio item alone
+carried six sub-items. **Fourteen live defects**, against two items that turned out to be already
+correct and are now guarded. The headline is the one nobody had ever measured: **Chart-scope
+playback clips, and always has** — an ordinary eighteen-voice layout at the shipped default volume
+peaks at 5.5× full scale, a saturated voice plan at 21.5×, because the engine summed every voice
+straight into the host buffer with nothing between the sum and the DAC. Beside it, eight separate
+mute leaks (a cloud volume slider at zero came back at 5%; a muted series went on sounding its
+cloud fills; muting a profile's only component did nothing), a UI earcon round-robin that stole the
+level-cue and cross-chirp slots, and a crowded bar that made three `Speak` calls where the web head
+announces only the last. Everything fixed is demonstrated: each fix was watched going red before it
+went green, and the two items that were already correct were sabotaged to prove their new guards
+bite. Suite 5,075 → **5,257**, green in both configs.
+
 **Still open from the tests-that-should-exist list, in the order they are worth taking:**
 
 1. ~~`LiveStreamManager`'s watchdog~~ — **DONE 2026-08-26.** `LiveStreamWatchdogTests`, 10 cases,
@@ -161,18 +186,23 @@ recount hits in two sessions on this one list, so the standing instruction is no
    `Every_reachable_state_is_actually_reachable` is a theory over a `ReachableStates` array so a
    quietly-dropped entry cannot make the sweep vacuous. The item's own complaint about
    `Stalled`/`NetworkLagged` survives as a named, deliberately-documented unreachable case.
-5. **Audio**: one `Speak` per keypress on a crowded bar; `EarconType` enumerated the way
-   `FeedbackType` already is; mute as a theory over every `ComponentDisplayType`; Heikin-Ashi
-   component speech; `PlayNote` slots 26–31; Chart-scope output headroom.
-6. **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
-   directory.
-7. **Gap-fill overlapping a live tick** — the in-lock re-check at `ChartFeed:140`.
+5. ~~**Audio**~~ — **DONE 2026-08-26.** All six sub-items. Fourteen live defects found, the largest
+   of which is that Chart-scope playback has been clipping since it was written.
+6. ~~**Per-user isolation of `paper_account.json`**~~ — **DONE 2026-08-26.** Six cases; the routing
+   was already correct and is now guarded, including two providers racing over one directory.
+7. ~~**Gap-fill overlapping a live tick**~~ — **DONE 2026-08-26.** Five cases; both in-lock
+   re-checks proven by deleting them one at a time.
 
 **Recount before writing any of them.** Several items on that list were already closed by other
 work and the list did not know: "buy the whole account", "wrong-side stops", "brackets on a
 non-market entry", `ReportSuccess` for a sentinel, and "liquidated reaches speech" all had tests
 already when this session went looking. This is the same census-is-half-wrong pattern the
-2026-08-24 assessment produced; grep before you write.
+2026-08-24 assessment produced; grep before you write. The 2026-08-26 pass adds one more shape to
+watch for: item 5's mute sub-item LOOKED already covered — `SonificationTimbreTests` states the
+rule, well, in prose — and the recount nearly closed it on that basis. It was covered for
+`ComponentDisplayType.Candle` and for no other display type, and three of the others do not even
+share the code path. **A rule stated is not a rule tested; check which INPUTS the existing test
+runs.**
 
 ### Below the line
 
@@ -8349,11 +8379,29 @@ None of this makes 12 seconds untrustworthy today; all of it will bite on a load
 
 Ordered by value. Every one of these would have caught something above.
 
-- [ ] **Exactly one `Speak` per keypress** on a bar carrying a formation *and* a cross-series signal
+- [x] **Exactly one `Speak` per keypress** on a bar carrying a formation *and* a cross-series signal
   *and* a zone in range. Catches the zone-proximity overwrite directly; no current test constructs
-  that bar or counts calls.
-- [ ] **Enumerate `FeedbackType` and `EarconType`** and assert every member either speaks, earcons,
+  that bar or counts calls. **DONE 2026-08-26 — and the overwrite was live.** That bar produced
+  THREE `Speak` calls: the composed utterance, then "Near resistance at…", then "Near support at…",
+  because `CheckAndPlayZoneProximity` ran *after* the composition and spoke on its own. On the web
+  head only the last one survives to be announced, so the formation, the cross-series signals and
+  the bar's entire reading were discarded in favour of the support clause — on the bar a trader is
+  navigating *towards*. Zone proximity now returns its clauses instead of speaking them and is
+  folded into the one utterance, ahead of the marker signals (where price *is* leads what an
+  indicator says about it). Five cases in `NavigationUtteranceTests`, including a bar nowhere near
+  a zone as the vacuity half and a muted zone line as the mute half.
+- [x] **Enumerate `FeedbackType` and `EarconType`** and assert every member either speaks, earcons,
   or is on an explicit documented no-op allow-list. Three separate silent-arm bugs have now shipped.
+  **DONE 2026-08-26** — `FeedbackType` was already covered (`FeedbackTypeCoverageTests`);
+  `EarconTypeCoverageTests` is the other half. It needed TWO mechanisms and the reason is worth
+  keeping: behaviour cannot detect an unrouted member. `GlobalErrorCoordinator.PlayEarcon`'s mapping
+  ends in `_ => FeedbackType.Info`, which is the correct default — a caller that asks for a sound
+  gets a sound — and it means a seventeenth enum member added tomorrow and never routed would play
+  Info's neutral blip for a stop-loss with nothing audibly wrong. So: a theory driving the real
+  coordinator, router and `EarconService` proves no member is SILENT, and a scan of the mapping
+  switch's own body proves every member is routed ON PURPOSE. Confirmed by sabotage — deleting the
+  `Boundary` arm leaves the behavioural half green and turns the structural half red, which is
+  exactly the split the design predicted.
 - [x] **Buy the whole account** (`Quantity = balance / price`) and assert `Free >= 0` after the fee.
   The only negative-cash test uses a 90% buy. **ALREADY CLOSED — recount 2026-08-26.** It is
   `PaperTradingProviderTests.Maximal_market_buy_leaves_cash_non_negative_after_the_fee`, which
@@ -8426,24 +8474,96 @@ Ordered by value. Every one of these would have caught something above.
   which is the class that recurs, but no source scanner can know that MACD is in price units or
   that a Bollinger band is. Those were found by reading in the same pass. The structural version of
   this — a component declaring that its values are prices — is written up under the audio section.
-- [ ] **Mute as a `[Theory]` over every `ComponentDisplayType`** with a dedicated render path —
+- [x] **Mute as a `[Theory]` over every `ComponentDisplayType`** with a dedicated render path —
   Candle, Wick, Cloud, Oscillator, Histogram, Bar, Line, Profile, Heatmap. Currently only Candle.
-- [ ] **Heikin-Ashi component-context speech** — HA on, a bar whose raw lower shadow is 19% and
+  **DONE 2026-08-26 — `MuteIsAbsoluteTests`, and eight of the cases were live defects.** Most
+  display types share `CreateAudioPoint`, where mute collapses `baseVolume` to zero and every
+  amplitude branch multiplies through it; those 102 cases passed on the first run. Three paths do
+  not go through it, and all three leaked:
+  - **`PlayCloudComponent` floored volume at `0.05`** *after* multiplying in the user's gains, so a
+    cloud with its volume slider at zero came back at 5% and so did a chart muted to zero. A floor
+    that re-raises a deliberate zero is not a floor, it is a control that does not work at the one
+    setting somebody reaches for when they want silence. The floor now applies to the cloud's
+    THICKNESS; the user's gains multiply afterwards and a zero stays a zero.
+  - **`FireCloudVoices` consulted `fill.IsVisible` and nothing above it.** It runs as a second pass
+    OUTSIDE the voice plan, which is where muted and hidden series are filtered — so a muted series
+    went on sounding its cloud fills. Muting a series did not mute the series. It also ignored
+    `ChartVolume` entirely, so at zero the cloud fills were the only thing on the chart still
+    playing. Both fixed.
+  - **`SonifyProfile` / `SonifyHeatmap` never consulted the COMPONENT's mute.** The series-level
+    one is gated upstream in `SyncNavigationSlots`; the component-level one was gated nowhere, and a
+    profile or heatmap series has exactly one component — so muting it in the Properties dialog was
+    the user switching off the only voice the series has and hearing no difference.
+- [x] **Heikin-Ashi component-context speech** — HA on, a bar whose raw lower shadow is 19% and
   whose HA lower shadow is 0%, assert the wick speech says zero. `BarDetailContextTests` covers the
-  detail key only.
+  detail key only. **DONE 2026-08-26 — `HeikinAshiSpeechTests`, and this one was already CORRECT.**
+  Six cases across both readouts `NavigationFeedbackManager` owns (the series-context anatomy
+  summary and the component-context wick value), all green on the first run. Filed as a guard rather
+  than a fix, and proven by sabotage: disabling the HA transform turns four of the six red. The
+  fixture is arithmetic rather than a plausible-looking bar — every expected percentage is derived
+  in a comment from the published HA formula, and the bar is shaped so raw and HA disagree in
+  exactly the reported way (raw lower shadow 20%, HA lower shadow 0%).
 - [x] **Only `SyncNavigationSlots` writes voice slot 0** (reflection or architecture test).
   **CLOSED 2026-08-25:** written as `NavigationSlotZeroOwnershipTests` alongside the dead-export deletion —
   see the "Dead second navigation path still exported" item for what it asserts and how it was
   proven red.
-- [ ] **`PlayNote` never emits `SetVoice` for slots 26-31**; and a rendered-audio assertion that a
-  staggered earcon has N distinct onsets.
-- [ ] **Render a full Chart-scope bar and assert peak ≤ 1.0** (output headroom).
+- [x] **`PlayNote` never emits `SetVoice` for slots 26-31**; and a rendered-audio assertion that a
+  staggered earcon has N distinct onsets. **DONE 2026-08-26 — `UiEarconSlotTests`, and the slot
+  collision was live.** The UI round-robin was `SLOT_UI_START + (counter & 15)`, which walks 16–31
+  and therefore lands on 26–29 (`EarconPatchPlayer.CueSlotStart`, the level-cue patch layers) and
+  30/31 (`CrossEarcon`'s chirp pair), cutting them off mid-note. The timing is the worst possible:
+  a level cross fires the chirp AND is exactly the bar that produces a burst of other UI notes, so
+  the cue was most likely to be stolen precisely when it had something to say. Now modulo 10 over
+  16–25. `PlayPatch` claims from the same counter and was fixed with it — a one-site fix would have
+  left the other free to trespass. **The onset test taught the sharper lesson:** the first version
+  slept alongside the real `Task.Delay` stagger, passed alone, and failed inside the full suite,
+  because under load a 5 ms sleep is not 5 ms and the render loop fell behind the notes it was
+  separating. Rewritten against the ENGINE's sample clock, which means the same thing on a loaded CI
+  box as on an idle laptop. It then failed again, deterministically, for a second reason worth
+  recording: **the render buffer is interleaved stereo, so a millisecond is two samples and not
+  one** — the 120 ms gap rendered as 60 ms and butted a 60 ms note against the next one.
+- [x] **Render a full Chart-scope bar and assert peak ≤ 1.0** (output headroom). **DONE 2026-08-26,
+  and this is the biggest thing this batch found: Chart-scope playback has been clipping since it
+  was written.** `AudioEngine.Read` summed every active voice into `leftSum`/`rightSum` and wrote
+  the total straight into the host buffer with nothing between the sum and the DAC. Measured by
+  driving the real `AudioSequencer` in the real Chart scope against the real engine: an ORDINARY
+  layout — a candle series and five indicator panes, eighteen voices, nothing turned up, at the
+  shipped 50% chart volume — **peaked at 5.5× full scale**. A saturated voice plan reached **21.5×**.
+  Everything past 1.0 is clipped by the host driver, and clipping is not a loudness problem: it is
+  broadband distortion arriving on the busiest bars, over the top of a screen reader, on a surface
+  whose whole job is to be listened to for hours — and it cannot be escaped by turning the chart
+  down, because it happens after the mix.
+  Fixed with a brickwall limiter on the engine output: instantaneous attack, so the ceiling (0.99)
+  cannot be overshot by even one sample, and a ~250 ms release so a single loud bar does not duck
+  the passage after it. **Gain riding, not waveshaping, and the distinction is the point** — a
+  soft-clip curve would bound the output just as well while bending every voice into harmonics that
+  are in none of them, which on a surface where TIMBRE carries meaning (grit = wick length, square
+  = direction) is destroying the signal to protect the speaker. A single gain across the frame keeps
+  every voice's shape and every voice's loudness relative to the others; the chart just plays
+  quieter while it is busy. At unity the samples are untouched, so navigation audio is unchanged.
+  **The vacuity test earned its place on the first run**: wired to a live engine the harness
+  measured a peak of 0.000, because the sequencer silences every playback voice in its `finally` and
+  the engine was empty by the time the run returned. The harness now records the arming and replays
+  it, closing the recording on `PlaybackFinished` so the teardown is not mistaken for the bar.
 - [x] **`SetVoice(durationSec: 0, envelope: "Ping")` produces no NaN** in the buffer.
   **CLOSED 2026-08-25:** written as `ZeroLengthPing_ProducesNoNaN`, plus a case-insensitive twin and a
   non-finite-parameter test — see the `AudioEngine` divide-by-zero item.
-- [ ] **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
+- [x] **Per-user isolation of `paper_account.json`**, plus two concurrent scoped providers over one
   directory. `WorkspacePerUserIsolationTests` and `IndicatorPrefsPerUserIsolationTests` exist; the
-  paper account has no equivalent.
+  paper account has no equivalent. **DONE 2026-08-26 — `PaperAccountPerUserIsolationTests`, six
+  cases, all green on the first run and proven by sabotage** (hardcoding a shared state path turns
+  four of the six red). What existed before was `PaperAccountSharingTests.TwoUsers_NeverShare`,
+  which asserts the HUB hands out two distinct objects — a true and useful fact that says nothing
+  about the file. Two distinct account objects both writing `paper_account.json` in one directory is
+  the same last-writer-wins corruption the hub exists to prevent, one level down. Covered now: the
+  file lands under the `AppDataDirectory` it was handed; one user's trade leaves the other's file
+  absent and their positions empty; balances do not leak; and each account reloads its OWN file
+  after a restart — the case where a path resolved once and cached (the bug `ShortcutManager` and
+  `SettingsManager` both had, and which `PaperTradingProvider` is structurally exposed to, since it
+  resolves `_statePath` in its constructor) would finally show. The concurrency half asserts the
+  outcome that actually matters: eighty interleaved orders from two providers over one directory
+  must never leave a half-written file — whichever ledger wins, what is on disk is a complete,
+  loadable account and the corrupt-file quarantine never fires.
 - [x] **`ReportSuccess` is not called for a sentinel result**, and the dashboard renders
   `ORDER_DUPLICATE_SUPPRESSED` as an error. **ALREADY CLOSED by B1 — recount 2026-08-26.**
   `OrderFailureHonestyTests` asserts both directions of `ReportSuccess`, and
@@ -8484,8 +8604,25 @@ Ordered by value. Every one of these would have caught something above.
   cancelled or filled with nothing left resting and never two positions. All green — the lock is
   doing its job. Reentrancy from a subscriber back into `PlaceOrderAsync` is NOT covered and is
   left explicitly unverified.
-- [ ] **Gap-fill overlapping a live tick.** The two operations are covered separately; the in-lock
+- [x] **Gap-fill overlapping a live tick.** The two operations are covered separately; the in-lock
   re-check at `ChartFeed:140` that makes overlap safe has no test that would fail if deleted.
+  **DONE 2026-08-26 — `GapFillOverlapTests`, and there turned out to be TWO re-checks, one per
+  branch of the merge, neither tested.** The overlap is not exotic: gap-fill runs after a reconnect
+  or a tab regaining focus, which is exactly when the live stream starts delivering again, and
+  `GapFillAsync` does not hold the prepend lock that `ApplyLiveTick` respects — so a live bar can
+  land while the fetch is in flight and the date the merge reasons about is already stale.
+  Both were proven by deleting them one at a time (append re-check → 3 of 5 red; replace re-check
+  → 1 of 5 red). Without the append guard the buffer becomes `0,1,2,5,3,4,5` — out of order and
+  with a bar in it twice. Without the replace guard, an intra-bar refresh overwrites a period the
+  live stream has just opened. Neither throws anywhere: every consumer downstream takes ascending
+  order as given (the resampler buckets forward, the causality contract assumes index order is
+  time order, the renderer maps index to x, navigation reads "next bar" as next index), so a
+  scrambled buffer does not fail — it quietly means something different everywhere. The correct
+  outcome leaves a HOLE where bars 3 and 4 should be, and that is the right trade: a missing bar is
+  visible and self-corrects on the next gap-fill.
+  A fifth case runs thirty rounds of the two operations against each other asserting only the
+  invariant, because a staged test can only catch the interleavings its author thought of, and the
+  reason both guards exist is that somebody did not.
 
 ---
 

@@ -243,4 +243,174 @@ public class NavigationUtteranceTests
         if (spoken.Contains("Support"))
             Assert.DoesNotContain("Also", spoken);
     }
+
+    // ── The crowded bar ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds the bar that has the most to say: a chart formation, a cross-series marker signal,
+    /// and BOTH a support and a resistance zone within proximity of the bar's range.
+    ///
+    /// <para>
+    /// Zone lines are classified by base frequency — <c>&gt;= 500 Hz</c> is a resistance ceiling,
+    /// below is a support floor — and "in range" means the bar's high/low comes within 0.5% of the
+    /// zone's value. The bar at index 1 runs 10 to 12, so a zone at 12 and a zone at 10 are both
+    /// touched by it, which is what makes this the three-clause case rather than the two-clause one.
+    /// </para>
+    /// </summary>
+    private static WorkspaceState CrowdedBar(out ChartSeries candles)
+    {
+        candles = CandleSeries();
+        var (_, marker) = SeriesWithMarker();
+
+        var zoneConfig = new SeriesConfig { Id = "sr", IndicatorCode = "SR", Name = "Support Resistance", Pane = "Main" };
+        var zoneData = new SeriesDataBuffer { SeriesId = zoneConfig.Id };
+
+        var resistance = new ComponentConfig
+        {
+            Name = "R1", DisplayName = "R1", IsVisible = true,
+            IsZoneLine = true, BaseFrequency = 880,          // >= 500 → resistance
+        };
+        var support = new ComponentConfig
+        {
+            Name = "S1", DisplayName = "S1", IsVisible = true,
+            IsZoneLine = true, BaseFrequency = 220,          // < 500 → support
+        };
+        zoneConfig.Components.Add(resistance);
+        zoneConfig.Components.Add(support);
+        zoneData.ComponentData["R1"] = new double[] { 12, 12, 12 };
+        zoneData.ComponentData["S1"] = new double[] { 10, 10, 10 };
+
+        return State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(
+                candles, marker, new ChartSeries(zoneConfig, zoneData)),
+            FocusedSeriesId = candles.Id,
+        };
+    }
+
+    /// <summary>
+    /// <b>The bar with the most to say must still be one utterance.</b>
+    ///
+    /// <para>
+    /// This is the case the one-utterance rule was written for and the one it did not cover. The
+    /// bar reading, the formation clause and the cross-series signals were composed into a single
+    /// phrase — and then <c>CheckAndPlayZoneProximity</c> ran afterwards and made up to two MORE
+    /// <c>Speak</c> calls of its own. On the web head that is the same overwrite the composition
+    /// exists to prevent, in the other direction: the composed phrase is written into the live
+    /// region and then replaced by "Near resistance at 12" before a screen reader can read it.
+    /// </para>
+    ///
+    /// <para>
+    /// The bar most likely to hit this is the one where price has arrived at a level — which is to
+    /// say the bar a trader is navigating TOWARDS. Everything the terminal had worked out about it
+    /// was discarded in favour of the last clause to be spoken.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ABarCarryingAFormationASignalAndTwoZonesIsStillOneUtterance()
+    {
+        var spy = new SpySpeechRouter();
+        var state = CrowdedBar(out _);
+
+        Manager(spy).HandleNavigationFeedback(
+            state, isXMove: true, isYMove: false, prefixMessage: "",
+            extraContext: "Start of possible double top, neckline 42100.");
+
+        Assert.True(spy.SpeakCallCount == 1,
+            $"{spy.SpeakCallCount} Speak calls for one keypress — on the web head only the last one " +
+            $"survives to be announced. Spoken: {string.Join(" || ", spy.SpokenTexts)}");
+    }
+
+    /// <summary>
+    /// Every clause has to be IN that one utterance. Collapsing to a single call by dropping the
+    /// zones would satisfy the count and lose the thing the count was protecting.
+    /// </summary>
+    [Fact]
+    public void ThatOneUtteranceCarriesEveryClause()
+    {
+        var spy = new SpySpeechRouter();
+        var state = CrowdedBar(out _);
+
+        Manager(spy).HandleNavigationFeedback(
+            state, isXMove: true, isYMove: false, prefixMessage: "",
+            extraContext: "Start of possible double top, neckline 42100.");
+
+        string spoken = spy.SpokenTexts[0];
+
+        Assert.Contains("double top", spoken);              // the formation
+        Assert.Contains("Support", spoken);                 // the cross-series marker
+        Assert.Contains("Near resistance", spoken);         // the ceiling the bar has reached
+        Assert.Contains("Near support", spoken);            // the floor it is sitting on
+        Assert.Contains("12", spoken);                      // and the bar's own reading
+    }
+
+    /// <summary>
+    /// Events lead. A zone is an event — the bar has ARRIVED somewhere — so like the formation
+    /// clause it has to be in the opening syllables, not appended after the routine value where a
+    /// listener scanning quickly will already have moved on.
+    /// </summary>
+    [Fact]
+    public void TheZoneClausesPrecedeTheBarValue()
+    {
+        var spy = new SpySpeechRouter();
+        var state = CrowdedBar(out _);
+
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        string spoken = spy.SpokenTexts[0];
+        Assert.StartsWith("Near", spoken);
+    }
+
+    /// <summary>
+    /// The vacuity half. A bar with no zone anywhere near it must say nothing about zones —
+    /// otherwise "Near resistance is in the utterance" is a fact about the formatter rather than
+    /// about this bar, and the assertions above would hold no matter what the data said.
+    /// </summary>
+    [Fact]
+    public void ABarNowhereNearAZoneSaysNothingAboutZones()
+    {
+        var spy = new SpySpeechRouter();
+        var candles = CandleSeries();
+
+        var zoneConfig = new SeriesConfig { Id = "sr", IndicatorCode = "SR", Name = "SR", Pane = "Main" };
+        var zoneData = new SeriesDataBuffer { SeriesId = zoneConfig.Id };
+        zoneConfig.Components.Add(new ComponentConfig
+        {
+            Name = "R1", DisplayName = "R1", IsVisible = true, IsZoneLine = true, BaseFrequency = 880,
+        });
+        // The bar at index 1 spans 10–12; a level at 500 is nowhere near it.
+        zoneData.ComponentData["R1"] = new double[] { 500, 500, 500 };
+
+        var state = State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(
+                candles, new ChartSeries(zoneConfig, zoneData)),
+            FocusedSeriesId = candles.Id,
+        };
+
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.Equal(1, spy.SpeakCallCount);
+        Assert.DoesNotContain("Near", spy.SpokenTexts[0]);
+    }
+
+    /// <summary>
+    /// A muted zone line is a zone the user switched off, and switching it off has to stop the
+    /// speech as well as the sound. This is the same rule <see cref="MuteIsAbsoluteTests"/> asserts
+    /// for the audio path; zone proximity is the one place it is carried by words instead.
+    /// </summary>
+    [Fact]
+    public void AMutedZoneLineIsNotAnnounced()
+    {
+        var spy = new SpySpeechRouter();
+        var state = CrowdedBar(out _);
+
+        foreach (var s in state.ActiveSeries)
+            foreach (var c in s.Components)
+                if (c.IsZoneLine) c.IsMuted = true;
+
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.DoesNotContain("Near", spy.SpokenTexts[0]);
+    }
 }

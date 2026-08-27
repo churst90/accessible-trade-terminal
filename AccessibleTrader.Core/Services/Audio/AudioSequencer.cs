@@ -143,7 +143,8 @@ namespace AccessibleTrader.Core.Services.Audio
                     var state2 = _store.State;
                     int cloudSlot2 = 0;
                     int cloudEnd2 = state2.ViewportStartIndex + AudioConstants.ComputePanWidth(state2) - 1;
-                    FireCloudVoices(seriesList, i, state2.ViewportStartIndex, cloudEnd2, msPerBar, ref cloudSlot2);
+                    FireCloudVoices(seriesList, i, state2.ViewportStartIndex, cloudEnd2, msPerBar,
+                        state2.ChartVolume, ref cloudSlot2);
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
@@ -390,7 +391,8 @@ namespace AccessibleTrader.Core.Services.Audio
                     // Cloud pass — fires after component voices for each bar (Chart scope only).
                     int cloudSlot = 0;
                     int cloudEndMulti = state.ViewportStartIndex + AudioConstants.ComputePanWidth(state) - 1;
-                    FireCloudVoices(seriesList, i, state.ViewportStartIndex, cloudEndMulti, msPerBar, ref cloudSlot);
+                    FireCloudVoices(seriesList, i, state.ViewportStartIndex, cloudEndMulti, msPerBar,
+                        state.ChartVolume, ref cloudSlot);
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
@@ -460,9 +462,24 @@ namespace AccessibleTrader.Core.Services.Audio
             }
 
             float normalizedVol = maxWidth > 0 ? (float)(absWidth / maxWidth) : 0f;
-            float volume = Math.Clamp(normalizedVol * comp.Volume * state.ChartVolume * series.Volume, 0.05f, 1f);
+
+            // The 0.05 floor keeps a THIN cloud perceptible rather than letting it fade out of
+            // hearing, which is the right call — but it used to sit outside the user's controls,
+            // so a cloud with its volume slider at zero, or a chart muted to zero, came back at
+            // 5%. A floor that re-raises a deliberate zero is not a floor, it is a control that
+            // does not work at the one setting somebody reaches for when they want silence. The
+            // floor now applies to the cloud's THICKNESS only; the user's own gains multiply
+            // through afterwards and a zero anywhere in them is still a zero.
+            float scale = comp.Volume * state.ChartVolume * series.Volume;
+            float volume = scale <= 0f ? 0f : Math.Clamp(Math.Max(normalizedVol, 0.05f) * scale, 0f, 1f);
             float layerScale = LayerVolume(comp.PlaybackLayer);
             volume *= layerScale;
+            if (volume <= 0f)
+            {
+                _audioDriver.StopVoice(slot);
+                if (blendSlot >= 0) _audioDriver.StopVoice(blendSlot);
+                return;
+            }
 
             double freq = isBullish ? comp.BullishFrequency : comp.BearishFrequency;
             // Pan tracks the renderer's visual layout (see AudioConstants.ComputePanWidth).
@@ -490,10 +507,20 @@ namespace AccessibleTrader.Core.Services.Audio
         /// Volume is proportional to the cloud's thickness relative to the maximum thickness in the viewport.
         /// Direction (upper &gt;= lower = bullish) selects BullishFrequency or BearishFrequency.
         /// </summary>
-        private void FireCloudVoices(IReadOnlyList<ChartSeries> seriesList, int barIndex, int viewportStart, int viewportEnd, double msPerBar, ref int cloudSlotCounter)
+        private void FireCloudVoices(IReadOnlyList<ChartSeries> seriesList, int barIndex, int viewportStart, int viewportEnd, double msPerBar, float chartVolume, ref int cloudSlotCounter)
         {
+            // A chart muted to zero is muted. This pass used to scale by the fill's own MaxVolume
+            // and nothing else, so the master chart volume never reached it at all — at zero the
+            // cloud fills were the only thing on the chart still playing.
+            if (chartVolume <= 0f) return;
+
             foreach (var series in seriesList)
             {
+                // This pass runs OUTSIDE the voice plan, which is where muted and hidden series are
+                // filtered out — so it consulted fill.IsVisible and nothing above it. A muted series
+                // went on sounding its fills, which means muting a series did not mute the series.
+                if (!series.IsVisible || series.IsMuted || series.Volume <= 0f) continue;
+
                 var fills = series.CloudFills;
                 if (fills == null || fills.Count == 0) continue;
 
@@ -516,10 +543,10 @@ namespace AccessibleTrader.Core.Services.Audio
                     float maxThickness = ComputeMaxCloudThickness(upperData, lowerData, viewportStart, viewportEnd);
                     float thickness = (float)Math.Abs(upperVal - lowerVal);
                     float normalizedThickness = maxThickness > 0f ? thickness / maxThickness : 0f;
-                    float volume = normalizedThickness * fill.Sonification.MaxVolume;
+                    float volume = normalizedThickness * fill.Sonification.MaxVolume * chartVolume * series.Volume;
 
                     // Skip near-silent bars (consolidation / overlapping lines).
-                    if (volume < 0.05f) continue;
+                    if (volume < 0.05f * chartVolume * series.Volume) continue;
 
                     // Direction → frequency.
                     bool isBullish = upperVal >= lowerVal;

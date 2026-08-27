@@ -50,11 +50,16 @@ namespace AccessibleTrader.Core.Services.Audio
         //                 assignment in SyncNavigationSlots — layer li lands on 7 + li).
         //                 These were documented as "reserved for future" long after they
         //                 started being used.
-        // Slots  16– 31 : UI earcons — round-robin via PlayNote (modulo 16). NOTE: the
-        //                 round-robin walks the whole range, so it will land on 26–29
-        //                 (EarconPatchPlayer.CueSlotStart level cues) and 30/31 (the
-        //                 cross-chirp pair) and cut them off. That is a real defect, not
-        //                 a documentation gap — it is written up in docs/TODO.md.
+        // Slots  16– 31 : UI earcons, split three ways.
+        //                 16–25 : the general round-robin, used by PlayNote and PlayPatch.
+        //                 26–29 : EarconPatchPlayer.CueSlotStart — the level-cue patch layers.
+        //                 30/31 : CrossEarcon's chirp pair.
+        //                 The round-robin used to be modulo 16 and walked the WHOLE range, so
+        //                 the eleventh UI note of any burst landed on 26 and cut off whatever
+        //                 level cue or chirp was sounding there. Both of those fire on exactly
+        //                 the bars where UI notes are busiest — a level cross IS a burst of
+        //                 activity — so the cue was most likely to be stolen precisely when it
+        //                 had something to say. It is now modulo 10 and cannot reach them.
         // Slots  32– 95 : Playback sequencer (AudioSequencer, PlaybackSlotOffset = 32,
         //                 PlaybackSlotEnd = 95).
         // Slots  96–127 : Cloud fills (AudioSequencer, CloudSlotOffset = 96).
@@ -63,7 +68,23 @@ namespace AccessibleTrader.Core.Services.Audio
         // ────────────────────────────────────────────────────────────────────────
         private const int SLOT_NAV_START = 0;
         private const int SLOT_UI_START = 16;
+
+        /// <summary>
+        /// How many slots the general UI round-robin owns, starting at <see cref="SLOT_UI_START"/>.
+        /// Ten, not sixteen: 26–29 belong to <c>EarconPatchPlayer.CueSlotStart</c> and 30/31 to
+        /// <c>CrossEarcon</c>, and a round-robin that reaches them silences them.
+        /// </summary>
+        internal const int UiRoundRobinSlots = EarconPatchPlayer.CueSlotStart - SLOT_UI_START;
+
         private int _uiSlotCounter;
+
+        /// <summary>
+        /// Claims the next general-purpose UI earcon slot. The unsigned cast matters: the counter
+        /// is a plain <c>int</c> that wraps to negative after two billion notes, and a negative
+        /// <c>%</c> in C# yields a negative remainder, which would index below the range.
+        /// </summary>
+        private int NextUiSlot()
+            => SLOT_UI_START + (int)((uint)Interlocked.Increment(ref _uiSlotCounter) % UiRoundRobinSlots);
 
         public NavigationSonifier(IAudioDriver audioDriver, ISonificationStrategy strategy, ISoundPatchRegistry patchRegistry,
             ISoundPatchLibrary? patchLibrary = null)
@@ -435,7 +456,7 @@ namespace AccessibleTrader.Core.Services.Audio
         {
             // The slot is claimed immediately so round-robin order matches call order even
             // when later notes in a phrase carry longer delays.
-            int slot = SLOT_UI_START + (Interlocked.Increment(ref _uiSlotCounter) & 15);
+            int slot = NextUiSlot();
             if (delay <= 0)
             {
                 _audioDriver.SetVoice(slot, freq, vol, pan, wave, false, dur);
@@ -456,7 +477,7 @@ namespace AccessibleTrader.Core.Services.Audio
             // is why the Sound Designer's Envelope/Noise controls now audition correctly.
             foreach (var layer in patch.EffectiveLayers())
             {
-                int slot = SLOT_UI_START + (Interlocked.Increment(ref _uiSlotCounter) & 15);
+                int slot = NextUiSlot();
                 float vol = Math.Clamp(patch.Volume * layer.Gain * volumeScale, 0f, 1f);
                 _audioDriver.SetVoice(slot, baseFreq * layer.FreqRatio, vol, pan, layer.Waveform, false,
                     patch.DurationSeconds, -1, env, false, Math.Max(0f, layer.NoiseAmount),
@@ -464,9 +485,26 @@ namespace AccessibleTrader.Core.Services.Audio
             }
         }
 
+        /// <summary>
+        /// True when every one of a distribution series' components is muted or hidden.
+        ///
+        /// <para>
+        /// The series-level mute is gated upstream in <see cref="SyncNavigationSlots"/>, but the
+        /// COMPONENT-level one was consulted by nobody on this path — and a profile or heatmap
+        /// series has exactly one component, so muting it in the Properties dialog was the user
+        /// switching off the only voice the series has and hearing no difference. A series with no
+        /// components at all is not silenced by this: it has nothing switched off, and its data is
+        /// still worth hearing.
+        /// </para>
+        /// </summary>
+        private static bool AllComponentsSilenced(ChartSeries series)
+            => series.Components.Count > 0
+               && series.Components.All(c => c.IsMuted || !c.IsVisible || c.Volume <= 0f);
+
         public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f)
         {
             if (series == null || series.Data.ProfileBins == null || binIndex < 0 || binIndex >= series.Data.ProfileBins.Count) return;
+            if (AllComponentsSilenced(series)) { _audioDriver.StopVoice(SLOT_NAV_START); return; }
 
             var allBins = series.Data.ProfileBins;
             var bin     = allBins[binIndex];
@@ -492,6 +530,7 @@ namespace AccessibleTrader.Core.Services.Audio
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f)
         {
             if (series == null || series.Data.HeatmapData == null || dataIndex < 0 || dataIndex >= series.Data.HeatmapData.Count) return;
+            if (AllComponentsSilenced(series)) { _audioDriver.StopVoice(SLOT_NAV_START); return; }
             var bar = series.Data.HeatmapData[dataIndex];
             if (bar == null || binIndex < 0 || binIndex >= bar.Count) return;
 

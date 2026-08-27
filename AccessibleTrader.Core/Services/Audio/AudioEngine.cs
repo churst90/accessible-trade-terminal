@@ -215,6 +215,35 @@ namespace AccessibleTrader.Core.Services.Audio
         private float _userMasterGain = 1.0f;
         private volatile bool _stopAllFaded;
 
+        // ── Output limiter ──────────────────────────────────────────────────────────────
+        //
+        // Read() sums every active voice and used to write the total straight into the host
+        // buffer, with nothing between the sum and the DAC. One navigation note is fine. Chart
+        // scope is not: it arms one Sustain voice per visible component of every visible series
+        // (up to 64) plus up to 32 cloud fills, all sounding at once. Measured on an ORDINARY
+        // layout — a candle series and five indicator panes, eighteen voices, nothing turned up,
+        // at the default 50% chart volume — the mix peaked at 5.5× full scale; a saturated voice
+        // plan reached 21.5×. Everything past 1.0 is clipped by the host driver, and clipping is
+        // not a loudness problem: it is broadband distortion arriving on the busiest bars, over
+        // the top of a screen reader, on a surface whose whole job is to be listened to for hours.
+        // Turning the chart down does not escape it, because it happens after the mix.
+        //
+        // This is gain riding, not waveshaping — and the distinction is the point. A soft-clip
+        // curve would bound the output just as well while bending every voice's waveform into
+        // harmonics that are not in any of them, which on a surface where TIMBRE carries meaning
+        // (grit = wick length, square = direction) is destroying the signal to protect the
+        // speaker. A single gain applied to the whole frame preserves every voice's shape and
+        // every voice's loudness RELATIVE to the others; the chart simply plays quieter while it
+        // is busy. Attack is instantaneous, so the ceiling can never be overshot even by one
+        // sample; release is slow enough (~250 ms) not to pump audibly.
+        //
+        // At unity — anything whose frame peak is already under the ceiling — the gain sits at
+        // exactly 1.0 and the samples are untouched, so navigation audio is bit-identical to
+        // what it was before this existed.
+        private const float LimiterCeiling = 0.99f;
+        private const float LimiterReleaseSeconds = 0.25f;
+        private float _limiterGain = 1.0f;
+
         public int SampleRate => _sampleRate;
         public int Channels => 2;
 
@@ -684,9 +713,25 @@ namespace AccessibleTrader.Core.Services.Audio
                     }
                 }
 
-                buffer[offset + samplesRead] = leftSum * _masterGain;
+                float left = leftSum * _masterGain;
+                float right = rightSum * _masterGain;
+
+                // Instant attack: whatever gain this frame needs to sit on the ceiling is applied
+                // to this frame, so no sample can ever leave the engine out of range. Slow release
+                // back towards unity, so a single loud bar does not duck the whole passage after it.
+                float framePeak = Math.Max(Math.Abs(left), Math.Abs(right));
+                float required = framePeak > LimiterCeiling ? LimiterCeiling / framePeak : 1.0f;
+                if (required < _limiterGain) _limiterGain = required;
+                else if (_limiterGain < 1.0f)
+                    // Released, but never past what THIS frame needs — otherwise a release step
+                    // taken while the gain is already deep (a very loud passage) is a step of a
+                    // large PROPORTION of it, and the frame it lands on leaves the ceiling behind.
+                    _limiterGain = Math.Min(required,
+                        Math.Min(1.0f, _limiterGain + 1.0f / (LimiterReleaseSeconds * _sampleRate)));
+
+                buffer[offset + samplesRead] = left * _limiterGain;
                 samplesRead++;
-                buffer[offset + samplesRead] = rightSum * _masterGain;
+                buffer[offset + samplesRead] = right * _limiterGain;
                 samplesRead++;
             }
 

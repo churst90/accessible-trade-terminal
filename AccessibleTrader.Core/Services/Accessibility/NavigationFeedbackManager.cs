@@ -284,7 +284,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1. Chart formations (composed by the caller — see AccessibilityFeedbackCoordinator).
             if (!string.IsNullOrWhiteSpace(extraContext)) utterance.Add(extraContext.Trim());
 
-            // 2. Marker signals from OTHER series on this same bar, in the tier order used by the
+            // 2. Zone proximity — price has ARRIVED at a support or resistance level.
+            //
+            //    This used to be two Speak calls of its own, made AFTER the composed utterance
+            //    below had already been spoken. On the web head that is the same overwrite this
+            //    whole composition exists to prevent, running in the other direction: the phrase
+            //    carrying the formation, the cross-series signals and the bar's own reading was
+            //    written into the live region and then replaced by "Near resistance at …" before a
+            //    screen reader could announce any of it. Measured on a bar carrying all four:
+            //    three Speak calls, of which the user heard the last.
+            //
+            //    And the bar most likely to hit it is the bar a trader is navigating TOWARDS.
+            //    Everything the terminal had worked out about the moment that mattered was the
+            //    part that got discarded.
+            //
+            //    Placed ahead of the marker signals because a zone is about where price is right
+            //    now, which is more immediate than an indicator's commentary on it. Zone lines are
+            //    excluded from the cluster audio ticks precisely so that speech can carry them;
+            //    this is that speech.
+            if (!isJump && isXMove && focusedOnCandleSeries)
+                utterance.AddRange(DescribeZoneProximity(state, state.CurrentDataIndex));
+
+            // 3. Marker signals from OTHER series on this same bar, in the tier order used by the
             //    cluster audio tick system (Phase F).
             //
             //    No longer gated on being focused on the candle series. The old rule assumed that
@@ -309,17 +330,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
             }
 
-            // 3. The bar itself.
+            // 4. The bar itself.
             if (!string.IsNullOrWhiteSpace(finalSpeech)) utterance.Add(finalSpeech.Trim());
 
             if (utterance.Count > 0)
                 _speechRouter.Speak(string.Join(" ", utterance), interrupt: isUserInitiated);
-
-            // Zone proximity earcon: fires only when navigating the candle/price series.
-            // When the user has focus inside a different indicator (Cipher A/B, SR, etc.),
-            // zone speech is noise — only that indicator's own content should speak.
-            if (!isJump && isXMove && focusedOnCandleSeries)
-                CheckAndPlayZoneProximity(state, state.CurrentDataIndex);
 
             _previousState = state;
         }
@@ -482,9 +497,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// once used <c>:F0</c> and read every sub-dollar asset's level as "0".
         /// </para>
         /// </summary>
-        private void CheckAndPlayZoneProximity(WorkspaceState state, int dataIndex)
+        /// <summary>
+        /// The zone clauses for this bar, in the order they should be heard — nearest ceiling
+        /// first, then nearest floor. Returns them rather than speaking them: everything true
+        /// about a bar goes into one utterance, and this used to be the exception that quietly
+        /// overwrote the rest of it.
+        /// </summary>
+        private static List<string> DescribeZoneProximity(WorkspaceState state, int dataIndex)
         {
-            if (dataIndex < 0 || dataIndex >= state.Data.Count) return;
+            var clauses = new List<string>(2);
+            if (dataIndex < 0 || dataIndex >= state.Data.Count) return clauses;
             var bar = state.Data[dataIndex];
 
             float? resistanceFreq = null;
@@ -541,9 +563,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // at 0", which is not a wrong price so much as no price at all. Any spoken price goes
             // through the formatter; it is the only thing that knows an instrument's magnitude.
             if (resistanceFreq.HasValue && !double.IsNaN(resistanceVal))
-                _speechRouter.Speak($"Near resistance at {SpeechPriceFormatter.FormatPrice(resistanceVal)}", interrupt: false);
+                clauses.Add($"Near resistance at {SpeechPriceFormatter.FormatPrice(resistanceVal)}.");
             if (supportFreq.HasValue && !double.IsNaN(supportVal))
-                _speechRouter.Speak($"Near support at {SpeechPriceFormatter.FormatPrice(supportVal)}", interrupt: false);
+                clauses.Add($"Near support at {SpeechPriceFormatter.FormatPrice(supportVal)}.");
+
+            return clauses;
         }
 
         /// <summary>
