@@ -54,9 +54,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // Every visible Bollinger component is an absolute price on the price axis,
                     // so all four take {value:price}. F2 collapsed the whole envelope of a
                     // sub-dollar asset to "0.00" — three lines that all read the same.
+                    // Declared ONCE. It was declared twice, so the Bollinger centre line was
+                    // registered as two components: navigable twice, sonified twice, two
+                    // voices playing the same value.
                     new() { Name = "Sma",        DefaultColorHex = "#42A5F5", DefaultThickness = 1.5f,
-                            SpeechTemplate = "{name}. {type}. {value:price}." },
-                    new() { Name = "Sma", DefaultColorHex = "#42A5F5", DefaultThickness = 1.5f,
                             SpeechTemplate = "{name}. {type}. {value:price}." },
                     new() { Name = "PercentB",  DefaultColorHex = "#42A5F5", DefaultThickness = 1f },
                     new() { Name = "ZScore",     DefaultColorHex = "#42A5F5", DefaultThickness = 1f },

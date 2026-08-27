@@ -3681,7 +3681,7 @@ charting products. Against it sits a large body of undisciplined provider code.
   say why its leaf stopped working. Guards compare the two lists code for code and pin the five
   Skender-2.5.0 gaps by name, with both vacuity halves — a catalog or menu that failed to build, and
   a rule that refuses everything, each fail the file.
-- [ ] **`SkenderBandProvider.cs:58-61` declares the component `"Sma"` twice, and
+- [x] **`SkenderBandProvider.cs:58-61` declares the component `"Sma"` twice, and
   `SkenderBoundedOscillatorProvider.cs:112-123` declares `"Oscillator"` twice and `"Signal"` twice.**
   Literal duplicate `Name` values inside one `IndicatorMetadata.Components` list — the Bollinger centre
   line and both Stochastic lines are each registered as two components.
@@ -3693,7 +3693,17 @@ charting products. Against it sits a large body of undisciplined provider code.
   where two differently-named components resolved to the same data — that is fixed and this replaced
   it). Fix: delete the six duplicate entries and add a metadata-validation test asserting
   `Components.Select(c => c.Name)` is distinct per indicator. CONFIRMED. HIGH.
-- [ ] **`CipherBProvider.cs:1041-1042` delays the shallow cross-based divergences by `PivotBars` bars for
+  **CLOSED 2026-08-27.** All six duplicate entries removed. On Stochastic the surviving
+  pair is the one carrying the `%K`/`%D` display names — the pair the `PercentK`→`Oscillator`
+  rename ADDED without removing what it replaced, which is exactly how this happened.
+  The metadata-validation test the finding asks for exists and sweeps the WHOLE FLEET rather
+  than the three that were found: `IndicatorMetadataIntegrityTests` asserts no indicator
+  declares a component `Name` twice, and separately that no indicator gives two components the
+  same spoken `DisplayName` — the second is reachable without duplicate names and is the same
+  defect one layer up. A duplicate name is never meaningful (two entries under one name cannot
+  be told apart by `GetComponentData`, which is keyed on the name), so the rule needs no
+  allowlist. Vacuity floor is on the population scanned, never on the violations found.
+- [x] **`CipherBProvider.cs:1041-1042` delays the shallow cross-based divergences by `PivotBars` bars for
   no reason, moving each marker to a bar where its condition did not occur.** The shallow detector at
   `:951-1001` writes `bearDiv[i]`/`bullDiv[i]` **at the WT crossover bar** — already causal. The
   confirmation-lag shift at `:1039-1053` then applies `ShiftMarkersForward(bearDiv, pivotBars, n)` to the
@@ -3704,7 +3714,17 @@ charting products. Against it sits a large body of undisciplined provider code.
   was added afterwards and nobody re-read the shift. Every shallow divergence signal — a strategy leaf,
   an earcon and a spoken marker — fires three bars later than the market event it describes.
   `IndicatorCausalityTests` cannot catch it: a late marker is still causal. CONFIRMED. HIGH.
-- [ ] **`CipherBProvider.cs:498-511` derives the timeframe bucket from `Math.Min(100, n - 1)`, so every
+  **CLOSED 2026-08-27.** The confirmation lag stays for the pivot-based detector, which
+  genuinely needs `pivotBars` future bars to confirm, and the shallow cross-based detector is
+  now EXEMPT — it stamps at the WT crossover bar and was already causal. The two write into the
+  same arrays, so the exemption travels alongside the data as a parallel `bool[]` through a new
+  `ShiftMarkersForwardExcept`. A shifted marker landing on an exempt bar does not evict it: the
+  exempt marker describes something that actually happened there, the shifted one is a
+  confirmation stamp.
+  The finding's last line is the durable lesson and is now in the test file:
+  **`IndicatorCausalityTests` could never have caught this, because a marker that is LATE is
+  still causal.** The contract only refuses markers that read the future.
+- [x] **`CipherBProvider.cs:498-511` derives the timeframe bucket from `Math.Min(100, n - 1)`, so every
   gate in the indicator is a function of how many bars were loaded.** `sampleN = Math.Min(100, n - 1)`
   and `intervalMin = median(deltas[0..sampleN])` decide `tfBucket`, which rewrites `adxGate`,
   `atrFloorPct`, `mfPeriod`, `pivotBars`, `rsiOS` (`:515-552`), `convictionMult` (`:557-559`) and
@@ -3717,6 +3737,18 @@ charting products. Against it sits a large body of undisciplined provider code.
   fixed-size trailing window ending at each bar, or from the `__timeframe` hint the orchestrator already
   stamps (`IndicatorOrchestrator.cs:160-161`); then add a gapped/irregular flavour to the causality
   series. CONFIRMED. HIGH.
+  **CLOSED 2026-08-27 — and it was HALF ALREADY FIXED.** The `Math.Min(100, n - 1)` front
+  sample is gone; the code already took a median over EVERY delta, with a comment describing
+  the scroll-back defect. The audit's census was stale here. **And the gapped causality flavour
+  it asks for already exists**: `CausalityProbeSeries` flavour 3 puts a stitching artifact in
+  the oldest ninety bars precisely so a front-loaded sample reads four hours on an hourly
+  series, and `IndicatorCausalityTests`' SUFFIX (prepend) sweep runs it.
+  What was still open is that a whole-series median is *still* a function of the data loaded —
+  on a series with weekends, halts or a missing-bar artifact it can move when more history
+  arrives, and every gate is downstream of it. So the finding's better suggestion is now the
+  primary path: the orchestrator's `__timeframe` hint, which cannot move, with the median kept
+  as the fallback for callers that do not stamp it (the strategy backtester and the causality
+  harness among them).
 - [x] **`StrategyIndicatorCache.cs:109-125` computes a Cutler RSI while the chart draws a Wilder RSI, and
   `:95-107` seeds EMA differently again — so a strategy's "RSI" is not the RSI the user is looking at.**
   `ComputeRsi` averages gains/losses over a plain trailing window

@@ -432,6 +432,26 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         // ── Calculation ───────────────────────────────────────────────────────
 
+        /// <summary>
+        /// The chart's declared timeframe in minutes from the orchestrator's <c>__timeframe</c>
+        /// hint, or 0 when it is absent or unparseable.
+        ///
+        /// <para>Unlike a median over the loaded bars, this number does not move when more
+        /// history arrives — which is the whole point, because every gate in this indicator is
+        /// downstream of it.</para>
+        /// </summary>
+        private static double TimeframeHintMinutes(Dictionary<string, object> parameters)
+        {
+            if (parameters == null) return 0;
+            if (!parameters.TryGetValue("__timeframe", out var raw)) return 0;
+            string? tf = raw?.ToString();
+            if (string.IsNullOrWhiteSpace(tf)) return 0;
+
+            long ms = AccessibleTrader.Sdk.Models.TimeframeUtility.ToMilliseconds(tf);
+            return ms > 0 ? ms / 60000.0 : 0;
+        }
+
+
         public void Calculate(string code, ReadOnlySpan<Ohlcv> data, Dictionary<string, object> parameters, IIndicatorResultBuffer buffer)
         {
             if (!code.Equals("CIPHER_B", StringComparison.OrdinalIgnoreCase)) return;
@@ -495,12 +515,34 @@ namespace AccessibleTrader.Core.Services.Indicators
             int  intervalMin = 1440;
             if (tfAware && n >= 10)
             {
-                // Median interval over EVERY delta in the series. This used to sample the first
-                // hundred bars (Math.Min(100, n - 1) counted from index 0), so the timeframe the
-                // whole indicator tunes itself for was decided by where the array started — a
-                // scroll-back moved the sample and silently re-tuned bars already on the chart.
-                double median = IndicatorMath.MedianBarIntervalMinutes(data);
-                if (median > 0) intervalMin = (int)Math.Round(median);
+                // The CHART's declared timeframe first, the series median only as a fallback.
+                //
+                // This used to sample the first hundred bars (Math.Min(100, n - 1) counted from
+                // index 0), so the timeframe the whole indicator tunes itself for was decided by
+                // where the array started — a scroll-back moved the sample and silently re-tuned
+                // bars already on the chart. That was fixed by widening the sample to EVERY
+                // delta, which is far more robust but still a function of the data loaded: on a
+                // series with weekends, halts or a missing-bar artifact the median can still
+                // move when more history arrives, and every gate below is downstream of it
+                // (adxGate, atrFloorPct, mfPeriod, pivotBars, rsiOS, convictionMult,
+                // divergenceDepth). Prepending history could still change a historical bar's
+                // gold dot.
+                //
+                // The orchestrator already stamps the chart's own timeframe as a __timeframe
+                // hint, and that number cannot move when more bars arrive. It is the honest
+                // answer to "what timeframe is this"; the median is a guess at it. The median
+                // stays as the fallback for callers that do not stamp the hint — the strategy
+                // backtester and the causality harness among them.
+                double fromHint = TimeframeHintMinutes(parameters);
+                if (fromHint > 0)
+                {
+                    intervalMin = (int)Math.Round(fromHint);
+                }
+                else
+                {
+                    double median = IndicatorMath.MedianBarIntervalMinutes(data);
+                    if (median > 0) intervalMin = (int)Math.Round(median);
+                }
                 if      (intervalMin <  60)   tfBucket = 0;
                 else if (intervalMin <  240)  tfBucket = 1;
                 else if (intervalMin <  720)  tfBucket = 2;
@@ -942,6 +984,14 @@ namespace AccessibleTrader.Core.Services.Indicators
             //
             // Conviction filter: same TF-scaled multiplier. Cooldown is wt1Period to
             // prevent same-cycle double-counting against the pivot-based detector.
+            // Bars the SHALLOW detector wrote, so the confirmation-lag shift below can leave
+            // them alone. The shallow detector stamps at the WT CROSSOVER bar, which is already
+            // causal — nothing about it needs future bars to confirm — whereas the pivot-based
+            // detector genuinely does. Shifting both together moved every shallow divergence to
+            // a bar where its condition did not occur.
+            var shallowBear = new bool[n];
+            var shallowBull = new bool[n];
+
             int lastCrossUpIdx = -1, lastCrossDownIdx = -1;
             int shallowBearCd = 0, shallowBullCd = 0;
             for (int i = 1; i < n; i++)
@@ -968,6 +1018,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             bearDiv[i] = wt1[i] + 4.0;
                             bearDivIdx[i] = prev;
                             bearDivY[i]   = wt1[prev] + 4.0;
+                            shallowBear[i] = true;
                             shallowBearCd = wt1Period;
                         }
                     }
@@ -987,6 +1038,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             bullDiv[i] = wt1[i] - 4.0;
                             bullDivIdx[i] = prev;
                             bullDivY[i]   = wt1[prev] - 4.0;
+                            shallowBull[i] = true;
                             shallowBullCd = wt1Period;
                         }
                     }
@@ -1029,19 +1081,34 @@ namespace AccessibleTrader.Core.Services.Indicators
             // Power users who want the pure Market-Cipher-B pivot-stamped dot for chart
             // review only can set DivergenceConfirmLag=false, accepting that any strategy
             // reading those markers in backtest is then look-ahead-biased.
+            //
+            // ── The SHALLOW detector is exempt ────────────────────────────────────
+            // Everything above is true of the PIVOT-based detector, whose marker at bar p is
+            // only confirmable at p+pivotBars. The shallow cross-based detector added later
+            // writes at the WT CROSSOVER bar and is already causal — nothing about it needs a
+            // future bar. Shifting the COMBINED arrays moved every shallow divergence to a bar
+            // where its condition did not occur: detected at bar 400, stamped at bar 403 with
+            // the default pivotBars of 3 (2 under TF-aware scaling). The _anchorIdx/_anchorY
+            // companions moved in lockstep, so the drawn pivot-to-pivot line landed late too.
+            // Every shallow divergence — a strategy leaf, an earcon and a spoken marker —
+            // fired later than the market event it describes.
+            //
+            // IndicatorCausalityTests cannot catch this: a marker that is LATE is still causal.
+            // The long comment above describes only the pivot detector; the shallow one was
+            // added afterwards and nobody re-read the shift.
             bool confirmLag = IndicatorParams.GetBool(parameters, "DivergenceConfirmLag", true);
             if (confirmLag && pivotBars > 0)
             {
-                bullDiv = ShiftMarkersForward(bullDiv, pivotBars, n);
-                bearDiv = ShiftMarkersForward(bearDiv, pivotBars, n);
+                bullDiv = ShiftMarkersForwardExcept(bullDiv, shallowBull, pivotBars, n);
+                bearDiv = ShiftMarkersForwardExcept(bearDiv, shallowBear, pivotBars, n);
                 hidBull = ShiftMarkersForward(hidBull, pivotBars, n);
                 hidBear = ShiftMarkersForward(hidBear, pivotBars, n);
-                bullDivIdx = ShiftMarkersForward(bullDivIdx, pivotBars, n);
-                bearDivIdx = ShiftMarkersForward(bearDivIdx, pivotBars, n);
+                bullDivIdx = ShiftMarkersForwardExcept(bullDivIdx, shallowBull, pivotBars, n);
+                bearDivIdx = ShiftMarkersForwardExcept(bearDivIdx, shallowBear, pivotBars, n);
                 hidBullIdx = ShiftMarkersForward(hidBullIdx, pivotBars, n);
                 hidBearIdx = ShiftMarkersForward(hidBearIdx, pivotBars, n);
-                bullDivY = ShiftMarkersForward(bullDivY, pivotBars, n);
-                bearDivY = ShiftMarkersForward(bearDivY, pivotBars, n);
+                bullDivY = ShiftMarkersForwardExcept(bullDivY, shallowBull, pivotBars, n);
+                bearDivY = ShiftMarkersForwardExcept(bearDivY, shallowBear, pivotBars, n);
                 hidBullY = ShiftMarkersForward(hidBullY, pivotBars, n);
                 hidBearY = ShiftMarkersForward(hidBearY, pivotBars, n);
             }
@@ -1266,5 +1333,40 @@ namespace AccessibleTrader.Core.Services.Indicators
         /// </summary>
         internal static double[] ShiftMarkersForward(double[] src, int lag, int n) =>
             IndicatorMath.ShiftMarkersForward(src, lag, n);
+
+        /// <summary>
+        /// <see cref="ShiftMarkersForward"/>, except that bars flagged in
+        /// <paramref name="exempt"/> stay exactly where they are.
+        ///
+        /// <para>The confirmation lag exists because a PIVOT at bar p is only confirmable at
+        /// p+lag. The shallow cross-based detector stamps at the crossover bar and is already
+        /// causal, so shifting it moves the marker to a bar where its condition did not occur.
+        /// The two detectors write into the same arrays, so the exemption has to travel
+        /// alongside the data.</para>
+        ///
+        /// <para>A shifted marker that lands on an exempt bar does not overwrite it: the
+        /// exempt marker is the one that describes something that actually happened there.</para>
+        /// </summary>
+        internal static double[] ShiftMarkersForwardExcept(double[] src, bool[] exempt, int lag, int n)
+        {
+            var dst = new double[n];
+            Array.Fill(dst, double.NaN);
+
+            // Exempt bars first, so they own their slot.
+            for (int i = 0; i < n && i < src.Length; i++)
+            {
+                if (i < exempt.Length && exempt[i] && !double.IsNaN(src[i]))
+                    dst[i] = src[i];
+            }
+
+            for (int i = 0; i < n && i < src.Length; i++)
+            {
+                if (double.IsNaN(src[i])) continue;
+                if (i < exempt.Length && exempt[i]) continue;   // already placed, unshifted
+                int j = i + lag;
+                if (j < n && double.IsNaN(dst[j])) dst[j] = src[i];
+            }
+            return dst;
+        }
     }
 }

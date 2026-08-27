@@ -108,13 +108,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "Oscillator", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
-                            SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
-                    new() { Name = "Signal",     DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
                     // StochResult calls %K "Oscillator" and %D "Signal"; "PercentK"/"PercentD" matched
                     // nothing, so the whole of Stochastic rendered blank.
+                    //
+                    // Each of these was declared TWICE — collateral from that rename, which
+                    // added the %K/%D pair without removing the pair it replaced.
+                    // IndicatorModelFactory.CreateSeriesFromMetadata makes one ComponentConfig
+                    // per metadata entry with no de-dup, so the series carried two identical
+                    // navigable, sonified components: the user arrowed through the same line
+                    // twice and heard two voices playing the same value. SignalCatalog.Refresh
+                    // built the same id twice and TryAdd silently swallowed the second.
                     new() { Name = "Oscillator", DisplayName = "%K", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
                             DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
