@@ -278,7 +278,17 @@ internal static class XsMomentumRobustness
 
             // Who dies this period. Expected count from the annual rate; each draw comes from
             // the bottom half with probability `bottomBias`, from anywhere otherwise.
-            int dying = (int)Math.Round(byMom.Count * annualDelistRate / periodsPerYear);
+            //
+            // ROUNDED, this was zero in every row of every table. 39 names at 5%/yr over 12.2
+            // rebalances a year is 0.16 expected deaths per period, and Math.Round takes that to
+            // 0 — so the "stress" that replaced the algebraically-unfailable haircut was itself
+            // unfailable, for a different reason, and printed "100% vs clean" thirteen times
+            // without anyone reading it as a null result. Stochastic rounding makes the expected
+            // count come out right over the run: 0.16 per period is a death about one period in
+            // six, ~34 of them across 215 periods, which is what 5% a year for 17.6 years means.
+            double expectedDeaths = byMom.Count * annualDelistRate / periodsPerYear;
+            int dying = (int)Math.Floor(expectedDeaths);
+            if (rng.NextDouble() < expectedDeaths - Math.Floor(expectedDeaths)) dying++;
             var doomed = new HashSet<string>(StringComparer.Ordinal);
             int half = Math.Max(1, byMom.Count / 2);
             for (int i = 0; i < dying && doomed.Count < byMom.Count; i++)

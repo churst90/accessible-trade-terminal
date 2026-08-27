@@ -113,8 +113,16 @@ namespace AccessibleTrader.Tests
 
             Assert.NotNull(xs);
             Assert.Equal(StrategyEvidenceLevel.ControlTested, xs!.Evidence);
-            Assert.Equal(0.0045, xs.Effect.P);
+            // 0.0069, not the 0.0045 recorded until 2026-08-27. The old number was the winner of a
+            // 16-cell grid tested against a fixed-configuration null; the re-run reports it against
+            // the null of the MAXIMUM over the grid, which is the statistic that was actually
+            // computed. The effect size is unchanged — selection inflated the confidence, not the
+            // measurement.
+            Assert.Equal(0.0069, xs.Effect.P);
             Assert.Equal(0.0037, xs.Effect.Value);
+            // The whole point of the re-run: an edge that cannot say how many hypotheses it tried
+            // has not earned ControlTested. Sixteen grid cells, all of them reported.
+            Assert.Equal(16, xs.Effect.VariantsTried);
             Assert.Contains("equities", xs.Scope.AssetClasses);
             Assert.False(xs.AppliesTo("crypto"));   // the crypto arm is underpowered, not established
         }

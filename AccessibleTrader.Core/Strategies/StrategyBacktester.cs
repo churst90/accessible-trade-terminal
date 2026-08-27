@@ -8,8 +8,9 @@ namespace AccessibleTrader.Core.Strategies;
 
 /// <summary>
 /// Replays historical OHLCV data through a strategy bar-by-bar and returns a full backtest result.
-/// Simulates fills at the next bar's open price plus slippage.
-/// Tracks equity curve and key performance metrics.
+/// Simulates fills at the next bar's open price, moved against the trader by slippage and half
+/// the quoted spread, and accrues the carry costs of holding — perpetual funding on either side
+/// and borrow on a short. Tracks equity curve and key performance metrics.
 /// </summary>
 public class StrategyBacktester : IStrategyBacktester
 {
@@ -30,11 +31,6 @@ public class StrategyBacktester : IStrategyBacktester
         _indicatorCache = indicatorCache;
     }
 
-    /// <summary>
-    /// A fill price moved against the trader by <paramref name="slippagePercent"/>.
-    ///
-    /// <para>An ENTRY pays up to buy and down to sell.</para>
-    /// </summary>
     /// <summary>
     /// Net P&amp;L per POSITION: exit rows sharing a <c>PositionId</c> are summed.
     ///
@@ -61,10 +57,91 @@ public class StrategyBacktester : IStrategyBacktester
         return result;
     }
 
-    private static double WithSlippage(double price, OrderSide side, double slippagePercent)
+    /// <summary>
+    /// A fill price moved against the trader by <paramref name="adverseFraction"/> — slippage
+    /// plus half the quoted spread, as resolved by <see cref="PerSideAdverseFraction"/>.
+    ///
+    /// <para>An ENTRY pays up to buy and down to sell.</para>
+    /// </summary>
+    private static double WithSlippage(double price, OrderSide side, double adverseFraction)
     {
-        double slip = price * slippagePercent;
+        double slip = price * adverseFraction;
         return side == OrderSide.Buy ? price + slip : price - slip;
+    }
+
+    /// <summary>
+    /// The adverse price fraction paid on ONE side of a round trip: slippage plus half the
+    /// quoted bid-ask spread.
+    ///
+    /// <para>Half, because OHLCV bars are a single price series. A buyer crossing to the ask
+    /// pays half the spread above that series and a seller hitting the bid receives half of it
+    /// below, so the full quoted spread is paid across a completed round trip and not on each
+    /// leg. The two terms are separate inputs because they model different things — slippage is
+    /// the market moving while the order is in flight, spread is the cost of crossing at all —
+    /// but they compose into one adverse fraction at every fill site.</para>
+    /// </summary>
+    internal static double PerSideAdverseFraction(BacktestConfig config)
+        => config.SlippagePercent + config.SpreadPercent / 2.0;
+
+    /// <summary>
+    /// The number of funding settlements strictly after <paramref name="from"/> and at or
+    /// before <paramref name="to"/>.
+    ///
+    /// <para>Boundaries are absolute UTC wall-clock times, not an offset from the entry: with
+    /// an 8-hour interval they land on 00:00, 08:00 and 16:00, which is what the major perp
+    /// venues actually charge at. Counting them per bar interval rather than per bar is what
+    /// makes the cost independent of timeframe — a daily bar crosses three settlements and an
+    /// hourly bar crosses one in three, and a position held a week pays the same either way.</para>
+    ///
+    /// <para>The half-open convention (exclusive of <paramref name="from"/>, inclusive of
+    /// <paramref name="to"/>) is what stops a settlement landing exactly on a bar boundary from
+    /// being charged twice, once by the bar that ends there and again by the bar that starts
+    /// there.</para>
+    /// </summary>
+    internal static int FundingEventsBetween(DateTime from, DateTime to, double intervalHours)
+    {
+        if (intervalHours <= 0 || to <= from) return 0;
+
+        long interval = (long)Math.Round(intervalHours * TimeSpan.TicksPerHour);
+        if (interval <= 0) return 0;
+
+        // DateTime.Ticks counts from 0001-01-01 00:00, which is itself a midnight, so any
+        // interval that divides a day evenly aligns to UTC midnight without an epoch offset.
+        // Ticks are never negative, so plain integer division floors correctly.
+        return (int)(to.Ticks / interval - from.Ticks / interval);
+    }
+
+    /// <summary>
+    /// Carry paid (positive) or received (negative) on an open position over one bar interval:
+    /// perpetual funding plus, for a short, the borrow.
+    ///
+    /// <para>Both accrue against <paramref name="markPrice"/> — the bar's close — rather than
+    /// the entry price, because that is what the venue charges on. Funding follows the exchange
+    /// sign convention: a POSITIVE rate means longs pay shorts. Borrow is charged to shorts
+    /// only and on calendar time, so a position held over a weekend costs the same whether the
+    /// data is hourly or daily.</para>
+    /// </summary>
+    internal static double CarryCostForInterval(
+        DateTime from, DateTime to, double markPrice, double quantity,
+        OrderSide side, BacktestConfig config)
+    {
+        if (quantity <= 0 || markPrice <= 0 || to <= from) return 0.0;
+
+        double notional = markPrice * quantity;
+        double cost = 0.0;
+
+        if (config.FundingRatePerInterval != 0.0)
+        {
+            int settlements = FundingEventsBetween(from, to, config.FundingIntervalHours);
+            if (settlements > 0)
+                cost += (side == OrderSide.Buy ? 1.0 : -1.0)
+                        * config.FundingRatePerInterval * notional * settlements;
+        }
+
+        if (side == OrderSide.Sell && config.BorrowRateAnnual != 0.0)
+            cost += config.BorrowRateAnnual * notional * ((to - from).TotalDays / 365.25);
+
+        return cost;
     }
 
     /// <summary>
@@ -80,9 +157,9 @@ public class StrategyBacktester : IStrategyBacktester
     /// real slippage is worst — a stop firing into a fast move — and it meant the default
     /// <c>SlippagePercent</c> of 0.0005 covered only half the round trip.</para>
     /// </summary>
-    private static double ExitWithSlippage(double price, OrderSide heldSide, double slippagePercent)
+    private static double ExitWithSlippage(double price, OrderSide heldSide, double adverseFraction)
     {
-        double slip = price * slippagePercent;
+        double slip = price * adverseFraction;
         return heldSide == OrderSide.Buy ? price - slip : price + slip;
     }
 
@@ -165,6 +242,10 @@ public class StrategyBacktester : IStrategyBacktester
 
         var sizer = config.PositionSizer ?? new FixedSizePositionSizer();
 
+        // Slippage and half the quoted spread, resolved once. Every fill site below is adverse
+        // by this fraction; see PerSideAdverseFraction for why it is HALF the spread.
+        double adverse = PerSideAdverseFraction(config);
+
         double equity = config.StartingCapital;
         double peakEquity = equity;
         double maxDrawdown = 0.0;
@@ -195,6 +276,24 @@ public class StrategyBacktester : IStrategyBacktester
         // EXIT: a 3-rung take-profit ladder produces three rows from one entry. Stamping the
         // position lets the metrics aggregate per position while the log keeps every rung.
         int positionId = 0;
+
+        // ── Carry accrued on the open position, in account currency ───────────
+        // Funding and borrow are not per-fill costs; they accumulate for as long as the
+        // position is held. They are charged into the PnL of whichever exit row closes the
+        // quantity they accrued on — apportioned by the fraction of the remainder that row
+        // closes — rather than deducted straight from equity. That is what keeps a held short's
+        // borrow visible in win rate and profit factor, which is where the finding said the
+        // omission mattered: metrics read from trade rows, and a cost that only ever moved
+        // equity would leave every per-position number as flattering as it was before.
+        double openCarryCost = 0.0;
+
+        double TakeCarry(double closeQty)
+        {
+            if (openCarryCost == 0.0 || openRemainingQty <= 0 || closeQty <= 0) return 0.0;
+            double taken = openCarryCost * Math.Min(1.0, closeQty / openRemainingQty);
+            openCarryCost -= taken;
+            return taken;
+        }
 
         // v11 diagnostic: feature snapshot captured at the entry decision bar of the open
         // position. Persists across the open-position lifecycle so every BacktestTrade row
@@ -284,6 +383,20 @@ public class StrategyBacktester : IStrategyBacktester
                 }
             }
 
+            // ── CARRY ACCRUAL ─────────────────────────────────────────────────
+            // Funding and borrow for the interval this bar just spanned, before any exit is
+            // processed — a position stopped out on bar i was still held across that interval
+            // and owes for it. `openBarIndex < i` excludes the bar the position opened ON: the
+            // fill happens at that bar's OPEN, so it was not held over the interval that ended
+            // there. Accruing here rather than at the exit sites means the charge is right for
+            // a position closed by any of the four paths, including the ones that never look
+            // at the calendar.
+            if (openSide.HasValue && i > 0 && openBarIndex < i)
+            {
+                openCarryCost += CarryCostForInterval(
+                    data[i - 1].Date, bar.Date, bar.Close, openRemainingQty, openSide.Value, config);
+            }
+
             // ── EXIT CHECK ────────────────────────────────────────────────────
             // Before processing any new strategy signal, walk this bar's range against the
             // open position (if any) and apply stop / TP exits. Stop has priority — if both
@@ -310,11 +423,12 @@ public class StrategyBacktester : IStrategyBacktester
                     // only half the round trip, the default 0.0005 was really 0.00025.
                     double exitPrice = ExitWithSlippage(
                         BarFill.StopExit(openStop.Value, bar.Open, openSide.Value),
-                        openSide.Value, config.SlippagePercent);
+                        openSide.Value, adverse);
                     double commission = exitPrice * openRemainingQty * config.CommissionRate;
+                    double carry = TakeCarry(openRemainingQty);
                     double pnl = openSide.Value == OrderSide.Buy
-                        ? (exitPrice - openEntryPrice) * openRemainingQty - commission
-                        : (openEntryPrice - exitPrice) * openRemainingQty - commission;
+                        ? (exitPrice - openEntryPrice) * openRemainingQty - commission - carry
+                        : (openEntryPrice - exitPrice) * openRemainingQty - commission - carry;
 
                     equity += pnl;
                     if (equity > peakEquity) peakEquity = equity;
@@ -360,12 +474,16 @@ public class StrategyBacktester : IStrategyBacktester
                 // the two exit paths disagree about what a gap means.
                 double fillPx = ExitWithSlippage(
                     BarFill.TargetExit(tpPrice, bar.Open, openSide.Value),
-                    openSide.Value, config.SlippagePercent);
+                    openSide.Value, adverse);
 
                 double commission = fillPx * closeQty * config.CommissionRate;
+                // A rung pays its share of the carry accrued so far; the runner keeps the rest
+                // and pays it when it closes. Apportioning it here is what stops a laddered
+                // position from carrying its whole funding bill on the final rung.
+                double carry = TakeCarry(closeQty);
                 double pnl = openSide.Value == OrderSide.Buy
-                    ? (fillPx - openEntryPrice) * closeQty - commission
-                    : (openEntryPrice - fillPx) * closeQty - commission;
+                    ? (fillPx - openEntryPrice) * closeQty - commission - carry
+                    : (openEntryPrice - fillPx) * closeQty - commission - carry;
 
                 equity += pnl;
                 if (equity > peakEquity) peakEquity = equity;
@@ -437,7 +555,7 @@ public class StrategyBacktester : IStrategyBacktester
                 double qty = signal.Quantity ?? sizer.CalculateSize(signal, equity, liveMetrics);
 
                 // Simulate fill at next bar open + slippage
-                double fillPrice = WithSlippage(data[i + 1].Open, signal.Side, config.SlippagePercent);
+                double fillPrice = WithSlippage(data[i + 1].Open, signal.Side, adverse);
 
                 // A REVERSAL IS TWO FILLS, and they are different sizes.
                 //
@@ -455,9 +573,10 @@ public class StrategyBacktester : IStrategyBacktester
                 if (openSide.HasValue)
                 {
                     // Reverse: close existing remainder at next-bar open, then open new in signal direction.
+                    double closeCarry = TakeCarry(openRemainingQty);
                     double pnl = openSide.Value == OrderSide.Buy
-                        ? (fillPrice - openEntryPrice) * openRemainingQty - closeCommission
-                        : (openEntryPrice - fillPrice) * openRemainingQty - closeCommission;
+                        ? (fillPrice - openEntryPrice) * openRemainingQty - closeCommission - closeCarry
+                        : (openEntryPrice - fillPrice) * openRemainingQty - closeCommission - closeCarry;
 
                     equity += pnl;
                     if (equity > peakEquity) peakEquity = equity;
@@ -480,6 +599,7 @@ public class StrategyBacktester : IStrategyBacktester
                 // UNCONDITIONALLY — a reversal pays to get out and pays again to get in.
                 equity -= entryCommission;
                 positionId++;
+                openCarryCost = 0.0;   // the new position starts owing nothing
                 openSide = signal.Side;
                 openEntryPrice = fillPrice;
                 openInitialQty = qty;
@@ -525,11 +645,22 @@ public class StrategyBacktester : IStrategyBacktester
         if (openSide.HasValue && data.Count > 0 && openRemainingQty > 0)
         {
             var lastBar = data[^1];
-            double fillPrice = ExitWithSlippage(lastBar.Close, openSide.Value, config.SlippagePercent);
+
+            // The bar loop stops at data.Count - 2, so the final bar's holding interval never
+            // accrued in it. Without this the last bar of every run is held for free — and on a
+            // strategy that mostly exits on "End of data" that is most of the carry bill.
+            if (data.Count >= 2 && openBarIndex < data.Count - 1)
+            {
+                openCarryCost += CarryCostForInterval(
+                    data[^2].Date, lastBar.Date, lastBar.Close, openRemainingQty, openSide.Value, config);
+            }
+
+            double fillPrice = ExitWithSlippage(lastBar.Close, openSide.Value, adverse);
             double commission = fillPrice * openRemainingQty * config.CommissionRate;
+            double carry = TakeCarry(openRemainingQty);
             double pnl = openSide.Value == OrderSide.Buy
-                ? (fillPrice - openEntryPrice) * openRemainingQty - commission
-                : (openEntryPrice - fillPrice) * openRemainingQty - commission;
+                ? (fillPrice - openEntryPrice) * openRemainingQty - commission - carry
+                : (openEntryPrice - fillPrice) * openRemainingQty - commission - carry;
 
             equity += pnl;
 

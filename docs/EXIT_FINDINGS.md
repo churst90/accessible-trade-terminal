@@ -1,29 +1,18 @@
 # Exits — real skill exists, it is crypto-only, and fixed scale-outs destroy the edge
-> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+> **RE-RUN 2026-08-27 — reproduced cell for cell. Nothing in this doc changes.**
 >
-> Every p-value below was computed with machinery that has since been found wrong, and the
-> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+> All four symbols recomputed after the three statistical fixes. Every number in the table below
+> came back identical, including the two that matter (BTC 32.34× at p = 0.003, ETH 4.35× at
+> p = 0.034) and the two nulls (SPY 0.53× at p = 0.89, QQQ 0.84× at p = 0.48).
 >
-> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
->    ran the permutation test on that cell against a fixed-configuration null. The statistic
->    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
->    by roughly the effective number of independent cells. The command now reports a
->    max-statistic null alongside the naive one.
-> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
->    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
->    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
->    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
->    block-permute.
-> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
->    that did not depend on the ranking, which reduces algebraically to the clean excess times a
->    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
->    removes names from the universe and re-ranks.
+> It reproduced because none of the three defects applies here. There is no grid search to
+> select from — the eight exit rules are all reported, not the best of them. And the test is not a
+> permutation of overlapping forward-return rows: it is a **random-exit control**, holding the
+> entry fixed and drawing an exit from the same holding-period distribution, so each draw is a
+> whole alternative book rather than a row that shares 19 bars with its neighbour. That control
+> was the right one to build, and the re-run is the evidence.
 >
-> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
-> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
-> Snapshots now carry a `barsSha256` so future results can name their sample.
->
-> **Treat every number below as provisional until the commands are re-run.**
+> variantsTried = 8 (the eight exit rules in the table, all reported).
 
 
 Run 2026-08-01. `dotnet run -- exits`. **The entry is held completely fixed** (the BTC trend rule,

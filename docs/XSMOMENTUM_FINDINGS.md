@@ -1,33 +1,34 @@
 # Cross-sectional momentum — the first strong positive
-> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+> **RE-RUN 2026-08-27 — the headline SURVIVES the corrections, and two more defects fell out.**
 >
-> Every p-value below was computed with machinery that has since been found wrong, and the
-> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+> The three statistical defects filed on 2026-08-27 (post-selection p-values, overlapping rows
+> treated as exchangeable, a survivorship stress that could not fail) have now been recomputed
+> rather than only fixed. **The equity result holds:** p = 0.0069 against a null of the maximum
+> over all 16 grid cells, against p = 0.0047 for the old fixed-configuration null — so the
+> selection effect is real but small, and the edge clears both. Every number below has been
+> re-measured and is current.
 >
-> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
->    ran the permutation test on that cell against a fixed-configuration null. The statistic
->    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
->    by roughly the effective number of independent cells. The command now reports a
->    max-statistic null alongside the naive one.
-> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
->    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
->    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
->    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
->    block-permute.
-> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
->    that did not depend on the ranking, which reduces algebraically to the clean excess times a
->    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
->    removes names from the universe and re-ranks.
+> Two things the re-run found that the fix itself had not:
 >
-> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
-> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
-> Snapshots now carry a `barsSha256` so future results can name their sample.
+> 1. **The first max-statistic null was on the wrong scale.** It took the maximum of the raw mean
+>    spread across cells, but a hold=90 cell's spread is a 90-day return and a hold=30 cell's is a
+>    30-day one — the long-hold cells dominate the maximum whatever the data says. Run that way the
+>    grid's hold=30 winner scored p = 0.97: not "no effect", a wrong yardstick. It now studentises
+>    each cell by that cell's own null dispersion (Westfall–Young maxT). Dividing by the *observed*
+>    sd instead would be the textbook t and is also wrong here, because momentum-sorted thirds are
+>    more volatile than random ones — the effect inflates its own denominator.
+> 2. **The replacement survivorship stress was still inert.** It removed
+>    `round(names × annual ÷ periodsPerYear)` names per rebalance, which for 39 names at 5%/yr over
+>    12.2 rebalances a year is `round(0.16) = 0` — every row of the table printed "100% vs clean"
+>    and nobody read that as the null result it was. Stochastic rounding fixed it, and the table
+>    below is the first one that ever moved.
 >
-> **Treat every number below as provisional until the commands are re-run.**
+> Sample caveat that has not gone away: `strategy-lab-data/` is gitignored, so this is a
+> re-measurement on possibly different data, not a reproduction. Snapshots now carry a `barsSha256`.
 
 
-Run 2026-07-31. `dotnet run -- xsmom --universe equity`. 39 equities/ETFs/metals/bonds,
-common window 2007-11 → 2026-07 (18.7 years), 215 monthly rebalances.
+Run 2026-07-31, **re-run 2026-08-27**. `dotnet run -- xsmom --universe equity`. 39
+equities/ETFs/metals/bonds, common window 2007-11 → 2026-07 (18.7 years), 215 monthly rebalances.
 
 ## Why this was the biggest gap
 
@@ -66,11 +67,20 @@ Per-period test at lookback 365 / hold 30, permuting the **rank labels within ea
 so each name keeps its own realised return and the market's behaviour on that date is held fixed:
 
 ```
-mean top−bottom spread per 30d period: +0.37%   sd 3.62%   positive 124/215   p = 0.0045
+mean top−bottom spread per 30d period: +0.37%   sd 3.62%   positive 124/215   z vs null 2.82
+grid max |z| = 3.52 at look=30 skip=0 hold=30
+p = 0.0069  (max-statistic null over 16 grid cells, studentised by each cell's null)  *
+p = 0.0047  (fixed-configuration null — POST-SELECTION, shown for contrast)
 ```
 
+**Read the first p, not the second.** The cell tested was chosen as the grid's maximum, so its own
+null is too narrow; the honest reference is the distribution of the maximum over all 16 cells. The
+gap between 0.0047 and 0.0069 is the size of the selection effect here, and it is small — sixteen
+cells over four lookbacks are heavily correlated, so the grid is nothing like sixteen independent
+tries. **variantsTried = 16.**
+
 Volatility-normalised ranking (return ÷ realised vol) gives the same answer slightly stronger:
-365d 4/4, p = 0.0029.
+365d 4/4.
 
 Note the shape: only **58% of periods are positive**. The edge is in magnitude, not frequency —
 the trend-follower's profile Narang describes, wrong often but right big.
@@ -175,28 +185,48 @@ The parameter that decides the answer is **what share of the vanished names were
 when they died**: 0% if they were all slow decliners, 33% if death was as likely for winners
 (sudden fraud — Enron, Wirecard).
 
-| annual rate | shock | in top | excess | vs clean |
-|---|---|---|---|---|
-| 0.5% | −100% | 0% | +228.9% | 118% |
-| 0.5% | −100% | 33% | +177.9% | 92% |
-| **2.0%** | **−100%** | **0%** | **+317.7%** | **164%** |
-| **2.0%** | **−100%** | **33%** | **+137.6%** | **71%** |
-| 5.0% | −100% | 33% | +82.2% | 42% |
+Re-measured 2026-08-27. Names that die are **removed from the ranking** from that rebalance on,
+not merely charged a fee — so unlike both earlier versions this stress can change the sign. The
+`from bottom` column is the share of deaths drawn from the bottom half of the trailing-return
+ranking: 100% is the harshest realistic assumption (delisting is concentrated in losers, which a
+long-top-third book is by construction not holding) and 50% is delisting-at-random.
 
-**The edge survives every cell.** And the asymmetry is not the obvious one: delisting is
-concentrated in losers, which a long-top-third book is by construction not holding, so at the
-optimistic bound survivorship is *understating* this comparison rather than inflating it.
+| annual rate | shock | from bottom | momentum | basket | excess | vs clean |
+|---|---|---|---|---|---|---|
+| — | — | — | +509.9% | +316.2% | +193.8% | 100% |
+| 0.5% | −50% | 100% | +512.9% | +316.5% | +196.3% | 101% |
+| 0.5% | −50% | 50% | +476.6% | +309.1% | +167.5% | 86% |
+| 0.5% | −100% | 100% | +512.9% | +110.7% | +402.2% | 208% |
+| **0.5%** | **−100%** | **50%** | **+93.2%** | **+106.9%** | **−13.7%** | **−7%** |
+| 2.0% | −50% | 100% | +553.7% | +291.6% | +262.0% | 135% |
+| 2.0% | −100% | 50% | +86.8% | −91.7% | +178.5% | 92% |
+| 5.0% | −50% | 50% | +470.6% | +212.0% | +258.6% | 133% |
+| 5.0% | −100% | 50% | −74.3% | −100.0% | +25.7% | 13% |
 
-An earlier version of this stress modelled "two phantom names losing 20% every rebalance", which
-compounded across 215 months into a basket down 99%. That is not delisting, it is a monthly
-catastrophe — the parameterisation was wrong and the numbers meaningless. Recorded because the
-failure mode (a per-period rate that is only sane when converted to an annual one) is easy to repeat.
+**The edge survives every bottom-biased cell and dies in one random-total-loss cell** — 0.5%/yr
+with a −100% shock drawn at random takes the excess to −13.7%. That is the cell to look at, and
+it is also the one whose assumption is least like reality: delisting-at-random with total loss
+takes the whole *basket* to −100% at the higher rates too, so it describes a world in which
+nothing here is tradeable rather than a world in which momentum specifically fails. Bottom-biased
+delisting — the realistic direction — *helps* a top-third book, which is the asymmetry worth
+remembering.
+
+Two earlier versions of this stress were incapable of failing, for two different reasons, and both
+printed reassuring tables. The first modelled "two phantom names losing 20% every rebalance", which
+compounded across 215 months into a basket down 99% — not delisting, a monthly catastrophe — and
+applied it as a uniform drag that reduces algebraically to the clean excess times a positive
+constant. The second removed names properly but computed how many with `Math.Round`, which for
+39 names at 5%/yr over 12.2 rebalances a year is `round(0.16) = 0`: it printed "100% vs clean"
+in all thirteen rows. The durable lesson is that a stress table whose last column is 100%
+everywhere is not a pass, it is a report that nothing was applied.
 
 ## Standing
 
-Cross-sectional momentum in equities now survives costs, eras, noise injection and a survivorship
-stress. **It is the only result in this lab that has been through a full robustness pass, and it
-passed all four.**
+Cross-sectional momentum in equities survives costs, eras, noise injection, a selection-corrected
+permutation null (p = 0.0069 over 16 grid cells) and a survivorship stress that is finally capable
+of failing. **It is the only result in this lab that has been through a full robustness pass**, and
+it passes all of it except one cell of the survivorship stress whose assumption — random
+delisting to zero — also destroys the benchmark it is being compared against.
 
 Still not done: the long-short spread remains biased the usual way and is not traded here; the
 universe is 39 large, liquid names and says nothing about small caps; and no live forward test has

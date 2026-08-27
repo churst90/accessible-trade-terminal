@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "registryVersion": "2026-08-02.5",
+  "registryVersion": "2026-08-27.1",
   "note": "The alpha ledger as data. One record per tested CLAIM (a measured relationship), not per strategy (a bundle of them). Seeded from docs/ALPHA_LEDGER.md. Records are either MEASURED (an evidence level and controls) or QUEUED (Untested, with an origin and a proposed test). Only ControlTested edges may contribute to a score; Fragile and Falsified are outcomes, not rungs. See docs/LAB_DESIGN.md. reMeasure.command carries the FLAGS, not just the verb: `xsmom` alone reproduces nothing because the default universe includes crypto and collapses the common window from 18.7 years to 3.2; `xsmom --universe equity` reproduces the recorded number exactly.",
   "edges": [
     {
@@ -15,14 +15,16 @@
         "horizonBars": 30,
         "timeframe": "1d",
         "universeMin": 20,
-        "notes": "38 names tested. The crypto arm is a null but with 10 names a tercile is 3 names \u2014 underpowered rather than disproven."
+        "notes": "38 names tested. The crypto arm is a null but with 10 names a tercile is 3 names — underpowered rather than disproven."
       },
       "effect": {
         "measure": "top-minus-bottom",
         "value": 0.0037,
         "unit": "fraction per 30d",
-        "p": 0.0045,
-        "n": 215
+        "p": 0.0069,
+        "n": 215,
+        "variantsTried": 16,
+        "notes": "variantsTried backfilled 2026-08-27 from the re-run: The 4x2x2 lookback/skip/hold grid, all 16 cells printed. The reported cell is the grid maximum, which is why the p quoted is now the max-statistic one (0.0069), not the fixed-configuration one (0.0047)."
       },
       "controls": [
         "monotone-in-lookback-8of8",
@@ -32,12 +34,17 @@
       ],
       "evidence": "ControlTested",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-08-01",
+      "lastMeasured": "2026-08-27",
       "decay": [
         {
           "asOf": "2026-08-01",
           "value": 0.0037,
           "note": "RE-MEASURED and reproduced exactly: +0.37% per 30d, sd 3.62%, 124/215 periods positive, p=0.0044 vs the recorded 0.0045 (permutation noise). Monotone by lookback unchanged: 1/4, 2/4, 4/4, 4/4."
+        },
+        {
+          "asOf": "2026-08-27",
+          "value": 0.0037,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/XSMOMENTUM_FINDINGS.md for what moved."
         }
       ],
       "correlatesWith": [],
@@ -52,12 +59,12 @@
         "instruments": [
           "equity universe (39 names)"
         ],
-        "notes": "A cross-sectional basket, so the unit of breadth is the UNIVERSE, not the symbol \u2014 the rule ranks names against each other and cannot hold on one. Held on the 39-name equity universe across 8 of 8 lookbacks, monotone. The crypto universe is a null but with 10 names a tercile is 3 names: underpowered rather than disproven, so it counts as tested and not held."
+        "notes": "A cross-sectional basket, so the unit of breadth is the UNIVERSE, not the symbol — the rule ranks names against each other and cannot hold on one. Held on the 39-name equity universe across 8 of 8 lookbacks, monotone. The crypto universe is a null but with 10 names a tercile is 3 names: underpowered rather than disproven, so it counts as tested and not held."
       }
     },
     {
       "id": "trend-following-family",
-      "title": "Time-series trend following \u2014 the family, not the parameters",
+      "title": "Time-series trend following — the family, not the parameters",
       "claim": "A long-only trend filter on a crypto asset beats holding it, and the specific parameter values carry no information.",
       "family": "trend",
       "scope": {
@@ -68,7 +75,7 @@
         ],
         "horizonBars": 0,
         "timeframe": "1d",
-        "notes": "Crypto is where it earns return. On indices and gold it matches hold's Sharpe with 2-3x smaller drawdowns \u2014 crash insurance, not alpha. Long-only FX: nothing."
+        "notes": "Crypto is where it earns return. On indices and gold it matches hold's Sharpe with 2-3x smaller drawdowns — crash insurance, not alpha. Long-only FX: nothing."
       },
       "effect": {
         "measure": "multiple-of-hold-oos",
@@ -106,12 +113,12 @@
         "instruments": [
           "BTC"
         ],
-        "notes": "Out-of-sample multiple-of-hold on BTC. Equities and gold are recorded as crash insurance rather than as the edge holding \u2014 a drawdown property, not the claim. The family works; the specific parameters do not, and a random-parameter arm beat the optimiser."
+        "notes": "Out-of-sample multiple-of-hold on BTC. Equities and gold are recorded as crash insurance rather than as the edge holding — a drawdown property, not the claim. The family works; the specific parameters do not, and a random-parameter arm beat the optimiser."
       }
     },
     {
       "id": "polarity-asset-class-fork",
-      "title": "Asset-class polarity \u2014 crypto trends, equities revert",
+      "title": "Asset-class polarity — crypto trends, equities revert",
       "claim": "Crypto price series are positively autocorrelated at swing horizons and equity indices negatively; the correct tool family follows from the asset class.",
       "family": "regime",
       "scope": {
@@ -121,7 +128,7 @@
         ],
         "horizonBars": 20,
         "timeframe": "1d",
-        "notes": "USE AS A FORK, NOT A DIAL. Collinear with market depth at rho 0.96, and the sign reverses INSIDE crypto \u2014 the continuous version is mostly depth wearing another name."
+        "notes": "USE AS A FORK, NOT A DIAL. Collinear with market depth at rho 0.96, and the sign reverses INSIDE crypto — the continuous version is mostly depth wearing another name."
       },
       "effect": {
         "measure": "variance-ratio-20",
@@ -161,12 +168,12 @@
       "breadth": {
         "held": 51,
         "tested": 51,
-        "notes": "51 symbols, and the fork itself has now been reached five independent ways \u2014 POC deviation, Value Deviation, the Trading Cross, volume, and cycle translation. Breadth here means every symbol landed on the side its asset class predicts; it does NOT mean a continuous polarity variable works, which was tested and failed."
+        "notes": "51 symbols, and the fork itself has now been reached five independent ways — POC deviation, Value Deviation, the Trading Cross, volume, and cycle translation. Breadth here means every symbol landed on the side its asset class predicts; it does NOT mean a continuous polarity variable works, which was tested and failed."
       }
     },
     {
       "id": "volume-informative-crypto",
-      "title": "Volume carries forward information \u2014 in crypto, and reversed in equities",
+      "title": "Volume carries forward information — in crypto, and reversed in equities",
       "claim": "High relative volume precedes positive forward returns in crypto and negative forward returns in equities.",
       "family": "volume",
       "scope": {
@@ -176,7 +183,7 @@
         ],
         "horizonBars": 20,
         "timeframe": "1d",
-        "notes": "The SIGN is asset-class dependent \u2014 this is one edge with two signs, not two edges."
+        "notes": "The SIGN is asset-class dependent — this is one edge with two signs, not two edges."
       },
       "effect": {
         "measure": "quintile-spread",
@@ -215,7 +222,7 @@
       "breadth": {
         "held": 48,
         "tested": 48,
-        "notes": "48 symbols, 385k bar observations. Every symbol contributes to a class-level result: crypto +1.26 ATR and equities \u22120.19 ATR, both p=0.0002. Breadth is full because the claim is about the SIGN differing by class, and both signs held across three independent volume buckets."
+        "notes": "48 symbols, 385k bar observations. Every symbol contributes to a class-level result: crypto +1.26 ATR and equities −0.19 ATR, both p=0.0002. Breadth is full because the claim is about the SIGN differing by class, and both signs held across three independent volume buckets."
       }
     },
     {
@@ -230,7 +237,7 @@
         "horizonBars": 5,
         "timeframe": "1d",
         "universeMin": 20,
-        "notes": "REVERSES in crypto \u2014 there the same displacement continues."
+        "notes": "REVERSES in crypto — there the same displacement continues."
       },
       "effect": {
         "measure": "forward-return-spread",
@@ -269,7 +276,7 @@
     {
       "id": "signal-reversed-exit-crypto",
       "title": "Exit on the entry signal reversed",
-      "claim": "Closing a position when the entry signal inverts beats a random exit with the same holding-period distribution \u2014 in crypto only.",
+      "claim": "Closing a position when the entry signal inverts beats a random exit with the same holding-period distribution — in crypto only.",
       "family": "exit",
       "scope": {
         "assetClasses": [
@@ -284,7 +291,9 @@
         "value": 32.34,
         "unit": "x on BTC (ETH 4.35x)",
         "p": 0.003,
-        "n": null
+        "n": null,
+        "variantsTried": 8,
+        "notes": "variantsTried backfilled 2026-08-27 from the re-run: Eight exit rules per symbol, all eight reported rather than the best of them — which is why this result reproduced cell for cell on 2026-08-27."
       },
       "controls": [
         "random-exit-control",
@@ -292,8 +301,14 @@
       ],
       "evidence": "ControlTested",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-27",
+      "decay": [
+        {
+          "asOf": "2026-08-27",
+          "value": 32.34,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/EXIT_FINDINGS.md for what moved."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/EXIT_FINDINGS.md",
       "reMeasure": {
@@ -307,7 +322,7 @@
           "BTC",
           "ETH"
         ],
-        "notes": "BTC 32.34x (p=0.003) and ETH 4.35x (p=0.034) against a random same-length exit. SPY and QQQ are flat null (0.53x, 0.84x) \u2014 this is a crypto-only edge and the breadth says so."
+        "notes": "BTC 32.34x (p=0.003) and ETH 4.35x (p=0.034) against a random same-length exit. SPY and QQQ are flat null (0.53x, 0.84x) — this is a crypto-only edge and the breadth says so."
       }
     },
     {
@@ -375,7 +390,9 @@
         "value": 0.107,
         "unit": "R (random entries under the same filter: 0.007R)",
         "p": null,
-        "n": null
+        "n": null,
+        "variantsTried": 12,
+        "notes": "variantsTried backfilled 2026-08-27 from the re-run: Six entry signals x two gates (Trading Cross z-state, SMA200). Three of the twelve could not be evaluated - the cross gate is closed on 100% of those signals bars - so nine pairs produced a number and all nine are printed."
       },
       "controls": [
         "random-entry-baseline",
@@ -383,12 +400,18 @@
       ],
       "evidence": "Fragile",
       "firstMeasured": "2026-07-28",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-27",
+      "decay": [
+        {
+          "asOf": "2026-08-27",
+          "value": 0.107,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/POLARITY_AND_GATE_FINDINGS.md for what moved."
+        }
+      ],
       "correlatesWith": [
         {
           "id": "trend-following-family",
-          "note": "same 200MA regime premise \u2014 do not count both",
+          "note": "same 200MA regime premise — do not count both",
           "correlation": null
         }
       ],
@@ -460,9 +483,10 @@
         "measure": "quintile-spread",
         "value": -1.11,
         "unit": "ATR",
-        "p": 0.0002,
+        "p": 0.0267,
         "n": null,
-        "notes": "Monotone and significant against a naive baseline \u2014 and 0.00 ATR (p = 0.9855) against a matched price/SMA baseline on the same rows."
+        "notes": "Monotone and significant against a naive baseline — and 0.00 ATR (p = 0.9855) against a matched price/SMA baseline on the same rows. variantsTried backfilled 2026-08-27 from the re-run: Seven metrics; the command prints 'Seven metrics were tested' and its own ~0.007 Bonferroni threshold. After the overlap correction nothing clears it.",
+        "variantsTried": 7
       },
       "controls": [
         "matched-price-sma-baseline-KILLED-IT",
@@ -471,8 +495,14 @@
       ],
       "evidence": "Falsified",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-27",
+      "decay": [
+        {
+          "asOf": "2026-08-27",
+          "value": -1.11,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/ONCHAIN_FINDINGS.md for what moved."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/ONCHAIN_FINDINGS.md",
       "reMeasure": {
@@ -498,15 +528,23 @@
         "value": 0.0,
         "unit": "none detected",
         "p": null,
-        "n": null
+        "n": null,
+        "variantsTried": 4,
+        "notes": "variantsTried backfilled 2026-08-27 from the re-run: Four instruments (S&P, Nasdaq, Gold, Bitcoin), all four reported. All four are null after the overlap correction."
       },
       "controls": [
         "dedicated-study-both-data-sources"
       ],
       "evidence": "Falsified",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-27",
+      "decay": [
+        {
+          "asOf": "2026-08-27",
+          "value": 0.0,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/POSITIONING_AND_EVENTS_FINDINGS.md for what moved."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/POSITIONING_AND_EVENTS_FINDINGS.md",
       "reMeasure": {
@@ -581,7 +619,7 @@
       "correlatesWith": [
         {
           "id": "fomc-pre-drift",
-          "note": "THE CONTRAST IS THE FINDING: FOMC is a policy ACTION, CPI/NFP are DATA the market spends the interval forecasting \u2014 the surprise should move price, not the date",
+          "note": "THE CONTRAST IS THE FINDING: FOMC is a policy ACTION, CPI/NFP are DATA the market spends the interval forecasting — the surprise should move price, not the date",
           "correlation": null
         }
       ],
@@ -610,15 +648,22 @@
         "unit": "fraction of the unscaled return",
         "p": null,
         "n": null,
-        "notes": "Destroys 95-100% of the return. The R-distribution has a fat right tail and capping it removes the only trades that pay."
+        "notes": "Destroys 95-100% of the return. The R-distribution has a fat right tail and capping it removes the only trades that pay. variantsTried backfilled 2026-08-27 from the re-run: Same eight-rule table as signal-reversed-exit-crypto; this edge is the negative half of it.",
+        "variantsTried": 8
       },
       "controls": [
         "R-distribution-inspected-before-designing-the-exit"
       ],
       "evidence": "Falsified",
       "firstMeasured": "2026-07-31",
-      "lastMeasured": "2026-07-31",
-      "decay": [],
+      "lastMeasured": "2026-08-27",
+      "decay": [
+        {
+          "asOf": "2026-08-27",
+          "value": 0.03,
+          "note": "RE-RUN after the three statistics fixes (max-statistic null, block permutation over overlapping rows, a survivorship stress that can fail). See the RE-RUN banner in docs/EXIT_FINDINGS.md for what moved."
+        }
+      ],
       "correlatesWith": [],
       "source": "docs/EXIT_FINDINGS.md",
       "reMeasure": {
@@ -680,7 +725,7 @@
         "unit": "R, break-even across 8 versions",
         "p": null,
         "n": null,
-        "notes": "Structure labels tested indistinguishable from random; SR proximity was a 15-bar lookahead. The components are not orthogonal \u2014 they are transforms of the same price series."
+        "notes": "Structure labels tested indistinguishable from random; SR proximity was a 15-bar lookahead. The components are not orthogonal — they are transforms of the same price series."
       },
       "controls": [
         "walk-forward-8-versions",
@@ -785,7 +830,7 @@
         "unit": "AUC (0.55 is the build-big bar)",
         "p": null,
         "n": null,
-        "notes": "Stable and calibrated, not a coin flip \u2014 and below the threshold that justifies building on it. Asset-tuned models were WORSE. What signal exists lives in regime/vol features, not in the indicator signals."
+        "notes": "Stable and calibrated, not a coin flip — and below the threshold that justifies building on it. Asset-tuned models were WORSE. What signal exists lives in regime/vol features, not in the indicator signals."
       },
       "controls": [
         "walk-forward",
@@ -822,7 +867,7 @@
         "unit": "fraction, best timeframe",
         "p": 0.49,
         "n": 355000,
-        "notes": "THE NUMBER THAT EXPLAINS THE FOLKLORE: a RANDOM horizontal line is respected 59% of the time. 'Levels hold about 60% of the time' is true of ANY line \u2014 it is a property of the measurement geometry, not evidence the level did anything. Fib confluence does show +4.4% for crowded zones, but random lines reproduce 2.6 of those 4.4 points: crowded zones are ranges, and ranges keep ranging."
+        "notes": "THE NUMBER THAT EXPLAINS THE FOLKLORE: a RANDOM horizontal line is respected 59% of the time. 'Levels hold about 60% of the time' is true of ANY line — it is a property of the measurement geometry, not evidence the level did anything. Fib confluence does show +4.4% for crowded zones, but random lines reproduce 2.6 of those 4.4 points: crowded zones are ranges, and ranges keep ranging."
       },
       "controls": [
         "random-levels-at-matched-density",
@@ -836,7 +881,7 @@
       "correlatesWith": [
         {
           "id": "cipher-confluence",
-          "note": "same failure shape \u2014 a confluence effect that a density/random control reproduces",
+          "note": "same failure shape — a confluence effect that a density/random control reproduces",
           "correlation": null
         }
       ],
@@ -849,7 +894,7 @@
     {
       "id": "weekly-candle-persistence",
       "title": "A bullish engulfing weekly candle predicts the next week's direction",
-      "claim": "After a bullish engulfing weekly candle, the following week closes higher more often than it closes lower \u2014 and enough more often to justify trading only that direction all week.",
+      "claim": "After a bullish engulfing weekly candle, the following week closes higher more often than it closes lower — and enough more often to justify trading only that direction all week.",
       "family": "structure",
       "scope": {
         "assetClasses": [
@@ -860,7 +905,7 @@
         ],
         "horizonBars": 1,
         "timeframe": "1w",
-        "notes": "THE CHEAPEST TEST IN THE VIDEO: one directional claim, weekly bars, a stated prior, no discretionary inputs. The control is the base rate of up-weeks for the same asset \u2014 an asset that closes up 55% of weeks unconditionally makes a 55% conditional hit rate worthless."
+        "notes": "THE CHEAPEST TEST IN THE VIDEO: one directional claim, weekly bars, a stated prior, no discretionary inputs. The control is the base rate of up-weeks for the same asset — an asset that closes up 55% of weeks unconditionally makes a 55% conditional hit rate worthless."
       },
       "effect": {
         "measure": "conditional-minus-unconditional-up-week-rate",
@@ -897,7 +942,7 @@
     {
       "id": "mtf-alignment-sizing",
       "title": "Position size should scale with multi-timeframe agreement",
-      "claim": "Trades taken when weekly bias, daily structure and the zone all agree have higher expectancy than trades taken when they conflict \u2014 enough to justify sizing 6% versus 1%.",
+      "claim": "Trades taken when weekly bias, daily structure and the zone all agree have higher expectancy than trades taken when they conflict — enough to justify sizing 6% versus 1%.",
       "family": "risk-management",
       "scope": {
         "assetClasses": [
@@ -906,7 +951,7 @@
         ],
         "horizonBars": 5,
         "timeframe": "5m",
-        "notes": "THE UNTESTED CORNER. Twenty edges in this registry and not one is about SIZING. The claim is a conditional-expectancy test: bucket trades by how many timeframes agree and compare per-trade R. Watch for the tautology trap \u2014 if the bias filter and the entry are derived from the same price series, agreement is partly arithmetic."
+        "notes": "THE UNTESTED CORNER. Twenty edges in this registry and not one is about SIZING. The claim is a conditional-expectancy test: bucket trades by how many timeframes agree and compare per-trade R. Watch for the tautology trap — if the bias filter and the entry are derived from the same price series, agreement is partly arithmetic."
       },
       "effect": {
         "measure": "R-per-trade-full-minus-weak-agreement",
@@ -928,7 +973,7 @@
       "correlatesWith": [
         {
           "id": "dip-buy-above-200ma",
-          "note": "same shape \u2014 a higher-timeframe regime filter conditioning a lower-timeframe entry",
+          "note": "same shape — a higher-timeframe regime filter conditioning a lower-timeframe entry",
           "correlation": null
         }
       ],
@@ -957,7 +1002,7 @@
         ],
         "horizonBars": 10,
         "timeframe": "5m/30m",
-        "notes": "CHEAPEST REAL TEST WE CAN RUN \u2014 the respect harness (RespectCommand, LevelRespectAnalyzer) already measures whether a level holds, with surrogate controls. This adds one conditioning variable. Note the internal tension in the source: he shaves risk on one-way momentum INTO the level, yet says he prefers aggressive approaches over price hanging around the level. Both halves are separately measurable."
+        "notes": "CHEAPEST REAL TEST WE CAN RUN — the respect harness (RespectCommand, LevelRespectAnalyzer) already measures whether a level holds, with surrogate controls. This adds one conditioning variable. Note the internal tension in the source: he shaves risk on one-way momentum INTO the level, yet says he prefers aggressive approaches over price hanging around the level. Both halves are separately measurable."
       },
       "effect": {
         "measure": "real-minus-random-hold-rate-by-approach-bucket",
@@ -980,7 +1025,7 @@
       "correlatesWith": [
         {
           "id": "fibonacci-levels",
-          "note": "MUST reuse that study's control \u2014 a random line is respected 59% of the time, so any conditional respect rate is meaningless without the matched random-level arm",
+          "note": "MUST reuse that study's control — a random line is respected 59% of the time, so any conditional respect rate is meaningless without the matched random-level arm",
           "correlation": null
         }
       ],
@@ -1008,7 +1053,7 @@
         ],
         "horizonBars": 10,
         "timeframe": "30m",
-        "notes": "Cheap: tag each level by the session it formed in, then compare respect rates \u2014 the existing respect harness with one extra column. Confound to control: session also determines volatility and volume, so match on those before claiming the session did anything. BLOCKED ON DATA 2026-08-01: the claim is about FX sessions and this lab holds no FX snapshots. Crypto trades continuously so a session tag there tests something else. Needs an FX intraday source before it can be run."
+        "notes": "Cheap: tag each level by the session it formed in, then compare respect rates — the existing respect harness with one extra column. Confound to control: session also determines volatility and volume, so match on those before claiming the session did anything. BLOCKED ON DATA 2026-08-01: the claim is about FX sessions and this lab holds no FX snapshots. Crypto trades continuously so a session tag there tests something else. Needs an FX intraday source before it can be run."
       },
       "effect": {
         "measure": "respect-rate-by-formation-session",
@@ -1052,7 +1097,7 @@
         ],
         "horizonBars": 10,
         "timeframe": "5m",
-        "notes": "Algorithmically definable, which most of this video's 'liquidity' language is not: equal highs within a tolerance, a breach, a close back inside within N bars. Two controls needed \u2014 random entries at the same timestamps, and the same entry WITHOUT the reclaim requirement, which isolates the part he says matters."
+        "notes": "Algorithmically definable, which most of this video's 'liquidity' language is not: equal highs within a tolerance, a breach, a close back inside within N bars. Two controls needed — random entries at the same timestamps, and the same entry WITHOUT the reclaim requirement, which isolates the part he says matters."
       },
       "effect": {
         "measure": "R-per-trade-reclaim-minus-breach",
@@ -1080,7 +1125,7 @@
         "who": "Davi (Lithuanian FX trader), Titans of Tomorrow interview",
         "url": "https://www.youtube.com/watch?v=Nc2t6A99mPA",
         "capturedOn": "2026-08-01",
-        "quote": "you have series of equal highs, a move up, and then back into the range \u2014 that move back into the range is a confirmation of my entry ... I need the closed candle, not the open candle"
+        "quote": "you have series of equal highs, a move up, and then back into the range — that move back into the range is a confirmation of my entry ... I need the closed candle, not the open candle"
       },
       "reMeasure": {
         "command": "sweep",
@@ -1090,7 +1135,7 @@
     {
       "id": "fixed-1to3-target",
       "title": "A fixed 1:3 reward-to-risk target maximises accumulated profit",
-      "claim": "Over many trades a fixed 1:3 target accumulates more profit than 1:1, 1:2 or 1:8 \u2014 with a small runner left on beyond it.",
+      "claim": "Over many trades a fixed 1:3 target accumulates more profit than 1:1, 1:2 or 1:8 — with a small runner left on beyond it.",
       "family": "exit",
       "scope": {
         "assetClasses": [
@@ -1099,7 +1144,7 @@
         ],
         "horizonBars": 5,
         "timeframe": "5m",
-        "notes": "DIRECTLY CONTRADICTS our exit finding, which is what makes it worth running. We measured that fixed-percentage scale-outs destroy 95-100% of the return because the R-distribution has a fat right tail \u2014 but that was CRYPTO DAILY. His market is intraday FX and indices. The real question underneath is not '1:3 or not' but 'does the fat right tail exist in intraday FX at all?' Measure the R-distribution FIRST, per asset class, then the target choice answers itself. Note he keeps a 10-20% runner at breakeven, which is a hedge against exactly the tail we measured."
+        "notes": "DIRECTLY CONTRADICTS our exit finding, which is what makes it worth running. We measured that fixed-percentage scale-outs destroy 95-100% of the return because the R-distribution has a fat right tail — but that was CRYPTO DAILY. His market is intraday FX and indices. The real question underneath is not '1:3 or not' but 'does the fat right tail exist in intraday FX at all?' Measure the R-distribution FIRST, per asset class, then the target choice answers itself. Note he keeps a 10-20% runner at breakeven, which is a hedge against exactly the tail we measured."
       },
       "effect": {
         "measure": "R-per-trade-by-target-vs-no-target",
@@ -1122,7 +1167,7 @@
       "correlatesWith": [
         {
           "id": "fixed-percent-scale-outs",
-          "note": "the crypto arm of this question is already answered and the answer was NO \u2014 so run this as an asset-class fork, not as a fresh question",
+          "note": "the crypto arm of this question is already answered and the answer was NO — so run this as an asset-class fork, not as a fresh question",
           "correlation": null
         }
       ],
@@ -1152,7 +1197,7 @@
         ],
         "horizonBars": 0,
         "timeframe": "1d",
-        "notes": "Has a clean prior test: if trade outcomes are serially INDEPENDENT the rule cannot change expectancy, only variance \u2014 so measure the autocorrelation of trade outcomes first. If it is zero, the rule is behavioural rather than statistical, which is a legitimate reason to keep it and a dishonest reason to claim an edge from it."
+        "notes": "Has a clean prior test: if trade outcomes are serially INDEPENDENT the rule cannot change expectancy, only variance — so measure the autocorrelation of trade outcomes first. If it is zero, the rule is behavioural rather than statistical, which is a legitimate reason to keep it and a dishonest reason to claim an edge from it."
       },
       "effect": {
         "measure": "lag-1-autocorrelation-of-win-loss",
@@ -1196,7 +1241,7 @@
         ],
         "horizonBars": 90,
         "timeframe": "1d",
-        "notes": "Benjamin Cowen's rainbow risk metric, as a general construction rather than his exact undisclosed formula. THREE TRAPS TO BUILD AROUND, all of which this project has already been bitten by. (1) LOOKAHEAD: normalising over the FULL history uses the future to rank the past \u2014 every published rainbow chart does this. Must be an EXPANDING-WINDOW percentile using only prior data, which is what makes the honest version look far worse than the picture. (2) THE BASELINE: the metric IS a price/SMA transform, so the only meaningful test is whether the composite beats its own simplest component \u2014 the exact control that killed MVRV (matched price/SMA baseline gave p = 0.9855 where the raw signal gave 0.0002). (3) SAMPLE SIZE: on BTC the whole claim rests on three cycles, and a diminishing-returns correction fitted to those same three cycles is retrospective selection, not evidence.",
+        "notes": "Benjamin Cowen's rainbow risk metric, as a general construction rather than his exact undisclosed formula. THREE TRAPS TO BUILD AROUND, all of which this project has already been bitten by. (1) LOOKAHEAD: normalising over the FULL history uses the future to rank the past — every published rainbow chart does this. Must be an EXPANDING-WINDOW percentile using only prior data, which is what makes the honest version look far worse than the picture. (2) THE BASELINE: the metric IS a price/SMA transform, so the only meaningful test is whether the composite beats its own simplest component — the exact control that killed MVRV (matched price/SMA baseline gave p = 0.9855 where the raw signal gave 0.0002). (3) SAMPLE SIZE: on BTC the whole claim rests on three cycles, and a diminishing-returns correction fitted to those same three cycles is retrospective selection, not evidence.",
         "universeMin": 20
       },
       "effect": {
@@ -1220,7 +1265,7 @@
       "correlatesWith": [
         {
           "id": "onchain-valuation-timing",
-          "note": "same shape and probably the same fate \u2014 a normalised valuation band that must be run against a matched price/SMA baseline on the same rows",
+          "note": "same shape and probably the same fate — a normalised valuation band that must be run against a matched price/SMA baseline on the same rows",
           "correlation": null
         },
         {
@@ -1760,7 +1805,7 @@
       "correlatesWith": [
         {
           "id": "earnings-surprise-drift",
-          "note": "same universe, same coverage confound \u2014 both are about whether analyst attention leaves anything on the table",
+          "note": "same universe, same coverage confound — both are about whether analyst attention leaves anything on the table",
           "correlation": null
         }
       ],
@@ -1833,7 +1878,7 @@
         ],
         "horizonBars": 0,
         "timeframe": "1d",
-        "notes": "FALSIFIED 2026-08-04 on 4,472 cycles across 49 symbols, daily bars, 20-bar pivot with matching confirmation lag. Killed twice: the cheap alternative explains 98% of it, and a third of surrogates reproduce it. Second claim from this source to die on surrogates for the same reason \u2014 both rest on a cycle boundary a swing detector will impose on random data. The RISK-PLACEMENT claim from the same source is untouched by this and remains open."
+        "notes": "FALSIFIED 2026-08-04 on 4,472 cycles across 49 symbols, daily bars, 20-bar pivot with matching confirmation lag. Killed twice: the cheap alternative explains 98% of it, and a third of surrogates reproduce it. Second claim from this source to die on surrogates for the same reason — both rest on a cycle boundary a swing detector will impose on random data. The RISK-PLACEMENT claim from the same source is untouched by this and remains open."
       },
       "effect": {
         "measure": "decline velocity gap, late minus early translation tercile",

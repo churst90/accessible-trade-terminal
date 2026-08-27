@@ -352,6 +352,126 @@ namespace AccessibleTrader.Tests
             Assert.Equal(1, strategy.Seen[1]);
         }
 
+        /// <summary>
+        /// Signals when — and only when — the component value it reads at the current bar equals
+        /// a nominated sentinel. The read is the same <c>arr[history.Count - 1]</c> identity the
+        /// whole stack uses, so a re-basing regression moves WHICH bar trades, not merely what an
+        /// observer records.
+        /// </summary>
+        private sealed class SignalsOnComponentValueStrategy : ITradingStrategy
+        {
+            private readonly double _trigger;
+            public SignalsOnComponentValueStrategy(double trigger) { _trigger = trigger; }
+
+            public string Id => "TRIGGER";
+            public string Name => "Trigger";
+            public string Description => "signals when the component reads a sentinel";
+            public StrategyComplexityLevel Complexity => StrategyComplexityLevel.Simple;
+            public IReadOnlyList<StrategyParameter> Parameters => Array.Empty<StrategyParameter>();
+            public void Initialize(IReadOnlyList<Ohlcv> history, WorkspaceState state, IDictionary<string, object> parameterValues) { }
+            public StrategySignal? OnBar(Ohlcv newBar, IReadOnlyList<Ohlcv> history, WorkspaceState state)
+            {
+                var arr = state.ActiveSeries[0].GetComponentData("AbsoluteIndex");
+                int idx = Math.Min(history.Count, arr.Length) - 1;
+                if (idx < 0 || arr[idx] != _trigger) return null;
+                return new StrategySignal(
+                    Side: OrderSide.Buy, OrderType: OrderType.Market, Quantity: 1, LimitPrice: null,
+                    StopLoss: 1, TakeProfit: null, Rationale: "sentinel", Confidence: 1);
+            }
+            public void OnOrderFilled(OrderUpdate fill) { }
+            public void OnStop() { }
+            public StrategyMetrics GetMetrics() => new StrategyMetrics(0, 0, 0, 0, 0, 0);
+        }
+
+        [Fact]
+        public async Task DateFilteredBacktest_TradesTheBarTheINDICATORNames_NotTheBarTheWindowIndexNames()
+        {
+            // The reader test above proves what the strategy SEES. This one proves the offset
+            // reaches the decision: the strategy fires only on the bar whose component value is
+            // 150, so the entry timestamp has to be absolute bar 151's (the fill is next-bar
+            // open). Under the old shared-array bug the window's bar 0 read absolute 0 and the
+            // trigger would land 120 bars early — at a completely different date on the chart.
+            //
+            // This is the half `DateRange_LimitsEvaluationToWindow` in StrategyBacktesterTests
+            // could not cover: a strategy that never reads the workspace arrays cannot tell a
+            // correct offset from a wrong one, so that test asserts only that the surviving
+            // bars are inside the window, which is true of every offset.
+            const int total = 200;
+            const int windowStart = 120;
+            const int trigger = 150;
+            var bars = Bars(total);
+            var arr = new double[total];
+            for (int i = 0; i < total; i++) arr[i] = i;
+
+            var state = StateWith(Series("MARK", ("AbsoluteIndex", arr)));
+            var config = new BacktestConfig(
+                WarmupBars: 0, ReplayProfiles: false, CommissionRate: 0, SlippagePercent: 0,
+                StartDate: bars[windowStart].Date);
+
+            var result = await new StrategyBacktester().RunAsync(
+                new SignalsOnComponentValueStrategy(trigger), bars, config, state);
+
+            var trade = Assert.Single(result.Trades);
+            Assert.Equal(bars[trigger + 1].Date, trade.EntryTime);
+        }
+
+        [Fact]
+        public async Task DateFilteredBacktest_StampsTheFeatureSnapshotFromTheDECISIONBar()
+        {
+            // The feature snapshot is the one consumer of the re-basing that no other test
+            // touches, and it is the one place where the offset could be applied TWICE — it used
+            // to add featureCaptureOffset itself, back when the arrays were still the full
+            // chart's. Adding it now would put H2's snapshots past the end of every array and
+            // silently clamp them to the last value, which is the chart's present: a look-ahead
+            // leak straight into the CSV that research reads to decide what discriminates
+            // winners from losers.
+            //
+            // The component records its own absolute index, so the snapshot names the bar it was
+            // taken from. The decision bar is 150 — not 151, where the fill happens.
+            const int total = 200;
+            const int windowStart = 120;
+            const int trigger = 150;
+            var bars = Bars(total);
+            var arr = new double[total];
+            for (int i = 0; i < total; i++) arr[i] = i;
+
+            var state = StateWith(Series("MARK", ("AbsoluteIndex", arr)));
+            var config = new BacktestConfig(
+                WarmupBars: 0, ReplayProfiles: false, CommissionRate: 0, SlippagePercent: 0,
+                StartDate: bars[windowStart].Date);
+
+            var result = await new StrategyBacktester().RunAsync(
+                new SignalsOnComponentValueStrategy(trigger), bars, config, state);
+
+            var trade = Assert.Single(result.Trades);
+            Assert.NotNull(trade.FeatureSnapshot);
+            Assert.Equal(trigger, trade.FeatureSnapshot!["MARK.AbsoluteIndex"], 6);
+        }
+
+        [Fact]
+        public async Task UnfilteredBacktest_StampsTheSameSnapshotBar()
+        {
+            // Vacuity check on the pair above: with no date filter there is no offset at all, so
+            // a "read the last element of the array" regression would satisfy both of them here
+            // and fail only in a window. Same trigger, no StartDate, same answer.
+            const int total = 200;
+            const int trigger = 150;
+            var bars = Bars(total);
+            var arr = new double[total];
+            for (int i = 0; i < total; i++) arr[i] = i;
+
+            var state = StateWith(Series("MARK", ("AbsoluteIndex", arr)));
+            var config = new BacktestConfig(
+                WarmupBars: 0, ReplayProfiles: false, CommissionRate: 0, SlippagePercent: 0);
+
+            var result = await new StrategyBacktester().RunAsync(
+                new SignalsOnComponentValueStrategy(trigger), bars, config, state);
+
+            var trade = Assert.Single(result.Trades);
+            Assert.Equal(bars[trigger + 1].Date, trade.EntryTime);
+            Assert.Equal(trigger, trade.FeatureSnapshot!["MARK.AbsoluteIndex"], 6);
+        }
+
         [Fact]
         public async Task DateFilteredBacktest_DoesNotMutateTheCallersSeries()
         {

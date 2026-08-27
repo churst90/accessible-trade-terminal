@@ -46,6 +46,40 @@ namespace AccessibleTrader.Sdk.Strategies;
 /// profitability collapses without reverse-on-signal, the edge was structural; if it survives,
 /// the entry signal has measurable predictive value of its own.
 /// </param>
+/// <param name="SpreadPercent">
+/// The FULL quoted bid-ask spread as a decimal fraction of price (0.0004 = 4 basis points).
+/// Half of it is charged per side, because OHLCV bars are a single price series — a buyer
+/// crossing to the ask pays half the spread above that price and a seller hitting the bid
+/// receives half of it below. It is applied on top of <see cref="SlippagePercent"/> at all four
+/// fill sites (entry, stop exit, take-profit rung, end-of-data close); slippage models the
+/// market moving while the order is in flight, spread models the cost of crossing at all, and
+/// a backtest that omits the second is quoting mid-to-mid prices no one can trade at.
+/// Default 0 — every historical result in this repo was computed without it, so turning it on
+/// is an explicit act, not a silent re-scoring.
+/// </param>
+/// <param name="FundingRatePerInterval">
+/// Perpetual-futures funding as a decimal fraction of position notional, charged once per
+/// funding interval held (0.0001 = 1 basis point per interval; ~0.01% per 8h is the typical
+/// crypto-perp resting rate). Sign follows the exchange convention: when the rate is POSITIVE
+/// the long pays the short, so a long is charged and a short is credited; a negative rate
+/// reverses both. Accrues against the bar's close, so it tracks the mark rather than the entry.
+/// Default 0. Irrelevant to spot and to dated futures; set it only for perps.
+/// </param>
+/// <param name="FundingIntervalHours">
+/// How often funding settles, in hours. Boundaries are absolute UTC wall-clock times, not an
+/// offset from the entry — 8.0 means 00:00, 08:00 and 16:00 UTC, which is what the major perp
+/// venues use — so a position pays for the settlements it is actually open across. A daily bar
+/// crosses three of them; an hourly bar crosses one in three. Ignored when
+/// <see cref="FundingRatePerInterval"/> is 0.
+/// </param>
+/// <param name="BorrowRateAnnual">
+/// Cost of borrowing the asset to hold a SHORT, as an annualised decimal rate (0.05 = 5%/yr).
+/// Accrues on calendar time against the bar's close, not on bar count, so the charge on a
+/// position held over a weekend is the same whether the data is hourly or daily. Charged to
+/// shorts only; a long is assumed cash-funded, which is why this is not a symmetric carry.
+/// Default 0. This is the term whose absence most distorted this repo's research corpus: it
+/// grows with hold time, so it is worst exactly on the swing strategies the catalogue favours.
+/// </param>
 public record BacktestConfig(
     double StartingCapital = 10000.0,
     double CommissionRate = 0.001,      // 0.1% per trade
@@ -55,5 +89,9 @@ public record BacktestConfig(
     IPositionSizer? PositionSizer = null,
     DateTime? StartDate = null,
     DateTime? EndDate = null,
-    bool AllowReverseOnSignal = true
+    bool AllowReverseOnSignal = true,
+    double SpreadPercent = 0.0,
+    double FundingRatePerInterval = 0.0,
+    double FundingIntervalHours = 8.0,
+    double BorrowRateAnnual = 0.0
 );

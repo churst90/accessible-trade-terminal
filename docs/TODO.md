@@ -2408,18 +2408,65 @@ closed the indicator-provider half and missed the paths below.
   **Still open and filed separately:** spread, funding for perpetuals and borrow for shorts.
   `BacktestConfig` has no field for any of them, and for a crypto-perp research corpus that
   materially overstates every held short.
-- [ ] **`BacktestConfig` models no spread, no funding and no borrow cost.** Carved out of the
+- [x] **`BacktestConfig` models no spread, no funding and no borrow cost.** Carved out of the
   slippage finding closed above (which fixed the entries-only asymmetry). There is no field
   for any of the three, so a perpetual-futures backtest pays no funding and a short pays no
   borrow. For this repo's crypto-perp research corpus that materially overstates **every held
   short**, and the error grows with hold time — so it is worst exactly on the swing strategies
   the catalogue favours. MEDIUM-HIGH (research honesty).
-- [ ] **The backtester's date-range test uses a strategy that ignores `WorkspaceState`, so it
+  **CLOSED 2026-08-27.** Four fields — `SpreadPercent`, `FundingRatePerInterval`,
+  `FundingIntervalHours`, `BorrowRateAnnual` — and the engine to charge them.
+  **Spread** is the FULL quoted bid-ask and **half** is charged per fill, because OHLCV bars
+  are a single price series: the buyer crossing to the ask is already half a spread away from
+  it, so the full quoted spread is paid across a completed round trip and not on each leg. It
+  composes with slippage into one adverse fraction (`PerSideAdverseFraction`) applied at all
+  four fill sites.
+  **Funding and borrow are not per-fill costs** — they accrue for as long as the position is
+  held, so they accumulate into an `openCarryCost` and are charged into the PnL of whichever
+  exit row closes the quantity they accrued on, apportioned by the fraction of the remainder
+  that row closes. That placement is the whole point: metrics are read from trade rows, so a
+  carry cost that only ever moved `equity` would leave win rate and profit factor exactly as
+  flattering as they were. A three-rung ladder pays a third of the bill per rung.
+  Funding settles on **absolute UTC boundaries** (8h → 00:00/08:00/16:00), counted per bar
+  INTERVAL rather than per bar, so the charge is independent of the timeframe the backtest
+  happened to be run on — a daily bar crosses three settlements and a 15-minute bar crosses one
+  in thirty-two, and a position held a day pays for three either way. Sign follows the exchange
+  convention: a positive rate means longs pay shorts, so a held short is CREDITED. Borrow
+  accrues on calendar time and is charged to shorts only; a long is assumed cash-funded.
+  **All four default to zero.** Every number in the findings docs was computed without them, so
+  turning them on is an explicit act rather than a silent re-scoring of results people wrote
+  down. Exposed in the StrategyModal backtest tab (four labelled inputs) and on
+  `StrategyLab run` as `--spread/--funding/--funding-hours/--borrow`, which now prints the cost
+  and carry model on every run **including when it is off** — a cost that is not charged is
+  exactly the kind of thing a reader assumes was.
+  17 tests in `BacktestCarryCostTests`, every fixture a flat market at 100 with zero commission
+  and zero slippage so the position's entire P&L is the cost under test. Proven by seven
+  sabotages: full-spread-per-side, funding sign flipped, borrow charged to longs, the whole
+  carry taken by every exit row, one settlement per bar interval, the end-of-data interval
+  never accruing, and the entry bar charged carry. All seven go red.
+- [x] **The backtester's date-range test uses a strategy that ignores `WorkspaceState`, so it
   cannot catch the offset bug it looks like it covers.** Carved out of the zero-cost test
   finding closed above. `featureCaptureOffset` exists because H1 and H2 both read
   `arr[0..filtered.Count-1]` from the same shared workspace arrays; a strategy that never
   reads those arrays cannot tell a correct offset from a wrong one. Needs a strategy whose
   signal depends on an indicator component value at a known bar. MEDIUM (amends the test suite).
+  **CLOSED 2026-08-27 — and it was HALF ALREADY DONE, which is the sixth recount hit on these
+  lists.** `StrategyConsumerCausalityTests.DateFilteredBacktest_ReadsIndicatorValuesFromTheWindowsOwnBars`
+  already drives a strategy that reads a component recording its own absolute bar index, and
+  already asserts the window's bar 0 reads absolute 120. The READ path was covered.
+  What was genuinely uncovered was the other two halves, both now written:
+  (1) a strategy whose **signal depends** on the component value, so the offset reaches the
+  DECISION rather than an observation — it fires only where the component reads 150 and the
+  entry timestamp must be absolute bar 151's; and (2) the **feature snapshot**, which had
+  *zero* test coverage in the whole suite (`grep FeatureSnapshot` over the tests returned
+  nothing). That one matters most: the snapshot is the one consumer where the offset could be
+  applied TWICE, and a double-count puts every snapshot past the end of its array where the
+  read silently clamps to the last value — the chart's present, a look-ahead leak straight into
+  the CSV that research reads to decide what discriminates winners from losers.
+  Both proven by sabotage: re-adding `featureCaptureOffset` to the snapshot capture turns
+  exactly the new snapshot test red (1 of 14), and removing the array re-basing entirely turns
+  three red. A third test runs the same trigger with no date filter at all, so a "read the last
+  element" regression cannot satisfy the pair by accident.
 - [ ] **An account selector for Schwab.** Carved out of the multi-account finding closed
   2026-08-26, which scoped reads to the account orders are routed to so that what you SEE is
   what you can TRADE. A user with a brokerage account and an IRA can still only reach the
@@ -5737,7 +5784,7 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   assertion for an equity multiple, return, drawdown or CAGR from any lab command. Filed below —
   that is the larger half and it is its own piece of work.
 
-- [ ] **RE-RUN the five findings whose statistics are now known to be wrong, and backfill
+- [x] **RE-RUN the five findings whose statistics are now known to be wrong, and backfill
   `variantsTried` while doing it.** The banner added to `docs/XSMOMENTUM_FINDINGS.md`,
   `ONCHAIN_FINDINGS.md`, `POLARITY_AND_GATE_FINDINGS.md`, `POSITIONING_AND_EVENTS_FINDINGS.md`
   and `EXIT_FINDINGS.md` on 2026-08-27 marks every number in them as provisional. Three fixes
@@ -5748,6 +5795,64 @@ marks it `Fragile`); anything from `StrategyBatteryCommand` predating the 2026-0
   overlap correction alone is worth roughly a factor of √horizon, and at horizon 20 that is
   ~4.5x. A finding that survives is worth more than it was; one that does not was never real.
   HIGH (research truth, not runtime).
+  **CLOSED 2026-08-27.** All five re-run, all five banners replaced with a RE-RUN record of
+  what moved, `variantsTried` backfilled on six edges from counts read OFF the output rather
+  than estimated from source (xsmom 16, onchain 7, cot 4, exits 8 ×2, gate 12), and
+  `edges.json` bumped to `2026-08-27.1`. Two of the five moved, two reproduced, one flipped
+  its supporting argument. **Two of the three "fixes" turned out to be broken themselves, and
+  only running them found that** — which is the whole case for re-running rather than trusting
+  a fix.
+  - **XSMOMENTUM — SURVIVES.** p = 0.0069 against the null of the maximum over all 16 grid
+    cells, vs 0.0047 for the old fixed-configuration null. The selection effect is real and
+    small: sixteen cells over four lookbacks are heavily correlated, nothing like sixteen
+    independent tries. Effect size unchanged. **But the max-statistic null as first written was
+    on the wrong scale** — it took the maximum of the RAW mean spread across cells, and a
+    hold=90 cell's spread is a 90-day return while a hold=30 cell's is a 30-day one, so the
+    long-hold cells dominate the maximum whatever the data says. Run that way the grid's
+    hold=30 winner scored **p = 0.97**, which reads as a dead result and is really a wrong
+    yardstick. It now studentises each cell by that cell's own null dispersion (Westfall–Young
+    maxT). Note that dividing by the OBSERVED sd — the textbook t — is also wrong here and
+    costs most of the power: momentum-sorted thirds are more volatile than random ones, so the
+    effect under test inflates its own denominator (it put the naive p at 0.13 instead of
+    0.0047).
+  - **XSMOMENTUM survivorship stress — was STILL inert, second time around.** The replacement
+    that "removes names and re-ranks" computed how many with
+    `Math.Round(names × annual ÷ periodsPerYear)`, which for 39 names at 5%/yr over 12.2
+    rebalances a year is `round(0.16) = 0`. Thirteen rows printed "100% vs clean" and nobody
+    read that as the null result it was. Stochastic rounding fixed it and the table finally
+    moves: the excess survives every bottom-biased cell (the realistic direction — delisting
+    concentrates in losers, which a long-top-third book is by construction not holding) and
+    goes NEGATIVE in one random-total-loss cell, which also takes the benchmark basket to
+    −100% and so describes a world where nothing is tradeable rather than one where momentum
+    specifically fails.
+  - **ONCHAIN — loses its significance.** Effect sizes unchanged to two decimals (MVRV still
+    −1.11 ATR) and every p moved by about the predicted √20: MVRV 0.0002 → **0.0267**, NVT
+    0.0002 → 0.0245, active addresses 0.0002 → 0.0305. The Bonferroni threshold across the
+    seven metrics is ~0.007, so **nothing in the family clears it any more**. The verdict was
+    already "not an edge" and is now better supported; the quintile finding it rested on is
+    weaker.
+  - **POSITIONING/COT — verdict stands, the argument that carried it is gone.** All four
+    p-values collapsed: S&P 0.0002 → 0.124, Nasdaq 0.017 → 0.509, Gold 0.570 → 0.839, Bitcoin
+    0.033 → 0.910. The old write-up made its case from the S&P and the Nasdaq — ~90%-correlated
+    indices giving opposite significant signals, "both cannot be real" — which is a better
+    argument than any p-value and is now built on nothing, because neither is significant. The
+    reasoning was sound and the inputs were wrong. **Confound recorded in the doc:** `cftc-cot`
+    re-downloads in place, so the series now run to 2026-08-18; S&P/Nasdaq quintile means are
+    unchanged but Gold's and Bitcoin's moved, so those two rows are part re-measurement.
+  - **POLARITY/GATE — reproduces to three decimals.** Every rank correlation identical, every
+    MA-gate lift identical; one p moved 0.0002 → 0.0004, which is permutation noise at 20,000
+    draws. It reproduced because neither command's test was one of the three broken ones —
+    `polarity` correlates one row per symbol (no overlapping windows to be wrong about) and
+    `gate` compares disjoint trade populations rather than searching a grid.
+  - **EXIT — reproduces cell for cell.** BTC 32.34× p=0.003, ETH 4.35× p=0.034, SPY and QQQ
+    null, every one identical. It reproduced because its control is a **random-exit** draw —
+    a whole alternative book per draw, not a row sharing 19 of its 20 bars with its neighbour —
+    and because all eight exit rules are reported rather than the best of them. The right
+    control, built the first time.
+  **The durable lesson:** a stress or correction table whose last column reads 100% in every
+  row, or whose p is 0.97 where you expected 0.5, is not a result. It is a report that the
+  machinery did not run, and both happened here inside fixes that had already been filed as
+  done.
 - [ ] **Have each command print its own test count and a Bonferroni threshold, the way
   `FomcCommand` does.** Carved out of the multiple-comparison finding closed above, which added
   the registry field and the validation gate but not the reporting.
@@ -11019,9 +11124,53 @@ shipped covering the full open-list at the top of TODO.md across rounds 3-7.
 - [ ] **AssetClassifier on equity snapshots.** Pull TSLA/AMZN/SPY via the Alpaca
   fix and verify the volatility/liquidity thresholds (currently crypto-calibrated)
   produce sensible classifications. May need a separate equity calibration track.
-- [ ] **ETH 4h SHORT confluence empirical run.** Wire the three new cells to a
+- [x] **ETH 4h SHORT confluence empirical run.** Wire the three new cells to a
   fresh rolling-window pass on `mexc_ETH_USDT_4h.json` to see whether any of the
   confirmation signals rescue 47% positive into HIGH-CONV or ROBUST territory.
+  **RUN 2026-08-27 — the answer is no, and one of the three cells turned out to be
+  broken rather than negative.** `mexc_ETH_USDT_4h.json` does not exist in
+  `strategy-lab-data/`; run on `bitstamp_ETH_USDT_4h.json` instead — 19,348 bars,
+  2017-08 → 2026-06, a LONGER sample than the MEXC one would have been. 71 rolling
+  windows (1500/250) plus a single full-sample window to separate sparsity from a
+  structural zero.
+
+  | cell | 71-window ER>0 | CI>0 | full-sample trades | full-sample meanER |
+  |---|---|---|---|---|
+  | v23r SHORT (base) | 52% | 0% | 61 | +0.077 |
+  | v23r-AEXH (+Cipher A.Exhaustion ≤5) | 0% (0 valid windows) | 0% | 19 | **+0.157** |
+  | v23r-ASELL (+Cipher A.Sell ≤5) | 0% (1 valid window) | 0% | 22 | −0.011 |
+  | v23r-SRRES (+Cipher SR.Resistance ≤5) | — | — | **0** | — |
+
+  **None reaches HIGH-CONV or ROBUST, and none can.** HIGH-CONV needs `AvgTrades ≥ 5`
+  per window; AEXH's 19 trades over nine years is well under one per 1500-bar window,
+  so the cell cannot satisfy the gate no matter how good it is. AEXH is the only one
+  worth remembering — it doubles the base's edge per trade on the full sample — and
+  19 trades cannot reach a confidence interval, so that is a hypothesis, not a result.
+  ASELL is worse than the base it filters. The base itself is unchanged in character:
+  52% positive here against the 47% recorded on the other sample, still marginal,
+  still zero CI windows.
+
+  This is the third independent confirmation of the standing finding that
+  **price-derived confluence does not stack** — every one of these signals is a
+  transform of the same OHLC series, so agreement between them is arithmetic that
+  costs sample size and buys nothing.
+
+- [ ] **`v23r-SRRES` fires ZERO times in nine years and is a broken cell, not a null.**
+  Found by the run above. Over the whole 19,348-bar ETH 4h series the base v23r SHORT
+  trigger fires 61 times and both Cipher A confluence cells produce 19–22 trades, but
+  `Fired("CIPHER_SR.Resistance", withinBars: 5)` never once co-occurs. Re-run with
+  `--set CIPHER_SR.AutoScale=0 --set CIPHER_SR.PivotBars=2 --set
+  CIPHER_SR.VolumeMultiplier=0`, which should make pivot highs occur every few bars:
+  **still zero**. That is not rarity. Either the leaf does not resolve the component
+  at all (in which case the cell has been silently false since it was added, and the
+  same question applies to `CIPHER_SR.Support` in the v23 OR-conf seed, where an OR
+  can hide a permanently-false leg), or it resolves and something else excludes it.
+  Worth noting while looking: `CipherSRProvider` writes the `Resistance` DOT component
+  from `resistance[i]` — stamped at the PIVOT bar — while the causal `resConfirmed[i + pb]`
+  array is used only by the zone LINE. So if the leaf does resolve, a `FiredWithin`
+  read of the dot is look-ahead: a pivot at bar i is not knowable until i+pb. Both
+  outcomes need fixing and they need opposite fixes, so measure which one it is first.
+  Do not use the SRRES cell for anything until this is settled. MEDIUM.
 - [ ] **v23or weekly cross-asset.** OR-gate may broaden coverage on smaller-cap
   altcoins where v23p over-restricts. Run on KAS/TAO/XRP/LTC weekly to see if
   v23or generalizes the way bare v23 does.

@@ -396,39 +396,98 @@ public static class XsMomentumCommand
         double sd = Math.Sqrt(spreads.Sum(v => (v - mean) * (v - mean)) / (spreads.Count - 1));
         int positive = spreads.Count(v => v > 0);
 
-        var rng = new Random(555);
-        int extreme = 0;            // naive: this cell against its own null
-        int extremeMax = 0;         // honest: this cell against the null of the MAXIMUM
+        // ── The max statistic has to be STANDARDISED across cells ─────────────
+        //
+        // The first version of this correction took the maximum of the raw mean spread across
+        // cells, and that comparison is not between like things. A hold=90 cell's per-period
+        // spread is a 90-day return and a hold=30 cell's is a 30-day one, so the long-hold cells
+        // are roughly three times larger in scale AND have a third as many periods — their null
+        // spreads dominate the maximum whatever the data says. Run that way, the equity grid's
+        // hold=30 winner was compared against a null built mostly out of hold=90 draws and came
+        // back p = 0.97: not "no effect", but "wrong yardstick".
+        //
+        // Westfall-Young maxT is standardised for exactly this reason. The scale each cell is
+        // divided by is that cell's OWN NULL dispersion, estimated from its permutation draws —
+        // not its observed standard deviation. Dividing by the observed sd would be the textbook
+        // t-statistic and it is the wrong choice here, because momentum-sorted thirds are more
+        // volatile than randomly-sorted ones: the effect under test inflates the denominator and
+        // the test loses most of its power to the thing it is looking for. Studentising by the
+        // null instead puts every cell on one scale while leaving the test as sharp as the
+        // original mean-based permutation, which is what makes the naive number below still
+        // comparable to the p = 0.0045 recorded in edges.json.
+        //
+        // One pass, storing every permuted cell mean (cells x permutations doubles — a few MB),
+        // because the null scale is not known until the permutations are finished.
+        var permMeans = new double[cells.Count][];
+        for (int c = 0; c < cells.Count; c++) permMeans[c] = new double[permutations];
 
+        var rng = new Random(555);
+        var permSpreads = new List<double>();
         for (int p = 0; p < permutations; p++)
         {
-            double bestUnderNull = double.NegativeInfinity;
-            double thisCellUnderNull = 0;
-
-            foreach (var cell in cells)
+            for (int c = 0; c < cells.Count; c++)
             {
-                double acc = 0;
+                var cell = cells[c];
+                permSpreads.Clear();
                 foreach (var arr in cell.Pooled)
                 {
                     int k = Math.Max(1, arr.Length / 3);
                     var shuf = arr.OrderBy(_ => rng.Next()).ToArray();
-                    acc += shuf.Take(k).Average(r => r.Fwd) - shuf.TakeLast(k).Average(r => r.Fwd);
+                    permSpreads.Add(shuf.Take(k).Average(r => r.Fwd) - shuf.TakeLast(k).Average(r => r.Fwd));
                 }
-                double cellMean = Math.Abs(acc / cell.Pooled.Count);
-                if (cellMean > bestUnderNull) bestUnderNull = cellMean;
-                if (ReferenceEquals(cell.Cfg, best)) thisCellUnderNull = cellMean;
+                double acc = 0; foreach (var v in permSpreads) acc += v;
+                permMeans[c][p] = acc / permSpreads.Count;
             }
+        }
 
-            if (thisCellUnderNull >= Math.Abs(mean)) extreme++;
-            if (bestUnderNull >= Math.Abs(mean)) extremeMax++;
+        var nullMu = new double[cells.Count];
+        var nullSd = new double[cells.Count];
+        for (int c = 0; c < cells.Count; c++)
+        {
+            double m = 0; foreach (var v in permMeans[c]) m += v; m /= permutations;
+            double ss = 0; foreach (var v in permMeans[c]) ss += (v - m) * (v - m);
+            nullMu[c] = m;
+            nullSd[c] = Math.Sqrt(ss / (permutations - 1));
+        }
+
+        double Z(int c, double value) => nullSd[c] > 0 ? Math.Abs(value - nullMu[c]) / nullSd[c] : 0.0;
+
+        // The observed side of a maxT test is also a maximum: the largest standardised deviation
+        // any cell in the grid attains. Testing only the return-best cell against a max null
+        // would be conservative rather than wrong, but it would answer a question nobody asked —
+        // the search ranged over the whole grid, so the statistic searched for is the grid's
+        // largest.
+        int selectedIdx = cells.FindIndex(c => ReferenceEquals(c.Cfg, best));
+        double zBest = double.NegativeInfinity;
+        Result? zBestCfg = null;
+        for (int c = 0; c < cells.Count; c++)
+        {
+            double z = Z(c, cells[c].Spreads.Average());
+            if (z > zBest) { zBest = z; zBestCfg = cells[c].Cfg; }
+        }
+        double zSelected = Z(selectedIdx, mean);
+
+        int extreme = 0;            // naive: the return-best cell against its own null
+        int extremeMax = 0;         // honest: the grid maximum against the null of the maximum
+        for (int p = 0; p < permutations; p++)
+        {
+            double maxUnderNull = double.NegativeInfinity;
+            for (int c = 0; c < cells.Count; c++)
+            {
+                double z = Z(c, permMeans[c][p]);
+                if (z > maxUnderNull) maxUnderNull = z;
+            }
+            if (Z(selectedIdx, permMeans[selectedIdx][p]) >= zSelected) extreme++;
+            if (maxUnderNull >= zBest) extremeMax++;
         }
 
         double pv = (extremeMax + 1.0) / (permutations + 1.0);        // the one the verdict uses
         double pvNaive = (extreme + 1.0) / (permutations + 1.0);
 
         Console.WriteLine($"    mean top−bottom spread per {best.Hold}d period: {mean:+0.00%;-0.00%;0}   " +
-                          $"sd {sd:0.00%}   positive {positive}/{spreads.Count}");
-        Console.WriteLine($"    p = {pv:0.0000}  (max-statistic null over {cells.Count} grid cells)" +
+                          $"sd {sd:0.00%}   positive {positive}/{spreads.Count}   z vs null {zSelected:0.00}");
+        Console.WriteLine($"    grid max |z| = {zBest:0.00} at look={zBestCfg!.Lookback} skip={zBestCfg.Skip} hold={zBestCfg.Hold}");
+        Console.WriteLine($"    p = {pv:0.0000}  (max-statistic null over {cells.Count} grid cells, studentised by each cell's null)" +
                           (pv <= 0.05 ? "  *" : ""));
         Console.WriteLine($"    p = {pvNaive:0.0000}  (fixed-configuration null — POST-SELECTION, shown for contrast:");
         Console.WriteLine( "                  this cell was chosen as the grid maximum, so its own null is too narrow)");

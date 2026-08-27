@@ -15,6 +15,10 @@ CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 //       Pulls historical bars from Bitstamp into a JSON snapshot file.
 //
 //   run       --snapshot <path> --spec <id> [--start 2024-06-01] [--end 2025-01-01] [--warmup 200]
+//                                          [--spread 0.04] [--funding 0.01] [--funding-hours 8] [--borrow 5]
+//             Cost flags are PERCENTAGES and all default to zero: --spread is the full quoted
+//             bid-ask (half charged per fill), --funding is the perp rate per settlement
+//             (positive = longs pay), --borrow is annualised and charged to shorts only.
 //       Runs a built-in strategy spec against a snapshot and prints metrics + the CSV path.
 //
 // All paths are resolved relative to the current working directory.
@@ -302,6 +306,7 @@ static int PrintUsage()
     Console.WriteLine("  StrategyLab snapshot --symbol BTC/USDT --tf 4h --bars 3000 [--out strategy-lab-data]");
     Console.WriteLine("  StrategyLab xs-snapshot [--out strategy-lab-data] [--points 3000]   # funding/OI/FNG");
     Console.WriteLine("  StrategyLab run  --snapshot <path> --spec <id> [--start yyyy-mm-dd] [--end yyyy-mm-dd] [--warmup 200] [--no-reverse]");
+    Console.WriteLine("                   [--spread 0.04] [--funding 0.01] [--funding-hours 8] [--borrow 5]   (percentages; all default to 0 = not modelled)");
     Console.WriteLine("  StrategyLab walk --snapshot <path> --spec <id> [--warmup 200] [--no-reverse]");
     Console.WriteLine("  StrategyLab walk-windows --snapshot <path> --spec <id> [--windows 6] [--warmup 200]");
     Console.WriteLine("  StrategyLab diagnostic --snapshot <path> [--indicators CIPHER_A,CIPHER_B] [--warmup 200]");
@@ -368,11 +373,29 @@ static async Task<int> HandleRun(string[] a)
     int warmup = int.TryParse(GetFlag(a, "--warmup"), out var w) ? w : 200;
     bool noReverse = HasFlag(a, "--no-reverse");
 
+    // Costs the engine models but does not assume. All four default to zero / the venue-standard
+    // 8-hour funding schedule, so `run` with no cost flags reproduces every historical result in
+    // the findings docs exactly; passing them is how a run is made honest about carry.
+    double spread  = ParseRate(GetFlag(a, "--spread"));
+    double funding = ParseRate(GetFlag(a, "--funding"));
+    double borrow  = ParseRate(GetFlag(a, "--borrow"));
+    double fundingHours = double.TryParse(GetFlag(a, "--funding-hours"), out var fh) && fh > 0 ? fh : 8.0;
+
     if (snapshotPath == null) { Console.Error.WriteLine("--snapshot is required"); return 1; }
     if (specId == null)       { Console.Error.WriteLine("--spec is required"); return 1; }
 
-    return await RunCommand.RunAsync(snapshotPath, specId, start, end, warmup, noReverse);
+    return await RunCommand.RunAsync(
+        snapshotPath, specId, start, end, warmup, noReverse,
+        spread, funding, fundingHours, borrow);
 }
+
+// Rates on the command line are PERCENTAGES — `--funding 0.01` is one basis point per
+// settlement, the resting crypto-perp rate, not 1% of notional. Writing them as decimals here
+// would put a factor of 100 between what the flag says and what the docs quote.
+static double ParseRate(string? raw)
+    => double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture, out var v)
+       ? v / 100.0 : 0.0;
 
 static async Task<int> HandleWalk(string[] a)
 {

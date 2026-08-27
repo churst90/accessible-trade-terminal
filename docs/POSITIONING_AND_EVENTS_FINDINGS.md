@@ -1,32 +1,30 @@
 # COT positioning and event studies — one instructive null, one untestable, one known effect
-> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+> **RE-RUN 2026-08-27 — the COT verdict stands, and the argument that carried it is gone.**
 >
-> Every p-value below was computed with machinery that has since been found wrong, and the
-> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+> Recomputed with block permutation over the overlapping 20-bar forward rows. **All four COT
+> p-values collapsed into nothing:** S&P 0.0002 → 0.124, Nasdaq 0.017 → 0.509, Gold 0.570 → 0.839,
+> Bitcoin 0.033 → 0.910. The conclusion — positioning carries no usable contrarian signal — is
+> unchanged and now rests on plain absence rather than on a contradiction.
 >
-> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
->    ran the permutation test on that cell against a fixed-configuration null. The statistic
->    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
->    by roughly the effective number of independent cells. The command now reports a
->    max-statistic null alongside the naive one.
-> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
->    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
->    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
->    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
->    block-permute.
-> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
->    that did not depend on the ranking, which reduces algebraically to the clean excess times a
->    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
->    removes names from the universe and re-ranks.
+> **That costs this doc its sharpest argument.** The old write-up made its case from the S&P and
+> the Nasdaq, two ~90%-correlated indices, giving opposite signals at p = 0.0002 and p = 0.017:
+> "both cannot be real" was a demonstration that beat any single p-value. After the correction
+> neither is significant, so there is no contradiction left to point at — just four null cells.
+> The argument was right and it was built on numbers that were wrong, which is a thing worth
+> knowing about how convincing an argument can feel.
 >
-> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
-> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
-> Snapshots now carry a `barsSha256` so future results can name their sample.
+> **A confound in this particular re-run, stated because it cannot be undone:** the COT archives
+> were re-downloaded in the same session (`cftc-cot` overwrites `xs_cftc_*.json` in place), so the
+> series now run to 2026-08-18 rather than the original 2026-07-31 cut. The S&P and Nasdaq quintile
+> means are byte-identical to the old ones and only their p-values moved; the Gold and Bitcoin
+> quintile MEANS moved too (Gold +0.39/+0.48 → +0.26/+0.13, BTC +1.16/+0.62 → +0.59/+0.69), so
+> those two rows are part re-measurement and part correction and cannot be attributed cleanly.
 >
-> **Treat every number below as provisional until the commands are re-run.**
+> The calendar section moved the other way: SPY turn-of-month p = 0.031 → **0.0045**. The halving
+> table is descriptive (n = 4) and unaffected. variantsTried = 4 for the COT edge.
 
 
-Run 2026-07-31. `dotnet run -- events`. 20-bar forward horizon.
+Run 2026-07-31, **re-run 2026-08-27**. `dotnet run -- events`. 20-bar forward horizon.
 
 ## 1. CFTC COT positioning — null, and the way it fails is the point
 
@@ -34,22 +32,31 @@ Net speculator positioning as a % of open interest, rolling 26-week z-score, **l
 (the report is published Friday for the Tuesday of record; a backtest that ignores that trades on
 positioning nobody could see). Contrarian claim: extreme net-long precedes falls.
 
-| instrument | net-short quintile | net-long quintile | gap | p |
-|---|---|---|---|---|
-| **S&P 500** | +0.19 ATR | +1.07 ATR | **−0.88** | **0.0002** |
-| Nasdaq | +1.18 ATR | +0.82 ATR | +0.36 | 0.0167 |
-| Gold | +0.39 ATR | +0.48 ATR | −0.09 | 0.570 |
-| Bitcoin | +1.16 ATR | +0.62 ATR | +0.54 | 0.033 |
+| instrument | net-short quintile | net-long quintile | gap | p | *(p before the overlap fix)* |
+|---|---|---|---|---|---|
+| S&P 500 | +0.19 ATR | +1.07 ATR | −0.88 | 0.124 | *0.0002* |
+| Nasdaq | +1.18 ATR | +0.82 ATR | +0.36 | 0.509 | *0.0167* |
+| Gold | +0.26 ATR | +0.13 ATR | +0.13 | 0.839 | *0.570* |
+| Bitcoin | +0.59 ATR | +0.69 ATR | −0.11 | 0.910 | *0.033* |
 
-Two match the claim, one is null, and **the most significant result of the four runs backwards.**
+**Nothing here is significant.** Two of the four gaps still point the way the contrarian claim
+needs and two do not, at sample sizes of 3,000–5,000 overlapping observations, which is what a
+family of coin flips looks like.
 
-**The S&P and the Nasdaq are ~90% correlated indices and their COT signals point in opposite
-directions**, at p = 0.0002 and p = 0.017 respectively. Both cannot be real. That is not a subtle
-statistical argument — it is a direct demonstration that these are sample artifacts, and it is worth
-more than any of the individual p-values.
+The gaps are 20-bar forward returns emitted one per bar, so consecutive rows share 19 of their 20
+bars. Shuffling them individually treats them as exchangeable when the effective sample size is
+nearer `n/20`; block permutation puts the confidence back where the data can support it, and there
+was never much. The S&P's effect size did not change at all — only how sure the arithmetic was
+allowed to sound.
 
-Four instruments were tested. At α = 0.05 you expect 0.2 false positives; three "significant"
-results pointing two ways is what noise looks like when you stop counting tests.
+**What this re-run cost the doc is its best argument.** The original made its case from the S&P and
+the Nasdaq — ~90%-correlated indices giving opposite signals at p = 0.0002 and p = 0.017 — where
+"both cannot be real" is a direct demonstration of a sample artifact and worth more than any single
+p-value. That demonstration is gone with the p-values that made it, and the same verdict now rests
+on four unremarkable nulls. The reasoning was sound and the inputs were wrong.
+
+Four instruments were tested. At α = 0.05 you expect 0.2 false positives; before the correction
+there were three "significant" results pointing two ways, and after it there are none.
 
 **Verdict: positioning data does not carry a usable contrarian signal here.** That now covers both
 positioning sources available — exchange funding/OI (`CROWDING_FINDINGS.md`) and regulated COT.
@@ -75,8 +82,8 @@ from an event whose date everyone has known since 2009.
 
 | | turn of month | rest | gap | p |
 |---|---|---|---|---|
-| SPY (8,427 days) | +0.089%/day | +0.019% | **+0.070%** | **0.031** |
-| BTC (5,415 days) | +0.353%/day | +0.109% | +0.244% | 0.099 |
+| SPY (8,427 days) | +0.089%/day | +0.019% | **+0.070%** | **0.0045** |
+| BTC (5,415 days) | +0.353%/day | +0.109% | +0.244% | 0.111 |
 
 The SPY turn-of-month effect shows up at roughly its documented strength. BTC's is larger but not
 significant.

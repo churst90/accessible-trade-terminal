@@ -1,29 +1,20 @@
 # On-chain value metrics — the first non-price family, and it is not empty
-> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+> **RE-RUN 2026-08-27 — the overlap correction cost this family its significance.**
 >
-> Every p-value below was computed with machinery that has since been found wrong, and the
-> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+> Recomputed with block permutation over the overlapping forward-return rows. The **effect sizes
+> are unchanged to two decimals** — MVRV's low-minus-high quintile is still −1.11 ATR — but every
+> p-value in the metric table moved by roughly the predicted factor of √horizon at horizon 20:
+> **MVRV p = 0.0002 → 0.0267, NVT 0.0002 → 0.0245, active addresses 0.0002 → 0.0305.** The
+> Bonferroni threshold across the seven metrics is ~0.007, so **nothing in this family clears it
+> any more.** MVRV and NVT are now nominally significant and multiplicity-corrected null.
 >
-> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
->    ran the permutation test on that cell against a fixed-configuration null. The statistic
->    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
->    by roughly the effective number of independent cells. The command now reports a
->    max-statistic null alongside the naive one.
-> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
->    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
->    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
->    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
->    block-permute.
-> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
->    that did not depend on the ranking, which reduces algebraically to the clean excess times a
->    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
->    removes names from the universe and re-ranks.
+> Nothing else changed direction: the exposure-matched timing null still rejects the rule on all
+> six symbol-metric pairs (best p = 0.134, was 0.143), it still loses to buy-and-hold on five of
+> six, and ETH still gets *better* under noise injection. **The verdict is unchanged and slightly
+> stronger; the quintile finding it rested on is weaker.** variantsTried = 7.
 >
-> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
-> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
-> Snapshots now carry a `barsSha256` so future results can name their sample.
->
-> **Treat every number below as provisional until the commands are re-run.**
+> Every number below is now the 2026-08-27 re-run. Sample caveat unchanged:
+> `strategy-lab-data/` is gitignored, so this is a re-measurement, not a reproduction.
 
 
 Run 2026-07-31. `dotnet run -- onchain`. BTC/ETH/LTC/XRP, CoinMetrics 2015→2026, ~12k observations
@@ -57,9 +48,10 @@ search* as the one whose ratio best tracks the metric, not assumed.
 | 4 | +1.20 ATR |
 | 5 (highest) | +1.24 ATR |
 
-**Monotone.** Low − high quintile: **−1.11 ATR, p = 0.0002**.
+**Monotone.** Low − high quintile: **−1.11 ATR, p = 0.0267** — nominally significant, and
+*not* significant against the ~0.007 Bonferroni threshold for the seven metrics tested.
 
-The matched price/SMA baseline on the same rows: **0.00 ATR, p = 0.9855.**
+The matched price/SMA baseline on the same rows: **0.00 ATR, p = 0.9950.**
 
 That is the striking part. MVRV correlates **+0.752** with its matched price ratio, yet the price
 ratio predicts *nothing* and MVRV predicts strongly. The signal lives entirely in the residual — in
@@ -84,7 +76,7 @@ crypto does not satisfy.
 
 The literal thresholds cannot be tested here: **MVRV exceeded 3.7 on only 22 days** across 11 years
 of four coins. The "top" half of the folklore is untestable on this sample rather than refuted.
-Raw MVRV < 1.0 did give +1.03 ATR against +0.43 for everything else (p = 0.0002) — the "bottom"
+Raw MVRV < 1.0 did give +1.03 ATR against +0.43 for everything else (p = 0.1945) — the "bottom"
 half survives, but note it is an *absolute* level that only occurs in deep bear markets, which is a
 different claim from the rolling-z result above.
 
@@ -92,13 +84,19 @@ different claim from the rolling-z result above.
 
 | metric | metric gap | matched price/SMA | beats baseline? | eras consistent? |
 |---|---|---|---|---|
-| **NVT (mcap/transfers)** | **−1.43** (p=0.0002) | −0.52 (p=0.003) | **yes** | **3/3, all significant** |
-| **MVRV** | **−1.11** (p=0.0002) | 0.00 (p=0.986) | **yes** | **3/3 same sign** |
-| mcap/addresses | −1.00 (p=0.0002) | −0.71 (p=0.0002) | marginally | 2/3 |
-| active addresses | −1.07 (p=0.0002) | −0.22 (p=0.095) | yes | 2/3, decaying |
-| transfer count | −0.82 (p=0.0002) | −0.54 (p=0.002) | yes | **sign flips era 3** |
-| tx count | −0.21 (p=0.095) | −0.29 (p=0.019) | no | **sign flips era 3** |
-| hashrate | −0.34 (p=0.046) | −0.52 (p=0.003) | no | sign flips |
+| **NVT (mcap/transfers)** | **−1.43** (p=0.0245) | −0.52 (p=0.418) | **yes** | **3/3, all significant** |
+| **MVRV** | **−1.11** (p=0.0267) | 0.00 (p=0.995) | **yes** | **3/3 same sign** |
+| mcap/addresses | −1.00 (p=0.117) | −0.71 (p=0.271) | marginally | 2/3 |
+| active addresses | −1.07 (p=0.0305) | −0.22 (p=0.653) | yes | 2/3, decaying |
+| transfer count | −0.82 (p=0.204) | −0.54 (p=0.403) | yes | **sign flips era 3** |
+| tx count | −0.21 (p=0.661) | −0.29 (p=0.544) | no | **sign flips era 3** |
+| hashrate | −0.34 (p=0.592) | −0.52 (p=0.421) | no | sign flips |
+
+**Every p in this table is a 2026-08-27 block-permutation number.** The column of `p=0.0002`s it
+replaced was the artefact of shuffling rows that share 19 of their 20 forward bars: effective
+sample size is nearer `n/horizon` than `n`, so significance was inflated by about √20 ≈ 4.5. The
+effect sizes did not move at all, which is the tell — the overlap bug was never about the size of
+the relationship, only about how confident the arithmetic was allowed to sound.
 
 **NVT and MVRV are the two that survive everything**: beat their price baseline, monotone, and hold
 sign across all three eras. Transfer count and tx count flip sign in the most recent era and should
@@ -106,7 +104,9 @@ be treated as dead.
 
 ## Caveats
 
-- **Seven metrics tested.** Bonferroni would want p < 0.007; MVRV and NVT clear that pooled, but the
+- **Seven metrics tested.** Bonferroni would want p < 0.007; after the overlap correction **nothing
+  clears it** — MVRV is 0.0267 and NVT 0.0245, both nominally significant and both inside the
+  range you expect from seven tries. This was the line that read "MVRV and NVT clear that pooled" and it is no longer true; the
   per-era p-values do not all clear it individually.
 - **Four symbols, and only two (BTC, ETH) have the derived ratios.** This is a small cross-section.
 - 2015–2026 is roughly two crypto cycles. The era split helps but cannot manufacture independence.
@@ -139,8 +139,8 @@ Trading Cross at p = 0.001.
 
 | metric | symbol | signal | random median | p |
 |---|---|---|---|---|
-| MVRV | BTC | 169.0× | 29.3× | **0.143** |
-| MVRV | ETH | 7.4× | 2.1× | **0.143** |
+| MVRV | BTC | 169.0× | 29.8× | **0.161** |
+| MVRV | ETH | 7.4× | 1.9× | **0.134** |
 | MVRV | LTC | 1.0× | 0.9× | 0.439 |
 | MVRV | XRP | 2.7× | 1.0× | 0.224 |
 | NVT | BTC | 42.4× | **48.0×** | 0.537 |
@@ -189,7 +189,7 @@ price would have handed the metric a clean signal and a noisy target.)*
 ## Why the earlier result was true and still failed
 
 The quintile analysis was not wrong. High-MVRV days really did precede higher forward returns
-(−1.11 ATR, p = 0.0002, monotone, all three eras), and MVRV really does beat its matched price
+(−1.11 ATR, p = 0.0267, monotone, all three eras), and MVRV really does beat its matched price
 baseline, which really does mean it carries non-price information.
 
 But **conditional mean forward return is an exposure statement, not a timing statement.** In an asset
@@ -207,7 +207,7 @@ strong-looking null appeared to support.
 relationship that does not convert into a tradeable rule."**
 
 What survives: MVRV contains information that is not in the price path (it beats a matched price/SMA
-baseline that predicts literally nothing, p = 0.986, despite correlating 0.752 with it). That is
+baseline that predicts literally nothing, p = 0.995, despite correlating 0.752 with it). That is
 genuinely interesting and it is not nothing. It just is not an edge at this formulation, on four
 survivor coins, with this cross-section.
 

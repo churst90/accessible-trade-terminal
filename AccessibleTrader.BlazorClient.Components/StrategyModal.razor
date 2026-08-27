@@ -386,6 +386,34 @@
                                @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btSlippage = v / 100.0; }" />
                     </div>
                     <div>
+                        <label for="bt-spread">Bid-ask spread (%):</label>
+                        <input id="bt-spread" type="number" step="0.01" min="0" max="5"
+                               value="@(_btSpread * 100)"
+                               title="The full quoted spread. Half of it is charged on each fill, on top of slippage — a buyer crossing to the ask pays half the spread above the bar price and a seller receives half of it below. Zero quotes mid-to-mid prices nobody can trade at."
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btSpread = v / 100.0; }" />
+                    </div>
+                    <div>
+                        <label for="bt-funding">Perp funding per interval (%):</label>
+                        <input id="bt-funding" type="number" step="0.001" min="-5" max="5"
+                               value="@(_btFunding * 100)"
+                               title="Perpetual-futures funding, charged once per interval held. A POSITIVE rate means longs pay shorts, so a long is charged and a short is credited. Leave at zero for spot and for dated futures."
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btFunding = v / 100.0; }" />
+                    </div>
+                    <div>
+                        <label for="bt-funding-interval">Funding interval (hours):</label>
+                        <input id="bt-funding-interval" type="number" step="1" min="1" max="24"
+                               value="@_btFundingHours"
+                               title="How often funding settles. Boundaries are UTC wall-clock times — 8 hours means 00:00, 16:00 and 08:00 UTC, which is what the major perp venues charge at."
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v) && v > 0) _btFundingHours = v; }" />
+                    </div>
+                    <div>
+                        <label for="bt-borrow">Short borrow (% / year):</label>
+                        <input id="bt-borrow" type="number" step="0.1" min="0" max="200"
+                               value="@(_btBorrow * 100)"
+                               title="Cost of borrowing the asset to hold a short, charged to shorts only and accrued on calendar time. It grows with hold time, so it matters most on swing strategies."
+                               @onchange="e => { if (double.TryParse(e.Value?.ToString(), out var v)) _btBorrow = v / 100.0; }" />
+                    </div>
+                    <div>
                         <label for="bt-warmup">Warmup bars:</label>
                         <input id="bt-warmup" type="number" step="10" min="0" max="2000"
                                value="@_btWarmup"
@@ -775,7 +803,11 @@ public class MyStrategy : BaseStrategy
         PositionSizer: null,
         StartDate: null,
         EndDate: null,
-        AllowReverseOnSignal: true);
+        AllowReverseOnSignal: true,
+        SpreadPercent: _btSpread,
+        FundingRatePerInterval: _btFunding,
+        FundingIntervalHours: _btFundingHours,
+        BorrowRateAnnual: _btBorrow);
 
     private async Task RunLabWindowsAsync()
     {
@@ -838,6 +870,13 @@ public class MyStrategy : BaseStrategy
     private double _btCommission = 0.001;
     private double _btSlippage   = 0.0005;
     private int    _btWarmup     = 200;
+    // Spread, funding and borrow default to OFF. Every backtest number this app has ever shown
+    // was computed without them, so switching them on has to be the user's explicit act rather
+    // than a silent re-scoring of results they may have written down.
+    private double _btSpread       = 0.0;
+    private double _btFunding      = 0.0;
+    private double _btFundingHours = 8.0;
+    private double _btBorrow       = 0.0;
     private DateTime? _btStartDate;
     private DateTime? _btEndDate;
     private bool _btRunning;
@@ -1114,7 +1153,11 @@ public class MyStrategy : BaseStrategy
                 _btCapital, _btCommission, _btSlippage, _btWarmup,
                 ReplayProfiles: true,
                 StartDate: _btStartDate,
-                EndDate: _btEndDate);
+                EndDate: _btEndDate,
+                SpreadPercent: _btSpread,
+                FundingRatePerInterval: _btFunding,
+                FundingIntervalHours: _btFundingHours,
+                BorrowRateAnnual: _btBorrow);
             var (result, status) = await Coordinator.RunBacktestAsync(
                 _btSelectedSpecId, Store.State.Data, config, Store.State);
             _btResult  = result;

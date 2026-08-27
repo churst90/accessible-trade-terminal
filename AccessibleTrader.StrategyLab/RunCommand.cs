@@ -17,13 +17,27 @@ namespace AccessibleTrader.StrategyLab;
 /// </summary>
 public static class RunCommand
 {
+    /// <param name="spread">
+    /// Full quoted bid-ask spread as a decimal fraction; half is charged per fill. Zero — the
+    /// default — quotes mid-to-mid prices nobody can trade at, which is how every result in this
+    /// repo's findings docs was computed. Left at zero so an old run reproduces exactly.
+    /// </param>
+    /// <param name="funding">
+    /// Perp funding per settlement, as a decimal fraction of notional. Positive means longs pay.
+    /// </param>
+    /// <param name="fundingHours">Hours between funding settlements; UTC wall-clock aligned.</param>
+    /// <param name="borrow">Annualised short borrow, as a decimal fraction. Charged to shorts only.</param>
     public static async Task<int> RunAsync(
         string snapshotPath,
         string specId,
         DateTime? start,
         DateTime? end,
         int warmupBars,
-        bool noReverse = false)
+        bool noReverse = false,
+        double spread = 0.0,
+        double funding = 0.0,
+        double fundingHours = 8.0,
+        double borrow = 0.0)
     {
         if (!File.Exists(snapshotPath))
         {
@@ -72,11 +86,25 @@ public static class RunCommand
             PositionSizer: null,
             StartDate: start,
             EndDate: end,
-            AllowReverseOnSignal: !noReverse);
+            AllowReverseOnSignal: !noReverse,
+            SpreadPercent: spread,
+            FundingRatePerInterval: funding,
+            FundingIntervalHours: fundingHours,
+            BorrowRateAnnual: borrow);
 
         Console.WriteLine($"Backtest window: {(start?.ToString("yyyy-MM-dd") ?? "(start)")} → {(end?.ToString("yyyy-MM-dd") ?? "(end)")}");
         Console.WriteLine($"  warmup bars = {warmupBars}");
         if (noReverse) Console.WriteLine($"  reverse-on-signal = DISABLED");
+
+        // Print the carry model unconditionally, including when it is off. A cost that is not
+        // charged is the kind of thing a reader assumes was — the findings docs spent months
+        // quoting numbers computed with no spread, no funding and no borrow, and nothing in the
+        // output said so.
+        Console.WriteLine($"  costs = commission {config.CommissionRate:P3} · slippage {config.SlippagePercent:P3} · " +
+                          $"spread {spread:P3}" + (spread > 0 ? " (half per side)" : " (NOT MODELLED)"));
+        Console.WriteLine($"  carry = funding {funding:P4}/{fundingHours:0.#}h" +
+                          (funding != 0 ? " (positive = longs pay)" : " (NOT MODELLED)") +
+                          $" · short borrow {borrow:P2}/yr" + (borrow > 0 ? "" : " (NOT MODELLED)"));
 
         var backtester = host.Services.GetRequiredService<IStrategyBacktester>();
         var result = await backtester.RunAsync(strategy, snapshot.Bars, config, state);

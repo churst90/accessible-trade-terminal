@@ -1,29 +1,20 @@
 # Polarity and the gate — two tests, two negative results, one usable edge
-> **⚠ SUPERSEDED STATISTICS — re-run before quoting (added 2026-08-27).**
+> **RE-RUN 2026-08-27 — reproduces almost exactly; nothing here changes.**
 >
-> Every p-value below was computed with machinery that has since been found wrong, and the
-> numbers have NOT been recomputed. Three defects, all fixed in code on 2026-08-27:
+> `polarity` and `gate` were both recomputed after the three statistical fixes. This is the doc
+> that came through unchanged, and the reason is worth recording: neither command's test was one
+> of the three broken ones. `polarity` correlates 49 whole-symbol summary statistics — one row per
+> symbol, no overlapping forward windows to be non-exchangeable about — and `gate` compares
+> disjoint trade populations rather than searching a grid.
 >
-> 1. **Post-selection p-values.** `XsMomentumCommand` picked the best of 16 grid cells and then
->    ran the permutation test on that cell against a fixed-configuration null. The statistic
->    actually computed is a *maximum over 16*, whose null is much wider — so the p was too small
->    by roughly the effective number of independent cells. The command now reports a
->    max-statistic null alongside the naive one.
-> 2. **Overlapping rows treated as exchangeable.** Every permutation test that emits one
->    observation per bar over a multi-bar horizon shuffled rows individually, though consecutive
->    rows share all but one of their forward bars. Effective sample size is nearer `n/horizon`
->    than `n`, so **significance was inflated by roughly √horizon**. The affected commands now
->    block-permute.
-> 3. **The survivorship stress could not fail.** `XsMomentumRobustness` applied a uniform drag
->    that did not depend on the ranking, which reduces algebraically to the clean excess times a
->    positive constant. "The edge survives every cell" was arithmetic, not evidence. It now
->    removes names from the universe and re-ranks.
+> Every rank correlation reproduced to three decimals (rhoZ20 vs depth +0.496 p = 0.0003 pooled,
+> +0.359 p = 0.040 within equities, demeaned VR20 vs vol +0.470 p = 0.0010, the crypto sign still
+> reversed at −0.564). Every MA-gate lift reproduced exactly (cipherB-long +0.107R, excess over
+> random +0.100R). **The one number that moved is the p on the cipherB-long gap: 0.0002 → 0.0004**,
+> which is permutation noise at 20,000 draws, not a correction.
 >
-> Separately, the sample these numbers were computed on is not recorded — `strategy-lab-data/`
-> is gitignored — so a re-run is a re-measurement on possibly different data, not a reproduction.
-> Snapshots now carry a `barsSha256` so future results can name their sample.
->
-> **Treat every number below as provisional until the commands are re-run.**
+> A doc that does not move when the machinery is fixed is evidence about the machinery, not only
+> about the finding — so this one is worth citing next to XSMOMENTUM and ONCHAIN, which both did.
 
 
 Run 2026-07-29. Commands: `dotnet run -- polarity` and `dotnet run -- gate`.
@@ -126,7 +117,7 @@ The MA control was supposed to be a null. It is the finding.
 
 | signal | MA-gate lift | excess over random | p on the gap |
 |---|---|---|---|
-| **cipherB-long** | +0.107R | **+0.100R** | **0.0002** |
+| **cipherB-long** | +0.107R | **+0.100R** | **0.0004** |
 | **rsi-bounce-long** | +0.094R | **+0.087R** | 0.073 |
 | breakout-long | +0.002R | −0.005R | 0.632 |
 | cipherB-short | −0.001R | −0.008R | 0.930 |
@@ -155,7 +146,7 @@ consistent with its 0.23× on SPY.
 2. **Do not build the regime-gate layer.** It fails its control, and against dip-buys it is
    arithmetically self-defeating.
 3. **Do add a trend filter to the mean-reversion tools** — Value Deviation, POC deviation, Cipher B
-   longs — on equities. `close > SMA(200)`, +0.10R per trade over random, p = 0.0002, 51 symbols,
+   longs — on equities. `close > SMA(200)`, +0.10R per trade over random, p = 0.0004, 51 symbols,
    no parameters worth fitting.
 
 The generalisable lesson: both theses died on a control that was cheap to add and that the obvious
@@ -250,7 +241,7 @@ Not stressed with a number, because inventing one here would be inventing the an
 
 ## Verdict: downgraded
 
-The pooled p = 0.0002 was real, but the effect is **fragile**. It collapses under mild noise, one
+The pooled p = 0.0004 was real, but the effect is **fragile**. It collapses under mild noise, one
 era shows nothing, the random control is not clean in two eras, the weaker arm is a coin flip across
 symbols, and survivorship biases it in the flattering direction.
 
