@@ -11,9 +11,11 @@ namespace AccessibleTrader.Plugins.Etherscan
     /// Etherscan provider — ETH gas prices, supply, and on-chain data from the Etherscan
     /// API v2. The free tier provides current-snapshot endpoints for gas oracle, supply
     /// stats, price, and node count. These are not historical time-series; each call
-    /// returns the latest value only. FetchOhlcvAsync returns a single data point at the
-    /// current UTC date so the metric can be used as a "current reading" overlay on charts.
-    /// Data accumulates over time as the app polls periodically.
+    /// returns the latest value only. FetchOhlcvAsync returns a single data point stamped at
+    /// the moment it was read, so the metric can be used as a "current reading" overlay on
+    /// charts, and data accumulates over time as the app polls periodically. A request for a
+    /// window that has already closed is REFUSED with a spoken explanation rather than
+    /// answered with today's reading wearing that window's date.
     ///
     /// ── Available symbols ───────────────────────────────────────────────────────
     ///   ETH_GAS_SAFE     — Gas Oracle safe gas price (Gwei)
@@ -42,6 +44,19 @@ namespace AccessibleTrader.Plugins.Etherscan
 
         private readonly RateLimiter _rateLimiter = new(5, TimeSpan.FromSeconds(1));
         private string? _apiKey;
+
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>A raw interpolation mangles any key that is not already URL-safe: <c>&amp;</c>
+        /// ends the parameter and starts a new one (the key is TRUNCATED at the ampersand),
+        /// <c>+</c> decodes to a space at the server, <c>#</c> throws the rest of the URL away
+        /// as a fragment. All three are legal in a generated credential, and the user is then
+        /// told "validation failed" about a key they pasted correctly. <c>FredProvider</c> was
+        /// the only provider that escaped its key; the name is what
+        /// <c>ApiKeyUrlEscapingTests</c> requires at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey ?? string.Empty);
 
         private const string BaseUrl = "https://api.etherscan.io/v2/api";
 
@@ -107,7 +122,7 @@ namespace AccessibleTrader.Plugins.Etherscan
             if (!IsConfigured) return (false, "Etherscan API key not configured.");
             try
             {
-                var url = $"{BaseUrl}?chainid=1&module=stats&action=ethprice&apikey={_apiKey}";
+                var url = $"{BaseUrl}?chainid=1&module=stats&action=ethprice&apikey={KeyParam}";
                 var json = await _http.GetStringAsync(url).ConfigureAwait(false);
                 var obj = JObject.Parse(json);
                 var status = obj["status"]?.ToString();
@@ -166,11 +181,36 @@ namespace AccessibleTrader.Plugins.Etherscan
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
+                    // A SNAPSHOT CANNOT ANSWER A HISTORICAL WINDOW — say so instead of
+                    // returning a point that has nothing to do with what was asked for.
+                    //
+                    // Every endpoint below is current-value-only on the free tier. This wrapped
+                    // the scalar in one bar stamped DateTime.UtcNow.Date and returned it
+                    // whatever the request asked for, which had two consequences. The chart
+                    // showed a single dot for a five-year window with nothing spoken to explain
+                    // it — for a user who cannot see the axis, one dot and a real series look
+                    // the same until the numbers are read. And DataService's analytics disk
+                    // cache keys by Since/Until (DataService.AnalyticsCacheKey), so every
+                    // distinct historical window got its own cache entry holding today's
+                    // reading, stamped with a date inside a window it was never from.
+                    if (request.Until.HasValue &&
+                        DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime < DateTime.UtcNow.AddMinutes(-1))
+                    {
+                        _errorStream.OnNext(
+                            $"Etherscan {symbol} is a current reading, not a history — it cannot fill a past date range.");
+                        return (new List<Ohlcv>(), new List<(long, double)>());
+                    }
+
                     double value = await FetchCurrentValueAsync(symbol).ConfigureAwait(false);
                     if (double.IsNaN(value))
                         return (new List<Ohlcv>(), new List<(long, double)>());
 
-                    var now = DateTime.UtcNow.Date;
+                    // Stamped WHEN IT WAS READ, not at today's midnight. Midnight is a lie in
+                    // the direction that matters: CrossSeriesForwardFill admits ties
+                    // (`ticks[i].Ts <= barTs`), so a gas price read at noon was visible to an
+                    // indicator sitting on today's 00:00 bar — twelve hours of look-ahead in a
+                    // series whose whole use is as a live overlay.
+                    var now = DateTime.UtcNow;
                     var bar = new Ohlcv(now, value, value, value, value, 0);
                     var bars = new List<Ohlcv> { bar };
                     var vols = bars.Select(b => (new DateTimeOffset(b.Date).ToUnixTimeMilliseconds(), b.Volume)).ToList();
@@ -202,19 +242,19 @@ namespace AccessibleTrader.Plugins.Etherscan
                 case "ETH_GAS_SAFE":
                 case "ETH_GAS_FAST":
                 case "ETH_GAS_PROPOSE":
-                    url = $"{BaseUrl}?chainid=1&module=gastracker&action=gasoracle&apikey={_apiKey}";
+                    url = $"{BaseUrl}?chainid=1&module=gastracker&action=gasoracle&apikey={KeyParam}";
                     break;
                 case "ETH_SUPPLY":
-                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethsupply&apikey={_apiKey}";
+                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethsupply&apikey={KeyParam}";
                     break;
                 case "ETH_SUPPLY2":
-                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethsupply2&apikey={_apiKey}";
+                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethsupply2&apikey={KeyParam}";
                     break;
                 case "ETH_PRICE":
-                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethprice&apikey={_apiKey}";
+                    url = $"{BaseUrl}?chainid=1&module=stats&action=ethprice&apikey={KeyParam}";
                     break;
                 case "ETH_NODE_COUNT":
-                    url = $"{BaseUrl}?chainid=1&module=stats&action=nodecount&apikey={_apiKey}";
+                    url = $"{BaseUrl}?chainid=1&module=stats&action=nodecount&apikey={KeyParam}";
                     break;
                 default:
                     return double.NaN;

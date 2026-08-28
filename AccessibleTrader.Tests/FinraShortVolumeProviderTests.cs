@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Reflection;
 using AccessibleTrader.Plugins.Finra;
@@ -115,6 +116,70 @@ namespace AccessibleTrader.Tests
 
             Assert.Equal(afterFirst, hits); // second symbol served entirely from the day cache
             Assert.All(second.Ohlcv, b => Assert.Equal(25.0, b.Close, 6));
+        }
+
+        // ── "Not published yet" is not "no data" ─────────────────────────────
+        //
+        // Every 404 used to be cached for the session under "immutable, so no expiry", and
+        // FetchDayAsync's own comment said "(or not yet published)" while doing it. FINRA
+        // publishes a trading day's consolidated file AFTER that day's close, so a terminal
+        // opened in the morning cached `today → null` and never picked the file up. The most
+        // recent bar — the one somebody checking short volume is actually looking for — stayed
+        // missing for as long as the app was open, with nothing to say why.
+
+        [Theory]
+        // Today and the last three days: the file may still be on its way.
+        [InlineData(0, false)]
+        [InlineData(1, false)]
+        [InlineData(3, false)]
+        // Older than that, a 404 can only mean the market was closed, which never changes.
+        [InlineData(4, true)]
+        [InlineData(40, true)]
+        public void IsMissFinal_OnlyOnceTheFileCanNoLongerAppear(int daysAgo, bool expected)
+        {
+            var now = new DateTime(2026, 8, 27, 14, 30, 0, DateTimeKind.Utc);
+            Assert.Equal(expected, FinraShortVolumeProvider.IsMissFinal(now.Date.AddDays(-daysAgo), now));
+        }
+
+        [Fact]
+        public async Task ARecentDayThatWasNotPublishedYetIsRefetched_AndAnOldOneIsNot()
+        {
+            // First pass: every day 404s. Second pass: the files are there. A session that
+            // cached the misses shows nothing on the second pass; one that only cached the
+            // settled ones picks up the recent days.
+            bool published = false;
+            var perDay = new Dictionary<string, int>();
+            var handler = new FakeHttpMessageHandler()
+                .Add(HttpMethod.Get, @"CNMSshvol\d{8}\.txt", req =>
+                {
+                    var date = req.RequestUri!.ToString()[^12..^4];
+                    perDay[date] = perDay.TryGetValue(date, out var n) ? n + 1 : 1;
+                    return published
+                        ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(DayBody(date)) }
+                        : new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("not found") };
+                });
+            var provider = NewProvider(handler);
+
+            var first = await provider.FetchOhlcvAsync(
+                new MarketDataRequest("Derivatives", "AAPL_SHORTVOL", "1d", 30));
+            Assert.Empty(first.Ohlcv);
+
+            published = true;
+            var second = await provider.FetchOhlcvAsync(
+                new MarketDataRequest("Derivatives", "AAPL_SHORTVOL", "1d", 30));
+
+            Assert.NotEmpty(second.Ohlcv);
+            Assert.All(second.Ohlcv, b => Assert.Equal(60.0, b.Close, 6));
+
+            // Retried: only the days still inside the publication window.
+            var retried = perDay.Where(kv => kv.Value > 1)
+                                .Select(kv => DateTime.ParseExact(kv.Key, "yyyyMMdd", CultureInfo.InvariantCulture))
+                                .ToList();
+            Assert.NotEmpty(retried);
+            Assert.All(retried, d => Assert.False(FinraShortVolumeProvider.IsMissFinal(d, DateTime.UtcNow),
+                $"{d:yyyy-MM-dd} was refetched even though its miss is settled — the negative cache is off."));
+            // And the settled days really were cached, rather than every day being refetched.
+            Assert.Contains(perDay, kv => kv.Value == 1);
         }
 
         [Fact]

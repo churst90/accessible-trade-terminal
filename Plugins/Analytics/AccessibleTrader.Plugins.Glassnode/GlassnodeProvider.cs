@@ -45,6 +45,19 @@ namespace AccessibleTrader.Plugins.Glassnode
         private readonly RateLimiter _rateLimiter = new(30, TimeSpan.FromMinutes(1));
         private string? _apiKey;
 
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>A raw interpolation mangles any key that is not already URL-safe: <c>&amp;</c>
+        /// ends the parameter and starts a new one (the key is TRUNCATED at the ampersand),
+        /// <c>+</c> decodes to a space at the server, <c>#</c> throws the rest of the URL away
+        /// as a fragment. All three are legal in a generated credential, and the user is then
+        /// told "validation failed" about a key they pasted correctly. <c>FredProvider</c> was
+        /// the only provider that escaped its key; the name is what
+        /// <c>ApiKeyUrlEscapingTests</c> requires at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey ?? string.Empty);
+
         private const string BaseUrl = "https://api.glassnode.com/v1/metrics";
 
         // Symbol → (asset, metric path) mapping. Each entry maps a public-facing symbol
@@ -102,7 +115,7 @@ namespace AccessibleTrader.Plugins.Glassnode
             try
             {
                 // Cheap probe: pull a single recent point of BTC active addresses.
-                var url = $"{BaseUrl}/addresses/active_count?a=BTC&api_key={_apiKey}&s={DateTimeOffset.UtcNow.AddDays(-3).ToUnixTimeSeconds()}";
+                var url = $"{BaseUrl}/addresses/active_count?a=BTC&api_key={KeyParam}&s={DateTimeOffset.UtcNow.AddDays(-3).ToUnixTimeSeconds()}";
                 var resp = await _http.GetAsync(url);
                 if (resp.IsSuccessStatusCode) return (true, "Glassnode API key validated.");
                 return (false, $"Validation failed ({resp.StatusCode}). Free-tier metrics only.");
@@ -161,7 +174,7 @@ namespace AccessibleTrader.Plugins.Glassnode
                     long? sinceSec = request.Since.HasValue ? request.Since.Value / 1000 : (long?)null;
                     long? untilSec = request.Until.HasValue ? request.Until.Value / 1000 : (long?)null;
 
-                    var url = $"{BaseUrl}/{entry.Path}?a={entry.Asset}&i=24h&api_key={_apiKey}";
+                    var url = $"{BaseUrl}/{entry.Path}?a={entry.Asset}&i=24h&api_key={KeyParam}";
                     if (sinceSec.HasValue) url += $"&s={sinceSec.Value}";
                     if (untilSec.HasValue) url += $"&u={untilSec.Value}";
 

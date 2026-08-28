@@ -22,6 +22,19 @@ namespace AccessibleTrader.Plugins.Fmp
         private const string BaseUrl = "https://financialmodelingprep.com/stable";
         private HttpClient? _httpClient;
         private string _apiKey = "";
+
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>A raw interpolation mangles any key that is not already URL-safe: <c>&amp;</c>
+        /// ends the parameter and starts a new one (the key is TRUNCATED at the ampersand),
+        /// <c>+</c> decodes to a space at the server, <c>#</c> throws the rest of the URL away
+        /// as a fragment. All three are legal in a generated credential, and the user is then
+        /// told "validation failed" about a key they pasted correctly. <c>FredProvider</c> was
+        /// the only provider that escaped its key; the name is what
+        /// <c>ApiKeyUrlEscapingTests</c> requires at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey);
         private readonly RateLimiter _rateLimiter = new(4, TimeSpan.FromMinutes(1)); // Conservative for 250/day
 
         // Symbol list caches (FMP lists are large; avoid re-fetching)
@@ -69,7 +82,7 @@ namespace AccessibleTrader.Plugins.Fmp
             if (!IsConfigured) return (false, "API key not configured.");
             try
             {
-                var url = $"{BaseUrl}/quote?symbol=AAPL&apikey={_apiKey}";
+                var url = $"{BaseUrl}/quote?symbol=AAPL&apikey={KeyParam}";
                 var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
@@ -145,7 +158,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetStockSymbolsAsync()
         {
             if (_stockSymbolCache != null) return _stockSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/stock-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/stock-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _stockSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -157,7 +170,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetEtfSymbolsAsync()
         {
             if (_etfSymbolCache != null) return _etfSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/etf-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/etf-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _etfSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -169,7 +182,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetCryptoSymbolsAsync()
         {
             if (_cryptoSymbolCache != null) return _cryptoSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/cryptocurrency-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/cryptocurrency-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _cryptoSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s) && s.EndsWith("USD", StringComparison.OrdinalIgnoreCase))
@@ -181,7 +194,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetForexSymbolsAsync()
         {
             if (_forexSymbolCache != null) return _forexSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/forex-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/forex-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _forexSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -193,7 +206,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetCommoditySymbolsAsync()
         {
             if (_commoditySymbolCache != null) return _commoditySymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/commodities-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/commodities-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _commoditySymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -205,7 +218,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<string>> GetIndexSymbolsAsync()
         {
             if (_indexSymbolCache != null) return _indexSymbolCache;
-            var json = await FetchJsonAsync($"{BaseUrl}/index-list?apikey={_apiKey}").ConfigureAwait(false);
+            var json = await FetchJsonAsync($"{BaseUrl}/index-list?apikey={KeyParam}").ConfigureAwait(false);
             if (json == null) return new List<string>();
             _indexSymbolCache = json.Select(t => t["symbol"]?.ToString() ?? "")
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -250,7 +263,7 @@ namespace AccessibleTrader.Plugins.Fmp
         private async Task<List<Ohlcv>> FetchDailyAsync(MarketDataRequest request)
         {
             var symbol = CleanSymbol(request.Symbol);
-            var url = $"{BaseUrl}/historical-price-eod/full?symbol={symbol}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/historical-price-eod/full?symbol={Uri.EscapeDataString(symbol)}&apikey={KeyParam}";
 
             if (request.Since.HasValue)
             {
@@ -282,7 +295,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var symbol = CleanSymbol(request.Symbol);
             var interval = MapTimeframe(request.Timeframe);
-            var url = $"{BaseUrl}/historical-chart/{interval}?symbol={symbol}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/historical-chart/{interval}?symbol={Uri.EscapeDataString(symbol)}&apikey={KeyParam}";
 
             if (request.Since.HasValue)
             {

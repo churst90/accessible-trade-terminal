@@ -90,8 +90,9 @@ namespace AccessibleTrader.Plugins.Finra
             allowedHosts: new[] { "cdn.finra.org", "api.finra.org" });
 
         // Per-day parsed cache: date → (symbol → shortPct). A day file is ~500 KB
-        // raw and parses to a few thousand entries; immutable, so no expiry. A
-        // missing entry with a true marker means "fetched, market holiday/404".
+        // raw and parses to a few thousand entries; once published it is immutable,
+        // so a HIT never expires. A null value means "fetched, and there is no file",
+        // which is only stored once that can no longer change — see IsMissFinal.
         private readonly ConcurrentDictionary<DateTime, Dictionary<string, double>?> _dayCache = new();
 
         // Per-ticker short-interest cache: (settlement-stamped date, shares short,
@@ -287,7 +288,22 @@ namespace AccessibleTrader.Plugins.Finra
             {
                 if (_dayCache.ContainsKey(day)) return;
                 var parsed = await _rateLimiter.ExecuteAsync(() => FetchDayAsync(day));
-                _dayCache[day] = parsed;
+
+                // A MISS IS ONLY PERMANENT ONCE THE FILE CAN NO LONGER APPEAR.
+                //
+                // Every 404 used to be cached for the session under "immutable, so no expiry",
+                // and the comment in FetchDayAsync even said "(or not yet published)" while
+                // doing it. True for a market holiday; false for today. FINRA publishes a
+                // trading day's consolidated file AFTER that day's close, so a terminal opened
+                // in the morning cached `today → null` and never picked the file up — the
+                // most recent bar, the one a user checking short volume actually wants, was
+                // missing for as long as the app stayed open, and nothing said why.
+                //
+                // Inside the window a miss is simply not stored, so the next fetch retries.
+                // That costs at most a handful of extra requests per fetch, all of them
+                // through the rate limiter, against a public CDN with no quota.
+                if (parsed != null || IsMissFinal(day, DateTime.UtcNow))
+                    _dayCache[day] = parsed;
             }
             catch (Exception ex)
             {
@@ -304,12 +320,28 @@ namespace AccessibleTrader.Plugins.Finra
             }
         }
 
+        /// <summary>
+        /// How long a 404 stays retryable. A day's file is published after that day's close;
+        /// three days covers a Friday file that lands over a weekend, and a request that
+        /// arrives while FINRA is still assembling it.
+        /// </summary>
+        private const int UnpublishedRetryWindowDays = 3;
+
+        /// <summary>
+        /// Whether a missing file for <paramref name="day"/> is final — i.e. safe to cache for
+        /// the rest of the session. Old enough, and the only reason for a 404 is that the
+        /// market was closed, which never changes. Recent, and "not published yet" is the
+        /// likelier reason and it stops being true within hours.
+        /// </summary>
+        internal static bool IsMissFinal(DateTime day, DateTime utcNow)
+            => day.Date < utcNow.Date.AddDays(-UnpublishedRetryWindowDays);
+
         private async Task<Dictionary<string, double>?> FetchDayAsync(DateTime day)
         {
             string url = $"{BaseUrl}/CNMSshvol{day.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.txt";
             using var resp = await _http.GetAsync(url);
             if (resp.StatusCode == HttpStatusCode.NotFound)
-                return null; // market holiday (or not yet published) — cache the miss
+                return null; // market holiday, or not published yet — EnsureDayAsync decides which
             resp.EnsureSuccessStatusCode();
             string body = await resp.Content.ReadAsStringAsync();
             return ParseDayFile(body);

@@ -16,6 +16,24 @@ namespace AccessibleTrader.Plugins.TwelveData
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
+
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>Every call in this file authenticates by putting the key in the URL, and a raw
+        /// interpolation mangles any key that is not already URL-safe: <c>&amp;</c> ends the
+        /// parameter and starts a new one (so the key is TRUNCATED at the ampersand), <c>+</c>
+        /// decodes to a space at the server, <c>#</c> throws the rest of the URL away as a
+        /// fragment. All three are legal in a generated credential. The request then fails to
+        /// authenticate and the user is told "validation failed" with nothing to act on —
+        /// the key they pasted is correct, and nothing in the message says otherwise.</para>
+        ///
+        /// <para><c>FredProvider</c> was the only provider in the fleet that escaped its key.
+        /// This property is that fix, and it is named so <c>ApiKeyUrlEscapingTests</c> can
+        /// require the name at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey ?? string.Empty);
+
         private const string RestUrl = "https://api.twelvedata.com";
         private const string WsUrl   = "wss://ws.twelvedata.com/v1/quotes/price";
 
@@ -85,7 +103,7 @@ namespace AccessibleTrader.Plugins.TwelveData
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
-                var response = await _httpClient.GetAsync($"{RestUrl}/api_usage?apikey={_apiKey}");
+                var response = await _httpClient.GetAsync($"{RestUrl}/api_usage?apikey={KeyParam}");
                 if (response.IsSuccessStatusCode)
                 {
                     var json = JObject.Parse(await response.Content.ReadAsStringAsync());
@@ -122,7 +140,7 @@ namespace AccessibleTrader.Plugins.TwelveData
 
             if (_ws != null) { await _ws.DisconnectAsync(); _ws.Dispose(); }
 
-            _ws = new ReconnectingWebSocket($"{WsUrl}?apikey={_apiKey}",
+            _ws = new ReconnectingWebSocket($"{WsUrl}?apikey={KeyParam}",
                 heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
@@ -223,7 +241,7 @@ namespace AccessibleTrader.Plugins.TwelveData
             // every US-stock intraday bar sat 4-5 hours out of session, and the candles
             // look plausible so nothing signals it. The parameter also makes the venue
             // read start_date/end_date below in UTC, matching how they are rendered.
-            string url = $"{RestUrl}/time_series?symbol={request.Symbol}&interval={interval}&outputsize={limit}&apikey={_apiKey}&format=JSON&timezone=UTC";
+            string url = $"{RestUrl}/time_series?symbol={Uri.EscapeDataString(request.Symbol ?? "")}&interval={interval}&outputsize={limit}&apikey={KeyParam}&format=JSON&timezone=UTC";
 
             if (request.Since.HasValue)
                 url += $"&start_date={DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}";
@@ -302,13 +320,13 @@ namespace AccessibleTrader.Plugins.TwelveData
                     };
 
                     // Fetch US exchange symbols by default; global coverage available
-                    string url = $"{RestUrl}/stocks?source=docs&exchange=NYSE,NASDAQ&apikey={_apiKey}";
+                    string url = $"{RestUrl}/stocks?source=docs&exchange=NYSE,NASDAQ&apikey={KeyParam}";
                     if (market == MarketType.Forex)
-                        url = $"{RestUrl}/forex_pairs?apikey={_apiKey}";
+                        url = $"{RestUrl}/forex_pairs?apikey={KeyParam}";
                     else if (market == MarketType.Crypto)
-                        url = $"{RestUrl}/cryptocurrencies?apikey={_apiKey}";
+                        url = $"{RestUrl}/cryptocurrencies?apikey={KeyParam}";
                     else if (market == MarketType.Index)
-                        url = $"{RestUrl}/indices?apikey={_apiKey}";
+                        url = $"{RestUrl}/indices?apikey={KeyParam}";
 
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
@@ -337,7 +355,7 @@ namespace AccessibleTrader.Plugins.TwelveData
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string url = $"{RestUrl}/symbol_search?symbol={Uri.EscapeDataString(query)}&outputsize={limit}&apikey={_apiKey}";
+                    string url = $"{RestUrl}/symbol_search?symbol={Uri.EscapeDataString(query)}&outputsize={limit}&apikey={KeyParam}";
                     var response = await _httpClient.GetStringAsync(url);
                     var json = JObject.Parse(response);
                     var data = json["data"] as JArray;

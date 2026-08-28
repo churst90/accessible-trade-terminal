@@ -193,9 +193,9 @@ namespace AccessibleTrader.Plugins.Fred
             // Escape the user-supplied symbol so it cannot inject extra query params
             // (e.g. "GDP&api_key=attackerKey") into the FRED request URL.
             string seriesId = Uri.EscapeDataString(request.Symbol ?? "");
-            string apiKeyParam = Uri.EscapeDataString(apiKey ?? "");
+            string keyParam = Uri.EscapeDataString(apiKey ?? "");
 
-            string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={apiKeyParam}&file_type=json";
+            string url = $"{BaseUrl}/series/observations?series_id={seriesId}&api_key={keyParam}&file_type=json";
             url += $"&output_type=4&realtime_start={RealtimeStart}&realtime_end={RealtimeEnd}";
             if (!string.IsNullOrEmpty(frequency)) url += $"&frequency={frequency}";
             if (request.Since.HasValue)

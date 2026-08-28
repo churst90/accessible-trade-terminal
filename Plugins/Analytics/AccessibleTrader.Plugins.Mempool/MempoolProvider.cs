@@ -1,3 +1,4 @@
+using System.Globalization;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -146,7 +147,7 @@ namespace AccessibleTrader.Plugins.Mempool
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    var period = GetTimePeriod(request.Limit);
+                    var period = GetTimePeriod(request);
                     var path = string.Format(meta.PathTemplate, period);
                     var url = $"{BaseUrl}{path}";
 
@@ -195,6 +196,8 @@ namespace AccessibleTrader.Plugins.Mempool
                     // Ensure chronological order (older -> newer)
                     bars.Sort((a, b) => a.Date.CompareTo(b.Date));
 
+                    var oldestAvailable = bars.Count > 0 ? bars[0].Date : (DateTime?)null;
+
                     // Apply date filters from request
                     if (request.Since.HasValue)
                     {
@@ -205,6 +208,19 @@ namespace AccessibleTrader.Plugins.Mempool
                     {
                         var untilDt = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime;
                         bars = bars.Where(b => b.Date <= untilDt).ToList();
+                    }
+
+                    // An empty result after filtering means the window asked for is older than
+                    // anything mempool.space keeps (~3 years for these endpoints). SAY SO. The
+                    // whole symptom of the period bug above was a chart that went blank with
+                    // nothing spoken, and a blank chart is indistinguishable from a metric that
+                    // is simply flat at zero for a user who cannot see the axis.
+                    if (bars.Count == 0 && oldestAvailable.HasValue &&
+                        (request.Since.HasValue || request.Until.HasValue))
+                    {
+                        _errorStream.OnNext(
+                            $"Mempool has no {symbol} data for the requested dates: its history starts "
+                            + $"{oldestAvailable.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.");
                     }
 
                     var vols = bars.Select(b => (new DateTimeOffset(b.Date).ToUnixTimeMilliseconds(), b.Volume)).ToList();
@@ -227,16 +243,44 @@ namespace AccessibleTrader.Plugins.Mempool
         // ── Helpers ──────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Maps the requested bar limit to the closest mempool.space time period parameter.
-        /// Smaller periods return fewer data points but respond faster.
+        /// Maps a request to the smallest mempool.space time period that still REACHES BACK
+        /// far enough to cover it. Smaller periods return fewer points and respond faster.
+        ///
+        /// <para>This took the bar limit alone, which made every historical request return an
+        /// empty chart. mempool.space always answers with the window ending NOW, and the
+        /// <c>Since</c>/<c>Until</c> filters below are applied to whatever came back — so a
+        /// request for 2019 with a 200-bar limit fetched the last six months and then filtered
+        /// every bar of it away, leaving no bars and no error. It also made this provider
+        /// unusable through <c>CrossSeriesCache</c>, whose walk-back pagination asks for depth
+        /// by moving <c>until</c> earlier and earlier: the period never grew, so every page
+        /// after the first came back empty.</para>
+        ///
+        /// <para>The window that matters is <b>now back to the oldest bar asked for</b>, which
+        /// is <c>Since</c> when it is given, and otherwise <c>Until</c> minus the limit — a
+        /// pagination page asks for <c>Limit</c> bars ending at <c>Until</c>, so the period has
+        /// to span the gap from today back past the far edge of that page. With neither, the
+        /// limit is the window, one bar per day, which is the old behaviour and still correct
+        /// for the live-edge case.</para>
         /// </summary>
-        private static string GetTimePeriod(int limit)
+        internal static string GetTimePeriod(MarketDataRequest request)
         {
-            if (limit <= 30)  return "1m";
-            if (limit <= 90)  return "3m";
-            if (limit <= 180) return "6m";
-            if (limit <= 365) return "1y";
-            if (limit <= 730) return "2y";
+            double days = request.Limit > 0 ? request.Limit : 30;
+
+            if (request.Since.HasValue)
+            {
+                days = (DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(request.Since.Value).UtcDateTime).TotalDays;
+            }
+            else if (request.Until.HasValue)
+            {
+                var until = DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime;
+                days = (DateTime.UtcNow - until).TotalDays + (request.Limit > 0 ? request.Limit : 30);
+            }
+
+            if (days <= 30)  return "1m";
+            if (days <= 90)  return "3m";
+            if (days <= 180) return "6m";
+            if (days <= 365) return "1y";
+            if (days <= 730) return "2y";
             return "3y";
         }
 

@@ -286,15 +286,82 @@ namespace AccessibleTrader.Core.Services.MyData
             return false;
         }
 
+        /// <summary>
+        /// Parses one cell into a number, working out for itself which separator is the
+        /// decimal point.
+        ///
+        /// <para>This used to strip commas only when a dot was also present, then parse with
+        /// <see cref="NumberStyles.Float"/> — which does NOT include
+        /// <see cref="NumberStyles.AllowThousands"/>. Two shapes came out wrong, and both
+        /// chart cleanly, which is the exact failure this class exists to prevent:</para>
+        /// <list type="bullet">
+        ///   <item><c>"1,234"</c> — a thousands-separated integer with no decimal part — did
+        ///   not match the "comma AND dot" test, so it reached <c>double.TryParse</c> with the
+        ///   comma still in it, failed, and became a GAP in the user's chart explained only by
+        ///   the generic "Some cells were blank or not numbers" warning.</item>
+        ///   <item><c>"1.234,56"</c> — a German/European export meaning 1234.56 — has both, so
+        ///   the comma was stripped and it parsed as <b>1.23456</b>: a value a thousand times
+        ///   too small, drawn without complaint. <c>dd.MM.yyyy</c> is already in
+        ///   <see cref="DateFormats"/>, so this parser has always accepted the date half of a
+        ///   German export while silently corrupting the number half.</item>
+        /// </list>
+        ///
+        /// <para>The rule when both separators appear is unambiguous: <b>the last one is the
+        /// decimal separator</b> and the other groups thousands. With only one separator
+        /// present it is genuinely ambiguous per cell, and the tie is broken by SHAPE — a
+        /// separator followed by groups of exactly three digits is grouping, anything else is
+        /// a decimal mark. That reads <c>"1,234"</c> as 1234 and <c>"1,5"</c> as 1.5.</para>
+        ///
+        /// <para>One case stays deliberately unresolved: a single dot with three digits after
+        /// it (<c>"1.234"</c>) is read as the invariant decimal point, because that is the
+        /// documented contract of this parser and no evidence inside one cell can overturn it.
+        /// A German file whose values are all under 10,000 and grouped is the one shape that
+        /// still needs the user to export with a dot.</para>
+        /// </summary>
         internal static bool TryParseNumber(string s, out double value)
         {
-            s = s.Trim().Replace("$", "").Replace("%", "");
-            // Thousands separators from spreadsheet exports: "1,234.56" arrives
-            // quoted, so the comma survives the split — strip it when a dot is
-            // also present (invariant decimal point contract, documented).
-            if (s.Contains(',') && s.Contains('.')) s = s.Replace(",", "");
+            value = double.NaN;
+            // Spaces (including the non-breaking ones Excel writes) are the French/Nordic
+            // thousands separator; they never carry meaning inside a number otherwise.
+            s = s.Trim().Replace("$", "").Replace("%", "")
+                 .Replace(" ", "").Replace("\u00A0", "").Replace("\u202F", "");
+            if (s.Length == 0) return false;
+
+            int lastDot   = s.LastIndexOf('.');
+            int lastComma = s.LastIndexOf(',');
+
+            if (lastDot >= 0 && lastComma >= 0)
+            {
+                if (lastComma > lastDot) s = s.Replace(".", "").Replace(',', '.'); // 1.234,56
+                else                     s = s.Replace(",", "");                   // 1,234.56
+            }
+            else if (lastComma >= 0)
+            {
+                s = LooksGrouped(s, ',') ? s.Replace(",", "") : s.Replace(',', '.');
+            }
+            else if (lastDot >= 0 && s.IndexOf('.') != lastDot && LooksGrouped(s, '.'))
+            {
+                s = s.Replace(".", ""); // 1.234.567 — more than one dot can only be grouping
+            }
+
             return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
                    && !double.IsInfinity(value);
+        }
+
+        /// <summary>
+        /// True when <paramref name="sep"/> is used as a thousands separator: one to three
+        /// digits, then groups of exactly three, digits only. "1,234" and "1,234,567" match;
+        /// "1,5", "1,23" and "1,2345" do not, so they are read as a decimal comma.
+        /// </summary>
+        private static bool LooksGrouped(string s, char sep)
+        {
+            var body = s.TrimStart('+', '-');
+            var parts = body.Split(sep);
+            if (parts.Length < 2) return false;
+            if (parts[0].Length is 0 or > 3) return false;
+            for (int i = 1; i < parts.Length; i++)
+                if (parts[i].Length != 3) return false;
+            return body.All(c => char.IsAsciiDigit(c) || c == sep);
         }
 
         internal static string InferTimeframe(IReadOnlyList<DateTime> dates)

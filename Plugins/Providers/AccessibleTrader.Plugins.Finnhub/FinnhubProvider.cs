@@ -15,6 +15,19 @@ namespace AccessibleTrader.Plugins.Finnhub
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
+
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>A raw interpolation mangles any key that is not already URL-safe: <c>&amp;</c>
+        /// ends the parameter and starts a new one (the key is TRUNCATED at the ampersand),
+        /// <c>+</c> decodes to a space at the server, <c>#</c> throws the rest of the URL away
+        /// as a fragment. All three are legal in a generated credential, and the user is then
+        /// told "validation failed" about a key they pasted correctly. <c>FredProvider</c> was
+        /// the only provider that escaped its key; the name is what
+        /// <c>ApiKeyUrlEscapingTests</c> requires at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey ?? string.Empty);
         private const string RestUrl = "https://finnhub.io/api/v1";
 
         // Rate limiter: 60 req/min free tier
@@ -89,7 +102,7 @@ namespace AccessibleTrader.Plugins.Finnhub
             if (!IsConfigured) return (false, "API key not configured");
             try
             {
-                var response = await _httpClient.GetAsync($"{RestUrl}/quote?symbol=AAPL&token={_apiKey}");
+                var response = await _httpClient.GetAsync($"{RestUrl}/quote?symbol=AAPL&token={KeyParam}");
                 if (response.IsSuccessStatusCode)
                     return (true, "API key validated successfully");
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -122,7 +135,7 @@ namespace AccessibleTrader.Plugins.Finnhub
 
             if (_ws != null) { await _ws.DisconnectAsync(); _ws.Dispose(); }
 
-            _ws = new ReconnectingWebSocket($"wss://ws.finnhub.io?token={_apiKey}",
+            _ws = new ReconnectingWebSocket($"wss://ws.finnhub.io?token={KeyParam}",
                 heartbeatInterval: TimeSpan.FromSeconds(30))
                 .OnConnected(async ws =>
                 {
@@ -210,7 +223,7 @@ namespace AccessibleTrader.Plugins.Finnhub
                 ? request.Until.Value / 1000
                 : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-            string url = $"{RestUrl}/stock/candle?symbol={Uri.EscapeDataString(request.Symbol)}&resolution={resolution}&from={from}&to={to}&token={_apiKey}";
+            string url = $"{RestUrl}/stock/candle?symbol={Uri.EscapeDataString(request.Symbol)}&resolution={resolution}&from={from}&to={to}&token={KeyParam}";
 
             try
             {
@@ -291,11 +304,11 @@ namespace AccessibleTrader.Plugins.Finnhub
                 {
                     string url = market switch
                     {
-                        MarketType.Forex     => $"{RestUrl}/forex/symbol?exchange=oanda&token={_apiKey}",
-                        MarketType.Crypto    => $"{RestUrl}/crypto/symbol?exchange=binance&token={_apiKey}",
+                        MarketType.Forex     => $"{RestUrl}/forex/symbol?exchange=oanda&token={KeyParam}",
+                        MarketType.Crypto    => $"{RestUrl}/crypto/symbol?exchange=binance&token={KeyParam}",
                         MarketType.Commodity => null!, // Use static list
-                        MarketType.Index     => $"{RestUrl}/stock/symbol?exchange=US&token={_apiKey}", // Indices mixed with stocks
-                        _                    => $"{RestUrl}/stock/symbol?exchange=US&token={_apiKey}"
+                        MarketType.Index     => $"{RestUrl}/stock/symbol?exchange=US&token={KeyParam}", // Indices mixed with stocks
+                        _                    => $"{RestUrl}/stock/symbol?exchange=US&token={KeyParam}"
                     };
 
                     if (market == MarketType.Commodity)

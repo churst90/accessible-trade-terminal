@@ -15,4 +15,9 @@
     <ProjectReference Include="..\..\..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- GetTimePeriod is internal; the test project pins the history-window arithmetic. -->
+    <InternalsVisibleTo Include="AccessibleTrader.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -140,6 +140,56 @@ namespace AccessibleTrader.Tests
             public int GetHashCode(double v) => v.GetHashCode();
         }
 
+        // ── Number formats: the two shapes that used to chart wrong ──────────
+        //
+        // TryParseNumber stripped commas only when a dot was ALSO present, then parsed with
+        // NumberStyles.Float — which does not include AllowThousands. "1,234" therefore
+        // reached the parser with its comma intact, failed, and became a silent gap; and
+        // "1.234,56" (a German export meaning 1234.56) had the comma stripped and parsed as
+        // 1.23456, a value a thousand times too small that charts perfectly cleanly. The
+        // second is the one this class exists to prevent, and dd.MM.yyyy has always been in
+        // DateFormats — so the parser accepted the date half of a German export while
+        // corrupting the number half.
+
+        [Theory]
+        [InlineData("1234", 1234)]
+        [InlineData("1,234", 1234)]            // thousands-separated integer: was a gap
+        [InlineData("1,234,567", 1234567)]
+        [InlineData("1,234.56", 1234.56)]
+        [InlineData("1.234,56", 1234.56)]      // German: was 1.23456
+        [InlineData("1.234.567,89", 1234567.89)]
+        [InlineData("1 234,56", 1234.56)]      // French, ordinary space
+        [InlineData("1,5", 1.5)]               // decimal comma, not a thousands group
+        [InlineData("1,23", 1.23)]
+        [InlineData("-1.234,5", -1234.5)]
+        [InlineData("1.234", 1.234)]           // single dot stays the invariant decimal point
+        [InlineData("$1,234.50", 1234.5)]
+        [InlineData("12.5%", 12.5)]
+        [InlineData("1.5e3", 1500)]
+        public void Numbers_parse_whatever_the_export_used_for_separators(string cell, double expected)
+        {
+            Assert.True(CsvDataParser.TryParseNumber(cell, out var v), $"'{cell}' did not parse.");
+            Assert.Equal(expected, v, 9);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("abc")]
+        [InlineData("1,2,3")]     // not a grouping shape and not a number
+        public void Non_numbers_are_still_refused(string cell)
+        {
+            Assert.False(CsvDataParser.TryParseNumber(cell, out _), $"'{cell}' parsed as a number.");
+        }
+
+        [Fact]
+        public void A_german_export_charts_at_the_right_magnitude()
+        {
+            // Both halves of the same file: dd.MM.yyyy dates and comma decimals.
+            var p = CsvDataParser.Parse("date;value\n01.01.2026;1.234,56\n02.01.2026;2.345,67\n");
+            Assert.Equal(new[] { 1234.56, 2345.67 }, p.ColumnData["value"], new NaNTolerantComparer());
+            Assert.Empty(p.Warnings);
+        }
+
         // ── Store: persistence + quotas ──────────────────────────────────────
 
         [Fact]

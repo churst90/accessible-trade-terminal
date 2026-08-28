@@ -34,6 +34,19 @@ namespace AccessibleTrader.Plugins.Fmp
         private const string BaseUrl = "https://financialmodelingprep.com/stable";
         private HttpClient? _httpClient;
         private string _apiKey = "";
+
+        /// <summary>
+        /// The API key, escaped for use as a query-string VALUE.
+        ///
+        /// <para>A raw interpolation mangles any key that is not already URL-safe: <c>&amp;</c>
+        /// ends the parameter and starts a new one (the key is TRUNCATED at the ampersand),
+        /// <c>+</c> decodes to a space at the server, <c>#</c> throws the rest of the URL away
+        /// as a fragment. All three are legal in a generated credential, and the user is then
+        /// told "validation failed" about a key they pasted correctly. <c>FredProvider</c> was
+        /// the only provider that escaped its key; the name is what
+        /// <c>ApiKeyUrlEscapingTests</c> requires at every key-bearing query site.</para>
+        /// </summary>
+        private string KeyParam => Uri.EscapeDataString(_apiKey);
         private readonly RateLimiter _rateLimiter = new(4, TimeSpan.FromMinutes(1));
 
         public override string Name => "FMP Analytics";
@@ -133,7 +146,7 @@ namespace AccessibleTrader.Plugins.Fmp
             if (!IsConfigured) return (false, "API key not configured.");
             try
             {
-                var url = $"{BaseUrl}/key-metrics-ttm?symbol=AAPL&apikey={_apiKey}";
+                var url = $"{BaseUrl}/key-metrics-ttm?symbol=AAPL&apikey={KeyParam}";
                 var response = await _httpClient!.GetAsync(url).ConfigureAwait(false);
                 return response.IsSuccessStatusCode
                     ? (true, "FMP Analytics API key validated.")
@@ -295,7 +308,7 @@ namespace AccessibleTrader.Plugins.Fmp
 
         private async Task<List<Ohlcv>> FetchFinancialMetricAsync(string ticker, MetricDef def, int limit)
         {
-            var url = $"{BaseUrl}/{def.Endpoint}?symbol={ticker}&period=quarter&limit={limit}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/{def.Endpoint}?symbol={Uri.EscapeDataString(ticker)}&period=quarter&limit={limit}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 
@@ -320,7 +333,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             // /stable folds earnings-surprises into `earnings`, which carries both the reported and
             // the estimated EPS on the free tier.
-            var url = $"{BaseUrl}/earnings?symbol={ticker}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/earnings?symbol={Uri.EscapeDataString(ticker)}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 
@@ -349,7 +362,7 @@ namespace AccessibleTrader.Plugins.Fmp
             // where v3 returned every sector per date in wide form.
             var to = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var from = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var url = $"{BaseUrl}/historical-sector-performance?sector={Uri.EscapeDataString(sector)}&from={from}&to={to}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/historical-sector-performance?sector={Uri.EscapeDataString(sector)}&from={from}&to={to}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 
@@ -388,7 +401,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var from = DateTime.UtcNow.AddMonths(-3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var url = $"{BaseUrl}/earnings-calendar?from={from}&to={to}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/earnings-calendar?from={from}&to={to}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 
@@ -414,7 +427,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var to = DateTime.UtcNow.AddMonths(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var url = $"{BaseUrl}/economic-calendar?from={from}&to={to}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/economic-calendar?from={from}&to={to}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 
@@ -439,7 +452,7 @@ namespace AccessibleTrader.Plugins.Fmp
         {
             var to = DateTime.UtcNow.AddMonths(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var from = DateTime.UtcNow.AddMonths(-6).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var url = $"{BaseUrl}/{endpoint}?from={from}&to={to}&apikey={_apiKey}";
+            var url = $"{BaseUrl}/{endpoint}?from={from}&to={to}&apikey={KeyParam}";
             var arr = await FetchArrayAsync(url).ConfigureAwait(false);
             if (arr == null) return new List<Ohlcv>();
 

@@ -117,48 +117,63 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-27, commit `19128450`, CI green on all three workflows).**
+> **START HERE (current as of 2026-08-27, commit `92903461`, CI green on all three workflows).**
 >
-> **0 CRITICAL, 0 HIGH.** The live work is the MEDIUM backlog, and two clusters of it are done:
-> the accessibility/speech batch (`2b55e6fa`) and the hosted-WebHost security section
-> (`19128450` — see "Health audit — hosted WebHost, auth, multi-user security" below, now closed
-> but for one annotated line). Suite **5,624** in both configs; `--list-tests` reports **5619**,
-> which is the number `docs/README.md` must match and the number `doc-drift.yml` checks.
+> **0 CRITICAL, 0 HIGH.** The live work is the MEDIUM backlog. Three clusters are done: the
+> accessibility/speech batch (`2b55e6fa`), the hosted-WebHost security section (`19128450`), and
+> **the first five of the provider cluster** — the unescaped API key, Mempool's history window,
+> `CsvDataParser`'s European decimals, Etherscan's snapshot-as-history and FINRA's cached
+> "not yet published". Suite **5,669** in both configs; `--list-tests` reports **5664**, which is
+> the number `docs/README.md` must match and the number `doc-drift.yml` checks.
 >
-> **Next cluster: the market-data / analytics providers** — roughly 20 MEDIUM items at
-> TODO ~3403–3548 and ~3751–3832. Take it in a fresh context; it shares nothing with the two
-> clusters just done. In rough order of what a user would actually notice:
+> **Next: the rest of the provider cluster** — ~19 items still open at TODO ~3446–3600 and
+> ~3816–3940. In rough order of what a user would actually notice:
 >
-> 1. **The unescaped API key** (TODO:3801). **Read this before starting: the item's headline is
->    half stale.** The `ex.Message`-onto-the-spoken-channel half was closed in the HIGH pass and
->    is guarded by `CredentialLeakScanTests`; do not re-fix it. What is genuinely open is that
->    **no provider except FRED calls `Uri.EscapeDataString` on the key** — ~35 query-string sites
->    across TwelveData, Finnhub, FMP/FmpAnalytics, Etherscan and Glassnode. A key containing `&`
->    or `+` is truncated or mangled in the URL, so it silently fails to authenticate and the user
->    is told "validation failed" with nothing to act on. Demonstrable without a network call.
-> 2. **`MempoolProvider` returns an empty chart for any historical request** (TODO:3823) — the
->    window comes from `request.Limit` alone and `Since`/`Until` are applied as a filter
->    afterwards, so a 2019 request fetches the last six months and filters every bar away. It
->    also makes Mempool unusable through `CrossSeriesCache`, which drives depth via `until`.
-> 3. **`CsvDataParser` turns German decimals into values 1000× too small** (TODO:3830) and drops
->    thousands-separated integers to NaN — a silently-wrong chart, which is the exact failure the
->    class doc says it exists to prevent.
-> 4. **`EtherscanProvider` serves a snapshot stamped "today" as history** (TODO:3793), so the disk
->    cache keys it by a window it has nothing to do with.
-> 5. **`FinraShortVolumeProvider` caches "not yet published" as "no data" for the session**
->    (TODO:3816) — a terminal opened in the morning never picks up the file FINRA publishes
->    after the close. The comment at `:282` even says "(or not yet published)" and caches it.
+> 1. **Kraken's History tab is empty for BTC/USD** (TODO:3504). `GetFillsAsync` and
+>    `GetOpenOrdersAsync` filter on `BTCUSD` while Kraken returns `XXBTZUSD`/`XBTUSD`. The file
+>    already owns the translation (`NormaliseAsset:1137`) and neither call site uses it, so the
+>    single most-traded pair on the venue shows no fills and no symbol-scoped orders.
+> 2. **`ReconnectingWebSocket.SendAsync` says "safe to call from any thread" and is not**
+>    (TODO:3468). `ClientWebSocket` forbids overlapping sends; the heartbeat timer races every
+>    subscribe. The symptom is a subscribe that silently never went and a chart that never
+>    updates. A `SemaphoreSlim(1,1)` around the two send sites.
+> 3. **The same socket gives up permanently after 10 attempts and the UI still says Connected**
+>    (TODO:3478) — `_onDisconnected` is never called on that path, so `ConnectionStateStream`
+>    stays `Connected` over a dead feed. Binance deliberately passes `int.MaxValue`, which shows
+>    the author knew; Kraken's main socket and every keyed feed take the default.
+> 4. **Order-book read failures are silent in four providers** (TODO:3558) — bare
+>    `catch { return (new(), new()); }` in Tradier, Alpaca and Coinbase, where Kraken and Binance
+>    push to `_errorStream`. An empty depth ladder is a visible oddity for a sighted user and
+>    indistinguishable from no liquidity for this product's audience.
+> 5. **`TimestampParser.Parse:13` stamps "UTC" onto a local wall-clock reading** (TODO:3487)
+>    instead of converting it, so on a US-Eastern box every affected bar lands 4–5 hours in the
+>    future. **Trap: this box and both CI agents run UTC, so a test that only compares two paths
+>    agrees vacuously** — assert against a fixed non-zero offset, the way the speech-timezone
+>    work had to. `KrakenFuturesProvider`/`GeminiProvider` ignoring `Since`/`Until` (TODO:3591)
+>    is the same shape as the Mempool item just closed and its fix reads the same way.
 >
 > **The standing rule still governs: demonstrate the defect or mark it explicitly unverified.**
-> The last three batches were each proven by reintroducing every defect and watching the guard go
-> red; the WebHost batch did sixteen for ten items. Expect roughly a third of any remaining census
-> to be already closed — grep before you write.
+> This batch reintroduced all five defects one at a time — nine mutations in total — and every
+> guard went red, including the source scan and the Etherscan call site the behavioural test
+> does not reach.
 >
-> **Two traps carried out of the WebHost batch that will bite in this cluster too.** (1) Check
-> what the DATA is scoped to, not what the registration says — that is what made the "cannot
-> bridge a Scoped service" objection wrong. (2) A scan guard over a source file must skip comment
-> lines, because a fix's own comment names the call it replaced; the reset-link guard flagged the
-> documentation of its own fix on the first run.
+> **What this batch cost, and what to carry into the next one.**
+> (1) **The recount ran two ways at once and both mattered.** The API-key item was *half stale*
+> (its `ex.Message` half had been closed in the HIGH pass) and *half understated* (39 sites, not
+> the ~35 filed); the Etherscan item's documentation complaint was already satisfied while a
+> **24-hour look-ahead nobody had filed** sat in the same six lines. Read the code, not the
+> item — in both directions.
+> (2) **Name the escape hatch so a scan can require it, then guard the hatch itself.** A
+> `KeyParam` property is only a licence to skip the escaping scan because a second guard proves
+> every declaration of it calls `Uri.EscapeDataString`; without that, renaming a raw field to
+> `KeyParam` would switch the first scan off silently.
+> (3) **A behavioural test and a source scan cover different holes.** The fake transport cannot
+> reach the two WebSocket URLs or any endpoint a test does not call; the scan cannot tell you
+> the key survives the round trip. Both, or neither is enough.
+> (4) **Do not add a clock seam to test time-dependent caching.** A process-wide static "now"
+> hook is exactly what leaked across the WebHost batch. The FINRA test drives the real clock
+> and asserts *which* days were refetched against the same predicate the production code uses —
+> and separately that a settled day was fetched only once, without which "cache nothing" passes.
 
 **As of 2026-08-26 the answer is: the 71 HIGH items.** The tests-that-should-exist list is closed,
 which was the precondition — see the three blocks below for what it cost and what it bought. The
@@ -3791,7 +3806,7 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   nobody can read. And the field name is read as `timestamp` **or** `time`, which is correct
   whichever the API sends — so the suspicion about `DIFFICULTY`'s array using `time` is settled
   by accepting both rather than by guessing, at no cost.
-- [ ] **`EtherscanProvider.cs:175-176` returns a one-point series stamped `DateTime.UtcNow.Date`, so
+- [x] **`EtherscanProvider.cs:175-176` returns a one-point series stamped `DateTime.UtcNow.Date`, so
   `GAS_PRICE` and `ETH_SUPPLY` are snapshots masquerading as history.** `FetchCurrentValueAsync` reads
   the gas-oracle / supply endpoints, which have no historical form on the free tier, and wraps the scalar
   in a single `Ohlcv` at today's date. Every call re-stamps at "now", so the analytics disk cache
@@ -3799,7 +3814,30 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   requested window. `CoinGeckoProvider.cs:203-209` has identical behaviour for `GLOBAL_*` and at least
   says so in a doc comment; Etherscan's class doc (`:24-30`) does not, and neither surfaces it to the
   user — the chart just shows one dot. CONFIRMED. MEDIUM.
-- [ ] **`GlassnodeProvider.cs:110,117,166,189` puts the API key in the URL unescaped and then echoes
+  **CLOSED 2026-08-27, and the report was half stale in one direction and understated in
+  another.** Stale: the class doc HAS said "these are not historical time-series" since it was
+  written, so the documentation half was already done. Understated: the bar was stamped at
+  **today's midnight**, which is in the past, and `CrossSeriesForwardFill` admits ties
+  (`ticks[i].Ts <= barTs`) — so a gas price read at noon was readable by an indicator sitting on
+  today's 00:00 bar. That is up to 24 hours of look-ahead in the one series whose entire purpose
+  is to be live, and it is the same class the `AnalyticsPublicationLag` work closed a day
+  earlier. Now: the point is stamped **when it was read**, and a request whose window has
+  already closed is REFUSED with a spoken reason instead of being answered with today's reading
+  wearing that window's date — which also stops the analytics disk cache accumulating one entry
+  per historical window, each holding a point it was never from. The refusal costs no HTTP call,
+  so it does not spend the user's rate-limited quota discovering it. The recount of the
+  `CoinGeckoProvider` comparison is filed as its own item immediately below: only half of it
+  carries over.
+- [ ] **(recounted 2026-08-27, from the Etherscan item above) `CoinGeckoProvider.FetchGlobalAsync`
+  answers a closed historical window with the live snapshot.** Half of the comparison the
+  Etherscan finding drew does NOT hold: CoinGecko stamps at `DateTime.UtcNow` (`:222`), not at
+  today's midnight, so it never had the look-ahead. What it does share is that `GLOBAL_TOTAL_CAP`
+  / `GLOBAL_BTC_DOM` / `GLOBAL_ETH_DOM` ignore `Since`/`Until` entirely and hand back today's
+  reading whatever window was asked for, so a request for last March charts one dot dated today
+  and `DataService`'s analytics cache stores it under that window's key. The fix is the one
+  Etherscan now has — refuse a window that has already closed, say why, and spend no HTTP call
+  doing it. CONFIRMED. LOW-MEDIUM (nothing is wrong-by-a-factor here, only misdated).
+- [x] **`GlassnodeProvider.cs:110,117,166,189` puts the API key in the URL unescaped and then echoes
   `ex.Message` onto the error stream — the exact leak `FredProvider.cs:109-113,169-171` documents and
   defends against.** FRED explains that HttpClient exceptions can carry the full request URL and
   therefore reports only `ex.GetType().Name`; Glassnode, which also carries `api_key=` in the query
@@ -3807,6 +3845,23 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   string is routed to `IErrorCoordinator` (`MarketFeedHub.cs:387`) — spoken and logged.
   `EtherscanProvider.cs:126,184` and `:207-219` have the same shape with `apikey=`. Neither escapes the
   key with `Uri.EscapeDataString`, which FRED does at `:138`. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27. The `ex.Message` half was already closed in the HIGH pass** (guarded by
+  `CredentialLeakScanTests`); what was still open was the escaping, and the recount found it
+  wider than filed: **39 sites across six providers** — TwelveData 8, FMP 9, FmpAnalytics 7,
+  Finnhub 7, Etherscan 6, Glassnode 2 — with FRED the only one in the fleet that escaped.
+  Each provider now has a documented `KeyParam` property and every key-bearing query parameter
+  goes through it. **A key containing `&` is TRUNCATED at the ampersand**, `+` decodes to a
+  space and `#` throws the rest of the URL away, so the request authenticates as nobody and the
+  user is told their correct key failed — with nothing in the message to say otherwise.
+  `ApiKeyUrlEscapingTests` pins it two ways because either alone has a hole: seven behavioural
+  tests drive a real request per provider with the key `ab&cd+ef` and read the parameter back
+  out of the captured URL the way a server would, and a source scan covers what no fake
+  transport reaches — the **two WebSocket URLs** (TwelveData `:143`, Finnhub `:125`) and every
+  endpoint no test happens to call. A second guard requires every `KeyParam` declaration to
+  actually call `Uri.EscapeDataString`, without which renaming a raw field to `KeyParam` would
+  quietly switch the first scan off. Five interpolated `symbol=`/`ticker=` values on the same
+  URLs were escaped in the same edit — same class, and FRED's own comment explains why
+  (`"GDP&api_key=attackerKey"`).
 - [ ] **`GlassnodeProvider` never disposes its `HttpClient`, and `SecEdgarProvider.Configure` leaks the
   old one on every reconfigure.** `GlassnodeProvider.cs:46` creates the client as a field and the class
   has no `Dispose(bool)` override, unlike `BGeometricsProvider.cs:327-334`,
@@ -3814,21 +3869,41 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   `SecEdgarProvider.cs:208` does `_http = BuildClient(_contact)` without disposing the previous instance
   and has no `Dispose` override either. Low blast radius on desktop, higher on the WebHost where
   providers are rebuilt per configuration change. CONFIRMED. MEDIUM.
-- [ ] **`FinraShortVolumeProvider.cs:260,281-282` caches "not yet published" as "no data" for the whole
+- [x] **`FinraShortVolumeProvider.cs:260,281-282` caches "not yet published" as "no data" for the whole
   session.** `FetchDayAsync` returns `null` on a 404 and `EnsureDayAsync` stores it in `_dayCache`, which
   the comment at `:72-74` justifies with "immutable, so no expiry". True for a market holiday, false for
   today: FINRA publishes the current day's file after the close, so a terminal opened in the morning
   caches `today → null` and never picks the file up. The comment at `:282` even says "(or not yet
   published)" and caches it anyway. Fix: don't cache a 404 for a date within the last two days.
   CONFIRMED. MEDIUM.
-- [ ] **`MempoolProvider.cs:154,220-228` picks its history window from `request.Limit` alone and ignores
+  **CLOSED 2026-08-27.** A miss is now stored only once it can no longer change — `IsMissFinal`,
+  a three-day publication window rather than the filed two, because a Friday file lands over a
+  weekend. Inside the window the miss is simply not cached, so the next fetch retries; that is
+  at most a handful of extra requests per fetch, all through the rate limiter, against a public
+  CDN with no quota. **The test does not need a clock seam and deliberately does not take one**:
+  a static "now" hook set by a test is exactly the process-wide state that leaked across the
+  WebHost batch. It serves 404 for every day, then serves the files, and asserts the second pass
+  finds bars — then checks that the days actually refetched are precisely the ones `IsMissFinal`
+  says are unsettled, and that at least one settled day was fetched only once. That last
+  assertion is the one that matters: without it, "cache nothing at all" would pass.
+- [x] **`MempoolProvider.cs:154,220-228` picks its history window from `request.Limit` alone and ignores
   `Since`/`Until`, so any historical request returns an empty series.** `GetTimePeriod` maps
   limit→`1m`/`3m`/…/`3y`, the fetch always returns the most recent window, and the `Since`/`Until`
   filters at `:186-195` are then applied to it. A chart asking for BTC hash rate over 2019 with a 200-bar
   limit fetches the last 6 months and filters every bar away — an empty chart with no error. It also
   makes Mempool unusable through `CrossSeriesCache`'s walk-back pagination, which drives depth via
   `until` (`CrossSeriesCache.cs:126-127`). CONFIRMED. MEDIUM.
-- [ ] **`CsvDataParser.cs:298-299` silently drops thousands-separated integers to NaN and turns European
+  **CLOSED 2026-08-27.** `GetTimePeriod` now takes the request and picks the smallest period
+  that REACHES BACK to the oldest bar asked for: `Since` when it is given, otherwise `Until`
+  minus the page — because a pagination page asks for `Limit` bars ending at `Until`, so the
+  period has to span the gap from today past the far edge of that page. With neither, the limit
+  is the window, which is the old behaviour and still correct at the live edge.
+  **The second half is the one a user notices.** A window genuinely older than what
+  mempool.space keeps still comes back empty, and it now SAYS so, naming the date the history
+  actually starts — the only fact that lets someone pick a window that works. A blank chart and
+  a flat one are the same picture for a user who cannot see the axis, which is why "returns
+  empty" was never an acceptable answer even when the emptiness is honest.
+- [x] **`CsvDataParser.cs:298-299` silently drops thousands-separated integers to NaN and turns European
   decimals into values 1000× too small.** `TryParseNumber` strips commas only when a dot is also present,
   then parses with `NumberStyles.Float`, which excludes `AllowThousands`. So `"1,234"` (no decimal point)
   fails to parse and becomes a gap in a Values dataset — a hole in the user's chart with only the generic
@@ -3837,6 +3912,16 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   calls this an "invariant decimal point contract, documented", but a wrong-by-1000× number that charts
   cleanly is exactly the "silently-wrong chart" the class doc at `:59-66` says it exists to prevent.
   CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27.** `TryParseNumber` works out which separator is the decimal point instead
+  of assuming. With both present the rule is unambiguous — **the last one is the decimal
+  separator** — and with only one it is broken by SHAPE: a separator followed by groups of
+  exactly three digits is grouping, anything else is a decimal mark. That reads `"1,234"` as
+  1234 and `"1,5"` as 1.5. Space, NBSP and narrow-NBSP grouping (French/Nordic exports) go too.
+  **One case is deliberately left unresolved and documented**: a single dot with three digits
+  after it stays the invariant decimal point, because that is this parser's stated contract and
+  no evidence inside one cell can overturn it. `dd.MM.yyyy` has been in `DateFormats` all along,
+  so the parser accepted the date half of a German export while corrupting the number half —
+  there is now a test that imports both halves of one and checks the magnitude.
 - [ ] **`SecEdgarProvider.cs:373-392` reads only `filings.recent`, so insider/8-K/13F counts are silently
   truncated to roughly the last twelve months, and the class doc at `:41-46` says "Every filing with its
   form type and date".** EDGAR's submissions document paginates older filings into a `filings.files`
