@@ -153,13 +153,54 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    one TODO marker in the whole tree, and a scan for comments referencing types that no
 >    longer exist returned nothing.
 >
-> **The release recommendation, for whoever picks this up: cut 2.4.0.** Argued in full in the
-> session report; the short version is that everything fixed since 2.3.0 is something a user on
-> 2.3.0 is silently exposed to right now, the deployed lineage has passed the full acceptance
-> list on the live box including 128/128 browser harness, and `Directory.Build.props` has said
-> `2.3.0` since 2026-08-12 so the deploy log cannot distinguish builds. Do a throwaway
-> pre-release tag first — `release.yml`'s two MAUI jobs are the fragile part and have not run
-> since 2026-08-11.
+> **THE ORDER FOR THE NEXT FOUR SESSIONS — adopted by Cody 2026-08-28.** Take them in this
+> order. The reasoning for each is recorded so a later context can argue with it rather than
+> guess at it.
+>
+> **(a) Fix `TerminalServerFactory`'s port bind.** One line, filed in the hosted-deployment
+> section below. It binds port 0 *and* 5145, because the builder still reads the WebHost's
+> `appsettings.json`; nothing owns 5145 on CI so the defect is invisible there and total on the
+> box that serves the demo. This is first because it is the cheapest item on the list **and
+> because it improves what (d) can claim** — the browser harness is the only check that proves
+> a deployed commit renders, and right now it cannot be run on the machine doing the deploying.
+> Guard it by asserting the bound-address set holds exactly one address and that it is not
+> 5145; a test that only checks `RootUrl` is non-empty passes today.
+>
+> **(b) One `IsResistance(level, price)` chokepoint.** Filed below. Both known instances are
+> already fixed — this is about the recurrence: two different wrong proxies (audio frequency,
+> then two literal `Contains` calls) for the same one-line invariant, in three weeks, each
+> fixed only at the site that was found. Ship it *in* the release rather than immediately
+> after it: "near resistance at X" is a directional claim a trader acts on, and it is the
+> single most consequential word this application says. Add the scan guard too — the point is
+> to make a third variant unwritable, not to fix a third one.
+>
+> **(c) Re-measure the mutation catch rate.** A2 measured **61%** on 2026-08-26 against a
+> 4,830-test suite; the suite is now 5,735 and roughly 2,200 tests have landed since. That
+> number is what the production-readiness grade turns on and it is currently the weakest
+> evidence in the whole picture. **Budget a session of its own**: 28 mutation cycles, each a
+> rebuild plus a full run (the run alone is ~2m18s in Release). **Carry A2's own trap in:**
+> record failing test *names*, and re-run any single-test catch in isolation — five mutants
+> came back falsely "caught" by one unrelated flaky test firing alone, which is the difference
+> between the naive 79% and the true 61%.
+>
+> **(d) Cut 2.4.0.** Everything fixed since 2.3.0 is something a user on 2.3.0 is silently
+> exposed to right now — a key truncated at `&` and then spoken aloud, an empty Kraken History
+> tab on its busiest pair, a support break announced as resistance, playback that has clipped
+> since it was written, eight mute leaks, a password reset that did not evict the open session.
+> The deployed lineage has passed the full acceptance list on the live box including 128/128
+> browser harness, and `Directory.Build.props` has said `2.3.0` since 2026-08-12, so the deploy
+> log cannot distinguish nine builds. **Throwaway pre-release tag first** — `release.yml`'s two
+> MAUI jobs are the fragile part per `RELEASING.md` and have not run since 2026-08-11.
+>
+> **The one sequencing question, recorded because it is live.** (c) before (d) is Cody's call
+> and it is defensible: it puts a measured confidence number into the release verification doc
+> rather than a stale one. The argument the other way, which is what this session recommended:
+> (c) does not change what ships, it is the most expensive item of the four, and if it finds
+> survivors the honest response is to fix them — which attaches an open-ended delay to a
+> release that is already justified on its own evidence. Per-fix sabotage evidence already
+> exists for everything since 2.3.0 (32 mutations / 32 reds in the last batch alone), and that
+> is stronger for the question "are these fixes real" than any aggregate catch rate. **If you
+> want to flip it, swap (c) and (d) — nothing else in this block depends on the order.**
 >
 > ---
 >
