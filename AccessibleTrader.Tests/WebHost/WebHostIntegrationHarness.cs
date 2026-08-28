@@ -149,6 +149,50 @@ internal static class WebHostIntegration
 }
 
 /// <summary>
+/// Snapshots the process-wide <c>PluginHostServices</c> bridges and puts them back.
+///
+/// <para>
+/// Booting <c>Program.cs</c> assigns <c>HttpClientFactory</c>, <c>ApiKeys</c> and
+/// <c>SecurityEvents</c> — the last two since 2026-08-27, when the fact that they were
+/// never assigned on this head was fixed. Those are process-wide statics, so a WebHost
+/// test that boots and does not put them back leaves the REAL credential bridge installed
+/// for the rest of the run: every later provider test that relies on <c>Configure</c>-set
+/// credentials then asks the real (empty) store instead and gets "no active API key
+/// configured". That is exactly what happened — 20 provider tests went red on the first
+/// full-suite run after the bridge landed, with no relationship to anything they touch.
+/// </para>
+///
+/// <para>
+/// The <c>ProviderCredentialBridge</c> collection stops these classes running in PARALLEL
+/// with the provider tests; this stops them leaking into the ones that run AFTER. Both are
+/// needed, and neither substitutes for the other.
+/// </para>
+/// </summary>
+public sealed class PluginBridgeScope : IDisposable
+{
+    private readonly AccessibleTrader.Sdk.Services.IPluginHttpClientFactory? _httpClientFactory;
+    private readonly AccessibleTrader.Sdk.Services.IApiKeyCheckout? _apiKeys;
+    private readonly AccessibleTrader.Sdk.Services.ISecurityEventLog? _securityEvents;
+    private readonly AccessibleTrader.Sdk.Services.IPluginSecureStorage? _secureStorage;
+
+    public PluginBridgeScope()
+    {
+        _httpClientFactory = AccessibleTrader.Sdk.Services.PluginHostServices.HttpClientFactory;
+        _apiKeys = AccessibleTrader.Sdk.Services.PluginHostServices.ApiKeys;
+        _securityEvents = AccessibleTrader.Sdk.Services.PluginHostServices.SecurityEvents;
+        _secureStorage = AccessibleTrader.Sdk.Services.PluginHostServices.SecureStorage;
+    }
+
+    public void Dispose()
+    {
+        AccessibleTrader.Sdk.Services.PluginHostServices.HttpClientFactory = _httpClientFactory;
+        AccessibleTrader.Sdk.Services.PluginHostServices.ApiKeys = _apiKeys;
+        AccessibleTrader.Sdk.Services.PluginHostServices.SecurityEvents = _securityEvents;
+        AccessibleTrader.Sdk.Services.PluginHostServices.SecureStorage = _secureStorage;
+    }
+}
+
+/// <summary>
 /// One hosted-mode WebHost per test class: its own temp data root (auth.db,
 /// DataProtection keys, per-user dirs all land there and are deleted after),
 /// and — importantly — its own rate-limiter state, so each class has the full
@@ -156,6 +200,10 @@ internal static class WebHostIntegration
 /// </summary>
 public sealed class HostedWebHostFixture : IDisposable
 {
+    // Declared FIRST so it snapshots before the factory can boot and restores after it is
+    // gone. See PluginBridgeScope for what happens when a WebHost test does not do this.
+    private readonly PluginBridgeScope _bridges = new();
+
     public string DataRoot { get; } = TestTemp.NewDir("att-webhost-int-");
     public WebApplicationFactory<WebHostDemoMode> Factory { get; }
 
@@ -167,6 +215,7 @@ public sealed class HostedWebHostFixture : IDisposable
     public void Dispose()
     {
         Factory.Dispose();
+        _bridges.Dispose();
         try { Directory.Delete(DataRoot, recursive: true); } catch { }
     }
 }

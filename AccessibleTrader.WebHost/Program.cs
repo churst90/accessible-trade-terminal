@@ -76,7 +76,12 @@ if (accountsEnabled)
             ? new WebHostPathService().AppDataDirectory
             : accountsDataRoot!,
         "dp-keys");
-    Directory.CreateDirectory(keyRing);
+    // The ring is persisted WITHOUT ProtectKeysWith* — on Linux that is plaintext XML
+    // holding the master keys for the auth cookie, the antiforgery token and every
+    // encrypted secret on the instance. SERVER_SETUP documents `chmod -R 700` and that
+    // is the right operational answer, but documentation is not a control: assert it
+    // here, and refuse to serve if it cannot hold. See KeyRingPolicy.
+    AccessibleTrader.WebHost.Services.KeyRingPolicy.EnsurePrivate(keyRing);
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRing));
 }
 
@@ -132,7 +137,12 @@ if (hostMode == HostMode.Hosted)
     // Web Push plumbing: instance VAPID keys, per-user subscription files, and
     // the sender the monitor fans out through.
     builder.Services.AddSingleton(sp => new AccessibleTrader.WebHost.Services.Push.VapidKeyService(
-        instanceRoot, sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.VapidKeyService>>()));
+        instanceRoot,
+        sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.VapidKeyService>>(),
+        // The VAPID private key is a secret like any other on this box — it goes
+        // through the same DataProtection provider as the secrets/ store rather
+        // than sitting beside it in plaintext JSON.
+        sp.GetRequiredService<IDataProtectionProvider>()));
     builder.Services.AddSingleton(sp => new AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore(
         usersRoot, sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore>>()));
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>();
@@ -159,6 +169,35 @@ if (accountsEnabled)
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
             AuthRateLimitPolicy.GetPartition);
+
+        // A bare 429 with no body and no Retry-After was the ONLY refusal in the app
+        // that said nothing — on a product whose premise is that every refusal is
+        // spoken, and on the one limit honest users actually reach (ten auth POSTs
+        // per five minutes, with the policy's own comment noting that screen-reader
+        // users type slower than average). See RateLimitRejection.
+        options.OnRejected = async (context, ct) =>
+        {
+            var http = context.HttpContext;
+            bool isAuthTier = AuthRateLimitPolicy.IsAuthMutation(http.Request.Method, http.Request.Path);
+
+            // Prefer what the lease actually knows; fall back to the tier's window,
+            // which is the correct upper bound for a fixed-window limiter.
+            var window = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var leaseRetryAfter)
+                ? leaseRetryAfter
+                : AuthRateLimitPolicy.WindowFor(http.Request.Method, http.Request.Path);
+            int seconds = Math.Max(1, (int)Math.Ceiling(window.TotalSeconds));
+
+            http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            http.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+
+            // A rejected SignalR negotiate or static asset has no business being
+            // handed an HTML page; only a document request gets the readable body.
+            if (http.Request.Headers.Accept.Any(a => a != null && a.Contains("text/html", StringComparison.OrdinalIgnoreCase)))
+            {
+                http.Response.ContentType = "text/html; charset=utf-8";
+                await http.Response.WriteAsync(RateLimitRejection.Render(isAuthTier, seconds), ct);
+            }
+        };
     });
 }
 
@@ -200,14 +239,30 @@ if (hostMode == HostMode.Full)
 // says a request to any other host "is rejected at the handler level before bytes
 // leave the process"; that was true only on the desktop head.
 //
-// Deliberately NOT bridged here: ApiKeys (IApiKeyCheckout) and SecurityEvents
-// (ISecurityEventLog). Both are Scoped on this head — per user — while the bridge is a
-// process-wide static, so assigning them would pin one user's credential checkout and
-// one user's audit sink for the whole process. That is the same hazard the SecureStorage
-// comment above describes, and it needs a per-scope accessor rather than a static;
-// tracked in docs/TODO.md under the 2026-08-24 health assessment.
 AccessibleTrader.Sdk.Services.PluginHostServices.HttpClientFactory =
     app.Services.GetRequiredService<AccessibleTrader.Sdk.Services.IPluginHttpClientFactory>();
+
+// ApiKeys and SecurityEvents — ALL modes, like the factory above.
+//
+// These two were left null here on the reasoning that both are Scoped (per user) while
+// the bridge is a process-wide static, so filling it would pin one user's state. That
+// held for the REGISTRATIONS and not for the data behind them. IApiKeyService is a
+// Singleton on this head, backed by a secret store that AccountsServiceExtensions
+// deliberately shares process-wide — there is exactly one credential store per process,
+// so there is nothing per-user to pin; the adapter is Scoped only because the latency
+// tracker is. And host security events (sandbox fallbacks, plugin trust rejections,
+// OAuth token failures) are properties of the instance, not of a user, so they get an
+// instance-level sink rather than whichever user's directory happened to win the race.
+//
+// What it fixes: with ApiKeys null, six trading providers fell back to Configure-stashed
+// credentials, making the whole per-request credential-checkout migration inert on this
+// head — including local HostMode.Full, the one WebHost mode that trades real money with
+// real keys. With SecurityEvents null, 22 audit call sites wrote to the floor.
+// See PluginHostBridges for the full reasoning.
+AccessibleTrader.Sdk.Services.PluginHostServices.ApiKeys =
+    app.Services.GetRequiredService<AccessibleTrader.WebHost.Services.PluginHostApiKeyBridge>();
+AccessibleTrader.Sdk.Services.PluginHostServices.SecurityEvents =
+    app.Services.GetRequiredService<AccessibleTrader.WebHost.Services.PluginHostSecurityEventLog>();
 
 // Bring the accounts (Identity) schema up to date.
 //
@@ -304,7 +359,49 @@ if (accountsEnabled)
         var resetUrl = $"{resetBase}/account/resetpassword" +
                        $"?email={Uri.EscapeDataString(resetEmail)}" +
                        $"&token={Uri.EscapeDataString(resetToken)}";
-        Console.WriteLine(resetUrl);
+
+        // NOT Console.WriteLine(resetUrl).
+        //
+        // That URL carries a one-day Identity reset token good for a full password change
+        // with no second-factor challenge. The documented deployment shape is a systemd
+        // unit, so stdout is the journal: printing the token persisted a live credential
+        // to disk, readable by anyone in the systemd-journal group, indefinitely, long
+        // after the reset had been used. Write it to an owner-only file and print the
+        // PATH — the admin reads the file and delivers the link out of band, exactly as
+        // before, and the journal records only where it went. See SERVER_SETUP.md.
+        var resetRoot = string.IsNullOrWhiteSpace(accountsDataRoot)
+            ? new WebHostPathService().AppDataDirectory
+            : accountsDataRoot!;
+        var resetDir = Path.Combine(resetRoot, "reset-links");
+        Directory.CreateDirectory(resetDir);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(resetDir,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        // Expired links are dead weight that still LOOK like credentials; the token is
+        // valid for a day, so anything older than two is swept on the way past.
+        foreach (var stale in Directory.EnumerateFiles(resetDir, "reset-*.url"))
+        {
+            try
+            {
+                if (File.GetLastWriteTimeUtc(stale) < DateTime.UtcNow.AddDays(-2)) File.Delete(stale);
+            }
+            catch { /* best effort — a sweep failure must not block the reset */ }
+        }
+
+        // The filename carries no email: it is listed by anything that lists the data
+        // root, and which addresses have needed a reset is itself information.
+        var resetFile = Path.Combine(resetDir,
+            $"reset-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.url");
+        File.WriteAllText(resetFile, resetUrl + Environment.NewLine);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(resetFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        Console.WriteLine("Reset link written to: " + resetFile);
+        Console.WriteLine("It is valid for 24 hours. Deliver it to the account holder over a trusted");
+        Console.WriteLine("channel, then delete the file. Do not paste it anywhere it will be logged.");
         return;
     }
 }
@@ -382,6 +479,26 @@ if (accountsEnabled)
 
 app.UseAntiforgery();
 
+// The target of UseExceptionHandler("/Error") above. It had no endpoint at all:
+// "/Error" only matched the Blazor fallback, so on the accounts head an
+// unauthenticated failure redirected to the login page and an authenticated one
+// booted a fresh circuit inside a 500 and rendered "Page not found." Mapped in
+// EVERY mode because the exception handler is registered in every non-Development
+// mode, anonymous because an error page that requires a sign-in cannot report the
+// failure of the thing that signs you in, and served as plain HTML because
+// booting an interactive circuit is exactly what may have just broken.
+// See ErrorPage.
+app.Map("/Error", (HttpContext ctx) =>
+{
+    string home = ctx.Request.PathBase.HasValue ? ctx.Request.PathBase.Value! + "/" : "/";
+    string traceId = System.Diagnostics.Activity.Current?.Id ?? ctx.TraceIdentifier;
+    return Results.Text(
+        AccessibleTrader.WebHost.Services.ErrorPage.Render(traceId, home),
+        "text/html",
+        System.Text.Encoding.UTF8,
+        StatusCodes.Status500InternalServerError);
+}).AllowAnonymous();
+
 var blazorApp = app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     // The RCL holds every @page directive (Pages/Home.razor today). Without
@@ -436,12 +553,24 @@ if (accountsEnabled)
 // head — behind authorization: the journal is a transcript of everything
 // spoken to the user, and an anonymous dump of it on a hosted instance
 // would leak positions, balances and alerts.
+//
+// It reads the JournalMirror, not IJournalService. The journal is SCOPED (it is
+// one visitor's transcript) and this is an HTTP request, so resolving the service
+// here handed back a brand-new empty buffer every single time — the endpoint could
+// not return anything but [] in any mode, while the comment above described a leak
+// the code was incapable of. The mirror keys entries by owner and this only ever
+// asks for the caller's own: their Identity id on the accounts head, the single
+// local owner otherwise.
 if (args.Contains("--enable-diag") || app.Environment.IsDevelopment())
 {
-    var diag = app.MapGet("/diag/journal", (AccessibleTrader.Core.Services.IJournalService journal) =>
+    var diag = app.MapGet("/diag/journal", (HttpContext ctx,
+        AccessibleTrader.WebHost.Services.JournalMirror mirror) =>
     {
-        var snapshot = journal.Snapshot();
-        var recent = snapshot
+        string owner = accountsEnabled
+            ? ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anon"
+            : AccessibleTrader.WebHost.Services.JournalMirror.LocalOwner;
+
+        var recent = mirror.Snapshot(owner)
             .Reverse()
             .Take(100)
             .Select(e => new { time = e.Timestamp, kind = e.Kind.ToString(), source = e.Source, text = e.Text })

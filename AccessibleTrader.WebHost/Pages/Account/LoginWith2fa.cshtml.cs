@@ -65,7 +65,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                     DateTime.UtcNow, SecurityEventKind.AuthTwoFactorLoginSucceeded, "auth",
                     "Two-factor sign-in succeeded (authenticator code).",
                     new Dictionary<string, string> { ["ip"] = ip, ["email"] = user.Email ?? "" }));
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+                return LocalRedirect(ReturnUrlPolicy.Sanitize(Url, returnUrl));
             }
 
             _audit.Record(new SecurityEvent(

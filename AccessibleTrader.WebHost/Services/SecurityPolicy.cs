@@ -119,6 +119,21 @@ public static class AuthRateLimitPolicy
     /// disk-fill. Note StartsWithSegments is segment-boundary aware, so
     /// "/account/login" does NOT cover "/account/loginwith2fa" — each page is
     /// listed explicitly.
+    ///
+    /// <para>
+    /// <b>The two signed-in pages are here for the same reason as the anonymous
+    /// ones.</b> They were originally omitted because they sit behind
+    /// <c>[Authorize]</c>, which is not a rate limit — an attacker holding a
+    /// stolen session (or a circuit that outlived the victim's remediation) is
+    /// already past it. <c>/account/security</c> POSTs verify the *current
+    /// password* before disabling 2FA, and <c>/account/enable2fa</c> POSTs
+    /// verify a *TOTP code*: both are guessing oracles, and on the general tier
+    /// they ran at 200 per 10 seconds — the same 72,000-per-hour figure this
+    /// class's summary records as the bug that was fixed for the login page.
+    /// A six-digit TOTP has a million values; at general-tier rates a
+    /// still-valid code is reachable, which is the whole point of the second
+    /// factor.
+    /// </para>
     /// </summary>
     public static bool IsAuthMutation(string method, PathString path)
         => HttpMethods.IsPost(method)
@@ -127,7 +142,16 @@ public static class AuthRateLimitPolicy
             || path.StartsWithSegments("/account/loginwith2fa")
             || path.StartsWithSegments("/account/loginwithrecovery")
             || path.StartsWithSegments("/account/forgotpassword")
-            || path.StartsWithSegments("/account/resetpassword"));
+            || path.StartsWithSegments("/account/resetpassword")
+            || path.StartsWithSegments("/account/security")
+            || path.StartsWithSegments("/account/enable2fa"));
+
+    /// <summary>
+    /// The window a rejected request was measured against, so the refusal can say
+    /// how long to wait instead of leaving the caller to guess.
+    /// </summary>
+    public static System.TimeSpan WindowFor(string method, PathString path)
+        => IsAuthMutation(method, path) ? AuthWindow : GeneralWindow;
 
     public static RateLimitPartition<string> GetPartition(HttpContext http)
     {
@@ -152,6 +176,58 @@ public static class AuthRateLimitPolicy
                 Window = GeneralWindow,
                 QueueLimit = 0,
             });
+    }
+}
+
+/// <summary>
+/// What a rate-limited caller is actually told.
+///
+/// <para>
+/// <b>The refusal used to be silent.</b> <c>RejectionStatusCode</c> was set and no
+/// <c>OnRejected</c> handler existed anywhere, so a 429 went back with no
+/// <c>Retry-After</c> and a zero-length body — the browser showed whatever it
+/// decides to show for an empty error response, which a screen reader has nothing
+/// to announce. The auth tier is ten POSTs per five minutes per IP and
+/// <see cref="AuthRateLimitPolicy"/>'s own comment records that "screen-reader users
+/// are slower typists than average", so honest users reach this limit during normal
+/// use. On a product whose premise is that every refusal is spoken, the one refusal
+/// that fires in normal use was the one that said nothing.
+/// </para>
+///
+/// <para>
+/// It also bites shared-NAT visitors on the 200-per-10s general tier, which covers
+/// static assets and SignalR negotiates — hence the two different messages: the
+/// general tier is "you are going too fast", the auth tier is "too many sign-in
+/// attempts", and only the second is about credentials.
+/// </para>
+/// </summary>
+public static class RateLimitRejection
+{
+    /// <summary>
+    /// Accessible 429 body. <paramref name="retryAfterSeconds"/> is stated in words
+    /// as well as sent as the header — the header is for machines, and a person
+    /// hearing this page needs the number read to them.
+    /// </summary>
+    public static string Render(bool isAuthTier, int retryAfterSeconds)
+    {
+        string wait = retryAfterSeconds >= 60
+            ? $"{System.Math.Max(1, retryAfterSeconds / 60)} minute" + (retryAfterSeconds >= 120 ? "s" : "")
+            : $"{System.Math.Max(1, retryAfterSeconds)} second" + (retryAfterSeconds == 1 ? "" : "s");
+
+        string what = isAuthTier
+            ? "Too many sign-in attempts from this network."
+            : "Too many requests from this network.";
+
+        return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+             + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+             + "<title>Please wait — Accessible Trade Terminal</title></head><body>"
+             + "<h1>Please wait a moment</h1>"
+             + "<div role=\"alert\">"
+             + "<p>" + what + " This is temporary — nothing is wrong with your account "
+             + "and nothing has been locked.</p>"
+             + "<p>Wait about " + wait + ", then try again.</p>"
+             + "</div>"
+             + "</body></html>";
     }
 }
 

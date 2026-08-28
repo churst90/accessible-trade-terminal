@@ -60,7 +60,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                     DateTime.UtcNow, SecurityEventKind.AuthRecoveryCodeUsed, "auth",
                     $"Recovery code consumed to complete sign-in; {remaining} remaining.",
                     new Dictionary<string, string> { ["ip"] = ip, ["email"] = user.Email ?? "" }));
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+                return LocalRedirect(ReturnUrlPolicy.Sanitize(Url, returnUrl));
             }
 
             _audit.Record(new SecurityEvent(

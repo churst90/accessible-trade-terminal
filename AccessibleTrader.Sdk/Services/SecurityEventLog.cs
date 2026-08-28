@@ -54,6 +54,8 @@ public enum SecurityEventKind
     AuthRecoveryCodeUsed,
     /// <summary>A fresh set of two-factor recovery codes was generated (invalidates all previous codes).</summary>
     AuthRecoveryCodesGenerated,
+    /// <summary>A signed-in user's re-confirmation of their CURRENT password failed on the account-security page (the gate in front of "disable two-factor" and "regenerate recovery codes"). Distinct from <see cref="AuthLoginFailed"/> on purpose: this one is only reachable by someone who already holds a session, so it is the signature of a hijacked session probing for the account password rather than of an outsider guessing at the front door.</summary>
+    AuthReauthenticationFailed,
     /// <summary>Generic catch-all for other security-relevant incidents — prefer a specific kind.</summary>
     Other,
 }

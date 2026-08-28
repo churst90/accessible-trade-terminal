@@ -77,6 +77,20 @@ public class HostParityTests
           + "sizing never reads another user's balance, while tabs of one user still share. The "
           + "desktop head is single-user and registers QuickTradeEquity itself as a Singleton, "
           + "which both heads consume identically.",
+        ["JournalMirror"] =
+            "Serves /diag/journal, an HTTP endpoint only the WebHost maps. The journal is Scoped "
+          + "(one visitor's transcript) while an HTTP request resolves its own scope, so the "
+          + "endpoint needed a process-wide per-owner copy to read. MAUI has no HTTP surface and "
+          + "one user, so its journal modal reads the journal directly.",
+        ["PluginHostApiKeyBridge"] =
+            "Exists only because the WebHost's IApiKeyCheckout is Scoped and "
+          + "PluginHostServices.ApiKeys is a process-wide static. MauiProgram assigns that static "
+          + "straight from DI (MauiProgram.cs:92-94) because the MAUI registration is already a "
+          + "Singleton — there is nothing to bridge there.",
+        ["PluginHostSecurityEventLog"] =
+            "Same reason as PluginHostApiKeyBridge, for PluginHostServices.SecurityEvents: an "
+          + "INSTANCE-level sink, because the WebHost's ISecurityEventLog is Scoped and routes "
+          + "per user. MauiProgram assigns its singleton log directly (MauiProgram.cs:105).",
     };
 
     private const string WebHostFile = "AccessibleTrader.WebHost/ServiceCollectionExtensions.cs";

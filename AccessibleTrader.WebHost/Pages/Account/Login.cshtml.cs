@@ -57,7 +57,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                     DateTime.UtcNow, SecurityEventKind.AuthLoginSucceeded, "auth",
                     "Sign-in succeeded.",
                     new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+                return LocalRedirect(ReturnUrlPolicy.Sanitize(Url, returnUrl));
             }
 
             if (result.RequiresTwoFactor)

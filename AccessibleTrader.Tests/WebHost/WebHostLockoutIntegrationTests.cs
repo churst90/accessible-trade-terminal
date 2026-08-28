@@ -25,8 +25,17 @@ namespace AccessibleTrader.Tests.WebHost;
 /// rate limiter but still hits the account lockout.
 /// </para>
 /// </summary>
+// In the ProviderCredentialBridge collection: booting Program.cs now assigns
+// PluginHostServices.ApiKeys and .SecurityEvents (they were null on this head until
+// 2026-08-27, which is the defect that was fixed). Those are process-wide statics, so a
+// host boot racing a provider test's FakeApiKeyCheckout.Install silently swaps the fake
+// out from under it — 19 provider tests went red on the first full-suite run after the
+// bridge landed. The collection serialises every class that touches that static.
+[Collection("ProviderCredentialBridge")]
 public sealed class WebHostLockoutIntegrationTests : IDisposable
 {
+    // Declared FIRST so it snapshots before the factory boots — see PluginBridgeScope.
+    private readonly PluginBridgeScope _bridges = new();
     private readonly string _dataRoot = TestTemp.NewDir("att-lockout-int-");
     private readonly Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<WebHostDemoMode> _factory;
 
@@ -38,6 +47,7 @@ public sealed class WebHostLockoutIntegrationTests : IDisposable
     public void Dispose()
     {
         _factory.Dispose();
+        _bridges.Dispose();
         try { Directory.Delete(_dataRoot, recursive: true); } catch { }
     }
 

@@ -47,9 +47,19 @@ namespace AccessibleTrader.WebHost
             var sharedSecretPaths = string.IsNullOrWhiteSpace(dataRoot)
                 ? new WebHostPathService()
                 : new WebHostPathService(dataRoot!);
+            // Same reasoning for the instance's own (non-per-user) paths: they must NOT come
+            // from the now per-user path service, and they must land under this instance's
+            // data root rather than the OS default, so a hosted instance's host-level audit
+            // log is self-contained and cannot collide with a co-located demo's.
+            services.RemoveAll<InstancePaths>();
+            services.AddSingleton(new InstancePaths(sharedSecretPaths));
+
             services.RemoveAll<WebHostSecureStorageService>();
             services.AddSingleton<WebHostSecureStorageService>(sp =>
-                new WebHostSecureStorageService(sp.GetRequiredService<IDataProtectionProvider>(), sharedSecretPaths));
+                new WebHostSecureStorageService(
+                    sp.GetRequiredService<IDataProtectionProvider>(),
+                    sharedSecretPaths,
+                    sp.GetService<ILogger<WebHostSecureStorageService>>()));
 
             // ── Identity: self-hosted email + password, no email confirmation yet ───
             string authDbDir = string.IsNullOrWhiteSpace(dataRoot) ? new WebHostPathService().AppDataDirectory : dataRoot!;

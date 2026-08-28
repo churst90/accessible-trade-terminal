@@ -16,6 +16,13 @@ namespace AccessibleTrader.Tests.WebHost;
 /// are budgeted well below the limiter's 10-per-window cap, with users seeded
 /// through UserManager where the POST itself is not the thing under test.
 /// </summary>
+// In the ProviderCredentialBridge collection: booting Program.cs now assigns
+// PluginHostServices.ApiKeys and .SecurityEvents (they were null on this head until
+// 2026-08-27, which is the defect that was fixed). Those are process-wide statics, so a
+// host boot racing a provider test's FakeApiKeyCheckout.Install silently swaps the fake
+// out from under it — 19 provider tests went red on the first full-suite run after the
+// bridge landed. The collection serialises every class that touches that static.
+[Collection("ProviderCredentialBridge")]
 public sealed class WebHostHostedAccountsIntegrationTests
     : IClassFixture<HostedWebHostFixture>
 {
@@ -200,6 +207,9 @@ public sealed class WebHostHostedAccountsIntegrationTests
         var root = TestTemp.NewDir("att-diag-");
         try
         {
+            // Booting a host assigns the process-wide PluginHostServices bridges; put them
+            // back or every later provider test asks the real (empty) credential store.
+            using var bridges = new PluginBridgeScope();
             using var factory = WebHostIntegration.HostedFactory(root, environment: "Development");
             using var client = WebHostIntegration.NewClient(factory);
 

@@ -20,11 +20,21 @@ namespace AccessibleTrader.WebHost.Services.Push
         public HostedWebPushSender(
             VapidKeyService vapid,
             PushSubscriptionStore store,
-            ILogger<HostedWebPushSender> logger)
+            ILogger<HostedWebPushSender> logger,
+            AccessibleTrader.Core.Services.DemoPolicy? policy = null)
         {
             _store = store;
             _logger = logger;
-            _client = new PushServiceClient(new HttpClient())
+            // The endpoint is a URL the USER's browser handed us, which makes it the same
+            // shape of target as an alert webhook — so it gets the same client. Before this
+            // it was a bare `new HttpClient()`: no outbound guard, no redirect refusal, no
+            // timeout, and a signed-in user could aim it at loopback, the private network
+            // or the cloud metadata service. AlertChannelHttpClient resolves and validates
+            // inside ConnectCallback, so the address the socket reaches is the address that
+            // was checked — a DNS record that flips after validation has nothing to rebind.
+            _client = new PushServiceClient(
+                AccessibleTrader.Core.Services.Alerts.AlertChannelHttpClient.Create(
+                    blockPrivateNetworks: policy?.BlockPrivateNetworkTargets ?? true))
             {
                 DefaultAuthentication = new VapidAuthentication(vapid.PublicKey, vapid.PrivateKey)
                 {

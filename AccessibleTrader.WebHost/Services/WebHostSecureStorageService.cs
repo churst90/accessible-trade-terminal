@@ -29,11 +29,14 @@ namespace AccessibleTrader.WebHost.Services
 
         private readonly IDataProtector _protector;
         private readonly string _secretsDir;
+        private readonly ILogger<WebHostSecureStorageService>? _logger;
 
-        public WebHostSecureStorageService(IDataProtectionProvider provider, IPlatformPathService paths)
+        public WebHostSecureStorageService(IDataProtectionProvider provider, IPlatformPathService paths,
+                                           ILogger<WebHostSecureStorageService>? logger = null)
         {
             _protector = provider.CreateProtector(Purpose);
             _secretsDir = Path.Combine(paths.AppDataDirectory, "secrets");
+            _logger = logger;
             Directory.CreateDirectory(_secretsDir);
         }
 
@@ -54,10 +57,26 @@ namespace AccessibleTrader.WebHost.Services
                 var plain = _protector.Unprotect(cipher);
                 return Task.FromResult<string?>(Encoding.UTF8.GetString(plain));
             }
-            catch
+            catch (Exception ex)
             {
                 // Corrupt blob or key-ring change. Treat as "no value" so
-                // callers can decide whether to re-prompt for the secret.
+                // callers can decide whether to re-prompt for the secret —
+                // that part is right for the caller.
+                //
+                // But it was ALSO silent, and that part was not. A lost or
+                // replaced DataProtection key ring makes every secret on the
+                // box undecryptable, and the app presented that as "no value
+                // configured": the operator sees an instance that has quietly
+                // forgotten its market-data key, its Schwab refresh token and
+                // its VAPID keypair, with nothing anywhere saying why. A file
+                // that EXISTS and will not decrypt is an incident, so it is
+                // logged at Error. (A missing file returns above and is not an
+                // error — it is the ordinary "never set" case.)
+                _logger?.LogError(ex,
+                    "Secure-storage entry {Path} exists but could not be decrypted. This normally means the "
+                    + "DataProtection key ring was lost or replaced, in which case EVERY stored secret on this "
+                    + "instance is unreadable and will present as 'not configured'. Restore the key ring, or "
+                    + "re-enter the affected secrets.", path);
                 return Task.FromResult<string?>(null);
             }
         }

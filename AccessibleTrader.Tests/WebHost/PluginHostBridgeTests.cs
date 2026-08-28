@@ -35,9 +35,23 @@ namespace AccessibleTrader.Tests.WebHost
         /// </summary>
         private sealed class BridgeSnapshot : IDisposable
         {
-            private readonly IPluginHttpClientFactory? _prior;
-            public BridgeSnapshot() => _prior = PluginHostServices.HttpClientFactory;
-            public void Dispose() => PluginHostServices.HttpClientFactory = _prior;
+            private readonly IPluginHttpClientFactory? _priorFactory;
+            private readonly IApiKeyCheckout? _priorApiKeys;
+            private readonly ISecurityEventLog? _priorSecurityEvents;
+
+            public BridgeSnapshot()
+            {
+                _priorFactory = PluginHostServices.HttpClientFactory;
+                _priorApiKeys = PluginHostServices.ApiKeys;
+                _priorSecurityEvents = PluginHostServices.SecurityEvents;
+            }
+
+            public void Dispose()
+            {
+                PluginHostServices.HttpClientFactory = _priorFactory;
+                PluginHostServices.ApiKeys = _priorApiKeys;
+                PluginHostServices.SecurityEvents = _priorSecurityEvents;
+            }
         }
 
         private static string TempRoot()
@@ -97,6 +111,92 @@ namespace AccessibleTrader.Tests.WebHost
             Assert.True(fromRoot != null,
                 "IPluginHttpClientFactory cannot be resolved from the root provider. It must stay " +
                 "Singleton — it is stateless, and PluginHostServices.HttpClientFactory is a static.");
+        }
+
+        /// <summary>
+        /// The other two bridges MauiProgram assigns and Program.cs did not.
+        ///
+        /// <para>
+        /// With <c>ApiKeys</c> null, six trading providers (Kraken, Alpaca, Binance,
+        /// Bitstamp, Coinbase, MEXC) branch to <c>Configure</c>-stashed credentials, so the
+        /// whole per-request credential-checkout migration was inert on this head —
+        /// including local Full mode, the one WebHost mode that trades real money with real
+        /// keys. With <c>SecurityEvents</c> null, 22 call sites across the scripting
+        /// sandbox, Schwab's OAuth service and alert delivery recorded their audit events
+        /// into nothing.
+        /// </para>
+        ///
+        /// <para>
+        /// Both are asserted on BOTH heads, because the earlier fix pass bridged the HTTP
+        /// factory in all modes and left these two open on all of them.
+        /// </para>
+        /// </summary>
+        [Theory]
+        [InlineData(true)]   // hosted (--accounts)
+        [InlineData(false)]  // local Full
+        public void Boot_InstallsTheApiKeyAndSecurityEventBridges(bool hosted)
+        {
+            using var snapshot = new BridgeSnapshot();
+            PluginHostServices.ApiKeys = null;
+            PluginHostServices.SecurityEvents = null;
+
+            string root = hosted ? TempRoot() : "";
+            try
+            {
+                using var factory = hosted
+                    ? WebHostIntegration.HostedFactory(root)
+                    : WebHostIntegration.FullFactory();
+                _ = factory.Services;
+
+                Assert.True(PluginHostServices.ApiKeys != null,
+                    "PluginHostServices.ApiKeys is null after the host booted. Six trading providers "
+                    + "then fall back to credentials stashed in long-lived Configure fields, which "
+                    + "makes docs/CREDENTIAL_CHECKOUT_MIGRATION.md inert on this head.");
+
+                Assert.True(PluginHostServices.SecurityEvents != null,
+                    "PluginHostServices.SecurityEvents is null after the host booted. Every audit "
+                    + "record from the scripting sandbox, Schwab OAuth and alert delivery is then "
+                    + "dropped on the floor.");
+            }
+            finally { if (hosted) { try { Directory.Delete(root, true); } catch { } } }
+        }
+
+        /// <summary>
+        /// The reason the earlier pass refused to write the bridge above: both services are
+        /// registered Scoped, and a process-wide static cannot hold a per-user service. The
+        /// resolution is that neither carries per-user state — so both bridge types must be
+        /// resolvable from the ROOT provider. If someone makes either Scoped, Program.cs
+        /// throws at boot, and this test says why instead of leaving a cold startup crash.
+        /// </summary>
+        [Fact]
+        public void TheBridgeTypes_AreResolvableFromTheRootProvider()
+        {
+            using var snapshot = new BridgeSnapshot();
+            using var factory = WebHostIntegration.FullFactory();
+
+            Assert.NotNull(factory.Services
+                .GetService<AccessibleTrader.WebHost.Services.PluginHostApiKeyBridge>());
+            Assert.NotNull(factory.Services
+                .GetService<AccessibleTrader.WebHost.Services.PluginHostSecurityEventLog>());
+        }
+
+        /// <summary>
+        /// A bridged checkout that cannot actually reach the credential store would satisfy
+        /// the non-null assertion above and still be useless — the failure mode this repo
+        /// keeps hitting. Ask it for a provider with no configured key and require the
+        /// documented "not configured" answer rather than an exception.
+        /// </summary>
+        [Fact]
+        public async Task TheBridgedCheckout_ReachesTheRealCredentialStore()
+        {
+            using var snapshot = new BridgeSnapshot();
+            PluginHostServices.ApiKeys = null;
+
+            using var factory = WebHostIntegration.FullFactory();
+            _ = factory.Services;
+
+            var result = await PluginHostServices.ApiKeys!.CheckoutAsync("no-such-provider");
+            Assert.False(result.HasCredentials);
         }
 
         [Fact]

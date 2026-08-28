@@ -52,7 +52,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
             // submission without creating an account, mimicking the success
             // redirect so the bot gets no signal that it was rejected.
             if (!string.IsNullOrEmpty(Website))
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+                return LocalRedirect(ReturnUrlPolicy.Sanitize(Url, returnUrl));
 
             var email = Input.Email?.Trim() ?? "";
             // RemoteIpAddress sits behind the already-configured forwarded-headers
@@ -75,7 +75,7 @@ namespace AccessibleTrader.WebHost.Pages.Account
                     "New account registered.",
                     new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
                 await _signIn.SignInAsync(user, isPersistent: false);
-                return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl);
+                return LocalRedirect(ReturnUrlPolicy.Sanitize(Url, returnUrl));
             }
 
             // Map a duplicate email/username to a generic failure so registration

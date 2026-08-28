@@ -46,6 +46,15 @@ namespace AccessibleTrader.Tests
             "ProviderRosterDriftTests", // declared in ProviderRoster.cs; a test class, listed so the file's declarations are fully accounted for
             "FakeApiKeyCheckout",
             "ApiKeyCheckoutScope",      // returned by FakeApiKeyCheckout.Install; unreachable without naming the fake, listed for completeness
+
+            // Booting the real Program.cs is bridge contact, and since 2026-08-27 it is contact
+            // with ApiKeys and SecurityEvents too — those were null on the WebHost until then,
+            // which was the defect. A host boot that does not restore them leaves the REAL
+            // (empty) credential store installed for every later provider test; that is not a
+            // race the collection can fix, so the harness snapshots as well as serialising.
+            "WebHostIntegration",       // the factories that boot Program.cs
+            "PluginBridgeScope",        // the snapshot/restore helper itself
+            "HostedWebHostFixture",     // holds a factory and a PluginBridgeScope
         };
 
         private sealed record ScannedFile(string Path, string Stripped, IReadOnlyList<string> DeclaredNames, string? OffenceReason);

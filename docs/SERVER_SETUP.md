@@ -138,12 +138,27 @@ users/{userId}/  per-user data — settings, sound design, paper-trading, journa
                    SecurityEvents/   this user's audit log
 cache/           SHARED HTTP / analytics-series cache (public market data, one for everyone)
 dp-keys/         DataProtection key ring (auth cookies + antiforgery; persisted so restarts
-                 don't log everyone out)
+                 don't log everyone out). Owner-only 0700, asserted at startup.
 secrets/         encrypted process-wide market-data secrets (e.g. the Twelve Data key),
                  pinned under the data root so the instance is self-contained
+SecurityEvents/  INSTANCE-level audit log — sandbox fallbacks, plugin trust rejections,
+                 OAuth token failures. Properties of the server, not of one account;
+                 per-user auth events live in users/{userId}/SecurityEvents/ instead
+vapid-keys.json  Web Push keypair. Public key plain, private key DataProtection-encrypted
+                 (file mode 0600); losing it orphans every browser push subscription
+reset-links/     0600 files holding admin-minted password-reset URLs, swept after 2 days
 ```
 `users/anon/` may appear empty in unauthenticated contexts — harmless (the app gates with
 `RequireAuthorization`, so anonymous requests can't persist anything).
+
+> Until 2026-08-27 that was **not** harmless: every authentication audit event is written
+> from a Razor Page, a Razor Page request is not a Blazor circuit, and `ICurrentUser` was
+> only ever populated by the circuit handler — so all users' sign-ins, failures, lockouts,
+> 2FA changes and password resets pooled into `users/anon/SecurityEvents/`, email
+> addresses and client IPs included, in a directory whose name says it holds no user data
+> (and which `HostedAlertMonitor` skips when pruning). If you have an `anon` directory
+> with a `SecurityEvents/` folder in it, that is the old pooled log: it is PII, it is not
+> attributable to any one account, and it can be deleted once you have read it.
 
 > **Anything under `users/{id}/` is per-user by virtue of going through `IPlatformPathService`.**
 > A service that builds its own path from `Environment.GetFolderPath(LocalApplicationData)`
@@ -301,6 +316,11 @@ the second layer behind it.
 - `dp-keys/` persisted and **backed up** (losing it invalidates all sessions/antiforgery
   and orphans the encrypted secret store). Restrict it to the service user:
   `chmod -R 700` on the directory, owned by the service account, no other readers.
+  Since 2026-08-27 the app also asserts this at startup — it tightens `dp-keys/` to
+  `0700` itself and **refuses to start** if the directory is still readable or writable
+  beyond its owner. The keys are stored unencrypted, so read access to that directory is
+  read access to every session; a documented `chmod` is not a control, and the matching
+  `UMask=0077` unit drop-in is still an open item.
 - Back up `auth.db` + `users/` + `dp-keys/` (single instance = single disk).
 
 ## Password reset (admin-mediated — no mail server)
@@ -314,11 +334,19 @@ You then mint a reset link out of band:
 dotnet AccessibleTrader.WebHost.dll --accounts --reset-link user@example.com
 ```
 
-This prints a one-time reset URL (Identity token, default 1-day expiry) WITHOUT
-starting the server; deliver it to the user through a trusted channel. The user sets
-their own new password on the ResetPassword page (the admin never sees it); success
-is audited as `AuthPasswordReset`. Unknown emails produce the same generic CLI output
-(no enumeration even at the console).
+This mints a one-time reset URL (Identity token, default 1-day expiry) WITHOUT starting
+the server, writes it to an owner-only (`0600`) file under `reset-links/` in the data
+root, and prints **the path** — not the token. Read the file, deliver the link to the
+user through a trusted channel, then delete it; links older than two days are swept on
+the next run. The user sets their own new password on the ResetPassword page (the admin
+never sees it); success is audited as `AuthPasswordReset`. Unknown emails produce the
+same generic CLI output (no enumeration even at the console).
+
+> The command used to print the URL to stdout. Under `systemctl` that is the journal,
+> so a live password-reset token — a full password change with no second-factor
+> challenge — was persisted to disk, readable by anyone in `systemd-journal`,
+> indefinitely, long after the reset had been used. If you ran an older build this way,
+> scrub the journal (`journalctl --vacuum-time=…`) and rotate any link that was minted.
 - Real-money trading and broker keys are **desktop-only** — never on the server.
 - Custom user scripts are **off** in hosted mode (server-side Roslyn = RCE risk). Anywhere
   scripts ARE enabled (local WebHost / desktop Linux), `bubblewrap` must be installed —
@@ -331,8 +359,6 @@ is audited as `AuthPasswordReset`. Unknown emails produce the same generic CLI o
   (`RequireConfirmedAccount=false`). Add SMTP before scaling. Anyone can register any email.
 - **Per-user OHLCV cache** (first cut); a shared symbol-keyed connection pool is the
   documented efficiency optimisation (see `HOSTED_ACCOUNTS_STRATEGY.md`).
-- The shared market-data key currently writes to the default app-data path, not the data
-  root (tidy-up item).
 
 See also: `HOSTED_AUTH_PERSISTENCE_DESIGN.md`, `HOSTED_ACCOUNTS_STRATEGY.md`,
 `WEBHOST_MULTI_USER_SCOPING.md`, and `RELEASING.md`.

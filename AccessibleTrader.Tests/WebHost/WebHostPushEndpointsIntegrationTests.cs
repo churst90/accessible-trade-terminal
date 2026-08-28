@@ -9,6 +9,13 @@ namespace AccessibleTrader.Tests.WebHost;
 /// cannot touch user B's subscriptions, because the store keys strictly off
 /// the caller's own identity claim, never off anything in the request body.
 /// </summary>
+// In the ProviderCredentialBridge collection: booting Program.cs now assigns
+// PluginHostServices.ApiKeys and .SecurityEvents (they were null on this head until
+// 2026-08-27, which is the defect that was fixed). Those are process-wide statics, so a
+// host boot racing a provider test's FakeApiKeyCheckout.Install silently swaps the fake
+// out from under it — 19 provider tests went red on the first full-suite run after the
+// bridge landed. The collection serialises every class that touches that static.
+[Collection("ProviderCredentialBridge")]
 public sealed class WebHostPushEndpointsIntegrationTests : IClassFixture<HostedWebHostFixture>
 {
     private readonly HostedWebHostFixture _host;

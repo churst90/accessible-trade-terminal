@@ -47,7 +47,7 @@ namespace AccessibleTrader.Core.Services.Security;
 public sealed class SecurityEventFileSink : ISecurityEventLog, IDisposable
 {
     private readonly ISecurityEventLog _inner;
-    private readonly string _directory;
+    private readonly Func<string> _directory;
     private readonly ILogger<SecurityEventFileSink>? _logger;
     private readonly object _writeLock = new();
     private bool _disposed;
@@ -63,13 +63,14 @@ public sealed class SecurityEventFileSink : ISecurityEventLog, IDisposable
         string directory,
         ILogger<SecurityEventFileSink>? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(directory);
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
-        _directory = directory ?? throw new ArgumentNullException(nameof(directory));
+        _directory = () => directory;
         _logger = logger;
 
         try
         {
-            Directory.CreateDirectory(_directory);
+            Directory.CreateDirectory(directory);
         }
         catch (Exception ex)
         {
@@ -78,8 +79,35 @@ public sealed class SecurityEventFileSink : ISecurityEventLog, IDisposable
             // operator can see it; subsequent writes will also try+fail+log.
             _logger?.LogWarning(ex,
                 "SecurityEventFileSink: could not create directory '{Directory}'. File persistence disabled.",
-                _directory);
+                directory);
         }
+    }
+
+    /// <summary>
+    /// Directory resolved PER EVENT rather than captured at construction.
+    ///
+    /// <para>
+    /// The hosted WebHost routes this per user, and "which user" is not known when the
+    /// sink is built: a Razor Page's DI graph is constructed before the handler runs, so a
+    /// sink that captured its path landed every successful sign-in in the anonymous slot —
+    /// the request is anonymous right up until <c>PasswordSignInAsync</c> succeeds, which
+    /// happens after the page model (and therefore this sink) already exists.
+    /// </para>
+    ///
+    /// <para>
+    /// No eager directory creation on this overload, for the same reason: there is nothing
+    /// to create yet. Each write creates the resolved directory, which is idempotent and
+    /// also survives the directory being removed underneath a long-lived process.
+    /// </para>
+    /// </summary>
+    public SecurityEventFileSink(
+        ISecurityEventLog inner,
+        Func<string> directory,
+        ILogger<SecurityEventFileSink>? logger = null)
+    {
+        _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+        _directory = directory ?? throw new ArgumentNullException(nameof(directory));
+        _logger = logger;
     }
 
     public void Record(SecurityEvent ev)
@@ -108,8 +136,10 @@ public sealed class SecurityEventFileSink : ISecurityEventLog, IDisposable
 
     private void AppendToDailyFile(SecurityEvent ev)
     {
+        string directory = _directory();
+        Directory.CreateDirectory(directory);
         string path = Path.Combine(
-            _directory,
+            directory,
             $"security-events-{ev.UtcTimestamp.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.jsonl");
 
         var record = new FileRecord(

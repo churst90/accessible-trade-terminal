@@ -5350,6 +5350,28 @@ head cannot create). No path was found from a hosted user to a live venue or a w
 credential. The recurring problem in this area is different: **a security control that is documented and
 implemented, but not actually running on the internet-facing head.**
 
+**STATUS: this section is closed.** The three HIGH items went in the 2026-08-27 HIGH pass; the
+remaining ten MEDIUM/LOW items went in on 2026-08-27 as one batch, every fix proven by
+reintroducing the defect and watching the guard go red (sixteen sabotages, sixteen reds). The one
+line still open — `Register` has no email confirmation — is not fixable without an SMTP sender and
+is a feature request rather than a defect; it is annotated in place.
+
+**Two of the ten corrected the finding rather than just implementing it,** and both corrections are
+worth carrying forward. (1) The earlier pass refused to bridge `PluginHostServices.ApiKeys` because
+the service is Scoped — but the *store* behind it is a process-wide Singleton, so there was never
+anything per-user to pin; **check what the data is scoped to, not what the registration says.**
+(2) Populating `ICurrentUser` from `IHttpContextAccessor` — the fix the audit proposed for the
+audit-log pooling — still put every successful sign-in in the anon slot, because the sink captured
+its directory when the page model was built and a login request is anonymous until
+`PasswordSignInAsync` returns. **A late-binding defect is not fixed by fixing what the binding
+reads.**
+
+**And the batch's own cost is the durable lesson:** installing the two bridges made 20 unrelated
+provider tests fail. A process-wide static assigned at host boot leaks into every test that runs
+afterwards, which no test-collection can fix — serialisation stops parallel contact, not
+persistence. `PluginBridgeScope` snapshots and restores; `ProviderCredentialBridgeEnrollmentTests`
+now enforces both halves.
+
 - [x] **A Blazor circuit never revalidates its principal, so password reset, 2FA enrollment, lockout and
   sign-out do not evict an already-open session — `AccountsServiceExtensions.cs:101-102`,
   `Program.cs:343-355`, `WebHostBrowserCircuitHandler.cs:87-88`.**
@@ -5401,7 +5423,7 @@ implemented, but not actually running on the internet-facing head.**
   process-wide static, so assigning them would pin one user's credential checkout and audit
   sink for the whole process — the same hazard the `SecureStorage` comment already documents.
   Those two remain open in the item below and need a per-scope accessor, not a static.
-- [ ] **`PluginHostServices.ApiKeys` and `.SecurityEvents` are also unset on the WebHost —
+- [x] **`PluginHostServices.ApiKeys` and `.SecurityEvents` are also unset on the WebHost —
   `Program.cs:184-188` vs `MauiProgram.cs:94,105`.** Second-order consequences of the bridge finding, worth
   their own line because they are not about HTTP. Six trading providers (Kraken, Alpaca, Binance, Bitstamp,
   Coinbase, MEXC — recounted by grep) branch on `PluginHostServices.ApiKeys == null` and fall back to
@@ -5412,6 +5434,30 @@ implemented, but not actually running on the internet-facing head.**
   `WindowsAppContainerLauncher`) and `AlertDeliveryService` push to `PluginHostServices.SecurityEvents`,
   which is null here, so those audit records are dropped on the floor on the hosted server.
   CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27 — and the earlier pass's reason for leaving it open was wrong.**
+  The refusal was "both are Scoped (per user) while the bridge is a process-wide static, so
+  assigning them would pin one user's state". That is true of the REGISTRATIONS and false of
+  the data behind them. `IApiKeyService` is a **Singleton** on this head, backed by the
+  singleton `WebHostSecureStorageService` whose secret store `AccountsServiceExtensions`
+  deliberately shares process-wide — there is exactly one credential store per WebHost
+  process in every mode, so there was never anything per-user to pin. The adapter is Scoped
+  only because `CheckoutLatencyTracker` is. `PluginHostApiKeyBridge` is that adapter with a
+  null tracker, registered Singleton and assigned in ALL modes.
+  For `SecurityEvents` the objection was real and the resolution is that these events are
+  not per-user in the first place: a sandbox that launched without its seccomp filter, a
+  plugin DLL the trust policy refused, an OAuth token that would not persist are properties
+  of the INSTANCE. `PluginHostSecurityEventLog` is an instance-level sink at
+  `{dataRoot}/SecurityEvents`, a sibling of the per-user directory the Razor Pages write to.
+  Guards in `PluginHostBridgeTests`: both bridges non-null after a real boot of BOTH heads,
+  both types resolvable from the root provider (they must stay Singleton), and the bridged
+  checkout proven to reach the real store rather than merely being non-null.
+  **The cost is on the test suite, and it is worth recording.** Assigning these statics at
+  boot made 20 provider tests fail: a WebHost test that boots and does not put the statics
+  back leaves the REAL (empty) credential bridge installed for the rest of the run, so every
+  later provider test relying on `Configure`-set credentials asks the wrong store. The
+  `ProviderCredentialBridge` collection only stops PARALLEL contact; the leak needed
+  `PluginBridgeScope` (snapshot + restore) in every WebHost class as well. Both mechanisms
+  are now enforced by `ProviderCredentialBridgeEnrollmentTests`.
 - [x] **`auth.db` has no migration path: `Program.cs:191-196` calls `EnsureCreated()` and the repo contains
   no EF migrations at all.** `find` for `*Migration*` returns one markdown file and nothing else.
   `EnsureCreated` is create-or-nothing — it will not alter a database that already has tables.
@@ -5459,7 +5505,7 @@ implemented, but not actually running on the internet-facing head.**
   allow-list to escape from. The MAUI copy cannot be referenced from the test project (no MAUI
   workloads on this box), so it is covered by a source scan across both files — stated as a
   scan rather than dressed up as a behavioural check.
-- [ ] **`/account/security` is an unthrottled, non-lockout password-verification oracle —
+- [x] **`/account/security` is an unthrottled, non-lockout password-verification oracle —
   `Security.cshtml.cs:106-112` with `SecurityPolicy.cs:125-132`.** `ConfirmPasswordAsync` uses
   `UserManager.CheckPasswordAsync`, which verifies the hash but — unlike
   `SignInManager.PasswordSignInAsync(..., lockoutOnFailure: true)` at `Login.cshtml.cs:54-55` — does **not**
@@ -5473,7 +5519,22 @@ implemented, but not actually running on the internet-facing head.**
   `VerifyTwoFactorTokenAsync` (`EnableAuthenticator.cshtml.cs:63-64`) at the same rate. Fix: add both paths
   to `IsAuthMutation`, and route the confirmation through `CheckPasswordSignInAsync(...,
   lockoutOnFailure: true)`. CONFIRMED. MEDIUM.
-- [ ] **Every authentication audit event for every user is written to one shared
+  **CLOSED 2026-08-27.** Both paths added to `IsAuthMutation`, and the confirmation now goes
+  through `SignInManager.CheckPasswordSignInAsync(..., lockoutOnFailure: true)` — the same
+  counter the front door uses — plus a new `AuthReauthenticationFailed` audit kind, which is
+  the "distinguishable audit event" the finding asked for: it is only reachable by someone
+  who already holds a session, so it is the signature of a hijacked session probing for the
+  password rather than of an outsider guessing at the login page.
+  The lockout branch says so plainly instead of hiding behind the login page's generic
+  message — there is no enumeration to protect against when the caller already holds the
+  account's session, and a form that has silently stopped accepting any password is the
+  worst possible refusal for a screen-reader user.
+  Guards: `Repeated_wrong_passwords_on_the_security_page_lock_the_account` (which asserts
+  the lockout BITES — the correct password is refused afterwards — because
+  `AccessFailedCount` resets on success and counting it would pass against a build that
+  counted but never acted), its vacuity control `One_wrong_password_does_not_lock_the_account`,
+  and the tier assertions with a control proving the general tier still exists.
+- [x] **Every authentication audit event for every user is written to one shared
   `users/anon/SecurityEvents/` file — `ServiceCollectionExtensions.cs:143-153` vs `CurrentUser.cs:30-35`.**
   `ICurrentUser` is Scoped and `CurrentUser.Set` is called in exactly two places (grepped):
   `WebHostBrowserCircuitHandler.cs:88` (Blazor circuit) and `HostedAlertMonitor.cs:146` (background scope).
@@ -5489,7 +5550,26 @@ implemented, but not actually running on the internet-facing head.**
   `ICurrentUser` from `IHttpContextAccessor` (already registered at `AccountsServiceExtensions.cs:29`) when
   no circuit has set it, and fix the two docs. (This also explains TODO:145 — why
   `AuthPasswordResetRequested` events are hard to find.) CONFIRMED. MEDIUM.
-- [ ] **`app.UseExceptionHandler("/Error")` points at a route that does not exist —
+  **CLOSED 2026-08-27 — and the fix the finding proposed was necessary but NOT sufficient.**
+  `CurrentUser` now falls back to `IHttpContextAccessor`'s principal when no circuit has
+  called `Set` (an explicit `Set`, including `Set(null)` for an anonymous circuit, still
+  wins — a circuit's identity is fixed at circuit-open and must not track whatever request
+  touches the same scope). That alone still put every SUCCESSFUL sign-in in the anon slot:
+  the sink captured its directory when the page model was constructed, and a login request
+  is anonymous right up until `PasswordSignInAsync` succeeds, which happens afterwards. So
+  `SecurityEventFileSink` gained a `Func<string>` directory overload and the WebHost resolves
+  the path PER EVENT.
+  Second correction to the finding: when there is no user at all — a failed sign-in for an
+  address that may not exist, a forgot-password POST — the event now goes to the INSTANCE
+  log, not to `users/anon`. Those events are not attributable to an account and an operator
+  should not have to know to look in a directory whose name says it holds no user's data.
+  Guard: `A_sign_in_is_audited_under_the_users_own_directory_not_anon` drives a real HTTP
+  sign-in through the real host and asserts the file appears under that user's own id AND
+  that nothing appears under `anon`. Proven red twice — once by removing the HttpContext
+  fallback, once by capturing the directory at construction while keeping the fallback.
+  `SERVER_SETUP.md` now records what an existing `users/anon/SecurityEvents/` directory is
+  (pooled PII from before the fix) so an operator knows it can be deleted.
+- [x] **`app.UseExceptionHandler("/Error")` points at a route that does not exist —
   `Program.cs:298-301`.** Grepped the whole tree: no `@page "/Error"`, no `Error.cshtml`, no `Error.razor`.
   On any unhandled exception in production the pipeline re-executes at `/Error`, which matches the Blazor
   fallback; in accounts mode that endpoint carries `RequireAuthorization()` (`Program.cs:355`), so an
@@ -5503,7 +5583,21 @@ implemented, but not actually running on the internet-facing head.**
   *successful* sign-in (the cookie is issued) followed by a 500 into a nonexistent error page. Fix: add a
   minimal, anonymous, accessible `/Error` Razor Page, and null out a non-local `returnUrl` before
   redirecting. CONFIRMED. MEDIUM.
-- [ ] **Rate-limit rejections are a bare 429 with no body, no `Retry-After` and nothing spoken —
+  **CLOSED 2026-08-27.** A minimal-API `/Error` endpoint mapped in EVERY mode (the exception
+  handler is registered in every non-Development mode, and Razor Pages are only mapped when
+  accounts are on), `AllowAnonymous`, plain server-rendered HTML — booting an interactive
+  circuit is precisely the machinery that may have just failed, so an error page that needs a
+  working SignalR connection is not an error page. It carries no exception text; the trace
+  identifier is the correlation handle and is HTML-encoded, because `TraceIdentifier` is not
+  guaranteed markup-safe. All five `LocalRedirect` sites go through `ReturnUrlPolicy.Sanitize`
+  (`IUrlHelper.IsLocalUrl`, which rejects absolute, protocol-relative `//host` AND the
+  backslash `/\host` variants). A bad hint is dropped rather than made fatal: the visitor
+  asked to sign in and they are signed in.
+  Guards: the `/Error` route answered anonymously with a `role="alert"` body, and a theory
+  over three off-site `returnUrl` shapes asserting the sign-in still succeeds (cookie issued)
+  and the redirect stays local — with a vacuity control proving a legitimate local
+  `returnUrl` is still honoured.
+- [x] **Rate-limit rejections are a bare 429 with no body, no `Retry-After` and nothing spoken —
   `Program.cs:156-162`.** `RejectionStatusCode` is set and no `OnRejected` handler is configured anywhere
   (grepped: `OnRejected` has zero hits). The auth tier is 10 POSTs per 5 minutes per IP, and
   `SecurityPolicy.cs:107-109` explicitly acknowledges that "screen-reader users are slower typists than
@@ -5513,7 +5607,16 @@ implemented, but not actually running on the internet-facing head.**
   silent. It also bites shared-NAT users on the 200-per-10s general tier, since that tier covers static
   assets and SignalR negotiates. Fix: an `OnRejected` that sets `Retry-After` and writes a short accessible
   HTML page (`role="alert"`) naming the wait. CONFIRMED. MEDIUM (accessibility).
-- [ ] **`/diag/journal` can only ever return `[]`, and its comment claims the opposite —
+  **CLOSED 2026-08-27.** `OnRejected` sets `Retry-After` from the lease's own metadata where
+  the limiter provides it and the tier's window otherwise, and writes a `role="alert"` page
+  that names the wait in words as well as in the header — the header is for machines, and a
+  person hearing this page needs the number read to them. Two messages, not one: the auth
+  tier says "too many sign-in attempts", the general tier does not mention sign-in at all,
+  because a shared-NAT visitor tripping the general tier on static assets must not be told
+  their credentials are the problem. Both say nothing has been locked.
+  The HTML body is only written for a request that asked for `text/html`; a rejected SignalR
+  negotiate or static asset gets the header and the status and no page.
+- [x] **`/diag/journal` can only ever return `[]`, and its comment claims the opposite —
   `Program.cs:390-410` with `ServiceCollectionExtensions.cs:614`.** `IJournalService` is registered
   `AddScoped`, and `JournalService` holds its ring buffer in an instance field (`JournalService.cs:17`, a
   `LinkedList<JournalEntry>`) with no static backing store. A minimal-API endpoint resolves from the
@@ -5523,7 +5626,21 @@ implemented, but not actually running on the internet-facing head.**
   diagnostic you would reach for when the hosted speech pipeline misbehaves silently returns nothing. The
   existing guard (`Diag_journal_requires_a_signed_in_user_when_it_is_mapped`) asserts the auth redirect
   only, so it stays green. CONFIRMED. MEDIUM.
-- [ ] **The VAPID private key is persisted as plaintext JSON while every other secret on the box goes
+  **CLOSED 2026-08-27.** A singleton journal would have been the wrong fix — it pools every
+  hosted user's spoken transcript (positions, balances, alerts) into one buffer any signed-in
+  user could then read, which is the leak the endpoint's comment was worried about and which
+  the code was not actually capable of. Instead `JournalMirror`: a process-wide ring buffer
+  PER OWNER (`ICurrentUser.DataKey`), fed by subscribing to `IJournalService.EntryAdded` in
+  the DI factory, so Core is untouched and the MAUI head carries none of it. The owner is
+  resolved per ENTRY, not captured at construction — the circuit handler sets `ICurrentUser`
+  after the DI graph is built, so a captured key would be "anon" for the whole circuit.
+  Capped at 500 entries per owner and 64 owners (least-recently-written dropped), because on
+  the hosted head the ring is multiplied by every user who has opened a circuit in the
+  process. The endpoint can only ask for the caller's own key.
+  Guards: `Diag_journal_returns_what_the_users_own_circuit_recorded` (a real signed-in HTTP
+  GET returning what a seeded circuit journaled) and
+  `Diag_journal_never_returns_another_users_transcript`, plus unit tests for the caps.
+- [x] **The VAPID private key is persisted as plaintext JSON while every other secret on the box goes
   through DataProtection — `VapidKeyService.cs:63-65`.** `vapid-keys.json` is written with
   `AtomicFile.WriteAllText` under the instance data root, next to the DataProtection-encrypted `secrets/`
   store that `WebHostSecureStorageService` maintains. The `IDataProtectionProvider` is already in the
@@ -5532,14 +5649,34 @@ implemented, but not actually running on the internet-facing head.**
   attributes to this origin — an alert-shaped phishing surface for exactly the users who rely on alerts.
   Fix: route it through `ISecureStorageService`, or at minimum `File.SetUnixFileMode` to `0600` on write.
   CONFIRMED. MEDIUM.
-- [ ] **`--reset-link` prints a live password-reset token to stdout, which on the deployed unit is the
+  **CLOSED 2026-08-27 — both halves, not "at minimum".** The private key goes through the
+  same `IDataProtectionProvider` as the `secrets/` store (its own purpose string), and the
+  file is `0600` on Unix as well: DataProtection is the control, the mode is what limits the
+  damage if the key ring is ever readable too. A file written by an older build is read,
+  HONOURED and rewritten protected — regenerating would orphan every browser subscription in
+  the wild, which is the one failure this class exists to prevent. With no provider (unit
+  tests, a bare CLI run) it still persists so the public key is stable, and says so at
+  Warning.
+  Guards: the private key does not appear in the file's bytes; the file mode is exactly
+  `0600`; a legacy plaintext file is honoured, upgraded, and round-trips on the next boot.
+- [x] **`--reset-link` prints a live password-reset token to stdout, which on the deployed unit is the
   systemd journal — `Program.cs:262-266`.** The URL carries a one-day Identity reset token that grants a
   full password change with no second-factor challenge. Run under `systemctl`/`journalctl` (the documented
   deployment shape) it is persisted to disk and readable by anyone in `systemd-journal`, indefinitely, long
   after the reset was used. `SERVER_SETUP.md` documents the command without mentioning this. Fix: write to
   a `0600` file whose path is printed instead of the token, or document that the command must be run
   outside the service context and the journal scrubbed. CONFIRMED. MEDIUM.
-- [ ] **The DataProtection key ring is persisted unencrypted and the app never checks it can read it —
+  **CLOSED 2026-08-27.** The link is written to a `0600` file under `{dataRoot}/reset-links/`
+  (itself `0700`) and the CLI prints the PATH plus what to do with it. The filename carries
+  no email — the data root is listed by anything that lists it, and which addresses have
+  needed a reset is itself information — and links older than two days are swept on the next
+  run, since the token is valid for one and an expired file still LOOKS like a credential.
+  `SERVER_SETUP.md` documents the new shape and tells an operator who ran an older build
+  under systemd to vacuum the journal and rotate any link that was minted.
+  Guard: a scan guard, because the CLI exits before Kestrel starts and cannot be driven from
+  a test host. It excludes comment lines — the fix's own comment names the call it replaced,
+  and the first run of this test flagged the documentation of the fix as the bug.
+- [x] **The DataProtection key ring is persisted unencrypted and the app never checks it can read it —
   `Program.cs:71-80`.** `PersistKeysToFileSystem(dp-keys)` with no `ProtectKeysWith*`. On Linux that is
   plaintext XML holding the master keys for the auth cookie, the antiforgery token *and* every blob in
   `WebHostSecureStorageService`. `SERVER_SETUP.md:298-300` mitigates this with `chmod -R 700`, which is the
@@ -5550,7 +5687,21 @@ implemented, but not actually running on the internet-facing head.**
   the caller, invisible to the operator. Fix: `ProtectKeysWithCertificate` (or at least a startup check
   that `dp-keys` is mode 0700, refusing to serve otherwise), and log at Error when `Unprotect` throws on a
   file that exists. CONFIRMED. MEDIUM.
-- [ ] **`/push/subscribe` lets any signed-in user aim the server's push sender at an arbitrary HTTPS URL —
+  **CLOSED 2026-08-27.** `KeyRingPolicy.EnsurePrivate` tightens `dp-keys` to `0700` at
+  startup and REFUSES to start if it is still reachable by group or other, with an error
+  message that names the `chmod`. Fail-closed on purpose: a key ring readable by other local
+  accounts is not a degraded mode to serve traffic in — the keys are stored unencrypted, so
+  read access to that directory is read access to every session, the antiforgery token and
+  every blob in `WebHostSecureStorageService`. `ProtectKeysWithCertificate` was NOT taken:
+  it needs a certificate this deployment does not have, and it would move the problem to
+  wherever that certificate lives. The documented `chmod -R 700` stays right; it is now
+  asserted rather than requested.
+  Second half: `WebHostSecureStorageService.GetAsync` logs at Error when `Unprotect` throws
+  on a file that EXISTS. Returning null stays correct for the caller; being silent was not —
+  a lost key ring presented as an instance that had quietly forgotten its market-data key,
+  its Schwab token and its VAPID keypair, with nothing anywhere saying why. A MISSING file
+  returns earlier and is still not an error, and there is a vacuity control for that.
+- [x] **`/push/subscribe` lets any signed-in user aim the server's push sender at an arbitrary HTTPS URL —
   `Program.cs:368-376`, `PushSubscriptionStore.cs:46-52`, `HostedWebPushSender.cs:27,57`.** `Add` validates
   only that the endpoint starts with `https://`; there is no host allow-list and no `OutboundNetworkGuard`
   check, unlike the alert channels (`ServiceCollectionExtensions.cs:460-464` explicitly reasons about
@@ -5563,13 +5714,31 @@ implemented, but not actually running on the internet-facing head.**
   concatenates `userKey` into a path with no sanitisation, where `UserScopedPathService.Sanitize`
   (`:65-69`) does sanitise the same value — not exploitable today (the key is the Identity GUID from the
   auth cookie) but an inconsistent invariant. CONFIRMED. LOW-MEDIUM.
-- [ ] **`SERVER_SETUP.md:331` contradicts `SERVER_SETUP.md:137` about where the shared secret store
+  **CLOSED 2026-08-27, in two layers, because one of them cannot be done at subscribe time.**
+  The real control is at CONNECT time: `HostedWebPushSender` now builds its client through
+  `AlertChannelHttpClient.Create(blockPrivateNetworks)` — the same client the alert channels
+  use — so the guard runs inside `ConnectCallback` and the socket reaches an address this
+  code resolved and validated itself, leaving a DNS record that flips after validation
+  nothing to rebind. It also stops following redirects and gains a timeout, neither of which
+  a bare `new HttpClient()` had.
+  At subscribe time only IP LITERALS are decided (`IsPlausiblePushEndpoint`), deliberately:
+  a name needs DNS, and a resolve-now/connect-later check is both a TOCTOU window and a
+  network call on a request path. Guarded with a theory over metadata-service, RFC1918,
+  loopback, IPv6 loopback and an IPv4-mapped-IPv6 smuggling attempt — plus a vacuity control
+  asserting the real FCM/Mozilla/WNS endpoint shapes are still accepted, or the feature would
+  simply be off and every rejection would pass for the wrong reason.
+  `PathFor` now sanitises the user key exactly as `UserScopedPathService.Sanitize` does.
+- [x] **`SERVER_SETUP.md:331` contradicts `SERVER_SETUP.md:137` about where the shared secret store
   lives.** The "Known limitations" bullet says "The shared market-data key currently writes to the default
   app-data path, not the data root (tidy-up item)"; the data-layout section thirteen lines earlier says
   `secrets/` is "pinned under the data root so the instance is self-contained", which is what
   `AccountsServiceExtensions.cs:49-54` actually does. TODO:182 already re-verified the pin as current. The
   stale bullet is the one an operator debugging a co-located demo/hosted collision will read. Fix: delete
   the bullet. CONFIRMED. LOW.
+  **CLOSED 2026-08-27.** Bullet deleted. The data-layout block in the same file also gained
+  the three paths this batch introduced or changed — instance-level `SecurityEvents/`,
+  `vapid-keys.json` (private half now encrypted, mode 0600) and `reset-links/` — so the
+  section an operator actually reads describes what is on disk.
 - [ ] **`Register` has no email confirmation and anyone can register any address —
   `AccountsServiceExtensions.cs:67`.** `SignIn.RequireConfirmedAccount = false`, documented as a limitation
   in `SERVER_SETUP.md` and pinned by a test that asserts the false value. Recorded because it is
@@ -5578,6 +5747,13 @@ implemented, but not actually running on the internet-facing head.**
   HTTP POST, so the honeypot at `Register.cshtml.cs:32,58-59` plus 10-per-5-minutes-per-IP is the entire
   anti-abuse story for account creation on a public site. SUSPECTED as a practical problem (no evidence of
   abuse yet); the mechanism is CONFIRMED. LOW.
+  **STILL OPEN, deliberately, and re-checked 2026-08-27.** Nothing here is fixable without an SMTP
+  sender, which does not exist and is a feature rather than a fix. One of the two things it was
+  load-bearing for is now settled: the reset link no longer reaches the systemd journal (TODO:5535),
+  so the CLI being the only recovery path costs less than it did. The other stands unchanged —
+  account creation is still one POST behind a honeypot and an IP rate limit. Reclassify as a
+  feature request (email confirmation) rather than leaving it in the audit backlog, or accept it
+  as the documented shape of a single-operator deployment.
 
 ---
 

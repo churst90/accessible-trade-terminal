@@ -163,6 +163,66 @@ public class HostedAccountsTwoFactorTests : IDisposable
     }
 
     /// <summary>
+    /// The password re-confirmation must spend a lockout attempt.
+    ///
+    /// <para>
+    /// It used <c>UserManager.CheckPasswordAsync</c>, which verifies the hash and nothing
+    /// else — it does not touch <c>AccessFailedCount</c>, so the ten-failure lockout
+    /// configured in <c>AddHostedAccounts</c> never tripped here however many guesses
+    /// arrived. Combined with the page's absence from the strict rate-limit tier, an
+    /// attacker holding a stolen session could brute-force the account password through the
+    /// "Turn off two-factor" form and then strip the second factor.
+    /// </para>
+    ///
+    /// <para>
+    /// The assertion is on the lockout, not on the failure count: <c>AccessFailedCount</c>
+    /// resets on success, so counting it would pass against a build that counted attempts
+    /// but never acted on them.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Repeated_wrong_passwords_on_the_security_page_lock_the_account()
+    {
+        var user = await NewUserAsync();
+        await _users.SetTwoFactorEnabledAsync(user, true);
+
+        var page = BuildSecurityPage(user);
+        for (int attempt = 0; attempt < 10; attempt++)
+            await page.OnPostDisableAsync("wrong password " + attempt);
+
+        Assert.True(await _users.IsLockedOutAsync(user),
+            "ten wrong passwords through the account-security confirmation left the account "
+            + "unlocked — the confirmation is not counting failures, so it is an unlimited "
+            + "password-guessing oracle for anyone holding a session.");
+
+        // And the lockout has to actually BITE: the correct password must now be refused too,
+        // or "locked" is a flag nothing reads.
+        Assert.True(await _users.GetTwoFactorEnabledAsync(user));
+        await page.OnPostDisableAsync(Password);
+        Assert.True(await _users.GetTwoFactorEnabledAsync(user),
+            "the correct password was accepted while the account was locked out");
+    }
+
+    /// <summary>
+    /// The vacuity control for the test above: a single mistyped password must NOT lock
+    /// anyone out. A screen-reader user retyping a long passphrase is the ordinary case, and
+    /// an over-eager lockout is its own denial of service.
+    /// </summary>
+    [Fact]
+    public async Task One_wrong_password_does_not_lock_the_account()
+    {
+        var user = await NewUserAsync();
+        await _users.SetTwoFactorEnabledAsync(user, true);
+
+        var page = BuildSecurityPage(user);
+        await page.OnPostDisableAsync("wrong");
+
+        Assert.False(await _users.IsLockedOutAsync(user));
+        await page.OnPostDisableAsync(Password);
+        Assert.False(await _users.GetTwoFactorEnabledAsync(user));
+    }
+
+    /// <summary>
     /// A real <see cref="SecurityModel"/> with just enough <c>PageContext</c> for the handler:
     /// a signed-in principal (so <c>GetUserAsync(User)</c> resolves) and an HttpContext (the
     /// audit record reads the remote IP off it).
@@ -170,7 +230,6 @@ public class HostedAccountsTwoFactorTests : IDisposable
     private SecurityModel BuildSecurityPage(AppUser user)
     {
         var audit = new AccessibleTrader.Core.Services.Security.SecurityEventLog();
-        var page = new SecurityModel(_users, audit);
 
         var identity = new System.Security.Claims.ClaimsIdentity(new[]
         {
@@ -185,6 +244,15 @@ public class HostedAccountsTwoFactorTests : IDisposable
             User = new System.Security.Claims.ClaimsPrincipal(identity),
             RequestServices = _scope.ServiceProvider,
         };
+
+        // The confirmation gate now runs through SignInManager (so a wrong password
+        // spends a lockout attempt, which UserManager.CheckPasswordAsync never did).
+        // SignInManager reads its HttpContext off the accessor, so seed it first.
+        _scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>()
+            .HttpContext = http;
+        var signIn = _scope.ServiceProvider
+            .GetRequiredService<Microsoft.AspNetCore.Identity.SignInManager<AppUser>>();
+        var page = new SecurityModel(_users, signIn, audit);
 
         page.PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext(
             new Microsoft.AspNetCore.Mvc.ActionContext(

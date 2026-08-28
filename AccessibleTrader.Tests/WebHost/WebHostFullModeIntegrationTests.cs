@@ -20,17 +20,13 @@ namespace AccessibleTrader.Tests.WebHost;
 [Collection("ProviderCredentialBridge")]
 public sealed class WebHostFullModeIntegrationTests : IDisposable
 {
-    private readonly IPluginSecureStorage? _previousBridge;
+    // Was a SecureStorage-only snapshot. Booting a host also assigns HttpClientFactory and
+    // — since 2026-08-27 — ApiKeys and SecurityEvents, and leaving the real credential
+    // bridge installed makes every later provider test ask an empty store. See
+    // PluginBridgeScope.
+    private readonly PluginBridgeScope _bridges = new();
 
-    public WebHostFullModeIntegrationTests()
-    {
-        _previousBridge = PluginHostServices.SecureStorage;
-    }
-
-    public void Dispose()
-    {
-        PluginHostServices.SecureStorage = _previousBridge;
-    }
+    public void Dispose() => _bridges.Dispose();
 
     [Fact]
     public async Task Alerts_page_lifecycle_no_alerts_then_read_then_dismiss()

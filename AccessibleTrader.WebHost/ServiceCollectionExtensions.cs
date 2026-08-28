@@ -140,21 +140,64 @@ namespace AccessibleTrader.WebHost
                       || persistEnv.Equals("false", StringComparison.OrdinalIgnoreCase));
                 if (!persistEnabled) return ringBuffer;
 
-                // IPlatformPathService, not GetFolderPath. Two fixes in one: the latter returns an
-                // empty string on Unix when the target does not exist, which wrote the audit log
-                // into whatever directory the process was started from (the deployment directory
-                // a redeploy replaces); and the path service routes PER USER when hosted accounts
-                // are on, so one account's security events are no longer appended to a file every
-                // other account also writes to. An explicit *_DIR override still wins, and stays
-                // deliberately process-wide for operators who ship this to a log collector.
-                string dir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR")
-                    ?? Path.Combine(
-                        sp.GetRequiredService<IPlatformPathService>().AppDataDirectory,
-                        "SecurityEvents");
-
+                // IPlatformPathService, not GetFolderPath: the latter returns an empty string on
+                // Unix when the target does not exist, which wrote the audit log into whatever
+                // directory the process was started from (the deployment directory a redeploy
+                // replaces). An explicit *_DIR override still wins and stays deliberately
+                // process-wide, for operators who ship this to a log collector.
+                //
+                // The directory is resolved PER EVENT, and that is the fix for two defects at
+                // once. Every authentication event is recorded from a Razor Page; a Razor Page
+                // request is not a Blazor circuit, and ICurrentUser was only ever populated by
+                // the circuit handler — so DataKey was "anon" for all of them and every user's
+                // sign-ins, lockouts, 2FA changes and email addresses pooled into ONE shared
+                // users/anon/SecurityEvents/ file. CurrentUser now falls back to the ambient
+                // HttpContext principal, but a captured path would still not be enough: a
+                // sign-in request is anonymous right up until PasswordSignInAsync succeeds,
+                // which happens long after this sink was constructed. Late binding is what
+                // makes a successful sign-in land under the account that just signed in.
+                //
+                // And when there IS no user — a failed sign-in for an address that may not even
+                // exist, a forgot-password POST — the event goes to the INSTANCE log rather than
+                // to users/anon. Those events are not attributable to an account, and an
+                // operator should not have to know to look in a directory whose name says it
+                // holds no user's data.
+                var instancePaths = sp.GetRequiredService<InstancePaths>();
+                var explicitDir = Environment.GetEnvironmentVariable("ACCESSIBLETRADER_SECURITY_EVENT_DIR");
                 var sinkLogger = sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Security.SecurityEventFileSink>>();
-                return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(ringBuffer, dir, sinkLogger);
+
+                return new AccessibleTrader.Core.Services.Security.SecurityEventFileSink(
+                    ringBuffer,
+                    () =>
+                    {
+                        if (!string.IsNullOrEmpty(explicitDir)) return explicitDir;
+
+                        var key = sp.GetService<Account.ICurrentUser>()?.DataKey;
+                        if (string.IsNullOrEmpty(key) || key == "anon")
+                            return instancePaths.SecurityEventDirectory;
+
+                        return Path.Combine(
+                            sp.GetRequiredService<IPlatformPathService>().AppDataDirectory,
+                            "SecurityEvents");
+                    },
+                    sinkLogger);
             });
+            // ── The two bridges plugins reach through a process-wide static ─────
+            // PluginHostServices.ApiKeys and .SecurityEvents were both left null on this
+            // head while MauiProgram assigned them, so the credential-checkout migration
+            // was inert and 22 audit call sites wrote to nothing. Both are registered as
+            // SINGLETONS on purpose — the statics they fill are process-wide, and neither
+            // of these carries per-user state (the credential store is a singleton; host
+            // security events are instance-level by nature). See PluginHostBridges.
+            services.AddSingleton<PluginHostApiKeyBridge>();
+
+            // NOT the registered IPlatformPathService: on the hosted head that one is Scoped
+            // and per-user, which is the whole thing an instance-level sink must not be.
+            // AccountsServiceExtensions replaces this registration with one pinned to the
+            // instance data root, exactly as it does for the shared secret store.
+            services.AddSingleton(new InstancePaths(new WebHostPathService()));
+            services.AddSingleton<PluginHostSecurityEventLog>();
+
             services.AddScoped<GlobalInputService>();
             services.AddScoped<ChartHoverTracker>();
 
@@ -627,7 +670,27 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<ITactileDriver, AccessibleTrader.Core.Services.Accessibility.Dotpad.DotpadTactileDriver>();
             services.AddScoped<ITactileCanvasCoordinator, TactileCanvasCoordinator>();
 
-            services.AddScoped<IJournalService, JournalService>();
+            // The journal is per-circuit (it is the visitor's own spoken transcript), but
+            // /diag/journal is a plain HTTP request and so resolves a DIFFERENT scope —
+            // which is why that endpoint could only ever return an empty array. Mirror
+            // each circuit's entries into a process-wide, per-owner ring so the endpoint
+            // has something to read, keyed so it can only ever hand back the caller's own.
+            // See JournalMirror.
+            services.AddSingleton<JournalMirror>();
+            services.AddScoped<IJournalService>(sp =>
+            {
+                var journal = new JournalService(
+                    sp.GetRequiredService<IEventBus>(),
+                    sp.GetRequiredService<IWorkspaceStore>());
+                var mirror = sp.GetRequiredService<JournalMirror>();
+                // Owner resolved per ENTRY, not captured at construction: on the hosted
+                // head the circuit handler sets ICurrentUser after the DI graph is built,
+                // so a key captured here would be "anon" for the whole circuit.
+                journal.EntryAdded += entry => mirror.Record(
+                    sp.GetService<Account.ICurrentUser>()?.DataKey ?? JournalMirror.LocalOwner,
+                    entry);
+                return journal;
+            });
 
             return services;
         }
