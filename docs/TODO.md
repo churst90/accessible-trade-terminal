@@ -117,7 +117,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-27, commit `92903461`, CI green on all three workflows).**
+> **START HERE (current as of 2026-08-27, commit `6393ef3b`, CI green on all three workflows).**
 >
 > **0 CRITICAL, 0 HIGH.** The live work is the MEDIUM backlog. Three clusters are done: the
 > accessibility/speech batch (`2b55e6fa`), the hosted-WebHost security section (`19128450`), and
