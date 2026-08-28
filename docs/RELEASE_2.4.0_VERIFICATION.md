@@ -74,7 +74,23 @@ reintroducing the bug and watching a named test go red.
 
 ## Not checked ❌
 
-### 1. The mutation catch rate is stale, and it is the number the grade turns on
+### 1. ~~The mutation catch rate is stale~~ — MEASURED 2026-08-28, THE DAY AFTER THE TAG
+
+> **CLOSED, and the answer is 89.3%.** The campaign this item asked for ran on 2026-08-28: the same
+> 28 mutants against the 5,754-test suite, **25 caught, 3 survived**, with all 14 thin catches
+> re-checked in isolation three times each and **zero** found spurious — where A2's pass had
+> reclassified five. A2/F1, the four flaky tests, is closed with it: none of the four fired across
+> 29 full-suite runs. Full write-up and raw data are in `TODO.md` under "A2b — the mutation catch
+> rate, re-measured".
+>
+> **The caveat travels with the number.** This re-ran A2's *published* mutant list, and much of the
+> intervening test work was written against it, so 89.3% is an **upper bound** — how well the suite
+> defends 28 properties it was told about. A fresh, independently-chosen mutant set is filed as the
+> follow-up and is what would support a grade change on its own.
+>
+> **This does not change what 2.4.0 shipped.** It raises confidence in the suite that verified it,
+> which is exactly what the reasoning below predicted the trade-off would be. The reasoning is kept
+> as written because it decided the release order and it still reads true.
 
 **61% measured 2026-08-26 against a 4,830-test suite.** The suite is now 5,754 — roughly 900 tests
 have landed since — and nothing has re-measured it. This is the weakest evidence in the whole

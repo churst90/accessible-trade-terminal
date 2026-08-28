@@ -117,7 +117,39 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-28, second session that day — 2.4.0 IS CUT).**
+> **START HERE (current as of 2026-08-28, THIRD session that day — the catch rate is re-measured).**
+>
+> **(c) IS DONE. The mutation catch rate is 89.3%, up from 61%.** 25 of 28 mutants caught, 3
+> survived, and the second pass re-checked all 14 thin catches three times each and found **zero
+> spurious** — where A2's equivalent pass reclassified five. Full write-up in the
+> "**A2b — the mutation catch rate, re-measured**" section below; raw data in
+> `scratchpad/a2b_sabotage_results.json` and `scratchpad/a2b_disambiguate_results.json`.
+>
+> **Read the caveat before quoting the number.** This re-ran *A2's own 28 mutants*, and much of the
+> test work since was written in response to A2's published survivor list. 89.3% measures how well
+> the suite defends the 28 properties it was told about — it is an **upper bound**, not a clean
+> estimate against unseen mutants. A fresh, independently-chosen mutant set is filed under
+> "The work A2b creates" and is what would make a catch-rate number quotable on its own.
+>
+> **Two things closed as a side effect.** **A2/F1 — the four flaky tests — is CLOSED**: across 29
+> full-suite runs none of the four fired once, where A2 saw 7 spurious failures from them across 28.
+> And **eight of A2's eleven survivors are now genuinely caught**, with nothing A2 caught regressed.
+>
+> **NEXT, and the list is short and concrete.** The three survivors are the next work, and two of
+> them are A2 findings whose test work was never done — the survivors are exactly the items still
+> open in this file:
+>
+> 1. **M11** — deleting `WalletModal.razor`'s `focusElement` call leaves the suite green (A2/F4).
+> 2. **M19** — a dialog button losing its `aria-label` goes unnoticed (A2/F9).
+> 3. **M15** — SMA silently averages a short window over a gapped source.
+>
+> All three are filed with fix shapes under "The work A2b creates". After them, the fresh mutant
+> campaign. The three candidate clusters named in the previous block are unchanged and still live if
+> a bigger piece of work is wanted instead.
+>
+> ---
+>
+> **Previous (2026-08-28, second session — 2.4.0 IS CUT).**
 >
 > **2.4.0 was tagged on 2026-08-28.** Items (a) and (b) of the four-item order below went in
 > first, then the release. Suite **5,754** green in both configs (`--list-tests` reports
@@ -154,7 +186,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    written into prose has nothing checking it — `doc-drift.yml` guards the test count and the
 >    plugin count and nothing else.
 >
-> **(c) — RE-MEASURE THE MUTATION CATCH RATE — IS NOW THE TOP ITEM AND IT IS UNCHANGED.**
+> **(c) — RE-MEASURE THE MUTATION CATCH RATE — ~~IS NOW THE TOP ITEM~~ DONE 2026-08-28, see the
+> block above; the result was 89.3%. Kept for the reasoning, which still reads true.**
 > A2 measured **61%** on 2026-08-26 against a 4,830-test suite; the suite is 5,754 now, about
 > 900 tests later, and that number is what the production-readiness grade turns on. **Budget a
 > session of its own**: 28 mutation cycles, each a rebuild plus a full run (~2m18s in Release).
@@ -686,7 +719,12 @@ bracket-side, position-size and protective-level mutant died immediately and lou
 whole class of tests written specifically for that property. The exposure is not in the trading
 arithmetic. It is in everything that surrounds it.
 
-### CONFIRMED — F1. Four flaky tests, and they invert verdicts (HIGH)
+### CONFIRMED — F1. Four flaky tests, and they invert verdicts (HIGH) — **CLOSED 2026-08-28**
+
+**Closed by measurement, not by inspection.** The A2b re-run put 29 full-suite runs through the same
+machine (28 mutants plus a baseline) and **none of the four tests below failed once**; the three
+survivor runs were completely green and the second pass found **0 spurious catches** where A2 found
+five. See "A2b — the mutation catch rate, re-measured" above. Original finding follows.
 
 Across 28 full-suite runs, **7 spurious failures from 4 distinct tests**:
 
@@ -1076,6 +1114,113 @@ exist are honest — no vacuous guards, no assertion-free tests, no empty baseli
 defended in depth. What green does not mean is that anything *outside* the arithmetic works: the
 words the user hears, the order they hear them in, where focus lands, which key opens what, and what
 a backtest charges are all currently unguarded.
+
+---
+
+## A2b — the mutation catch rate, re-measured (2026-08-28)
+
+**61% → 89.3%.** A2 measured the catch rate on 2026-08-26 against a 4,830-test suite. The suite is
+**5,754** now, and the number had gone stale enough that `RELEASE_2.4.0_VERIFICATION.md` carried it
+across the 2.4.0 tag as the weakest evidence in the whole picture. This is the re-run.
+
+**Method, and it is deliberately the same instrument.** `scratchpad/a2b_sabotage.py` imports A2's
+mutant list from `scratchpad/a2_sabotage.py` so the unchanged mutants are provably the same bytes,
+same commands, same configuration (Debug, the default), full suite every time, a mutant counting as
+CAUGHT only if something *anywhere* goes red. Raw results in
+`scratchpad/a2b_sabotage_results.json`, the second pass in `scratchpad/a2b_disambiguate_results.json`.
+
+- **Baseline first: 5,754 passed, 0 failed, 0 skipped, 2m18s.** A red baseline would have made every
+  mutant look caught, which is the one way this measurement can silently produce a flattering number.
+- **25 of 28 anchors still matched the tree byte for byte** and were used verbatim.
+- **Campaign: 25 CAUGHT, 3 SURVIVED, 0 failed to compile.** 68 minutes of wall clock.
+
+### The three that survived, and they are not a random three
+
+| survived | area | what it breaks | already filed as |
+| --- | --- | --- | --- |
+| M11 | modal focus | the Wallet dialog stops focusing its first field | **A2/F4** — the focus contract asserts *somewhere valid*, not the right place |
+| M15 | moving averages | SMA averages a short window when the source has gaps | (no filing — a plain gap in `MovingAverageHelper`) |
+| M19 | accessible name | a dialog button loses its `aria-label` | **A2/F9** — 181 of 193 accessible names are unpinned |
+
+Two of the three are the A2 findings whose test work was never done. That is a coherent result
+rather than a random one: **the survivors are exactly the items still open in this file.**
+
+### Eight of A2's eleven survivors are now genuinely caught
+
+M07 (EMA warmup, 4 tests), M10 (sandbox blocklist, by `SandboxBlocklistCoverageTests` — a class that
+did not exist at A2), M17 (speech interrupt, by `OrderEventAnnouncementTests` — A2/F2), M20 (shortcut
+table, 3), M21 (order outcome, by B1's `OrderPlacementVocabularyTests`), M24 (narration causality, by
+`NarrationCausalityTests` — A2/F8), M27 and M28 (backtest costs, by `StrategyBacktesterTests.Costs_*`
+— A2/F5). **Nothing A2 caught has regressed.**
+
+### The second pass found nothing this time, and that is the finding
+
+A2's sharpest procedural result was that **five mutants came back falsely CAUGHT by one unrelated
+flaky test firing alone** — the entire difference between the naive 79% and the true 61%. So every
+catch here resting on ≤2 failing tests was re-checked: mutant re-applied, rebuilt, and only the named
+tests run, **three times each**, keeping the catch only if the test failed under the mutant on every
+run. **14 verdicts re-checked, 14 hold, 0 spurious.** The per-run failed/passed counts are in the
+JSON; `F1/P0, F1/P0, F1/P0` is the shape of a genuine catch.
+
+**A2/F1 (four flaky tests) is closed, and this run is the evidence.** A2 recorded 7 spurious failures
+from 4 distinct tests across 28 full-suite runs. Across the 29 full-suite runs here (28 mutants plus
+the baseline), `LinuxBwrapSandboxTests`, `StrategyCausalityGateTests`, `ChartAreaBarSliderTests` and
+`SettingsModalTests` **appear zero times**. The three survivor runs were completely green. The
+`ScriptWorker` collection and the bwrap `--die-with-parent` fix did what they were supposed to do.
+
+### Three mutants were re-anchored, and the substitution matters
+
+The code A2 mutated was rewritten underneath three of them. Each is re-anchored to the nearest
+equivalent edit and the reason is recorded in the driver's docstring rather than buried:
+
+- **M21** — B1 replaced the bare-string order protocol with the typed `OrderPlacement`, so
+  `GeneralOrderService`'s two-clause prefix test is gone; the same test now lives in
+  `OrderPlacement.Parse`'s reserved-prefix arm and the mutant drops the `ProviderPrefix` clause from
+  it. **Note the asymmetry: the new code is defended in depth.** A `PROVIDER_NOT*` sentinel is
+  matched by an earlier branch and survives this mutation, so only non-`NOT_*` codes fall through to
+  "an order id — it went". **M21 is now strictly harder to catch than A2's version was** — a point in
+  the refactor's favour and a caveat on the comparison.
+- **M27 / M28** — the backtest cost model was rewritten in the HIGH pass (a reversal is two fills, and
+  the entry commission used to be skipped entirely). Re-anchored to `entryCommission` and to
+  `WithSlippage`'s sign.
+
+### THE CAVEAT, and do not quote 89.3% without it
+
+**This is the same 28 mutants A2 published, and much of the test work since was written in response
+to A2's published survivor list.** M10, M17, M21, M24, M27 and M28 were closed by tests that exist
+*because* A2 named those gaps. The gaps were real and closing them was right, but it means 89.3%
+measures **how well the suite defends the 28 properties it was told about** — it is not a clean
+estimate of the catch rate against mutants nobody has seen. The honest reading:
+
+- **61% → 89.3% on the same instrument is a real improvement** and the commissioned test work
+  demonstrably landed. That much is sound.
+- **An unbiased number needs a fresh, independently-chosen mutant set.** Until that is run, treat
+  89.3% as an upper bound, and treat the 61% it replaces as retired rather than refuted.
+
+**Filed as the follow-up:** a second campaign of ~28 *new* mutants, chosen without reference to A2's
+list and weighted toward the areas A2 identified as structurally weakest (what the user hears, the
+order they hear it in, where focus lands, what a key opens). That is the measurement that would
+support a grade change on its own.
+
+### The work A2b creates
+
+- [ ] **Kill M11 — the Wallet modal's focus call is unguarded.** Deleting
+      `WalletModal.razor`'s `focusElement("wallet-asset")` leaves the whole suite green. This is
+      A2/F4 concretely: assert `document.activeElement` against a **declared per-modal target**, not
+      merely that focus went somewhere valid. The browser harness is the right layer —
+      `AccessibleTrader.BrowserTests` already opens dialogs by their real shortcut. Prove it by
+      deleting the call and watching the new test go red.
+- [ ] **Kill M15 — `MovingAverageHelper` SMA over a gapped source.** `r[i] = cnt == period ? sum /
+      period : double.NaN` can be changed to `cnt > 0 ? sum / cnt : double.NaN` with nothing going
+      red, i.e. a short window is silently averaged and presented as an N-period SMA. One test with a
+      NaN-holed input; assert NaN where the window is short rather than a number.
+- [ ] **Kill M19 — a dialog button losing its `aria-label`.** A2/F9's 181-of-193 finding, still
+      unpinned. A sweep asserting every interactive control in the component library has an
+      accessible name is the general fix; the browser harness already proves every dialog announces
+      a name, so the gap is the controls *inside* them.
+- [ ] **Run a fresh 28-mutant campaign chosen without reference to A2's list** — see the caveat
+      above. This is the one that would make a catch-rate number quotable on its own, and it is the
+      difference between "the suite defends what it was told about" and "the suite defends the app".
 
 ---
 

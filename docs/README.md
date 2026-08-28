@@ -117,6 +117,11 @@ inspecting the walker, and four of them worked — `dynamic` switched the entire
 test-suite audit introduced **28 single-line regressions one at a time**, each followed by a full
 run: **11 survived a green suite**, so the true mutation catch rate was 61%, not the 79% a naive
 count gave — five mutants had come back falsely "caught" by one unrelated flaky test firing alone.
+**Re-run on 2026-08-28 against the 5,754-test suite, the same 28 mutants now score 89.3%** — 25
+caught, 3 survived, and this time the second pass found zero spurious catches and none of the four
+flaky tests fired across 29 full-suite runs. Read it as an upper bound: those 28 mutants are the
+ones the test work since was written against, so a fresh mutant set is owed before the number is
+quoted on its own.
 The browser-harness audit *is* the tooling: `AccessibleTrader.BrowserTests` drives a real Chromium
 against a real Kestrel running the real WebHost, 128 cases in under a minute, with a CI job of its
 own, and most of what it produced was refutation — across 24 cold-start routes, focus lands on the
@@ -166,13 +171,13 @@ reintroducing it and watching a test go red.** The ones worth knowing about:
 
 **What is open.** The MEDIUM backlog, with no single obvious cluster left now that the provider tier
 is closed — the candidates and the reasoning are in the START HERE block at the top of
-[`TODO.md`](TODO.md), which is the authoritative order. Read that before picking anything up. Two
-items carry across the 2.4.0 tag and are named in
-[`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md): the **mutation catch rate is
-stale** — 61% was measured against a 4,830-test suite on 2026-08-26 and roughly 900 tests have
-landed since, and that number is what the readiness grade turns on — and the StrategyLab's flagship
-statistic is **banner-marked provisional and owed a re-run**: p = 0.0045 tested the winner of a
-16-cell grid, and the survivorship stress beside it could not fail by construction.
+[`TODO.md`](TODO.md), which is the authoritative order. Read that before picking anything up. Of the two
+items that carried across the 2.4.0 tag in
+[`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md), the **stale mutation catch rate is
+now closed** — re-measured 2026-08-28 at **89.3%**, with the three surviving mutants filed as the
+next work — while the StrategyLab's flagship statistic remains **banner-marked provisional and owed
+a re-run**: p = 0.0045 tested the winner of a 16-cell grid, and the survivorship stress beside it
+could not fail by construction.
 
 ## Status at 2.3.0 (2026-08-01)
 

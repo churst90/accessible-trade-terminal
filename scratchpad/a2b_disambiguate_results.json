@@ -1,0 +1,490 @@
+[
+ {
+  "id": "M04",
+  "area": "speech formatting",
+  "named": [
+   "AccessibleTrader.Tests.QuantityFormatterTests.PrecisionFollowsMagnitude",
+   "AccessibleTrader.Tests.QuantityFormatterTestsUnderDeDe.PrecisionFollowsMagnitude"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.QuantityFormatterTests.PrecisionFollowsMagnitude": [
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "AccessibleTrader.Tests.QuantityFormatterTestsUnderDeDe.PrecisionFollowsMagnitude": [
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.QuantityFormatterTests.PrecisionFollowsMagnitude",
+   "AccessibleTrader.Tests.QuantityFormatterTestsUnderDeDe.PrecisionFollowsMagnitude"
+  ],
+  "status": "CAUGHT",
+  "seconds": 17
+ },
+ {
+  "id": "M06",
+  "area": "release gate",
+  "named": [
+   "AccessibleTrader.Tests.WithdrawalReleaseGateTests.The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.WithdrawalReleaseGateTests.The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.WithdrawalReleaseGateTests.The_withdrawal_checkbox_does_not_render_while_the_gate_is_closed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 12
+ },
+ {
+  "id": "M09",
+  "area": "sandbox blocklist",
+  "named": [
+   "AccessibleTrader.Tests.HostileScriptTests.Rejects_FileSystemAccess_ViaFileClass"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.HostileScriptTests.Rejects_FileSystemAccess_ViaFileClass": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.HostileScriptTests.Rejects_FileSystemAccess_ViaFileClass"
+  ],
+  "status": "CAUGHT",
+  "seconds": 10
+ },
+ {
+  "id": "M10",
+  "area": "sandbox blocklist",
+  "named": [
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.Every_blocked_member_refuses_a_script_that_touches_it",
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.No_probe_names_an_entry_that_is_no_longer_blocked"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.Every_blocked_member_refuses_a_script_that_touches_it": [
+    [
+     1,
+     24
+    ],
+    [
+     1,
+     24
+    ],
+    [
+     1,
+     24
+    ]
+   ],
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.No_probe_names_an_entry_that_is_no_longer_blocked": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.Every_blocked_member_refuses_a_script_that_touches_it",
+   "AccessibleTrader.Tests.SandboxBlocklistCoverageTests.No_probe_names_an_entry_that_is_no_longer_blocked"
+  ],
+  "status": "CAUGHT",
+  "seconds": 15
+ },
+ {
+  "id": "M12",
+  "area": "earcon mute tiers",
+  "named": [
+   "AccessibleTrader.Tests.MuteTierTests.BreakThrough_alert_earcon_pierces_the_earcon_mute"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.MuteTierTests.BreakThrough_alert_earcon_pierces_the_earcon_mute": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.MuteTierTests.BreakThrough_alert_earcon_pierces_the_earcon_mute"
+  ],
+  "status": "CAUGHT",
+  "seconds": 8
+ },
+ {
+  "id": "M14",
+  "area": "alerts",
+  "named": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 11
+ },
+ {
+  "id": "M17",
+  "area": "speech routing",
+  "named": [
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.MoneyEvents_InterruptWhateverIsBeingSpoken",
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.TheInterruptFlagIsRecorded_AndTheTwoClassesDisagree"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.MoneyEvents_InterruptWhateverIsBeingSpoken": [
+    [
+     1,
+     5
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     1,
+     5
+    ]
+   ],
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.TheInterruptFlagIsRecorded_AndTheTwoClassesDisagree": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.MoneyEvents_InterruptWhateverIsBeingSpoken",
+   "AccessibleTrader.Tests.OrderEventAnnouncementTests.TheInterruptFlagIsRecorded_AndTheTwoClassesDisagree"
+  ],
+  "status": "CAUGHT",
+  "seconds": 11
+ },
+ {
+  "id": "M18",
+  "area": "protective entry",
+  "named": [
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.ANonPositivePriceIsRefused"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.ANonPositivePriceIsRefused": [
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.ProtectiveLevelValidatorTests.ANonPositivePriceIsRefused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 7
+ },
+ {
+  "id": "M21",
+  "area": "order outcome classification",
+  "named": [
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUnrecognisedReservedCode_IsARefusalNotAnOrderId"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUnrecognisedReservedCode_IsARefusalNotAnOrderId": [
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     3
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUnrecognisedReservedCode_IsARefusalNotAnOrderId"
+  ],
+  "status": "CAUGHT",
+  "seconds": 7
+ },
+ {
+  "id": "M23",
+  "area": "crash-safe persistence",
+  "named": [
+   "AccessibleTrader.Tests.PersistenceHardeningTests.AtomicFile_LeavesNoTempFilesBehind"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.PersistenceHardeningTests.AtomicFile_LeavesNoTempFilesBehind": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.PersistenceHardeningTests.AtomicFile_LeavesNoTempFilesBehind"
+  ],
+  "status": "CAUGHT",
+  "seconds": 7
+ },
+ {
+  "id": "M24",
+  "area": "indicator causality",
+  "named": [
+   "AccessibleTrader.Tests.NarrationCausalityTests.SwingStructure_recent_swings_are_the_swings_before_the_cursor",
+   "AccessibleTrader.Tests.NarrationCausalityTests.What_an_indicator_says_at_a_bar_does_not_change_when_the_future_changes"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.NarrationCausalityTests.SwingStructure_recent_swings_are_the_swings_before_the_cursor": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "AccessibleTrader.Tests.NarrationCausalityTests.What_an_indicator_says_at_a_bar_does_not_change_when_the_future_changes": [
+    [
+     1,
+     26
+    ],
+    [
+     1,
+     26
+    ],
+    [
+     1,
+     26
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.NarrationCausalityTests.SwingStructure_recent_swings_are_the_swings_before_the_cursor",
+   "AccessibleTrader.Tests.NarrationCausalityTests.What_an_indicator_says_at_a_bar_does_not_change_when_the_future_changes"
+  ],
+  "status": "CAUGHT",
+  "seconds": 11
+ },
+ {
+  "id": "M25",
+  "area": "focus ring contrast",
+  "named": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsAFocusRingThatContrastsWithItsChrome"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsAFocusRingThatContrastsWithItsChrome": [
+    [
+     12,
+     0
+    ],
+    [
+     12,
+     0
+    ],
+    [
+     12,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsAFocusRingThatContrastsWithItsChrome"
+  ],
+  "status": "CAUGHT",
+  "seconds": 7
+ },
+ {
+  "id": "M26",
+  "area": "text contrast",
+  "named": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsReadableInkOnItsAccent"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsReadableInkOnItsAccent": [
+    [
+     11,
+     1
+    ],
+    [
+     11,
+     1
+    ],
+    [
+     11,
+     1
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_getsReadableInkOnItsAccent"
+  ],
+  "status": "CAUGHT",
+  "seconds": 7
+ },
+ {
+  "id": "M27",
+  "area": "backtest cost model",
+  "named": [
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_LongEntry_PaysSlippageUpAndCommissionOnBothSides",
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_ShortEntry_PaysSlippageDownAndCommissionOnBothSides"
+  ],
+  "per_test": {
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_LongEntry_PaysSlippageUpAndCommissionOnBothSides": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_ShortEntry_PaysSlippageDownAndCommissionOnBothSides": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "genuine": [
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_LongEntry_PaysSlippageUpAndCommissionOnBothSides",
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_ShortEntry_PaysSlippageDownAndCommissionOnBothSides"
+  ],
+  "status": "CAUGHT",
+  "seconds": 11
+ }
+]
