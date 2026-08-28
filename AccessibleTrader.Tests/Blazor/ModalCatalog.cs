@@ -114,7 +114,60 @@ public static class ModalCatalog
         c.Seed?.Invoke(h);
         var cut = c.Render(h.Ctx);
         cut.InvokeAsync(() => c.Open(h.EventBus)).GetAwaiter().GetResult();
+        Settle(cut);
         return cut;
+    }
+
+    /// <summary>
+    /// Drain the renderer dispatcher until the open has finished settling.
+    ///
+    /// <para>
+    /// Publishing the Open event returns as soon as the handler's <c>InvokeAsync(ShowAsync)</c> is
+    /// queued — the modal's own async work continues afterwards. That was harmless while
+    /// <c>await ShowModalAsync(...)</c> parked forever (see the SetVoidResult note in
+    /// <see cref="BlazorTestHarness"/>): nothing ran after it, so there was nothing to race. With
+    /// the await completing, a modal that loads data on open — AssetDossierModal is the only one —
+    /// is still mid-<c>RefreshAsync</c> when the caller's next line runs, and
+    /// ModalDisposeLeakTests' next line is <c>Ctx.Dispose()</c>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Be honest about what this does and does not fix.</b> It was written for a CI-only red on
+    /// 2026-08-28 (AssetDossierModal reported as leaking two subscriptions after dispose) on the
+    /// theory that teardown was landing on an in-flight continuation. **That theory is refuted** —
+    /// <c>ModalDisposeDuringLoadTests</c> stretches the load with a real delay so the dispose is
+    /// unambiguously mid-flight, and the subscriptions come back released every time. The CI
+    /// failure was not reproduced locally, under repeated runs or under CPU contention, and stands
+    /// unexplained. This settle is kept because it removes a genuine source of nondeterminism from
+    /// every catalog suite and makes "opened" mean "opened and quiet" — it is a narrowing, not a
+    /// diagnosis, and it should not be cited as the fix if the red returns.
+    /// </para>
+    ///
+    /// <para>
+    /// Note what it cannot do: draining the dispatcher does not wait for a pending <c>await</c> on
+    /// slow I/O, only for work already queued. Under the harness every service is a substitute, so
+    /// there is no such wait to miss.
+    /// </para>
+    /// </summary>
+    private static void Settle(IRenderedFragment cut)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int quiet = 0;
+        while (sw.ElapsedMilliseconds < 5000)
+        {
+            int before = cut.RenderCount;
+            // An empty dispatch runs behind everything already queued on the dispatcher, so it
+            // returns only once those have run.
+            cut.InvokeAsync(() => { }).GetAwaiter().GetResult();
+            if (cut.RenderCount == before)
+            {
+                // Three consecutive quiet passes, because a continuation resuming from the
+                // thread pool can be posted between the count check and the drain.
+                if (++quiet >= 3) return;
+            }
+            else quiet = 0;
+            Thread.Sleep(5);
+        }
     }
 }
 

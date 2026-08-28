@@ -120,9 +120,21 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > **START HERE (current as of 2026-08-28, FOURTH session that day — the three survivors are dead).**
 >
 > **M11, M15 and M19 are all closed, each proved by re-applying its mutant and watching the new
-> test go red.** Suite **5,796** in both configs (`--list-tests` **5791** — the number
+> test go red.** Suite **5,798** in both configs (`--list-tests` **5793** — the number
 > `docs/README.md` must match), browser harness **129/129**. No behaviour changed in `Core`; the
 > production change is 22 `aria-label` attributes in the component library.
+>
+> **One loose end, recorded as unexplained rather than fixed.** The first push (`f006e848`) went
+> green locally in both configs and **red on CI**: `ModalDisposeLeakTests` reported
+> `AssetDossierModal` leaking `CloseTopModalEvent, OpenAssetDossierEvent` after dispose. It is the
+> only catalog modal that loads data on open, so it is the one the `SetVoidResult` fix newly woke
+> up — teardown landing on an in-flight continuation was the obvious theory. **That theory is
+> refuted**: `ModalDisposeDuringLoadTests` stretches the load with a real delay so the dispose is
+> unambiguously mid-flight, and the subscriptions come back released every time. The red was not
+> reproduced locally across repeated runs or under CPU contention. `ModalCatalog.OpenDialog` now
+> settles the dispatcher before returning — that removes real nondeterminism from all three catalog
+> suites, but **it is a narrowing, not a diagnosis, and must not be cited as the fix if the red
+> returns.**
 >
 > 1. **M15 — `MovingAverageHelper.Sma` over a gapped source. CLOSED.**
 >    `AccessibleTrader.Tests/MovingAverageGapTests.cs`, 12 cases; the mutant takes 7 of them red.
