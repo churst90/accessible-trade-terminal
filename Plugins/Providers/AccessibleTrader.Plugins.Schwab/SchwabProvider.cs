@@ -198,7 +198,11 @@ namespace AccessibleTrader.Plugins.Schwab
             await EnsureConnectedAsync().ConfigureAwait(false);
             if (_currentSymbol == symbol && _currentTimeframe == timeframe) return;
 
+            // Cancel AND dispose. A cancelled-but-undisposed source holds its registration list
+            // and any armed timer handle, and a symbol switch does this hundreds of times over a
+            // long session. Binance already got this right; Schwab and Tradier did not.
             _pollCts?.Cancel();
+            _pollCts?.Dispose();
             _currentSymbol    = symbol;
             _currentTimeframe = timeframe;
             _pollCts          = new CancellationTokenSource();
@@ -535,7 +539,8 @@ namespace AccessibleTrader.Plugins.Schwab
         }
 
         /// <summary>Authoritative single-order status via GET /accounts/{hash}/orders/{id}.
-        /// Returns null on a transient failure (the poller retries).</summary>
+        /// Returns null only when the order cannot be identified; a transient failure THROWS —
+        /// see the comment in the body and <see cref="ITradingProvider.GetOrderStatusAsync"/>.</summary>
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
             if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;

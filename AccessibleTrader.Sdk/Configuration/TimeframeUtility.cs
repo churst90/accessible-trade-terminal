@@ -18,7 +18,7 @@ namespace AccessibleTrader.Sdk.Configuration
             // NOTE: "1M" (month) must be checked BEFORE ToLower() to avoid collision with "1m" (minute).
             if (timeframe == "1M" || timeframe == "1month" || timeframe == "1mth") return 2592000;
 
-            return timeframe.ToLower() switch
+            return timeframe.ToLowerInvariant() switch
             {
                 "1m" or "1min" => 60,
                 "3m" or "3min" => 180,

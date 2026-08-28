@@ -319,7 +319,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             _           => OrderStatus.Unknown,
         };
 
-        private TimeSpan MapTimeframeToTimeSpan(string tf) => tf.ToLower() switch
+        private TimeSpan MapTimeframeToTimeSpan(string tf) => tf.ToLowerInvariant() switch
         {
             "1m"  => TimeSpan.FromMinutes(1),
             "5m"  => TimeSpan.FromMinutes(5),
@@ -420,7 +420,12 @@ namespace AccessibleTrader.Plugins.Coinbase
                         ?? new List<string>();
                 });
             }
-            catch { return new List<string>(); }
+            catch (Exception ex)
+            {
+                // An empty symbol list and a failed products call look identical in the picker.
+                _errorStream.OnNext($"Coinbase symbol list unavailable: {ex.GetType().Name}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>
@@ -449,7 +454,14 @@ namespace AccessibleTrader.Plugins.Coinbase
                     return (bids, asks);
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // SAY SO. A bare catch here reported a failed read as a book with no liquidity —
+                // for a sighted user an empty depth ladder is a visible oddity, for this
+                // product's audience the two are the same thing.
+                _errorStream.OnNext($"Coinbase order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new(), new());
+            }
         }
 
         // ── IOrderBookProvider ──────────────────────────────────────────────
@@ -658,13 +670,30 @@ namespace AccessibleTrader.Plugins.Coinbase
             if (!IsConfigured) return false;
             try
             {
-                var body     = new JObject { ["order_ids"] = new JArray { orderId } };
-                string path = "/api/v3/brokerage/orders/batch_cancel";
-                var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
-                using var response = await SendSignedAsync(HttpMethod.Post, $"https://api.coinbase.com{path}", path, content).ConfigureAwait(false);
-                return response.IsSuccessStatusCode;
+                // Through the rate limiter, like every other trading call in this file — this
+                // was the only one that went straight to the wire. ExecuteOnceAsync, not
+                // ExecuteAsync: a cancel MUTATES, and the retry-on-timeout that is right for a
+                // GET is what re-sends a request the venue already booked.
+                return await _rateLimiter.ExecuteOnceAsync(async () =>
+                {
+                    var body     = new JObject { ["order_ids"] = new JArray { orderId } };
+                    string path = "/api/v3/brokerage/orders/batch_cancel";
+                    var content  = new StringContent(body.ToString(), System.Text.Encoding.UTF8, "application/json");
+                    using var response = await SendSignedAsync(HttpMethod.Post, $"https://api.coinbase.com{path}", path, content).ConfigureAwait(false);
+                    return response.IsSuccessStatusCode;
+                }).ConfigureAwait(false);
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                // "We could not reach Coinbase" and "Coinbase refused the cancel" both used to
+                // come back as a bare false, which the UI speaks as the order already being
+                // gone. They are opposite facts: one means the order is still live and still
+                // yours to manage. The bool stays false because the cancel did not happen, and
+                // the reason is now SAID.
+                _errorStream.OnNext(
+                    $"Coinbase could not cancel order {orderId}: {ex.GetType().Name}. The order may still be working.");
+                return false;
+            }
         }
 
         public Task<double> SetLeverageAsync(string symbol, double leverage) => Task.FromResult(1.0);
@@ -785,7 +814,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             return handler.WriteToken(jwt);
         }
 
-        private string MapToCoinbaseGranularity(string tf) => tf.ToLower() switch
+        private string MapToCoinbaseGranularity(string tf) => tf.ToLowerInvariant() switch
         {
             "1m"  => "ONE_MINUTE",
             "5m"  => "FIVE_MINUTE",
@@ -796,7 +825,7 @@ namespace AccessibleTrader.Plugins.Coinbase
             _     => "ONE_HOUR"
         };
 
-        private int MapTimeframeToSeconds(string tf) => tf.ToLower() switch
+        private int MapTimeframeToSeconds(string tf) => tf.ToLowerInvariant() switch
         {
             "1m"  => 60,
             "5m"  => 300,

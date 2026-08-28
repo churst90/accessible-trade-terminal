@@ -211,5 +211,21 @@ namespace AccessibleTrader.Plugins.Glassnode
                 return (new List<Ohlcv>(), new List<(long, double)>());
             }
         }
+
+        /// <summary>
+        /// Releases the host-provided <see cref="HttpClient"/>. This class had no override at
+        /// all, unlike every sibling analytics provider (BGeometrics, Etherscan, Mempool, FRED),
+        /// so its client and the connections it held survived the provider. Low blast radius on
+        /// the desktop head, higher on the WebHost where providers are rebuilt per configuration
+        /// change.
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _http?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 }

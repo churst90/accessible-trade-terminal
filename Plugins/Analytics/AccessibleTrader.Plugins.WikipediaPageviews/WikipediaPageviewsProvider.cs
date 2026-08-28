@@ -245,7 +245,11 @@ namespace AccessibleTrader.Plugins.WikipediaPageviews
                     resp.EnsureSuccessStatusCode();
 
                     var json = await resp.Content.ReadAsStringAsync();
-                    return (Parse(json), Parse(json)
+                    // Parsed ONCE. This read `(Parse(json), Parse(json).Select(...))`, which
+                    // deserialised a payload of up to 4,000 points twice and materialised two
+                    // throwaway lists to return one of them.
+                    var bars = Parse(json);
+                    return (bars, bars
                         .Select(b => (new DateTimeOffset(b.Date, TimeSpan.Zero).ToUnixTimeMilliseconds(), b.Volume))
                         .ToList());
                 });

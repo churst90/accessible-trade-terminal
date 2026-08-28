@@ -186,11 +186,7 @@ namespace AccessibleTrader.Plugins.Gemini
                     vols.Add((ms / 1000, v));
                 }
 
-                if (request.Limit > 0 && bars.Count > request.Limit)
-                {
-                    bars = bars.Skip(bars.Count - request.Limit).ToList();
-                    vols = vols.Skip(vols.Count - request.Limit).ToList();
-                }
+                (bars, vols) = WindowedBars.Apply(request, bars, vols, "Gemini", request.Symbol, SurfaceWindowMiss);
             }
             catch (Exception ex)
             {
@@ -198,6 +194,9 @@ namespace AccessibleTrader.Plugins.Gemini
             }
             return (bars, vols);
         }
+
+        private void SurfaceWindowMiss(string message) =>
+            SurfaceError(message, ErrorSeverity.Medium, ErrorCategory.Provider);
 
         public override async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(
             string symbol, int limit = 10)

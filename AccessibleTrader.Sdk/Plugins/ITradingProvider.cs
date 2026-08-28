@@ -223,10 +223,20 @@ namespace AccessibleTrader.Sdk.Plugins
         bool SupportsOrderStatusQuery => false;
 
         /// <summary>
-        /// Returns an authoritative status snapshot for a single order by id, or
-        /// null when the provider can't resolve it right now (transient failure)
-        /// or doesn't support the lookup. Only meaningful when
-        /// <see cref="SupportsOrderStatusQuery"/> is true.
+        /// Returns an authoritative status snapshot for a single order by id. Only meaningful
+        /// when <see cref="SupportsOrderStatusQuery"/> is true.
+        ///
+        /// <para>
+        /// <b>A transient failure MUST THROW, not return null.</b> Null means "the broker
+        /// answered and has no such order"; it does not mean "I could not ask". The contract
+        /// used to say null covered transient failure too, and both implementations carry a
+        /// comment saying why that was wrong: the order poller counts consecutive failures and
+        /// gives up with a spoken warning, so a null read as "still resolving" turned a dead
+        /// endpoint into a silent infinite retry — the user waits forever for a fill
+        /// announcement that cannot arrive, with nothing said. Let the exception out and the
+        /// poller classifies it. A third provider implementing this from the stale doc would
+        /// have reintroduced exactly that.
+        /// </para>
         /// </summary>
         Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
             => Task.FromResult<OrderStatusSnapshot?>(null);

@@ -18,17 +18,55 @@ The mental model is:
 
 ## Currently shipped analytics providers
 
-All twelve live under `Plugins/Analytics/` and are surfaced under the **Analytics**
-terminal mode (the radio button where FRED lives). The market dropdown reflects the
-data category; the provider dropdown picks the source. One section below
-(*Equities Fundamentals — FMP Analytics*) is a second `IMarketDataProvider` exposed
-from the combined `Plugins/Providers/AccessibleTrader.Plugins.Fmp` project, not a
-separate plugin DLL.
+**Seventeen** projects live under `Plugins/Analytics/` and are surfaced under the
+**Analytics** terminal mode (the radio button where FRED lives). The market dropdown
+reflects the data category; the provider dropdown picks the source. Two sections below
+(*Equities — FMP* and *Equities Fundamentals — FMP Analytics*) are `IMarketDataProvider`s
+exposed from the combined `Plugins/Providers/AccessibleTrader.Plugins.Fmp` project, not
+separate plugin DLLs.
 
-All 12 analytics providers cap their outbound `HttpClient` at
+*(This section said "All twelve" and "All 12 analytics providers" until 2026-08-27, when
+there were seventeen — and the three regulatory sources, which are the strongest ones
+here for backtesting because their release lag is a published fact rather than an
+estimate, had no sections at all.)*
+
+Every analytics provider caps its outbound `HttpClient` at
 `MaxResponseContentBufferSize = 32 MB` with a 60s timeout (security pass #2,
 2026-04-16). BinanceVision additionally bounds per-archive decompressed size to
 256 MB via a `BoundedReadStream` to defuse zip bombs.
+
+## Point-in-time honesty — read this before using any of it in a backtest
+
+This is the single property that decides whether this data layer can be backtested at
+all, and until 2026-08-27 it was discussed in three class comments and nowhere in this
+document — the document a new provider author copies.
+
+**The rule: a bar may only be stamped at the moment its value became READABLE, never at
+the moment it describes.** The two dates are different for almost everything here, and
+the gap is where a backtest quietly stops measuring a decision anybody could have made.
+
+- **A whole-day statistic is not knowable until the day is over.** Active addresses for
+  the 5th counts every address that transacted between 00:00 and 23:59 on the 5th.
+  Stamping it at 00:00 on the 5th lets an indicator read it at that day's open, because
+  `CrossSeriesForwardFill` admits ties (`ticks[i].Ts <= barTs`). One bar of look-ahead is
+  the *whole* edge for a "buy when today's reading is low" gate. Use
+  `AnalyticsPublicationLag.ForWholeDayMetric` — it exists because six providers had
+  independently made the same off-by-one.
+- **A statistic with a published release schedule is stamped at RELEASE.** CFTC positions
+  are as-of Tuesday and published Friday ~15:30 ET, so bars carry Tuesday + 3 days.
+  FINRA short interest settles and publishes roughly nine business days later. SEC XBRL
+  facts carry both `end` (the period) and `filed` (the day it became public), and this
+  layer stamps `filed` — Apple's quarter ending 2026-06-27 was not knowable until it was
+  filed weeks afterwards.
+- **A snapshot endpoint cannot answer a historical window, and must refuse rather than
+  answer it with today's reading.** Etherscan's gas oracle and CoinGecko's `/global` have
+  no historical form on the free tier. Both now decline a window that has already closed
+  and say why, instead of charting one dot dated inside a range it was never from.
+- **Revisable series need extra lag.** Wikipedia pageviews are republished for a day or
+  two after the fact; `ForWholeDayMetric(day, extraDays)` covers that case.
+
+If you are adding a provider, decide which of those four your source is *before* writing
+the parse loop, and say so in the class doc.
 
 ### Economic — *FRED* (existing)
 - **Auth:** free API key from stlouisfed.org
@@ -383,6 +421,58 @@ no DI registration required.
 - **Symbols:** ETH_GAS_SAFE, ETH_GAS_FAST, ETH_GAS_PROPOSE, ETH_SUPPLY, ETH_SUPPLY2, ETH_PRICE, ETH_NODE_COUNT
 - **Resolution:** snapshot (current value per request)
 - **Strategy use:** gas price spikes = network congestion = potential volatility catalyst
+
+### Regulatory / Positioning — *CFTC* (no key required)
+- **Auth:** none — CFTC Socrata open-data API (publicreporting.cftc.gov)
+- **Symbols:** Commitment of Traders net speculator positioning per contract, as a percent
+  of total open interest. Financials (BTC, ETH, indices, FX) come from the "Traders in
+  Financial Futures" dataset `gpe5-46if` (leveraged-funds cohort); commodities from the
+  Disaggregated dataset `72hh-3qpy` (managed-money cohort). Futures-only, which is the
+  convention COT analysis uses.
+- **Resolution:** weekly. History from 2006-06; BTC from 2017-12.
+- **Point-in-time:** positions are as-of **Tuesday**, published **Friday ~15:30 ET**; bars
+  are stamped at report date + 3 days. The StrategyLab's own `CftcCotProvider` stamps at
+  the report date instead, so expect this one to lag it by three calendar days when
+  comparing results.
+- **Strategy use:** contrarian **at extremes only**. A multi-year net-long extreme means
+  there is nobody left to buy. Mid-range readings carry little information — gate
+  cycle/oscillator entries on positioning *not* being at the opposing extreme, using a
+  z-score or percentile-rank indicator.
+
+### Regulatory / Positioning — *FINRA Short Volume* (no key required)
+- **Auth:** none — `cdn.finra.org` Reg SHO daily files, plus the short-interest query API
+- **Symbols:** `{TICKER}_SHORTVOL` (e.g. `AAPL_SHORTVOL`), `{TICKER}_SHORTINT`,
+  `{TICKER}_DTC`. Any NMS ticker works; the symbol list returns a starter set of liquid
+  names for the dropdown.
+- **Resolution:** daily for short volume; biweekly for short interest.
+- **Units:** `ShortVolume / TotalVolume × 100` (0–100%). This is **not** short interest —
+  that is the separate biweekly report. Readings sit near 35–50% normally because
+  market-maker liquidity provision is marked short.
+- **Point-in-time:** one file per trading day, published after the close and immutable
+  once published — so a "not yet published" miss is cached only once it can no longer
+  change (a three-day window, because a Friday file lands over a weekend). Short-interest
+  settlements are stamped at settlement + the dissemination lag.
+- **Strategy use:** the closest thing equities have to crypto's funding rate as a
+  crowding proxy. The information is in the **extremes and the trend**, not the level, and
+  the squeeze-vs-informed-shorts literature is genuinely two-sided — context, not a signal.
+
+### Regulatory / Fundamentals — *SEC EDGAR* (no key required)
+- **Auth:** none. A contact email is sent in the User-Agent per SEC policy and is
+  configurable.
+- **Symbols:** two families. XBRL company concepts (`us-gaap` line items — revenue, EPS,
+  R&D, ~503 distinct concepts available for a large filer), and filing-event **counts per
+  day** by form type (`INSIDER` = Form 4, 8-K, `INSTITUTIONAL` = 13F-HR).
+- **Resolution:** event-driven — one point per filing date, not a fixed grid. Days with no
+  filings are **absent rather than zero-filled**; the consumer decides whether absence
+  means zero.
+- **Point-in-time:** every bar is stamped with `filed`, never `end`. This is the single
+  most important line in that provider. Filing counts read the submissions index **and**
+  the supplementary pages it lists under `filings.files` — reading only `filings.recent`
+  caps a large filer at roughly the last twelve months, and a truncated count is
+  indistinguishable from a quiet stretch.
+- **Strategy use:** the primary source the paid fundamentals vendors are substantially
+  reselling. Form 4 clustering against a company's own baseline; 8-K frequency as an
+  event-risk gate.
 
 ## Free / cheap data sources NOT yet built (future candidates)
 

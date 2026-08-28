@@ -465,7 +465,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 {
                     var response = await _httpClient.GetStringAsync($"{BaseUrl}/trading-pairs-info/");
                     var arr = JArray.Parse(response);
-                    return arr.Select(p => p["url_symbol"]?.ToString().ToUpper() ?? "").OrderBy(s => s).ToList();
+                    return arr.Select(p => p["url_symbol"]?.ToString().ToUpperInvariant() ?? "").OrderBy(s => s).ToList();
                 });
             }
             catch (Exception ex)
@@ -585,7 +585,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 {
                     double avail = json[$"{cur}_available"]?.Value<double>() ?? 0;
                     double res   = json[$"{cur}_reserved"]?.Value<double>() ?? 0;
-                    if (avail > 0 || res > 0) result.Add(new Balance(cur.ToUpper(), avail, res));
+                    if (avail > 0 || res > 0) result.Add(new Balance(cur.ToUpperInvariant(), avail, res));
                 }
                 return result;
             });

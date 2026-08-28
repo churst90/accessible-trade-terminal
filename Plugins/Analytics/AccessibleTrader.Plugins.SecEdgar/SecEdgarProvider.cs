@@ -33,11 +33,14 @@ namespace AccessibleTrader.Plugins.SecEdgar
     ///     honestly: see the point-in-time note below.
     ///   </item>
     ///   <item>
-    ///     <b>Submissions index</b> — <c>data.sec.gov/submissions/CIK{10}.json</c>. Every filing with
-    ///     its form type and date. Turned into COUNTS per period, which is the shape the research
+    ///     <b>Submissions index</b> — <c>data.sec.gov/submissions/CIK{10}.json</c>, PLUS the
+    ///     supplementary pages it lists under <c>filings.files</c>. Every filing with its form
+    ///     type and date. Turned into COUNTS per period, which is the shape the research
     ///     wants: 8-K frequency against a company's own baseline, Form 4 insider-transaction
     ///     clustering. Counts and rates are honest history; a judgement about what a filing MEANT
-    ///     would not be.
+    ///     would not be. Reading only <c>filings.recent</c> — as this did until 2026-08-27 —
+    ///     caps a large filer at roughly the last twelve months and hands the consumer a
+    ///     truncation it cannot tell apart from a quiet stretch.
     ///   </item>
     /// </list>
     ///
@@ -200,7 +203,13 @@ namespace AccessibleTrader.Plugins.SecEdgar
                 && !string.IsNullOrWhiteSpace(email) && email.Contains('@'))
             {
                 _contact = email.Trim();
+                // Dispose the client we are replacing. Configure runs again on every
+                // contact-email change, and each run used to strand the previous client and its
+                // connections — on the WebHost, where providers are rebuilt per configuration
+                // change, that is once per reconfigure for the life of the process.
+                var previous = _http;
                 _http = BuildClient(_contact);
+                previous?.Dispose();
                 _tickerMapLoaded = false;      // re-resolve under the new identity
                 _cikByTicker.Clear();
             }
@@ -344,14 +353,94 @@ namespace AccessibleTrader.Plugins.SecEdgar
                        .ToList();
         }
 
+        /// <summary>
+        /// How many supplementary submission documents will be pulled in for one filer.
+        ///
+        /// <para>
+        /// EDGAR paginates a filer's older filings into <c>filings.files</c>, roughly 1,000
+        /// entries per document. Ten covers about 11,000 filings — more than any filer in the
+        /// index has — and the cap exists as a runaway guard, not as a data limit. If it is ever
+        /// hit, the shortfall is SAID rather than silently trimmed: a truncated count is
+        /// indistinguishable from a quiet period, which is the whole defect this fixes.
+        /// </para>
+        /// </summary>
+        private const int MaxSupplementaryFilingDocuments = 10;
+
         private async Task<List<Ohlcv>> FetchFilingCountsAsync(int cik, string form)
         {
             string url = $"{SubmissionsBase}/CIK{cik:D10}.json";
-            using var resp = await _rateLimiter.ExecuteAsync(() => _http.GetAsync(url));
-            if (resp.StatusCode == HttpStatusCode.NotFound) return new List<Ohlcv>();
-            resp.EnsureSuccessStatusCode();
+            string body;
+            using (var resp = await _rateLimiter.ExecuteAsync(() => _http.GetAsync(url)))
+            {
+                if (resp.StatusCode == HttpStatusCode.NotFound) return new List<Ohlcv>();
+                resp.EnsureSuccessStatusCode();
+                body = await resp.Content.ReadAsStringAsync();
+            }
 
-            return ParseFilingCounts(await resp.Content.ReadAsStringAsync(), form);
+            // `filings.recent` IS NOT THE HISTORY. It caps out around 1,000 entries, which for a
+            // large filer is well under a single year of Form 4s — so a five-year insider-
+            // clustering study ran against four years of implicit zeros, and the class doc
+            // promised "every filing with its form type and date". EDGAR paginates the rest into
+            // `filings.files`, a list of supplementary documents this never looked at. The
+            // per-day counts below are the union of all of them.
+            var counts = ParseFilingCountsInto(body, form);
+
+            var extras = SupplementaryFilingDocuments(body);
+            int fetched = 0;
+            foreach (var name in extras)
+            {
+                if (fetched >= MaxSupplementaryFilingDocuments) break;
+                fetched++;
+                try
+                {
+                    using var extraResp = await _rateLimiter.ExecuteAsync(
+                        () => _http.GetAsync($"{SubmissionsBase}/{name}"));
+                    if (!extraResp.IsSuccessStatusCode) continue;
+                    MergeFilingCounts(counts, ParseFilingCountsInto(await extraResp.Content.ReadAsStringAsync(), form));
+                }
+                catch (Exception ex)
+                {
+                    // One unreachable page means the older end of the series is INCOMPLETE, and
+                    // a short series looks exactly like a filer that was quiet then.
+                    _errorStream.OnNext(
+                        $"SEC EDGAR could not read an older filings page for CIK {cik} ({ex.GetType().Name}); "
+                        + "counts before the most recent page may be understated.");
+                }
+            }
+
+            if (extras.Count > MaxSupplementaryFilingDocuments)
+            {
+                _errorStream.OnNext(
+                    $"SEC EDGAR filing counts for CIK {cik} stop after {MaxSupplementaryFilingDocuments} "
+                    + $"history pages; {extras.Count - MaxSupplementaryFilingDocuments} older pages were not read.");
+            }
+
+            return counts.OrderBy(kv => kv.Key)
+                         .Select(kv => new Ohlcv(kv.Key, kv.Value, kv.Value, kv.Value, kv.Value, 0))
+                         .ToList();
+        }
+
+        /// <summary>
+        /// The names of the supplementary submission documents holding a filer's older filings,
+        /// newest first as EDGAR lists them. Empty for a filer whose whole history fits in
+        /// <c>filings.recent</c>.
+        /// </summary>
+        internal static List<string> SupplementaryFilingDocuments(string json)
+        {
+            var files = JObject.Parse(json)["filings"]?["files"] as JArray;
+            if (files == null) return new List<string>();
+            return files.Select(f => f["name"]?.ToString() ?? string.Empty)
+                        .Where(n => n.Length > 0)
+                        .ToList();
+        }
+
+        private static void MergeFilingCounts(SortedDictionary<DateTime, int> into, SortedDictionary<DateTime, int> from)
+        {
+            foreach (var kv in from)
+            {
+                into.TryGetValue(kv.Key, out var existing);
+                into[kv.Key] = existing + kv.Value;
+            }
         }
 
         /// <summary>
@@ -365,16 +454,31 @@ namespace AccessibleTrader.Plugins.SecEdgar
         /// for a company that IPO'd last year those are different.
         /// </para>
         /// </summary>
-        internal static List<Ohlcv> ParseFilingCounts(string json, string form)
+        internal static List<Ohlcv> ParseFilingCounts(string json, string form) =>
+            ParseFilingCountsInto(json, form)
+                .Select(kv => new Ohlcv(kv.Key, kv.Value, kv.Value, kv.Value, kv.Value, 0))
+                .ToList();
+
+        /// <summary>
+        /// Per-day counts from ONE submissions document, as a dictionary so several documents
+        /// can be merged.
+        ///
+        /// <para>
+        /// Handles both shapes EDGAR serves: the primary document nests the arrays under
+        /// <c>filings.recent</c>, while a supplementary page from <c>filings.files</c> carries
+        /// the same <c>form</c>/<c>filingDate</c> arrays at its ROOT.
+        /// </para>
+        /// </summary>
+        internal static SortedDictionary<DateTime, int> ParseFilingCountsInto(string json, string form)
         {
-            var recent = JObject.Parse(json)["filings"]?["recent"] as JObject;
-            if (recent == null) return new List<Ohlcv>();
-
-            var forms = recent["form"] as JArray;
-            var dates = recent["filingDate"] as JArray;
-            if (forms == null || dates == null) return new List<Ohlcv>();
-
             var counts = new SortedDictionary<DateTime, int>();
+            var root = JObject.Parse(json);
+            var block = root["filings"]?["recent"] as JObject ?? root;
+
+            var forms = block["form"] as JArray;
+            var dates = block["filingDate"] as JArray;
+            if (forms == null || dates == null) return counts;
+
             for (int i = 0; i < Math.Min(forms.Count, dates.Count); i++)
             {
                 if (!string.Equals(forms[i].ToString(), form, StringComparison.OrdinalIgnoreCase)) continue;
@@ -382,8 +486,7 @@ namespace AccessibleTrader.Plugins.SecEdgar
                 counts.TryGetValue(d.Date, out var c);
                 counts[d.Date] = c + 1;
             }
-
-            return counts.Select(kv => new Ohlcv(kv.Key, kv.Value, kv.Value, kv.Value, kv.Value, 0)).ToList();
+            return counts;
         }
 
         // ── CIK resolution ──────────────────────────────────────────────────────
@@ -449,6 +552,17 @@ namespace AccessibleTrader.Plugins.SecEdgar
                 bars = bars.Where(b => b.Date <= until).ToList();
             }
             return bars;
+        }
+
+        /// <summary>Releases the current <see cref="HttpClient"/>; <c>Configure</c> disposes the
+        /// ones it replaces.</summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _http?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

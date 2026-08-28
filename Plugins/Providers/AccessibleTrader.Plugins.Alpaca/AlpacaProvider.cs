@@ -539,9 +539,14 @@ namespace AccessibleTrader.Plugins.Alpaca
         {
             if (!IsConfigured) return (new(), new());
             var cleanSymbol = CleanSymbol(symbol);
+            var cryptoSymbol = ToAlpacaCryptoSymbol(symbol);
 
-            // Determine if this is a crypto or stock symbol
-            bool isCrypto = _currentMarket?.Contains("Crypto", StringComparison.OrdinalIgnoreCase) == true;
+            // Which venue a symbol lives on is a property of the SYMBOL, not of whatever the
+            // chart happens to be subscribed to. This read _currentMarket — shared subscription
+            // state — so any caller asking about a symbol other than the focused chart's got the
+            // wrong endpoint and an empty book back. Latent while both call sites happen to pass
+            // the focused symbol, and silently wrong the moment one does not.
+            bool isCrypto = IsCryptoSymbol(symbol);
 
             try
             {
@@ -550,10 +555,14 @@ namespace AccessibleTrader.Plugins.Alpaca
                     await ApplyAlpacaHeadersAsync().ConfigureAwait(false);
                     if (isCrypto)
                     {
-                        string url = $"{CryptoDataUrl}/us/orderbooks?symbols={cleanSymbol}";
+                        // v1beta3 requires the SLASHED pair in both the query and the response
+                        // key — the same rule FetchOhlcvAsync documents. This path used the
+                        // concatenated spelling for both, so a crypto order book was empty
+                        // whenever it was reached at all.
+                        string url = $"{CryptoDataUrl}/us/orderbooks?symbols={Uri.EscapeDataString(cryptoSymbol)}";
                         var response = await _httpClient.GetStringAsync(url);
                         var json = JObject.Parse(response);
-                        var book = json["orderbooks"]?[cleanSymbol];
+                        var book = json["orderbooks"]?[cryptoSymbol];
                         if (book == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
 
                         var bids = (book["b"] as JArray)?.Take(limit)
@@ -584,7 +593,31 @@ namespace AccessibleTrader.Plugins.Alpaca
                     }
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // SAY SO — an empty ladder and a dead endpoint are the same picture for a user
+                // who cannot see that the panel is blank rather than quiet.
+                _errorStream.OnNext($"Alpaca order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new(), new());
+            }
+        }
+
+        /// <summary>
+        /// True when this symbol names a crypto pair rather than an equity ticker, decided from
+        /// the symbol ALONE so no caller has to be subscribed to the right market first.
+        ///
+        /// <para>
+        /// An explicit separator settles it; otherwise the symbol is crypto exactly when
+        /// <see cref="SymbolFormat.SplitBaseQuote"/> recognises a quote asset on the end of it.
+        /// <c>AAPL</c> has none and stays an equity; <c>BTCUSD</c> splits and does not.
+        /// </para>
+        /// </summary>
+        internal static bool IsCryptoSymbol(string symbol)
+        {
+            if (string.IsNullOrEmpty(symbol)) return false;
+            if (symbol.Contains('/') || symbol.Contains('-')) return true;
+            var (_, quote) = SymbolFormat.SplitBaseQuote(symbol);
+            return quote.Length > 0;
         }
 
         // ── IOrderBookProvider ──────────────────────────────────────────────

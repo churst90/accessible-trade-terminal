@@ -204,7 +204,10 @@ namespace AccessibleTrader.Plugins.Oanda
             var instrument = FormatInstrument(symbol);
             if (_currentSymbol == instrument && _currentTimeframe == timeframe) return;
 
+            // Cancel AND dispose — see SchwabProvider.SetSubscriptionAsync for why a cancelled
+            // source that is never disposed accumulates over a long session of symbol switches.
             _streamCts?.Cancel();
+            _streamCts?.Dispose();
             _currentSymbol = instrument;
             _currentTimeframe = timeframe;
             _lastCandle = null;
@@ -271,7 +274,11 @@ namespace AccessibleTrader.Plugins.Oanda
                                 if (!string.IsNullOrEmpty(tsStr))
                                 {
                                     var parsed = TimestampParser.Parse(tsStr);
-                                    if (parsed > DateTime.MinValue.ToUniversalTime()) now = parsed;
+                                    // Compare against the parser's own constant sentinel, not
+                                    // against MinValue.ToUniversalTime() — that converts from the
+                                    // machine's zone, so the value this test used to compare with
+                                    // differed between a London box and a New York one.
+                                    if (parsed > TimestampParser.Invalid) now = parsed;
                                 }
 
                                 var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
@@ -476,7 +483,10 @@ namespace AccessibleTrader.Plugins.Oanda
         public override async Task DisconnectAsync()
         {
             _streamCts?.Cancel();
+            _streamCts?.Dispose();
+            _streamCts = null;
             _txnStreamCts?.Cancel();
+            _txnStreamCts?.Dispose();
             _txnStreamCts = null;
             _currentSymbol = null;
             _currentTimeframe = null;
@@ -963,7 +973,7 @@ namespace AccessibleTrader.Plugins.Oanda
             _     => "H1"
         };
 
-        private static OrderType MapOandaOrderType(string type) => type.ToUpper() switch
+        private static OrderType MapOandaOrderType(string type) => type.ToUpperInvariant() switch
         {
             "LIMIT"           => OrderType.Limit,
             "STOP"            => OrderType.StopMarket,

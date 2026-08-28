@@ -117,63 +117,58 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-27, commit `6393ef3b`, CI green on all three workflows).**
+> **START HERE (current as of 2026-08-27, CI green on all three workflows).**
 >
-> **0 CRITICAL, 0 HIGH.** The live work is the MEDIUM backlog. Three clusters are done: the
-> accessibility/speech batch (`2b55e6fa`), the hosted-WebHost security section (`19128450`), and
-> **the first five of the provider cluster** — the unescaped API key, Mempool's history window,
-> `CsvDataParser`'s European decimals, Etherscan's snapshot-as-history and FINRA's cached
-> "not yet published". Suite **5,669** in both configs; `--list-tests` reports **5664**, which is
-> the number `docs/README.md` must match and the number `doc-drift.yml` checks.
+> **0 CRITICAL, 0 HIGH. The provider cluster is CLOSED** — 25 of its 27 items went in across
+> two batches on 2026-08-27, and the two that remain are deferred on purpose with the reason
+> recorded on each. Four clusters are now done: the accessibility/speech batch (`2b55e6fa`),
+> the hosted-WebHost security section (`19128450`), the first five provider items (`6393ef3b`),
+> and the remaining twenty (this commit). Suite **5,735** in both configs; `--list-tests`
+> reports **5730**, which is the number `docs/README.md` must match and `doc-drift.yml` checks.
 >
-> **Next: the rest of the provider cluster** — ~19 items still open at TODO ~3446–3600 and
-> ~3816–3940. In rough order of what a user would actually notice:
+> **Next: pick from what is left of the MEDIUM backlog.** There is no single obvious cluster
+> now that the provider section is done, so the three candidates, in the order I would take
+> them:
 >
-> 1. **Kraken's History tab is empty for BTC/USD** (TODO:3504). `GetFillsAsync` and
->    `GetOpenOrdersAsync` filter on `BTCUSD` while Kraken returns `XXBTZUSD`/`XBTUSD`. The file
->    already owns the translation (`NormaliseAsset:1137`) and neither call site uses it, so the
->    single most-traded pair on the venue shows no fills and no symbol-scoped orders.
-> 2. **`ReconnectingWebSocket.SendAsync` says "safe to call from any thread" and is not**
->    (TODO:3468). `ClientWebSocket` forbids overlapping sends; the heartbeat timer races every
->    subscribe. The symptom is a subscribe that silently never went and a chart that never
->    updates. A `SemaphoreSlim(1,1)` around the two send sites.
-> 3. **The same socket gives up permanently after 10 attempts and the UI still says Connected**
->    (TODO:3478) — `_onDisconnected` is never called on that path, so `ConnectionStateStream`
->    stays `Connected` over a dead feed. Binance deliberately passes `int.MaxValue`, which shows
->    the author knew; Kraken's main socket and every keyed feed take the default.
-> 4. **Order-book read failures are silent in four providers** (TODO:3558) — bare
->    `catch { return (new(), new()); }` in Tradier, Alpaca and Coinbase, where Kraken and Binance
->    push to `_errorStream`. An empty depth ladder is a visible oddity for a sighted user and
->    indistinguishable from no liquidity for this product's audience.
-> 5. **`TimestampParser.Parse:13` stamps "UTC" onto a local wall-clock reading** (TODO:3487)
->    instead of converting it, so on a US-Eastern box every affected bar lands 4–5 hours in the
->    future. **Trap: this box and both CI agents run UTC, so a test that only compares two paths
->    agrees vacuously** — assert against a fixed non-zero offset, the way the speech-timezone
->    work had to. `KrakenFuturesProvider`/`GeminiProvider` ignoring `Since`/`Until` (TODO:3591)
->    is the same shape as the Mempool item just closed and its fix reads the same way.
+> 1. **The two deferred provider items, if you want to finish the section properly.**
+>    TODO:3475 is the SDK/SkiaSharp split — a real refactor touching every plugin csproj, the
+>    plugin manifest and its CI workflow, and it needs a batch of its own rather than being
+>    smuggled into a fix pass. TODO:4098 is the analytics fetch-path test coverage, which is a
+>    test-writing batch. Both carry a recount and a reason in place.
+> 2. **The remaining MEDIUM items outside the provider tier.** Recount before scoping: the
+>    tally in this file has run about half stale every single time.
+> 3. **The StrategyLab statistics re-run**, still the top research follow-up — the flagship
+>    p = 0.0045 tested the WINNER of a 16-cell grid and is banner-marked provisional.
 >
 > **The standing rule still governs: demonstrate the defect or mark it explicitly unverified.**
-> This batch reintroduced all five defects one at a time — nine mutations in total — and every
-> guard went red, including the source scan and the Etherscan call site the behavioural test
-> does not reach.
+> This batch reintroduced every fix one at a time — **32 mutations, 32 reds**, across the SDK,
+> eight providers and the docs.
 >
 > **What this batch cost, and what to carry into the next one.**
-> (1) **The recount ran two ways at once and both mattered.** The API-key item was *half stale*
-> (its `ex.Message` half had been closed in the HIGH pass) and *half understated* (39 sites, not
-> the ~35 filed); the Etherscan item's documentation complaint was already satisfied while a
-> **24-hour look-ahead nobody had filed** sat in the same six lines. Read the code, not the
-> item — in both directions.
-> (2) **Name the escape hatch so a scan can require it, then guard the hatch itself.** A
-> `KeyParam` property is only a licence to skip the escaping scan because a second guard proves
-> every declaration of it calls `Uri.EscapeDataString`; without that, renaming a raw field to
-> `KeyParam` would switch the first scan off silently.
-> (3) **A behavioural test and a source scan cover different holes.** The fake transport cannot
-> reach the two WebSocket URLs or any endpoint a test does not call; the scan cannot tell you
-> the key survives the round trip. Both, or neither is enough.
-> (4) **Do not add a clock seam to test time-dependent caching.** A process-wide static "now"
-> hook is exactly what leaked across the WebHost batch. The FINRA test drives the real clock
-> and asserts *which* days were refetched against the same predicate the production code uses —
-> and separately that a settled day was fetched only once, without which "cache nothing" passes.
+> (1) **The recount ran in both directions again, and the understatements were the expensive
+> half.** `CleanSymbol`'s culture-sensitive casing was filed as ONE site and is fifteen. The
+> Alpaca order-book item was filed LOW as "latent today" and the same six lines held a second,
+> never-latent defect: the crypto branch asked for the concatenated symbol where the API
+> requires the slashed pair, so that book was empty whenever it was reached at all. Meanwhile
+> the CTS-disposal item named Kraken sites that do not exist and missed two in Oanda, and the
+> FINRA `TickerOf` item had been closed three days before it was read as open.
+> (2) **A first fix that looks right can be worse than the bug.** MEXC's leverage was going to
+> return `NaN` for "I do not know" — until `GeneralOrderService`'s gate turned out to be
+> `Math.Abs(applied - leverage) > 1e-9`, which is FALSE for NaN. The honest-looking sentinel
+> would have slipped through the check silently and printed "NaN times leverage" to the user.
+> Read the CALLER before changing what a method returns.
+> (3) **A UTC build agent makes a timezone test vacuous, and the seam that beats it is a
+> PARAMETER.** `TimestampParser.Parse` takes the local zone as an internal argument so the test
+> can pin a fixed non-zero offset. Not a settable static "current zone" — that is the
+> process-wide state that leaked across collections in the WebHost batch.
+> (4) **Drive the path the production code takes, not the shortcut.** The CTS-disposal guard
+> passed against a sabotaged build because the test left the loop tasks null, so the method
+> took its "nothing to wait for" branch and the continuation under test never ran. Only the
+> sabotage found that; the green run did not.
+> (5) **The suite's own enrollment guard earns its keep.** Seven new test classes went in
+> without `[Collection("ProviderCredentialBridge")]` and `ProviderCredentialBridgeEnrollmentTests`
+> named every one of them, by file. Run the FULL suite before believing a batch is done — the
+> filtered runs were all green.
 
 **As of 2026-08-26 the answer is: the 71 HIGH items.** The tests-that-should-exist list is closed,
 which was the precondition — see the three blocks below for what it cost and what it bought. The
@@ -3458,7 +3453,7 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   already re-establishes the session from scratch. Safe outside market hours because the
   subscription requests `linebreak=true`, so Tradier emits keepalive newlines that arrive as
   blank lines and reset the deadline.
-- [ ] **`TradierProvider.DisconnectAsync` (`:397-405`) scrubs nothing and tears down nothing.** It
+- [x] **`TradierProvider.DisconnectAsync` (`:397-405`) scrubs nothing and tears down nothing.** It
   cancels `_streamCts` and nulls two strings, then returns. It does **not** call `ScrubCredentials`
   (every other provider does — `KrakenProvider.cs:469`, `BinanceProvider.cs:468`,
   `SchwabProvider.cs:240`), so `_accessToken` and the `Bearer` header planted on both `_httpClient` and
@@ -3466,6 +3461,12 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   account-event websocket opened at `:224` keeps reconnecting and keeps pushing `OrderUpdate`s into
   `_orderUpdateSubject` after the user has disconnected the provider. `_accountWs` is only released in
   `Dispose`. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27.** Disconnect now means disconnected: `ScrubCredentials` drops
+  `_accessToken`, the `Bearer` header is cleared from BOTH HTTP clients, and `_accountWs` is
+  disconnected, disposed and nulled — in that order, so its reconnect cannot re-authenticate
+  on the way out with a token about to be dropped. `_streamCts` is disposed rather than
+  merely cancelled. The socket half is the one a user notices: it was only ever released in
+  `Dispose`, so a fill on an account they had just walked away from still announced itself.
 - [ ] **The SDK is not dependency-free, contradicting `docs/CODEBASE_KNOWLEDGE_BASE.md:30`.**
   `AccessibleTrader.Sdk.csproj:11-13` references `System.Reactive 6.1.0`, `CommunityToolkit.Mvvm 8.2.2`
   and **`SkiaSharp 3.119.2`** — a native graphics library with per-RID binaries. SkiaSharp is used only
@@ -3480,7 +3481,25 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   shared dependency's version). Fix: split the theming/rendering types into
   `AccessibleTrader.Sdk.Charting`, or represent colours as the `#AARRGGBB` strings the config already
   uses. CONFIRMED. MEDIUM.
-- [ ] **`ReconnectingWebSocket.SendAsync` is documented "Safe to call from any thread" (`:129`) and is
+  **RECOUNTED 2026-08-27 and DEFERRED — this is a refactor, not a fix, and it needs its own
+  batch.** The census conflated two separate dependencies. **Four** files use SkiaSharp, not
+  eight: `Theming/ChartTheme.cs`, `Theming/ThemePreset.cs`, `Theming/ThemeFields.cs` and
+  `Models/ZoneBandConfig.cs`. The other four the item named — `SeriesState.cs`,
+  `ChartSeries.cs`, `LevelConfig.cs`, `ComponentConfig.cs` — carry no SkiaSharp at all; what
+  they carry is `CommunityToolkit.Mvvm` (`: ObservableObject`), which is a different complaint
+  about a different package and should be judged separately.
+  **The harm is CONFIRMED by inspection rather than by argument:** `SkiaSharp.dll` is present
+  in `Plugins/Providers/AccessibleTrader.Plugins.Binance/bin/Debug/net10.0/`, so the native
+  asset really does land in the shared plugin output directory, which is the collision
+  `AccessibleTrader.Plugins.Binance.csproj:9-17` documents as having broken Binance loading
+  once already.
+  **Why it is not in this batch.** `ChartTheme` alone exposes ~30 `SKColor` members and 38
+  files across the tree consume SkiaSharp types, so splitting `AccessibleTrader.Sdk.Charting`
+  out touches every plugin csproj, the plugin manifest and its CI workflow. Done in the middle
+  of twenty-odd behavioural fixes it would swamp the sabotage discipline that makes those
+  fixes trustworthy. Take it as a batch of its own, with the MVVM half decided at the same
+  time.
+- [x] **`ReconnectingWebSocket.SendAsync` is documented "Safe to call from any thread" (`:129`) and is
   not.** `ClientWebSocket.SendAsync` does not permit concurrent sends — a second overlapping call throws
   `InvalidOperationException("There is already one outstanding 'SendAsync' call")`. There is no lock or
   send-queue anywhere in the class. `HeartbeatLoopAsync:272` sends on its own timer while any caller may
@@ -3490,7 +3509,14 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   silently never went and a chart that never updates. The comment makes the bug harder to find, which is
   worse than no comment. Fix: a `SemaphoreSlim(1,1)` around the two `_ws.SendAsync` sites.
   CONFIRMED. MEDIUM.
-- [ ] **`ReconnectingWebSocket`'s receive loop gives up permanently after `_maxReconnectAttempts` and
+  **CLOSED 2026-08-27.** One `SemaphoreSlim(1,1)` and one write path: both the public
+  `SendAsync` and the heartbeat go through a private `SendFrameAsync` that takes the lock and
+  RE-READS `_ws` inside it, because a reconnect may have replaced the socket while a caller
+  was queued. The guard is a source check — `ClientWebSocket` is sealed and the failure needs
+  two writes genuinely in flight — but it checks the PATH, not the presence: exactly one
+  socket write may exist in the file and it must sit after `_sendLock.WaitAsync`. A new
+  method writing to `_ws` directly turns it red.
+- [x] **`ReconnectingWebSocket`'s receive loop gives up permanently after `_maxReconnectAttempts` and
   only whispers about it (`:162-166`).** On the 10th consecutive failure (the default) it invokes
   `_onError` and `return`s, terminating the loop for good. `ConnectionStateStream` is never moved to
   `Disconnected` (that only happens via `_onDisconnected`, which this path does not call), so the UI
@@ -3499,7 +3525,14 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   `int.MaxValue` (`BinanceProvider.cs:1212`) *because* market data must not give up, which shows the
   author knew — Kraken just didn't get the same treatment. With exponential backoff capped at 2^6, ten
   attempts is ~4 minutes of outage before permanent silence. CONFIRMED. MEDIUM.
-- [ ] **`TimestampParser.Parse:13` mislabels a local `DateTime` as UTC instead of converting it.**
+  **CLOSED 2026-08-27 — the fix is the DISCONNECT SIGNAL, not the retry count.** The give-up
+  branch now invokes `_onDisconnected` as well as `_onError`, so `ConnectionStateStream`
+  reaches `Disconnected` and the UI stops claiming a dead feed is fine; the message says the
+  feed is dead until the user reconnects. **Deliberately NOT changed: the default of ten
+  attempts.** Thirteen of the fourteen sockets in the fleet take it, and deciding per socket
+  which ones must never give up is a behaviour sweep across every provider rather than a fix
+  to this defect — which was that giving up happened SILENTLY, not that it happened.
+- [x] **`TimestampParser.Parse:13` mislabels a local `DateTime` as UTC instead of converting it.**
   `if (timestampObj is DateTime dt) return DateTime.SpecifyKind(dt, DateTimeKind.Utc);` — for a
   `DateTime` arriving with `Kind == Local` (Newtonsoft's `JObject` yields exactly that for an ISO string
   carrying a non-zero offset, under default `RoundtripKind` handling) this stamps "UTC" onto a local
@@ -3510,13 +3543,29 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   sentinel is not a constant. Fix:
   `dt.Kind == DateTimeKind.Local ? dt.ToUniversalTime() : DateTime.SpecifyKind(dt, DateTimeKind.Utc)`.
   CONFIRMED. MEDIUM.
-- [ ] **`TradierProvider.cs:735` gives every fill a fresh random id on every fetch.**
+  **CLOSED 2026-08-27, both halves.** A `Local` value is CONVERTED
+  (`TimeZoneInfo.ConvertTimeToUtc` against the zone, via `Unspecified` because that overload
+  refuses a `Local` kind for any zone but the machine's); `Unspecified` is still read as UTC,
+  which is the venue convention. The sentinel is now a constant `TimestampParser.Invalid`, and
+  `OandaProvider`'s live-tick path — the one caller that compared against the old
+  machine-dependent value — compares against it.
+  **The trap named in the START HERE block is real and the seam is how it was beaten.** This
+  box and both CI agents run UTC, so asserting `Parse(local) == local.ToUniversalTime()`
+  compares zero against zero and passes against the bug itself. `Parse` therefore takes the
+  zone as an internal PARAMETER and the test pins a fixed non-zero offset (noon Eastern in
+  January is 17:00Z). A parameter, not a settable static: a process-wide "current zone" hook
+  is exactly the shared state that leaked across collections in the WebHost batch.
+- [x] **`TradierProvider.cs:735` gives every fill a fresh random id on every fetch.**
   `Guid.NewGuid().ToString("N").Substring(0, 12)` is passed as `TradeFill.Id` unconditionally — the same
   broker fill gets a different identity each time the History tab refreshes, so any consumer that
   dedupes or reconciles by id sees every fill as new. Schwab does this too (`SchwabProvider.cs:512`) but
   only as a fallback when `activityId` is absent; Tradier has `ev["date"]`, symbol, quantity and price
   available and uses none of them. CONFIRMED. MEDIUM.
-- [ ] **`KrakenProvider` filters fills and open orders by a symbol spelling Kraken never returns.**
+  **CLOSED 2026-08-27.** `FillId` hashes symbol + ticks + quantity + price, so the same
+  broker fill has the same id on every fetch and any two fills differing in any field differ.
+  Two genuinely identical fills at the same instant collapse to one id — a real limit of what
+  Tradier reports, and strictly better than every fill being unrecognisable.
+- [x] **`KrakenProvider` filters fills and open orders by a symbol spelling Kraken never returns.**
   `GetFillsAsync:750` does `pair.Replace("/","").ToUpperInvariant().Contains(want)` where
   `want = CleanSymbol(symbol)`, and `GetOpenOrdersAsync:790` does the same with `symbol.Replace("/","")`.
   Kraken's `TradesHistory` returns pairs in its own asset vocabulary — `XXBTZUSD` / `XBTUSD` — so
@@ -3524,13 +3573,27 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   back empty for the single most-traded pair on the venue. The file already owns the translation
   (`NormaliseAsset:1137` maps `BTC → XBT`, `DOGE → XDG`) and neither call site uses it.
   CONFIRMED. MEDIUM.
-- [ ] **`BaseMarketDataProvider.CleanSymbol:180` uses culture-sensitive `.ToUpper()`, while the interface
+  **CLOSED 2026-08-27.** A new `CanonicalKrakenPair` strips the legacy `X`/`Z` prefixes (only
+  from an eight-character pair whose halves both carry one, so `ETHUSDT` is left alone) and
+  folds `XBT`/`XDG` back to `BTC`/`DOGE`. Both call sites run BOTH sides of the comparison
+  through it. **The comparison is now equality, not `Contains`** — the old substring test
+  would have swept `BTCUSDT` fills into a `BTCUSD` request had the vocabularies ever lined up,
+  which is the conflation `GetCanonicalSymbol`'s own doc exists to prevent.
+- [x] **`BaseMarketDataProvider.CleanSymbol:180` uses culture-sensitive `.ToUpper()`, while the interface
   default it mirrors uses `.ToUpperInvariant()`.** `IMarketDataProvider.cs:75` reads
   `symbol?.Replace("/", "").Replace("-", "").ToUpperInvariant()`; the base class copy at `:180` reads
   `.ToUpper()`. Under `tr-TR` the dotless-i rule turns `"link/usd"` into `"LİNKUSD"`, a different string
   from the one every other path produces. `CleanSymbol` is the symbol every Binance call goes to the wire
   with (`BinanceProvider.cs:511`, `:557`, `:682`, `:745`, `:824`, `:865`, `:1073`, `:1104`) and it is the
   default `GetCanonicalSymbol` (`:202`), which the paper ledger keys positions on. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27 — and the census was understated by fourteen.** The item named one
+  site; the recount found **fifteen** `.ToUpper()`/`.ToLower()` calls across the SDK and the
+  plugin set, every one on a symbol or timeframe string that goes to the wire
+  (InteractiveBrokers 2, Coinbase 3, Polygon 3, Bitstamp 2, TwelveData 1, Oanda 1,
+  TimeframeUtility 1, plus `CleanSymbol`). All fifteen are invariant now, pinned by a
+  behavioural test under `tr-TR` (where `CurrentCulture` is async-local, so it does not leak)
+  and a scan banning the culture-sensitive overloads outright — because the failure is
+  invisible on an English-locale machine, which is every machine any of this was tested on.
 - [x] **The `FetchOhlcvAsync` contract never says whether the last bar is closed, and no provider drops
   it.** The fetch path in Binance (`:509-553`), Kraken (`:510-580`), Schwab (`:251-300`) and Tradier
   (`:409-531`) applies no partial-bar filter; the sweep over the other twelve found no `isClosed` /
@@ -3562,7 +3625,7 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   nothing would say which. **Still open and filed separately:** the `FetchOhlcvAsync` contract
   still says nothing about the trailing bar, and `OandaProvider.cs:549`'s
   `|| candles.Last == c` is still a structural no-op.
-- [ ] **`GetOrderStatusAsync`'s XML doc contradicts the code directly beneath it, on both providers that
+- [x] **`GetOrderStatusAsync`'s XML doc contradicts the code directly beneath it, on both providers that
   implement it.** `SchwabProvider.cs:527` and `TradierProvider.cs:746` both say "Returns null on a
   transient failure (the poller retries)", and the very next comment (`:531-533` / `:750-752`) says the
   opposite and explains why — "No catch: the order poller counts consecutive failures and gives up with a
@@ -3570,47 +3633,102 @@ resubscribe-on-reconnect, centralised 60 s HTTP timeouts, signing recipes.
   infinite retry." The interface contract agrees with the stale doc, not the code
   (`ITradingProvider.cs:198-202`). A third provider implementing this interface from the docs would
   reintroduce the exact bug that was fixed. CONFIRMED. LOW (but on a fill-announcement path).
-- [ ] **Read failures go silent on the order-book path in 4 providers, with nothing spoken.**
+  **CLOSED 2026-08-27.** All three copies now say what the code does: a transient failure
+  THROWS, and null means "the broker answered and has no such order". The interface doc
+  carries the reason — the poller counts consecutive failures and gives up with a spoken
+  warning, so a null read as "still resolving" turned a dead endpoint into a silent infinite
+  retry and the user waits forever for a fill announcement that cannot arrive. Guarded by a
+  scan for the stale sentence, which is the regression this fix is exposed to.
+- [x] **Read failures go silent on the order-book path in 4 providers, with nothing spoken.**
   `TradierProvider.cs:591` is a bare `catch { return (new(), new()); }`; `AlpacaProvider.cs:594` is
   `catch { return (new(), new()); }`; `CoinbaseProvider.cs:459` and `:430` are bare
   `catch { return …; }`. `KrakenProvider.cs:621-625` and `BinanceProvider.cs:574-578` do the right thing
   and push to `_errorStream`. For a sighted user an empty depth ladder is a visible oddity; for this
   product's audience it is indistinguishable from a book with no liquidity. 19 bare `catch { }` blocks
   counted across the plugin set. CONFIRMED. MEDIUM (accessibility).
-- [ ] **`TradierProvider.GetFillsAsync:719` and `GetOrderStatusAsync:753` bypass the rate limiter** that
+  **CLOSED 2026-08-27.** Tradier, Alpaca and Coinbase now push to `_errorStream` on that
+  path, matching Kraken and Binance; Coinbase's symbol-list catch (the second site the item
+  named) goes with them. Only the exception TYPE is reported, not `ex.Message`, because these
+  strings are spoken — the `CredentialLeakScanTests` rule from the HIGH pass.
+- [x] **`TradierProvider.GetFillsAsync:719` and `GetOrderStatusAsync:753` bypass the rate limiter** that
   every other call in the file goes through. `GetOrderStatusAsync` is the one the order-service poller
   calls in a loop while an order is working, against a 120 req/min budget shared with the chart's own
   fetches. A poll loop plus a chart refresh can push the account into a 429 during exactly the window
   where the user needs the fill to resolve. CONFIRMED. LOW-MEDIUM.
-- [ ] **`ReconnectingWebSocket.ConnectAsync:107` cancels the previous CTS but never disposes it,** and
+  **CLOSED 2026-08-27.** Both go through `_rateLimiter.ExecuteAsync` like every other call in
+  the file. Guarded per METHOD BODY rather than per file, so a limiter somewhere else in
+  `TradierProvider` cannot satisfy it.
+- [x] **`ReconnectingWebSocket.ConnectAsync:107` cancels the previous CTS but never disposes it,** and
   `SchwabProvider.cs:200` / `TradierProvider.cs:289` / `KrakenProvider` symbol switches do the same with
   their own `CancellationTokenSource`s (`_pollCts?.Cancel()` with no `Dispose()`). Each
   cancelled-but-undisposed CTS holds its registration list and, if any timer was armed, a timer handle. A
   long session that switches symbols hundreds of times accumulates them. Binance gets it right —
   `BinanceProvider.cs:343-344` and `:457-458` cancel *and* dispose. CONFIRMED. LOW.
-- [ ] **`TimestampParser.cs:51` claims to handle nanoseconds and handles only microseconds.** The comment
+  **CLOSED 2026-08-27, and one third of the report was stale.** `KrakenProvider` holds no raw
+  `CancellationTokenSource` at all — the symbol-switch sites named for it do not exist. The
+  real sites were Schwab (1), Tradier (2), **Oanda (2, unfiled)** and the socket itself.
+  Providers cancel-then-dispose, following Binance. The socket could not: its loops still hold
+  the token, so `RetirePreviousGeneration` cancels, hands the source to a continuation on the
+  loop tasks, and disposes it once they have drained. The test drives the DRAIN path with a
+  live loop task — with the tasks null the method takes its "nothing to wait for" shortcut and
+  the continuation under test never runs, which is how this guard first passed against a
+  sabotaged build.
+- [x] **`TimestampParser.cs:51` claims to handle nanoseconds and handles only microseconds.** The comment
   says "Nano or Micro seconds sanity check" but the body divides by 1000 exactly once, so a nanosecond
   epoch (~1.75e18) becomes ~1.75e15, is read as milliseconds, and yields a date around the year 57000.
   Latent — no provider currently feeds nanoseconds — but the comment tells the next author it is covered.
   CONFIRMED. LOW.
-- [ ] **`RateLimiter.ExecuteAsync`'s doc says "up to `maxRetries` attempts" and it makes
+  **CLOSED 2026-08-27.** Steps down by 1000 until the value is in the millisecond range
+  instead of assuming which tier it came from, so seconds, milliseconds, microseconds and
+  nanoseconds all land on the same instant.
+- [x] **`RateLimiter.ExecuteAsync`'s doc says "up to `maxRetries` attempts" and it makes
   `maxRetries + 1`.** `RateLimiter.cs:87-88` vs the loop at `:92` (`for (int attempt = 0; ; attempt++)`
   with `when (attempt < maxRetries …)`). With the default 3 that is 4 requests, not 3 — which matters
   because it is the multiplier on the duplicate-order finding. CONFIRMED. LOW.
-- [ ] **`CoinbaseProvider.cs:655-667` — `CancelOrderAsync` is the only trading call in the file with no
+  **CLOSED 2026-08-27 (doc).** The parameter counts RETRIES, so the default 3 sends up to
+  four requests; the doc says so and points at `ExecuteOnceAsync` for calls that create
+  something. The loop is unchanged — one attempt plus N retries is the intended behaviour;
+  what was wrong was the count the reader was given.
+- [x] **`CoinbaseProvider.cs:655-667` — `CancelOrderAsync` is the only trading call in the file with no
   rate limiter, and `:666` is `catch { return false; }`,** making a network failure during a cancel
   indistinguishable from "already filled". CONFIRMED. MEDIUM.
-- [ ] **`MexcProvider.cs:758-771` — `SetLeverageAsync` returns `1.0` from its catch, identical to its
+  **CLOSED 2026-08-27.** Through `ExecuteOnceAsync` — not `ExecuteAsync`, because a cancel
+  mutates and the retry-on-timeout that is right for a GET is what re-sends a request the
+  venue already booked. The bool stays false on failure (the cancel did not happen) and the
+  reason is now SAID, because "we could not reach Coinbase" and "that order is already gone"
+  are opposite facts and only one of them leaves a live order the user still owns.
+- [x] **`MexcProvider.cs:758-771` — `SetLeverageAsync` returns `1.0` from its catch, identical to its
   "change failed" return,** so a successful exchange-side change followed by a parse failure reports 1×
   leverage with no error. CONFIRMED. MEDIUM.
-- [ ] **`KrakenFuturesProvider.cs:197-231` and `GeminiProvider.cs:170-205` — `FetchOhlcvAsync` ignores
+  **CLOSED 2026-08-27 — and the first fix was wrong, which is worth recording.** Returning
+  `NaN` for "unknown" looked right and is not: `GeneralOrderService.SetLeverageAsync` gates on
+  `Math.Abs(applied - leverage) > 1e-9`, and that comparison is FALSE for NaN — so the
+  mismatch warning would not fire and the user would be told "NaN times leverage". 1.0 stays
+  the return value because it is what the interface means by "not set". Both silent paths —
+  the exchange refusing, and a throw after a change it may already have applied — now say so.
+- [x] **`KrakenFuturesProvider.cs:197-231` and `GeminiProvider.cs:170-205` — `FetchOhlcvAsync` ignores
   `request.Since`/`request.Until` entirely** and always returns the venue's most-recent window. Chart
   scrollback and any date-ranged backtest silently get the wrong bars. Gemini documents this as an API
   constraint (`:119`); KrakenFutures has no such comment. CONFIRMED. MEDIUM.
-- [ ] **`AlpacaProvider.cs:551` — `GetOrderBookAsync` picks the crypto-vs-stock endpoint from
+  **CLOSED 2026-08-27.** A shared `WindowedBars.Apply` in the SDK filters to the requested
+  window and then trims to `Limit`, replacing a `Skip(count - Limit)` that kept the NEWEST
+  bars — so a request for 2019 was answered with this morning's data wearing 2019's dates.
+  Bars and volumes are filtered as PAIRS; filtering them independently is how a series and its
+  volume overlay drift apart by one bar, which is a silently wrong chart rather than an empty
+  one. When the window falls entirely outside what the venue returned it is SAID, naming the
+  dates that do exist — the Mempool precedent. A vacuity check pins that the live edge still
+  returns bars, without which "return nothing" would pass the refusal tests.
+- [x] **`AlpacaProvider.cs:551` — `GetOrderBookAsync` picks the crypto-vs-stock endpoint from
   `_currentMarket` (shared subscription state) rather than the `symbol` argument.** Latent today because
   both call sites request the focused chart's symbol. CONFIRMED. LOW.
-- [ ] **(amends TODO:1834)** Recount agrees exactly with the "zero callers" claim: 3 of 16 providers use
+  **CLOSED 2026-08-27, and the recount found a SECOND defect in the same six lines.** The
+  endpoint now comes from the symbol (`IsCryptoSymbol`: an explicit separator, or a quote
+  asset `SymbolFormat` recognises), not from `_currentMarket`. The unfiled half: the crypto
+  branch used the CONCATENATED spelling for both the query and the response key where v1beta3
+  requires the slashed pair — the exact rule `FetchOhlcvAsync:384-386` documents having
+  already been caught by — so the crypto order book was empty whenever it was reached at all.
+  Filed as LOW on the strength of "latent today"; the second half was never latent.
+- [x] **(amends TODO:1834)** Recount agrees exactly with the "zero callers" claim: 3 of 16 providers use
   `SurfaceError` (Gemini 4, KrakenFutures 5, MEXC 14 = 23 calls) and the other 13 use 113 raw
   `_errorStream.OnNext`. CONFIRMED.
 
@@ -3625,6 +3743,10 @@ publication vs observation date and are safe — `SecEdgar` (`filed` date, `:343
 `BinanceDerivatives`, `OkxDerivatives`, `BinanceVision`, `Deribit`, `CoinGecko _MCAP`. **Everything else
 stamps at observation date and is look-ahead-contaminated by construction.**
 
+  **VERIFIED 2026-08-27, still exact.** Re-counted before this batch touched anything: Gemini
+  4, KrakenFutures 5, MEXC 14 = 23 `SurfaceError` calls, against 113 raw `_errorStream.OnNext`
+  across the other 13. Informational — no code change. (This batch adds a handful of raw
+  `OnNext` calls on the newly-surfaced failure paths, so the raw count is now higher.)
 - [x] **`FredProvider.cs:160` stamps every macro observation at its OBSERVATION date, so every backtest
   touching CPI, GDP, unemployment or payrolls is look-ahead-biased by weeks.** The parse reads
   `o["date"]` — FRED's `observations[].date` is the period the number describes, not the day it was
@@ -3828,7 +3950,7 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   so it does not spend the user's rate-limited quota discovering it. The recount of the
   `CoinGeckoProvider` comparison is filed as its own item immediately below: only half of it
   carries over.
-- [ ] **(recounted 2026-08-27, from the Etherscan item above) `CoinGeckoProvider.FetchGlobalAsync`
+- [x] **(recounted 2026-08-27, from the Etherscan item above) `CoinGeckoProvider.FetchGlobalAsync`
   answers a closed historical window with the live snapshot.** Half of the comparison the
   Etherscan finding drew does NOT hold: CoinGecko stamps at `DateTime.UtcNow` (`:222`), not at
   today's midnight, so it never had the look-ahead. What it does share is that `GLOBAL_TOTAL_CAP`
@@ -3837,6 +3959,11 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   and `DataService`'s analytics cache stores it under that window's key. The fix is the one
   Etherscan now has — refuse a window that has already closed, say why, and spend no HTTP call
   doing it. CONFIRMED. LOW-MEDIUM (nothing is wrong-by-a-factor here, only misdated).
+  **CLOSED 2026-08-27.** `FetchGlobalAsync` takes the request and refuses a window that has
+  already closed, saying it is a current reading rather than a history — the fix Etherscan
+  received, minus the look-ahead half, which the recount had already established CoinGecko
+  never had. The refusal is checked before the rate limiter, so it spends no HTTP call and no
+  quota; the test asserts the handler captured nothing.
 - [x] **`GlassnodeProvider.cs:110,117,166,189` puts the API key in the URL unescaped and then echoes
   `ex.Message` onto the error stream — the exact leak `FredProvider.cs:109-113,169-171` documents and
   defends against.** FRED explains that HttpClient exceptions can carry the full request URL and
@@ -3862,13 +3989,18 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   quietly switch the first scan off. Five interpolated `symbol=`/`ticker=` values on the same
   URLs were escaped in the same edit — same class, and FRED's own comment explains why
   (`"GDP&api_key=attackerKey"`).
-- [ ] **`GlassnodeProvider` never disposes its `HttpClient`, and `SecEdgarProvider.Configure` leaks the
+- [x] **`GlassnodeProvider` never disposes its `HttpClient`, and `SecEdgarProvider.Configure` leaks the
   old one on every reconfigure.** `GlassnodeProvider.cs:46` creates the client as a field and the class
   has no `Dispose(bool)` override, unlike `BGeometricsProvider.cs:327-334`,
   `EtherscanProvider.cs:263-270`, `MempoolProvider.cs:232-239` and `FredProvider.cs:259-266`.
   `SecEdgarProvider.cs:208` does `_http = BuildClient(_contact)` without disposing the previous instance
   and has no `Dispose` override either. Low blast radius on desktop, higher on the WebHost where
   providers are rebuilt per configuration change. CONFIRMED. MEDIUM.
+  **CLOSED 2026-08-27.** Glassnode gets the `Dispose(bool)` override every sibling already
+  had, and `SecEdgarProvider.Configure` disposes the client it replaces (plus an override of
+  its own for the last one). Proven by using the client after disposal rather than by
+  asserting the override exists — a reflection check for the method would pass on an override
+  that disposed nothing.
 - [x] **`FinraShortVolumeProvider.cs:260,281-282` caches "not yet published" as "no data" for the whole
   session.** `FetchDayAsync` returns `null` on a 404 and `EnsureDayAsync` stores it in `_dayCache`, which
   the comment at `:72-74` justifies with "immutable, so no expiry". True for a market holiday, false for
@@ -3922,7 +4054,7 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   no evidence inside one cell can overturn it. `dd.MM.yyyy` has been in `DateFormats` all along,
   so the parser accepted the date half of a German export while corrupting the number half —
   there is now a test that imports both halves of one and checks the magnitude.
-- [ ] **`SecEdgarProvider.cs:373-392` reads only `filings.recent`, so insider/8-K/13F counts are silently
+- [x] **`SecEdgarProvider.cs:373-392` reads only `filings.recent`, so insider/8-K/13F counts are silently
   truncated to roughly the last twelve months, and the class doc at `:41-46` says "Every filing with its
   form type and date".** EDGAR's submissions document paginates older filings into a `filings.files`
   array of supplementary JSON documents; `ParseFilingCounts` never looks at it. For a large filer like
@@ -3931,24 +4063,51 @@ stamps at observation date and is look-ahead-contaminated by construction.**
   at `:369-371` — "Days with no filings are absent rather than zero-filled: the consumer decides whether
   absence means zero or means no data" — is right in principle and defeated in practice, because the
   consumer cannot tell truncation from absence. CONFIRMED. MEDIUM.
-- [ ] **`docs/ANALYTICS_DATA_PROVIDERS.md:19-31` says "All twelve" and "All 12 analytics providers" when
+  **CLOSED 2026-08-27.** Filing counts are the union of `filings.recent` and the
+  supplementary pages EDGAR lists under `filings.files`. The two documents have DIFFERENT
+  shapes — the primary nests the arrays under `filings.recent`, a supplementary page carries
+  them at its root — and parsing one as the other reads nothing at all, which is the failure
+  that looks most like success: the fetch succeeds and the counts are simply short. Ten pages
+  are read (~11,000 filings, more than any filer has) and **the cap is SAID if it is hit**,
+  because the consumer cannot tell truncation from a quiet stretch, which was the defect.
+- [x] **`docs/ANALYTICS_DATA_PROVIDERS.md:19-31` says "All twelve" and "All 12 analytics providers" when
   there are seventeen, and omits the three best ones entirely.** `Plugins/Analytics/` holds 17 projects
   (counted). CFTC, FINRA and SEC EDGAR have no section; SEC EDGAR appears only inside a comparison table
   about FMP at `:313-315`. More importantly the document has **no point-in-time section at all**: the
   single property that determines whether this data layer can be backtested honestly is discussed in
   three class comments and nowhere in the layer's own reference doc — the doc a new provider author
   copies. CONFIRMED. MEDIUM.
-- [ ] **`MyDataProvider.cs:91-97` returns the union of every dataset's inferred timeframe as the timeframe
+  **CLOSED 2026-08-27.** Seventeen, and CFTC, FINRA and SEC EDGAR now have sections — they
+  are the three strongest sources in the layer for backtesting, because their release lag is a
+  published fact rather than an estimate. **The point-in-time section is the half that
+  mattered** and it is now the second thing in the document: the four shapes a source can take
+  (whole-day statistic, published release schedule, snapshot-only, revisable), what each does
+  to the stamp, and the instruction to decide which one a new source is before writing the
+  parse loop.
+- [x] **`MyDataProvider.cs:91-97` returns the union of every dataset's inferred timeframe as the timeframe
   list for *any* dataset.** `GetSupportedTimeframesAsync` has no symbol parameter and distincts across
   `_store.Datasets`. Import one daily file and one monthly file, chart the daily one, pick "1M" from the
   dropdown that now offers it, and the fetch returns bars the chart cannot place. Related to TODO:541 but
   distinct — this one misfires even when every dataset has a legal timeframe. CONFIRMED. LOW.
-- [ ] **`WikipediaPageviewsProvider.cs:253-254` parses the response JSON twice per request.**
+  **CLOSED 2026-08-27 — at the fetch, not at the dropdown.** `GetSupportedTimeframesAsync`
+  takes no symbol, so it CANNOT be scoped without changing the interface for all 33 providers;
+  the union stays and now documents why. What changed is that `FetchOhlcvAsync` refuses a
+  timeframe the dataset does not have and names the spacing it does have, instead of returning
+  daily bars to a chart that has been told they are monthly. A vacuity check pins that the
+  dataset still charts at its own spacing.
+- [x] **`WikipediaPageviewsProvider.cs:253-254` parses the response JSON twice per request.**
   `return (Parse(json), Parse(json).Select(...))` — a 4000-point payload is deserialised and materialised
   into two throwaway `List<Ohlcv>`. Trivially fixed by hoisting to a local. CONFIRMED. LOW.
-- [ ] **`FinraShortVolumeProvider.cs:411-421` `TickerOf` is dead — superseded by `ParseSymbol` at
+  **CLOSED 2026-08-27.** Hoisted to a local. The guard strips comment lines first — the fix is
+  documented by quoting the old code, and a scan that counted the quotation would report the
+  bug it had just fixed.
+- [x] **`FinraShortVolumeProvider.cs:411-421` `TickerOf` is dead — superseded by `ParseSymbol` at
   `:397`.** No call sites. It also encodes a subtly different rule (it does not know about
   `_SHORTINT`/`_DTC`), so leaving it is an invitation to call the wrong one. CONFIRMED. LOW.
+  **ALREADY CLOSED — deleted 2026-08-24, three days before this item was read as open.**
+  `FinraShortVolumeProvider.cs:473` carries the tombstone comment and the reason, including
+  the `_SHORTINT`/`_DTC` divergence this item cites. No code change. The recount pattern
+  again: read the code, not the item.
 - [ ] **(amends TODO:5825-5834)** `ProviderFetchOhlcvTests.cs` gives the analytics plugins **one
   negative-path test each**, so no parse path is guarded. Counted per nested class: Fred 1, BGeometrics 1,
   CoinMetrics 1, DefiLlama 1, BinanceDerivatives 1, Mempool 1, Etherscan 2, OkxDerivatives 3,
@@ -3967,6 +4126,13 @@ The causality contract (`ComponentCausality` + `CausalityContract` + `SignalCata
 `IndicatorCausalityTests`'s prefix sweep) is the best thing in this area and better than most commercial
 charting products. Against it sits a large body of undisciplined provider code.
 
+  **DEFERRED 2026-08-27 — still open, and this batch moved it slightly.** New positive-path
+  parse coverage landed for SEC EDGAR (both submissions-document shapes and the multi-page
+  merge), CoinGecko (`/global`), Kraken Futures and Gemini (candle windows), so four of the
+  named gaps are narrower than they were. The item stands: Fred, BinanceVision, Deribit and
+  `AnalyticsDataResolver` still have no fetch-path test that feeds a real payload and checks
+  the resulting DATES, which is precisely the hole the FRED observation-date stamping fell
+  through. Sized as a test-writing batch of its own.
 - [x] **Every `typeof(string)` indicator parameter is structurally unreachable, because
   `SeriesState.cs:20` stores parameters as `Dictionary<string, double>` — what the UI offers, the
   provider can never receive.** `IndicatorModelFactory.cs:131` does

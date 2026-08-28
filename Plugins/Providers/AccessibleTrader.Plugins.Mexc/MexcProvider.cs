@@ -760,9 +760,30 @@ namespace AccessibleTrader.Plugins.Mexc
                 var b = new JObject { ["symbol"] = ToFuturesSymbol(CleanSymbol(symbol)), ["leverage"] = lev, ["openType"] = 1 };
                 var body = await _rest.FuturesSignedAsync(HttpMethod.Post, "/api/v1/private/position/change_leverage", key, secret,
                     jsonBody: b.ToString(Newtonsoft.Json.Formatting.None)).ConfigureAwait(false);
-                return JObject.Parse(body)["success"]?.Value<bool>() == true ? lev : 1.0;
+                if (JObject.Parse(body)["success"]?.Value<bool>() == true) return lev;
+
+                // The exchange refused. 1.0 is the contract's "could not set it" answer
+                // (GeneralOrderService.SetLeverageAsync documents why), but it is also a
+                // perfectly ordinary leverage, so the number alone cannot carry the news.
+                _errorStream.OnNext(
+                    $"MEXC refused the leverage change on {symbol}: it is not at {lev} times.");
+                return 1.0;
             }
-            catch { return 1.0; }
+            catch (Exception ex)
+            {
+                // A THROW IS NOT A REFUSAL, and this used to report both as a silent 1.0.
+                //
+                // 1.0 is also the "the exchange said no" return, so an exchange-side change that
+                // SUCCEEDED and then failed to parse — or timed out after the venue had already
+                // applied it — came back as the account sitting at 1x with nothing said. The
+                // caller then sizes the position against 1x while the account may be on 20x from
+                // this very call. The return value stays 1.0 because that is what the interface
+                // means by "not set"; what was missing is that anybody was told.
+                _errorStream.OnNext(
+                    $"MEXC could not confirm the leverage change for {symbol}: {ex.GetType().Name}. "
+                    + "The change may have been applied — check the leverage on the exchange before trading it.");
+                return 1.0;
+            }
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────

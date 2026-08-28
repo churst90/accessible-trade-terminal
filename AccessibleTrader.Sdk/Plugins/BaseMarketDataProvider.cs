@@ -172,9 +172,21 @@ namespace AccessibleTrader.Sdk.Plugins
         public abstract Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request);
         public abstract Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string symbol, int limit = 10);
 
+        /// <summary>
+        /// The venue-wire spelling of a UI symbol: separators stripped, uppercased.
+        ///
+        /// <para>
+        /// <b>Invariant, not current culture.</b> This mirrors the interface default on
+        /// <c>IMarketDataProvider</c>, which has always used <c>ToUpperInvariant</c>; the copy
+        /// here read <c>ToUpper()</c>. Under <c>tr-TR</c> the dotless-i rule turns
+        /// <c>"link/usd"</c> into <c>"LİNKUSD"</c> — a different string from the one every other
+        /// path produces, sent to the venue as the symbol and used as the default
+        /// <see cref="GetCanonicalSymbol"/>, which the paper ledger keys positions on.
+        /// </para>
+        /// </summary>
         protected string CleanSymbol(string symbol)
         {
-            return symbol?.Replace("/", "").Replace("-", "").ToUpper() ?? string.Empty;
+            return symbol?.Replace("/", "").Replace("-", "").ToUpperInvariant() ?? string.Empty;
         }
 
         /// <summary>

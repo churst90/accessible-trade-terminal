@@ -84,10 +84,20 @@ namespace AccessibleTrader.Core.Services.MyData
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market)
             => Task.FromResult(new List<string> { "Spot" });
 
+        /// <summary>
+        /// Every native spacing across every imported dataset — a UNION, because this interface
+        /// method takes no symbol and so cannot know which dataset is being charted.
+        ///
+        /// <para>
+        /// That means the dropdown offers a timeframe the selected dataset may not have: import
+        /// one daily file and one monthly file and both appear for either. There is no
+        /// resampling here, so a mismatch cannot be honoured — <see cref="FetchOhlcvAsync"/>
+        /// refuses it and says which spacing the dataset actually is, rather than handing back
+        /// daily bars for a chart that has been told they are monthly.
+        /// </para>
+        /// </summary>
         public override Task<List<string>> GetSupportedTimeframesAsync()
         {
-            // The timeframe dropdown shows what the imported data actually is —
-            // there's no resampling; each dataset has its native spacing.
             var frames = _store.Datasets.Select(d => d.Timeframe).Distinct().ToList();
             return Task.FromResult(frames.Count > 0 ? frames : new List<string> { "1d" });
         }
@@ -98,6 +108,21 @@ namespace AccessibleTrader.Core.Services.MyData
             var (dataset, column) = Resolve(request.Symbol);
             if (dataset == null)
                 return Task.FromResult((new List<Ohlcv>(), new List<(long, double)>()));
+
+            // A dataset has ONE spacing and this provider does not resample. The timeframe
+            // dropdown is the union across every import (see GetSupportedTimeframesAsync), so a
+            // user with a daily file and a monthly file is offered "1M" while charting the daily
+            // one — and picking it used to return the daily bars anyway, placed on a chart that
+            // had been told they were monthly. Refuse, and name the spacing this dataset has:
+            // that is the fact that lets someone pick a timeframe that works.
+            if (!string.IsNullOrEmpty(request.Timeframe) &&
+                !string.Equals(request.Timeframe, dataset.Timeframe, StringComparison.OrdinalIgnoreCase))
+            {
+                _errorStream.OnNext(
+                    $"\"{dataset.Name}\" was imported at {dataset.Timeframe} spacing and cannot be shown at "
+                    + $"{request.Timeframe} — this data is not resampled.");
+                return Task.FromResult((new List<Ohlcv>(), new List<(long, double)>()));
+            }
 
             var parsed = _store.GetParsed(dataset.Id);
             if (parsed == null)

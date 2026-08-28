@@ -742,13 +742,13 @@ namespace AccessibleTrader.Plugins.Kraken
                 var trades = json["result"]?["trades"] as JObject;
                 if (trades == null) return new List<TradeFill>();
 
-                string? want = symbol == null ? null : CleanSymbol(symbol);
+                string? want = symbol == null ? null : CanonicalKrakenPair(symbol);
                 var fills = new List<TradeFill>();
                 foreach (var kv in trades.Properties())
                 {
                     var t = kv.Value;
                     string pair = t["pair"]?.ToString() ?? "";
-                    if (want != null && !pair.Replace("/", "").ToUpperInvariant().Contains(want)) continue;
+                    if (want != null && CanonicalKrakenPair(pair) != want) continue;
                     fills.Add(new TradeFill(
                         kv.Name, pair,
                         (t["type"]?.ToString() ?? "buy") == "sell" ? OrderSide.Sell : OrderSide.Buy,
@@ -788,7 +788,7 @@ namespace AccessibleTrader.Plugins.Kraken
                         double.TryParse(o?["price"]?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double px) ? px : 0,
                         p.Value?["status"]?.ToString() ?? "open");
                 })
-                .Where(o => symbol == null || o.Symbol.Contains(symbol.Replace("/", ""), StringComparison.OrdinalIgnoreCase))
+                .Where(o => symbol == null || CanonicalKrakenPair(o.Symbol) == CanonicalKrakenPair(symbol))
                 .ToList();
             });
         }
@@ -1139,6 +1139,44 @@ namespace AccessibleTrader.Plugins.Kraken
         {
             string a = asset.Trim().ToUpperInvariant();
             return a switch { "BTC" => "XBT", "DOGE" => "XDG", _ => a };
+        }
+
+        /// <summary>
+        /// One spelling for a pair, whichever vocabulary it arrived in — Kraken's own or the
+        /// user's.
+        ///
+        /// <para>
+        /// <b>Why this exists.</b> <c>GetFillsAsync</c> and <c>GetOpenOrdersAsync</c> filtered
+        /// the venue's answer with <c>CleanSymbol(symbol)</c>, so a request for <c>BTC/USD</c>
+        /// looked for <c>BTCUSD</c> inside pairs Kraken actually returns as <c>XXBTZUSD</c> and
+        /// <c>XBTUSD</c>. It matched nothing: the History tab and the symbol-scoped orders list
+        /// came back EMPTY for the single most-traded pair on the venue, and empty is what those
+        /// panels also show for an account with no activity. The translation this needs was
+        /// already in the file (<see cref="NormaliseAsset"/>) and neither call site used it.
+        /// </para>
+        ///
+        /// <para>
+        /// Kraken's legacy four-character asset codes carry an <c>X</c> (crypto) or <c>Z</c>
+        /// (fiat) prefix, but only on pairs built from two of them — <c>XXBTZUSD</c> is
+        /// XBT/USD while <c>ETHUSDT</c> is exactly what it looks like. So the prefixes are
+        /// stripped only from an eight-character pair whose halves both carry one, and XBT/XDG
+        /// are then folded back to the spellings a user types.
+        /// </para>
+        ///
+        /// <para>
+        /// The comparison is EQUALITY, not <c>Contains</c>. The old substring test would have
+        /// matched <c>BTCUSDT</c> for a <c>BTCUSD</c> request had the vocabularies ever lined
+        /// up — and USD and USDT are different quote assets, which is the conflation
+        /// <c>BaseMarketDataProvider.GetCanonicalSymbol</c> exists to prevent.
+        /// </para>
+        /// </summary>
+        internal static string CanonicalKrakenPair(string pair)
+        {
+            string p = SymbolFormat.Concatenated(pair ?? string.Empty);
+            if (p.Length == 8 && (p[0] == 'X' || p[0] == 'Z') && (p[4] == 'X' || p[4] == 'Z'))
+                p = string.Concat(p.AsSpan(1, 3), p.AsSpan(5, 3));
+            return p.Replace("XBT", "BTC", StringComparison.Ordinal)
+                    .Replace("XDG", "DOGE", StringComparison.Ordinal);
         }
 
         // ── Auth helpers (HMAC-SHA512) ──────────────────────────────────────

@@ -772,7 +772,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                         _ => "STK"
                     };
 
-                    var body = new JObject { ["symbol"] = symbol.ToUpper(), ["secType"] = secType };
+                    var body = new JObject { ["symbol"] = symbol.ToUpperInvariant(), ["secType"] = secType };
                     var content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
                     var response = await _httpClient.PostAsync($"{_gatewayUrl}/iserver/secdef/search", content);
                     var respStr = await response.Content.ReadAsStringAsync();
@@ -834,7 +834,7 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
             _                          => "MKT"
         };
 
-        private static OrderType MapIbkrOrderType(string type) => type.ToUpper() switch
+        private static OrderType MapIbkrOrderType(string type) => type.ToUpperInvariant() switch
         {
             "LMT"     => OrderType.Limit,
             "STP"     => OrderType.StopMarket,

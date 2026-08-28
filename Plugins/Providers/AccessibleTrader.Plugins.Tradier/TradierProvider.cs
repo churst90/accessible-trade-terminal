@@ -277,8 +277,12 @@ namespace AccessibleTrader.Plugins.Tradier
             await EnsureConnectedAsync();
             if (_currentSymbol == symbol && _currentTimeframe == timeframe) return;
 
-            // Cancel existing stream
+            // Cancel existing stream — and DISPOSE it. A cancelled-but-undisposed source holds
+            // its registration list, and a symbol switch does this hundreds of times over a long
+            // session. Safe here for the same reason it is safe in Binance's version: the loop
+            // that holds the token sees it already cancelled, so nothing registers on it again.
             _streamCts?.Cancel();
+            _streamCts?.Dispose();
             _currentSymbol = symbol;
             _currentTimeframe = timeframe;
             _lastCandle = null;
@@ -444,13 +448,46 @@ namespace AccessibleTrader.Plugins.Tradier
             }
         }
 
+        /// <summary>
+        /// Disconnect means DISCONNECTED: the credentials are dropped and every channel this
+        /// provider opened is torn down.
+        ///
+        /// <para>
+        /// This used to cancel <c>_streamCts</c>, null two strings and return. Two things
+        /// survived. The access token and the <c>Bearer</c> header planted on both HTTP clients
+        /// stayed live, where every other provider in the fleet calls <c>ScrubCredentials</c>
+        /// here (Kraken, Binance, Schwab). And <c>_accountWs</c> — only ever released in
+        /// <c>Dispose</c> — kept reconnecting and kept pushing <c>OrderUpdate</c>s into
+        /// <c>_orderUpdateSubject</c> after the user had disconnected the provider, so a fill on
+        /// an account they had just walked away from still announced itself.
+        /// </para>
+        /// </summary>
         public override async Task DisconnectAsync()
         {
             _streamCts?.Cancel();
+            _streamCts?.Dispose();
+            _streamCts = null;
             _currentSymbol = null;
             _currentTimeframe = null;
             _lastCandle = null;
             _lastCandleStart = null;
+
+            // Tear the account websocket down before scrubbing, so its reconnect cannot
+            // re-authenticate on the way out with a token we are about to drop.
+            var ws = _accountWs;
+            _accountWs = null;
+            _accountStreamUp = false;
+            if (ws != null)
+            {
+                try { await ws.DisconnectAsync().ConfigureAwait(false); }
+                catch { /* best-effort: we are tearing down either way */ }
+                ws.Dispose();
+            }
+
+            ScrubCredentials(() => _accessToken = null);
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+            _streamClient.DefaultRequestHeaders.Authorization = null;
+
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -638,7 +675,16 @@ namespace AccessibleTrader.Plugins.Tradier
                     return (bids, asks);
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // SAY SO. An empty depth ladder is a visible oddity for a sighted user and
+                // indistinguishable from a book with no liquidity for this product's audience,
+                // so a bare `catch { return (new(), new()); }` here reported a dead endpoint as
+                // a market nobody is quoting. Kraken and Binance already push to _errorStream on
+                // this path; Tradier, Alpaca and Coinbase did not.
+                _errorStream.OnNext($"Tradier order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new(), new());
+            }
         }
 
         // ── ITradingProvider ────────────────────────────────────────────────
@@ -777,8 +823,14 @@ namespace AccessibleTrader.Plugins.Tradier
             // it (ProviderResult.FromException). Returning an empty result here is
             // what re-armed the reconciliation incident ProviderResult.cs documents —
             // a transient 502 read as "account flat" and overwrote the snapshot.
-            var response = await _httpClient.GetStringAsync(
-                $"{_baseUrl}/accounts/{_accountId}/history?type=trade&limit={limit}");
+            // Through the rate limiter, like every other call in this file. This one and
+            // GetOrderStatusAsync used to go straight to the wire — and GetOrderStatusAsync is
+            // the call the order poller makes in a LOOP while an order is working, against a
+            // 120 req/min budget shared with the chart's own fetches. A poll loop plus a chart
+            // refresh could push the account into a 429 during exactly the window where the user
+            // is waiting to hear whether they got filled.
+            var response = await _rateLimiter.ExecuteAsync(() => _httpClient.GetStringAsync(
+                $"{_baseUrl}/accounts/{_accountId}/history?type=trade&limit={limit}"));
             var json = JObject.Parse(response);
             var raw = json["history"]?["event"];
             if (raw == null || raw.Type == JTokenType.Null) return new();
@@ -792,27 +844,53 @@ namespace AccessibleTrader.Plugins.Tradier
                 string sym = trade["symbol"]?.ToString() ?? "";
                 if (symbol != null && !sym.Equals(symbol, StringComparison.OrdinalIgnoreCase)) continue;
                 double qty = trade["quantity"]?.Value<double>() ?? 0;
+                var filledAt = ev["date"]?.Value<DateTime>() ?? DateTime.MinValue;
+                double price = trade["price"]?.Value<double>() ?? 0;
                 fills.Add(new TradeFill(
-                    Guid.NewGuid().ToString("N").Substring(0, 12), sym,
+                    FillId(sym, filledAt, qty, price), sym,
                     qty >= 0 ? OrderSide.Buy : OrderSide.Sell,
                     Math.Abs(qty),
-                    trade["price"]?.Value<double>() ?? 0,
-                    ev["date"]?.Value<DateTime>() ?? DateTime.MinValue,
+                    price,
+                    filledAt,
                     Math.Abs(trade["commission"]?.Value<double>() ?? 0)));
             }
             return fills.OrderByDescending(f => f.FilledAt).Take(limit).ToList();
         }
 
+        /// <summary>
+        /// A STABLE identity for a fill, derived from the fill itself.
+        ///
+        /// <para>
+        /// Tradier's trade-history events carry no id of their own, and this used to pass
+        /// <c>Guid.NewGuid()</c> — so the same broker fill got a different identity on every
+        /// History-tab refresh and any consumer that dedupes or reconciles by id saw the whole
+        /// history as new each time. The event does carry date, symbol, quantity and price;
+        /// hashing those gives the same string for the same fill on every fetch, and different
+        /// strings for two fills that differ in any of them. Two genuinely identical fills at
+        /// the same instant collapse to one id — that is a real limit of what Tradier tells us,
+        /// and it is strictly better than every fill being unrecognisable.
+        /// </para>
+        /// </summary>
+        internal static string FillId(string symbol, DateTime filledAt, double quantity, double price)
+        {
+            string material = string.Create(CultureInfo.InvariantCulture,
+                $"{symbol}|{filledAt.Ticks}|{quantity:R}|{price:R}");
+            var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(material));
+            return Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
+        }
+
         /// <summary>Authoritative single-order status via GET /accounts/{id}/orders/{id}.
-        /// Returns null on a transient failure (the poller retries).</summary>
+        /// Returns null only when the order cannot be identified; a transient failure THROWS —
+        /// see the comment in the body and <see cref="ITradingProvider.GetOrderStatusAsync"/>.</summary>
         public async Task<OrderStatusSnapshot?> GetOrderStatusAsync(string orderId, string? symbol = null)
         {
             if (!IsConnected || string.IsNullOrEmpty(orderId)) return null;
             // No catch: the order poller counts consecutive failures and gives up
             // with a spoken warning. Returning null here read as "still resolving"
             // and turned a dead endpoint into a silent infinite retry.
-            var response = await _httpClient.GetStringAsync(
-                $"{_baseUrl}/accounts/{_accountId}/orders/{orderId}");
+            // Through the rate limiter — see GetFillsAsync. This is the poll-loop call.
+            var response = await _rateLimiter.ExecuteAsync(() => _httpClient.GetStringAsync(
+                $"{_baseUrl}/accounts/{_accountId}/orders/{orderId}"));
             var order = JObject.Parse(response)["order"] as JObject;
             if (order == null) return null;
             return MapOrderToSnapshot(order);

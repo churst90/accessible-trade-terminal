@@ -150,7 +150,7 @@ namespace AccessibleTrader.Plugins.TwelveData
                         ["action"] = "subscribe",
                         ["params"] = new JObject
                         {
-                            ["symbols"] = symbol.ToUpper()
+                            ["symbols"] = symbol.ToUpperInvariant()
                         }
                     };
                     await ws.SendAsync(sub.ToString());

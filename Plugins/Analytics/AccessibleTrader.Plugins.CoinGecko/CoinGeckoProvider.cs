@@ -174,7 +174,7 @@ namespace AccessibleTrader.Plugins.CoinGecko
             try
             {
                 if (Array.Exists(GlobalSymbols, s => s.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
-                    return await FetchGlobalAsync(symbol);
+                    return await FetchGlobalAsync(symbol, request);
 
                 if (CoinMcapMap.TryGetValue(symbol, out var coinId))
                     return await FetchCoinMcapAsync(coinId, request);
@@ -202,9 +202,28 @@ namespace AccessibleTrader.Plugins.CoinGecko
         /// at least display the current value; users who want historical breadth should
         /// run this provider on a schedule and accumulate snapshots in a separate store
         /// (a future enhancement).
+        ///
+        /// <para>
+        /// <b>A CLOSED WINDOW IS REFUSED, not answered with today's reading.</b> This ignored
+        /// <c>Since</c>/<c>Until</c> entirely, so a request for last March charted one dot dated
+        /// today — a single point and a real series look the same until the numbers are read —
+        /// and <c>DataService</c>'s analytics cache keys by the window, so every distinct
+        /// historical range accumulated its own entry holding a reading it was never from. Unlike
+        /// Etherscan's version of this bug there was never any look-ahead here: the stamp is
+        /// <c>UtcNow</c>, not today's midnight, so nothing was ever readable before it existed.
+        /// The refusal costs no HTTP call, so discovering it does not spend the user's quota.
+        /// </para>
         /// </summary>
-        private async Task<(List<Ohlcv>, List<(long, double)>)> FetchGlobalAsync(string symbol)
+        private async Task<(List<Ohlcv>, List<(long, double)>)> FetchGlobalAsync(string symbol, MarketDataRequest request)
         {
+            if (request.Until.HasValue &&
+                DateTimeOffset.FromUnixTimeMilliseconds(request.Until.Value).UtcDateTime < DateTime.UtcNow.AddMinutes(-1))
+            {
+                _errorStream.OnNext(
+                    $"CoinGecko {symbol} is a current reading, not a history — it cannot fill a past date range.");
+                return (new List<Ohlcv>(), new List<(long, double)>());
+            }
+
             return await _rateLimiter.ExecuteAsync(async () =>
             {
                 var json = await _http.GetStringAsync($"{BaseUrl}/global");

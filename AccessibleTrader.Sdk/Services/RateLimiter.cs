@@ -80,7 +80,16 @@ namespace AccessibleTrader.Sdk.Services
 
         /// <summary>
         /// Executes <paramref name="action"/> with rate limiting and automatic retry
-        /// on failure with exponential backoff (up to <paramref name="maxRetries"/> attempts).
+        /// on failure with exponential backoff.
+        ///
+        /// <para>
+        /// <paramref name="maxRetries"/> counts RETRIES, not attempts: the action runs once and
+        /// is then retried up to that many times, so the default 3 sends up to FOUR requests.
+        /// The doc used to say "up to <c>maxRetries</c> attempts", which understates the traffic
+        /// by one whole request — and this method is the multiplier on every duplicate-order
+        /// risk, which is why <see cref="ExecuteOnceAsync"/> exists for calls that create
+        /// something.
+        /// </para>
         /// </summary>
         public async Task<T> ExecuteAsync<T>(Func<Task<T>> action, int maxRetries = 3, CancellationToken ct = default)
         {

@@ -219,7 +219,7 @@ namespace AccessibleTrader.Plugins.Polygon
         public override async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(MarketDataRequest request)
         {
             if (!IsConfigured) return (new List<Ohlcv>(), new List<(long, double)>());
-            var symbol = request.Symbol.ToUpper();
+            var symbol = request.Symbol.ToUpperInvariant();
             var (multiplier, timespan) = MapTimeframe(request.Timeframe);
             // Polygon's aggregates endpoint returns up to 50000 bars in ONE response
             // (its own limit param) — matching the advertised MaxBarsPerRequest. The
@@ -348,7 +348,7 @@ namespace AccessibleTrader.Plugins.Polygon
                     if (isCrypto)
                     {
                         // Crypto: Use the L2 order book snapshot
-                        string url = $"{BaseUrl}/v3/snapshot/crypto/book/{symbol.ToUpper()}";
+                        string url = $"{BaseUrl}/v3/snapshot/crypto/book/{symbol.ToUpperInvariant()}";
                         var response = await GetAuthorizedStringAsync(url);
                         var json = JObject.Parse(response);
                         var data = json["data"];
@@ -369,7 +369,7 @@ namespace AccessibleTrader.Plugins.Polygon
                     else
                     {
                         // Stocks: Use NBBO snapshot (1-level best bid/ask)
-                        string url = $"{BaseUrl}/v3/snapshot?ticker.any_of={symbol.ToUpper()}";
+                        string url = $"{BaseUrl}/v3/snapshot?ticker.any_of={symbol.ToUpperInvariant()}";
                         var response = await GetAuthorizedStringAsync(url);
                         var json = JObject.Parse(response);
                         var results = json["results"] as JArray;
