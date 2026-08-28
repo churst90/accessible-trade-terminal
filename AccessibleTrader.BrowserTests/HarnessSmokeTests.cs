@@ -25,6 +25,40 @@ public sealed class HarnessSmokeTests
                 "is the exact shape of a green run that means nothing.");
     }
 
+    /// <summary>
+    /// The harness must take ONE socket, and it must not be the demo's.
+    ///
+    /// <para>
+    /// <c>CreateHost</c> asks for port 0 so parallel runs cannot collide, but the builder also
+    /// reads <c>AccessibleTrader.WebHost/appsettings.json</c>, whose
+    /// <c>Kestrel:Endpoints:Http:Url</c> is <c>http://localhost:5145</c>. A <c>Listen</c> call
+    /// does not REPLACE a configured endpoint, it ADDS to it, so the host took both. On CI
+    /// nothing owns 5145 and the extra bind succeeds in silence; on the box that serves the demo
+    /// on 5145 every case in this suite dies with "address already in use" — which is why that
+    /// box runs with a <c>Kestrel__Endpoints__Http__Url</c> override, the tell that put this
+    /// item on the list.
+    /// </para>
+    ///
+    /// <para>
+    /// This is a plain <see cref="FactAttribute"/>, not a <see cref="BrowserFactAttribute"/>: the
+    /// fixture builds the host before it looks for Chromium, so the bind is measurable on a
+    /// machine with no browser at all. Asserting <c>RootUrl</c> is non-empty — the obvious
+    /// version of this test — passed against the defect.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_harness_binds_exactly_one_port_and_it_is_not_the_demos()
+    {
+        var bound = _fixture.BoundAddresses;
+
+        Assert.True(bound.Count == 1,
+            "Kestrel bound " + bound.Count + " addresses: " + string.Join(", ", bound) +
+            ". The harness must own exactly one ephemeral port; a second address means a " +
+            "configured endpoint survived alongside the port-0 listener.");
+        Assert.DoesNotContain("5145", bound[0]);
+        Assert.StartsWith("http://127.0.0.1:", bound[0]);
+    }
+
     [BrowserFact]
     public async Task The_terminal_serves_a_page_and_arms_its_keyboard_pipeline()
     {

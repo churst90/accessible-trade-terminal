@@ -210,7 +210,7 @@ namespace AccessibleTrader.BlazorClient
             // registered so components and MarketOrchestrator can always @inject it.
             services.AddSingleton(new DemoPolicy(isDemo: false));
             // The withdrawal release gate, injected rather than read off a static so the markup
-            // that depends on it can be rendered both ways in tests. Shipped == closed for 2.3.0.
+            // that depends on it can be rendered both ways in tests. Shipped == closed for 2.4.0.
             services.AddSingleton(AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.Shipped);
 
             // Market / symbol / timeframe selection cascade.

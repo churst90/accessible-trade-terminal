@@ -28,7 +28,7 @@ namespace AccessibleTrader.Core.Services.Trading
     {
         /// <summary>
         /// Whether the withdrawal path is offered to users at all. **False for
-        /// 2.3.0, deliberately.**
+        /// 2.3.0 and 2.4.0, deliberately.**
         ///
         /// <para>
         /// Everything below this line is built, tested and believed correct — but

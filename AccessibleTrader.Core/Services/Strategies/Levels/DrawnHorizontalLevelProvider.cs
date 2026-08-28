@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 
@@ -51,7 +52,10 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
             if (!maybePrice.HasValue) return;
             double price = maybePrice.Value;
             if (double.IsNaN(price) || double.IsInfinity(price) || price <= 0) return;
-            var kind = price < currentPrice ? LevelKind.Support : LevelKind.Resistance;
+            // Same invariant the narrators speak, so it is the same code. This branch was already
+            // right; routing it through LevelPolarity is what stops it drifting away from what the
+            // app SAYS about the level it hands downstream.
+            var kind = LevelPolarity.IsResistance(price, currentPrice) ? LevelKind.Resistance : LevelKind.Support;
             sink.Add(new PriceLevel(price, kind, Strength: 0.8, Source: "Drawn"));
         }
     }

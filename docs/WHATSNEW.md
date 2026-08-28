@@ -1,6 +1,6 @@
 # What's New
 
-## Unreleased — a fixing release
+## 2.4.0 — a fixing release
 
 Nothing new was added since 2.3.0. This is the release where things that were quietly
 wrong stopped being wrong, and most of them are things you would never have known to
@@ -21,7 +21,13 @@ report.
 - **A level could be announced as the opposite of what it was.** A support break could be
   announced as resistance, because the code decided which was which by looking at the
   component's *name*, and a component called `RESISTANCE_1` did not match the spelling it
-  looked for.
+  looked for. Earlier in the summer a different piece of the app decided the same question by
+  the *pitch* the level was played at. Two wrong answers to the same question in three weeks,
+  each fixed only where it was found — so there is now exactly one place in the whole program
+  that decides it, it decides it the way the words actually mean (a level above the price is a
+  ceiling, one below it is a floor), and a check refuses to build any future code that tries to
+  work it out some other way. "Near resistance at X" is the most consequential thing this
+  terminal says, and it is the one claim you have no way of checking for yourself.
 - **Whole-chart playback had been clipping since the day it was written.** Nobody had ever
   measured it. A perfectly ordinary chart — eighteen voices at the default volume — was
   asking for five and a half times the loudest sound your speakers can make, so the peaks
@@ -37,6 +43,12 @@ report.
 - **A month of daily bars was being stored a day early**, and the way the cache worked meant
   that once stored wrongly it could never be corrected.
 - **Order rejections were being cut off mid-word.**
+- **Settings → About was two venues out of date.** It listed the exchanges your build can trade
+  on, and Gemini and Kraken Futures had been missing from that list since the day they shipped —
+  so if you went looking there to find out whether you had them, you were told you did not. The
+  link to the project's source code on that same screen pointed at the wrong place entirely.
+  Both fixed, and there is now a check that fails the build if that list and the exchanges
+  actually included ever disagree again.
 - **Security.** Changing your password now ends any session that was already open with the
   old one. A data source that redirected the terminal somewhere it was not allowed to go is
   refused rather than followed. And on the hosted terminal, sign-in records for every account
@@ -46,6 +58,10 @@ Behind all of that: four audits run by deliberately breaking things rather than 
 code, a new test harness that drives a real browser against the real application on every
 change, and an automated test suite that has grown by more than two thousand tests since
 2.3.0 — every fix above was proved by putting the bug back and watching a test catch it.
+That browser harness could not, until this release, be run on the machine that actually
+serves the online demo: it quietly grabbed the same port the demo runs on, which nothing
+noticed on the build servers and which broke it completely on the one machine where being
+able to prove the site still renders matters most.
 
 ## 2.3.0 — the account, not just the chart
 

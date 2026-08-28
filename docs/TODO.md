@@ -117,9 +117,71 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-28).**
+> **START HERE (current as of 2026-08-28, second session that day — 2.4.0 IS CUT).**
 >
-> **2026-08-28 — a documentation pass, and the release question is now on the table.** No
+> **2.4.0 was tagged on 2026-08-28.** Items (a) and (b) of the four-item order below went in
+> first, then the release. Suite **5,754** green in both configs (`--list-tests` reports
+> **5749** — the number `docs/README.md` must match), browser harness **129/129**, doc-drift
+> green. **372 open items in this file** (roadmap included — never quote it as a defect count).
+>
+> **What shipped in this session, and what each one taught:**
+>
+> 1. **(a) `TerminalServerFactory`'s port bind — CLOSED.** The filing was right about the
+>    mechanism and it is worth carrying: **a `Listen` call does not REPLACE a configured
+>    endpoint, it ADDS to it.** The factory asked for port 0 and got port 0 *and* 5145, because
+>    the builder still reads the WebHost's `appsettings.json`. Demonstrated before the fix
+>    (`Kestrel bound 2 addresses: http://127.0.0.1:43315, http://localhost:5145`), then proved
+>    by occupying 5145: the old factory died with `address already in use`, the new one ran
+>    **129/129**. The guard asserts the bound-address SET — the obvious guard, that `RootUrl`
+>    is non-empty, passed against the defect. It is a plain `[Fact]`, so it measures the bind
+>    on a machine with no Chromium at all.
+> 2. **(b) The `IsResistance` chokepoint — CLOSED.** `LevelPolarity.IsResistance(level,
+>    referencePrice)`, three call sites, plus `LevelPolarityScanTests` proved red three ways.
+>    **The trap is worth the whole item: applying the position rule everywhere INVERTS the
+>    break announcement.** A break is the moment price crossed the level, so at announcement
+>    time the level is on the far side — judged against the current close, every broken
+>    resistance becomes "support". `ScanZoneLines` keeps a last-close per zone line for exactly
+>    this. And **it is invisible in any test whose bars all close at the same price**, which is
+>    what the existing zone tests did.
+> 3. **(d) 2.4.0 cut.** `Directory.Build.props` → `2.4.0`; `WHATSNEW.md` and `CHANGES.md`
+>    sections opened; `docs/RELEASE_2.4.0_VERIFICATION.md` written in the same form as the
+>    2.3.0/2.2.0/2.1.0 ones; README's release line, status block and both test-count claims
+>    updated; the withdrawal-gate version references moved off 2.3.0. **The About dialog needed
+>    nothing** — `Directory.Build.props` is the single source and its `StampCommitId` target
+>    appends the short sha, so Settings → About reads `2.4.0+<sha>` at runtime.
+>    **A stale claim found while doing it: README said "190 commits since 2.3.0"; it is 107.**
+>    Corrected in both the README and the verification doc, and it is a reminder that a number
+>    written into prose has nothing checking it — `doc-drift.yml` guards the test count and the
+>    plugin count and nothing else.
+>
+> **(c) — RE-MEASURE THE MUTATION CATCH RATE — IS NOW THE TOP ITEM AND IT IS UNCHANGED.**
+> A2 measured **61%** on 2026-08-26 against a 4,830-test suite; the suite is 5,754 now, about
+> 900 tests later, and that number is what the production-readiness grade turns on. **Budget a
+> session of its own**: 28 mutation cycles, each a rebuild plus a full run (~2m18s in Release).
+> **Carry A2's own trap in:** record failing test *names*, and re-run any single-test catch in
+> isolation — five mutants came back falsely "caught" by one unrelated flaky test firing alone,
+> which is the entire difference between the naive 79% and the true 61%.
+>
+> **The (c)-vs-(d) question is settled, and how it was settled is on the record.** The
+> 2026-08-28 morning block recorded (c) before (d) as Cody's call, with this file's counter-
+> argument written next to it. Cody flipped it that afternoon — do (a), (b), then the release —
+> and the flip is what happened. The argument that won: (c) does not change what ships, it is
+> the most expensive of the four, and if it finds survivors the honest response is to fix them,
+> which attaches an open-ended delay to a release already justified on its own evidence. It is
+> settled; do not re-litigate it, and note that the reasoning **expires** — it was an argument
+> about release timing, not an argument that the catch rate does not matter. It matters more
+> now, not less.
+>
+> **After (c), the backlog has no obvious cluster.** The candidates are the three named in the
+> previous block plus the two items left in the hosted-deployment section (the plugin allow-list
+> DNS check, and running the integration suite under a non-empty `PathBase`). Nothing in
+> `RELEASE_2.4.0_VERIFICATION.md`'s "Not checked" list can be closed by an agent — every one of
+> them needs Cody, a real venue, or a Windows/macOS machine. Read that list before assuming the
+> next thing to do is in this file.
+>
+> ---
+>
+> **Previous (2026-08-28, morning) — a documentation pass, and the release question was on the table.** No
 > production behaviour changed. Suite **5,735** green in both configs, doc-drift green.
 > What this session did, and what it means for the next one:
 >
@@ -2006,8 +2068,20 @@ new one). Each was re-checked against this tree before being written down.
   purpose: plugins are trust-hashed (33 verified at boot), so the realistic case is a first-party
   provider's upstream resolving somewhere unexpected, not attacker-supplied code. But the guard to copy
   is thirty lines away, and the two factories are byte-identical in this respect so it is one fix twice.
-- [ ] **`AccessibleTrader.BrowserTests` cannot run on the deployment box, and the defect is invisible on
-  CI (note §5e).** `TerminalServerFactory.CreateHost` binds the Kestrel host with
+- [x] **DONE 2026-08-28. `AccessibleTrader.BrowserTests` cannot run on the deployment box, and the defect is invisible on
+  CI (note §5e).** Fixed exactly as filed, and the filing was right about the mechanism: a `Listen`
+  call does not REPLACE a configured endpoint, it ADDS to it. `CreateHost` now overrides
+  `Kestrel:Endpoints:Http:Url` to port 0 with an in-memory configuration source appended after the
+  app's own, and `HarnessSmokeTests.The_harness_binds_exactly_one_port_and_it_is_not_the_demos`
+  asserts the bound-address SET. **Demonstrated both ways.** Before the fix the guard reported
+  `Kestrel bound 2 addresses: http://127.0.0.1:43315, http://localhost:5145`. With 5145 occupied by
+  another process, the sabotaged (old) factory failed with
+  `Failed to bind to address http://127.0.0.1:5145: address already in use` and the fixed one ran
+  the whole suite **129/129 green**. The guard is a plain `[Fact]`, not a `[BrowserFact]`, because
+  the fixture builds the host before it probes for Chromium — so the bind is measurable on a machine
+  with no browser at all, which is half the point.
+
+  The original filing, kept because it names the mechanism: `TerminalServerFactory.CreateHost` bound the Kestrel host with
   `b.UseKestrel(o => o.Listen(IPAddress.Loopback, 0))` — port 0, as its comment says — but the builder
   still reads `AccessibleTrader.WebHost/appsettings.json`, whose `Kestrel:Endpoints:Http:Url` is
   `http://localhost:5145`. Kestrel binds **both**, so the host also takes 5145: the demo's port. On CI
@@ -2019,8 +2093,36 @@ new one). Each was re-checked against this tree before being written down.
   *renders*, and right now it cannot be run on the machine that serves it. Guard it by asserting the
   bound address set contains exactly one address and that it is not 5145; a test that merely checks
   `RootUrl` is non-empty passes today.
-- [ ] **One `IsResistance(level, price)` chokepoint, before this is got wrong a third time (note §5f).**
-  Not a defect report — both known instances are fixed. It is the recurrence that earns the item: the
+- [x] **DONE 2026-08-28. One `IsResistance(level, price)` chokepoint, before this is got wrong a third time (note §5f).**
+  `AccessibleTrader.Core/Services/Analysis/LevelPolarity.cs` — `IsResistance(level, referencePrice)`
+  plus a `Word()` helper. `NavigationFeedbackManager`, `AutoNarrationService` and
+  `DrawnHorizontalLevelProvider` all call it; `AutoNarrationService`'s name matching is gone.
+  `LevelPolarityScanTests` fails any narration-layer file that decides polarity by name matching or
+  by frequency, and fails any file that names a price and calls it support or resistance without
+  calling the chokepoint — **proved red three ways**: name matching restored, frequency restored, and
+  the chokepoint bypassed by an inline comparison that was still *correct* (that third one is why the
+  guard is a path check and not just a ban list). No allowlist, deliberately, and the docstring says
+  so: both historical bugs would have been allowlisted, because each looked local and reasonable at
+  its own call site.
+
+  **The trap, and it is the reason this took more than one line.** Applying the position rule
+  everywhere INVERTS the break announcement. A break is by definition the moment price crossed the
+  level, so at the instant of announcement the level is on the far side: judged against the current
+  close, every broken resistance becomes "support" and every broken support becomes "resistance" —
+  the same inversion the name-matching bug produced, arrived at from the opposite direction.
+  `ScanZoneLines` now keeps `_lastZoneClose` per zone line and judges a break against the close at
+  the last bar the level still existed on. **This is invisible in any test whose bars all close at
+  the same price**, which is exactly what the pre-existing zone tests did (every bar closed at 105),
+  so the new break tests move the close across the level. Sabotaging `breakRefClose` to
+  `currentClose` turns both of them red.
+
+  Also fixed on the way past: `ASupportLine_IsStillCalledSupport` was vacuous under the new rule —
+  it asserted a component *named* "Support Zone" is called support while placing it ABOVE the price.
+  Under the chokepoint that level is a ceiling and the correct answer is "resistance", so the test
+  now puts it below, and a new theory pins the sharp case directly: a component named
+  `Resistance Zone` sitting below price is announced as support.
+
+  The original filing: it is the recurrence that earned the item — the
   `887e39c6`-era zone announcement decided support vs resistance by the component's **audio frequency**
   (`if (freq >= 500f)`), so a level voiced for audibility rather than semantics was announced as the
   opposite structural level; and `2b55e6fa`'s `AutoNarrationService` decided it by two literal

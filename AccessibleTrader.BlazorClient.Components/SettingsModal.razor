@@ -1139,8 +1139,13 @@
                         <tr><td>Platform</td><td>.NET 10 — MAUI Blazor Hybrid + ASP.NET Core WebHost</td></tr>
                         <tr><td>Chart Engine</td><td>SkiaSharp</td></tr>
                         <tr><td>Audio Engine</td><td>128-voice polyphonic synthesis (cross-platform DSP)</td></tr>
-                        <tr><td>Providers</td><td>Alpaca, Binance, Bitstamp, Coinbase, Finnhub, FMP, Interactive Brokers, Kraken, MEXC, Oanda, Polygon, Schwab, Tradier, Twelve Data</td></tr>
-                        <tr><td>Repository</td><td><a href="https://github.com/accessible-trader/accessible-trader" target="_blank" style="color:#0078d4;">GitHub</a></td></tr>
+                        @* This row is checked against Plugins/Providers/ by
+                           AboutDialogHonestyTests. It had gone stale by two venues — Gemini and
+                           Kraken Futures both shipped in 2.3.0 and neither was listed here — and
+                           an About dialog is the one place a user goes to find out what they have.
+                           Add a plugin directory, add it here; the test names the missing one. *@
+                        <tr><td>Trading venues</td><td>Alpaca, Binance, Bitstamp, Coinbase, Finnhub, FMP, Gemini, Interactive Brokers, Kraken, Kraken Futures, MEXC, Oanda, Polygon, Schwab, Tradier, Twelve Data</td></tr>
+                        <tr><td>Repository</td><td><a href="https://github.com/churst90/accessible-trade-terminal" target="_blank" style="color:#0078d4;">GitHub</a></td></tr>
                     </tbody>
                 </table>
                 <p style="margin-top:16px; color:var(--text-muted); font-size:0.88rem; font-style:italic;">

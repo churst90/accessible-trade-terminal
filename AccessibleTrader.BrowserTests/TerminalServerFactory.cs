@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -79,6 +80,18 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
     public string RootUrl { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Every address Kestrel actually bound, not just the one the browser is pointed at.
+    ///
+    /// <para>
+    /// This is exposed because <see cref="RootUrl"/> cannot answer the question that matters:
+    /// it is non-empty whether the host took one socket or three. The harness once bound the
+    /// ephemeral port AND <c>appsettings.json</c>'s <c>5145</c>, which is silent on CI (nothing
+    /// owns 5145 there) and fatal on the box that serves the demo on exactly that port.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> BoundAddresses { get; private set; } = Array.Empty<string>();
+
+    /// <summary>
     /// Everything the host logged, in order. The WebHost swallows a great many exceptions by
     /// design (A1 counted 872 catch clauses); when the browser sees nothing happen, the server
     /// log is usually the only place that says why.
@@ -148,14 +161,33 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
 
         // The real one. Port 0 lets the OS pick, so parallel runs and a developer's own
         // `dotnet run` on 5145 cannot collide.
-        builder.ConfigureWebHost(b => b.UseKestrel(o => o.Listen(IPAddress.Loopback, 0)));
+        //
+        // OVERRIDE the configured endpoint; do not add a listener next to it. This used to be
+        // `b.UseKestrel(o => o.Listen(IPAddress.Loopback, 0))`, and a Listen call does not
+        // replace `Kestrel:Endpoints` — it adds to it. The builder still reads the WebHost's
+        // appsettings.json, whose Http endpoint is http://localhost:5145, so the harness took
+        // the ephemeral port AND the demo's port. Nothing owns 5145 on CI, so the second bind
+        // succeeded in silence there; on the box that actually serves the demo, all 128 cases
+        // died with "Failed to bind to address http://127.0.0.1:5145: address already in use"
+        // — i.e. the one check that proves a deployed commit renders could not be run on the
+        // machine doing the deploying.
+        //
+        // An in-memory source added here wins because it is appended after the app's own
+        // sources; the guard in HarnessSmokeTests asserts the resulting bind set, not RootUrl.
+        builder.ConfigureWebHost(b => b
+            .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Kestrel:Endpoints:Http:Url"] = $"http://{IPAddress.Loopback}:0",
+            }))
+            .UseKestrel());
         _kestrelHost = builder.Build();
         _kestrelHost.Start();
 
         var addresses = _kestrelHost.Services.GetRequiredService<IServer>()
             .Features.Get<IServerAddressesFeature>()
             ?? throw new InvalidOperationException("Kestrel reported no bound addresses.");
-        RootUrl = addresses.Addresses.First();
+        BoundAddresses = addresses.Addresses.ToList();
+        RootUrl = BoundAddresses.First();
 
         testHost.Start();
         return testHost;

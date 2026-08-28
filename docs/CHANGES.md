@@ -2,7 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.4.0] — 2026-08-28
+
+### One place decides support versus resistance, and the browser harness runs where the demo runs (2026-08-28)
+
+The last two items before the tag. Neither is a new defect report; both are about a defect class
+being made unrepeatable.
+
+- **`LevelPolarity.IsResistance(level, referencePrice)` — the chokepoint.** The same one-line
+  invariant had been got wrong twice in three weeks by two different wrong proxies, and each was
+  fixed only at the site where somebody noticed it. `887e39c6`'s zone announcement decided
+  support-versus-resistance by the component's **audio frequency** (`if (freq >= 500f)`), so a level
+  voiced for audibility rather than semantics was announced as the opposite structural level.
+  `2b55e6fa`'s `AutoNarrationService` decided it by two literal `Contains` calls, so a component
+  named `RESISTANCE_1` fell through and its break was announced as *"Support at 61,200 broken."*
+  There is now one rule in one place — a level at or above the reference price is a ceiling, below
+  it is a floor — and `NavigationFeedbackManager`, `AutoNarrationService` and
+  `DrawnHorizontalLevelProvider` all call it.
+- **The trap in applying that rule everywhere, which is why the narrator now keeps a last-close per
+  zone line.** A *break* is by definition the moment price crossed the level, so at the instant of
+  announcement the level is on the far side of it: judging a break against the CURRENT close renames
+  every broken resistance "support" and every broken support "resistance" — the same inversion the
+  name-matching bug produced, arrived at from the opposite direction. `ScanZoneLines` now judges a
+  break against the close at the last bar the level still existed on. **This would be invisible in
+  any test whose bars all close at the same price**, which is what the previous zone tests did, so
+  the new ones move the close across the level.
+- **A scan guard so a third variant cannot be written.** `LevelPolarityScanTests` fails any file in
+  the narration layer that decides polarity by name matching or by frequency, and fails any file that
+  names a price and calls it support or resistance without calling the chokepoint. Proven red three
+  ways — name matching restored, frequency restored, and the chokepoint bypassed by an inline
+  comparison that was still *correct* — because banning the two known proxies alone would leave a
+  third one free. Deliberately **no allowlist**: both historical bugs would have been allowlisted.
+  Indicator providers are out of scope by design, and the docstring says why — `CipherSRProvider`
+  describes a component it built from a pivot high, so it knows the polarity rather than guessing it.
+- **`AccessibleTrader.BrowserTests` could not run on the box that serves the demo.**
+  `TerminalServerFactory.CreateHost` asked Kestrel for port 0, but a `Listen` call does not REPLACE
+  a configured endpoint, it ADDS to it — and the builder still reads the WebHost's `appsettings.json`,
+  whose `Kestrel:Endpoints:Http:Url` is `http://localhost:5145`. The harness took both. On CI nothing
+  owns 5145 and the second bind succeeded in silence; on the deployment box every case died with
+  `Failed to bind to address http://127.0.0.1:5145: address already in use`, which is why that box
+  carried a `Kestrel__Endpoints__Http__Url` override — the tell that put this on the list. The
+  configured endpoint is now overridden rather than joined. Verified by occupying 5145 and running
+  the whole suite: **129/129 green**, where the same run against the old factory failed at the host
+  build. The guard asserts the bound-address SET — exactly one address, and not 5145 — because
+  the obvious test, that `RootUrl` is non-empty, passed against the defect.
+  This matters more than its size: the browser suite is the only check that proves a deployed commit
+  actually renders, and until now it could not be run on the machine doing the deploying.
+- **The About dialog had gone stale, and nothing was watching it.** Found while cutting the release.
+  Its provider row listed fourteen trading venues; the tree ships sixteen — **Gemini and Kraken
+  Futures both shipped in 2.3.0 and neither was ever added**, so for a whole release the dialog a
+  user opens to find out what their build supports was telling two venues' users they did not have
+  them. The repository link in the same table pointed at a different GitHub org. Both fixed, and
+  `AboutDialogHonestyTests` now checks the row against `Plugins/Providers/` in **both** directions —
+  a venue that ships and is not listed, and a venue listed with no plugin behind it — plus a vacuity
+  check, because a wrong path or a rename would leave nothing to compare against and an empty
+  expectation passes everything below it. Same shape as the README plugin-count drift `doc-drift.yml`
+  already guards, except this copy is *inside the application*, where the reader has no changelog
+  next to it. **The version and build rows needed nothing**: `Directory.Build.props` is the single
+  source of the version and its `StampCommitId` target appends the short commit sha, so About reads
+  `2.4.0+<sha>` off the assembly at runtime and announces the number and the build as two separately
+  labelled fields.
+
 
 ### A text label that spoke the price instead of the text (2026-08-27)
 

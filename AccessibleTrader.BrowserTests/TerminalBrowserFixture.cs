@@ -20,6 +20,9 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
     /// <summary>Everything the host has logged so far.</summary>
     internal IReadOnlyList<string> ServerLog => _factory?.Log ?? Array.Empty<string>();
 
+    /// <summary>Every address the harness's Kestrel bound. See the port-bind guard in the smoke tests.</summary>
+    internal IReadOnlyList<string> BoundAddresses => _factory?.BoundAddresses ?? Array.Empty<string>();
+
     public async Task InitializeAsync()
     {
         _factory = new TerminalServerFactory();

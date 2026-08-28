@@ -1,6 +1,7 @@
 using System.Globalization;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Core.Services.Audio;
 
 namespace AccessibleTrader.Core.Services.Accessibility
@@ -618,12 +619,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // support at X" is a directional claim a trader acts on, and the magic 500
                     // was undocumented.
                     //
-                    // A level above the price is a ceiling and a level below it is a floor.
-                    // That is what the words mean, it needs no constant, and it cannot be
-                    // wrong because someone re-voiced an indicator. Frequency stays purely for
-                    // the tone.
+                    // The rule now lives in ONE place — LevelPolarity — because the same
+                    // invariant was also got wrong by spelling over in AutoNarrationService,
+                    // and each site was fixed alone. Frequency stays purely for the tone.
                     double distance = Math.Abs(zoneVal - bar.Close);
-                    if (zoneVal >= bar.Close)
+                    if (LevelPolarity.IsResistance(zoneVal, bar.Close))
                     {
                         if (distance < resistanceDist)
                         {

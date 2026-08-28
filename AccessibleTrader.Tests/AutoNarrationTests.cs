@@ -358,43 +358,101 @@ namespace AccessibleTrader.Tests
             Assert.Empty(router.Spoken);
         }
 
-        // ── Zone lines: support and resistance are not decided by spelling ──────
+        // ── Zone lines: support and resistance are decided by POSITION ──────────
+        //
+        // These four tests are the narrator's half of the LevelPolarity chokepoint. The
+        // invariant has now been got wrong twice by two different proxies — the audio frequency
+        // a level was voiced at, and the spelling of its component name — so what is guarded
+        // here is not a spelling table but the rule itself: a level above the price is a
+        // ceiling, a level below it is a floor. LevelPolarityScanTests guards the other half,
+        // that no announcer can go back to deciding it any other way.
 
         [Theory]
         [InlineData("Resistance Zone")]   // the spelling that always worked
         [InlineData("RESISTANCE_1")]      // shouted — fell through before 2026-08-27
         [InlineData("resistance_upper")]  // lower-cased with a suffix
-        public void AResistanceLine_IsCalledResistance_WhateverItsSpelling(string componentName)
+        [InlineData("res_upper")]         // abbreviated — no spelling fix could ever have caught this
+        public void ALevelAbovePrice_IsCalledResistance_WhateverItsSpelling(string componentName)
         {
             // The classifier was two literal `Contains` calls, "Resistance" and "resistance", so
             // any other casing fell through to the else arm and the line was announced as
             // SUPPORT — the opposite structural claim, and the one thing a trader acts on. There
             // is no visual to catch it: "Approaching support at 105.20" on a resistance level
             // reads as an invitation to buy.
-            var router = RunZoneScan(componentName);
+            var router = RunZoneScan(componentName, zoneValue: 105.2);   // close is 105
 
             Assert.Contains(router.Spoken, m => m.Contains("resistance", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(router.Spoken, m => m.Contains("support", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
-        public void ASupportLine_IsStillCalledSupport()
+        public void ALevelBelowPrice_IsStillCalledSupport()
         {
             // Vacuity guard: a fix that classified everything as resistance would satisfy every
             // case of the theory above. The else arm has to still be reachable.
-            var router = RunZoneScan("Support Zone");
+            var router = RunZoneScan("Support Zone", zoneValue: 104.8);  // close is 105
 
             Assert.Contains(router.Spoken, m => m.Contains("support", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(router.Spoken, m => m.Contains("resistance", StringComparison.OrdinalIgnoreCase));
         }
 
-        /// <summary>
-        /// Drives <c>ScanZoneLines</c> to the proximity announcement for a single zone line.
-        /// The bar close is 105 and the zone sits at 105.2 — inside the 0.5% proximity band, so
-        /// the first scan that sees it announces an approach. Bar 2 is the one scanned, per the
-        /// seed-then-grow sequence the other tests in this file use.
-        /// </summary>
-        private static CapturingSpeechRouter RunZoneScan(string componentName)
+        [Theory]
+        [InlineData("Resistance Zone", 104.8, "support")]
+        [InlineData("Support Zone",    105.2, "resistance")]
+        public void TheNameLosesToThePosition(string componentName, double zoneValue, string expectedWord)
+        {
+            // The sharp end of the chokepoint, and the case the two previous fixes could not have
+            // produced: a component whose NAME says one thing while it sits on the other side of
+            // the price. Under name matching the first case announced "resistance" for a floor.
+            // The name is the provider's label; the polarity is a fact about the market.
+            string wrongWord = expectedWord == "support" ? "resistance" : "support";
+            var router = RunZoneScan(componentName, zoneValue);
+
+            Assert.Contains(router.Spoken, m => m.Contains(expectedWord, StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(router.Spoken, m => m.Contains(wrongWord, StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void ABrokenResistance_IsAnnouncedAsResistance_NotAsWhatPriceMadeItByBreakingIt()
+        {
+            // The trap in applying the position rule everywhere, and the reason ScanZoneLines
+            // keeps a last-close per zone line rather than reading the current one.
+            //
+            // A break IS the moment price crossed the level, so at the instant of announcement
+            // the level is on the far side: a resistance that was just broken now sits BELOW
+            // price. Judging that break against the CURRENT close would rename every broken
+            // resistance "support" and every broken support "resistance" — the same inversion
+            // the name-matching bug produced, arrived at from the opposite direction, and it
+            // would be invisible in any test whose bars all close at the same price.
+            //
+            // Hence the closes below: 100 while the level at 105 is alive, then 110 once it is
+            // gone. Against the pre-break close the level was a ceiling; against the current one
+            // it reads as a floor.
+            var router = RunBreakScan(
+                zoneValues: new[] { 105.0, 105.0, 105.0, double.NaN, double.NaN },
+                closes:     new[] { 100.0, 100.0, 100.0, 110.0,      110.0 });
+
+            Assert.Contains(router.Spoken, m => m.Contains("Resistance at", StringComparison.Ordinal)
+                                             && m.Contains("broken", StringComparison.Ordinal));
+            Assert.DoesNotContain(router.Spoken, m => m.Contains("Support at", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ABrokenSupport_IsAnnouncedAsSupport()
+        {
+            // Vacuity counterpart of the test above: the mirrored break must still say "Support",
+            // so a fix that hard-coded "Resistance" into the break message cannot pass both.
+            var router = RunBreakScan(
+                zoneValues: new[] { 105.0, 105.0, 105.0, double.NaN, double.NaN },
+                closes:     new[] { 110.0, 110.0, 110.0, 100.0,      100.0 });
+
+            Assert.Contains(router.Spoken, m => m.Contains("Support at", StringComparison.Ordinal)
+                                             && m.Contains("broken", StringComparison.Ordinal));
+            Assert.DoesNotContain(router.Spoken, m => m.Contains("Resistance at", StringComparison.Ordinal));
+        }
+
+        /// <summary>Builds the zone-line series config the two drivers below share.</summary>
+        private static SeriesConfig ZoneConfig(string componentName)
         {
             var cfg = new SeriesConfig
             {
@@ -411,6 +469,19 @@ namespace AccessibleTrader.Tests
                 IsVisible = true,
                 IsZoneLine = true
             });
+            return cfg;
+        }
+
+        /// <summary>
+        /// Drives <c>ScanZoneLines</c> to the proximity announcement for a single zone line.
+        /// Every bar closes at 105, so a <paramref name="zoneValue"/> of 105.2 is a ceiling and
+        /// 104.8 is a floor; both are inside the 0.5% proximity band, so the first scan that sees
+        /// the line announces an approach. Bar 2 is the one scanned, per the seed-then-grow
+        /// sequence the other tests in this file use.
+        /// </summary>
+        private static CapturingSpeechRouter RunZoneScan(string componentName, double zoneValue)
+        {
+            var cfg = ZoneConfig(componentName);
 
             ChartSeries Build(double[] values)
             {
@@ -424,14 +495,63 @@ namespace AccessibleTrader.Tests
             var router = new CapturingSpeechRouter();
             var svc = new AutoNarrationService(store, bus, router, new StubContextAnalyzer());
 
-            store.EmitState(BuildState(Build(new[] { 105.2 }), 1));
+            store.EmitState(BuildState(Build(new[] { zoneValue }), 1));
             bus.Publish(new RedrawEvent());                       // scanIndex 0 — seeded, skipped
 
-            store.EmitState(BuildState(Build(new[] { 105.2, 105.2, 105.2 }), 3));
+            store.EmitState(BuildState(Build(new[] { zoneValue, zoneValue, zoneValue }), 3));
             bus.Publish(new RedrawEvent());                       // scanIndex 0 — still skipped
 
-            store.EmitState(BuildState(Build(new[] { 105.2, 105.2, 105.2, 105.2 }), 4));
+            store.EmitState(BuildState(Build(new[] { zoneValue, zoneValue, zoneValue, zoneValue }), 4));
             bus.Publish(new RedrawEvent());                       // scanIndex 2 — scans
+
+            return router;
+        }
+
+        /// <summary>
+        /// Drives <c>ScanZoneLines</c> through a zone line that DISAPPEARS, over bars whose closes
+        /// move — which is what makes the break polarity measurable at all. The default
+        /// <see cref="Bar"/> closes every bar at 105, and against a flat close a break judged from
+        /// the wrong bar gives the right answer by accident.
+        /// </summary>
+        private static CapturingSpeechRouter RunBreakScan(double[] zoneValues, double[] closes)
+        {
+            const string componentName = "Zone";
+            var cfg = ZoneConfig(componentName);
+
+            static TimeSeriesBuffer<Ohlcv> BarsClosing(double[] c, int count) =>
+                new TimeSeriesBuffer<Ohlcv>(Enumerable.Range(0, count).Select(i =>
+                    new Ohlcv(DateTime.UtcNow.AddMinutes(i), c[i], c[i] + 5, c[i] - 5, c[i], 1000)));
+
+            WorkspaceState StateAt(int count)
+            {
+                var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
+                buf.ComponentData[componentName] = zoneValues.Take(count).ToArray();
+                var series = new ChartSeries(cfg, buf);
+                return WorkspaceState.Initial with
+                {
+                    Data = BarsClosing(closes, count),
+                    ActiveSeries = ImmutableList.Create(series),
+                    FocusedSeriesId = series.Id,
+                    CurrentDataIndex = count - 1,
+                    InitStatus = InitializationStatus.Ready,
+                    DataStatus = DataStatus.Ready,
+                    IsSpeechEnabled = true
+                };
+            }
+
+            var bus = new SpyEventBus();
+            var store = new MockWorkspaceStore();
+            var router = new CapturingSpeechRouter();
+            var svc = new AutoNarrationService(store, bus, router, new StubContextAnalyzer());
+
+            store.EmitState(StateAt(1));
+            bus.Publish(new RedrawEvent());   // seeds the level and the close it was alive against
+            store.EmitState(StateAt(3));
+            bus.Publish(new RedrawEvent());   // scanFrom > closedBound — skipped
+            store.EmitState(StateAt(4));
+            bus.Publish(new RedrawEvent());   // scanIndex 2 — level still present
+            store.EmitState(StateAt(5));
+            bus.Publish(new RedrawEvent());   // scanIndex 3 — level gone: the break
 
             return router;
         }

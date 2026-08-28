@@ -1,5 +1,6 @@
 using System.Globalization;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Analysis;
 using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -68,6 +69,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Tracks the last zone-line value seen per series+component, for break detection.
         // Key = "{seriesId}:{componentName}". Value = last non-NaN zone value.
         private readonly Dictionary<string, double> _lastZoneLineValue = new();
+
+        /// <summary>
+        /// The bar close at the last bar on which each zone line still had a value.
+        /// Key = "{seriesId}:{componentName}". Value = that bar's close.
+        ///
+        /// <para>
+        /// It exists solely so a BREAK can be announced with the polarity the level actually had.
+        /// A break is the moment price crossed the level, so the current close is on the wrong
+        /// side of it by definition: judging a break against the current close would rename every
+        /// broken resistance "support" and every broken support "resistance" — the exact
+        /// inversion this narrator was fixed for on 2026-08-27, reintroduced from the other end.
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<string, double> _lastZoneClose = new();
 
         // Tracks the last touch count seen per series+component.
         // Key = "{seriesId}:{componentName}". Value = last touch count integer.
@@ -152,6 +167,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _lastSeenPivotIndex.Remove(k);
                 foreach (var k in _lastZoneLineValue.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastZoneLineValue.Remove(k);
+                foreach (var k in _lastZoneClose.Keys.Where(k => k.StartsWith(id + ":")).ToList())
+                    _lastZoneClose.Remove(k);
                 foreach (var k in _lastTouchCount.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastTouchCount.Remove(k);
                 foreach (var k in _inProximity.Keys.Where(k => k.StartsWith(id + ":")).ToList())
@@ -325,7 +342,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
                             ? (double)state.Data[idx].Close
                             : double.NaN;
                         if (!double.IsNaN(seedClose) && seedClose > 0)
+                        {
                             _lastPriceAboveZone[zoneKey] = seedClose > data[idx];
+                            _lastZoneClose[zoneKey] = seedClose;
+                        }
                     }
                 }
             }
@@ -388,14 +408,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 double currentVal = data[barIndex];
                 string zoneKey = $"{series.Id}:{comp.Name}";
-                // Case-INSENSITIVE. Until 2026-08-27 this was two literal spellings
-                // ("Resistance" and "resistance") out of many a provider actually ships:
-                // "RESISTANCE_1" and "res_upper" both fell through to the else arm and had
-                // their break announced as "Support at 61,200 broken." — the OPPOSITE
-                // structural claim, on what the comment below calls the most consequential
-                // thing this narrator says. An abbreviation still falls through, but a
-                // spelling that contains the word no longer can.
-                bool isResistance = comp.Name.Contains("resistance", StringComparison.OrdinalIgnoreCase);
                 string lineName = comp.DisplayName ?? comp.Name;
 
                 // ── Break detection ──────────────────────────────────────────────────
@@ -403,15 +415,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     if (double.IsNaN(currentVal) && !double.IsNaN(lastVal))
                     {
+                        // Polarity comes from LevelPolarity, and the reference price is the close
+                        // at the bar the level last existed on — NOT this bar's close. A break is
+                        // precisely the moment price crossed the level, so the current close sits
+                        // on the far side of it and would invert every announcement.
+                        //
+                        // Before this it was `comp.Name.Contains("resistance", …)`, which is a
+                        // property of the provider's naming, not of the market: "res_upper" fell
+                        // through and had its break announced as "Support at 61,200 broken." —
+                        // the opposite structural claim, with no visual to catch it.
+                        //
                         // The touch, approach and cross messages below all route through
                         // SpeechPriceFormatter; the BREAK message — arguably the most
                         // consequential thing this narrator says — was still on F0, so a
                         // sub-dollar asset heard "Support at 0 broken."
-                        string breakMsg = isResistance
+                        double breakRefClose = _lastZoneClose.TryGetValue(zoneKey, out double lastClose)
+                            ? lastClose
+                            : currentClose;
+                        string breakMsg = LevelPolarity.IsResistance(lastVal, breakRefClose)
                             ? $"{series.FriendlyName}: Resistance at {SpeechPriceFormatter.FormatPrice(lastVal)} broken."
                             : $"{series.FriendlyName}: Support at {SpeechPriceFormatter.FormatPrice(lastVal)} broken.";
                         _speechRouter.Speak(breakMsg, interrupt: false, channel: SpeechChannel.Event);
                         _lastZoneLineValue.Remove(zoneKey);
+                        _lastZoneClose.Remove(zoneKey);
                         _inProximity.Remove(zoneKey);
                         _lastPriceAboveZone.Remove(zoneKey);
                         string tcKey2 = $"{series.Id}:{comp.Name}:touches";
@@ -422,7 +448,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 if (double.IsNaN(currentVal)) continue;
 
+                // Everything below describes THIS bar, so this bar's close is the reference.
+                bool isResistance = LevelPolarity.IsResistance(currentVal, currentClose);
+
                 _lastZoneLineValue[zoneKey] = currentVal;
+                _lastZoneClose[zoneKey] = currentClose;
 
                 // ── Touch detection ──────────────────────────────────────────────────
                 string dotName = comp.Name.Replace(" Zone", "");
