@@ -117,6 +117,49 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-08-27, commit `19128450`, CI green on all three workflows).**
+>
+> **0 CRITICAL, 0 HIGH.** The live work is the MEDIUM backlog, and two clusters of it are done:
+> the accessibility/speech batch (`2b55e6fa`) and the hosted-WebHost security section
+> (`19128450` — see "Health audit — hosted WebHost, auth, multi-user security" below, now closed
+> but for one annotated line). Suite **5,624** in both configs; `--list-tests` reports **5619**,
+> which is the number `docs/README.md` must match and the number `doc-drift.yml` checks.
+>
+> **Next cluster: the market-data / analytics providers** — roughly 20 MEDIUM items at
+> TODO ~3403–3548 and ~3751–3832. Take it in a fresh context; it shares nothing with the two
+> clusters just done. In rough order of what a user would actually notice:
+>
+> 1. **The unescaped API key** (TODO:3801). **Read this before starting: the item's headline is
+>    half stale.** The `ex.Message`-onto-the-spoken-channel half was closed in the HIGH pass and
+>    is guarded by `CredentialLeakScanTests`; do not re-fix it. What is genuinely open is that
+>    **no provider except FRED calls `Uri.EscapeDataString` on the key** — ~35 query-string sites
+>    across TwelveData, Finnhub, FMP/FmpAnalytics, Etherscan and Glassnode. A key containing `&`
+>    or `+` is truncated or mangled in the URL, so it silently fails to authenticate and the user
+>    is told "validation failed" with nothing to act on. Demonstrable without a network call.
+> 2. **`MempoolProvider` returns an empty chart for any historical request** (TODO:3823) — the
+>    window comes from `request.Limit` alone and `Since`/`Until` are applied as a filter
+>    afterwards, so a 2019 request fetches the last six months and filters every bar away. It
+>    also makes Mempool unusable through `CrossSeriesCache`, which drives depth via `until`.
+> 3. **`CsvDataParser` turns German decimals into values 1000× too small** (TODO:3830) and drops
+>    thousands-separated integers to NaN — a silently-wrong chart, which is the exact failure the
+>    class doc says it exists to prevent.
+> 4. **`EtherscanProvider` serves a snapshot stamped "today" as history** (TODO:3793), so the disk
+>    cache keys it by a window it has nothing to do with.
+> 5. **`FinraShortVolumeProvider` caches "not yet published" as "no data" for the session**
+>    (TODO:3816) — a terminal opened in the morning never picks up the file FINRA publishes
+>    after the close. The comment at `:282` even says "(or not yet published)" and caches it.
+>
+> **The standing rule still governs: demonstrate the defect or mark it explicitly unverified.**
+> The last three batches were each proven by reintroducing every defect and watching the guard go
+> red; the WebHost batch did sixteen for ten items. Expect roughly a third of any remaining census
+> to be already closed — grep before you write.
+>
+> **Two traps carried out of the WebHost batch that will bite in this cluster too.** (1) Check
+> what the DATA is scoped to, not what the registration says — that is what made the "cannot
+> bridge a Scoped service" objection wrong. (2) A scan guard over a source file must skip comment
+> lines, because a fix's own comment names the call it replaced; the reset-link guard flagged the
+> documentation of its own fix on the first run.
+
 **As of 2026-08-26 the answer is: the 71 HIGH items.** The tests-that-should-exist list is closed,
 which was the precondition — see the three blocks below for what it cost and what it bought. The
 sequencing argument that follows was written before any of them existed and is kept because the
