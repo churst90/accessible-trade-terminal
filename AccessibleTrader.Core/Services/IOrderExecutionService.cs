@@ -16,7 +16,7 @@ namespace AccessibleTrader.Core.Services
         /// <para>
         /// Returns a typed <see cref="OrderPlacement"/>, never a status string. The provider-level
         /// <c>ITradingProvider.PlaceOrderAsync</c> still answers in the documented string protocol
-        /// (31 implementations depend on it); this method is where that string is recognised, once,
+        /// (twelve provider plugins depend on it); this method is where that string is recognised, once,
         /// so that no caller above it has to guess which prefixes mean failure. Three callers used
         /// to guess, they disagreed, and each disagreement was something a blind trader heard as a
         /// confirmation of an order nobody sent.

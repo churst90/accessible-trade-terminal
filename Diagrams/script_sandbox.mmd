@@ -1,0 +1,46 @@
+---
+title: Custom scripts — compiled in-process, executed out of it
+---
+%% Verified against the tree on 2026-08-28. See docs/SANDBOX_DESIGN.md for the threat model.
+%% The design rule, stated in RoslynScriptingService: the sandbox exists for ACCIDENTS in
+%% trusted-user code, not for hostile tenants. The wall against hostile use is DemoPolicy,
+%% which refuses to compile at all on any host that is not Full.
+flowchart TD
+    USER["User writes a custom indicator or strategy<br/>(Alt+, opens the custom scripts modal)"]
+    GATE{"DemoPolicy.AllowCustomScripts<br/>Mode == Full?"}
+    USER --> GATE
+    GATE -->|no — Demo or Hosted| REFUSE["InvalidOperationException at the entry point.<br/>Compiling user code runs it server-side; that is desktop-only.<br/>Every compile and execute path funnels through this one check,<br/>so a future caller that skips the UI still hits the wall."]
+    GATE -->|yes| WALK
+
+    WALK["Semantic walker — the blocklist<br/>(reflection, process start, file and socket access, dynamic, …)"]
+    WALK --> COMPILE["Roslyn compile against a DECLARED reference set,<br/>not a scan of AppDomain.CurrentDomain.GetAssemblies().<br/>Microsoft.CSharp is deliberately absent so the dynamic escape<br/>cannot reach the compiler. Identical on desktop, WebHost and test."]
+
+    COMPILE --> HOST["OutOfProcessScriptHost<br/>LoadAssembly · Calculate · Evaluate over a pipe"]
+    HOST --> PICK{"CreateDefaultLauncher —<br/>which sandbox does this OS have?"}
+
+    PICK -->|Linux| BW["LinuxBwrapLauncher — bubblewrap<br/>read-only root, no network, private /tmp, own PID namespace"]
+    PICK -->|Windows| AC["WindowsAppContainerLauncher — AppContainer SID,<br/>capability-less token"]
+    PICK -->|macOS| SE["MacSandboxExecLauncher — sandbox-exec profile"]
+    PICK -->|Android| AND["AndroidIsolatedProcessLauncher — isolatedProcess service"]
+    PICK -->|iOS / Mac Catalyst| NOPE["ScriptingNotSupportedOnPlatformException at COMPILE time.<br/>No usable primitive, and refusing loudly beats<br/>silently falling back to in-process."]
+    PICK -->|primitive missing at runtime| POLICY
+
+    subgraph POLICY["SandboxPolicy — the fallback is not silent"]
+        THROW["EnforceOrThrow: ScriptSandboxUnavailableException by default,<br/>carrying details AND a remedy"]
+        OVR["ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=1<br/>is the only way past it"]
+        EVT["and taking it records a security event,<br/>so the override never happens invisibly"]
+        THROW --> OVR --> EVT
+    end
+
+    BW & AC & SE & AND --> WORKER
+
+    subgraph WORKER["AccessibleTrader.ScriptWorker — a separate OS process"]
+        RUN["Runs the compiled IL"]
+        OOP["OutOfProcessIndicator / OutOfProcessStrategy<br/>look like ordinary providers to the rest of the app"]
+        RUN --> OOP
+    end
+
+    WORKER --> BACK["Results come back over the pipe.<br/>A crash, a hang or an OOM kills a child process, not the terminal."]
+
+    TRAP["Learned the hard way: bwrap's --die-with-parent is PDEATHSIG on the spawning THREAD,<br/>so retiring a threadpool thread SIGKILLed live script workers mid-session.<br/>Three passes filed it as a test flake. The failure message said exit 137."]
+    BW --- TRAP

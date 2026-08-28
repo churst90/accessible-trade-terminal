@@ -1,0 +1,67 @@
+---
+title: Feedback routing — what the user hears, and what can silence it
+---
+%% Verified against the tree on 2026-08-28.
+%% This is the diagram to read before touching anything that speaks. In this app a
+%% swallowed error is not merely invisible, it is INAUDIBLE — there is no compensating
+%% channel for a blind user, which is why the channel tiers below are a contract and
+%% not a preference.
+flowchart TD
+    subgraph SOURCES["Everything that wants to say something"]
+        NAV["Navigation — a bar, a component, a boundary"]
+        STATE["WorkspaceStore StateStream — focus, viewport, volume"]
+        ORD["Order outcomes — fills, stops, take-profits, refusals"]
+        ALR["Alerts and background monitoring"]
+        NARR["AutoNarrationService — live structural commentary"]
+        ERRS["GlobalErrorCoordinator — anything that failed"]
+    end
+
+    EB["EventBus — FeedbackRequestEvent<br/>Type · Message · Interrupt · IsUserInitiated · IsXMove/IsYMove/IsJump"]
+    NAV & ALR & ERRS --> EB
+
+    AFC["AccessibilityFeedbackCoordinator<br/>the single brain: observes StateStream AND the EventBus"]
+    EB --> AFC
+    STATE --> AFC
+    ORD --> AFC
+    NARR --> AFC
+
+    AFC --> SFR["SpeechFeedbackRouter"]
+    AFC --> AFR["AudioFeedbackRouter"]
+
+    subgraph CHAN["SpeechChannel — which mute applies"]
+        C1["Manual — you did something, so it answers.<br/>Navigation values, zoom, pan, context summary.<br/>Silenced by F2."]
+        C2["Event — something happened TO you.<br/>Alerts, monitoring, new bars, auto-narration.<br/>Silenced by Shift+F2."]
+        C3["OrderEvent — fills, stops, take-profits.<br/>Breaks through BOTH mutes by default:<br/>the manual's one-feedback-you-never-miss promise.<br/>speech.muteIncludesOrderEvents opts them into the Event tier."]
+        C4["Critical — errors, and the mute confirmations themselves.<br/>NEVER muted. 'Speech off' has to be heard,<br/>and a silent failure is forbidden outright."]
+    end
+    SFR --> CHAN
+
+    subgraph FMT["Formatting — one owner each, so two paths cannot disagree"]
+        F1["SpeechPriceFormatter — how a price is said"]
+        F2["SpeechTimeFormatter — how a time is said.<br/>Owns the UTC-to-local conversion, because bars are<br/>DateTimeKind.Utc and doing it twice printed one bar<br/>at two different times."]
+        F3["QuantityFormatter · SpeechFormatter · ChartLayoutDescriber"]
+    end
+    CHAN --> FMT
+
+    subgraph OUTS["Speech backends, chosen per host"]
+        O1["MAUI: platform screen reader —<br/>NVDA · JAWS · Narrator · VoiceOver · TalkBack"]
+        O2["Linux WebHost: Orca via D-Bus PresentMessage<br/>(honours the user's own voice config),<br/>then spd-say, then browser SpeechSynthesis"]
+        O3["ARIA live region — assertive double-buffer in MainLayout.<br/>Deliberately emptied when a server-side backend is speaking,<br/>so nothing is announced twice."]
+    end
+    FMT --> OUTS
+
+    subgraph AUD["Audio — the other half of the answer"]
+        A1["AudioFeedbackRouter — UI earcons by FeedbackType and severity<br/>voice slots 16-31"]
+        A2["SonificationManager to NavigationSonifier —<br/>the ONLY writer of navigation slots 0-15"]
+        A3["AudioSequencer — playback scopes (chart / series / component)<br/>slots 32-95, cloud and ribbon fills 96-127"]
+        A4["AudioEngine — sums every voice, then a brickwall limiter.<br/>Gain riding, not waveshaping: timbre carries meaning here.<br/>Before the limiter an ordinary 18-voice layout peaked at 5.5x full scale."]
+        A1 & A2 & A3 --> A4
+    end
+    AFR --> A1
+    STATE --> A2
+
+    JRN["JournalService — every spoken phrase, alert, setup and error<br/>kept for the session and reviewable at Ctrl+Alt+Shift+J.<br/>Speech is transient; this is how a user re-reads what went past."]
+    CHAN --> JRN
+
+    RULE["Two rules this diagram exists to protect:<br/>1. One path per modality. Nothing else writes navigation voices,<br/>   and nothing else decides what a move says.<br/>2. Substituting IAppLogger in a test does NOT stub a logger —<br/>   it is the error-SPEECH channel, so doing that makes any<br/>   'nothing was announced' assertion vacuous."]
+    AFC --- RULE

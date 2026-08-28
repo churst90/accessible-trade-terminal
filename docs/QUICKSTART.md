@@ -747,6 +747,22 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Alt+Down | Scroll pane list down |
 | Ctrl+Left | Jump to previous signal/crossing in context |
 | Ctrl+Right | Jump to next signal/crossing in context |
+| Ctrl+Alt+Shift+Y | Describe the chart's layout — panes, series, scales, what is hidden or muted |
+
+### Chart Formations
+
+Shapes the terminal recognises for you — double tops, head and shoulders, triangles,
+wedges, flags. These are unmodified keys because you press them repeatedly while reading;
+they only act when the chart has focus, so they stay typable everywhere else. They need
+**Describe chart patterns** on in Settings, and if it is off they say so rather than moving
+you somewhere without explaining why.
+
+| Shortcut | Action |
+|----------|--------|
+| , | Previous formation edge |
+| . | Next formation edge |
+| ; | Choose which overlapping formation leads the readout (press again for the next) |
+| Shift+; | Stop choosing — go back to largest-first |
 
 ### Playback
 
@@ -764,8 +780,17 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 
 | Shortcut | Action |
 |----------|--------|
-| F2 | Toggle speech on/off |
-| F3 | Toggle sonification on/off |
+The rule for the F-key row: **the plain key controls what you asked for, and Shift
+controls what happens to you.**
+
+| Shortcut | Action |
+|----------|--------|
+| F2 | Toggle interactive speech — navigation values, summaries, your own commands |
+| Shift+F2 | Toggle event speech — alerts, monitoring reports, new-bar announcements |
+| F3 | Toggle chart sonification — navigation tones and playback |
+| Shift+F3 | Toggle earcons — the short UI confirmation sounds |
+| F4 | Toggle the braille / tactile display (where a device is connected) |
+| Shift+F4 | Open braille display settings |
 | Shift+F1 | Announce symbol, provider, timeframe |
 | F5 | Component volume up |
 | Shift+F5 | Component volume down |
@@ -775,6 +800,12 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Shift+F7 | Master chart volume down |
 | H | Toggle visibility of focused series or component |
 | M | Toggle mute of focused series or component |
+| Ctrl+Alt+Shift+K | Show everything you have hidden with H (says how many) |
+| Ctrl+Alt+Shift+U | Unmute everything you have muted with M (says how many) |
+
+Errors and your order outcomes — fills, stop hits, take profits — speak through every
+mute, because missing a stop firing costs real money. None of these mutes persist: the
+terminal always starts with everything audible.
 
 ### Indicators
 
@@ -796,6 +827,36 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Ctrl+Alt+Shift+N | Toggle auto-narration for focused series |
 | Ctrl+Alt+Shift+A | Open AI Analyst modal |
 | Alt+R | Respect report — which levels this market actually holds |
+| Alt+I | Asset dossier — what this instrument is, in plain language |
+
+### Quick Trade (from the chart, no dashboard)
+
+Size a position from your risk budget and place it without leaving the chart. **Arming a
+percentage is not a position size** — the terminal needs your stop before it can turn "risk
+1%" into a quantity, so it waits for one and then speaks the whole calculation back to you.
+The Trading chapter of the [User Manual](USER_MANUAL.md#quick-trade-from-the-chart) walks
+through why.
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Alt+Shift+1 | Arm 0.5% risk |
+| Ctrl+Alt+Shift+2 | Arm 1% risk |
+| Ctrl+Alt+Shift+3 | Arm 2% risk |
+| Ctrl+Alt+Shift+X | Make the bar under the cursor your stop |
+| Shift+Enter | Place a limit at the bar under the cursor |
+| Ctrl+Enter | Place at market |
+| Ctrl+Alt+Shift+Q | Say what is armed right now |
+| Ctrl+Alt+Shift+0, or Escape | Cancel the armed trade |
+
+### Undo
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Z | Undo the last chart edit — says what it undid |
+| Ctrl+Y | Redo it |
+
+Covers drawing edits and deleting a series, fifty deep. It is not an application-wide
+undo: it will not take back an order, an alert, or a settings change.
 
 ### Bar Replay and Split View
 
@@ -823,6 +884,8 @@ On the web host use Ctrl+Alt+Shift+P rather than F11 — browsers own F11 for fu
 | Ctrl+Alt+Shift+T | Focus the tab switcher bar (web-safe), then use arrows / Home / End / 1–9 / Insert (new) / Delete (close) |
 | Ctrl+Alt+Shift+W | Save workspace |
 | Ctrl+Alt+W | Load workspace |
+| Ctrl+Alt+Shift+L | Load the chart — the same as activating the toolbar's **Load** button |
+| Ctrl+Alt+Shift+I | Open **My Data** — your own imported series and events |
 | Ctrl+Alt+Shift+M | Speak background monitoring status |
 
 By default only the chart on screen is live. To keep the other tabs watched too, enable **Monitor background tabs** in Settings (F12), General (desktop builds). Their symbol-scoped alerts and running strategies then keep evaluating on a polling cadence while you work elsewhere — announcements arrive prefixed with the symbol ("BTC/USD: crossed above 50,000"), background strategy signals are announce-only (never auto-placed orders), and the sonification/playback soundscape always belongs to the focused chart only. Press Ctrl+Alt+Shift+M for a spoken status of every watched tab.

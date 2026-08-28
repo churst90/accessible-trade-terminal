@@ -4,7 +4,7 @@ All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Sho
 
 ## Host-specific note: WebHost remaps `Ctrl+Shift+letter` to `Alt+Shift+letter`
 
-Firefox (and most browsers) reserve several `Ctrl+Shift+letter` chords at the browser-chrome level — `Ctrl+Shift+T` reopens a closed tab, `Ctrl+Shift+H` opens history, `Ctrl+Shift+P` starts a private window, `Ctrl+Shift+J` opens the browser console, etc. — and they are NOT cancellable from page-level JavaScript even with `preventDefault`. So the Linux WebHost rewrites those bindings in-memory at startup: every `Ctrl+Shift+letter` chord becomes `Alt+Shift+letter` (Firefox does not reserve `Alt+Shift+*`). Same letter, same command, different modifier. Two-modifier chords with three modifiers (`Ctrl+Alt+Shift+N` etc.) are untouched.
+Firefox (and most browsers) reserve several `Ctrl+Shift+letter` chords at the browser-chrome level — `Ctrl+Shift+T` reopens a closed tab, `Ctrl+Shift+H` opens history, `Ctrl+Shift+P` starts a private window, `Ctrl+Shift+J` opens the browser console, etc. — and they are NOT cancellable from page-level JavaScript even with `preventDefault`. So the Linux WebHost rewrites those bindings in-memory at startup: every `Ctrl+Shift+letter` chord becomes `Alt+Shift+letter` (Firefox does not reserve `Alt+Shift+*`). Same letter, same command, different modifier. Chords with three modifiers (`Ctrl+Alt+Shift+N` and the rest) are untouched — browsers do not reserve those. Non-letter `Ctrl+Shift` chords (`Ctrl+Shift+Space`, `Ctrl+Shift+Tab`) are handled separately, below.
 
 | Drawing tool | MAUI head (Win/Mac/iOS/Android) | Linux WebHost |
 | --- | --- | --- |

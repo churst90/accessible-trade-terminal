@@ -1,5 +1,52 @@
 # What's New
 
+## Unreleased — a fixing release
+
+Nothing new was added since 2.3.0. This is the release where things that were quietly
+wrong stopped being wrong, and most of them are things you would never have known to
+report.
+
+- **Your API key could be sent truncated, and the error could read it out loud.** Several
+  data sources put your key into the web address they call. Any key containing an `&` was
+  cut off at that character, so it simply failed — and when it failed, the error message the
+  terminal *spoke* contained the key. Both halves are fixed everywhere, and there is now a
+  check that fails the build if any provider is ever written that way again.
+- **Kraken's History tab was empty for Bitcoin.** Its busiest pair. The terminal asked for
+  `BTCUSD` and Kraken answers about `XXBTZUSD`, so the filter matched nothing and the tab
+  showed an honest-looking blank. Kraken Futures and Gemini had a different version of the
+  same problem: ask for 2019 and they would hand back this morning.
+- **A bar could tell you two different times.** Arrow to a bar and it read 14:30; ask for the
+  full detail on the same bar and it read 18:30. One path was speaking the exchange's clock
+  and the other yours. One piece of code now owns that conversion.
+- **A level could be announced as the opposite of what it was.** A support break could be
+  announced as resistance, because the code decided which was which by looking at the
+  component's *name*, and a component called `RESISTANCE_1` did not match the spelling it
+  looked for.
+- **Whole-chart playback had been clipping since the day it was written.** Nobody had ever
+  measured it. A perfectly ordinary chart — eighteen voices at the default volume — was
+  asking for five and a half times the loudest sound your speakers can make, so the peaks
+  were being squared off into distortion. There is now a limiter between the mix and your
+  ears that turns the whole thing down together rather than distorting any one voice, because
+  what an instrument *sounds* like is carrying meaning here.
+- **Eight ways sound leaked past a mute.** A volume slider set to zero came back at 5%. A
+  muted series went on sounding its cloud fills. Muting a profile's only component did
+  nothing at all.
+- **Undo.** `Ctrl+Z` and `Ctrl+Y`, fifty edits deep, and each one says what it just undid.
+- **The Help dialog was missing 37 shortcuts**, including every quick-trade key.
+- **Closing your browser used to make more of your alerts work than leaving it open.**
+- **A month of daily bars was being stored a day early**, and the way the cache worked meant
+  that once stored wrongly it could never be corrected.
+- **Order rejections were being cut off mid-word.**
+- **Security.** Changing your password now ends any session that was already open with the
+  old one. A data source that redirected the terminal somewhere it was not allowed to go is
+  refused rather than followed. And on the hosted terminal, sign-in records for every account
+  had been pooling into a single shared file instead of each account's own.
+
+Behind all of that: four audits run by deliberately breaking things rather than reading
+code, a new test harness that drives a real browser against the real application on every
+change, and an automated test suite that has grown by more than two thousand tests since
+2.3.0 — every fix above was proved by putting the bug back and watching a test catch it.
+
 ## 2.3.0 — the account, not just the chart
 
 - **The trading dashboard is your account now, not your chart.** It used to answer every
@@ -208,7 +255,7 @@ Everything else here has been exercised; that has not, so it does not ship.
   rather than something that traded — and a level you might put in an order has to be real.
   Switching it on now tells you.
 
-## Unreleased — the app stops recommending strategies
+## 2.2.0, continued — the app stops recommending strategies
 
 - **The strategy library ships empty now.** A fresh install opens the Strategy Manager
   with an explanation and two routes — build one, or import one — instead of thirty

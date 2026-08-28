@@ -1,140 +1,155 @@
+---
+title: Accessible Trading Terminal — architecture overview
+---
+%% Verified against the tree on 2026-08-28.
+%% Counts here are load-bearing: 16 trading + 17 analytics plugins, 128 audio voices.
+%% docs/README.md claims the same numbers and CI (scripts/check_doc_drift.py) enforces them there.
 graph TD
-    subgraph Client Application (MAUI Blazor Hybrid)
-        UI[Visual UI - Blazor / SkiaSharp]
-        GIS[Global Input Service - JS Bridge]
-        BAD[Blazor Audio Driver - Platform Specific]
-        BSM[Blazor Speech Manager - Native TTS Interop]
-        PLS[IPaneLayoutService - Drag Handle Sync]
+    subgraph HEADS["Three heads, one component library"]
+        MAUI["MAUI Blazor Hybrid<br/>Windows / macOS / iOS / Android<br/>native SKCanvasView overlay"]
+        WEB["ASP.NET Core Blazor Server<br/>AccessibleTrader.WebHost<br/>chart as streamed PNG"]
+        LAB["AccessibleTrader.StrategyLab<br/>headless research CLI"]
+        RCL["AccessibleTrader.BlazorClient.Components<br/>Razor Class Library — every modal, toolbar, chart shell"]
+        MAUI --> RCL
+        WEB --> RCL
     end
 
-    subgraph Platform Input Drivers
-        WIN_KB[Windows - keyboard.js JS Intercept]
-        AND_KB[Android - MainActivity.DispatchKeyEvent]
-        MAC_KB[Mac Catalyst - KeyboardPageHandler / PressesBegan]
+    subgraph POLICY["Host gating"]
+        DP["DemoPolicy — HostMode Full | Demo | Hosted<br/>Full only: live trading, API-key modal, custom scripts,<br/>AI analyst, strategies, background monitoring<br/>Not-demo: paper dashboard, alerts, order book, settings"]
     end
 
-    subgraph Platform Audio Drivers
-        WIN_AUD[Windows - NAudio WASAPI Pull]
-        AND_AUD[Android - AudioTrack PCM Float]
-        IOS_AUD[iOS/Mac - AVAudioEngine SourceNode]
+    subgraph INPUT["Input pipeline"]
+        KB["Platform key capture<br/>keyboard.js (web/WebView) · MainActivity.DispatchKeyEvent (Android)<br/>KeyboardPageHandler (Mac Catalyst)"]
+        BIS["BlazorInputService"]
+        SM["ShortcutManager<br/>InitializeDefaultProfile — every default binding"]
+        REMAP["WebHostShortcutRemap<br/>Ctrl+Shift+letter to Alt+Shift+letter,<br/>reserved single-Ctrl chords rebound"]
+        CD["CommandDispatcher"]
+        KB --> BIS --> SM --> CD
+        REMAP -.mutates in-memory profile at WebHost startup.-> SM
     end
 
-    subgraph Core Engine (.NET 10)
-        EB[Event Bus]
-        Store[Workspace Store - Redux / Rx]
+    subgraph CORE["AccessibleTrader.Core — platform-agnostic"]
+        EB["EventBus — cross-layer, fire-and-forget"]
+        STORE["WorkspaceStore — Redux-style, Rx StateStream"]
 
-        subgraph Orchestration Layer
-            MO[Market Orchestrator]
-            DO[Data Orchestrator - Polly]
-            IO[Indicator Orchestrator]
-            DOS[DataOrchestrationService]
+        subgraph ORCH["Orchestration"]
+            MO["MarketOrchestrator<br/>market to provider to symbol cascade"]
+            DO["DataOrchestrator<br/>Polly retry + circuit breaker<br/>DataState machine"]
+            DOS["DataOrchestrationService"]
+            IO["IndicatorOrchestrator"]
         end
 
-        subgraph Input Pipeline
-            BIS[Blazor Input Service]
-            CCM[Chart Command Manager]
-            SM[Shortcut Manager]
-            CD[Command Dispatcher]
+        subgraph A11Y["Accessibility cluster"]
+            NE["NavigationEngine"]
+            VM["ViewportManager"]
+            AFC["AccessibilityFeedbackCoordinator<br/>the single brain for user-facing feedback"]
+            SFR["SpeechFeedbackRouter"]
+            AFR["AudioFeedbackRouter"]
+            ANS["AutoNarrationService"]
+            CLD["ChartLayoutDescriber"]
         end
 
-        subgraph Accessibility Cluster
-            NE[Navigation Engine]
-            VP[Viewport Manager]
-            DS[Drawing Service]
-            DIM[Drawing Interaction Manager]
-            AFC[Accessibility Feedback Coordinator]
-            SMM[Sonification Manager]
+        subgraph AUDIO["Audio engine — custom DSP, no NAudio synthesis"]
+            SMM["SonificationManager<br/>sole owner of navigation audio"]
+            NS["NavigationSonifier"]
+            SEQ["AudioSequencer — playback scopes"]
+            DSP["AudioEngine — 128 voices<br/>0-15 navigation · 16-31 UI earcons<br/>32-95 playback · 96-127 cloud/ribbon fills<br/>brickwall limiter before the DAC"]
         end
 
-        subgraph Audio Engine (Custom DSP)
-            PO[Playback Orchestrator]
-            NS[Navigation Sonifier]
-            SE[Strategy Engine]
-            SB[Strategy Backtester]
-            DSP[AudioEngine - 64-Voice Polyphonic DSP]
+        subgraph TRADE["Trading"]
+            GOS["GeneralOrderService<br/>typed OrderPlacement result"]
+            PAPER["PaperTradingProvider + PaperAccountHub<br/>isolated and cross margin"]
+            QT["QuickTrade — arm, size, place from the chart"]
+            ALERT["AlertOrchestrator + AlertEvaluator"]
+            STRAT["StrategyEngine"]
         end
 
-        IS[Indicator Service]
-        IIP[IIndicatorProvider - Skender Adapter]
-        DMS[Data Service]
-        DCS[Data Cache Service]
-        PLS2[PluginLoaderService]
-        PTP[PluginTrustPolicy - SHA-256 allow-list]
-        PHS[PluginHostServices.SecureStorage - plugin bridge]
+        subgraph DATA["Data"]
+            HDF["HistoricalDataFetcher"]
+            LSM["LiveStreamManager — watchdog, gap fill"]
+            STORE2["OhlcvStore + FileCacheService"]
+            RES["ResamplerService"]
+            IS["IndicatorService — 36 IIndicatorProvider implementations"]
+        end
+
+        PLS["PluginLoaderService"]
+        PTP["PluginTrustPolicy — SHA-256 allow-list"]
+        SCR["Out-of-process scripting<br/>OutOfProcessScriptHost to ScriptWorker"]
     end
 
-    subgraph Persistence Layer
-        SQL[(Local SQLite Cache)]
-        CFG[Config / Workspace JSON]
-        AK[IApiKeyService]
-        SEC[MauiSecureStorageService - keychain / KeyStore / DPAPI]
+    subgraph PLUGINS["Plugins — AccessibleTrader.Sdk contract"]
+        TP["16 trading providers<br/>Plugins/Providers"]
+        AP["17 analytics providers<br/>Plugins/Analytics"]
+        IP["Drop-in indicator DLLs<br/>Plugins/Indicators"]
     end
 
-    subgraph External Plugins (SDK)
-        MDP[IMarketDataProvider]
-        TP[13 Trading Providers - Binance, Coinbase, Kraken, Bitstamp, Alpaca, IBKR, Schwab, Polygon, Finnhub, FMP, Oanda, Tradier, TwelveData]
-        AP[12 Analytics Providers - FRED, BinanceDerivatives, BinanceVision, OkxDerivatives, Glassnode, CoinGecko, CoinMetrics, DefiLlama, AlternativeMe, BGeometrics, Mempool, Etherscan]
-        IP[Drop-in Indicator Plugins]
+    subgraph SANDBOX["Script isolation — separate OS process, per platform"]
+        SW["AccessibleTrader.ScriptWorker"]
+        BW["Linux bwrap"]
+        AC["Windows AppContainer"]
+        SBX["macOS sandbox-exec"]
+        AND["Android isolatedProcess"]
+        REF["RefusingScriptWorkerLauncher<br/>no sandbox available means no execution"]
     end
 
-    %% Platform Input → Core
-    WIN_KB --> GIS
-    AND_KB --> BIS
-    MAC_KB --> BIS
-    GIS --> BIS
-    BIS --> SM
-    SM --> CD
-    BIS --> CCM
-    CCM --> EB
-    CCM --> Store
+    subgraph OUT["Output surfaces"]
+        REND["ChartRenderer — SkiaSharp<br/>native canvas (MAUI) or PNG over SignalR (WebHost)"]
+        SPEECH["ISpeechManager<br/>NVDA/JAWS/Narrator/VoiceOver/TalkBack · Orca D-Bus · spd-say · browser SpeechSynthesis"]
+        TACT["ITactileDriver to Dot Pad<br/>300 graphic cells + 20 braille cells"]
+        AUDOUT["IAudioDriver<br/>WASAPI · AudioTrack · AVAudioEngine · Web Audio"]
+    end
 
-    %% Platform Audio ← DSP
-    DSP --> WIN_AUD
-    DSP --> AND_AUD
-    DSP --> IOS_AUD
+    subgraph PERSIST["Persistence"]
+        CFG["Workspaces, tabs, settings, sound design (JSON)"]
+        CACHE["OHLCV cache (SQLite + files)"]
+        SEC["ISecureStorageService<br/>keychain / KeyStore / DPAPI / DataProtection key ring"]
+    end
 
-    %% Event & State Flow
-    EB --> NE
-    EB --> AFC
-    Store --> UI
-    Store --> PLS
+    DP --> RCL
+    DP --> TRADE
+    DP --> DATA
 
-    %% Accessibility & Speech Flow
-    NE --> VP
-    AFC --> BSM
-    AFC --> SMM
+    CD --> NE
+    CD --> STORE
+    CD --> EB
 
-    %% Audio Orchestration Flow
-    SMM --> PO
-    SMM --> NS
-    PO --> DSP
-    NS --> DSP
-
-    %% Strategy Flow
-    Store --> SE
-    SE --> SB
-    SE --> EB
-
-    %% Data Flow
     MO --> DO
-    DO --> DMS
-    DO --> DCS
-    DO --> SQL
-    DMS --> MDP
-    MDP --> TP & AP
-    PLS2 --> PTP
-    PLS2 --> MDP
-    PLS2 --> IP
-    PHS --> SEC
-    TP -.uses.-> PHS
-    DO --> IS
-    IS --> IIP
-    IS --> IP
-    DO --> Store
-    AK --> SEC
-    SEC --> SQL
-    DOS --> IO
-    IO --> Store
+    DO --> HDF & LSM
+    HDF & LSM --> STORE2
+    STORE2 --> RES --> STORE
+    DO --> STORE
+    STORE --> DOS --> IO --> IS --> STORE
 
-    %% Pane Layout Sync
-    PLS --> UI
+    STORE --> AFC
+    EB --> AFC
+    AFC --> SFR --> SPEECH
+    AFC --> AFR --> DSP
+    STORE --> SMM --> NS --> DSP
+    SEQ --> DSP
+    DSP --> AUDOUT
+    NE --> VM --> TACT
+    ANS --> SFR
+    CLD --> SFR
+
+    STORE --> REND
+    STORE --> STRAT --> GOS
+    QT --> GOS
+    GOS --> PAPER
+    GOS --> TP
+    ALERT --> EB
+
+    PLS --> PTP
+    PTP --> TP & AP & IP
+    IS --> IP
+    HDF & LSM --> TP
+    IS --> AP
+
+    SCR --> SW
+    SW --- BW & AC & SBX & AND
+    SCR -.no launcher for this platform.-> REF
+
+    STORE --> CFG
+    STORE2 --> CACHE
+    TP --> SEC
+    LAB --> STORE2
+    LAB --> IS

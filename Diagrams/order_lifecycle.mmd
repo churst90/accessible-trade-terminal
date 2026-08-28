@@ -1,0 +1,67 @@
+---
+title: Order lifecycle — from an intent to a spoken fill
+---
+%% Verified against the tree on 2026-08-28.
+%% Every exit from GeneralOrderService.PlaceOrderAsync goes through OrderPlacement.Parse,
+%% including the sentinels the method invents itself — so the code that PRODUCES a sentinel
+%% and the code that RECOGNISES one cannot drift apart. That drift was the original defect.
+flowchart TD
+    subgraph ENTRY["Three ways to place an order"]
+        DASH["Trading dashboard modal (Alt+T)"]
+        QUICK["Quick trade from the chart<br/>arm Ctrl+Alt+Shift+1/2/3, stop Ctrl+Alt+Shift+X,<br/>place Shift+Enter (limit) or Ctrl+Enter (market)"]
+        STRAT["StrategyEngine — desktop only"]
+    end
+
+    GOS["GeneralOrderService.PlaceOrderAsync(provider, TradeSignal)"]
+    DASH & QUICK & STRAT --> GOS
+
+    VAL["ProtectiveLevelValidator — a stop or target on the wrong side of price<br/>is refused as it is TYPED, in the dashboard and in the paper broker.<br/>It is not part of the GeneralOrderService chain below."]
+    DASH -.-> VAL
+
+    subgraph GUARDS["GeneralOrderService guards, in order"]
+        G1["1. Sanity clamps — quantity finite, positive, within range;<br/>limit-style orders need a finite positive price.<br/>A strategy bug emitting 1e308 must never reach a venue."]
+        G2["2. Idempotency — mint a ClientOid if the caller gave none"]
+        G3["3. Dedup gate — a second submit of the same order identity<br/>inside the window is a probable double-fire<br/>(screen-reader double-Enter, post-flap retry) and is refused"]
+        G1 --> G2 --> G3
+    end
+    GOS --> GUARDS
+
+    ROUTE{"Which broker?"}
+    G3 --> ROUTE
+    ROUTE -->|paper| PAPER["PaperTradingProvider + PaperAccountHub<br/>isolated and cross margin, liquidation modelled<br/>(also calls ProtectiveLevelValidator on stop entry)"]
+    VAL -.-> PAPER
+    ROUTE -->|live, desktop only| PROV["Trading provider plugin — signs and sends"]
+
+    RESULT["OrderPlacement — one typed record"]
+    PAPER --> RESULT
+    PROV --> RESULT
+
+    subgraph OUTCOMES["OrderOutcome"]
+        O1["Placed / Accepted — Succeeded is true"]
+        O2["Rejected — quantity, price, duplicate, provider refusal"]
+        O3["Uncertain — NeedsVerification: the request left,<br/>the answer did not come back.<br/>Say so. Never round it to success or to failure."]
+    end
+    RESULT --> O1 & O2 & O3
+
+    subgraph AFTER["After submission"]
+        REC["TradingReconciliationCoordinator<br/>reconciles what we think we sent against what the venue holds"]
+        STREAM["Provider order-update stream<br/>(user data stream / private channel)"]
+        FILL["Fill, partial fill, stop triggered, take-profit triggered"]
+        OCO["OCO pairs — one cancels the other"]
+        EXIT["ManagedExitRules — trailing stops, ladders"]
+    end
+    O1 --> REC
+    REC --> STREAM --> FILL
+    FILL --> OCO & EXIT
+
+    subgraph SPEAK["What the user hears"]
+        SPCH["SpeechFeedbackRouter — the fill, the price, the remaining size"]
+        EAR["AudioFeedbackRouter — earcon by severity"]
+        JRN["JournalService — every phrase, retrievable later (Ctrl+Alt+Shift+J)"]
+    end
+    FILL --> SPCH & EAR & JRN
+    O2 --> SPCH
+    O3 --> SPCH
+
+    NOTE["The whole point of the typed record: a refusal, an uncertainty and a fill<br/>are three different things a trader must be able to tell apart by ear.<br/>Before OrderPlacement, three separate classifiers disagreed about which was which."]
+    RESULT --- NOTE

@@ -1,66 +1,105 @@
+---
+title: Indicator providers — the adapter surface
+---
+%% Verified against the tree on 2026-08-28: 36 IIndicatorProvider implementations in
+%% AccessibleTrader.Core, grouped below by what they adapt. Drop-in DLLs under
+%% Plugins/Indicators/ implement the same SDK interface and are loaded the same way.
 classDiagram
+    direction LR
+
     class IIndicatorProvider {
-        <<interface>>
+        <<interface, AccessibleTrader.Sdk>>
         +Name: string
         +GetIndicators() List~IndicatorMetadata~
-        +Calculate(code, data, params, buffer) void
-        +UpdateLast(code, data, params, buffer) void
+        +Calculate(code, ReadOnlySpan~Ohlcv~, params, IIndicatorResultBuffer) void
+        +UpdateLast(code, ReadOnlySpan~Ohlcv~, params, IIndicatorResultBuffer) void
         +GetStabilityWindow(code, params) int
     }
-
-    class CoreIndicatorProvider
-    class ProfileIndicatorProvider
-    class SkenderBoundedOscillatorProvider
-    class SkenderBandProvider
-    class SkenderTrendProvider
-    class SkenderVolatilityProvider
-    class SkenderVolumeProvider
-    class SkenderZeroCrossProvider
-    class AccessibleCipherProviders
-    class IchimokuProvider
-    class CustomIndicatorRegistry
+    note for IIndicatorProvider "Span in, buffer out — no allocation on the hot path.<br/>GetStabilityWindow is the causality contract: how many<br/>leading bars are warmup and must not be announced as signal."
 
     class IndicatorService {
-        -List~IIndicatorProvider~ _providers
+        -IReadOnlyList~IIndicatorProvider~ _providers
         +CalculateIndicator(code, data, params, buffer) void
     }
-
     class IndicatorOrchestrator {
-        -IndicatorService _service
-        -IWorkspaceStore _store
-        +RecalculateAllAsync()
+        +RecalculateFullAsync()
         +RecalculateLastAsync()
     }
-
     class PluginLoaderService {
         -PluginTrustPolicy _trust
         +LoadPlugins~T~(dir) IEnumerable~T~
     }
 
+    class SkenderWrappers {
+        <<6 classes>>
+        SkenderTrendProvider
+        SkenderBandProvider
+        SkenderBoundedOscillatorProvider
+        SkenderVolatilityProvider
+        SkenderVolumeProvider
+        SkenderZeroCrossProvider
+    }
+    class AccessibleCipher {
+        <<5 classes, in-house>>
+        CipherAProvider
+        CipherBProvider
+        CipherCProvider
+        CipherSProvider
+        CipherSrProvider
+    }
+    class StructureAndLevels {
+        <<7 classes>>
+        SwingStructureProvider
+        PivotLevelsProvider
+        TopBottomDetectorProvider
+        SpiderLinesProvider
+        AnchoredVwapProvider
+        MACloudProvider
+        IchimokuProvider
+    }
+    class RegimeAndCycles {
+        <<6 classes>>
+        RegimeProvider
+        VolRegimeProvider
+        LoukasCyclesProvider
+        HurstExponentProvider
+        PulseProvider
+        ValueDeviationProvider
+    }
+    class AnalyticsBacked {
+        <<6 classes>>
+        FundingRateProvider
+        OpenInterestProvider
+        CrowdingIndexProvider
+        CotPositioningProvider
+        FearGreedProvider
+        CoinMetricsProvider
+    }
+    class Composites {
+        <<6 classes>>
+        CoreIndicatorProvider
+        ProfileIndicatorProvider
+        SymbolCompareProvider
+        BtcStrengthProvider
+        MyDataSeriesProvider
+        MyDataEventsProvider
+    }
+    class DropInPlugins {
+        <<Plugins/Indicators/*.dll>>
+    }
+
     IndicatorOrchestrator o-- IndicatorService
     IndicatorService o-- IIndicatorProvider
-    PluginLoaderService --> IIndicatorProvider : discovers Plugins/Indicators/*.dll
-    IIndicatorProvider <|-- CoreIndicatorProvider
-    IIndicatorProvider <|-- ProfileIndicatorProvider
-    IIndicatorProvider <|-- SkenderBoundedOscillatorProvider
-    IIndicatorProvider <|-- SkenderBandProvider
-    IIndicatorProvider <|-- SkenderTrendProvider
-    IIndicatorProvider <|-- SkenderVolatilityProvider
-    IIndicatorProvider <|-- SkenderVolumeProvider
-    IIndicatorProvider <|-- SkenderZeroCrossProvider
-    IIndicatorProvider <|-- AccessibleCipherProviders
-    IIndicatorProvider <|-- IchimokuProvider
-    IIndicatorProvider <|-- CustomIndicatorRegistry
+    PluginLoaderService --> DropInPlugins : SHA-256 checked, then LoadFromAssemblyPath
 
-    note for CoreIndicatorProvider "Pseudo-indicators for Candles / Volume / drawing tools"
-    note for ProfileIndicatorProvider "VPVR / VWAP / Value Area composites"
-    note for SkenderBoundedOscillatorProvider "RSI / Stoch / CCI wrappers"
-    note for SkenderBandProvider "Bollinger / Keltner / Donchian wrappers"
-    note for SkenderTrendProvider "EMA / SMA / ADX / Aroon wrappers"
-    note for SkenderVolatilityProvider "ATR / StdDev wrappers"
-    note for SkenderVolumeProvider "OBV / MFI wrappers"
-    note for SkenderZeroCrossProvider "MACD / TSI wrappers"
-    note for AccessibleCipherProviders "CipherA / CipherB / CipherC / CipherS / CipherSR (in-house, not Skender)"
-    note for IchimokuProvider "5 classical lines + KumoPolarity + TK cross markers (8 components)"
-    note for CustomIndicatorRegistry "User-compiled Roslyn scripts + imported .atpkg packages (semantic sandbox)"
-    note for PluginLoaderService "Hashes each DLL; gates on SHA-256 allow-list before LoadFromAssemblyPath"
+    IIndicatorProvider <|.. SkenderWrappers
+    IIndicatorProvider <|.. AccessibleCipher
+    IIndicatorProvider <|.. StructureAndLevels
+    IIndicatorProvider <|.. RegimeAndCycles
+    IIndicatorProvider <|.. AnalyticsBacked
+    IIndicatorProvider <|.. Composites
+    IIndicatorProvider <|.. DropInPlugins
+
+    note for SkenderWrappers "Thin adapters over Skender.Stock.Indicators —<br/>EMA/SMA/ADX, Bollinger/Keltner/Donchian, RSI/Stoch/CCI,<br/>ATR/StdDev, OBV/MFI, MACD/TSI."
+    note for AnalyticsBacked "Read from the 17 analytics plugins rather than from price:<br/>funding, open interest, COT positioning, Fear and Greed, on-chain."
+    note for Composites "CoreIndicatorProvider carries the pseudo-indicators —<br/>candles, volume, drawing tools — so everything on the chart<br/>is navigable through one uniform component model."

@@ -341,6 +341,13 @@ press Shift+F1 and the terminal announces the current symbol, provider, and time
 This is handy after you have been deep in navigation for a while and want to
 reconfirm the instrument before acting on it.
 
+Once you are used to the toolbar you rarely need to Tab back to it. `Ctrl+Alt+Shift+L`
+loads the chart from wherever you are — it does exactly what activating the **Load**
+button does. If you have not yet chosen enough to load anything it says so rather than
+doing nothing quietly: *"Cannot load yet. Choose a market, provider, and symbol first."*
+That makes it safe to reach for out of habit; the worst case is a sentence telling you
+what is still missing.
+
 ### Knowing whether your data is live
 
 A loaded chart is not automatically a live one. After the "Ready." announcement the
@@ -574,9 +581,13 @@ falling melody of where price went.
 When you want to cover ground faster, Home jumps to the leftmost bar in view and End
 to the rightmost, while Backslash (\\) leaps all the way to the latest, live bar.
 You can also move the window itself without moving the cursor: the bracket keys pan
-the viewport, with `[` bringing older bars into view and `]` newer ones, and
-Shift with either changes the pan step. The minus key zooms out to see more bars at
-once, and the equals key zooms in for finer detail on fewer.
+the viewport, with `[` bringing older bars into view and `]` newer ones. `Shift+[`
+makes each of those presses move a smaller distance and `Shift+]` a larger one, which
+matters more than it sounds: on a daily chart you usually want to step a week at a
+time, and on a one-minute chart a week is thousands of bars away. Set the step to suit
+the timeframe once and every later `[` or `]` lands where you expected. The minus key
+zooms out to see more bars at once, and the equals key zooms in for finer detail on
+fewer.
 
 If you prefer the mouse, the chart toolbar carries **Pan left**, **Pan right**, **Zoom
 in**, and **Zoom out** buttons that do exactly the same things and speak the new visible
@@ -712,10 +723,28 @@ to the signal line to the histogram, Up back through them, each announced with i
 name and current value. When more panes are open than fit on screen, Alt+Up and
 Alt+Down scroll the pane list.
 
-Two keys re-orient you whenever you lose the thread. Shift+F1 announces the current
-symbol, provider, and timeframe; Ctrl+Alt+Shift+C focuses the chart and reads a fuller
-context summary. Reach for them freely — there is no penalty for asking the terminal
-where you are.
+Some indicators put several things in one pane — a Cipher B pane holds a money-flow
+histogram, two wave lines, cross dots and more. Page Up and Page Down would carry you
+straight past them to the next pane, so there are two narrower moves for working
+*inside* one. Ctrl+PageUp and Ctrl+PageDown step between sub-panes, and Ctrl+Up and
+Ctrl+Down step between the components sharing the pane you are in. The plain arrows
+still walk every component of the focused series in order; the Ctrl versions keep you
+within the sub-pane you are studying, which is what you want when you are comparing
+two lines that are drawn against the same scale.
+
+> **On the Linux web host**, Ctrl+PageUp and Ctrl+PageDown belong to the browser — it
+> uses them to cycle its own tabs — so sub-pane jumps move to `Alt+PageUp` and
+> `Alt+PageDown` there. Ctrl+Up and Ctrl+Down are unchanged. F1 always shows the
+> bindings actually in effect on the host you are using.
+
+Three keys re-orient you whenever you lose the thread. Shift+F1 announces the current
+symbol, provider, and timeframe. Ctrl+Alt+Shift+C focuses the chart and reads a fuller
+context summary. And Ctrl+Alt+Shift+Y describes the chart's **layout** rather than its
+values — the axes and their scales, how many panes are open and what is in each, how
+many series and components they hold, and what is currently hidden or muted. It is the
+answer to "what am I looking at?", which is the question a sighted trader settles with
+one glance and every other spoken message quietly assumes you have already answered.
+Reach for all three freely — there is no penalty for asking the terminal where you are.
 
 ### Scanning for events
 
@@ -744,11 +773,22 @@ were in play. Shift with Space plays just the series you have focused, all of it
 components, for studying one indicator without the rest. Ctrl+Shift+Space narrows
 further to a single component — the RSI line alone, say. Muting a series or component
 with M, or hiding it with H, drops it straight out of the mix, which is how you thin
-a crowded soundscape down to what matters. Ctrl+Space pauses and resumes whatever is
+a crowded soundscape down to what matters.
+
+Those two single-key toggles are fast on purpose, and that makes them easy to
+over-use: hide four components across three indicators and there is no practical way
+to walk back and find them, because a hidden component is exactly the thing you can no
+longer navigate to. So there are two undo-alls. **Ctrl+Alt+Shift+K brings back
+everything you have hidden** and **Ctrl+Alt+Shift+U unmutes everything you have
+muted**, each announcing how many it restored — *"3 items shown."*, or *"Nothing was
+hidden."* if there was nothing to bring back. Treat them as
+the way out whenever the chart has gone quieter than you meant it to, and
+Ctrl+Alt+Shift+Y (above) as the way to hear what is currently hidden or muted before
+you decide. Ctrl+Space pauses and resumes whatever is
 playing — and while paused it now falls properly silent instead of holding the last
 chord, though the arrow keys still audition individual bars so you can inspect the
 frozen moment. Shift+Escape is the panic key that stops all playback at once, and
-Shift with the equals or minus keys speeds playback up or slows it down — slower to
+Shift+= speeds playback up while Shift+- slows it down — slower to
 dwell on each bar, faster to scan a long history.
 
 ### Choosing what you hear
@@ -1459,7 +1499,9 @@ You can size and place a trade without leaving the chart or opening the trading 
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+Alt+Shift+1` / `2` / `3` | Arm 0.5% / 1% / 2% risk |
+| `Ctrl+Alt+Shift+1` | Arm 0.5% risk |
+| `Ctrl+Alt+Shift+2` | Arm 1% risk |
+| `Ctrl+Alt+Shift+3` | Arm 2% risk |
 | `Ctrl+Alt+Shift+X` | Make the bar under the cursor your stop |
 | `Shift+Enter` | Place a limit at the bar under the cursor |
 | `Ctrl+Enter` | Place at market |
@@ -1547,6 +1589,26 @@ overlay you can focus and whose crossings you can jump between. And the Risk/Rew
 tool, after you set its entry and stop anchors, speaks the resulting risk and then
 asks for the target, announcing the full reward-to-risk ratio once you set it — the
 same measuring workflow described in the Trading chapter.
+
+#### Taking a drawing back
+
+`Ctrl+Z` undoes the last chart edit and `Ctrl+Y` redoes it, and both tell you *what*
+they just did rather than only that they did something — *"Undone: trendline moved."*,
+*"Nothing to undo."* The stack holds the last fifty edits, which is deep enough that
+"undo until it sounds right" works. It covers the two things that are genuinely painful
+to reconstruct by hand: edits to a drawing, and deleting a series with `Delete`. It is
+not a general application-wide undo — it will not take back an order, an alert, or a
+settings change, and nothing that leaves the chart is on it.
+
+#### The context menu, from the keyboard
+
+The Applications / Context Menu key, or `Shift+F10` if your keyboard has no such key,
+opens the same right-click menu a mouse user gets. What you get depends on what is
+focused: a focused drawing gets the drawing's own menu — Delete, Duplicate,
+Properties — and anything else gets the chart-level menu, the one right-clicking empty chart space
+opens, carrying the bar under your cursor so options like "Play from here" act on the
+right bar. It is exact keyboard parity with right-click, so nothing in this application
+is mouse-only.
 
 ### Naming your drawings
 
@@ -2510,6 +2572,34 @@ sets the theme and chart colours — most relevant to a sighted collaborator loo
 over your shoulder — and an alerts section holds the email, Telegram, and named-webhook delivery
 details (add/remove webhook rows, each with a name and URL) that let fired alerts reach you away from the keyboard. Changes apply when you
 close the dialog.
+
+#### Appearance and the theme editor
+
+The appearance section is easy to skip if you never look at the screen, and worth a
+minute if you sometimes do, or if anyone ever looks at your screen with you.
+
+A theme covers the **whole window**, chart and chrome together, so switching one never
+leaves a themed chart sitting inside a fixed grey frame. **Steel Gray** is the default.
+**Blackout** is pure black with white text, for OLED panels and for anyone who finds any
+lit background tiring; **High-contrast dark** and **High-contrast light** are the two
+built for maximum separation. **Paper** is a real light theme — warm off-white, near-black
+ink — meant for daylight, projectors and printing. **Amber CRT**, **Walnut**, **Midnight
+Blue**, **Classic**, **Soft Dark**, **Solarized** and **Braille** fill in the rest. The high-contrast pair are
+deliberately *not* the default: they are accessibility tools, and greeting every new user
+with black-and-white made a finished application look like a debug harness. They are one
+setting away and unchanged.
+
+Beyond picking one, **New theme** starts from whichever theme is in use and **Customise…**
+opens the editor on a theme of your own. Either way you get all 33 colours the application
+can draw, grouped into sections you can jump between with your screen reader — top bar, chart
+area, candles, overlays, bottom bar, dialogs, text. Every picker carries a description of
+what the colour actually affects, because "gridlines, minor" means nothing on its own, and
+every change is announced as you make it — *"Rising candle set to #26A69A."* — so you know
+it took without needing to see it. Where two colours you have chosen are too close to read
+against each other, the editor **says so inline and leaves them alone**; it never quietly
+corrects your choice. **Reset all** returns to the base theme, and **Save and use** keeps
+your version as a named theme of your own, which saves and loads as text you can send to
+someone else.
 
 The **Analysis** group on the general tab holds one preference worth knowing about:
 **Add Market Structure (swing highs and lows) to new charts**, which is on by

@@ -121,7 +121,23 @@ namespace AccessibleTrader.Core.Services.Audio
         // structurally capped polyphony at 64 voices (1UL << slot wraps past slot 63).
         private readonly bool[] _pendingSet = new bool[MaxVoices];
 
-        // --- HARD REAL-TIME: LOCK-FREE RING BUFFER IMPLEMENTATION ---
+        // --- HARD REAL-TIME: LOCK-FREE RING BUFFER ---
+        //
+        // SINGLE producer, single consumer. Enqueue is a non-atomic read-modify-write of _head
+        // with no CAS and no lock, so two threads enqueuing at once can write the same slot and
+        // both advance — losing one item, or replaying a stale one.
+        //
+        // _eventQueue honours that: its only producer is the audio thread. _commandQueue DOES
+        // NOT — four paths reach SetVoice/StopVoice from a threadpool thread via
+        // Task.Delay(...).ContinueWith(..., TaskScheduler.Default): CrossEarcon, AudioSequencer's
+        // detuned-offset path, and two in NavigationSonifier. The worst realistic outcome is an
+        // earcon note that goes missing or doubles — every index is masked, so there is no
+        // out-of-bounds and no corruption — and the drop telemetry below does not count a command
+        // lost this way. It is filed rather than fixed on purpose: a producer-side lock in
+        // EnqueueCommand is the cheap correct answer (producers are not real-time, and it leaves
+        // the audio thread's TryDequeue untouched), while a CAS on _head alone is NOT sufficient,
+        // because reserving a slot before the item is written lets the consumer read an
+        // unpublished entry. See the hosted-deployment section of docs/TODO.md.
         private struct RingBuffer<T> where T : struct
         {
             private readonly T[] _buffer;

@@ -1,49 +1,61 @@
+---
+title: Navigation flow — one keypress, end to end
+---
+%% Verified against the tree on 2026-08-28.
 sequenceDiagram
-    participant User
-    participant JS as keyboard.js (Windows JS Bridge)
-    participant AND as MainActivity (Android DispatchKeyEvent)
-    participant MAC as KeyboardPageHandler (Mac Catalyst PressesBegan)
+    autonumber
+    actor U as User
+    participant KB as Platform capture<br/>keyboard.js · DispatchKeyEvent · PressesBegan
     participant BIS as BlazorInputService
     participant SM as ShortcutManager
+    participant RM as WebHostShortcutRemap
     participant CD as CommandDispatcher
-    participant DIM as DrawingInteractionManager
-    participant EB as EventBus
-    participant Store as WorkspaceStore
     participant NE as NavigationEngine
+    participant VM as ViewportManager
+    participant ST as WorkspaceStore
+    participant EB as EventBus
     participant AFC as AccessibilityFeedbackCoordinator
-    participant BSM as BlazorSpeechManager
+    participant SFR as SpeechFeedbackRouter
     participant SMM as SonificationManager
+    participant TD as ITactileDriver
 
-    Note over User, MAC: Platform Input (Windows / Android / Mac Catalyst)
-    User->>JS: Press Key (Windows)
-    JS->>BIS: OnKeyDown(key, modifiers)
-    User->>AND: Press Key (Android)
-    AND->>BIS: ProcessKey(key, shift, ctrl, alt)
-    User->>MAC: Press Key (Mac hardware keyboard)
-    MAC->>BIS: ProcessKey(key, shift, ctrl, alt)
+    Note over RM,SM: WebHost only, once at startup
+    RM->>SM: Ctrl+Shift+letter becomes Alt+Shift+letter, and<br/>reserved single-Ctrl chords are removed or rebound
+    Note right of RM: in memory only — shortcuts.json stays portable<br/>and F1 reads the live profile, so Help is never wrong
 
-    BIS->>SM: ResolveCommand(key, modifiers)
-    SM->>CD: Dispatch(SystemCommand)
+    U->>KB: press a key
+    KB->>BIS: key + modifiers
+    BIS->>SM: resolve
+    SM-->>BIS: SystemCommand (or None — the key passes through)
+    BIS->>CD: dispatch
 
-    Note over CD, Store: Pane Layout Commands (Alt+Up/Down, Ctrl+Alt+Shift+C)
-    CD->>Store: ScrollIndicatorPanesAction(±1)
-    CD->>EB: Publish(ChartFocusEvent)
-    CD->>EB: Publish(FeedbackRequestEvent CONTEXT_SUMMARY)
-
-    Note over CD, DIM: Drawing Flow (Ctrl+Shift+T/H/V/C/F/L)
-    CD->>EB: Publish(AddDrawingEvent)
-    EB->>DIM: HandleAddDrawing
-    BIS->>DIM: HandleMouseEvent(coords)
-
-    Note over CD, NE: Navigation Flow (Arrow keys, Home/End, PgUp/Dn)
-    CD->>NE: ProcessNavigation
-    NE->>Store: Dispatch(NavigateAction)
-    NE-->>EB: Publish(FeedbackRequestEvent)
-
-    par Async Feedback
-        EB->>AFC: OnFeedbackRequest
-        AFC->>BSM: Speak(formattedText)
-    and Audio Note
-        Store->>SMM: SyncNavigationSlots (via StateStream)
-        SMM->>SMM: NavigationSonifier.SyncNavigationSlots
+    alt movement along the X axis (Left/Right, Home/End, Ctrl+Left/Right)
+        CD->>NE: navigate
+        NE->>ST: NavigateAction
+        NE->>EB: FeedbackRequestEvent
+    else viewport ([ ] - = Shift+[ Shift+])
+        CD->>VM: pan / zoom / change the pan step
+        VM->>ST: viewport change
+    else series and component (Up/Down, PageUp/Down, Ctrl+Up/Down, Ctrl+PageUp/Down)
+        CD->>ST: focus change
+    else a panel or modal (Alt+letter, F-keys)
+        CD->>EB: Open...Event
+    else drawing (Ctrl+Shift+letter — sequential anchoring)
+        CD->>EB: AddDrawingEvent — one press per anchor, no Enter to confirm
     end
+
+    par speech
+        ST-->>AFC: StateStream
+        EB-->>AFC: FeedbackRequestEvent
+        AFC->>SFR: format for the focused thing
+        SFR-->>U: speak (interrupting or queued, per channel)
+    and audio
+        ST-->>SMM: StateStream
+        SMM->>SMM: NavigationSonifier.SyncNavigationSlots
+        SMM-->>U: voice slots 0-15 — pitch, timbre, stereo position
+    and tactile
+        VM-->>TD: slice the device-sized window
+        TD-->>U: pins
+    end
+
+    Note over AFC,SMM: One path per modality. Nothing else writes navigation<br/>voice slots, and nothing else decides what a move says.

@@ -87,8 +87,8 @@ namespace AccessibleTrader.Core.Services.Trading
     /// </para>
     ///
     /// <para>
-    /// The string protocol survives at the plugin boundary, because 31 providers implement it and
-    /// it is the documented contract. It is parsed exactly once, here, at the edge of Core, and
+    /// The string protocol survives at the plugin boundary, because twelve provider plugins
+    /// implement it and it is the documented contract. It is parsed exactly once, here, at the edge of Core, and
     /// nothing above <c>GeneralOrderService</c> sees a status string again.
     /// </para>
     /// </summary>

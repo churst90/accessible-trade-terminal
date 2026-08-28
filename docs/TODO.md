@@ -117,7 +117,53 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-27, CI green on all three workflows).**
+> **START HERE (current as of 2026-08-28).**
+>
+> **2026-08-28 — a documentation pass, and the release question is now on the table.** No
+> production behaviour changed. Suite **5,735** green in both configs, doc-drift green.
+> What this session did, and what it means for the next one:
+>
+> 1. **`patches/HOSTED-DEPLOY-NOTES.md` was re-read end to end and reconciled with this file.**
+>    That note was renumbered on 2026-08-28, so every `§5x` pointer in the "Hosted deployment"
+>    section below refers to the note's OLD lettering except where a line says otherwise.
+>    Four items are new and are filed at the end of that section: **no DNS check on the plugin
+>    allow-list** (the redirect half closed, this half did not), **`AccessibleTrader.BrowserTests`
+>    cannot run on the deployment box** (it binds 5145 as well as port 0, invisible on CI and
+>    total there), **one `IsResistance(level, price)` chokepoint** before support-vs-resistance
+>    is got wrong a third time, and **running the integration suite under a non-empty
+>    `PathBase`**. The Schwab CA1416 item is now closed, and the ring-buffer item was re-counted
+>    from three producers to four.
+> 2. **The doc-drift guard gained a fourth check.** It only ever validated `SHORTCUTS.md` — the
+>    reference doc nobody reads end to end — so both docs a user is actually pointed at had
+>    drifted: the manual carried no undo/redo, no drawing context menu, no sub-pane navigation
+>    and no show-all/unmute-all, and QUICKSTART's section titled "Complete Keyboard Shortcut
+>    Reference" was missing the entire quick-trade tier. Fixed in both, and
+>    `check_user_doc_coverage` now fails if a binding appears in neither. **Proven red before
+>    green.** If it ever fails, document the chord — do not add an exemption list.
+> 3. **`Diagrams/` is now ten verified sources with an index** (`Diagrams/README.md`), each
+>    with a prose summary because a diagram is the least accessible artifact here. The five
+>    that existed were from March–May and predated the WebHost, the StrategyLab, the sandbox
+>    and the trading tier. Five are new: hosting topology, order lifecycle, feedback routing,
+>    plugin trust, script sandbox. All ten render clean under `@mermaid-js/mermaid-cli@11`.
+> 4. **Three code comments were lying and are fixed**: two stale counts ("31 implementations"
+>    of the order string protocol — it is twelve provider plugins) and `AudioEngine`'s ring
+>    buffer, whose "HARD REAL-TIME: LOCK-FREE" banner read as a single-writer promise the code
+>    stopped keeping. It now states the SPSC constraint, names the four producers, and says why
+>    a CAS on `_head` alone would NOT fix it. Otherwise the comment layer is in good shape —
+>    one TODO marker in the whole tree, and a scan for comments referencing types that no
+>    longer exist returned nothing.
+>
+> **The release recommendation, for whoever picks this up: cut 2.4.0.** Argued in full in the
+> session report; the short version is that everything fixed since 2.3.0 is something a user on
+> 2.3.0 is silently exposed to right now, the deployed lineage has passed the full acceptance
+> list on the live box including 128/128 browser harness, and `Directory.Build.props` has said
+> `2.3.0` since 2026-08-12 so the deploy log cannot distinguish builds. Do a throwaway
+> pre-release tag first — `release.yml`'s two MAUI jobs are the fragile part and have not run
+> since 2026-08-11.
+>
+> ---
+>
+> **Previous (2026-08-27, CI green on all three workflows).**
 >
 > **0 CRITICAL, 0 HIGH. The provider cluster is CLOSED** — 25 of its 27 items went in across
 > two batches on 2026-08-27, and the two that remain are deferred on purpose with the reason
@@ -1840,7 +1886,7 @@ or place a live order.
   line, same shape), a `DemoFactory`, and port the server's acceptance checks into tests: `/app/` → 200,
   login POST → 400 and never 405 on both prefixes, `_blazor/negotiate` POST → JSON on demo / 401 on
   hosted pre-login.
-- [ ] **CA1416 ×2 in `SchwabOAuthService.cs:362` — real, and the "0 warnings on Linux" claim is currently
+- [x] **CA1416 ×2 in `SchwabOAuthService.cs:362` — real, and the "0 warnings on Linux" claim is currently
   false (note §5a).** Confirmed by building the plugin here on 2026-08-23: `ProtectedData.Unprotect` and
   `DataProtectionScope.CurrentUser`, 2 warnings, Build succeeded. The server re-verified it on a clean
   `--no-incremental` Release build at `760c49be` — **third consecutive batch**, so it is not a stale
@@ -1849,6 +1895,9 @@ or place a live order.
   inlining `if (!OperatingSystem.IsWindows()) return;` into the legacy-migration block of
   `LoadPersistedRefreshToken`, or extract that block and mark it `[SupportedOSPlatform("windows")]`.
   **Not a pragma** — CA1416 is doing its job in a plugin that ships inside the Linux WebHost build.
+  **CLOSED in `fbfb96fb`**, and taken the way this item asked: real `OperatingSystem.IsWindows()`
+  guards inlined at `SchwabOAuthService.cs:310` and `:350`, no pragma, so CA1416 stays live for the
+  file. Re-verified on the deploy box 2026-08-28 with a clean Release build: 0 warnings.
 - [ ] **Test helpers that locate a field by type instead of by name (note §5b).** `d4ebd2e8` fixed
   `BrokerParityTests.Swap`; the pattern is still repo-wide. `ProviderFetchOhlcvTests.SwapHttpClient`
   (and its `.Enrollment` partial), `ProviderSymbolNormalisationTests:283`, `OcoPairTests:146`,
@@ -1862,13 +1911,18 @@ or place a live order.
   `FieldType == typeof(HttpClient)` lookup. Widen the scan to any helper locating a handler or service by
   position/type where the failure mode is an outbound call; that is the only recent defect class whose
   worst case is a side effect rather than a wrong number.
-- [ ] **`AudioEngine.RingBuffer<T>.Enqueue` is single-producer and now has three producers (note §5f).**
+  **Update 2026-08-28 (note §5a, renumbered):** the one site whose worst case was an outbound call is
+  closed — `BrokerParityTests.Swap` now matches by name against the two spellings the broker plugins
+  use, with the reasoning in a comment above it. What is still open is exactly the repo-wide half above:
+  25 sites still do `FieldType == typeof(HttpClient)`, and no `*ScanTests` member covers the pattern.
+- [ ] **`AudioEngine.RingBuffer<T>.Enqueue` is single-producer and now has FOUR producers (note §5b).**
   Verified: `AudioEngine.cs:146` reads `_head` non-atomically, writes `_buffer[_head]`, then
   `Volatile.Write`s the advance — textbook SPSC, no CAS, no lock. `_commandQueue`'s only writer is
-  `EnqueueCommand` (`AudioEngine.cs:366`), reached from `SetVoice`/`StopVoice`, and three paths now call
-  in from a **threadpool** thread via the same `Task.Delay(...).ContinueWith(..., TaskScheduler.Default)`
-  idiom: `CrossEarcon.cs:41`, `NavigationSonifier.cs:308` (detuned offset) and `NavigationSonifier.cs:441`
-  (the new `delay` path from `760c49be`). Two of them landing together can both write the same slot and
+  `EnqueueCommand` (`AudioEngine.cs:366`), reached from `SetVoice`/`StopVoice`, and **four** paths now
+  call in from a **threadpool** thread via the same `Task.Delay(...).ContinueWith(..., TaskScheduler.Default)`
+  idiom — re-counted on the tree 2026-08-28: `CrossEarcon.cs:40`, `AudioSequencer.cs:328` (the
+  detuned-offset path, **new since this item was filed**), `NavigationSonifier.cs:351` and
+  `NavigationSonifier.cs:542`. Two of them landing together can both write the same slot and
   both advance — one command lost, and the slot the consumer later reads may hold a stale command that
   replays. Pre-existing; `760c49be` widened it rather than caused it. **Severity is low and should stay
   labelled that way**: every index is masked, so no out-of-bounds and no corruption — the worst realistic
@@ -1893,6 +1947,60 @@ or place a live order.
   `disable` or bumping to a band it lacks stops deploys dead. Same for `UseRazorSourceGenerator=false`,
   which is load-bearing there right now. If a guard is wanted, asserting `global.json` keeps a non-`disable`
   `rollForward` is a few lines.
+
+**New in the 2026-08-28 revision of the note** (the note was renumbered that day, so every `§5x`
+pointer above refers to the *old* lettering except where a line says otherwise; the four below use the
+new one). Each was re-checked against this tree before being written down.
+
+- [ ] **The plugin allow-list still does no DNS check (note §5c) — the redirect half is closed, this
+  half is not.** Verified 2026-08-28: `WebHostPluginHttpClientFactory.cs:30` and
+  `MauiPluginHttpClientFactory.cs:40` both construct `new HttpClientHandler { AllowAutoRedirect = false }`,
+  so the 302-off-the-allow-list hole is shut in both heads. Neither sets a `ConnectCallback`, so the
+  allow-list still matches on the **name** and never on what the name resolves to: an allow-listed
+  hostname answering with `169.254.169.254` or an RFC1918 address is still connected to. The stronger
+  version already exists next door and is the thing to reuse —
+  `Core/Services/Alerts/OutboundNetworkGuard.cs` sets `AllowAutoRedirect = false` *and* a
+  `SocketsHttpHandler.ConnectCallback` that re-resolves and refuses private targets, which is also what
+  makes it DNS-rebinding-proof (it connects to the address it resolved). Severity is moderated on
+  purpose: plugins are trust-hashed (33 verified at boot), so the realistic case is a first-party
+  provider's upstream resolving somewhere unexpected, not attacker-supplied code. But the guard to copy
+  is thirty lines away, and the two factories are byte-identical in this respect so it is one fix twice.
+- [ ] **`AccessibleTrader.BrowserTests` cannot run on the deployment box, and the defect is invisible on
+  CI (note §5e).** `TerminalServerFactory.CreateHost` binds the Kestrel host with
+  `b.UseKestrel(o => o.Listen(IPAddress.Loopback, 0))` — port 0, as its comment says — but the builder
+  still reads `AccessibleTrader.WebHost/appsettings.json`, whose `Kestrel:Endpoints:Http:Url` is
+  `http://localhost:5145`. Kestrel binds **both**, so the host also takes 5145: the demo's port. On CI
+  nothing owns 5145 and the extra bind succeeds silently; on the box that serves the demo, all 128 cases
+  die with `Failed to bind to address http://127.0.0.1:5145: address already in use`. The server works
+  around it with `Kestrel__Endpoints__Http__Url=http://127.0.0.1:5199`, which is the tell. Fix is one
+  line in the factory — override the configured endpoint to port 0 rather than adding a second listener —
+  and it matters more than its size: this suite is now the only check that proves the deployed commit
+  *renders*, and right now it cannot be run on the machine that serves it. Guard it by asserting the
+  bound address set contains exactly one address and that it is not 5145; a test that merely checks
+  `RootUrl` is non-empty passes today.
+- [ ] **One `IsResistance(level, price)` chokepoint, before this is got wrong a third time (note §5f).**
+  Not a defect report — both known instances are fixed. It is the recurrence that earns the item: the
+  `887e39c6`-era zone announcement decided support vs resistance by the component's **audio frequency**
+  (`if (freq >= 500f)`), so a level voiced for audibility rather than semantics was announced as the
+  opposite structural level; and `2b55e6fa`'s `AutoNarrationService` decided it by two literal
+  `Contains` calls, `"Resistance"` and `"resistance"`, so a component named `RESISTANCE_1` fell through
+  and its break was announced as *"Support at 61,200 broken."* Two different wrong proxies for the same
+  one-line invariant in three weeks, each fixed only at the site that was found. `grep -rn IsResistance`
+  over the tree returns one hit and it is a **test name** (`LevelProviderTests.cs:175`), so the
+  chokepoint genuinely does not exist. Make it exist — a level is resistance if it sits above the
+  current price and support if it sits below — make every announcer call it, and add a scan guard that
+  fails any speech/narration path deciding the polarity by name matching or by frequency. This is the
+  most consequential single word the app says: "near resistance at X" is a directional claim a trader
+  acts on.
+- [ ] **Run the integration suite a second time under a non-empty `PathBase` (note §3).** Re-checked
+  2026-08-28: `grep PathBase AccessibleTrader.Tests/WebHost/WebHostIntegrationHarness.cs` returns
+  nothing. **Both** hosted heads are served under a prefix (`/app/`, `/terminal/`) behind nginx — that
+  is not one configuration among several on that box, it is the only one — and `a535c744`'s 405 was a
+  prefix-only bug. `WebHostHostedAccountsIntegrationTests` does exercise `/terminal`, which is why that
+  one was caught; what is missing is the *class* closing. The harness boots the real `Program.cs`, so
+  parameterising it and running the whole suite twice would close every prefix-only bug at once. The
+  browser harness added since covers a prefix only for the routes it visits and is not a substitute.
+  Pairs naturally with the demo-head item above — same harness change, one more factory.
 
 **Answered — no work needed:**
 
@@ -10485,6 +10593,16 @@ Full detail in `CHANGES.md` [1.6.0]. Suite 1593/1593.
   to the hosted terminal chrome when the hosted UI gets its next pass.
 - [ ] **Ops: systemd `UMask=0077`** drop-in on the hosted unit so future files
   (auth.db recreations, security logs) default private (~5 min, not a repo change).
+  **Confirmed visible on the box 2026-08-28 (deploy note §5g).** Under
+  `/var/lib/accessible-trader-terminal/`: `dp-keys/` is `0700` because `KeyRingPolicy`
+  (new in `19128450`) asserts it and refuses to start otherwise, but `secrets/` and
+  `users/` are both `0755` — created under the default `022` umask with nothing said.
+  Nothing is actually exposed, because the `0750` parent stops anyone outside group
+  `debian` traversing in and `debian` is the service account. So: untidy, not urgent —
+  but it is defence resting on one directory's mode rather than on each directory's own,
+  and `KeyRingPolicy`'s own doc comment already points at this item. Fix is one
+  `UMask=0077` line in each of the two unit files plus a one-time `chmod`. Editing the
+  units is Cody's call, so this stays filed rather than done.
 - [ ] FINRA Query API short-interest metric (needs free dev registration — Cody).
 - [ ] Tiered RiskPercent by setup quality (2-tier, evidence-based) in RiskPlan.
 - [ ] Sector risk governor as an optional *enforcing* mode (default stays warn-only).

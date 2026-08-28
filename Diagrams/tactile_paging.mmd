@@ -1,25 +1,41 @@
+---
+title: Tactile display — how a chart becomes pins
+---
+%% Verified against the tree on 2026-08-28.
+%% The native layer is behind IDotPadNative, so the driver and its paging logic are
+%% testable off-Windows against NullDotPadNative; only WindowsDotPadNative P/Invokes.
 graph TD
-    subgraph Core Engine (.NET 10)
-        HB[History Buffer - Ohlcv Data]
-        VC[Virtual Canvas]
-        VP[Viewport Manager]
+    subgraph CORE["AccessibleTrader.Core"]
+        HB["History buffer — the full Ohlcv series"]
+        TCC["TactileCanvasCoordinator<br/>decides WHAT gets a pane"]
+        VC["Virtual canvas — the whole chart at pin resolution"]
+        VP["ViewportManager<br/>slices the device-sized window"]
+        GTR["GraphicTextRenderer<br/>value strip + X-value strip"]
     end
 
-    subgraph Hardware Driver (MAUI Interop)
-        TD[ITactileDriver]
-        DTD[DotpadTactileDriver]
-        SDK[DotPadSDK 3.0.0 native DLL]
-        PD[Dot Pad 2nd-gen - 300 graphic cells + 20 braille cells]
+    subgraph DRIVER["Driver — ITactileDriver"]
+        DTD["DotpadTactileDriver<br/>two-pane 50/50: top series + focused series,<br/>1-pin candles, dynamic gap by bar density"]
+        IFACE["IDotPadNative"]
+        WIN["WindowsDotPadNative<br/>P/Invoke to DotPadSDK-3.0.0.dll"]
+        NULL["NullDotPadNative<br/>everywhere else — driver logic stays testable"]
     end
 
-    HB -->|Render Full History| VC
-    VC -->|Paging Logic| VP
-    VP -->|Slice Device-Sized Window| TD
-    TD -->|Push Packed Dot Buffer| DTD
-    DTD -->|P/Invoke| SDK
-    SDK -->|USB-Serial or BLE| PD
+    subgraph HW["Hardware"]
+        PD["Dot Pad — 300 graphic cells + 20 braille cells<br/>2nd generation (tested on device) and Dot Pad X<br/>same SDK, no code change"]
+    end
 
-    PD -->|Pan / Function Keys| SDK
-    SDK -->|Key Callback| DTD
-    DTD -->|Navigate Event| VP
-    VP -->|Update Window Offset| VC
+    HB --> TCC --> VC
+    VC -->|paging| VP
+    VP -->|device-sized window| DTD
+    GTR --> DTD
+    DTD --> IFACE
+    IFACE --> WIN --> PD
+    IFACE -.-> NULL
+
+    PD -->|pan and function keys| WIN
+    WIN -->|key callback| DTD
+    DTD -->|F1-F4 device-side speech queries| GTR
+    DTD -->|navigate| VP
+    VP -->|new window offset| VC
+
+    NOTE["F4 toggles the display, Shift+F4 opens its settings.<br/>Driver is Windows-only today; the SDK is not committed to the repo.<br/>Other tactile devices (APH Monarch and the rest) are not supported yet."]

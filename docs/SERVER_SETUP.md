@@ -63,6 +63,74 @@ Smoke test after publish:
 curl -sf http://127.0.0.1:5150/terminal/_framework/blazor.web.js   # must be 200 (hosted)
 ```
 
+## Deploy acceptance criteria
+
+**HTTP 200 on every page does not prove a deploy.** A `WinExe` build serves the app shell
+happily and never boots a circuit, so the pages render blank. The list below is what
+"it deployed fine" actually means; a deploy that answers 200 everywhere and fails any of
+these is a **failed** deploy, not a partial one. Kept here so the repo carries the criteria
+rather than only the deployment box knowing them.
+
+```
+endpoints.json size                  ~107,800   (~93,700 = a WinExe build, will not boot)
+/app/_framework/blazor.web.js        200, ~200,500 bytes
+/app/_blazor/negotiate      POST →   JSON containing connectionToken
+/terminal/                       →   302 to /terminal/account/login
+/terminal/_blazor/negotiate POST →   401   (correct: auth required pre-login)
+/terminal/Account/Login      GET →   200
+/terminal/Account/Login     POST →   400, never 405
+manifest identical across dirs       md5sum matches on demo + terminal + publish
+systemctl NRestarts                  0 on both units
+journalctl -p err since deploy       empty
+browser harness                      128/128
+```
+
+The single cheapest tell that a build is correct, and the only one that does not depend on
+the test suite having been run:
+
+```bash
+stat -c%s <publish-dir>/AccessibleTrader.WebHost.staticwebassets.endpoints.json
+```
+
+The `400, never 405` line is a regression check with history: routing once ran before
+`UsePathBase`, so login and register POSTs under a path prefix stuck at 405 off the
+GET/HEAD-only static fallback. Both hosted heads are served under prefixes, so this is not
+one configuration among several — it is the only one.
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -d 'Input.Email=x@y.z&Input.Password=nope' \
+  https://<host>/terminal/Account/Login
+```
+
+**Plugin trust lines differ by head, and that is normal.** The terminal loads plugins at boot
+and logs its 33 "matches trusted hash" lines within a second. The demo loads them **lazily, on
+the first chart request**, so it logs none until a visitor arrives — historically anywhere from
+27 minutes to 8 hours after a restart. Reading zero on the demo just after a restart is not a
+trust failure. The check that holds immediately is that the manifest is byte-identical
+everywhere, since one rsync feeds all three directories:
+
+```bash
+md5sum /opt/accessible-trader-{demo,terminal}/plugins_trusted.manifest
+```
+
+**The browser harness is the only check that proves the app *renders*** — it drives a real
+Chromium against a real Kestrel running the real WebHost on the commit being deployed.
+Everything else on the list proves the server answers.
+
+```bash
+npx playwright@1.55.0 install chromium     # first run only: the .NET driver wants build 1187
+dotnet test AccessibleTrader.BrowserTests/AccessibleTrader.BrowserTests.csproj \
+  -c Release -p:UseRazorSourceGenerator=false
+```
+
+On a machine that is already serving the demo, add
+`Kestrel__Endpoints__Http__Url=http://127.0.0.1:5199` in front of that command. The harness
+binds port 0 for the host under test but the builder still reads the WebHost's
+`appsettings.json`, which names 5145 — the demo's port — so the extra bind collides. That is a
+known defect in `TerminalServerFactory`, filed in `TODO.md`; the override is the workaround
+until it is fixed.
+
 ## Environment variables
 
 | Variable | Mode | Purpose |

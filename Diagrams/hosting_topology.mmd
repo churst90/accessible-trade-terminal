@@ -1,0 +1,62 @@
+---
+title: Hosting topology — which head can do what
+---
+%% Verified against the tree and docs/SERVER_SETUP.md on 2026-08-28.
+%% The gates are AccessibleTrader.Core/Services/DemoPolicy.cs. Read that file before
+%% adding a feature to a hosted head; the split is deliberate, not incidental.
+flowchart TD
+    subgraph DESKTOP["Desktop — HostMode.Full"]
+        D1["MAUI Blazor Hybrid (Win/macOS/iOS/Android)<br/>or the WebHost run locally"]
+        D2["Single user, singleton-scoped DI"]
+        D1 --- D2
+    end
+
+    subgraph SERVER["One VPS, two systemd services, one nginx"]
+        NG["nginx — TLS, per-IP conn limit, WebSocket upgrade"]
+        DEMO["accessible-trader-demo<br/>--demo · :5145 · /app/ · HostMode.Demo"]
+        TERM["accessible-trader-terminal<br/>--accounts · :5150 · /terminal/ · HostMode.Hosted"]
+        NG -->|/app/| DEMO
+        NG -->|/terminal/| TERM
+    end
+
+    subgraph GATE["DemoPolicy"]
+        FULL["Mode == Full only:<br/>live trading · API-keys modal · custom scripts<br/>AI analyst · strategies · background monitoring"]
+        NOTDEMO["!IsDemo (so: Hosted and Full):<br/>paper dashboard · alerts · order book<br/>workspace save/load · symbol search · settings"]
+        ALWAYS["Always: charting, navigation, speech,<br/>sonification, drawing tools"]
+        RESTRICT["RestrictsData (Mode != Full):<br/>provider/market/live-stream curation.<br/>Hosted shows Crypto/Stock/Forex only because<br/>Bitstamp and TwelveData are the two that work keyless"]
+    end
+
+    DESKTOP --> FULL
+    DESKTOP --> NOTDEMO
+    TERM --> NOTDEMO
+    DEMO --> ALWAYS
+    TERM --> ALWAYS
+    DEMO --> RESTRICT
+    TERM --> RESTRICT
+
+    subgraph STATE["Hosted state — /var/lib/accessible-trader-terminal"]
+        AUTH["auth.db — ASP.NET Identity, 2FA, recovery codes"]
+        USERS["users/{id}/ — settings, workspaces, sound design, paper record, security events"]
+        CACHE["cache/ — shared OHLCV"]
+        DPK["dp-keys/ — DataProtection key ring, 0700, asserted at boot by KeyRingPolicy"]
+        SECRETS["secrets/ — encrypted server-side market-data keys"]
+        VAPID["vapid-keys.json — push"]
+    end
+
+    TERM --> STATE
+    XDG["XDG_DATA_HOME / XDG_CACHE_HOME point here.<br/>If they are missing, .NET writes state INTO the deploy directory,<br/>where the next rsync --delete destroys it."]
+    STATE --- XDG
+
+    subgraph RULE["The standing constraint"]
+        R["No hosted head may hold real broker credentials or place a live order —<br/>not even behind a flag. A hosted feature that needs a server-side key<br/>belongs on the desktop build instead."]
+    end
+    SERVER --- RULE
+
+    subgraph SHIP["What reaches a hosted user"]
+        Y["Data-READ path, the paper broker, alerts,<br/>and everything in the component and accessibility library"]
+        N["NOT: real-venue order signing, strategies,<br/>background multi-workspace monitoring, custom scripts, API-key storage"]
+    end
+    RULE --- SHIP
+
+    PUB["Publish MUST pass -p:ServerPublish=true.<br/>Without it the Release OutputType is WinExe on Windows, which silently drops<br/>_framework/blazor.web.js from the static-asset manifest: pages return 200,<br/>the circuit never boots, /app/ and /terminal/ render blank.<br/>Guarded by WebHostStaticAssetManifestTests."]
+    SERVER --- PUB

@@ -1,47 +1,74 @@
+---
+title: Data lifecycle — from a provider call to a spoken bar
+---
+%% Verified against the tree on 2026-08-28.
+%% The DataState machine has SIX states, not five: Stalled sits between LiveStreaming
+%% and Faulted and is what the LiveStreamManager watchdog trips into.
 sequenceDiagram
-    participant Plugin as MarketDataProvider (e.g. Binance)
-    participant DO as DataOrchestrator (Polly Resilience)
-    participant DC as DataCache (CircularBuffer)
-    participant DMS as DataManager
-    participant DOS as DataOrchestrationService
+    autonumber
+    actor U as User
+    participant MO as MarketOrchestrator
+    participant DO as DataOrchestrator<br/>(Polly retry + breaker)
+    participant HDF as HistoricalDataFetcher
+    participant P as Provider plugin<br/>(IMarketDataProvider)
+    participant OS as OhlcvStore<br/>(cache + dedup)
+    participant RS as ResamplerService
+    participant DM as DataManager
+    participant ST as WorkspaceStore
     participant IO as IndicatorOrchestrator
-    participant Store as WorkspaceStore (Redux/Rx)
-    participant CR as ChartRenderer (SkiaSharp)
     participant AFC as AccessibilityFeedbackCoordinator
     participant SMM as SonificationManager
+    participant CR as ChartRenderer
 
-    Note over Plugin, DO: Historical Load
-    DO->>Plugin: FetchHistoricalAsync(symbol, tf, range)
-    Plugin-->>DO: Ohlcv[]
-    DO->>DC: SeedCache(bars)
-    DO->>DMS: SetData(bars)
-    DMS->>Store: Dispatch(SetDataAction)
-    Store-->>DOS: StateStream (InitStatus=Ready)
-    DOS->>IO: RecalculateFullAsync
-    IO->>Store: Dispatch(SetIndicatorDataAction)
-    Store-->>CR: StateStream → InvalidateSurface
+    Note over U,MO: Load — market to provider to symbol to timeframe
+    U->>MO: choose market / provider / symbol
+    MO->>DO: LoadChartAsync
+    Note over DO: DataState: Initializing to HistoricalFilling
 
-    Note over Plugin, DO: Live WebSocket Tick
-    Plugin->>DO: OnNewTick(Ohlcv)
-    DO->>DO: Apply Polly Retry/Circuit Breaker
-    DO->>DC: UpdateLiveBar(tick)
-    DO->>DMS: UpdateIntraBar / AppendBar
-    DMS->>Store: Dispatch(UpdateDataAction)
+    DO->>HDF: fetch the requested window
+    HDF->>OS: what do we already hold?
+    OS-->>HDF: cached bars + the gaps
+    HDF->>P: FetchOhlcvAsync(symbol, timeframe, since, until)
+    P-->>HDF: Ohlcv[] (venue symbol shaped, timestamps normalised to UTC)
+    HDF->>OS: persist — insert and CORRECT, never insert-only
+    OS->>RS: build any timeframe the venue does not serve natively
+    RS-->>DM: bars
+    DM->>ST: SetData
 
-    par Indicator Recalculation
-        Store-->>DOS: StateStream (data changed)
-        DOS->>IO: RecalculateLastAsync
-        IO->>Store: Dispatch(SetIndicatorDataAction)
-    and Accessibility Feedback
-        Store-->>AFC: StateStream
-        AFC->>AFC: Detect navigation / state changes
-        AFC-->>SMM: SyncNavigationSlots (via SonificationManager)
+    Note over DO: DataState: GapFilling to LiveStreaming
+    ST-->>IO: StateStream — InitStatus Ready
+    IO->>IO: recompute every active indicator, profile, heatmap
+    IO->>ST: SetIndicatorData
+    ST-->>CR: repaint (native canvas or PNG over SignalR, ~10 fps)
+
+    Note over P,DO: Live — websocket ticks
+    loop while streaming
+        P-->>DO: tick
+        DO->>DM: update the forming bar / append a closed one
+        DM->>ST: UpdateData
+        par indicators
+            ST-->>IO: recompute the tail only
+            IO->>ST: SetIndicatorData
+        and feedback
+            ST-->>AFC: state change
+            AFC-->>SMM: re-sync navigation voices
+        end
     end
 
-    Store-->>CR: StateStream → InvalidateSurface → OnCanvasPaint
+    Note over DO: Watchdog — no tick inside the expected bar interval
+    DO->>DO: DataState: LiveStreaming to Stalled
+    DO->>P: reconnect, then backfill the bars missed mid-bar
+    alt reconnect succeeds
+        DO->>DO: Stalled to GapFilling to LiveStreaming
+    else keeps failing — breaker opens
+        DO->>DO: Stalled to Faulted
+        DO->>AFC: announce it — a silent failure is invisible to this user
+    end
 
-    Note over Plugin, DO: Provider Order Update Stream
-    Plugin->>Plugin: UserDataStream / PrivateChannel (Binance/Bitstamp)
-    Plugin-->>DO: OrderUpdate event
-    DO->>Store: Dispatch(OrderUpdateAction)
-    Store-->>AFC: Notify (order filled/cancelled speech)
+    Note over U,SMM: Navigation — the user moves, and only then is anything said
+    U->>ST: arrow key to another bar
+    ST-->>AFC: navigation change
+    AFC->>AFC: SpeechFeedbackRouter formats the phrase
+    AFC-->>U: speech (screen reader / Orca / browser TTS)
+    ST-->>SMM: SyncNavigationSlots
+    SMM-->>U: sonification (pitch = value, pan = position in viewport)

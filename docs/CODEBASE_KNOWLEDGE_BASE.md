@@ -2,6 +2,11 @@
 
 This document is the authoritative technical reference for the AccessibleTrader project. It is designed to give an AI assistant or new team member the deep architectural context, design patterns, and platform-specific nuances required to maintain and evolve the system as a Senior .NET Engineer.
 
+Read it alongside [`Diagrams/`](../Diagrams/README.md), which carries the same material as ten
+verified Mermaid sources — architecture, hosting topology, the data / navigation / order / feedback
+paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging —
+each with a prose summary. When something here changes, check whether a diagram claims it too.
+
 ---
 
 ## 1. Core Vision & Mandate
@@ -14,10 +19,10 @@ This document is the authoritative technical reference for the AccessibleTrader 
 
 ## 2. Technology Stack & Platform
 
-- **Runtime:** .NET 10 (Target: `net10.0`).
-- **Framework:** MAUI Blazor Hybrid (Host: MAUI, UI: Blazor WebView).
-- **Target Platforms:** Windows (mature), Android (beta), macOS (stub), iOS (stub).
-- **Rendering:** SkiaSharp on a native MAUI `SKCanvasView`. The `SKCanvasView` sits at Grid layer 0 in `MainPage.xaml`. The `BlazorWebView` is at layer 1 (transparent) overlaying it. **Do NOT use SkiaSharp.Views.Blazor — it was removed because it caused a WebGL crash.**
+- **Runtime:** .NET 10 (Target: `net10.0`). SDK pinned to `10.0.301` by `global.json`; Razor builds need `-p:UseRazorSourceGenerator=false` (dotnet/razor#13184).
+- **Two hosts, one component library.** MAUI Blazor Hybrid (host: MAUI, UI: Blazor WebView) **and** ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`). Both consume `AccessibleTrader.BlazorClient.Components` unchanged; host-specific paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`. The WebHost is the recommended distribution and the only one deployed publicly — see `Diagrams/hosting_topology.mmd` and `SERVER_SETUP.md`.
+- **Target Platforms:** WebHost on Linux / Windows / macOS (recommended, and what the public deployment runs); MAUI on Windows (mature), Android (beta), macOS and iOS (unsigned builds, limited testing). iOS and Mac Catalyst refuse all script compilation — no usable sandbox primitive.
+- **Rendering:** SkiaSharp. Under MAUI, a native `SKCanvasView` at Grid layer 0 in `MainPage.xaml` with the `BlazorWebView` transparent at layer 1 over it. Under the WebHost, the same `ChartRenderer.Render` paints an off-screen `SKBitmap` that is PNG-encoded and pushed over SignalR, throttled to ~10 fps. **Do NOT use SkiaSharp.Views.Blazor — it was removed because it caused a WebGL crash, and it is unusable under Blazor Server too (depends on the WASM-only `System.Runtime.InteropServices.JavaScript`).**
 - **Audio:** Custom Pure C# DSP Engine (`AudioEngine.cs`). No NAudio, no MIDI, no external dependencies for synthesis. NAudio.Wasapi package remains in BlazorClient for the WASAPI output push path on Windows only; it is not used for synthesis.
 - **State Management:** Redux-like `WorkspaceStore` with immutable `WorkspaceState`, `BehaviorSubject<WorkspaceState>` for the stream, and typed `WorkspaceAction` dispatch.
 - **Reactive Extensions:** System.Reactive + DynamicData for observable streams and collection synchronization.
@@ -52,14 +57,23 @@ This document is the authoritative technical reference for the AccessibleTrader 
 - **Role:** Shared host ↔ worker IPC contract library. Frame codec, opcodes, binary DTOs for indicator metadata / Calculate requests / Calculate responses.
 - **Dependencies:** references `AccessibleTrader.Sdk` only (for `Ohlcv` etc). No platform deps.
 
+### `AccessibleTrader.WebHost`
+- **Role:** ASP.NET Core Blazor Server head. Kestrel, server-side PNG chart rendering over SignalR, Orca D-Bus speech with `spd-say` and browser `SpeechSynthesis` fallbacks. Per-circuit DI scoping makes it multi-user; `--accounts` adds self-hosted ASP.NET Identity accounts and `--demo` the anonymous public demo.
+- **Host gating:** `DemoPolicy` (`HostMode.Full | Demo | Hosted`) decides which features a head may expose. Read it before adding anything to a hosted head. Standing constraint: **no hosted head may hold real broker credentials or place a live order, not even behind a flag.**
+- **Publish:** always `-p:ServerPublish=true`. Without it the Windows Release `OutputType=WinExe` silently drops `_framework/blazor.web.js` from the static-asset manifest — pages return 200 and the circuit never boots. Guarded by `WebHostStaticAssetManifestTests`.
+
+### `AccessibleTrader.StrategyLab`
+- **Role:** Headless research CLI over snapshot data. Falsifies strategy claims against recorded controls, and owns the spec catalogue with each spec's provenance. Nothing here ships as a starting library — see `STRATEGY_LIBRARY_POLICY.md`. Design in `LAB_DESIGN.md`, conventions for adding a command in the `strategy-lab` skill.
+
 ### `AccessibleTrader.ScriptWorker`
-- **Role:** Standalone console exe that hosts user-compiled Roslyn indicators out-of-process. Reads frames from stdin, dispatches into `ICustomIndicator.Calculate`, writes result frames to stdout. One indicator per worker lifetime; host spawns a fresh worker per compiled script.
+- **Role:** Standalone console exe that hosts user-compiled Roslyn indicators **and strategies** out-of-process. Reads frames from stdin, dispatches into `ICustomIndicator.Calculate` or the strategy frame protocol (`InitializeStrategy` / `OnBar` / `OrderFilled` / `StopStrategy` / `GetMetrics`), writes result frames to stdout. A strategy returns a `StrategySignal` — a *description* of an order that the host's own risk rules then act on — so a sandbox escape in the trading half of the scripting surface does not land in the trading host. One script per worker lifetime; the host spawns a fresh worker per compiled script.
 - **Target:** `net10.0` (not MAUI multi-target — it's a plain console app). Copied next to the host binary at build time by the `CopyScriptWorker` target in `AccessibleTrader.BlazorClient.csproj`.
 
 ### `Plugins/`
 - **Role:** Exchange-specific integrations. Each implements `IMarketDataProvider` from Sdk; trading providers additionally implement `ITradingProvider`.
-- **Trading providers (`Plugins/Providers/`, 13 total):** Alpaca, Binance (Spot+Futures+WebSocket user-data stream), Bitstamp (REST+WebSocket, HMAC-SHA256 signing), Coinbase (REST, full ECDSA JWT auth), Finnhub, FMP, InteractiveBrokers (Client Portal Gateway, TLS pinning), Kraken (REST+WebSocket, monotonic nonce counter), Oanda, Polygon, Schwab (OAuth2 auth-code flow, refresh-token persistence via `PluginHostServices`), Tradier, TwelveData. See `README.md` and `PROVIDER_AUTHORING.md` for the per-provider capability matrix.
-- **Analytics providers (`Plugins/Analytics/`, 12 total):** AlternativeMe, BGeometrics, BinanceDerivatives, BinanceVision (monthly archive zip walker with size caps and zip-bomb guard), CoinGecko, CoinMetrics, DefiLlama, Etherscan, Fred, Glassnode, Mempool, OkxDerivatives. All share a capped `HttpClient` pattern (`MaxResponseContentBufferSize = 32 MB`, 60s timeout).
+- **Provider plugins (`Plugins/Providers/`, 16 total):** Alpaca, Binance (Spot+Futures+WebSocket user-data stream), Bitstamp (REST+WebSocket, HMAC-SHA256 signing), Coinbase (REST, full ECDSA JWT auth), Finnhub, FMP, Gemini, InteractiveBrokers (Client Portal Gateway, TLS pinning), Kraken (REST+WebSocket, monotonic nonce counter), KrakenFutures, MEXC, Oanda, Polygon, Schwab (OAuth2 auth-code flow, refresh-token persistence via `PluginHostServices`), Tradier, TwelveData. **Twelve of the sixteen implement `ITradingProvider`** — Finnhub, FMP, Polygon and TwelveData are data-only. See `README.md` and `PROVIDER_AUTHORING.md` for the per-provider capability matrix.
+- **Analytics providers (`Plugins/Analytics/`, 17 total):** AlternativeMe, BGeometrics, BinanceDerivatives, BinanceVision (monthly archive zip walker with size caps and zip-bomb guard), CFTC, CoinGecko, CoinMetrics, DefiLlama, Deribit, Etherscan, FINRA, Fred, Glassnode, Mempool, OkxDerivatives, SecEdgar, WikipediaPageviews. All share a capped `HttpClient` pattern (`MaxResponseContentBufferSize = 32 MB`, 60s timeout).
+- **Strategy plugins (`Plugins/Strategies/`):** loaded by `StrategyPluginRegistry`, deliberately separate from the provider loader so the two plugin sets cannot be confused for one another.
 - **Drop-in indicators (`Plugins/Indicators/`):** optional indicator DLLs loaded at startup via `PluginLoaderService` the same way provider plugins are. Gated by `PluginTrustPolicy` (see section 14).
 
 ---
@@ -185,7 +199,8 @@ There are two places that manipulate audio voice slot 0 (the navigation voice):
 
 ## 8. Audio Engine & Sonification Logic
 
-- **Architecture:** `AudioEngine` generates raw `float[]` buffers. Platform drivers (`BlazorAudioDriver`) push these to WASAPI (Windows) / AudioTrack (Android, TODO) / AVFoundation (iOS, TODO).
+- **Architecture:** `AudioEngine` generates raw `float[]` buffers. Platform drivers push them out: `BlazorAudioDriver` to WASAPI (Windows), AudioTrack (Android) and AVAudioEngine (iOS/macOS); `WebHostAudioDriver` to Web Audio in the browser.
+- **Output limiter (do not remove).** The engine sums every voice, and before 2026-08-26 it summed them straight into the host buffer with nothing between the sum and the DAC — an ordinary eighteen-voice layout at the shipped default volume peaks at **5.5× full scale**, a saturated voice plan at 21.5×, so chart-scope playback had clipped since it was written. `LimiterCeiling = 0.99f` with a 0.25 s release now rides the gain down. **Gain riding, not waveshaping:** timbre carries meaning in this application, so distorting a voice to fit is not an acceptable trade.
 - **Oscillators:** Sine, Square, Sawtooth, Triangle, Noise (pink/white/brown) with real-time frequency modulation and interpolation. User `SoundPatch`es layer several oscillators (`OscillatorLayer` list) and are assignable to earcons or per-indicator-component (`ComponentConfig.SoundPatchId` / `BullishSoundPatchId` / `BearishSoundPatchId`), resolved live in `DefaultSonificationStrategy.CreateAudioPoint`.
 - **Voice Slots:** 128 total. Slots 0–15 = navigation/data sonification. Slots 16–31 = UI earcons (via `PlayNote`; directional cross earcons on 30/31). Slots 32–95 = playback sequencer. Slots 96–127 = cloud/ribbon fills.
 - **Mapping:**
@@ -427,7 +442,7 @@ Plugins are activated via `Activator.CreateInstance` — they get no DI containe
 
 - **`PluginHostServices.SecureStorage`** of type `IPluginSecureStorage` — 3-method interface (`GetAsync` / `SetAsync` / `Remove`). Used by `SchwabOAuthService` for cross-platform refresh-token persistence.
 - **`PluginHostServices.ApiKeys`** of type `IApiKeyCheckout` — sign-time credential fetch. One method: `CheckoutAsync(providerId, marketType, ct)` returning a use-and-discard `ApiKeyCheckoutResult`. Replaces the phase-3 pattern of stashing `_apiKey` / `_apiSecret` in long-lived fields. Kraken is the canary implementation; remaining trading providers migrate per `CREDENTIAL_CHECKOUT_MIGRATION.md`.
-- **`PluginHostServices.HttpClientFactory`** of type `IPluginHttpClientFactory` — creates `HttpClient` instances capped with an `HttpClientPolicy` (provider id, allowed hosts, response-size cap, timeout, User-Agent). The host implementation wraps each client in a `DelegatingHandler` that rejects any outbound request to a host not in the allow-list. **All analytics providers + 13 of 14 trading providers + both LLM providers route through the factory.** The one exception is IBKR (custom TLS-pinned `HttpClientHandler` — incompatible with the factory's wrapping model, has its own 16 MB cap and 30 s timeout inline). Binance and MEXC were rewritten to call the exchange API directly through the factory-created client (no `Binance.Net` / `JK.Mexc.Net` / `CryptoExchange.Net` — those are gone from the tree); MEXC's spot WebSocket is Protobuf, decoded from build-time codegen of the official `mexcdevelop/websocket-proto` files. The migration recipe + per-provider allow-list matrix lives in `CREDENTIAL_CHECKOUT_MIGRATION.md`.
+- **`PluginHostServices.HttpClientFactory`** of type `IPluginHttpClientFactory` — creates `HttpClient` instances capped with an `HttpClientPolicy` (provider id, allowed hosts, response-size cap, timeout, User-Agent). The host implementation wraps each client in a `DelegatingHandler` that rejects any outbound request to a host not in the allow-list. **All 17 analytics providers + 11 of the 12 `ITradingProvider` plugins + both LLM providers route through the factory.** The one exception is IBKR (custom TLS-pinned `HttpClientHandler` — incompatible with the factory's wrapping model, has its own 16 MB cap and 30 s timeout inline). Binance and MEXC were rewritten to call the exchange API directly through the factory-created client (no `Binance.Net` / `JK.Mexc.Net` / `CryptoExchange.Net` — those are gone from the tree); MEXC's spot WebSocket is Protobuf, decoded from build-time codegen of the official `mexcdevelop/websocket-proto` files. The migration recipe + per-provider allow-list matrix lives in `CREDENTIAL_CHECKOUT_MIGRATION.md`.
 - **`PluginHostServices.SecurityEvents`** of type `ISecurityEventLog` — append-only ring buffer (256 entries) that captures security-relevant runtime events. Concrete impl in `AccessibleTrader.Core/Services/Security/SecurityEventLog.cs` mirrors each record to `ILogger<T>` at Warning level so it also flows into whatever log sinks the host has configured. Event kinds: `AppContainerFallback`, `SandboxExecFallback`, `AndroidServiceFallback`, `MemoryQuotaKill`, `CalculateTimeout`, `CredentialCheckoutFailed`, `TokenCleanupFailed`, `PluginTrustRejected`, `HttpClientHostRejected`, `AudioCommandDropped`, `Other`. Call sites currently instrumented: `WindowsAppContainerLauncher` fallback, `OutOfProcessScriptHost` memory-quota kill + Calculate timeout, `SchwabOAuthService.DeletePersistedRefreshToken` (replaced silent `catch {}` blocks on the explicit scrub path), `BlazorAudioDriver` (every 10th `AudioEngine` ring-buffer overflow).
 
 All three are backed by a single host-side class family:

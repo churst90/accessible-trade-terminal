@@ -2,16 +2,19 @@
 """
 Doc-drift guard.
 
-Asserts three things the README/SHORTCUTS docs claim match reality:
+Asserts four things the docs claim match reality:
 
   1. Every SystemCommand default binding in ShortcutManager.InitializeDefaultProfile()
      has its key chord documented somewhere in docs/SHORTCUTS.md.
-  2. EVERY plugin-count claim in docs/README.md matches the directory layout in
+  2. Every default binding also appears in docs/USER_MANUAL.md or docs/QUICKSTART.md —
+     the two docs a user is actually pointed at, both of which had drifted by 2026-08-28
+     while check 1 stayed green against the reference doc.
+  3. EVERY plugin-count claim in docs/README.md matches the directory layout in
      Plugins/Providers/ and Plugins/Analytics/.
-  3. EVERY test-count claim in docs/README.md agrees with the others and with
+  4. EVERY test-count claim in docs/README.md agrees with the others and with
      `dotnet test --list-tests` output.
 
-Checks 2 and 3 validate every occurrence, not the first one. They used to use `re.search`,
+Checks 3 and 4 validate every occurrence, not the first one. They used to use `re.search`,
 which validated whichever claim appeared first and left the rest unchecked — that is how
 "29 data providers" survived in the README's most prominent section for three releases while
 the guard reported green. Both carry a floor on the number of claims found, so a rephrase
@@ -35,6 +38,8 @@ REPO = Path(__file__).resolve().parent.parent
 SHORTCUTS_CS = REPO / "AccessibleTrader.Core" / "Services" / "ShortcutManager.cs"
 SHORTCUTS_MD = REPO / "docs" / "SHORTCUTS.md"
 README_MD = REPO / "docs" / "README.md"
+MANUAL_MD = REPO / "docs" / "USER_MANUAL.md"
+QUICKSTART_MD = REPO / "docs" / "QUICKSTART.md"
 PROVIDERS_DIR = REPO / "Plugins" / "Providers"
 ANALYTICS_DIR = REPO / "Plugins" / "Analytics"
 TESTS_PROJ = REPO / "AccessibleTrader.Tests" / "AccessibleTrader.Tests.csproj"
@@ -53,8 +58,9 @@ KEY_TO_DOC: dict[str, tuple[str, ...]] = {
     "ARROWUP": ("Up Arrow", "Up"),
     "DOWN": ("Down Arrow", "Down"),
     "ARROWDOWN": ("Down Arrow", "Down"),
-    "PAGEUP": ("Page Up",),
-    "PAGEDOWN": ("Page Down",),
+    "PAGEUP": ("Page Up", "PageUp"),
+    "PAGEDOWN": ("Page Down", "PageDown"),
+    "CONTEXTMENU": ("ContextMenu", "Context Menu"),
     "HOME": ("Home",),
     "END": ("End",),
     "ESCAPE": ("Escape",),
@@ -69,7 +75,8 @@ KEY_TO_DOC: dict[str, tuple[str, ...]] = {
     "OEM6": ("]",),
     "OEMMINUS": ("-",),
     "OEMPLUS": ("=",),
-    "OEMCOMMA": (",",),
+    "OEMCOMMA": (",", "Comma"),
+    ",": (",", "Comma"),
     "\\": ("Backslash", "\\"),
 }
 
@@ -161,6 +168,46 @@ def check_shortcut_drift(errors: list[str]) -> None:
     if missing:
         errors.append(
             f"SHORTCUT GUARD: {len(missing)} binding(s) in code are NOT documented in docs/SHORTCUTS.md:"
+        )
+        for cmd, chord in missing:
+            errors.append(f"   * {cmd:28s} -> {chord}")
+
+
+def check_user_doc_coverage(errors: list[str]) -> None:
+    """Every default binding must be reachable from the two USER-facing docs.
+
+    SHORTCUTS.md is the reference and is checked above; it is also the doc nobody reads
+    end to end. This check exists because the two docs a user is actually pointed at had
+    both drifted: on 2026-08-28 the manual carried no undo/redo, no drawing context menu,
+    no sub-pane navigation and no show-all/unmute-all, and the QUICKSTART's section titled
+    "Complete Keyboard Shortcut Reference" was missing the entire quick-trade tier.
+
+    Manual OR quickstart, not both: the quickstart is a reference table and the manual is
+    prose with scenarios, so a chord legitimately lives in one or the other. Write the chord
+    out literally in at least one of them — "Ctrl+Alt+Shift+1 / 2 / 3" reads fine but a user
+    searching for "Ctrl+Alt+Shift+2" does not find it, and neither does this check.
+
+    If this fails, the fix is to document the chord. Do NOT add an exemption list.
+    """
+    bindings = parse_default_bindings()
+    if not bindings:
+        return  # already reported by check_shortcut_drift
+
+    corpus = (MANUAL_MD.read_text(encoding="utf-8")
+              + "\n" + QUICKSTART_MD.read_text(encoding="utf-8")).lower()
+
+    missing = []
+    for cmd, variants in bindings:
+        if any(v.lower() in corpus for v in variants):
+            continue
+        if any(v.lower().replace("+", "-") in corpus for v in variants):
+            continue
+        missing.append((cmd, variants[0]))
+
+    if missing:
+        errors.append(
+            f"USER-DOC GUARD: {len(missing)} binding(s) appear in neither "
+            "docs/USER_MANUAL.md nor docs/QUICKSTART.md:"
         )
         for cmd, chord in missing:
             errors.append(f"   * {cmd:28s} -> {chord}")
@@ -265,6 +312,7 @@ def check_test_count(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     check_shortcut_drift(errors)
+    check_user_doc_coverage(errors)
     check_plugin_counts(errors)
     check_test_count(errors)
 
@@ -273,10 +321,11 @@ def main() -> int:
         for e in errors:
             print(e, file=sys.stderr)
         print("", file=sys.stderr)
-        print("Update the relevant doc (docs/README.md or docs/SHORTCUTS.md) and re-run.", file=sys.stderr)
+        print("Update the relevant doc (docs/README.md, docs/SHORTCUTS.md, "
+              "docs/USER_MANUAL.md or docs/QUICKSTART.md) and re-run.", file=sys.stderr)
         return 1
 
-    print("Doc-drift guard: all three checks passed.")
+    print("Doc-drift guard: all four checks passed.")
     return 0
 
 

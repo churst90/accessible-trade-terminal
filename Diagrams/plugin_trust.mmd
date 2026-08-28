@@ -1,0 +1,44 @@
+---
+title: Plugin trust — from build to LoadFromAssemblyPath
+---
+%% Verified against the tree on 2026-08-28.
+%% The failure mode this exists to make loud: if the manifest and the DLLs disagree,
+%% PluginTrustPolicy rejects EVERY plugin and every provider reports "no data" —
+%% which reads to a user as a data outage, not as a security refusal.
+flowchart TD
+    SRC["Plugins/Providers/* · Plugins/Analytics/* · Plugins/Indicators/*"]
+    BUILD["Release build of a head<br/>(BlazorClient or WebHost)"]
+    TARGET["MSBuild target HashPluginDlls<br/>declared in both csprojs"]
+    MAN["plugins_trusted.manifest<br/>one SHA-256 per plugin DLL, written into OutDir"]
+    CI["CI: plugin-manifest.yml<br/>uploads it as an artifact; on a v* tag,<br/>attaches it to the GitHub Release"]
+    SHIP["Ships next to the app binary"]
+
+    SRC --> BUILD --> TARGET --> MAN
+    MAN --> CI --> SHIP
+
+    subgraph BOOT["At load time"]
+        PLS["PluginLoaderService.LoadPlugins&lt;T&gt;(dir)"]
+        PTP["PluginTrustPolicy<br/>TrustedSha256 set · RequireTrusted flag"]
+        HASH["hash the DLL on disk"]
+        OK["matches trusted hash — LoadFromAssemblyPath"]
+        NO["no match — refuse, log, keep going"]
+    end
+
+    SHIP --> PLS
+    PLS --> HASH --> PTP
+    PTP -->|hash in the set| OK
+    PTP -->|hash absent, RequireTrusted true| NO
+
+    subgraph RUN["What a loaded plugin is handed"]
+        HTTP["Host HttpClient factory<br/>HostAllowListHandler over<br/>HttpClientHandler AllowAutoRedirect=false"]
+        SEC["PluginHostServices.SecureStorage<br/>the only route to a stored key"]
+        LOG["IAppLogger — NOT a logger:<br/>this is the error-SPEECH channel a blind user hears"]
+    end
+
+    OK --> HTTP & SEC & LOG
+
+    WHEN["When the two disagree:<br/>hand-copying a plugin DLL into a deploy directory,<br/>or an rsync that updates DLLs but not the manifest.<br/>Never copy a plugin DLL by hand — republish."]
+    NO --- WHEN
+
+    LAZY["Load timing differs by head:<br/>the hosted terminal loads plugins at boot and logs its trust lines within a second;<br/>the demo loads them lazily on the first chart request, so it logs none until a visitor arrives.<br/>Zero trust lines on the demo minutes after a restart is normal."]
+    PLS --- LAZY

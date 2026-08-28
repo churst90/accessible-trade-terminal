@@ -7,7 +7,9 @@ The same Razor component library is hosted two ways:
 - **.NET 10 MAUI Blazor Hybrid** on Windows / macOS / iOS / Android. Native `SKCanvasView` chart overlay, platform-native audio (WASAPI / AudioTrack / AVAudioEngine), and platform-native screen reader integration.
 - **ASP.NET Core Blazor Server (`AccessibleTrader.WebHost`)** on Linux and any browser-reachable target. Same `ChartRenderer` paints to an in-memory SKBitmap that's PNG-encoded and streamed to an `<img>` element; speech routes through Orca's D-Bus `PresentMessage` (respecting the user's voxin/SpeechDispatcher voice config), with `spd-say` and browser `SpeechSynthesis` as fallbacks. As of v1.2.0 the WebHost is **multi-user** (every browser connection is its own DI scope → isolated session), and as of v1.3.0 it can run as a logged-in, **paper-trading education terminal** (`--accounts`): self-hosted accounts persist each user's settings, sound design, workspaces, and paper record, with real-money trading reserved for the desktop client. It's also the deploy target for the public-website chart demo. See [`WEBHOST_MULTI_USER_SCOPING.md`](WEBHOST_MULTI_USER_SCOPING.md), [`HOSTED_ACCOUNTS_STRATEGY.md`](HOSTED_ACCOUNTS_STRATEGY.md), and [`SERVER_SETUP.md`](SERVER_SETUP.md).
 
-Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and the 29 provider/analytics plugins. The MAUI/desktop head is unchanged by the WebHost and stays single-user (Singleton-scoped) — the host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`, and the per-circuit scoping lives only in the WebHost's DI registration.
+Both hosts share the platform-agnostic `AccessibleTrader.Core` business logic, the `AccessibleTrader.BlazorClient.Components` Razor Class Library, and all 33 data providers (16 trading + 17 analytics). The MAUI/desktop head is unchanged by the WebHost and stays single-user (Singleton-scoped) — the host-specific code paths are runtime-gated on `IRuntimePlatform.IsBrowserHost`, and the per-circuit scoping lives only in the WebHost's DI registration.
+
+Diagrams of all of this — architecture, hosting topology, the data/order/feedback paths, the plugin trust chain and the script sandbox — are in [`Diagrams/`](../Diagrams/README.md), each with a prose summary alongside it.
 
 ## Download
 
@@ -45,7 +47,7 @@ The terminal is built on a decoupled **Orchestrator Pattern**:
 - **Provider Architecture:** Decoupled plugin system with **33 data providers** (16 trading in `Plugins/Providers/`, 17 analytics in `Plugins/Analytics/`) — plus `Plugins/Indicators/` for drop-in indicator DLLs. **Trading providers:** Binance (Spot+Futures, direct REST+WebSocket), Bitstamp (REST+WebSocket), Coinbase (REST, JWT auth), Alpaca (REST, Stocks+Crypto), Polygon (Stocks/Forex), Kraken, Finnhub, Oanda, Tradier, TwelveData, InteractiveBrokers, FMP (Stocks/Crypto/Forex/Commodities/Indices), Schwab (OAuth2, US stocks + options), MEXC (Spot+Futures, WebSocket — ToS-flagged for US users), Gemini (US-regulated spot, sandbox reachable through Paper), Kraken Futures (its own venue — separate host, signing and API keys). **Analytics providers:** FRED (macroeconomic), CoinGecko (dominance/market cap), AlternativeMe (Fear & Greed), Glassnode (on-chain), OkxDerivatives (funding/OI), BinanceDerivatives (live REST funding/OI), **BinanceVision (free `data.binance.vision` monthly archives, ~6 years of funding + OI history, zero cost, no API key — primary source for Core FundingRate/OpenInterest/CrowdingIndex)**, BGeometrics (154+ BTC on-chain metrics), CoinMetrics (multi-asset MVRV/addresses/flows), DefiLlama (DeFi TVL/stablecoins), Mempool (BTC mempool/hashrate/difficulty), Etherscan (ETH gas/supply), CFTC (Commitment of Traders weekly fund positioning — free Socrata API, no key), FINRA (daily short-sale volume ratio for US equities — free Reg SHO files, no key), Deribit (crypto-options DVOL volatility index + realised volatility for BTC/ETH — public v2 API, no key), SEC EDGAR (filings), Wikipedia Pageviews (attention). The FMP plugin's fundamentals/ratios/earnings/economic-calendar surface is part of the FMP *trading* plugin above, not a separate analytics plugin.
 - **Resilient Pipeline:** Polly exponential backoff, circuit breakers (10 failures → 5s break), and automatic reconnection.
 - **Zero-Allocation Math:** `readonly record struct Ohlcv` for all price data. Indicator hot-paths use `double[]` arrays with `double.NaN` for missing values.
-- **State Machine:** `DataOrchestrator` manages `DataState` lifecycle: `Initializing → HistoricalFilling → GapFilling → LiveStreaming → Faulted`.
+- **State Machine:** `DataOrchestrator` manages the `DataState` lifecycle: `Initializing → HistoricalFilling → GapFilling → LiveStreaming → Stalled → Faulted`. `Stalled` is the watchdog state — the stream is up but no tick has arrived inside the expected bar interval — and it is what drives the reconnect-and-backfill path rather than a silent gap.
 
 ### Hybrid Sonification Engine (Custom DSP)
 
@@ -89,7 +91,7 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 - `Home/End` — Jump to viewport start/end. `\` — Jump to live edge.
 - `[ / ]` — Pan viewport. `- / =` — Zoom in/out. (Also available as toolbar buttons, and you can click-drag the chart to pan.)
 - `Space` — Play chart. `Shift+Space` — Play series. `Ctrl+Shift+Space` — Play component. `Ctrl+Space` — Pause/resume.
-- `F1` — Help. `F2` — Toggle speech. `F3` — Toggle sonification. `F4` — Context summary. `F12` — Settings.
+- `F1` — Help. `Shift+F1` — Context summary. `F2` — Toggle speech (`Shift+F2` toggles event speech). `F3` — Toggle sonification (`Shift+F3` toggles earcons). `F4` — Toggle the braille/tactile display (`Shift+F4` its settings). `F12` — Settings.
 - `F5/Shift+F5` — Component volume up/down. `F6/Shift+F6` — Series volume. `F7/Shift+F7` — Master volume.
 - `Alt+Up/Down` — Scroll indicator pane list when more panes are open than fit on screen.
 - `Ctrl+Alt+Shift+C` — Focus chart + announce context summary.
@@ -101,7 +103,69 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status (2026-08-01)
+## Current Status (2026-08-28)
+
+**Since 2.3.0 tagged, main has taken 190 commits and none of them added a feature.** The whole
+period went to finding out what was actually wrong and then fixing it, in that order. Suite
+**5,735** in both configurations (`--list-tests` reports 5730, which is the number this file must
+match and `doc-drift.yml` checks). CI green on all three workflows that run on a push. **0 CRITICAL
+and 0 HIGH items open.**
+
+**Four audits ran, and they were run by breaking things rather than by reading.** That distinction
+is the whole result. The scripting/sandbox audit *compiled 25 candidate escapes* instead of
+inspecting the walker, and four of them worked — `dynamic` switched the entire blocklist off. The
+test-suite audit introduced **28 single-line regressions one at a time**, each followed by a full
+run: **11 survived a green suite**, so the true mutation catch rate was 61%, not the 79% a naive
+count gave — five mutants had come back falsely "caught" by one unrelated flaky test firing alone.
+The browser-harness audit *is* the tooling: `AccessibleTrader.BrowserTests` drives a real Chromium
+against a real Kestrel running the real WebHost, 128 cases in under a minute, with a CI job of its
+own, and most of what it produced was refutation — across 24 cold-start routes, focus lands on the
+declared target every time and Escape returns it every time. By contrast, the read-only assessment
+that preceded them filed 283 findings unverified and its census turned out roughly half wrong.
+**The standing rule in this repo is now: demonstrate the defect, or mark it explicitly unverified.**
+
+**Two structural refactors landed.** `OrderPlacement` collapsed three disagreeing result classifiers
+into one typed record — a refusal, an *uncertainty* and a fill are three things a trader must tell
+apart by ear, and the old string-sentinel scheme let the code that produced a sentinel drift from the
+code that recognised it. The trading dashboard was decoupled from the chart, which required teaching
+the paper broker **cross margin**, because the margin-mode selector was gated on a capability the
+broker could not honestly declare.
+
+**Then 71 HIGH items and about forty MEDIUM ones, closed in batches, every fix demonstrated by
+reintroducing it and watching a test go red.** The ones worth knowing about:
+
+- **A credential leak across five providers** — the API key went in the URL, and `ex.Message` was
+  written to the channel that gets *spoken*. The fix is a `KeyParam` declaration plus two scans: one
+  that fails any unescaped key-in-URL site (there were 39 across six providers; only FRED escaped),
+  and a second proving every `KeyParam` declaration actually escapes.
+- **Two real security holes.** A plugin's `HttpClient` followed `302 → 169.254.169.254` *below* the
+  allow-list handler; and a password reset did not evict an open Blazor circuit, so the old session
+  survived its own reset.
+- **Every authentication event was pooling into one shared file.** Razor Pages are not circuits, so
+  `ICurrentUser` was never populated for them and all accounts' sign-ins, lockouts, email addresses
+  and IPs landed in `users/anon/` — a directory whose name says it holds no user data and which the
+  pruner skips.
+- **Chart-scope audio had clipped since it was written.** Nobody had measured it: an ordinary
+  18-voice layout peaks at 5.5× full scale and a saturated plan at 21.5×, because the engine summed
+  every voice straight into the host buffer. Now a brickwall limiter — gain riding, not waveshaping,
+  because timbre carries meaning here.
+- **One bar could be announced at two different times.** Bars are `DateTimeKind.Utc`, so one code
+  path printed UTC and another printed local. `SpeechTimeFormatter` now owns the conversion, with a
+  three-tier guard, because a timezone-agreement test is *vacuous* on a UTC build agent and both CI
+  and the deployment box are UTC.
+- **Kraken's History tab was empty for BTC/USD** (the filter spelled it `BTCUSD`; the venue returns
+  `XXBTZUSD`), and KrakenFutures and Gemini answered a 2019 request with this morning's bars.
+- **`OhlcvStore` stored a 31-day month a day early** and its insert-only dedup made that permanent.
+- **The F1 help dialog was missing 37 bindings**, including every quick-trade chord.
+
+**What is open.** The MEDIUM backlog, with no single obvious cluster left now that the provider tier
+is closed — the three candidates and the reasoning are in the START HERE block at the top of
+[`TODO.md`](TODO.md), which is the authoritative order. Read that before picking anything up. The
+StrategyLab's flagship statistic is **banner-marked provisional and owed a re-run**: p = 0.0045
+tested the winner of a 16-cell grid, and the survivorship stress beside it could not fail by
+construction.
+
+## Status at 2.3.0 (2026-08-01)
 
 **The terminal ships tools, not opinions.** The app no longer chooses a strategy for the user, and
 as of 2026-08-01 it no longer ships strategies at all: a fresh library opens **empty**, with an
@@ -367,10 +431,21 @@ Built with **.NET 10**. Two hosts share the same component library and core.
 - **SDK:** `AccessibleTrader.Sdk` — Plugin contracts and immutable performance models.
 - **Plugins:** `Plugins/` — 33 exchange, data, and analytics provider plugins (16 trading + 17 analytics).
 - **ScriptSandbox:** `AccessibleTrader.ScriptSandbox` — shared host/worker IPC contract (frame codec + opcodes + message DTOs).
-- **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators in a separate OS process.
+- **ScriptWorker:** `AccessibleTrader.ScriptWorker` — standalone console app that hosts user-compiled indicators and strategies in a separate OS process.
+- **StrategyLab:** `AccessibleTrader.StrategyLab` — headless research CLI over snapshot data. Falsifies strategy claims against recorded controls; carries the spec catalogue and each spec's provenance. See [`LAB_DESIGN.md`](LAB_DESIGN.md) and [`STRATEGY_CATALOGUE.md`](STRATEGY_CATALOGUE.md).
 - **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (5730 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus two zero-dependency JS suites — the gesture engine (`node tools/jstests/gesture-tests.mjs`, 15 tests) and the keydown trap (`node tools/jstests/keyboard-tests.mjs`, 13 tests), the latter asserting on `preventDefault`, which no C# test can observe. All three run in CI.
 
+- **Diagrams:** [`Diagrams/`](../Diagrams/README.md) — ten Mermaid sources covering architecture, hosting topology, the data / navigation / order / feedback paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging. Each has a prose summary in the index; change both together.
+
 To run on Linux: `dotnet run --project AccessibleTrader.WebHost`. To run the MAUI head: build on the appropriate platform (Windows/macOS for the MAUI workloads).
+
+Building the test project on a box without MAUI workloads needs the Razor pin that
+[`global.json`](../global.json)'s SDK expects:
+
+```bash
+dotnet build AccessibleTrader.Tests/AccessibleTrader.Tests.csproj -c Release -p:UseRazorSourceGenerator=false
+python3 scripts/check_doc_drift.py     # the same guard CI runs
+```
 
 ## License
 

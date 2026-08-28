@@ -1,6 +1,6 @@
 # Platform Agnosticism & Architecture
 
-The Accessible Trading Terminal is cross-platform (Windows, Android, macOS, iOS) by strictly separating business logic from platform-specific hardware drivers via **.NET 10 MAUI Blazor Hybrid**.
+The Accessible Trading Terminal separates business logic from platform-specific hardware drivers, and ships through two hosts over one component library: **.NET 10 MAUI Blazor Hybrid** on Windows, Android, macOS and iOS, and **ASP.NET Core Blazor Server** (`AccessibleTrader.WebHost`) on Linux and anything browser-reachable. The tables in section 1 describe the MAUI drivers; the WebHost's equivalents are in [§6.1](#61-the-linux-webhost-path), which is also the path the public deployment runs and the one most users install.
 
 ## 1. Architectural Layers
 
@@ -23,7 +23,12 @@ Located in `AccessibleTrader.BlazorClient/Services` and `AccessibleTrader.Blazor
 | **Input** | `IInputService` | `GlobalInputService` (JS interop) | `MainActivity.DispatchKeyEvent` | `KeyboardPageHandler` (`PressesBegan`) | `KeyboardPageHandler` (`PressesBegan`) |
 | **Secure Storage** | `ISecureStorageService` / `IPluginSecureStorage` | `MauiSecureStorageService` (DPAPI) | `MauiSecureStorageService` (KeyStore) | `MauiSecureStorageService` (Keychain) | `MauiSecureStorageService` (Keychain) |
 | **Paths** | `IPlatformPathService` | `MauiPathService` | `MauiPathService` | `MauiPathService` | `MauiPathService` |
-| **Script Sandbox** | `IScriptWorkerLauncher` | `WindowsAppContainerLauncher` (AppContainer + STARTUPINFOEX) | `AndroidIsolatedProcessLauncher` (`[Service(IsolatedProcess=true)]` bound service) | `MacSandboxExecLauncher` (`sandbox-exec` deny-default profile) | deferred (desktop-only sandbox today) |
+| **Script Sandbox** | `IScriptWorkerLauncher` | `WindowsAppContainerLauncher` (AppContainer + STARTUPINFOEX) | `AndroidIsolatedProcessLauncher` (`[Service(IsolatedProcess=true)]` bound service) | `MacSandboxExecLauncher` (`sandbox-exec` deny-default profile) | **refused** — `ScriptingNotSupportedOnPlatformException` at compile time |
+
+> iOS and Mac Catalyst do not merely lack a launcher; they refuse to compile a script at all,
+> loudly, rather than falling back to running it in-process. Mac Catalyst joined iOS there because
+> its self-contained build cannot reference the `net10.0` ScriptWorker. On Linux the launcher is
+> `LinuxBwrapLauncher` (bubblewrap) — see §5 and §6.1.
 
 ## 2. Rendering Architecture
 
