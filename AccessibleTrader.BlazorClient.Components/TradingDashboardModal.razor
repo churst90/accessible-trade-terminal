@@ -304,7 +304,7 @@
                                     @* Disabled while a submit is in flight, same as the plain button:
                                        this is the LIVE-money one, and it was the one with no gate at all. *@
                                     <button class="submit-btn @(_orderSide.ToLower())" disabled="@_orderInFlight" @onclick="SubmitOrder">Confirm @_orderSide</button>
-                                    <button type="button" @onclick="CancelReview">Cancel</button>
+                                    <button type="button" @onclick="CancelReview" aria-label="Cancel, do not submit the live order">Cancel</button>
                                 </div>
                             }
                             else
@@ -673,7 +673,7 @@
 
                 <div class="modal-footer">
                     <button @onclick="RefreshAccount">Refresh</button>
-                    <button @onclick="Close">Close</button>
+                    <button @onclick="Close" aria-label="Close trading dashboard dialog">Close</button>
                 </div>
         </div>
     </div>

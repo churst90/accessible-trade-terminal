@@ -658,7 +658,7 @@
             </div>
 
             <div class="modal-footer">
-                <button @onclick="Close">Cancel</button>
+                <button @onclick="Close" aria-label="Cancel, close the properties dialog">Cancel</button>
                 @if (_series != null && !_series.IsDrawing && !string.IsNullOrEmpty(_series.Config?.IndicatorCode))
                 {
                     <button title="Save current appearance and sonification as persistent defaults for this indicator type"

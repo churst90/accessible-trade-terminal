@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Twenty-two controls that announced only "Close", and two tests that could not have failed (2026-08-28)
+
+The three mutants that survived the 2026-08-28 catch-rate re-measurement, closed. Each fix is
+proved the same way: re-apply the mutant, watch the new test go red.
+
+- **A dialog control must say what it closes.** A screen reader's button list reads accessible
+  names with no surrounding context, so a dialog whose dismiss control announces "Close" gives a
+  blind user a row indistinguishable from the same row in twenty other dialogs. Twenty-two controls
+  across the component library were in that state, including one that already carried
+  `aria-label="Close dialog"` — generic in a different way. All twenty-two now name what they act
+  on: "Close deposit address dialog", "Cancel key capture", "Cancel, do not submit the live order".
+  `DismissControlNameScanTests` rejects any control whose name is built entirely from generic
+  words. It reads the markup rather than the rendered DOM on purpose: fifteen of the twenty-two
+  live in branches a freshly-opened dialog does not render, so a sweep of the open state would have
+  found seven and reported the rest as covered.
+- **A moving average no longer invents a value over a gap.** `MovingAverageHelper.Sma` returns NaN
+  when its window is short — that was already true, and nothing tested it, so the line could be
+  changed to average whatever bars happened to be present and present the result as an N-period
+  SMA. A caller cannot tell a three-bar mean from an honest twenty-bar one, and it is spoken,
+  plotted and used to arm signals identically. `MovingAverageGapTests` pins it for all six MA
+  types, in both directions: NaN across the hole, and real values again afterwards.
+- **The modal focus contract now asserts *where*, not *whether*.** It used to assert that focus went
+  somewhere valid, which `ModalBase` satisfies by focusing the heading — so a modal's own, more
+  specific focus call could be deleted with the suite green. `ModalFocusTargetContractTests`
+  declares by hand where each of the 25 dialogs must leave the keyboard and asserts the last focus
+  target against it.
+- **A test-harness defect underneath that one, and it is the more interesting half.** bUnit's
+  planned void handler records a JS invocation without ever completing it, so
+  `await ShowModalAsync(heading)` never returned and **every line a modal ran after that await was
+  dead in every bUnit test** — including the Wallet dialog's own `focusElement("wallet-asset")`.
+  The heading call was still recorded, which is exactly why the old contract stayed green. One
+  `.SetVoidResult()` in `BlazorTestHarness` fixes it for the whole suite; two test files had
+  already worked around it locally without anyone noticing it was general.
+
+Filed and not fixed: 32 controls fail WCAG 2.5.3 Label in Name — their `aria-label` is richer than
+their visible text but does not contain it, so voice control fails on the words the user can see.
+Pinned as an exact list that fails both when a new one appears and when one is fixed without being
+struck off.
+
 ## [2.4.0] — 2026-08-28
 
 ### One place decides support versus resistance, and the browser harness runs where the demo runs (2026-08-28)

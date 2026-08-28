@@ -359,7 +359,7 @@
                         <button type="button" @onclick="RunScreenAsync" disabled="@_running">
                             @(_running ? "Running…" : "Run screen")
                         </button>
-                        <button type="button" @onclick="CancelRun" disabled="@(!_running)">Cancel</button>
+                        <button type="button" @onclick="CancelRun" disabled="@(!_running)" aria-label="Cancel the running screen">Cancel</button>
                         <label>
                             <input type="checkbox" @bind="_matchesOnly" /> Show matches only
                         </label>
@@ -421,7 +421,7 @@
             </div>
 
             <div style="display:flex; justify-content:flex-end; margin-top:14px;">
-                <button @onclick="CloseModal">Close</button>
+                <button @onclick="CloseModal" aria-label="Close watchlists and screener dialog">Close</button>
             </div>
         </div>
     </div>

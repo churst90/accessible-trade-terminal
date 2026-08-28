@@ -423,7 +423,8 @@
                     title="Open the analytics view in a new tab so the current tab is preserved">
                 Open in New Tab
             </button>
-            <button @onclick="CancelSwitch" title="Don't load — keep current tab as is">
+            <button @onclick="CancelSwitch" aria-label="Cancel, keep the current tab as it is"
+                    title="Don't load — keep current tab as is">
                 Cancel
             </button>
         </div>

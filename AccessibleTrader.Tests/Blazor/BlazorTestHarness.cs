@@ -226,7 +226,17 @@ public sealed class BlazorTestHarness : IDisposable
         // Most modals call accessibleTrader.focusElement on first render via
         // ModalBase.ShowModalAsync. Shim it once for every test. bUnit records
         // every invocation, which FocusedElementIds exposes for assertions.
-        Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
+        //
+        // SetVoidResult() is load-bearing, not tidiness. A planned void handler RECORDS the
+        // invocation and then never completes it, so `await ShowModalAsync(heading)` parks
+        // forever and everything the concrete ShowAsync does after that line — including
+        // WalletModal's own focusElement("wallet-asset") — never runs in any bUnit test. The
+        // heading call is still recorded, so a focus contract that asks "did focus go somewhere
+        // valid?" stays green; that is half of why M11 survived. Two suites had already
+        // rediscovered this and re-registered the handler with SetVoidResult() locally
+        // (TradingDashboardModalTests, TradingDashboardDecouplingTests); doing it here makes the
+        // await behave the way it does in a browser for every test at once.
+        Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
     }
 
     /// <summary>Element ids passed to accessibleTrader.focusElement, in call

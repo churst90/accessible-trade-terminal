@@ -117,7 +117,60 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-28, THIRD session that day — the catch rate is re-measured).**
+> **START HERE (current as of 2026-08-28, FOURTH session that day — the three survivors are dead).**
+>
+> **M11, M15 and M19 are all closed, each proved by re-applying its mutant and watching the new
+> test go red.** Suite **5,796** in both configs (`--list-tests` **5791** — the number
+> `docs/README.md` must match), browser harness **129/129**. No behaviour changed in `Core`; the
+> production change is 22 `aria-label` attributes in the component library.
+>
+> 1. **M15 — `MovingAverageHelper.Sma` over a gapped source. CLOSED.**
+>    `AccessibleTrader.Tests/MovingAverageGapTests.cs`, 12 cases; the mutant takes 7 of them red.
+>    Nothing anywhere had ever fed a NaN-holed series to a moving average, so the entire
+>    `cnt == period` branch was untested. Note the SDK's own `IndicatorMath.Sma` is a
+>    byte-identical duplicate and *was* guarded (`IndicatorMathWarmupTests`) — the copy in `Core`
+>    was not, which is the argument for the two of them being one function.
+> 2. **M11 — the Wallet modal's focus call. CLOSED, and the harness was the real defect.**
+>    `AccessibleTrader.Tests/Blazor/ModalFocusTargetContractTests.cs` declares, by hand, where each
+>    of the 25 catalog dialogs must leave the keyboard, and asserts the LAST `focusElement` target
+>    against it. **But it could not pass until `BlazorTestHarness` was fixed:** a bUnit planned
+>    void handler RECORDS an invocation and never COMPLETES it, so `await ShowModalAsync(heading)`
+>    parked forever and *everything a concrete `ShowAsync` does after that line had never run in
+>    any bUnit test* — including Wallet's own `focusElement("wallet-asset")`. The heading call was
+>    still recorded, which is why "focus went somewhere valid" stayed green. One
+>    `.SetVoidResult()`; two suites had already worked around it locally without anyone noticing
+>    it was general. **Assume other post-`ShowModalAsync` code is still untested for the same
+>    reason** — that is the follow-up filed below.
+> 3. **M19 — a dialog button losing its `aria-label`. CLOSED, by a different rule than the one
+>    filed.** The filed fix ("assert every control has an accessible name") does not catch it: the
+>    mutated button still has a name, because the text node "Close" supplies one. What is lost is
+>    specificity, and the app's own source already states the rule —
+>    `TradingDashboardModal.razor`: *"a wall of Close buttons is unnavigable by button list"*. So
+>    the guard is `DismissControlNameScanTests`: a control whose accessible name is built entirely
+>    from generic words ("Close", "Cancel", "OK", "dialog"…) has not said what it acts on. **22
+>    controls failed it**, including one that was already labelled `aria-label="Close dialog"`.
+>    **It is a source scan, not a render sweep, and that is the load-bearing choice:** 15 of the 22
+>    are inside conditional branches a freshly-opened dialog does not render (Settings' Cancel
+>    exists only mid-rebind, the dashboard's only while an order review is armed), so a sweep over
+>    the default open state sees 7 and reports the other 15 as covered.
+>
+> **A finding that came out of M19 and is NOT fixed: 32 controls fail WCAG 2.5.3 Label in Name.**
+> Their `aria-label` is richer than their visible text but does not contain it — "Save Profile"
+> announced as "Save new API key profile" — so a speech-input user saying what they can see does
+> not activate the button. Pinned as an exact `KnownLabelInNameGaps` set (fails on a new one AND
+> when one is fixed without being struck off) and filed below. It is the reverse of M19 and wants
+> its own pass.
+>
+> **NEXT: the fresh 28-mutant campaign, chosen without reference to A2's list.** It is the item
+> that turns 89.3% from "the suite defends what it was told about" into a number quotable on its
+> own, and the three survivors it was waiting on are gone. Budget a session; the traps are in the
+> block below (**re-anchor first**, and **`run_in_background` caps at 10 minutes — a killed
+> campaign leaves a sabotaged file in the tree**). The three candidate clusters named further down
+> remain live if a bigger piece of work is wanted instead.
+>
+> ---
+>
+> **Previous (2026-08-28, third session — the catch rate is re-measured).**
 >
 > **(c) IS DONE. The mutation catch rate is 89.3%, up from 61%.** 25 of 28 mutants caught, 3
 > survived, and the second pass re-checked all 14 thin catches three times each and found **zero
@@ -787,7 +840,15 @@ go red.
 reserved-prefix fallback turns four more. `OrderPlacementVocabularyTests` pins every code in the
 protocol and carries an exhaustiveness guard over `OrderOutcome`.
 
-### CONFIRMED — F4. The modal focus contract asserts *somewhere valid*, not *the right place* (MEDIUM)
+### CONFIRMED — F4. The modal focus contract asserts *somewhere valid*, not *the right place* (MEDIUM) — CLOSED 2026-08-28
+
+**CLOSED by `ModalFocusTargetContractTests` (2026-08-28).** The declared-target table lives in
+`AccessibleTrader.Tests`, not in the browser harness as this finding recommended: seven dialogs have
+no cold-start route for a browser to take, and they include the two — Wallet and Withdraw — whose
+target is a field rather than a heading, so the browser layer can never assert the interesting case.
+**The finding also missed the mechanism that made it unfixable at this layer:** bUnit's planned void
+handler records `focusElement` without completing it, so `await ShowModalAsync(...)` parked and the
+modal's own second focus call never ran in any test at all. See the START HERE block.
 
 M11 deleted `WalletModal`'s `focusElement("wallet-asset")` — the call that puts the user on the
 first field — and the modal focus contract stayed green.
@@ -855,7 +916,16 @@ those outputs into speech at a given bar is outside it. The consumer half was al
 covered "in the causality batch section of the health-assessment file"; this is the part of it that
 is not.
 
-### CONFIRMED — F9. 181 of 193 accessible names in the component library are unpinned (MEDIUM)
+### CONFIRMED — F9. 181 of 193 accessible names in the component library are unpinned (MEDIUM) — CLOSED 2026-08-28
+
+**CLOSED by `DismissControlNameScanTests` (2026-08-28), and this finding's own hedge turned out to
+be the point.** It calls M19 "weak on purpose-check" because the name degrades to "Close" rather
+than vanishing — but a degraded name is the defect: a screen reader's button list reads names with
+no surrounding context, so twenty-two rows all announcing "Close" is what the user gets. The guard
+rejects a name built entirely from generic words, 22 controls failed it, and one of them was
+*already* labelled `aria-label="Close dialog"`. The "does it have a name at all" sweep the finding
+asked for exists separately as `AccessibleNameSweepTests` in the browser harness. A new finding fell
+out of it: 32 controls fail WCAG 2.5.3 Label in Name, pinned and filed, not fixed.
 
 M19 removed an `aria-label` from a dialog button. It survived — though this particular mutant is
 **weak on purpose-check**: the button also carries the visible text "Close", so its accessible name
@@ -1134,13 +1204,13 @@ CAUGHT only if something *anywhere* goes red. Raw results in
 - **25 of 28 anchors still matched the tree byte for byte** and were used verbatim.
 - **Campaign: 25 CAUGHT, 3 SURVIVED, 0 failed to compile.** 68 minutes of wall clock.
 
-### The three that survived, and they are not a random three
+### The three that survived, and they are not a random three — ALL THREE KILLED 2026-08-28
 
-| survived | area | what it breaks | already filed as |
-| --- | --- | --- | --- |
-| M11 | modal focus | the Wallet dialog stops focusing its first field | **A2/F4** — the focus contract asserts *somewhere valid*, not the right place |
-| M15 | moving averages | SMA averages a short window when the source has gaps | (no filing — a plain gap in `MovingAverageHelper`) |
-| M19 | accessible name | a dialog button loses its `aria-label` | **A2/F9** — 181 of 193 accessible names are unpinned |
+| survived | area | what it breaks | already filed as | now caught by |
+| --- | --- | --- | --- | --- |
+| M11 | modal focus | the Wallet dialog stops focusing its first field | **A2/F4** — the focus contract asserts *somewhere valid*, not the right place | `ModalFocusTargetContractTests` (+ a `BlazorTestHarness` fix without which no bUnit test could have caught it) |
+| M15 | moving averages | SMA averages a short window when the source has gaps | (no filing — a plain gap in `MovingAverageHelper`) | `MovingAverageGapTests` — 7 of its 12 cases go red |
+| M19 | accessible name | a dialog button loses its `aria-label` | **A2/F9** — 181 of 193 accessible names are unpinned | `DismissControlNameScanTests` — and the filed fix shape would *not* have caught it |
 
 Two of the three are the A2 findings whose test work was never done. That is a coherent result
 rather than a random one: **the survivors are exactly the items still open in this file.**
@@ -1204,20 +1274,43 @@ support a grade change on its own.
 
 ### The work A2b creates
 
-- [ ] **Kill M11 — the Wallet modal's focus call is unguarded.** Deleting
-      `WalletModal.razor`'s `focusElement("wallet-asset")` leaves the whole suite green. This is
-      A2/F4 concretely: assert `document.activeElement` against a **declared per-modal target**, not
-      merely that focus went somewhere valid. The browser harness is the right layer —
-      `AccessibleTrader.BrowserTests` already opens dialogs by their real shortcut. Prove it by
-      deleting the call and watching the new test go red.
-- [ ] **Kill M15 — `MovingAverageHelper` SMA over a gapped source.** `r[i] = cnt == period ? sum /
-      period : double.NaN` can be changed to `cnt > 0 ? sum / cnt : double.NaN` with nothing going
-      red, i.e. a short window is silently averaged and presented as an N-period SMA. One test with a
-      NaN-holed input; assert NaN where the window is short rather than a number.
-- [ ] **Kill M19 — a dialog button losing its `aria-label`.** A2/F9's 181-of-193 finding, still
-      unpinned. A sweep asserting every interactive control in the component library has an
-      accessible name is the general fix; the browser harness already proves every dialog announces
-      a name, so the gap is the controls *inside* them.
+- [x] **Kill M11 — the Wallet modal's focus call is unguarded. DONE 2026-08-28.**
+      `ModalFocusTargetContractTests` declares by hand where each of the 25 catalog dialogs must
+      leave the keyboard and asserts the LAST `focusElement` target against it; deleting Wallet's
+      call turns it red. **The filing named the browser harness as the right layer and that was
+      wrong twice over.** First, the browser cannot reach it: Wallet and Withdraw are gated on a
+      provider that has a wallet, so they are `ColdStartReachable: false` in `ModalRoutes` — and
+      they are exactly the two dialogs whose declared target is a field rather than a heading, so
+      the browser layer can never assert the interesting case. Second, the mutation campaign runs
+      `AccessibleTrader.Tests` only, so a kill living in `BrowserTests` would still have scored as
+      a survivor. **And the reason no bUnit test could have caught it before:** bUnit's planned
+      void handler records an invocation without completing it, so `await ShowModalAsync(heading)`
+      parked and Wallet's own second focus call never ran in any test. Fixed with
+      `.SetVoidResult()` in `BlazorTestHarness`.
+- [x] **Kill M15 — `MovingAverageHelper` SMA over a gapped source. DONE 2026-08-28.**
+      `MovingAverageGapTests`, 12 cases, 7 of them red under the mutant. Beyond the filed shape it
+      also pins the property a caller actually reasons about — one NaN suppresses exactly `period`
+      outputs, not one — and sweeps all six MA types for both halves of the contract: NaN over the
+      hole, and *recovery* after it, since an MA that goes NaN at the first gap and never comes
+      back is not honest either.
+- [x] **Kill M19 — a dialog button losing its `aria-label`. DONE 2026-08-28, by a different rule.**
+      The filed shape ("assert every control has an accessible name") does not catch this mutant —
+      the button's text node still names it. `DismissControlNameScanTests` asserts the name is not
+      built *entirely* from generic words; 22 controls failed, including one already labelled
+      `aria-label="Close dialog"`. Source scan rather than render sweep because 15 of the 22 live
+      in branches an open dialog does not render. See the START HERE block.
+- [ ] **Close the 32 WCAG 2.5.3 "Label in Name" gaps.** Found by the M19 work and pinned, not
+      fixed, in `DismissControlNameScanTests.KnownLabelInNameGaps`. Each is an `aria-label` that is
+      richer than the visible text but does not *contain* it — `ApiKeysModal`'s "Save Profile"
+      button announces as "Save new API key profile" — so voice control fails on the words the user
+      can see. Concentrated in `SettingsModal` (7), `StrategyModal` + `SummaryExport` (8) and the
+      two money dialogs (4). The list is exact and fails when an entry is fixed without being
+      struck off, so this can be taken in slices.
+- [ ] **Re-check what else parked behind `ShowModalAsync`.** Until 2026-08-28 every line a concrete
+      modal ran *after* `await ShowModalAsync(...)` was dead in bUnit — the harness recorded the
+      focus call but never completed it. M11 was one consequence; the suite has been green over
+      that dead region for its whole life. Sweep the `ShowAsync` bodies for post-focus work
+      (further focus moves, data loads, announcements) and check each has a test that could fail.
 - [ ] **Run a fresh 28-mutant campaign chosen without reference to A2's list** — see the caveat
       above. This is the one that would make a catch-rate number quotable on its own, and it is the
       difference between "the suite defends what it was told about" and "the suite defends the app".
@@ -1427,6 +1520,13 @@ The rule for this phase is demonstrate or say you did not, so:
   Wallet (`wallet-asset`), Withdraw (`withdraw-asset`), LabelText (`label-text-input`) — are all
   unreachable from a cold start, so no reachable route currently distinguishes the two cases. The
   design is right; the demonstration is missing until the harness can seed credentials.
+  **Resolved 2026-08-28 at the other layer, and the resolution is that this one cannot do it.**
+  `ModalFocusTargetContractTests` (bUnit) declares the same table over all 25 catalog dialogs and
+  is proved by deleting Wallet's call. That layer was necessary rather than convenient: those three
+  dialogs are precisely the ones a cold-start browser cannot reach, and the mutation campaign runs
+  `AccessibleTrader.Tests` only, so a kill living here would still have scored as a survivor. This
+  bullet stays open as written — seeding credentials would let the browser confirm it end to end —
+  but it is no longer what stands between A2/F4 and a demonstration.
 - **Only the initial state and the tablist of each dialog were swept for names.** Controls behind
   `<details>` expanders, conditional branches and populated lists were not rendered and so were not
   measured. The 5 + 1 found are a floor, not a total.
