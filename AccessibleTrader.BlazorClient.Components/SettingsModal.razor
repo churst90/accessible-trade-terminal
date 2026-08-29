@@ -1250,7 +1250,7 @@
                 .ToList();
     }
 
-    private async void GoToSetting(SettingEntry entry)
+    private async Task GoToSetting(SettingEntry entry)
     {
         _activeTab = entry.Tab;
         _searchQuery = string.Empty;
@@ -1404,7 +1404,7 @@
                              : "Color-vision-safe colors off.", true));
     }
 
-    private async void OnUiScaleChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    private async Task OnUiScaleChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         if (!int.TryParse(e.Value?.ToString(), out int scale)) return;
         _uiScale = Math.Clamp(scale, 50, 250);

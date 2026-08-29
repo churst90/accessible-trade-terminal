@@ -34,8 +34,15 @@
             @if (_keys.Any())
             {
                 <div role="list" aria-label="Configured API key profiles" style="margin-bottom:16px;">
-                    @foreach (var k in _keys)
+                    @* Indexed rather than @foreach: the remove control needs an id, and the id
+                       has to say WHICH row it is so focus can be put back on this row after a
+                       cancel, or on the row that takes this one's place after a removal. A
+                       fixed id would collide across rows — the same obstacle the take-profit
+                       ladder recorded, and it dissolves the same way. *@
+                    @for (int i = 0; i < _keys.Count; i++)
                     {
+                        var k = _keys[i];
+                        var rowIndex = i;
                         <div class="object-tree-item"
                              role="listitem"
                              aria-label="@GetKeyLabel(k)">
@@ -98,13 +105,42 @@
                                 </button>
                             }
 
-                            <button aria-label="Remove @k.Nickname"
-                                    style="color:#c00;"
-                                    title="Remove profile"
-                                    @onclick="() => Remove(k.Nickname)"
-                                    @onclick:stopPropagation="true">
-                                ✕
-                            </button>
+                            @* Two-step removal, in place. A credential profile is not
+                               recoverable — the secret lives in SecureStorage and removing it
+                               is the last copy — so the ✕ arms a confirmation rather than doing
+                               it. In place rather than a nested dialog on purpose: the row
+                               already carries the profile's name, and a second modal on top of
+                               this one is a stack that Escape, the Tab trap and the MAUI canvas
+                               hide would all have to learn. *@
+                            @if (_pendingRemoval == k.Nickname)
+                            {
+                                <button id="apikey-remove-confirm"
+                                        aria-label="Confirm remove @k.Nickname permanently, this cannot be undone"
+                                        style="color:#c00; font-weight:700;"
+                                        title="Permanently remove this profile"
+                                        @onclick="() => ConfirmRemove(rowIndex)"
+                                        @onclick:stopPropagation="true">
+                                    Confirm remove
+                                </button>
+                                <button id="apikey-remove-cancel"
+                                        aria-label="Cancel, keep @k.Nickname"
+                                        title="Keep this profile"
+                                        @onclick="CancelRemove"
+                                        @onclick:stopPropagation="true">
+                                    Cancel
+                                </button>
+                            }
+                            else
+                            {
+                                <button id="apikey-remove-@rowIndex"
+                                        aria-label="Remove @k.Nickname"
+                                        style="color:#c00;"
+                                        title="Remove profile"
+                                        @onclick="() => Remove(k.Nickname)"
+                                        @onclick:stopPropagation="true">
+                                    ✕
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -244,6 +280,13 @@
     private IDisposable? _closeSub;
     private List<ApiKeyConfig> _keys = new();
 
+    /// <summary>
+    /// Nickname of the profile whose removal has been armed and is waiting for a Confirm or
+    /// Cancel, or null when nothing is armed. Cleared on open and on close so a confirmation
+    /// left hanging cannot be answered by the next visit to this dialog.
+    /// </summary>
+    private string? _pendingRemoval;
+
     // New profile form fields
     private string _newProvider    = "Alpaca";
     private string _newNickname    = "";
@@ -272,7 +315,14 @@
         _eventSub = EventBus.Subscribe<OpenApiKeysEvent>(_ => InvokeAsync(ShowAsync));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
-            if (_isVisible && e.ModalName == "API keys") InvokeAsync(Close);
+            if (!_isVisible || e.ModalName != "API keys") return;
+
+            // Escape with a removal armed backs out of the QUESTION, not the dialog. Closing the
+            // whole dialog would leave the user outside it with no word on what happened to the
+            // profile they were asked about — and the answer to "are you sure" is the thing they
+            // were reaching for. One more Escape closes the dialog as usual.
+            if (_pendingRemoval != null) InvokeAsync(CancelRemove);
+            else InvokeAsync(Close);
         });
     }
 
@@ -280,6 +330,7 @@
     {
         _keys = await ApiKeyService.GetAllKeysAsync();
         _formError = null;
+        _pendingRemoval = null;
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "API keys"));
         StateHasChanged();
@@ -290,6 +341,7 @@
     private void Close()
     {
         _isVisible = false;
+        _pendingRemoval = null;
         EventBus.Publish(new ModalStateChangedEvent(false, "API keys"));
         StateHasChanged();
     }
@@ -414,8 +466,58 @@
         }
     }
 
+    /// <summary>
+    /// Arms the removal of <paramref name="nickname"/> — it does not remove anything.
+    ///
+    /// <para>
+    /// Until 2026-08-29 this method WAS the removal: one click, no question asked, nothing
+    /// spoken, and the button that took the click was inside the row that then disappeared,
+    /// so focus fell to <c>&lt;body&gt;</c>. A screen-reader user pressed a control, was
+    /// returned to the top of the document, and had no way to tell whether the profile was
+    /// gone or the button had done nothing at all.
+    /// </para>
+    /// </summary>
     private async Task Remove(string nickname)
     {
+        _pendingRemoval = nickname;
+        StateHasChanged();
+        await Task.Yield();
+
+        // Speak the question. The visible markup changed under a sighted user's eyes; the
+        // announcement is what makes that true for everyone else, and it must say what is
+        // at stake before it says which keys answer it.
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Remove {nickname}? This cannot be undone. Confirm remove, or cancel."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "apikey-remove-confirm"); }
+        catch { /* focus is best-effort; the buttons are still one Tab away */ }
+    }
+
+    /// <summary>
+    /// Answers the confirmation with "no": nothing is removed, focus goes back to the row's own
+    /// remove button so the user is where they started. Reached from the Cancel button and from
+    /// Escape — the row index is recovered from the armed nickname rather than passed in, so
+    /// both routes behave identically.
+    /// </summary>
+    private async Task CancelRemove()
+    {
+        string? nickname = _pendingRemoval;
+        int rowIndex = Math.Max(0, _keys.FindIndex(k => k.Nickname == nickname));
+        _pendingRemoval = null;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Cancelled. {nickname} was kept."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", $"apikey-remove-{rowIndex}"); }
+        catch { }
+    }
+
+    private async Task ConfirmRemove(int rowIndex)
+    {
+        string nickname = _pendingRemoval ?? "";
+        _pendingRemoval = null;
         try
         {
             string provider = _keys.FirstOrDefault(k => k.Nickname == nickname)?.Provider ?? "";
@@ -428,11 +530,33 @@
             // withdrawal profile must retract the button, not leave it to open
             // onto a refusal.
             EventBus.Publish(new ApiKeysChangedEvent(provider));
+
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                _keys.Count == 0
+                    ? $"{nickname} removed. No profiles remain."
+                    : $"{nickname} removed."));
+
+            await Task.Yield();
+            // The row that was focused no longer exists. Land on the row that took its place
+            // (or the last one, when the removed profile was at the end); with none left the
+            // list itself is gone, so the add form is the nearest thing still on screen.
+            string target = _keys.Count > 0
+                ? $"apikey-remove-{Math.Min(rowIndex, _keys.Count - 1)}"
+                : "key-provider";
+            try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", target); }
+            catch { }
         }
         catch (Exception ex)
         {
             _formError = $"Failed to remove profile: {ex.Message}";
             StateHasChanged();
+            // _formError is on screen for a sighted user and nowhere at all for anyone else:
+            // this modal is not a live region. Say it.
+            // The detail stays on screen and out of the speech channel: an exception message
+            // from a credential store is exactly the string that has carried a secret in this
+            // codebase before.
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"Failed to remove {nickname}. The profile was not removed. See the error in the dialog."));
         }
     }
 

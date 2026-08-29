@@ -74,7 +74,7 @@
         _sub = EventBus.Subscribe<EarconVisualEvent>(ev => InvokeAsync(() => Show(ev)));
     }
 
-    private async void Show(EarconVisualEvent ev)
+    private async Task Show(EarconVisualEvent ev)
     {
         // Opt-in gate, read per event (cheap in-memory lookup) so a settings
         // change takes effect without restarting the circuit.

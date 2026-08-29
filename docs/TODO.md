@@ -117,7 +117,70 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29, FOURTH session that day — the take-profit ladder has
+> **START HERE (current as of 2026-08-29, FIFTH session that day — the loose ends. Two
+> destructive controls now ask and answer, the last name exemption is gone, and the
+> `ShowModalAsync` dead-region sweep is finished.)**
+>
+> **Deleting a credential profile now asks; deleting an alert now speaks and keeps the
+> keyboard.** Both were verified in the source before being worked, and both were the same
+> three defects: no confirmation, nothing announced, and focus destroyed — the button taking the
+> click IS inside the row that disappears, so focus fell to `<body>` and a screen-reader user was
+> returned to the top of the document with no idea whether it had worked. The API key profile is
+> the one that cannot be re-created, so that one takes a two-step confirmation IN PLACE (a
+> nested dialog would be a second modal on a stack that Escape, the Tab trap and the MAUI canvas
+> hide would all have to learn). The alert is re-creatable from the form directly below it, so it
+> deletes on one press and says so. Both land focus on the row that took the deleted row's place,
+> or on the add form when the list is now empty. Eight tests, all eight red against the pre-fix
+> handlers.
+>
+> **The `KnownUnnamed` exemption list is DELETED, not emptied.** Its last entry was
+> `SoundDesignerModal`'s import textarea, named only by a placeholder — which is announced, so
+> the field was never silent, but it disappears the moment the field has content, which is
+> exactly when someone tabbing back to it needs to be told what it is. It has a `<label for>` now
+> and the list went with it. **The cost is the same one the Label-in-Name work paid:** the
+> assertion is now a bare "no matches", which is also what a sweep that examined nothing returns,
+> and the `fixedSince` half that used to notice a collapsed sweep went with the list. A vacuity
+> floor replaces it — the route must have opened a dialog with controls in it before "no unnamed
+> controls" means anything (`TerminalPage.ControlCountInTopDialogAsync`).
+>
+> **The `ShowModalAsync` dead-region sweep is done, and it is smaller than it looked.** Thirteen
+> modals call `await ShowModalAsync(...)`; six do work afterwards. Three of those six move focus
+> a second time and were already pinned by `ModalFocusTargetContractTests`. **The other three
+> load the dialog's content and nothing asserted the load happened at all** — `AssetDossierModal`
+> and `LevelReportModal` (`await RefreshAsync()`) and `AIAnalystModal` (`await RunAnalysis()`).
+> Delete any one of those lines and the dialog opens permanently empty, with no error: a blank
+> panel for a sighted user, and for a blind one a dialog that announces its title and then has
+> nothing to read. `ModalOpenLoadsItsContentTests` guards all three and all three go red when the
+> line is removed. **`ModalCatalog`'s own comment said AssetDossierModal was "the only one" that
+> loads on open — it was written from the CI incident rather than from a grep, and it was two
+> short. Corrected in place.**
+>
+> **`async void` is gone from the component library, and this one is filed HONESTLY.** All seven
+> sites (`ChartContextMenu` ×3, `DrawingContextMenu`, `SettingsModal` ×2, `VisualEarconOverlay`)
+> now return `Task`. **No defect was demonstrated and none is claimed** — every one of them ends
+> in a best-effort `focusElement` already inside its own try/catch, which is the throw that would
+> otherwise have gone nowhere. What the conversion removes is the path, not a reproduction. It
+> was worth doing because the call sites made it free: every caller is either an `@onclick` /
+> `@onchange` binding (Blazor prefers the Task overload and now awaits the handler) or
+> `InvokeAsync(() => Handler(...))` in a subscription (binds to the `Func<Task>` overload). No
+> site changed shape; only the return type did. `AsyncVoidScanTests` holds it, proved by turning
+> one back.
+>
+> **NEXT.** The queue is down to the three that are genuinely not small:
+>
+> 1. **`LocalBackgroundMonitor` carries N23's untested twin** — the same
+>    `if (n < FeedFailuresBeforeSpeaking)` escalation and dedup, in the monitor a *desktop* user
+>    HEARS. Blocked on a constructor seam: it probes the PATH for `notify-send` / `spd-say` /
+>    `paplay` on construction and `Announce` launches them. Take the seam first.
+> 2. **The dead-feed rule lives in two places** and wants one chokepoint — the shape
+>    `LevelPolarity` was created to collapse.
+> 3. **The StrategyLab statistics re-run** — the flagship p = 0.0045 tested the winner of a
+>    16-cell grid, is banner-marked provisional, and the honest re-run has not happened. This is
+>    the oldest thing on the list and the only one that is research rather than repair.
+>
+> ---
+>
+> **Previous (2026-08-29, FOURTH session that day — the take-profit ladder has
 > names and the Toolbar's hidden dialog joined the modal contract).**
 >
 > **The TP ladder is named.** `RiskPlanEditor`'s rungs are rendered in a `@foreach`, and the
@@ -9067,10 +9130,14 @@ impossible for any test to notice a focus bug.
   import outcomes and the order-book load failure are all affected. The codebase uses the correct
   `role="alert"` form in four places and `AddIndicatorModal:59-62` demonstrates the
   always-present pattern with a comment, so this is inconsistency rather than ignorance.
-- [ ] **`TradingDashboardModal.razor:828` is an `async void` timer callback** whose
-  `await RefreshBookAsync()` is outside the try/catch. A transient 429 or an unsupported-symbol
-  throw faults a task on the thread pool: on MAUI that reaches the unhandled handler and the process
-  dies, on the WebHost it kills the circuit — while a blind trader is watching an open position.
+- [x] **STRUCK 2026-08-29 — `TradingDashboardModal.razor:828`'s `async void` timer callback does
+  not exist.** The file carries no `async void` at all and no such timer; the finding outlived the
+  code it described, which is the recount pattern this file keeps producing. The seven `async void`
+  sites that *did* remain in the component library (`ChartContextMenu` ×3, `DrawingContextMenu`,
+  `SettingsModal` ×2, `VisualEarconOverlay`) were converted to `Task` the same day and are held by
+  `AsyncVoidScanTests` — **filed as a robustness change, not a demonstrated defect**: every one of
+  them ended in a best-effort `focusElement` already inside its own try/catch. None was on the
+  live-position path that made the original finding urgent.
 - [x] **DONE 2026-08-29 — `Toolbar.razor`'s shape-change confirmation now honours the modal
   contract**, and `ModalContractScanTests` covers `role="alertdialog"` so the next one cannot
   evade it the same way. It now publishes `ModalStateChangedEvent(true/false, "ShapeChangeWarning")`
@@ -9087,10 +9154,19 @@ impossible for any test to notice a focus bug.
   no chart is loaded, so Alt+T produces no dialog, no earcon and no speech; same in
   `PropertiesModal:713` (P with no series selected) and `DrawingContextMenu:88`. There is a house
   rule about exactly this, cited at `DrawingContextMenu:151`, that these three paths miss.
-- [ ] **Adding or deleting an alert produces no feedback and destroys focus.**
-  `AlertsModal:205-252` mutates and re-renders with no announcement; deleting the focused `<li>`
-  drops focus to `<body>`. `ApiKeysModal:409-429` has the same shape and **no confirmation prompt
-  before deleting a credential profile**.
+- [x] **DONE 2026-08-29 — deleting an alert and removing a credential profile both answer now.**
+  Adding an alert already announced (that half was closed earlier); deleting did not, and in both
+  dialogs the button taking the click was inside the row that disappeared, so focus fell to
+  `<body>` — top of the document, nothing spoken, no way to tell whether it worked.
+  `AlertsModal.DeleteAlert` now names the alert it deleted, says when none remain, and lands focus
+  on the row that took the deleted row's place (or the add form's first field when the list is
+  empty). `ApiKeysModal.Remove` **arms** a two-step confirmation instead of removing: the question
+  is spoken ("Remove X? This cannot be undone"), focus goes to Confirm, and Cancel returns focus to
+  the row's own button. **A credential profile is the one that cannot be re-created — the secret in
+  SecureStorage is the last copy — which is why it asks and the alert does not.** The confirmation
+  is in place rather than a nested dialog on purpose: a second modal on top of this one is a stack
+  Escape, the Tab trap and the MAUI canvas hide would all have to learn. `AlertsModalTests` (3 new)
+  and `ApiKeysModalTests` (5, new file); all eight go red against the pre-fix handlers.
 - [x] **Label-in-name violations throughout. DONE 2026-08-29 — and the cited example is REFUTED.**
   `Toolbar.razor:181-190`'s `<label for="market-select">Market:</label>` with
   `aria-label="Select market"` is **not** a violation: 2.5.3 asks for containment, not equality,

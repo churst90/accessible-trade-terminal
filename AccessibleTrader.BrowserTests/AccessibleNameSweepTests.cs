@@ -20,28 +20,21 @@ public sealed class AccessibleNameSweepTests
     private readonly TerminalBrowserFixture _fixture;
     public AccessibleNameSweepTests(TerminalBrowserFixture fixture) => _fixture = fixture;
 
-    /// <summary>
-    /// The controls known to have no accessible name, as of the A3 sweep on 2026-08-26.
-    ///
-    /// <para>
-    /// An exact set rather than a "no more than N" budget, on purpose: a budget silently absorbs a
-    /// new defect whenever an old one is fixed. This fails both when something new goes unnamed
-    /// and when one of these is fixed — the second failure is the one that keeps the list honest,
-    /// and clearing an entry is a one-line edit here.
-    /// </para>
-    /// </summary>
-    private static readonly IReadOnlySet<string> KnownUnnamed = new HashSet<string>
-    {
-        // RiskPlanEditor's take-profit ladder held five entries here until 2026-08-29. The
-        // reason recorded for them — "the ladder rows are a @foreach and a fixed id would
-        // collide across rungs" — was the whole obstacle, and it dissolves the moment the id
-        // is derived from the rung index instead of fixed. Each control now carries both an
-        // id/for pair (attaching the visible "R:" / "Close fraction:" text) and an aria-label
-        // naming its rung, because three rows of "R" is a form-field list that says nothing.
-
-        // Named only by its placeholder, which disappears as soon as the field has content.
-        "SoundDesignerModal|(initial)|[placeholder-only] textarea #sd-import-json",
-    };
+    // THERE IS NO EXEMPTION LIST HERE ANY MORE, and that is deliberate.
+    //
+    // The A3 sweep on 2026-08-26 pinned six controls as known-unnamed: five take-profit ladder
+    // rungs (fixed 2026-08-29 — the recorded reason, "a fixed id would collide across rungs",
+    // dissolved the moment the id came from the loop index) and SoundDesignerModal's import
+    // textarea, named only by a placeholder that vanishes as soon as the field has content.
+    // The textarea now has a <label for>, so the list emptied — and an empty exemption list is
+    // deleted rather than kept, the same call made for KnownLabelInNameGaps on 2026-08-29.
+    // Anything found from here on is a defect to fix, not a line to add back.
+    //
+    // WHAT THAT COSTS. The assertion below is now a bare "no matches", which is also what a
+    // sweep that examined nothing returns — and the `fixedSince` half that used to notice a
+    // collapsed sweep went with the list. So the floor underneath it is load-bearing: the
+    // route must have opened a dialog with controls in it before "no unnamed controls" means
+    // anything at all.
 
     public static TheoryData<string> RouteNames
     {
@@ -88,18 +81,21 @@ public sealed class AccessibleNameSweepTests
                 found.Add($"{route.Modal}|{tab}|{c}");
         }
 
-        var unexpected = found.Distinct().Where(f => !KnownUnnamed.Contains(f)).ToList();
-        var fixedSince = KnownUnnamed.Where(k => k.StartsWith(route.Modal + "|", StringComparison.Ordinal))
-                                     .Where(k => !found.Contains(k)).ToList();
+        var unexpected = found.Distinct().ToList();
 
         Assert.True(unexpected.Count == 0,
             $"Controls in {route.Modal} that a screen reader announces with no name:\n  "
             + string.Join("\n  ", unexpected)
-            + "\n\nEither give them an accessible name, or add them to KnownUnnamed with the reason.");
+            + "\n\nGive them an accessible name. There is no exemption list here on purpose — "
+            + "see the comment at the top of this file.");
 
-        Assert.True(fixedSince.Count == 0,
-            $"These were on the KnownUnnamed list for {route.Modal} and now have names — good. "
-            + "Delete them from the list so it keeps meaning something:\n  "
-            + string.Join("\n  ", fixedSince));
+        // The vacuity floor. With the exemption list gone, "unexpected is empty" is also what a
+        // sweep that found no controls at all reports — a changed dialog role, a selector typo,
+        // a dialog that rendered nothing. Every route in this list opens a dialog with controls
+        // in it, so a zero here is a broken instrument, not a clean result.
+        int swept = await t.ControlCountInTopDialogAsync();
+        Assert.True(swept > 0,
+            $"The sweep of {route.Modal} examined ZERO controls, so its clean result means "
+            + "nothing. The dialog opened but the control selector matched nothing in it.");
     }
 }

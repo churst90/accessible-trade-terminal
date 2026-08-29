@@ -294,6 +294,12 @@
             <details style="margin-top: 8px;">
                 <summary style="cursor: pointer; font-weight: bold; padding: 4px 0;">Import Patch JSON</summary>
                 <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                    @* A visible label, not just the placeholder. A placeholder IS announced, so
+                       the field was never silent — but it disappears the moment the field has
+                       content, which is exactly when a user tabbing back to it needs to be told
+                       what it is. This was the last entry on AccessibleNameSweepTests'
+                       KnownUnnamed list (A3/F2); the list is gone with it. *@
+                    <label for="sd-import-json">Patch JSON to import:</label>
                     <textarea id="sd-import-json" rows="4" style="width: 100%; font-family: monospace; font-size: 0.8rem;"
                               placeholder="Paste SoundPatch JSON here..."
                               @bind="_importJson"></textarea>

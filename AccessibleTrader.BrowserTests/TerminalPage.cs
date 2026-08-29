@@ -413,6 +413,37 @@ internal sealed class TerminalPage : IAsyncDisposable
     /// <summary>Same sweep over the whole page — the toolbar, tab bar, chart and status bar.</summary>
     public Task<IReadOnlyList<string>> UnnamedControlsOnPageAsync() => UnnamedControlsAsync(inDialog: false);
 
+    /// <summary>
+    /// How many controls the unnamed-control sweep actually looked at in the topmost dialog.
+    ///
+    /// <para>
+    /// The vacuity floor for <c>AccessibleNameSweepTests</c>, which no longer carries an
+    /// exemption list: "no unnamed controls" and "no controls" are the same empty list, and only
+    /// this number tells them apart. It deliberately repeats the selector and the visibility
+    /// filters — not the naming logic, which is the part that would be a test mirroring the
+    /// thing it guards.
+    /// </para>
+    /// </summary>
+    public Task<int> ControlCountInTopDialogAsync() =>
+        Page.EvaluateAsync<int>(@"() => {
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
+                                 .filter(el => el.offsetParent !== null);
+            if (dialogs.length === 0) return 0;
+            const d = dialogs[dialogs.length - 1];
+            const sel = 'button, a[href], input, select, textarea, summary, ' +
+                        '[tabindex]:not([tabindex=""-1""]), [role=""button""], [role=""tab""], ' +
+                        '[role=""checkbox""], [role=""switch""], [role=""radio""], [role=""combobox""]';
+            let n = 0;
+            for (const el of d.querySelectorAll(sel)) {
+                if (el.offsetParent === null) continue;
+                if (el.hasAttribute('disabled')) continue;
+                if (el.closest('[aria-hidden=""true""]')) continue;
+                if (el.tagName === 'INPUT' && (el.getAttribute('type') || '').toLowerCase() === 'hidden') continue;
+                n++;
+            }
+            return n;
+        }");
+
     private async Task<IReadOnlyList<string>> UnnamedControlsAsync(bool inDialog)
     {
         var json = await Page.EvaluateAsync<string>(@"(inDialog) => {

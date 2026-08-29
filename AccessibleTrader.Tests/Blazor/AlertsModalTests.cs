@@ -72,7 +72,10 @@ public class AlertsModalTests
         catalog.All.Returns(new List<AccessibleTrader.Sdk.Strategies.SignalDescriptor>());
         ctx.Services.AddSingleton(catalog);
 
-        ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true);
+        // SetVoidResult() is load-bearing: a planned void handler without it RECORDS the
+        // invocation and never completes it, so every line after an `await focusElement`
+        // never runs and the test measures a shorter method than the app does.
+        ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
         return (ctx, orch, bus);
     }
 
@@ -151,6 +154,71 @@ public class AlertsModalTests
             // After delete, list goes back to empty state.
             Assert.Equal("No active alerts.", cut.Find("p[role='status']").TextContent);
         });
+    }
+
+    /// <summary>The ids passed to accessibleTrader.focusElement, in order.</summary>
+    private static List<string> FocusTargets(TestContext ctx) =>
+        ctx.JSInterop.Invocations["accessibleTrader.focusElement"]
+           .Select(i => i.Arguments[0]?.ToString() ?? "")
+           .ToList();
+
+    [Fact]
+    public void DeletingAnAlert_SaysSo_AndMovesFocusToTheRowThatTookItsPlace()
+    {
+        // The defect: the Delete button lives INSIDE the row it deletes, so after the click
+        // the focused element is gone and focus falls to <body> — top of the document, nothing
+        // spoken, no way to tell whether the alert was deleted or the button did nothing.
+        var (ctx, orch, bus) = BuildContext();
+        orch.SeedAlert(NewAlert("First"));
+        orch.SeedAlert(NewAlert("Second"));
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("button[aria-label='Delete alert: First']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(orch.Removed);
+            // Names the alert: "deleted" alone, in a dialog with several rows, does not say
+            // which one went.
+            Assert.Contains(spoken, m => m.Contains("Alert First deleted", StringComparison.Ordinal));
+            // Row 0 was deleted, so what was row 1 is now row 0 — an element that exists.
+            Assert.Equal("alert-delete-0", FocusTargets(ctx).Last());
+        });
+    }
+
+    [Fact]
+    public void DeletingTheLastAlert_LandsOnTheAddForm_BecauseTheListIsGone()
+    {
+        var (ctx, orch, bus) = BuildContext();
+        orch.SeedAlert(NewAlert("Only one"));
+        var spoken = new List<string>();
+        bus.Subscribe<FeedbackRequestEvent>(e => { if (e.Message != null) spoken.Add(e.Message); });
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("button[aria-label='Delete alert: Only one']").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains(spoken, m => m.Contains("No active alerts remain", StringComparison.Ordinal));
+            Assert.Equal("alert-name", FocusTargets(ctx).Last());
+        });
+    }
+
+    [Fact]
+    public void DeletingTheLastRowOfSeveral_LandsOnTheNewLastRow()
+    {
+        // The row that took its place does not exist when the deleted row was at the end.
+        // Clamping is what stops this focusing an id that was just removed from the DOM.
+        var (ctx, orch, bus) = BuildContext();
+        orch.SeedAlert(NewAlert("First"));
+        orch.SeedAlert(NewAlert("Second"));
+
+        var cut = OpenModal(ctx, bus);
+        cut.Find("button[aria-label='Delete alert: Second']").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("alert-delete-0", FocusTargets(ctx).Last()));
     }
 
     [Fact]

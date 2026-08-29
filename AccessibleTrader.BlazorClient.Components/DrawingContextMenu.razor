@@ -82,7 +82,7 @@
     // offsetting by element position gives absolute client coords for the popup).
     // Simpler: just use the event's viewport coords + a rough element-offset estimate.
     // Good enough for a right-click menu — the user can dismiss if it lands awkwardly.
-    private async void Open(string seriesId, double x, double y)
+    private async Task Open(string seriesId, double x, double y)
     {
         var series = Store.State.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
         if (series == null) return;

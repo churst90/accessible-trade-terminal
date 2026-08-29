@@ -105,7 +105,7 @@
         });
     }
 
-    private async void Open(double x, double y, int barIndex, string? hitSeriesId = null)
+    private async Task Open(double x, double y, int barIndex, string? hitSeriesId = null)
     {
         _barIndex = barIndex;
         _seriesList = Store.State.ActiveSeries.ToList();
@@ -147,7 +147,7 @@
         StateHasChanged();
     }
 
-    private async void OpenSeries(ChartSeries s)
+    private async Task OpenSeries(ChartSeries s)
     {
         _selectedSeries = s;
         await InvokeAsync(StateHasChanged);
@@ -155,7 +155,7 @@
         catch { /* non-critical */ }
     }
 
-    private async void CloseSeries()
+    private async Task CloseSeries()
     {
         _selectedSeries = null;
         await InvokeAsync(StateHasChanged);

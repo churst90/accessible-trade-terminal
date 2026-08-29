@@ -126,9 +126,13 @@ public static class ModalCatalog
     /// queued — the modal's own async work continues afterwards. That was harmless while
     /// <c>await ShowModalAsync(...)</c> parked forever (see the SetVoidResult note in
     /// <see cref="BlazorTestHarness"/>): nothing ran after it, so there was nothing to race. With
-    /// the await completing, a modal that loads data on open — AssetDossierModal is the only one —
-    /// is still mid-<c>RefreshAsync</c> when the caller's next line runs, and
-    /// ModalDisposeLeakTests' next line is <c>Ctx.Dispose()</c>.
+    /// the await completing, a modal that loads data on open is still mid-load when the caller's
+    /// next line runs, and ModalDisposeLeakTests' next line is <c>Ctx.Dispose()</c>. There are
+    /// THREE such modals, not one: AssetDossierModal and LevelReportModal both
+    /// <c>await RefreshAsync()</c> and AIAnalystModal <c>await RunAnalysis()</c>. This sentence
+    /// said "AssetDossierModal is the only one" until the 2026-08-29 sweep counted them — it was
+    /// written from the CI incident rather than from a grep, which is how a comment ends up two
+    /// short. See <c>ModalOpenLoadsItsContentTests</c>.
     /// </para>
     ///
     /// <para>

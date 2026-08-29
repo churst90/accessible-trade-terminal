@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Two destructive controls that asked nothing and said nothing (2026-08-29)
+
+- **Removing an API key profile now asks first.** The ✕ on a credential profile called
+  `RemoveKeyAsync` straight from the click. Nothing asked whether the user meant it, nothing was
+  spoken, and the button that took the click was inside the row that then disappeared — so focus
+  fell to `<body>` and a screen-reader user was returned to the top of the document with no idea
+  whether the profile was gone or the button had done nothing. The profile is not recoverable: the
+  secret lives in SecureStorage and that was the last copy. The ✕ now arms a two-step confirmation
+  in place, speaks the question, puts focus on the answer, and returns focus to the row's own
+  button on cancel.
+- **Deleting an alert says so and keeps the keyboard.** Same three defects, five lines. It now
+  names the alert it deleted, says when none remain, and lands focus on the row that took the
+  deleted row's place — or on the add form's first field when the list is empty. No confirmation
+  here on purpose: an alert is re-creatable from the form directly below it.
+- **The last unnamed control is named.** The Sound Designer's import textarea was named only by its
+  placeholder, which disappears as soon as the field has content. It has a visible label now, and
+  `AccessibleNameSweepTests`' exemption list was deleted rather than emptied — with a vacuity floor
+  underneath it, since "no unnamed controls" and "no controls examined" are the same empty list.
+- **Three dialogs that load on open are now guarded.** Until the bUnit harness defect was fixed on
+  2026-08-28, every line a modal ran after `await ShowModalAsync(...)` was dead in tests. The sweep
+  of what that hid is finished: of thirteen modals, three load their content on open
+  (`AssetDossierModal`, `LevelReportModal`, `AIAnalystModal`) and nothing asserted the load
+  happened at all — deleting any one of those lines opened the dialog permanently empty with no
+  error.
+- **`async void` is gone from the component library** (seven sites, now returning `Task`, held by a
+  scan guard). Filed as a robustness change, not a demonstrated defect: each one ended in a
+  best-effort focus call already inside its own try/catch.
+
 ### Twenty-two controls that announced only "Close", and two tests that could not have failed (2026-08-28)
 
 The three mutants that survived the 2026-08-28 catch-rate re-measurement, closed. Each fix is

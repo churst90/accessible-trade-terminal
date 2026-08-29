@@ -26,13 +26,19 @@
                 else
                 {
                     <ul role="list" style="list-style: none; padding: 0; margin: 0;">
-                        @foreach (var alert in _activeAlerts)
+                        @* Indexed, not @foreach: the Delete button needs an id that says which
+                           row it is, because the row it lives in is the one that disappears —
+                           focus has to be put somewhere deliberate afterwards. *@
+                        @for (int i = 0; i < _activeAlerts.Count; i++)
                         {
+                            var alert = _activeAlerts[i];
+                            var rowIndex = i;
                             <li role="listitem"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
                                 <span>@alert.Name — @(alert.Symbol ?? "Any") · @(alert.ConditionTree != null ? "Advanced rule" : $"{alert.Target} {alert.Condition}{(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")}")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
-                                <button aria-label="@($"Delete alert: {alert.Name}")"
-                                        @onclick="() => DeleteAlert(alert.Id)">
+                                <button id="alert-delete-@rowIndex"
+                                        aria-label="@($"Delete alert: {alert.Name}")"
+                                        @onclick="() => DeleteAlert(alert.Id, rowIndex)">
                                     Delete
                                 </button>
                             </li>
@@ -353,10 +359,40 @@
         StateHasChanged();
     }
 
-    private void DeleteAlert(string id)
+    /// <summary>
+    /// Deletes an alert, says so, and puts focus somewhere that still exists.
+    ///
+    /// <para>
+    /// It used to do only the first of those. The button taking the click was inside the row
+    /// being removed, so focus fell to <c>&lt;body&gt;</c> — a screen-reader user landed at the
+    /// top of the document with nothing spoken and no way to tell whether the alert was gone.
+    /// No confirmation, though: an alert is re-creatable from the form directly below, and a
+    /// prompt on every delete is a tax on the common case. The API key profile next door is
+    /// the one that cannot be re-created, and that is the one that asks.
+    /// </para>
+    /// </summary>
+    private async Task DeleteAlert(string id, int rowIndex)
     {
+        // Read the name BEFORE the removal — afterwards there is nothing to read it from.
+        string name = _activeAlerts.FirstOrDefault(a => a.Id == id)?.Name ?? "Alert";
+
         AlertOrchestrator.RemoveAlert(id);
         RefreshAlerts();
         StateHasChanged();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _activeAlerts.Count == 0
+                ? $"Alert {name} deleted. No active alerts remain."
+                : $"Alert {name} deleted."));
+
+        await Task.Yield();
+        // The row that took this one's place, or the last row when the deleted alert was at
+        // the end. With none left the list is gone entirely, so the add form's first field is
+        // the nearest thing still on screen.
+        string target = _activeAlerts.Count > 0
+            ? $"alert-delete-{Math.Min(rowIndex, _activeAlerts.Count - 1)}"
+            : "alert-name";
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", target); }
+        catch { /* focus is best-effort, exactly as in ShowModalAsync */ }
     }
 }
