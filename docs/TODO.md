@@ -150,6 +150,37 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > Generalise: **when a race is fixed, grep the file for every other instance of the pattern**,
 > not just the sites that happened to be failing.
 >
+> **NEXT — and the top two were VERIFIED IN THE CODE this session, not read off this file.**
+>
+> 1. **A credential profile and a price alert are both deleted with no confirmation, no
+>    announcement, and no surviving focus.** `ApiKeysModal.Remove` (line ~417) calls
+>    `RemoveKeyAsync` straight from the click: nothing asks "are you sure", nothing is spoken,
+>    and the focused `<button>` is the row that just disappeared — so focus lands on `<body>`
+>    and a screen-reader user is at the top of the document with no idea whether it worked.
+>    `AlertsModal.DeleteAlert` (line ~356) is the same three defects in five lines. The alert is
+>    recoverable; **a deleted API key profile is not**, so that one takes the confirmation.
+> 2. **`LocalBackgroundMonitor` carries N23's untested twin** — the same
+>    `if (n < FeedFailuresBeforeSpeaking)` escalation and dedup, in the monitor a *desktop* user
+>    HEARS. Blocked on a constructor seam: it probes the PATH for `notify-send`/`spd-say`/
+>    `paplay` on construction and `Announce` launches them. Take the seam first.
+> 3. **The dead-feed rule now lives in two places** and wants one chokepoint — the shape
+>    `LevelPolarity` was created to collapse.
+> 4. **The `ShowModalAsync` dead-region sweep.** Until 2026-08-28 every line a modal ran *after*
+>    `await ShowModalAsync(...)` was dead in bUnit. M11 was one consequence; nobody has swept the
+>    other `ShowAsync` bodies for post-focus work with no test that could fail.
+> 5. **The StrategyLab statistics re-run** — the flagship p = 0.0045 tested the winner of a
+>    16-cell grid, is banner-marked provisional, and the honest re-run has not happened.
+>
+> **Two entries below are STALE and should be struck, not worked.** (a) The
+> `TradingDashboardModal.razor:828` "`async void` timer callback that faults a task on the
+> thread pool" **is gone** — no `async void` remains in that file. Seven other `async void`
+> sites do remain in the component library (`ChartContextMenu` ×3, `DrawingContextMenu`,
+> `SettingsModal` ×2, `VisualEarconOverlay`), but none is the cited timer, and none is on the
+> live-position path that made the finding urgent. (b) The label-in-name claim about
+> `Toolbar`'s `market-select` is **refuted** — see the previous block. Both are the recount
+> pattern this file keeps producing: **a finding filed unverified stays filed long after the
+> code moves.**
+>
 > ---
 >
 > **Previous (2026-08-29, THIRD session that day — the Label-in-Name gaps are closed, and the
