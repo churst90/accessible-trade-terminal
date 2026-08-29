@@ -262,7 +262,12 @@ public class TradingDashboardDecouplingTests
         cut.WaitForAssertion(() => cut.Find("button[aria-label^='Close at limit']"));
         cut.Find("button[aria-label^='Close at limit']").Click();
 
-        var field = cut.Find("input[id^='close-limit-']");
+        // WaitForElement, not Find — the same race the sibling tests below already document:
+        // the field is rendered BY the click above, and bUnit queues the handler on the
+        // renderer's dispatcher, so Click returns before it exists. This site was the one
+        // missed when the others were converted, and it went red on a full Release run
+        // 2026-08-29 while passing in isolation.
+        var field = cut.WaitForElement("input[id^='close-limit-']");
         field.Input("3,150");                                  // grouped, as a person types it
         field.KeyDown(new KeyboardEventArgs { Key = "Enter" });
 

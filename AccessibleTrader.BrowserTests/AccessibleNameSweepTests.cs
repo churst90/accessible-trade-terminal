@@ -32,16 +32,12 @@ public sealed class AccessibleNameSweepTests
     /// </summary>
     private static readonly IReadOnlySet<string> KnownUnnamed = new HashSet<string>
     {
-        // RiskPlanEditor's take-profit ladder. Every other field in that editor uses
-        // <label for="risk-…">; the ladder rows cannot, because they are rendered in a @foreach
-        // and a fixed id would collide across rungs. So the visible "R:" / "Close fraction:" /
-        // "TP1:" text is not attached to anything, and a screen-reader user arrives at an
-        // unlabelled spin button while setting take-profit levels on a real trade.
-        "StrategyModal|Build Setup|select after “TP1:”",
-        "StrategyModal|Build Setup|select after “TP2:”",
-        "StrategyModal|Build Setup|select after “TP3:”",
-        "StrategyModal|Build Setup|input type=number after “R:”",
-        "StrategyModal|Build Setup|input type=number after “Close fraction:”",
+        // RiskPlanEditor's take-profit ladder held five entries here until 2026-08-29. The
+        // reason recorded for them — "the ladder rows are a @foreach and a fixed id would
+        // collide across rungs" — was the whole obstacle, and it dissolves the moment the id
+        // is derived from the rung index instead of fixed. Each control now carries both an
+        // id/for pair (attaching the visible "R:" / "Close fraction:" text) and an aria-label
+        // naming its rung, because three rows of "R" is a form-field list that says nothing.
 
         // Named only by its placeholder, which disappears as soon as the field has content.
         "SoundDesignerModal|(initial)|[placeholder-only] textarea #sd-import-json",

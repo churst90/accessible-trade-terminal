@@ -49,13 +49,27 @@ namespace AccessibleTrader.Tests
             return text;
         }
 
+        /// <summary>
+        /// Every component that puts up a dialog, by its declared role.
+        ///
+        /// <para>
+        /// <c>alertdialog</c> counts, and leaving it out was a live hole rather than a
+        /// theoretical one: the Toolbar's shape-change confirmation declared
+        /// <c>role="alertdialog"</c> and skipped the entire contract — no
+        /// <c>ModalStateChangedEvent</c>, no focus move, no Escape — and this scan, which exists
+        /// to catch exactly that, could not see it. A role the scanner does not know is a way
+        /// out of the contract, so the list is the whole ARIA dialog family rather than the one
+        /// role most modals happen to use.
+        /// </para>
+        /// </summary>
         private static IEnumerable<string> DialogComponents()
         {
+            string[] roles = { "dialog", "alertdialog" };
             string componentsDir = Path.Combine(RepoRoot(), "AccessibleTrader.BlazorClient.Components");
             foreach (var file in Directory.EnumerateFiles(componentsDir, "*.razor", SearchOption.AllDirectories))
             {
                 var text = File.ReadAllText(file);
-                if (text.Contains("role=\"dialog\"") || text.Contains("role='dialog'"))
+                if (roles.Any(r => text.Contains($"role=\"{r}\"") || text.Contains($"role='{r}'")))
                     yield return file;
             }
         }

@@ -18,6 +18,7 @@
                           OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
 *@
 <button type="button"
+        id="@ElementId"
         class="@ButtonClass"
         title="@Tooltip"
         aria-label="@EffectiveAriaLabel"
@@ -45,6 +46,14 @@
 
     /// <summary>Hover tooltip — typically the full phrase plus the keyboard shortcut.</summary>
     [Parameter] public string? Tooltip { get; set; }
+
+    /// <summary>
+    /// Optional DOM id. Set it only when something needs to put focus back here — the
+    /// shape-change confirmation returns focus to the Load button when it closes, and
+    /// <c>accessibleTrader.focusElement</c> addresses elements by id. Null renders no
+    /// attribute at all, so the other twenty-odd buttons are unaffected.
+    /// </summary>
+    [Parameter] public string? ElementId { get; set; }
 
     /// <summary>
     /// Accessible label. Defaults to <see cref="Label"/> when null; override for

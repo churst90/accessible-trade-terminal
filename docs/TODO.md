@@ -117,8 +117,43 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29, THIRD session that day — the Label-in-Name gaps are
-> closed, and the finding that opened them was half wrong).**
+> **START HERE (current as of 2026-08-29, FOURTH session that day — the take-profit ladder has
+> names and the Toolbar's hidden dialog joined the modal contract).**
+>
+> **The TP ladder is named.** `RiskPlanEditor`'s rungs are rendered in a `@foreach`, and the
+> reason recorded against the five `KnownUnnamed` entries — "a fixed id would collide across
+> rungs" — was the whole obstacle. It dissolves the moment the id is derived from the loop index.
+> Each control now carries an id/for pair (attaching the visible "R:" / "Close fraction:" text)
+> **and** an aria-label naming its rung, because three rows of "R" in a form-field list does not
+> say which target it sets. Proved by restoring the old markup with the pins struck off: the
+> sweep names all five controls straight back.
+>
+> **The Toolbar's shape-change confirmation now honours the modal contract, and the scanner can
+> see it.** It declared `role="alertdialog"` and implemented none of the contract — no
+> `ModalStateChangedEvent` (so it was never on the dispatcher's modal stack: Escape went to the
+> chart, MainLayout never armed the Tab trap, and on MAUI the SkiaSharp canvas stayed visible so
+> the dialog drew UNDERNEATH it), and no focus move. `ModalContractScanTests` scanned
+> `role="dialog"` only and could not see any of it. **A role the scanner does not know is a way
+> out of the contract** — it now covers the whole ARIA dialog family. Escape maps to Cancel
+> deliberately: a dialog warning that a load will discard the user's indicators must not read
+> "get me out of here" as consent to discard them.
+>
+> **Guarded twice on purpose.** The source scan cannot watch behaviour; a behavioural test on one
+> dialog cannot stop the next one skipping the contract entirely. `ToolbarShapeChangeDialogTests`
+> is the behavioural half (4 cases, one of them a vacuity check that an ordinary load raises no
+> dialog at all), and all four go red against the pre-fix code.
+>
+> **A sixth flake surfaced in verification and was fixed, not filed.**
+> `TradingDashboardDecouplingTests.Close_at_limit_…` used `Find` on an element rendered by the
+> click above it. **Three sibling tests in the same file already use `WaitForElement` with a
+> comment explaining that exact race** — this site was missed when they were converted.
+> Generalise: **when a race is fixed, grep the file for every other instance of the pattern**,
+> not just the sites that happened to be failing.
+>
+> ---
+>
+> **Previous (2026-08-29, THIRD session that day — the Label-in-Name gaps are closed, and the
+> finding that opened them was half wrong).**
 >
 > **All 32 pinned WCAG 2.5.3 gaps are fixed, plus 15 more nobody had counted.** The pinned set was
 > buttons — a visible "Save Profile" announcing as "Save new API key profile", so a voice-control
@@ -965,6 +1000,19 @@ asynchronously-emitted events is a stopwatch.** It passes while the queue is beh
 the machine is fast enough to catch up — which is why this one only ever appeared under full-suite
 load. Look for `Assert.Equal(n, spy.Something().Count)` where the production code schedules any part
 of the thing being counted.
+
+### A sixth flake, found and FIXED 2026-08-29 — one site missed when its siblings were converted
+
+`TradingDashboardDecouplingTests.Close_at_limit_rests_a_reduce_only_limit_order_at_the_typed_price`
+failed a full Release run (`No elements were found that matches 'input[id^='close-limit-']'`) and
+passed in isolation. Same bUnit render-settle family as F1's two, and **the fix was already written
+down three tests below it**: the limit field is rendered BY the click above it, bUnit queues the
+handler on the renderer's dispatcher, so `Click` returns before the field exists. Three sibling
+tests use `WaitForElement` with a comment saying exactly that; this one still used `Find`.
+
+**The lesson is about how a flake fix ends: converting the sites that were failing is not the same
+as converting the sites that can fail.** When a race is found, grep the file for every other
+instance of the pattern before closing it — this one waited seven weeks for a loaded runner.
 
 ### CONFIRMED — F2. Speech interruption is unguarded everywhere (HIGH)
 
@@ -1917,10 +1965,14 @@ The rule for this phase is demonstrate or say you did not, so:
 
 ### The work A3 creates
 
-- [ ] **(F1)** Give the TP-ladder rungs in `RiskPlanEditor.razor` accessible names — per-rung ids
-  (`risk-tp-@idx-kind`, `risk-tp-@idx-value`, `risk-tp-@idx-portion`) with matching `for`, or
-  `aria-label`. Acceptance test: delete the entries from `AccessibleNameSweepTests.KnownUnnamed`
-  and the sweep must stay green. MEDIUM.
+- [x] **(F1) DONE 2026-08-29.** The TP-ladder rungs now carry per-rung ids
+  (`risk-tp-{idx}-kind` / `-value` / `-close`) with matching `for`, **and** an `aria-label` naming
+  the rung. Both halves are needed: the `for` attaches the visible "R:" / "Close fraction:" text to
+  its own field, and the aria-label adds the rung number, because three rows of "R" in a form-field
+  list says nothing about which target it sets. The five `KnownUnnamed` entries are struck off, and
+  the reason recorded against them — "a fixed id would collide across rungs" — was the whole
+  obstacle and dissolves the moment the id is derived from the loop index. Proved by restoring the
+  old markup with the pins removed: the sweep names all five controls back.
 - [ ] **(F2)** Give `textarea#sd-import-json` a real label. Same acceptance test. LOW.
 - [ ] **(F3)** Make Shift+F12 with no focused series say so instead of returning silently. LOW.
 - [ ] **(F4)** Read the timeout in
@@ -8988,11 +9040,18 @@ impossible for any test to notice a focus bug.
   `await RefreshBookAsync()` is outside the try/catch. A transient 429 or an unsupported-symbol
   throw faults a task on the thread pool: on MAUI that reaches the unhandled handler and the process
   dies, on the WebHost it kills the circuit — while a blind trader is watching an open position.
-- [ ] **`Toolbar.razor:405-431`'s shape-change confirmation is a `role="alertdialog"` that publishes
-  no `ModalStateChangedEvent`, moves no focus and is not Escape-closable** — and
-  `ModalContractScanTests` scans for `role="dialog"` only, so it is invisible to the scanner. A live
-  example of the creative evasion the scanner exists to catch. On MAUI the SkiaSharp canvas is never
-  hidden, so it draws *underneath* the chart.
+- [x] **DONE 2026-08-29 — `Toolbar.razor`'s shape-change confirmation now honours the modal
+  contract**, and `ModalContractScanTests` covers `role="alertdialog"` so the next one cannot
+  evade it the same way. It now publishes `ModalStateChangedEvent(true/false, "ShapeChangeWarning")`
+  — which is what puts it on `CommandDispatcher`'s modal stack, arms MainLayout's Tab trap and
+  hides the MAUI canvas — focuses its heading (`tabindex="-1"`) on open, returns focus to the Load
+  button (new `ToolbarIconButton.ElementId`) on **every** path out, and closes on Escape via
+  `CloseTopModalEvent`. **Escape maps to Cancel deliberately: a dialog warning that a load will
+  discard the user's indicators must not read "get me out of here" as consent to discard them.**
+  Guarded twice, because neither guard is sufficient alone — the scan cannot watch behaviour, and a
+  behavioural test on one dialog cannot stop the next one skipping the contract entirely: the
+  extended source scan, plus `ToolbarShapeChangeDialogTests` (4 cases, including a vacuity check
+  that an ordinary load raises no dialog at all). All four go red against the pre-fix code.
 - [ ] **Silent early returns.** `TradingDashboardModal:788` returns before `_isVisible = true` when
   no chart is loaded, so Alt+T produces no dialog, no earcon and no speech; same in
   `PropertiesModal:713` (P with no series selected) and `DrawingContextMenu:88`. There is a house

@@ -8,8 +8,10 @@
 @using AccessibleTrader.Sdk.Models
 @using AccessibleTrader.Sdk.Plugins
 @using Microsoft.Extensions.Logging
+@using Microsoft.JSInterop
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
 @inject IMarketOrchestrator MarketOrchestrator
 @inject ILogger<Toolbar> Logger
 @inject DemoPolicy Demo
@@ -319,6 +321,7 @@
         }
 
         <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"
+                          ElementId="toolbar-load-btn"
                           Disabled="@(!CanLoad)"
                           Tooltip="Load chart for selected symbol"
                           AriaLabel="Load chart for selected symbol"
@@ -401,14 +404,26 @@
     or drawings) that would be stripped. Gives three options: Continue (destructive
     — strip everything non-core and load), Open in New Tab (preserves the current
     tab and loads into a fresh one), or Cancel. Inline rather than a separate
-    modal component to keep the change surgical. *@
+    modal component to keep the change surgical.
+
+    It is inline but it is still a modal, and until 2026-08-29 it behaved like neither. It
+    published no ModalStateChangedEvent, so the dispatcher's modal stack never knew it was
+    open — Escape went to the chart instead, and MainLayout (which arms the Tab trap off that
+    same event) never trapped Tab, so Tab walked out of a confirmation the user had not
+    answered. It moved no focus either, so a screen-reader user was left standing on the Load
+    button with a destructive prompt unread on screen. On MAUI the SkiaSharp canvas is hidden
+    by that same event, so this drew UNDERNEATH the chart. ModalContractScanTests scanned for
+    role="dialog" only and could not see any of it; it now covers alertdialog too. *@
 @if (_showSwitchWarning)
 {
-    <div role="alertdialog" aria-labelledby="switchWarnTitle" aria-describedby="switchWarnBody"
+    <div role="alertdialog" aria-modal="true"
+         aria-labelledby="switchWarnTitle" aria-describedby="switchWarnBody"
          style="position:fixed; top:30%; left:50%; transform:translateX(-50%);
                 background:#222; color:#eee; padding:16px 20px; border:2px solid #ff8c00;
                 border-radius:6px; z-index:9999; max-width:480px; box-shadow:0 4px 20px rgba(0,0,0,0.6);">
-        <h3 id="switchWarnTitle" style="margin-top:0; color:#ff8c00;">Switching to analytics</h3>
+        @* tabindex="-1" so the heading can take programmatic focus — that is what makes a
+           screen reader read the dialog's name and, via aria-describedby, what it is about. *@
+        <h3 id="switchWarnTitle" tabindex="-1" style="margin-top:0; color:#ff8c00;">Switching to analytics</h3>
         <p id="switchWarnBody" style="margin:8px 0;">
             This provider returns scalar metric data, not OHLCV. Loading it on the current
             tab will remove @_stripCount indicator(s) and drawing(s). Trading-mode tools
@@ -438,6 +453,7 @@
     private IDisposable? _splitSub;
     private IDisposable? _replaySub;
     private IDisposable? _apiKeysSub;
+    private IDisposable? _switchWarnSub;
     private string? _loadError;
 
     // ── Custom timeframe composer state ──────────────────────────────────
@@ -572,6 +588,15 @@
         // deliberately re-renders AFTER them by hopping through InvokeAsync.
         _splitSub  = EventBus.Subscribe<SplitViewCommandEvent>(_ => InvokeAsync(StateHasChanged));
         _replaySub = EventBus.Subscribe<ReplayCommandEvent>(_ => InvokeAsync(StateHasChanged));
+
+        // Escape closes the shape-change confirmation, and Escape means CANCEL: it is the
+        // non-destructive branch, and a dialog that warns about stripping the user's work
+        // must not treat "get me out of here" as consent to strip it.
+        _switchWarnSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
+        {
+            if (_showSwitchWarning && e.ModalName == "ShapeChangeWarning")
+                InvokeAsync(CloseSwitchWarningAsync);
+        });
 
         _loadChartSub = EventBus.Subscribe<LoadChartRequestedEvent>(_ => InvokeAsync(async () =>
         {
@@ -771,7 +796,15 @@
                 // Show the warning; the user picks Continue / New Tab / Cancel below.
                 _stripCount = nonCoreCount;
                 _showSwitchWarning = true;
+                // Pushes this dialog onto CommandDispatcher's modal stack (so Escape targets
+                // it), arms MainLayout's Tab trap, and on MAUI hides the SkiaSharp canvas.
+                EventBus.Publish(new ModalStateChangedEvent(true, "ShapeChangeWarning"));
                 StateHasChanged();
+                await Task.Yield();
+                // Best-effort exactly as in ModalBase.ShowModalAsync — a JS failure must not
+                // take the dialog with it; it is still reachable by Tab.
+                try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "switchWarnTitle"); }
+                catch { /* non-critical */ }
                 return;
             }
         }
@@ -797,15 +830,43 @@
         }
     }
 
-    private async Task ConfirmSwitchDestructive()
+    /// <summary>
+    /// Dismisses the shape-change dialog on every path out of it — Continue, New Tab, Cancel
+    /// and Escape.
+    ///
+    /// <para>
+    /// The close event is published from here rather than from each handler for the reason
+    /// the modal contract exists at all: a path that clears <c>_showSwitchWarning</c> and
+    /// forgets the event leaves the dialog on the dispatcher's stack, so the next Escape
+    /// closes nothing and, on MAUI, the chart canvas stays hidden until restart.
+    /// </para>
+    ///
+    /// <para>
+    /// Focus returns to the Load button on every path, including the two that load a chart.
+    /// A dismissed dialog must not drop focus to <c>&lt;body&gt;</c>, and the button the user
+    /// pressed to get here is the one place they can predict — a load that follows moves focus
+    /// itself, so this is the floor rather than a fight over it.
+    /// </para>
+    /// </summary>
+    private async Task CloseSwitchWarningAsync()
     {
         _showSwitchWarning = false;
+        EventBus.Publish(new ModalStateChangedEvent(false, "ShapeChangeWarning"));
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "toolbar-load-btn"); }
+        catch { /* non-critical */ }
+    }
+
+    private async Task ConfirmSwitchDestructive()
+    {
+        await CloseSwitchWarningAsync();
         await DoLoadChartAsync();
     }
 
     private async Task ConfirmSwitchNewTab()
     {
-        _showSwitchWarning = false;
+        await CloseSwitchWarningAsync();
         try
         {
             await MarketOrchestrator.LoadChartInNewTabAsync();
@@ -817,11 +878,7 @@
         }
     }
 
-    private void CancelSwitch()
-    {
-        _showSwitchWarning = false;
-        StateHasChanged();
-    }
+    private Task CancelSwitch() => CloseSwitchWarningAsync();
 
     public void Dispose() {
         _pipelineSub?.Dispose();
@@ -830,5 +887,6 @@
         _splitSub?.Dispose();
         _replaySub?.Dispose();
         _apiKeysSub?.Dispose();
+        _switchWarnSub?.Dispose();
     }
 }
