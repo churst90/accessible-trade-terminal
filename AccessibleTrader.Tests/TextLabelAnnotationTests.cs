@@ -228,7 +228,7 @@ namespace AccessibleTrader.Tests
             sonifier.SyncNavigationSlots(onLabel);
             sonifier.SyncNavigationSlots(onLabel);
 
-            Assert.Single(driver.UiNotes());
+            Assert.Single(Arrivals(driver.UiNotes()));
         }
 
         [Fact]
@@ -245,7 +245,7 @@ namespace AccessibleTrader.Tests
             sonifier.SyncNavigationSlots(StateWith(candles, label, focusedId: "candles", currentIndex: 0));
             sonifier.SyncNavigationSlots(StateWith(candles, label, focusedId: "candles", currentIndex: 1));
 
-            Assert.Equal(2, driver.UiNotes().Count);
+            Assert.Equal(2, Arrivals(driver.UiNotes()).Count);
         }
 
         [Fact]
@@ -391,6 +391,35 @@ namespace AccessibleTrader.Tests
         /// ARRIVES, never how long the scheduler took — the repo rule is that audio is never
         /// timed against the wall clock.
         /// </summary>
+        /// <summary>
+        /// One entry per ARRIVAL, not per note — which is what the two guards either side of the
+        /// figure are actually about.
+        ///
+        /// <para>
+        /// The earcon is two notes and the second is scheduled 55 ms out, so a raw note count is
+        /// a stopwatch: "one arrival" reads as 1 note before the partner lands and 2 after, and
+        /// "two arrivals" as 2, 3 or 4. Both counted raw until 2026-08-29, when
+        /// <c>LeavingAndReturningPlaysTheEarconAgain</c> caught the middle value on a loaded
+        /// Debug run — expected 2, got 3 — and a 300 ms settle before the assertion turned it
+        /// into a deterministic 4. **They were passing on the partner note being late, not on the
+        /// guard being right.**
+        /// </para>
+        ///
+        /// <para>
+        /// The arrival note is the one played synchronously, so it is always the first recorded,
+        /// and every arrival plays it at the same pitch: counting notes at that pitch counts
+        /// arrivals no matter which partners have landed. Taken from the recording rather than
+        /// from the sonifier's constants deliberately — reading the pitch back would make this
+        /// agree with any value it takes. It relies on the two notes of a figure having different
+        /// pitches, which is the property <c>TheEarconIsATwoNoteFigure</c> asserts
+        /// directly, so a change that broke this assumption fails there first.
+        /// </para>
+        /// </summary>
+        private static List<VoiceCall> Arrivals(List<VoiceCall> uiNotes) =>
+            uiNotes.Count == 0
+                ? uiNotes
+                : uiNotes.Where(c => c.Frequency == uiNotes[0].Frequency).ToList();
+
         private static async Task WaitForUiNotes(SpyDriver driver, int count)
         {
             for (int i = 0; i < 200 && driver.UiNotes().Count < count; i++)

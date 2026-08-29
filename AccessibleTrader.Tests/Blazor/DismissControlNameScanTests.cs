@@ -27,8 +27,11 @@
 // markup cannot); this file is the authority on whether the name SAYS anything, which markup can.
 //
 // Both halves of WCAG's naming guidance are asserted: 2.4.6 (labels describe purpose) as the rule
-// above, and 2.5.3 Label in Name — an aria-label must still contain the button's visible text, or
-// a speech-input user saying what they can see does not activate it.
+// above, and 2.5.3 Label in Name — an aria-label must still contain the control's visible text, or
+// a speech-input user saying what they can see does not activate it. 2.5.3 is checked in both the
+// places the visible text can live: inside a <button>, and in a <label for> pointing at an input
+// or select. The 32 button gaps found on 2026-08-28 and the 15 label/for ones found on 2026-08-29
+// are all closed, so neither assertion carries an exemption list.
 
 using System.Text.RegularExpressions;
 
@@ -128,69 +131,25 @@ public class DismissControlNameScanTests
     }
 
     /// <summary>
-    /// The controls that already fail WCAG 2.5.3, as of 2026-08-28.
-    ///
-    /// <para>
-    /// An exact set rather than a budget, the same discipline as
-    /// <c>AccessibleNameSweepTests.KnownUnnamed</c>: it fails when something new appears AND when
-    /// one of these is fixed without being struck off, so the list cannot quietly become a
-    /// permanent exemption. Keyed on file plus visible text — a line number churns on every edit
-    /// above it, and rewording the visible text is itself a reason to re-examine the entry.
-    /// Duplicates within one file collapse (SettingsModal has three "Send test" buttons); that is
-    /// deliberate, since they are the same defect written three times.
-    /// </para>
-    ///
-    /// <para>
-    /// Closing these is filed as its own item — see docs/TODO.md. It is not part of M19: M19 is
-    /// about a name that says nothing, and every entry here already says a great deal. The defect
-    /// is the reverse one, a label so much richer than the visible text that the visible text is
-    /// no longer inside it.
-    /// </para>
-    /// </summary>
-    private static readonly IReadOnlySet<string> KnownLabelInNameGaps = new HashSet<string>(
-        StringComparer.Ordinal)
-    {
-        "AIAnalystModal|Review setups today",
-        "ApiKeysModal|Save Profile",
-        "ConditionTreeEditor|+ Group at root",
-        "ConditionTreeEditor|+ Leaf at root",
-        "CustomScriptsModal|&#128194; Import from file…",
-        "CustomScriptsModal|+ Add to Chart",
-        "CustomScriptsModal|Export .atpkg",
-        "JournalModal|Copy visible",
-        "SettingsModal|Add webhook",
-        "SettingsModal|Customise…",
-        "SettingsModal|Export CSV",
-        "SettingsModal|Reset to theme default",
-        "SettingsModal|Send test",
-        "SettingsModal|Speak status",
-        "SettingsModal|Use theme's",
-        "SoundDesignerModal|Export JSON",
-        "StrategyModal|Clear range",
-        "StrategyModal|Go to Build Setup",
-        "StrategyModal|Walk-fwd: first half",
-        "StrategyModal|Walk-fwd: last half",
-        "SummaryExport|Add to Engine",
-        "SummaryExport|Import latest",
-        "SummaryExport|🔊 Read aloud",
-        "SummaryExport|Save spec",
-        "ThemeEditorModal|Reset all",
-        "TradingDashboardModal|Place OCO pair",
-        "WalletModal|Get address",
-        "WalletModal|Read character by character",
-        "WatchlistModal|Add all shown",
-        "WatchlistModal|Delete list",
-        "WithdrawModal|Get quote",
-        "WithdrawModal|Read characters",
-    };
-
-    /// <summary>
     /// WCAG 2.5.3 Label in Name. The fix for the rule above is to add an aria-label, and the
     /// wrong version of that fix — a label that replaces the visible text instead of extending it
     /// — breaks voice control: "click Close" no longer matches a button whose name is
     /// "Dismiss the alerts panel". Asserted here so the remedy cannot introduce a second defect,
     /// and it caught one while this file was being written (DrawingToolsModal already carried
     /// aria-label="Close dialog", which is generic; the replacement had to keep "Close" in it).
+    ///
+    /// <para>
+    /// This assertion carried an exact <c>KnownLabelInNameGaps</c> exemption set of 32 controls
+    /// from 2026-08-28 until 2026-08-29, when all 32 were fixed and the set was deleted rather
+    /// than emptied — a zero-length allow-list is an invitation to grow one again. Every entry was
+    /// the reverse of M19: a label so much richer than the visible text ("Save Profile" announced
+    /// as "Save new API key profile") that the visible text was no longer inside it. The fix shape
+    /// that closed all 32 is the one to repeat — <b>extend the visible text, do not describe the
+    /// control afresh</b>: "Save Profile as a new API key profile", "Export CSV of the chart data",
+    /// with a colon only where the visible words do not flow into the rest. The visible words stay
+    /// contiguous and at the front, so the announcement still leads with the word a sighted user
+    /// would read out and a voice-control user would say.
+    /// </para>
     /// </summary>
     [Fact]
     public void AnAriaLabelContainsTheControlsVisibleText()
@@ -203,22 +162,105 @@ public class DismissControlNameScanTests
             .Where(c => !ContainsVisibleWords(c.Name, c.VisibleText))
             .ToList();
 
-        string Key(Control c) => $"{Path.GetFileNameWithoutExtension(c.File)}|{c.VisibleText}";
-
-        var unexpected = mismatched.Where(c => !KnownLabelInNameGaps.Contains(Key(c))).ToList();
-        Assert.True(unexpected.Count == 0,
+        Assert.True(mismatched.Count == 0,
             "These controls carry an aria-label that does not contain their visible text, so a "
             + "speech-input user reading the screen aloud cannot activate them. Extend the visible "
             + "text rather than replacing it:\n  "
-            + string.Join("\n  ", unexpected.Select(c =>
+            + string.Join("\n  ", mismatched.Select(c =>
                 $"{c.File}:{c.Line}  visible \"{c.VisibleText}\" vs announced \"{c.Name}\"")));
+    }
 
-        var stillListed = mismatched.Select(Key).ToHashSet(StringComparer.Ordinal);
-        var fixedSince = KnownLabelInNameGaps.Where(k => !stillListed.Contains(k)).ToList();
-        Assert.True(fixedSince.Count == 0,
-            "These were on KnownLabelInNameGaps and no longer violate 2.5.3 — good. Delete them "
-            + "from the list so it keeps meaning something:\n  "
-            + string.Join("\n  ", fixedSince.Order()));
+    // A <label for="x"> paired with the element carrying id="x". The open tag is stepped over the
+    // same way as a button's, so a for= inside a quoted attribute value cannot end the tag early.
+    private static readonly Regex LabelElement =
+        new(@"<label\b(?:[^>""']|""[^""]*""|'[^']*')*>(.*?)</label>",
+            RegexOptions.Singleline | RegexOptions.Compiled);
+    private static readonly Regex ForAttr = new(@"\bfor\s*=\s*""([^""]*)""", RegexOptions.Compiled);
+    private static readonly Regex ClassAttr = new(@"\bclass\s*=\s*""([^""]*)""", RegexOptions.Compiled);
+    private static readonly Regex FormControl =
+        new(@"<(?:input|select|textarea|button)\b(?:[^>""']|""[^""]*""|'[^']*')*/?>",
+            RegexOptions.Singleline | RegexOptions.Compiled);
+    private static readonly Regex IdAttr = new(@"\bid\s*=\s*""([^""]*)""", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Every form control that is named by an <c>aria-label</c> while a visible
+    /// <c>&lt;label for&gt;</c> points at it. The <c>aria-label</c> wins, so the visible label is
+    /// what the user reads and the <c>aria-label</c> is what voice control matches — exactly the
+    /// 2.5.3 pairing. <c>sr-only</c> labels are excluded: 2.5.3 is about text the user can SEE,
+    /// and a visually-hidden label is not it.
+    /// </summary>
+    private static List<Control> ScanLabelledControls()
+    {
+        var found = new List<Control>();
+
+        foreach (var file in Directory.EnumerateFiles(ComponentsDir(), "*.razor", SearchOption.AllDirectories)
+                                      .OrderBy(f => f, StringComparer.Ordinal))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
+            var src = File.ReadAllText(file);
+            var name = Path.GetFileName(file);
+
+            var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (Match m in LabelElement.Matches(src))
+            {
+                var openTag = m.Value[..(m.Groups[1].Index - m.Index)];
+                var target = ForAttr.Match(openTag);
+                if (!target.Success) continue;
+                var cls = ClassAttr.Match(openTag);
+                if (cls.Success && cls.Groups[1].Value.Contains("sr-only", StringComparison.Ordinal)) continue;
+                labels[target.Groups[1].Value] = Tag.Replace(m.Groups[1].Value, " ").Trim();
+            }
+
+            foreach (Match m in FormControl.Matches(src))
+            {
+                var id = IdAttr.Match(m.Value);
+                var label = AriaLabel.Match(m.Value);
+                if (!id.Success || !label.Success) continue;
+                if (!labels.TryGetValue(id.Groups[1].Value, out var visible)) continue;
+                if (visible.Length == 0 || visible.Contains('@')) continue;
+                if (label.Groups[1].Value.Contains('@')) continue;
+                if (Words.Matches(visible).Count == 0) continue;
+
+                found.Add(new Control(name, src[..m.Index].Count(c => c == '\n') + 1,
+                                      label.Groups[1].Value, visible, FromAriaLabel: true));
+            }
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// WCAG 2.5.3 again, for the other half of the library — the inputs and selects, where the
+    /// visible text is a sibling <c>&lt;label for&gt;</c> rather than the element's own content.
+    ///
+    /// <para>
+    /// 15 controls failed this when it was written on 2026-08-29, in the same shape as the button
+    /// gaps and for the same reason: the <c>aria-label</c> was written as a fuller description
+    /// instead of an extension of the label, so "Profile Name" announced as "Profile nickname" and
+    /// "Min size" as "Minimum order size to announce". Fixed rather than pinned, so this starts
+    /// life with no exemption list at all.
+    /// </para>
+    ///
+    /// <para>
+    /// One thing this REFUTES, and it is recorded because a filed finding said otherwise: the
+    /// Toolbar's <c>&lt;label for="market-select"&gt;Market:&lt;/label&gt;</c> paired with
+    /// <c>aria-label="Select market"</c> is NOT a violation. The criterion is containment, not
+    /// equality — "Select market" contains "market", so a speech-input user saying "click Market"
+    /// does match it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ALabelledControlsAriaLabelContainsItsVisibleLabel()
+    {
+        var mismatched = ScanLabelledControls()
+            .Where(c => !ContainsVisibleWords(c.Name, c.VisibleText))
+            .ToList();
+
+        Assert.True(mismatched.Count == 0,
+            "These controls have a visible <label for> AND an aria-label that overrides it without "
+            + "containing it, so the name a user can read is not the name voice control matches. "
+            + "Extend the label's own words rather than describing the control afresh:\n  "
+            + string.Join("\n  ", mismatched.Select(c =>
+                $"{c.File}:{c.Line}  visible \"{c.VisibleText}\" vs announced \"{c.Name}\"")));
     }
 
     private static bool ContainsVisibleWords(string accessibleName, string visibleText)
@@ -260,5 +302,27 @@ public class DismissControlNameScanTests
             $"Only {controls.Count(c => c.FromAriaLabel)} controls were read via aria-label. "
             + "A2/F9 counted 193 literal aria-label values in this library; if this number falls "
             + "off, the attribute regex is no longer matching them.");
+
+        // The population the 2.5.3 assertion actually judges: an aria-label AND statically
+        // readable visible text. It is narrower than the count above (a labelled icon-only button
+        // has no visible words and is exempt by construction), and since the 32-entry exemption
+        // set was deleted that assertion is a bare "no matches" — so the thing it would be
+        // vacuous against is this number collapsing, not the two above it. 114 when written.
+        var judged = controls.Count(c => c.FromAriaLabel
+                                         && c.VisibleText.Length > 0
+                                         && !c.VisibleText.Contains('@'));
+        Assert.True(judged >= 80,
+            $"Only {judged} controls carry both an aria-label and static visible text, so only "
+            + "that many are subject to the Label-in-Name assertion. It was 114 when the last gap "
+            + "was closed; a collapse means that assertion is passing against almost nothing.");
+
+        // Same argument for the <label for> half: it depends on a second element regex and on the
+        // id/for join succeeding, either of which can silently stop matching. 47 when written.
+        var labelled = ScanLabelledControls().Count;
+        Assert.True(labelled >= 30,
+            $"Only {labelled} form controls were found with both a visible <label for> and an "
+            + "aria-label. It was 47 when the label/for gaps were closed; a collapse means the "
+            + "label regex or the id/for join stopped matching and "
+            + nameof(ALabelledControlsAriaLabelContainsItsVisibleLabel) + " judges nothing.");
     }
 }

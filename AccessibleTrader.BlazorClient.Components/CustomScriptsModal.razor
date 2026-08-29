@@ -105,11 +105,11 @@
                             </button>
                             @if (_compiledIndicator != null)
                             {
-                                <button @onclick="AddToChart" aria-label="Add compiled indicator to chart" class="primary">
+                                <button @onclick="AddToChart" aria-label="Add to Chart: the compiled custom indicator" class="primary">
                                     + Add to Chart
                                 </button>
                             }
-                            <button @onclick="ExportAtpkg" aria-label="Export as .atpkg file">
+                            <button @onclick="ExportAtpkg" aria-label="Export .atpkg package file">
                                 Export .atpkg
                             </button>
                         </div>
@@ -128,7 +128,7 @@
                 <summary style="cursor:pointer; font-weight:bold; padding:4px 0;">Import .atpkg</summary>
                 <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; gap:8px; align-items:center;">
-                        <button @onclick="ImportAtpkgFromFile" aria-label="Import .atpkg file from disk">
+                        <button @onclick="ImportAtpkgFromFile" aria-label="Import from file: an .atpkg package on disk">
                             &#128194; Import from file…
                         </button>
                         <span style="font-size:0.8rem; color:var(--text-muted);">— or paste legacy JSON below —</span>

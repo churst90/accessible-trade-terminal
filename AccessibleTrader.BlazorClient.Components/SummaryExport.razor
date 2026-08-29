@@ -25,7 +25,7 @@
     <legend style="font-weight: 700; padding: 0 6px;">Save &amp; Run</legend>
 
     <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-        <button type="button" class="primary" @onclick="SaveSpec" aria-label="Save current strategy spec to library">
+        <button type="button" class="primary" @onclick="SaveSpec" aria-label="Save spec to the strategy library">
             Save spec
         </button>
         <button type="button" @onclick="NewSpec" aria-label="Start a new empty strategy">
@@ -47,11 +47,11 @@
             </button>
         }
 
-        <button type="button" class="primary" @onclick="AddToEngine" aria-label="Register current strategy with the engine and auto-activate on next launch">
+        <button type="button" class="primary" @onclick="AddToEngine" aria-label="Add to Engine: register this strategy and auto-activate it on the next launch">
             Add to Engine
         </button>
 
-        <button type="button" @onclick="ReadAloud" aria-label="Speak the full strategy specification aloud">
+        <button type="button" @onclick="ReadAloud" aria-label="Read aloud the full strategy specification">
             🔊 Read aloud
         </button>
 
@@ -63,7 +63,7 @@
             Export
         </button>
 
-        <button type="button" @onclick="ImportFromFile" aria-label="Import the most recent .atstrat file from app data">
+        <button type="button" @onclick="ImportFromFile" aria-label="Import latest .atstrat file from app data">
             Import latest
         </button>
     </div>

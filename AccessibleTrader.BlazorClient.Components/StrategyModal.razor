@@ -135,7 +135,7 @@
                             </li>
                         </ul>
                         <button type="button" @onclick='() => _activeTab = "build"'
-                                aria-label="Go to the Build Setup tab and compose a strategy">
+                                aria-label="Go to Build Setup tab and compose a strategy">
                             Go to Build Setup
                         </button>
                     </div>
@@ -441,17 +441,17 @@
                     </div>
                     <div style="display: flex; gap: 6px; align-items: center;">
                         <button type="button" @onclick="WalkForwardFirstHalf"
-                                aria-label="Set date range to the first half of the loaded data for walk-forward testing"
+                                aria-label="Walk-fwd: first half — set the date range to the first half of the loaded data for walk-forward testing"
                                 title="Splits the loaded chart data in half by time and sets the date range to the earlier half. Run the backtest, note the metrics, then click 'Last half' and run again to compare across regimes.">
                             Walk-fwd: first half
                         </button>
                         <button type="button" @onclick="WalkForwardLastHalf"
-                                aria-label="Set date range to the last half of the loaded data for walk-forward testing"
+                                aria-label="Walk-fwd: last half — set the date range to the last half of the loaded data for walk-forward testing"
                                 title="Sets the date range to the later half of the loaded data. Pair with 'first half' to detect time-localized edge decay.">
                             Walk-fwd: last half
                         </button>
                         <button type="button" @onclick="ClearDateRange"
-                                aria-label="Clear the date range filter and use all loaded bars">
+                                aria-label="Clear range filter and use all loaded bars">
                             Clear range
                         </button>
                     </div>
@@ -689,7 +689,7 @@ public class MyStrategy : BaseStrategy
                 <textarea id="custom-script-code"
                           rows="14"
                           style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.85rem; background: #111; color: #ccc; border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; resize: vertical;"
-                          aria-label="Custom strategy C sharp code editor"
+                          aria-label="C# Code editor, C sharp, for the custom strategy"
                           value="@_customScriptCode"
                           @oninput="e => _customScriptCode = e.Value?.ToString() ?? string.Empty">
                 </textarea>

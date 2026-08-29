@@ -197,7 +197,7 @@
 
                                 <div class="entry-row">
                                     <label for="risk-pct">Risk % of balance</label>
-                                    <input id="risk-pct" type="number" step="0.1" min="0" aria-label="Risk percent of balance for position sizing" @bind="_riskPct" placeholder="Optional" />
+                                    <input id="risk-pct" type="number" step="0.1" min="0" aria-label="Risk % of balance, used for position sizing" @bind="_riskPct" placeholder="Optional" />
                                     <button type="button" @onclick="SizeFromRisk" aria-label="Size quantity from risk and stop">Size</button>
                                 </div>
 
@@ -232,7 +232,7 @@
                                 {
                                     <div class="entry-row">
                                         <label for="trailtp-activation">TP activation price</label>
-                                        <input id="trailtp-activation" type="number" step="any" aria-label="Trailing take-profit activation price, optional" @bind="_trailTpActivation" placeholder="Optional" />
+                                        <input id="trailtp-activation" type="number" step="any" aria-label="TP activation price for the trailing take-profit, optional" @bind="_trailTpActivation" placeholder="Optional" />
                                     </div>
                                 }
                                 }
@@ -354,7 +354,7 @@
                                         <input id="oco-stop" type="number" step="any" min="0" @bind="_ocoStopPrice" />
                                     </div>
                                     <button class="submit-btn" disabled="@(!CanSubmitOco || _orderInFlight)" @onclick="SubmitOcoPair"
-                                            aria-label="Place the OCO pair: limit and stop, one cancels the other">
+                                            aria-label="Place OCO pair: limit and stop, one cancels the other">
                                         Place OCO pair
                                     </button>
                                     @if (!string.IsNullOrEmpty(_ocoStatus))

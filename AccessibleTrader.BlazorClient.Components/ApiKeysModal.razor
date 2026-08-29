@@ -133,7 +133,7 @@
                 <div class="modal-row">
                     <label for="key-nickname">Profile Name</label>
                     <input id="key-nickname" type="text" placeholder="e.g. Alpaca Paper"
-                           @bind="_newNickname" aria-label="Profile nickname" />
+                           @bind="_newNickname" aria-label="Profile Name, a nickname for these credentials" />
                 </div>
 
                 <div class="modal-row">
@@ -220,7 +220,7 @@
                 <div style="margin-top:12px; display:flex; justify-content:flex-end;">
                     <button id="apikeys-save" class="primary"
                             @onclick="SaveNew"
-                            aria-label="Save new API key profile">
+                            aria-label="Save Profile as a new API key profile">
                         Save Profile
                     </button>
                 </div>

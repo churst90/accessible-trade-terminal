@@ -57,7 +57,7 @@
                         <label for="ob-announce"><input id="ob-announce" type="checkbox" checked="@_announceLarge" @onchange="e => _announceLarge = e.Value is bool b && b" /> Announce large orders</label>
                         @if (_announceLarge)
                         {
-                            <label for="ob-minsize">Min size <input id="ob-minsize" type="number" step="any" min="0" aria-label="Minimum order size to announce" @bind="_minSize" style="width:90px;" /></label>
+                            <label for="ob-minsize">Min size <input id="ob-minsize" type="number" step="any" min="0" aria-label="Min size of order to announce" @bind="_minSize" style="width:90px;" /></label>
                         }
                     </div>
                 }

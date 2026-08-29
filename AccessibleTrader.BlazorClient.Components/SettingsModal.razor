@@ -312,7 +312,7 @@
                                 (also on Ctrl+Alt+Shift+M).
                             </span>
                             <button type="button" @onclick="() => Monitoring.AnnounceStatus()"
-                                    aria-label="Speak background monitoring status">Speak status</button>
+                                    aria-label="Speak status of background monitoring">Speak status</button>
                         </div>
 
                         @* Local-only (the server outlives the browser here; on the hosted
@@ -422,7 +422,7 @@
                         <select id="s-touch-nav"
                                 value="@_touchNavMode"
                                 @onchange="OnTouchNavModeChanged"
-                                aria-label="Touch navigation bar visibility">
+                                aria-label="Touch toolbar visibility">
                             <option value="auto">Automatic (touch-screen devices only)</option>
                             <option value="show">Always show</option>
                             <option value="hide">Never show</option>
@@ -525,7 +525,7 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Data Export</legend>
                     <div class="modal-row">
                         <span style="flex:1; font-size:0.9rem;">Export visible chart data (OHLCV + indicators) to CSV</span>
-                        <button @onclick="ExportDataAsync" aria-label="Export chart data to CSV">Export CSV</button>
+                        <button @onclick="ExportDataAsync" aria-label="Export CSV of the chart data">Export CSV</button>
                     </div>
                     @if (!string.IsNullOrEmpty(_exportStatus))
                     {
@@ -572,7 +572,7 @@
                                @onchange="OnBackgroundColorChanged"
                                aria-label="Chart background color@(_backgroundGradient ? " (top of gradient)" : "")" />
                         <button @onclick="ResetBackgroundColor"
-                                aria-label="Reset background color to theme default">
+                                aria-label="Reset to theme default background color">
                             Reset to theme default
                         </button>
                     </div>
@@ -591,7 +591,7 @@
                             <input id="s-bg-color2" type="color"
                                    value="@_backgroundColor2"
                                    @onchange="OnBackgroundColor2Changed"
-                                   aria-label="Chart background gradient bottom color" />
+                                   aria-label="Background color (bottom) of the chart gradient" />
                         </div>
                     }
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
@@ -619,12 +619,12 @@
                             <label for="s-unified-top">Top of window</label>
                             <input id="s-unified-top" type="color" value="@_unifiedTop"
                                    @onchange="OnUnifiedTopChanged"
-                                   aria-label="Color at the very top of the window" />
+                                   aria-label="Top of window color" />
 
                             <label for="s-unified-bottom">Bottom of window</label>
                             <input id="s-unified-bottom" type="color" value="@_unifiedBottom"
                                    @onchange="OnUnifiedBottomChanged"
-                                   aria-label="Color at the very bottom of the window" />
+                                   aria-label="Bottom of window color" />
                         </div>
                     }
 
@@ -643,15 +643,15 @@
                         <label for="s-bull-color">Bullish (up)</label>
                         <input id="s-bull-color" type="color" value="@_bullishColor"
                                @onchange="OnBullishColorChanged"
-                               aria-label="Color for rising candles and volume" />
+                               aria-label="Bullish (up) color for rising candles and volume" />
 
                         <label for="s-bear-color">Bearish (down)</label>
                         <input id="s-bear-color" type="color" value="@_bearishColor"
                                @onchange="OnBearishColorChanged"
-                               aria-label="Color for falling candles and volume" />
+                               aria-label="Bearish (down) color for falling candles and volume" />
 
                         <button type="button" @onclick="ResetDirectionColors"
-                                aria-label="Reset up and down colors to the theme's own pair">Use theme's</button>
+                                aria-label="Use theme's own up and down colors">Use theme's</button>
                     </div>
                     @if (DirectionColorWarning is { } warning)
                     {
@@ -704,7 +704,7 @@
                         <button type="button" @onclick="NewTheme"
                                 aria-label="Create a new theme starting from the one in use">New theme</button>
                         <button type="button" @onclick="CustomizeTheme"
-                                aria-label="Open the theme editor and change any colour">Customise…</button>
+                                aria-label="Customise: open the theme editor and change any colour">Customise…</button>
                         @if (SelectedCustomTheme is { } sel)
                         {
                             <button type="button" @onclick="DeleteTheme"
@@ -948,7 +948,7 @@
                             Sends a sample alert using current values (saved on Close).
                         </span>
                         <button @onclick="TestEmailAsync"
-                                aria-label="Send a test email alert">Send test</button>
+                                aria-label="Send test email alert">Send test</button>
                     </div>
                     @if (!string.IsNullOrEmpty(_emailStatus))
                     {
@@ -988,7 +988,7 @@
                             Sends a sample alert using current values (saved on Close).
                         </span>
                         <button @onclick="TestTelegramAsync"
-                                aria-label="Send a test Telegram alert">Send test</button>
+                                aria-label="Send test Telegram alert">Send test</button>
                     </div>
                     @if (!string.IsNullOrEmpty(_telegramStatus))
                     {
@@ -1042,10 +1042,10 @@
                         </div>
                     }
                     <div class="modal-row">
-                        <button @onclick="AddWebhook" aria-label="Add a webhook">Add webhook</button>
+                        <button @onclick="AddWebhook" aria-label="Add webhook endpoint">Add webhook</button>
                         <span style="flex:1;"></span>
                         <button @onclick="TestWebhookAsync"
-                                aria-label="Send a test webhook alert to the first webhook">Send test</button>
+                                aria-label="Send test webhook alert to the first webhook">Send test</button>
                     </div>
                     @if (!string.IsNullOrEmpty(_webhookStatus))
                     {
@@ -1079,7 +1079,7 @@
                         <select id="s-setup-webhook"
                                 value="@_setupWebhookTarget"
                                 @onchange="e => _setupWebhookTarget = e.Value?.ToString() ?? string.Empty"
-                                aria-label="Webhook that receives strategy setups">
+                                aria-label="Setup webhook that receives strategy setups">
                             <option value="">(none — email and Telegram only)</option>
                             @foreach (var w in _webhooks)
                             {

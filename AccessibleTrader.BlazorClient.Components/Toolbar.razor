@@ -196,7 +196,7 @@
         {
             <label for="analytics-type-select">Analytics type:</label>
             <select id="analytics-type-select"
-                    aria-label="Select analytics data type"
+                    aria-label="Select analytics type"
                     @onchange="OnAnalyticsTypeChanged"
                     value="@MarketOrchestrator.SelectedAnalyticsType">
                 @foreach (var a in MarketOrchestrator.AvailableAnalyticsTypes)
@@ -278,7 +278,7 @@
                        type="number"
                        min="1"
                        max="999"
-                       aria-label="Timeframe multiplier"
+                       aria-label="Time multiplier for the timeframe"
                        style="width:4rem;"
                        value="@_tfMult"
                        @onchange="OnTfMultChanged" />

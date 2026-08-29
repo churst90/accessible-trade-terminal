@@ -117,7 +117,57 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29, SECOND session that day — all nine survivors are dead).**
+> **START HERE (current as of 2026-08-29, THIRD session that day — the Label-in-Name gaps are
+> closed, and the finding that opened them was half wrong).**
+>
+> **All 32 pinned WCAG 2.5.3 gaps are fixed, plus 15 more nobody had counted.** The pinned set was
+> buttons — a visible "Save Profile" announcing as "Save new API key profile", so a voice-control
+> user saying the words on screen does not activate the control. The 15 are the same defect in the
+> other place visible text lives: a `<label for>` pointing at an input or select whose `aria-label`
+> overrides it. Both classes now have an assertion in `DismissControlNameScanTests` and **neither
+> carries an exemption list** — `KnownLabelInNameGaps` was deleted rather than emptied. Each
+> assertion was proved by re-applying one of the old labels and watching it go red.
+>
+> **The fix shape, and it is the reusable part: extend the visible text, never describe the control
+> afresh.** Keep the visible words contiguous and at the FRONT — "Save Profile as a new API key
+> profile", not "Save new API key profile". Every one of the 47 defects was written the other way
+> round — as a fuller description composed from scratch — which is the natural thing to write and
+> is wrong every time. "Minimum order size to announce" is a better sentence than "Min size" and
+> that is exactly why it fails: it is not the phrase on the screen.
+>
+> **The filed finding's own example was a refutation, so check containment before you count.** The
+> report named `Toolbar.razor`'s `<label for="market-select">Market:</label>` +
+> `aria-label="Select market"` and generalised to "throughout `TradingDashboardModal` and
+> `IndicatorBar`". But 2.5.3 asks whether the visible text is *contained* in the name, not whether
+> the two are equal — "Select market" contains "market" and passes, as does `IndicatorBar`'s
+> "Focused Indicator:" / "Select focused indicator". The 15 real ones were somewhere else. **A
+> label-in-name census done by eye counts pairs that differ; the criterion is containment.**
+>
+> **What this cost, and what to watch.** Deleting the exemption list means both assertions are bare
+> "no matches", which is also what a broken scan returns — so the vacuity check now carries the
+> load and gained two floors: the controls with *both* an aria-label and static visible text (114),
+> and the `<label for>` pairs (47). Those are the populations actually judged; the two pre-existing
+> floors would not have noticed either collapsing.
+>
+> **A fifth flake turned up in the verification run, and it was FIXED, not filed.**
+> `TextLabelAnnotationTests.LeavingAndReturningPlaysTheEarconAgain` went red in the full Debug run
+> (expected 2, got 3) while Release was green. It counted *notes* where it meant *arrivals*, and
+> the text-label earcon's second note is scheduled 55 ms out — so the number depended on how many
+> partner notes had landed. A 300 ms settle before the assertion turns the intermittent 3 into a
+> deterministic 4, which is the proof. Its sibling `TheEarconDoesNotRepeatWhileStandingOnTheLabel`
+> had the same defect and had not yet been seen to fail. Both now count arrivals by pitch, read off
+> the recording rather than from the sonifier's constants. **Generalise it: an expected value that
+> is a count of asynchronously-emitted events is a stopwatch** — it passes while the queue is
+> behind. Written up under "A fifth flake" in the A2 section.
+>
+> **NEXT.** Unchanged from below, minus this item: `LocalBackgroundMonitor`'s untested twin of N23
+> (a constructor refactor — it spawns `notify-send`/`spd-say` on construction), the one-chokepoint
+> question for the dead-feed rule, the `ShowModalAsync` dead-region sweep, and the StrategyLab
+> statistics re-run.
+>
+> ---
+>
+> **Previous (2026-08-29, SECOND session that day — all nine survivors are dead).**
 >
 > **The nine survivors of the fresh campaign are closed, each proved by re-applying its mutant
 > and watching the new test go red** (`scratchpad/prove_kills.py`). Suite **5,812** in both
@@ -889,6 +939,33 @@ Fix shape, in order: a `[Collection("ScriptWorker")]` over the 14 files; then th
 onto the settle helper. **Until this is done, no red build in this repo can be trusted at face
 value, and — worse — no green mutant can either.**
 
+### A fifth flake, found and FIXED 2026-08-29 — and it was passing for the wrong reason
+
+`TextLabelAnnotationTests.LeavingAndReturningPlaysTheEarconAgain` failed a full Debug run —
+`Expected: 2, Actual: 3` — while the same tree was green in Release. Not one of F1's four, and not
+in the script-worker or bUnit families either.
+
+**The cause is that it counted notes where it meant arrivals.** The text-label earcon is a two-note
+figure and the second note is scheduled 55 ms out (`NavigationSonifier.FireTextLabelEarcon`:
+`PlayNote(1567.98, …)` then `PlayNote(1046.50, …, delay: 55)`). Two arrivals therefore produce 2,
+3 or 4 recorded notes depending only on how many partners have landed when the assertion runs.
+**Demonstrated rather than reasoned about:** inserting a 300 ms settle before the assertion turns
+the intermittent 3 into a deterministic 4. `TheEarconDoesNotRepeatWhileStandingOnTheLabel`
+(`Assert.Single`) had the identical defect and had not yet been observed to fail.
+
+Both now count *arrivals* — the notes at the pitch of the first recorded note, since the arrival
+note is the synchronous one and every arrival plays it at the same pitch. The pitch is read off the
+recording, **not** from the sonifier's constants, so the test cannot agree with any value they take.
+Proved three ways: the repeat guard deleted turns the first red, the "leaving resets it" half
+deleted turns the second red, and with a 300 ms settle inserted both stay green where the old
+versions were a deterministic failure.
+
+**The generalisation is the useful part: an assertion whose expected value is a count of
+asynchronously-emitted events is a stopwatch.** It passes while the queue is behind and fails when
+the machine is fast enough to catch up — which is why this one only ever appeared under full-suite
+load. Look for `Assert.Equal(n, spy.Something().Count)` where the production code schedules any part
+of the thing being counted.
+
 ### CONFIRMED — F2. Speech interruption is unguarded everywhere (HIGH)
 
 M17 changed an order fill from `interrupt: true` to `interrupt: false` and **nothing went red**.
@@ -1379,13 +1456,21 @@ support a grade change on its own.
       built *entirely* from generic words; 22 controls failed, including one already labelled
       `aria-label="Close dialog"`. Source scan rather than render sweep because 15 of the 22 live
       in branches an open dialog does not render. See the START HERE block.
-- [ ] **Close the 32 WCAG 2.5.3 "Label in Name" gaps.** Found by the M19 work and pinned, not
-      fixed, in `DismissControlNameScanTests.KnownLabelInNameGaps`. Each is an `aria-label` that is
-      richer than the visible text but does not *contain* it — `ApiKeysModal`'s "Save Profile"
-      button announces as "Save new API key profile" — so voice control fails on the words the user
-      can see. Concentrated in `SettingsModal` (7), `StrategyModal` + `SummaryExport` (8) and the
-      two money dialogs (4). The list is exact and fails when an entry is fixed without being
-      struck off, so this can be taken in slices.
+- [x] **Close the 32 WCAG 2.5.3 "Label in Name" gaps. DONE 2026-08-29.** All 32 fixed (34 sites —
+      `SettingsModal`'s three "Send test" buttons collapsed to one key), and
+      `KnownLabelInNameGaps` was **deleted rather than emptied**: a zero-length allow-list is an
+      invitation to grow one again, so `AnAriaLabelContainsTheControlsVisibleText` is now a bare
+      "no matches". The fix shape that closed all 32: **extend the visible text, do not describe
+      the control afresh** — "Save Profile as a new API key profile", "Export CSV of the chart
+      data" — visible words contiguous and at the front, with a colon only where they do not flow
+      into the rest, so the announcement still leads with the word a sighted user reads out and a
+      voice-control user says. Proved by re-applying `ApiKeysModal`'s
+      old `aria-label="Save new API key profile"` and watching the assertion go red. **The one
+      thing to know before touching this file again: the assertion is now unguarded by any
+      exemption list, so its vacuity check carries the load** — a third floor was added counting
+      the controls that carry *both* an aria-label and static visible text (114 at the time), since
+      that is the population it actually judges and neither existing floor would notice it
+      collapsing.
 - [ ] **Re-check what else parked behind `ShowModalAsync`.** Until 2026-08-28 every line a concrete
       modal ran *after* `await ShowModalAsync(...)` was dead in bUnit — the harness recorded the
       focus call but never completed it. M11 was one consequence; the suite has been green over
@@ -8916,11 +9001,19 @@ impossible for any test to notice a focus bug.
   `AlertsModal:205-252` mutates and re-renders with no announcement; deleting the focused `<li>`
   drops focus to `<body>`. `ApiKeysModal:409-429` has the same shape and **no confirmation prompt
   before deleting a credential profile**.
-- [ ] **Label-in-name violations throughout.** `Toolbar.razor:181-190` pairs
-  `<label for="market-select">Market:</label>` with `aria-label="Select market"`; the `aria-label`
-  wins, so the accessible name does not contain the visible label. WCAG 2.5.3, and it breaks
-  Dragon/Voice Control ("click Market"). Same at three more toolbar sites, throughout
-  `TradingDashboardModal`, and in `IndicatorBar`.
+- [x] **Label-in-name violations throughout. DONE 2026-08-29 — and the cited example is REFUTED.**
+  `Toolbar.razor:181-190`'s `<label for="market-select">Market:</label>` with
+  `aria-label="Select market"` is **not** a violation: 2.5.3 asks for containment, not equality,
+  and "Select market" contains "market", so "click Market" does match. The report generalised from
+  a pair that merely *differs*. Scanning the real criterion across the RCL found **15 genuine
+  ones** — `ApiKeysModal`'s "Profile Name" announcing as "Profile nickname", `OrderBookModal`'s
+  "Min size" as "Minimum order size to announce", seven in `SettingsModal` (five of them colour
+  pickers), two in `TradingDashboardModal`, two in `Toolbar` (the timeframe multiplier and the
+  analytics-type select — **not** the market select), and one each in `SoundDesignerModal` and
+  `StrategyModal`. All fixed, none pinned. Guarded by
+  `DismissControlNameScanTests.ALabelledControlsAriaLabelContainsItsVisibleLabel`, which excludes
+  `sr-only` labels because 2.5.3 is about text the user can *see*. Proved by restoring
+  `OrderBookModal`'s old label and watching it go red. `IndicatorBar` was clean.
 - [ ] **MAUI: `MainPage.xaml.cs:61-129` subscribes on every `OnHandlerChanged` and unsubscribes only
   in `OnDisappearing`.** `OnHandlerChanged` also fires on handler *disconnect*, and nothing
   re-subscribes on `OnAppearing` — so a background/foreground cycle on Android or iOS leaves the

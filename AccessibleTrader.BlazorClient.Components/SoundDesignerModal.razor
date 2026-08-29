@@ -192,7 +192,7 @@
                             <button @onclick="ApplyEdits" aria-label="Save patch changes">
                                 Save Patch
                             </button>
-                            <button @onclick="ExportPatch" aria-label="Export patch as JSON">
+                            <button @onclick="ExportPatch" aria-label="Export JSON patch file">
                                 Export JSON
                             </button>
                         </div>
@@ -273,7 +273,7 @@
                     {
                         <div style="display:flex; gap:6px; align-items:center;">
                             <label for="sd-wav-remove">Imported material</label>
-                            <select id="sd-wav-remove" @bind="_wavRemoveId" aria-label="Imported wavetables and samples">
+                            <select id="sd-wav-remove" @bind="_wavRemoveId" aria-label="Imported material: wavetables and samples">
                                 @foreach (var wt in Wavetables.WavetableIds)
                                 {
                                     <option value="@wt">Wavetable: @wt</option>

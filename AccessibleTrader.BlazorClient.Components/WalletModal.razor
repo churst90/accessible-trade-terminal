@@ -72,7 +72,7 @@
                         }
                     </select>
                     <button type="button" @onclick="LoadAddressAsync" disabled="@(string.IsNullOrEmpty(_network))"
-                            aria-label="Get the deposit address for this asset and network">Get address</button>
+                            aria-label="Get address for deposits on this asset and network">Get address</button>
                 </div>
             }
 
@@ -124,7 +124,7 @@
                        drops case, and b and B are different addresses. *@
                     <div class="modal-row">
                         <button type="button" @onclick="ReadCharacters"
-                                aria-label="Read the address one character at a time, saying which letters are capitals">
+                                aria-label="Read character by character: the deposit address, saying which letters are capitals">
                             Read character by character
                         </button>
                         @if (_copied is not null)

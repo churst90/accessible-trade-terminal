@@ -96,7 +96,7 @@
                         <button type="button" @onclick='() => CopyAsync(sel.Address!, "Address")'
                                 aria-label="Copy the destination address to the clipboard">Copy</button>
                         <button type="button" @onclick="ReadCharacters"
-                                aria-label="Read the destination address one character at a time, saying which letters are capitals">
+                                aria-label="Read characters of the destination address one at a time, saying which letters are capitals">
                             Read characters
                         </button>
                     </div>
@@ -117,7 +117,7 @@
                            spellcheck="false" autocomplete="off" style="width:12em;" />
                     <button type="button" @onclick="LoadQuoteAsync"
                             disabled="@(!CanQuote)"
-                            aria-label="Get the fee and the amount that will arrive, without sending anything">
+                            aria-label="Get quote: the fee and the amount that will arrive, without sending anything">
                         Get quote
                     </button>
                 </div>

@@ -241,7 +241,7 @@ public class SettingsModalTests
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
 
-        cut.Find("button[aria-label='Send a test email alert']").Click();
+        cut.Find("button[aria-label='Send test email alert']").Click();
 
         // The Email status <p role="status"> appears with the error message.
         // Post-click renders can lag on starved CI runners; poll instead of
@@ -261,7 +261,7 @@ public class SettingsModalTests
 
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
-        cut.Find("button[aria-label='Send a test email alert']").Click();
+        cut.Find("button[aria-label='Send test email alert']").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -281,7 +281,7 @@ public class SettingsModalTests
 
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
-        cut.Find("button[aria-label='Send a test email alert']").Click();
+        cut.Find("button[aria-label='Send test email alert']").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -305,7 +305,7 @@ public class SettingsModalTests
 
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
-        cut.Find("button[aria-label='Send a test email alert']").Click();
+        cut.Find("button[aria-label='Send test email alert']").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -326,7 +326,7 @@ public class SettingsModalTests
 
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
-        cut.Find("button[aria-label='Send a test Telegram alert']").Click();
+        cut.Find("button[aria-label='Send test Telegram alert']").Click();
 
         // Post-click renders can lag on starved CI runners; poll instead of
         // asserting a single frame (this class of test flaked 3 CI runs in a row).
@@ -346,7 +346,7 @@ public class SettingsModalTests
 
         var cut = OpenSettings(h);
         cut.Find("button#tab-alerts").Click();
-        cut.Find("button[aria-label='Send a test email alert']").Click();
+        cut.Find("button[aria-label='Send test email alert']").Click();
 
         // Production code calls PersistAlertSettings BEFORE SendTestAlertAsync,
         // which writes through every alerts.* key and then SaveSettings().

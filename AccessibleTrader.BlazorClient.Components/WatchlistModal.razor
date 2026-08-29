@@ -88,7 +88,7 @@
                         <button type="button" @onclick="CreateList">Create list</button>
                         <button type="button" @onclick="DeleteList"
                                 disabled="@(string.IsNullOrEmpty(_selectedListId))"
-                                aria-label="Delete the selected watchlist">Delete list</button>
+                                aria-label="Delete list, the selected watchlist">Delete list</button>
                     </div>
                 </fieldset>
 
@@ -141,7 +141,7 @@
                                 disabled="@(string.IsNullOrEmpty(_selectedListId) || string.IsNullOrEmpty(_addSymbol))">Add</button>
                         <button type="button" @onclick="AddAllShown"
                                 disabled="@(string.IsNullOrEmpty(_selectedListId) || _visibleSymbols.Count == 0)"
-                                aria-label="Add every symbol currently shown by the filter to the selected watchlist">
+                                aria-label="Add all shown symbols to the selected watchlist">
                             Add all shown
                         </button>
                     </div>
