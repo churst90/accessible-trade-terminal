@@ -117,7 +117,45 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29 — the fresh campaign has run. The honest catch rate is
+> **START HERE (current as of 2026-08-29, SECOND session that day — all nine survivors are dead).**
+>
+> **The nine survivors of the fresh campaign are closed, each proved by re-applying its mutant
+> and watching the new test go red** (`scratchpad/prove_kills.py`). Suite **5,812** in both
+> configurations (`--list-tests` **5807** — the number `docs/README.md` must match), browser
+> harness 129/129, doc-drift 4/4. Production change is small and additive: one extracted seam
+> (`HostedAlertMonitor.HasComparableBars`) and two methods widened from `private` to `internal`
+> so the dead-feed escalation can be driven directly. No behaviour changed.
+>
+> **Two of the nine are worth reading before trusting the headline.**
+>
+> **N13 is very nearly an EQUIVALENT mutant, and that is the finding.** Closing the only tab
+> passes the mutated `tabCount <= 1` guard and is then refused anyway by the
+> `targetSnapshot == null` check below it, so for the realistic input no test can distinguish
+> mutant from original. Only the out-of-range close differs. **It survived because the code is
+> defended in depth, not because a guard was missing** — the same asymmetry A2b recorded for
+> re-anchored M21, and a reminder that a survivor is not automatically a hole.
+>
+> **N08/N09's guards are duplicated per pattern family — width four times, tolerance twice.** A
+> kill aimed at the family the mutant happened to land in would have left the other three exactly
+> as unguarded, so the new width test is a `[Theory]` over all four families and derives each
+> ceiling from the pattern's own measured width rather than a literal.
+>
+> **The rule that came out of the whole campaign, and it is the reusable part:** *a guard over two
+> conditions is untested until a fixture makes them disagree.* `ScreenerSpec.MatchCount` requires
+> `Status == Evaluated` AND `Matched`, and deleting the `Status` clause left 5,798 tests green
+> because every fixture that built a non-evaluated row set `Status = Failed` and `Matched = false`
+> together.
+>
+> **NEXT.** Nothing in the mutation thread is blocking. The two items the kills created are filed
+> under "The work these kills created" — `LocalBackgroundMonitor` carries N23's untested twin (a
+> constructor refactor, since it spawns `notify-send`/`spd-say` on construction), and the
+> dead-feed rule now lives in two places and wants one chokepoint. Otherwise the live candidates
+> are the 32 WCAG 2.5.3 Label-in-Name gaps, the `ShowModalAsync` dead-region sweep, and the
+> StrategyLab statistics re-run.
+>
+> ---
+>
+> **Previous (2026-08-29, first session — the fresh campaign, and the honest catch rate of
 > 67.9%).**
 >
 > **28 new mutants, chosen without reference to A2's list. 19 caught, 9 survived, and the
@@ -1463,39 +1501,73 @@ tunables in the comfortable middle of the range. The other four are structural b
 (`tabCount <= 1`, `bars.Count < 2`, the `>=`/`>` tie in swing detection, the two-field screener
 conjunction).
 
-### The nine survivors, with fix shapes
+### The nine survivors — ALL NINE CLOSED 2026-08-29
 
-- [ ] **N06 + N07 — `SwingStructureAnalyzer` thresholds.** N06 relaxes `bars[j].High >= bars[i].High`
-      to `>`, so a **flat top registers two swing highs** instead of none — ties no longer
-      disqualify. N07 replaces `Math.Abs(p.Price - last.Price) < a * opts.MinSwingAtr` with `< 0`,
-      turning the ATR noise filter off entirely so structure is reported from every wiggle. Every
-      existing test passes explicit options (`Span: 3, MinSwingAtr: 0.5`) over clean synthetic
-      swings comfortably larger than the filter. **Shape: one fixture with a deliberate flat top,
-      and one with a swing just below `MinSwingAtr` that must be dropped and just above that must
-      be kept.** Do these two together; they are the same fixture file.
-- [ ] **N08 + N09 — `ChartPatternDetector` bounds.** N08 drops `width > o.MaxPatternBars` from the
-      head-and-shoulders arm; N09 drops `Math.Abs(a.Price - b.Price) > tol` from the double-top arm,
-      so **two highs at any distance apart are called a double top**. 26 tests and none builds a
-      pattern outside a bound. Note both guards repeat once per pattern family (4 and 2 sites) —
-      **a kill written for one family leaves the others open**, which is itself worth a scan guard.
-      **Shape: for each family, one formation just inside the bound that must be found and one just
-      outside that must not be.**
-- [ ] **N23 + N24 — `HostedAlertMonitor`'s evaluation loop.** N23 makes
-      `if (n < FeedFailuresBeforeReporting)` unreachable, so **a dead data feed is never reported
-      and alerts silently stop evaluating** — the exact failure mode a hosted user cannot see.
-      N24 relaxes `bars.Count < 2` to `< 0`, evaluating a crossing with no previous bar to cross
-      from. `HostedAlertMonitorTests` has four cases, all about user enumeration and channel
-      fan-out; the evaluation loop itself is untested. **This is the highest-consequence pair of
-      the nine** — silent alert death on the hosted deployment.
-- [ ] **N28 — `ScreenerSpec.MatchCount` counts unevaluated rows.** See above; the fix is a fixture
-      with `Matched: true, Status: Failed`, which no test currently constructs.
-- [ ] **N26 — `CsvDataParser` row cap.** `lines.Count - 1 > MaxRows` widened to `int.MaxValue`; an
-      oversized import proceeds unbounded. **Shape: a CSV of `MaxRows + 1` rows must be refused.**
-      Cheap, and the sibling guard on the same file (N25, high-below-low) *was* caught — so the
-      fixture pattern already exists next door.
-- [ ] **N13 — the last tab can be closed.** `tabCount <= 1` widened to `<= 0`, leaving the
-      workspace with no tab at all. `WorkspaceStoreTests` covers `TabReducer` but never closes down
-      to one. **Shape: close from a single-tab workspace and assert the state is unchanged.**
+Every one proved by re-applying its mutant and watching the new test go red
+(`scratchpad/prove_kills.py`, results in `scratchpad/prove_kills_results.json`). Suite **5,812**
+in both configurations (`--list-tests` **5807**), browser harness 129/129, doc-drift 4/4.
+
+- [x] **N06 + N07 — `SwingStructureAnalyzer` thresholds. CLOSED.**
+      `AFlatTopIsNotASwingHigh_ButASinglePeakIs` and
+      `ARetracementSmallerThanTheAtrFilterIsNotASwing_ButALargerOneIs`. The first hand-builds a
+      plateau — two bars sharing one high — which the strict `>=` refuses and the mutant's `>`
+      accepts as two pivots; a flat top is not exotic, it is what a round number or any resting
+      limit order produces. The second runs the SAME zig-zag shape twice, differing only in
+      retracement depth (0.5 vs 15 points), so the ATR filter is the only thing that can decide
+      the answer. Both carry the opposite case as a vacuity check.
+- [x] **N08 + N09 — `ChartPatternDetector` bounds. CLOSED, and deliberately wider than the
+      mutants.** The width guard appears **four** times and the tolerance guard twice — once per
+      pattern family — so a kill aimed only at the family a mutant landed in would have left the
+      others exactly as unguarded. `AFormationWiderThanTheCeilingIsNotReported` is a `[Theory]`
+      over all four width-bounded families (double top, double bottom, head and shoulders,
+      triangles), and it derives the ceiling from each pattern's OWN measured width rather than a
+      literal, so it cannot rot into a tautology if a fixture is retuned.
+      `TwoHighsFurtherApartThanTheToleranceAreNotADoubleTop` tests the tolerance two ways: a
+      fixture whose highs genuinely disagree, and the known-good double top re-run with the
+      tolerance tightened below its own gap — the second cannot be satisfied by any accident of
+      ATR magnitude.
+- [x] **N23 + N24 — `HostedAlertMonitor`'s evaluation loop. CLOSED. The highest-consequence pair.**
+      Four new cases. The dead-feed escalation is now driven directly: two consecutive failures
+      stay quiet, the third reports, the next five stay quiet (the dedup), a recovery resets the
+      counter, and failures do not pool across users or symbols. **The tests deliberately do NOT
+      reference `FeedFailuresBeforeReporting`** — reading the constant back would make the test
+      agree with any value it took, which is the exact shape that let the bound go untested.
+      N24's guard was extracted to `HasComparableBars` because the loop holding it needs the whole
+      per-user DI stack to reach; the test pins WHY the number is two by doing the `bars[^2]`
+      indexing the loop does and showing one bar throws. **Worth knowing: that throw is caught by
+      the per-user `try` in `PollOnceAsync`, so a single short answer abandons every remaining
+      watch for that user on that poll.**
+- [x] **N28 — `ScreenerSpec.MatchCount` counted unevaluated rows. CLOSED.**
+      `An_unevaluated_row_is_never_a_match_even_when_its_matched_flag_is_set` builds the row no
+      fixture had ever built — `Status: Failed, Matched: true` — and asserts all three counts plus
+      the invariant that they add up to a story a user can be told.
+- [x] **N26 — `CsvDataParser` row cap. CLOSED.** Both sides of the boundary, and the accept side is
+      made to fail for a DIFFERENT reason: a file of exactly `MaxRows` single-column rows gets past
+      the cap and is then refused for its single column, which proves the cap did not fire without
+      paying to parse 200,000 rows of real data on every suite run.
+- [x] **N13 — closing the last tab. CLOSED, and the honest note matters more than the kill.**
+      `Closing_a_tab_when_only_one_exists_is_an_exact_no_op`. **For the realistic input the mutant
+      is EQUIVALENT:** closing tab 0 of one tab passes the mutated guard and is then refused anyway
+      by the `targetSnapshot == null` check further down, so no test could distinguish it. What the
+      mutant does change is the out-of-range close, which skips the active-tab branch and rebuilds
+      the state — the test asserts reference identity on both. **N13 survived because the code is
+      defended in depth, not because a guard was missing**, which is the same asymmetry A2b
+      recorded for re-anchored M21.
+
+### The work these kills created
+
+- [ ] **`LocalBackgroundMonitor` carries N23's twin, untested.** `NoteFeedFailure` has the identical
+      `if (n < FeedFailuresBeforeSpeaking) return;` escalation with the identical dedup, and the
+      desktop monitor is the one a user hears rather than reads. It was left alone here because its
+      constructor probes the PATH for `notify-send` / `spd-say` / `paplay` and `Announce` launches
+      them, so the class cannot be constructed in a test without spawning processes. **Shape: hoist
+      the process launcher behind a seam the constructor takes, then reuse the hosted monitor's four
+      cases.** Filed rather than done because it is a constructor refactor, not a test.
+- [ ] **Consider one chokepoint for the dead-feed rule.** Two monitors now implement "three
+      consecutive failures, then report once, reset on recovery" independently. This is the shape
+      `LevelPolarity` was created to collapse after the same invariant was got wrong twice in three
+      weeks, and the N08/N09 result — one guard duplicated four times — is the same lesson from the
+      other direction.
 
 ---
 

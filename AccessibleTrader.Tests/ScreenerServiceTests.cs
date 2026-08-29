@@ -128,6 +128,62 @@ namespace AccessibleTrader.Tests
         private static List<WatchlistEntry> Entries(params string[] symbols) =>
             symbols.Select(s => new WatchlistEntry("Binance", s, MarketType.Crypto)).ToList();
 
+        // ── The counts, where the two fields disagree (survivor N28) ─────────
+        //
+        // MatchCount requires BOTH `Status == Evaluated` AND `Matched`. Deleting the Status
+        // clause left the whole 5,798-test suite green on 2026-08-29, and this file is exactly
+        // why: every test above that builds a non-evaluated row sets `Status = Failed` and
+        // `Matched = false` TOGETHER. The two fields never disagree in any fixture, so the
+        // conjunction they exist to enforce was never exercised.
+        //
+        // The general rule this produced, and it is the campaign's headline finding:
+        // A GUARD OVER TWO CONDITIONS IS UNTESTED UNTIL A FIXTURE MAKES THEM DISAGREE.
+
+        private static ScreenerRow Row(string symbol, ScreenerRowStatus status, bool matched) =>
+            new(new WatchlistEntry("Binance", symbol, MarketType.Crypto),
+                status, matched, Score: 1, MaxScore: 1, LastClose: 100, PercentChange: 0,
+                LastBarTime: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                Columns: new Dictionary<string, double>());
+
+        /// <summary>
+        /// A row that was never evaluated is not a match, whatever its Matched flag says.
+        ///
+        /// <para>
+        /// The two fields can disagree for an ordinary reason: <c>Matched</c> carries whatever
+        /// the last evaluation left on the row, and a later run that fails to fetch marks the
+        /// status without clearing it. Counting such a row would tell the user a screen hit on
+        /// a symbol the screener could not look at — the precise confusion the status enum's
+        /// own docstring says it exists to prevent ("we looked and it did not match" is not
+        /// "we never looked, and that distinction matters when money is involved").
+        /// </para>
+        ///
+        /// <para>
+        /// Every count is asserted, not just the mutated one, because the three are read
+        /// together to narrate a run and only their SUM makes the report honest.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void An_unevaluated_row_is_never_a_match_even_when_its_matched_flag_is_set()
+        {
+            var result = new ScreenerRunResult("s", "S", DateTime.UtcNow, new[]
+            {
+                Row("GOOD", ScreenerRowStatus.Evaluated, matched: true),
+                Row("MISS", ScreenerRowStatus.Evaluated, matched: false),
+                Row("BAD", ScreenerRowStatus.Failed, matched: true),              // stale flag
+                Row("THIN", ScreenerRowStatus.InsufficientHistory, matched: true), // stale flag
+            });
+
+            Assert.Equal(1, result.MatchCount);
+            Assert.Equal(2, result.EvaluatedCount);
+            Assert.Equal(2, result.FailedCount);
+
+            // The counts must add up to a story a user can be told: of four symbols, two were
+            // evaluated and one of those matched. Anything else double-counts the two the
+            // screener never managed to look at.
+            Assert.Equal(result.Rows.Count, result.EvaluatedCount + result.FailedCount);
+            Assert.True(result.MatchCount <= result.EvaluatedCount);
+        }
+
         private static ScreenerService Build(
             IDataService data,
             IOfflineWorkspaceBuilder? builder = null,

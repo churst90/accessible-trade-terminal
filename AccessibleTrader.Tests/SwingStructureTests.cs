@@ -238,6 +238,87 @@ namespace AccessibleTrader.Tests
             Assert.Contains("range", provider.GetComponentSpeech("Structure State", 0.0, bar, empty, 0)!);
         }
 
+        // ── The two thresholds pass 1 and pass 2 turn on (survivors N06 and N07) ──
+        //
+        // Both mutants survived a green 5,798-test suite on 2026-08-29, and neither was a
+        // coverage gap: this file already had 18 tests. What none of them did was feed an
+        // input on the wrong side of a bound. Every fixture above builds clean, well-separated
+        // swings with explicit options, so the tie in pass 1 and the ATR filter in pass 2 were
+        // never the thing that decided the answer.
+
+        /// <summary>Builds bars from explicit highs; the low tracks one point below.</summary>
+        private static List<Ohlcv> FromHighs(params double[] highs)
+        {
+            var bars = new List<Ohlcv>();
+            for (int i = 0; i < highs.Length; i++)
+                bars.Add(new Ohlcv(Start.AddDays(i), highs[i], highs[i], highs[i] - 1, highs[i] - 1, 100));
+            return bars;
+        }
+
+        /// <summary>
+        /// N06. A pivot high must be STRICTLY higher than every bar in its window, so a flat
+        /// top — two bars sharing the same high — is not a swing high at all.
+        ///
+        /// <para>
+        /// The mutant relaxes <c>bars[j].High &gt;= bars[i].High</c> to <c>&gt;</c>, which lets
+        /// each half of a plateau disqualify the other only if it is strictly taller. Neither
+        /// is, so BOTH bars register and the double-top plateau that a trader sees as one
+        /// level is narrated as structure. A flat top is not an exotic input: it is what a
+        /// round number, a prior day's high, or any resting limit order produces.
+        /// </para>
+        ///
+        /// <para>
+        /// The sharp-peak case is the vacuity check. Without it this test would keep passing if
+        /// the analyzer stopped finding pivots altogether.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void AFlatTopIsNotASwingHigh_ButASinglePeakIs()
+        {
+            var opts = new SwingOptions(Span: 2, MinSwingAtr: 0.5);
+
+            // Positive control: one strictly-highest bar in its window IS a pivot.
+            var peak = Analyze(FromHighs(10, 11, 12, 13, 15, 13, 12, 11, 10, 9), opts);
+            var high = Assert.Single(peak.Swings.Where(s => s.IsHigh));
+            Assert.Equal(15, high.Price);
+            Assert.Equal(4, high.BarIndex);
+
+            // The same series with the peak held for two bars. Neither bar is strictly higher
+            // than the other, so neither is a pivot.
+            var plateau = Analyze(FromHighs(10, 11, 12, 13, 15, 15, 13, 12, 11, 10), opts);
+            Assert.Empty(plateau.Swings.Where(s => s.IsHigh));
+        }
+
+        /// <summary>
+        /// N07. A reversal smaller than <c>ATR × MinSwingAtr</c> is noise and must not become a
+        /// swing — the filter the whole "noise must not be promoted to structure" claim rests on.
+        ///
+        /// <para>
+        /// The mutant replaces the comparison with <c>&lt; 0</c>, switching the filter off
+        /// entirely so every wiggle is reported as market structure. That is not a cosmetic
+        /// defect here: this analyzer feeds narration and <c>ChartPatternDetector</c>, so the
+        /// terminal would start speaking a higher-low sequence out of a half-point drift.
+        /// </para>
+        ///
+        /// <para>
+        /// Both directions are asserted. A test that only proved the small retracement was
+        /// dropped would also pass if the filter rejected everything.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void ARetracementSmallerThanTheAtrFilterIsNotASwing_ButALargerOneIs()
+        {
+            var opts = new SwingOptions(Span: 3, MinSwingAtr: 1.0);
+
+            // Same shape both times — up, pause, up — differing only in how deep the pause is.
+            var shallow = Analyze(ZigZag(new[] { 100d, 130d, 129.5d, 160d }), opts);
+            var deep = Analyze(ZigZag(new[] { 100d, 130d, 115d, 160d }), opts);
+
+            Assert.Empty(shallow.Swings.Where(s => !s.IsHigh));
+            var low = Assert.Single(deep.Swings.Where(s => !s.IsHigh));
+            Assert.InRange(low.Price, 114, 116);
+        }
+
         /// <summary>Minimal <see cref="AccessibleTrader.Sdk.Interfaces.IIndicatorResultBuffer"/> for provider tests.</summary>
         private sealed class TestBuffer : AccessibleTrader.Sdk.Interfaces.IIndicatorResultBuffer
         {

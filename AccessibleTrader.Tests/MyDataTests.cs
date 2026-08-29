@@ -124,6 +124,46 @@ namespace AccessibleTrader.Tests
                 "date,open,high,low,close\n2026-01-01,10,9,11,10\n"));
         }
 
+        /// <summary>
+        /// Survivor N26. The row cap is refused AT the boundary, not somewhere past it.
+        ///
+        /// <para>
+        /// The sibling guard one line away (high-below-low, above) was caught by the 2026-08-29
+        /// campaign and this one was not, for the reason every survivor in that run shared: no
+        /// test fed an input from the wrong side of the limit. Import is the one path where a
+        /// user hands the terminal an arbitrarily large file, and an unbounded parse builds the
+        /// whole series in memory before anything downstream can object.
+        /// </para>
+        ///
+        /// <para>
+        /// The accept side is the half that makes this a boundary rather than a smoke test, and
+        /// it is deliberately made to fail for a DIFFERENT reason. A file of exactly
+        /// <c>MaxRows</c> single-column rows gets past the cap and is then refused for having
+        /// one column — which proves the cap did not fire, without paying to parse 200,000 rows
+        /// of real data on every suite run.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void The_row_cap_refuses_one_row_past_the_limit_and_admits_the_limit_itself()
+        {
+            static string Csv(int dataRows)
+            {
+                var sb = new System.Text.StringBuilder("date\n", dataRows * 2 + 8);
+                for (int i = 0; i < dataRows; i++) sb.Append("x\n");
+                return sb.ToString();
+            }
+
+            var tooMany = Assert.Throws<FormatException>(
+                () => CsvDataParser.Parse(Csv(CsvDataParser.MaxRows + 1)));
+            Assert.Contains("Too many rows", tooMany.Message);
+
+            // Exactly at the limit: past the cap, and refused later for its single column.
+            var atLimit = Assert.Throws<FormatException>(
+                () => CsvDataParser.Parse(Csv(CsvDataParser.MaxRows)));
+            Assert.DoesNotContain("Too many rows", atLimit.Message);
+            Assert.Contains("column", atLimit.Message);
+        }
+
         [Fact]
         public void Blank_cells_become_gaps_with_a_warning_and_rows_sort_by_date()
         {

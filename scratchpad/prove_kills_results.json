@@ -1,0 +1,138 @@
+[
+ {
+  "id": "N23",
+  "file": "AccessibleTrader.WebHost/Services/HostedAlertMonitor.cs",
+  "filter": "FullyQualifiedName~HostedAlertMonitorTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 6,
+  "total": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HostedAlertMonitorTests.A_dead_feed_is_reported_on_the_third_consecutive_failure_and_only_once",
+   "AccessibleTrader.Tests.WebHost.HostedAlertMonitorTests.Recovery_resets_the_counter_so_scattered_failures_never_accumulate"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N24",
+  "file": "AccessibleTrader.WebHost/Services/HostedAlertMonitor.cs",
+  "filter": "FullyQualifiedName~HostedAlertMonitorTests",
+  "note": "re-anchored: `if (bars.Count < 2) continue;` was extracted to HasComparableBars",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7,
+  "total": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HostedAlertMonitorTests.A_feed_that_answers_with_fewer_than_two_bars_is_not_evaluated"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N06",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "filter": "FullyQualifiedName~SwingStructureTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "total": 17,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SwingStructureTests.AFlatTopIsNotASwingHigh_ButASinglePeakIs"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N07",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "filter": "FullyQualifiedName~SwingStructureTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "total": 17,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SwingStructureTests.ARetracementSmallerThanTheAtrFilterIsNotASwing_ButALargerOneIs"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N08",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "filter": "FullyQualifiedName~ChartPatternDetectorTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 30,
+  "total": 31,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AFormationWiderThanTheCeilingIsNotReported"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N09",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "filter": "FullyQualifiedName~ChartPatternDetectorTests",
+  "note": "original anchor, re-scoped to the double-TOP arm by its trailing line",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 30,
+  "total": 31,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.TwoHighsFurtherApartThanTheToleranceAreNotADoubleTop"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N26",
+  "file": "AccessibleTrader.Core/Services/MyData/CsvDataParser.cs",
+  "filter": "FullyQualifiedName~MyDataTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 34,
+  "total": 35,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MyDataTests.The_row_cap_refuses_one_row_past_the_limit_and_admits_the_limit_itself"
+  ],
+  "verdict": "KILLED",
+  "seconds": 4
+ },
+ {
+  "id": "N13",
+  "file": "AccessibleTrader.Core/Services/Workspace/Reducers/TabReducer.cs",
+  "filter": "FullyQualifiedName~WorkspaceStoreTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 29,
+  "total": 30,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WorkspaceStoreTests.Closing_a_tab_when_only_one_exists_is_an_exact_no_op"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ },
+ {
+  "id": "N28",
+  "file": "AccessibleTrader.Sdk/Screening/ScreenerSpec.cs",
+  "filter": "FullyQualifiedName~ScreenerServiceTests",
+  "note": "original anchor, unchanged",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 13,
+  "total": 14,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ScreenerServiceTests.An_unevaluated_row_is_never_a_match_even_when_its_matched_flag_is_set"
+  ],
+  "verdict": "KILLED",
+  "seconds": 5
+ }
+]

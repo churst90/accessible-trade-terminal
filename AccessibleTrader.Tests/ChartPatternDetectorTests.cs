@@ -130,6 +130,122 @@ public class ChartPatternDetectorTests
         Assert.NotEmpty(tri);
     }
 
+    // ── The bounds, not the shapes (survivors N08 and N09) ──────────────────────
+    //
+    // Everything above asks "is the pattern found?" and the refusal tests above refuse on
+    // SHAPE — three level peaks are not head and shoulders, a monotone rise is not a
+    // reversal. Nothing refused on a NUMBER, so both mutants that widened a numeric bound
+    // survived a green 5,798-test suite on 2026-08-29 with 26 cases already in this file.
+    //
+    // Both guards are duplicated per pattern family — the width test appears four times and
+    // the tolerance test twice. A kill written against the one family a mutant happened to
+    // land in would leave the others exactly as unguarded, so these walk every family that
+    // has a fixture.
+
+    public static TheoryData<string, ChartPatternKind> WidthBoundedFamilies() => new()
+    {
+        { "doubletop",  ChartPatternKind.DoubleTop },
+        { "doublebottom", ChartPatternKind.DoubleBottom },
+        { "headandshoulders", ChartPatternKind.HeadAndShoulders },
+        { "triangle", ChartPatternKind.AscendingTriangle },
+    };
+
+    private static List<Ohlcv> FixtureFor(string family) => family switch
+    {
+        "doubletop" => Bars(Leg(100, 140, 14).Concat(Leg(140, 118, 10))
+                        .Concat(Leg(118, 139, 12)).Concat(Leg(139, 105, 14)).Prepend(100)),
+        "doublebottom" => Bars(Leg(140, 100, 14).Concat(Leg(100, 122, 10))
+                        .Concat(Leg(122, 101, 12)).Concat(Leg(101, 135, 14)).Prepend(140)),
+        "headandshoulders" => Bars(Leg(100, 132, 12).Concat(Leg(132, 118, 8))
+                        .Concat(Leg(118, 150, 12)).Concat(Leg(150, 117, 10))
+                        .Concat(Leg(117, 131, 10)).Concat(Leg(131, 100, 14)).Prepend(100)),
+        "triangle" => Bars(Leg(100, 140, 14)
+                        .Concat(Leg(140, 118, 8)).Concat(Leg(118, 139.5, 8))
+                        .Concat(Leg(139.5, 127, 8)).Concat(Leg(127, 140, 8))
+                        .Concat(Leg(140, 133, 6)).Concat(Leg(133, 152, 10)).Prepend(100)),
+        _ => throw new ArgumentOutOfRangeException(nameof(family)),
+    };
+
+    private static bool IsTriangleFamily(ChartPatternKind k) =>
+        k is ChartPatternKind.AscendingTriangle or ChartPatternKind.DescendingTriangle
+          or ChartPatternKind.SymmetricalTriangle or ChartPatternKind.Rectangle
+          or ChartPatternKind.RisingWedge or ChartPatternKind.FallingWedge;
+
+    /// <summary>
+    /// N08. A formation wider than <c>MaxPatternBars</c> is not reported, in every family
+    /// that has the bound.
+    ///
+    /// <para>
+    /// The bound is what stops the detector narrating a "double top" whose two highs are eight
+    /// months apart — a shape no trader is reading as one structure, and which would sit in the
+    /// forming list indefinitely because its trigger is nowhere near price. The mutant deletes
+    /// the upper half of the test and nothing above noticed, because every fixture in this file
+    /// builds a pattern comfortably inside the default 160-bar window.
+    /// </para>
+    ///
+    /// <para>
+    /// The bound is driven off the pattern's OWN measured width rather than a literal, so the
+    /// test cannot rot into a tautology if a fixture is retuned: it finds the pattern, then
+    /// re-runs with a ceiling one bar below what that pattern actually needs.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(WidthBoundedFamilies))]
+    public void AFormationWiderThanTheCeilingIsNotReported(string family, ChartPatternKind kind)
+    {
+        var bars = FixtureFor(family);
+        bool Matches(ChartPattern p) =>
+            IsTriangleFamily(kind) ? IsTriangleFamily(p.Kind) : p.Kind == kind;
+
+        // Vacuity check: the fixture really does produce this family at the default ceiling.
+        var found = Detector.Detect(bars).Where(Matches).ToList();
+        Assert.NotEmpty(found);
+
+        int narrowest = found.Min(p => p.EndBarIndex - p.StartBarIndex);
+        var tightened = Detector.Detect(bars, ChartPatternOptions.Default with
+        {
+            MaxPatternBars = narrowest - 1,
+        });
+
+        Assert.DoesNotContain(tightened, Matches);
+    }
+
+    /// <summary>
+    /// N09. Two highs further apart than <c>ATR × ToleranceAtr</c> are not a double top —
+    /// the guard that stops "two highs" from meaning "any two highs".
+    ///
+    /// <para>
+    /// The mutant drops the price-distance clause and keeps only the <c>tol &lt;= 0</c> sanity
+    /// check, so a peak at 140 followed by a lower peak at 128 is announced as a double top with
+    /// a trigger level the market is already far below. For a reader who cannot glance at the
+    /// chart to see the two highs are nowhere near each other, that is a fabricated structure.
+    /// </para>
+    ///
+    /// <para>
+    /// Tested two ways because they fail differently: a fixture whose highs genuinely disagree,
+    /// and the known-good fixture run with the tolerance tightened below its own gap. The second
+    /// is the one that cannot be satisfied by any accident of ATR magnitude.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TwoHighsFurtherApartThanTheToleranceAreNotADoubleTop()
+    {
+        // 100 → 140 → 118 → 128 → 105: a lower high, not a double top.
+        var unequal = Bars(Leg(100, 140, 14).Concat(Leg(140, 118, 10))
+                        .Concat(Leg(118, 128, 12)).Concat(Leg(128, 105, 14)).Prepend(100));
+
+        // Not vacuous: the detector does see structure here, it just must not call it a double top.
+        Assert.NotEmpty(Detector.Detect(unequal));
+        Assert.DoesNotContain(Detector.Detect(unequal), p => p.Kind == ChartPatternKind.DoubleTop);
+
+        // And the genuine double top disappears once the tolerance is tighter than its own gap.
+        var equal = FixtureFor("doubletop");
+        Assert.Contains(Detector.Detect(equal), p => p.Kind == ChartPatternKind.DoubleTop);
+        Assert.DoesNotContain(
+            Detector.Detect(equal, ChartPatternOptions.Default with { ToleranceAtr = 0.0001 }),
+            p => p.Kind == ChartPatternKind.DoubleTop);
+    }
+
     [Fact]
     public void AMonotoneRise_ProducesNoReversalPatterns()
     {

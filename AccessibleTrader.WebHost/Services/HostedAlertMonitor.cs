@@ -207,7 +207,7 @@ namespace AccessibleTrader.WebHost.Services
                 }
                 NoteFeedRecovered(userKey, watch.Symbol);
 
-                if (bars.Count < 2) continue;
+                if (!HasComparableBars(bars)) continue;
 
                 var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
                 var fired = evaluator.EvaluateAlerts(
@@ -230,6 +230,28 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
+        /// <summary>
+        /// Whether a fetch returned enough bars to evaluate a crossing.
+        ///
+        /// <para>
+        /// TWO, not one, and the number is load-bearing rather than defensive tidiness: the
+        /// evaluation below reads <c>bars[^1]</c> against <c>bars[^2]</c>, so a one-bar answer
+        /// throws <see cref="ArgumentOutOfRangeException"/> from the range operator. That
+        /// exception does not fail loudly — <c>PollOnceAsync</c> catches per user and logs a
+        /// warning, which means a single short answer from one provider ABANDONS EVERY
+        /// REMAINING WATCH FOR THAT USER on that poll, silently, for as long as the feed keeps
+        /// answering short. A blind user's only signal is the absence of an alert.
+        /// </para>
+        ///
+        /// <para>
+        /// Extracted to a named seam because the loop it guards needs the whole per-user DI
+        /// stack to reach, and this repo has already learned that an inline bound nobody can
+        /// call directly is a bound nobody tests — every one of the nine survivors in the
+        /// 2026-08-29 mutation campaign was exactly that.
+        /// </para>
+        /// </summary>
+        internal static bool HasComparableBars(IReadOnlyList<Ohlcv>? bars) => bars is { Count: >= 2 };
+
         // ── Dead-feed detection ──────────────────────────────────────────────
         //
         // Keyed on (user, symbol) rather than symbol alone: two users can watch the same
@@ -246,7 +268,9 @@ namespace AccessibleTrader.WebHost.Services
         /// single transient failure is normal and reporting it would be noise.</summary>
         private const int FeedFailuresBeforeReporting = 3;
 
-        private async Task ReportFeedFailureAsync(
+        /// <remarks>Internal rather than private so the escalation can be driven directly —
+        /// the loop that calls it needs the whole per-user DI stack to reach.</remarks>
+        internal async Task ReportFeedFailureAsync(
             string userKey, LocalBackgroundMonitor.Watch watch, CancellationToken ct)
         {
             var key = (userKey, watch.Symbol);
@@ -269,7 +293,7 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
-        private void NoteFeedRecovered(string userKey, string symbol)
+        internal void NoteFeedRecovered(string userKey, string symbol)
         {
             var key = (userKey, symbol);
             _consecutiveFeedFailures.TryRemove(key, out _);

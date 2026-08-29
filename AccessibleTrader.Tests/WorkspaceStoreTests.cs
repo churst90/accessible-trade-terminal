@@ -258,6 +258,52 @@ namespace AccessibleTrader.Tests
             Assert.True((store.State.TabSnapshots?.Count ?? 0) >= tabsBefore);
         }
 
+        /// <summary>
+        /// Survivor N13. A workspace always has at least one tab, so every close against a
+        /// one-tab workspace is refused — and refused as an exact no-op, returning the state
+        /// instance unchanged rather than an equal copy.
+        ///
+        /// <para>
+        /// The identity assertion is the load-bearing one, and it is not pedantry. The reducer
+        /// is the only thing standing between a stray <c>CloseTabAction</c> and a workspace with
+        /// no tab at all — <c>TabCount</c> is <c>TabSnapshots.Count + 1</c>, so there is no
+        /// representable "zero tabs" state to fall into safely, and the tab bar would render a
+        /// count it cannot index.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Recorded honestly, because it changes how much this test is worth:</b> the
+        /// realistic path here is defended twice. Closing tab 0 of one tab passes the mutated
+        /// guard and is then refused anyway by the <c>targetSnapshot == null</c> check further
+        /// down, so for that input the mutant is EQUIVALENT and no test could distinguish it.
+        /// What the mutant does change is the out-of-range close, which skips the active-tab
+        /// branch entirely and rebuilds the state. That is what the second half asserts. Depth
+        /// of defence is why this mutant survived, not absence of a guard.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void Closing_a_tab_when_only_one_exists_is_an_exact_no_op()
+        {
+            var state = WorkspaceState.Initial;
+            Assert.Equal(1, state.TabCount);
+
+            // The realistic request: close the only (and active) tab.
+            var closedActive = AccessibleTrader.Core.Services.Workspace.Reducers.TabReducer.Reduce(state, new CloseTabAction(0));
+            Assert.Same(state, closedActive);
+            Assert.Equal(1, closedActive.TabCount);
+
+            // The out-of-range request, which is the half the guard alone answers.
+            var closedGhost = AccessibleTrader.Core.Services.Workspace.Reducers.TabReducer.Reduce(state, new CloseTabAction(1));
+            Assert.Same(state, closedGhost);
+            Assert.Equal(1, closedGhost.TabCount);
+
+            // Vacuity check: with a second tab present a close is NOT a no-op, so the
+            // assertions above are the guard firing rather than CloseTab doing nothing at all.
+            var twoTabs = AccessibleTrader.Core.Services.Workspace.Reducers.TabReducer.Reduce(state, new AddTabAction());
+            Assert.Equal(2, twoTabs.TabCount);
+            Assert.Equal(1, AccessibleTrader.Core.Services.Workspace.Reducers.TabReducer.Reduce(twoTabs, new CloseTabAction(0)).TabCount);
+        }
+
         // ── Init status state machine ───────────────────────────────────────
 
         [Fact]
