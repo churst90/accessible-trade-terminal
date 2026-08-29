@@ -117,7 +117,41 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-28, FOURTH session that day — the three survivors are dead).**
+> **START HERE (current as of 2026-08-29 — the fresh campaign has run. The honest catch rate is
+> 67.9%).**
+>
+> **28 new mutants, chosen without reference to A2's list. 19 caught, 9 survived, and the
+> disambiguation pass found ZERO spurious catches** (A2's found five; A2b's found none). Suite
+> **5,798**, baseline verified green immediately before the run, so every red is the mutant.
+> Method, mutant list and per-mutant results: `scratchpad/fresh_sabotage.py`,
+> `scratchpad/fresh_sabotage_results.json`, `scratchpad/fresh_disambiguate_results.json`. Full
+> write-up in "**A2c — the fresh mutant set**" below.
+>
+> **The number to quote is 67.9%, and the gap is the finding.** A2b measured 89.3% by re-running
+> A2's own published mutants — the set much of the intervening test work was written against. This
+> set was picked blind of it. **21.4 points of the 89.3 was the suite defending the properties it
+> had been told about.** 67.9% is what it does against code nobody warned it of, and it is the
+> first catch-rate number this repo has that is quotable on its own.
+>
+> **ALL NINE SURVIVORS ARE BOUNDARY CONDITIONS, and not one is a coverage gap.** Every file
+> involved already has a test suite — `ChartPatternDetectorTests` alone has 26 cases. What the
+> mutants do is *widen or delete a limit*, and no test anywhere feeds an input from the wrong side
+> of that limit. The suites prove the code does the right thing; almost nothing proves it refuses
+> the wrong thing at the exact edge.
+>
+> `ScreenerServiceTests` is the clearest specimen and worth reading before writing any of the
+> kills. `MatchCount` counts rows that are `Status == Evaluated` **and** `Matched`. Delete the
+> `Status` clause and the whole suite stays green — because every test that builds a non-evaluated
+> row sets `Status = Failed` and `Matched = false` **together**. The two fields never disagree in
+> any fixture, so the conjunction they exist to enforce is never exercised. **The rule that
+> generalises: a guard over two conditions is untested until a fixture makes them disagree.**
+>
+> **NEXT: kill the nine.** They are filed with shapes under "A2c — the fresh mutant set". Take the
+> Analysis cluster first (N06–N09) — it is four of the nine and one coherent piece of work.
+>
+> ---
+>
+> **Previous (2026-08-28, FOURTH session that day — the three survivors are dead).**
 >
 > **M11, M15 and M19 are all closed, each proved by re-applying its mutant and watching the new
 > test go red.** Suite **5,798** in both configs (`--list-tests` **5793** — the number
@@ -173,12 +207,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > when one is fixed without being struck off) and filed below. It is the reverse of M19 and wants
 > its own pass.
 >
-> **NEXT: the fresh 28-mutant campaign, chosen without reference to A2's list.** It is the item
-> that turns 89.3% from "the suite defends what it was told about" into a number quotable on its
-> own, and the three survivors it was waiting on are gone. Budget a session; the traps are in the
-> block below (**re-anchor first**, and **`run_in_background` caps at 10 minutes — a killed
-> campaign leaves a sabotaged file in the tree**). The three candidate clusters named further down
-> remain live if a bigger piece of work is wanted instead.
+> **NEXT: the fresh 28-mutant campaign, chosen without reference to A2's list. DONE 2026-08-29 —
+> see the block above.**
 >
 > ---
 >
@@ -1323,9 +1353,149 @@ support a grade change on its own.
       focus call but never completed it. M11 was one consequence; the suite has been green over
       that dead region for its whole life. Sweep the `ShowAsync` bodies for post-focus work
       (further focus moves, data loads, announcements) and check each has a test that could fail.
-- [ ] **Run a fresh 28-mutant campaign chosen without reference to A2's list** — see the caveat
-      above. This is the one that would make a catch-rate number quotable on its own, and it is the
-      difference between "the suite defends what it was told about" and "the suite defends the app".
+- [x] **Run a fresh 28-mutant campaign chosen without reference to A2's list. DONE 2026-08-29.**
+      19 caught, 9 survived, 0 spurious — **67.9%**. See "A2c — the fresh mutant set" immediately
+      below.
+
+---
+
+## A2c — the fresh mutant set (campaign run 2026-08-29)
+
+The number A2b could not produce. A2b re-ran A2's own 28 mutants and got 89.3%, with a caveat
+attached that made it unquotable: the test work between the two runs was written in response to
+A2's *published* survivor list, so the score measured how well the suite defends the 28 properties
+it had been told about. This set was chosen blind of that list, and **not one of A2's 28 files is
+mutated here**.
+
+### The sampling frame, stated up front because the comparison turns on it
+
+A2's mutants clustered in the money and speech hot paths — trading, speech formatting, indicator
+math, theming, the sandbox blocklist; eight of its 28 lived in four files. This set is stratified
+across areas A2 never touched, in rough proportion to where the production code actually is:
+
+| area | n | ids |
+| --- | --- | --- |
+| Core/Analysis — levels, swings, chart patterns | 7 | N03–N09 |
+| Plugins — providers and analytics (**A2 mutated none**) | 5 | N18–N22 |
+| Core — stored data and CSV import | 4 | N01, N02, N25, N26 |
+| Core — viewport and workspace tabs | 3 | N12–N14 |
+| Core/Trading — managed exits | 2 | N10, N11 |
+| Security — outbound network | 2 | N16, N17 |
+| WebHost — hosted alerting (A2: one, elsewhere) | 2 | N23, N24 |
+| Core — audio | 1 | N15 |
+| Core — accessibility | 1 | N27 |
+| Sdk — screening | 1 | N28 |
+
+This set therefore reaches colder code than A2's did. **A lower score here is the honest reading of
+the suite, not a regression in it.**
+
+### Method, and what makes it trustworthy
+
+Identical to `a2_sabotage.py` / `a2b_sabotage.py` so the three numbers compare: one single-line
+mutant, build, run the FULL suite, record whether anything went red **and which tests did**, revert,
+`os.utime`. CAUGHT iff some test fails. Driver: `scratchpad/fresh_sabotage.py`.
+
+Three things were done to keep the run honest, each answering a trap this repo has already been
+caught by:
+
+- **A verified green baseline immediately before the run** — 5,798 passed, 0 failed. Without it a
+  single pre-existing red would have scored all 28 as caught.
+- **Anchor uniqueness proved before spending the hour.** A `--verify` mode checks every `find`
+  string occurs *exactly* once. 26 of 28 passed first time; N08 and N09 matched 4 and 2 sites
+  respectively (the width and tolerance guards repeat once per pattern family) and were re-anchored
+  with surrounding context onto specific families.
+- **Crash-safe restore.** `finally` does not run on SIGKILL, and a killed campaign leaves a
+  sabotaged file in the tree. An in-flight marker is written before each edit and any stale one is
+  `git checkout`-restored at startup. The campaign was also run detached via `setsid` rather than
+  as a tracked background command, because those are capped at 10 minutes and this run took 68.
+
+### The disambiguation pass — zero spurious
+
+A2's single largest correction was procedural: **five of its mutants came back CAUGHT because one
+unrelated flaky test fired during that mutant's run.** That alone is the difference between A2's
+naive 79% and its true 61%. Every catch here backed by two or fewer distinct test names — 13 of the
+19 — was re-checked by `scratchpad/fresh_disambiguate.py`, which runs each named test **in
+isolation** twice:
+
+1. **Negative control, clean tree** — the named test must PASS. If it fails clean, the catch was
+   noise and the mutant is really a survivor.
+2. **Positive, under the mutant** — the same test must FAIL.
+
+A filter that matched zero tests is recorded `INCONCLUSIVE`, never as a pass — a non-matching
+filter is indistinguishable from a green run and has fooled this repo before.
+
+**All 13 came back CONFIRMED. Zero spurious.** Combined with A2b's zero, the four flaky tests A2
+found are now closed twice over.
+
+### The result
+
+**19 caught, 9 survived — 67.9%.** Against A2b's 89.3% on A2's own set, **21.4 points of that 89.3
+was the suite defending properties it had been told about.**
+
+| | A2 (2026-08-26) | A2b (2026-08-28) | **A2c (2026-08-29)** |
+| --- | --- | --- | --- |
+| mutant set | A2's, new | A2's, re-run | **fresh, chosen blind** |
+| suite size | 4,830 | 5,754 | **5,798** |
+| naive catch rate | 79% | 89.3% | **67.9%** |
+| spurious catches | 5 | 0 | **0** |
+| true catch rate | 61% | 89.3% *(upper bound)* | **67.9%** |
+
+### The finding: all nine survivors are boundary conditions
+
+**Not one survivor is a coverage gap.** Every file involved already has a test suite —
+`ChartPatternDetectorTests` alone carries 26 cases, `SwingStructureTests` and `ScreenerServiceTests`
+both exist. What every one of these nine mutants does is **widen or delete a limit**, and no test
+anywhere feeds an input from the wrong side of that limit. The suites prove the code does the right
+thing, and prove it refuses the wrong *shape*; almost nothing proves it refuses at the exact
+numeric edge.
+
+`ScreenerServiceTests` is the specimen to read first. `MatchCount` counts rows that are
+`Status == Evaluated` **and** `Matched`. N28 deletes the `Status` clause and the suite stays green,
+because every fixture that builds a non-evaluated row sets `Status = Failed` and `Matched = false`
+**together** — `FetchFailure_IsReportedAsAFailedRow_NotDropped` and
+`TooFewBars_IsInsufficientHistory_NotAMatch` both do exactly this. The two fields never disagree
+anywhere in the suite, so the conjunction they exist to enforce is never exercised. **A guard over
+two conditions is untested until a fixture makes them disagree.**
+
+Five of the nine are guards whose threshold is a *tunable* (`MaxRows`, `MaxPatternBars`,
+`ToleranceAtr`, `MinSwingAtr`, `FeedFailuresBeforeReporting`) and every test runs one fixed set of
+tunables in the comfortable middle of the range. The other four are structural boundaries
+(`tabCount <= 1`, `bars.Count < 2`, the `>=`/`>` tie in swing detection, the two-field screener
+conjunction).
+
+### The nine survivors, with fix shapes
+
+- [ ] **N06 + N07 — `SwingStructureAnalyzer` thresholds.** N06 relaxes `bars[j].High >= bars[i].High`
+      to `>`, so a **flat top registers two swing highs** instead of none — ties no longer
+      disqualify. N07 replaces `Math.Abs(p.Price - last.Price) < a * opts.MinSwingAtr` with `< 0`,
+      turning the ATR noise filter off entirely so structure is reported from every wiggle. Every
+      existing test passes explicit options (`Span: 3, MinSwingAtr: 0.5`) over clean synthetic
+      swings comfortably larger than the filter. **Shape: one fixture with a deliberate flat top,
+      and one with a swing just below `MinSwingAtr` that must be dropped and just above that must
+      be kept.** Do these two together; they are the same fixture file.
+- [ ] **N08 + N09 — `ChartPatternDetector` bounds.** N08 drops `width > o.MaxPatternBars` from the
+      head-and-shoulders arm; N09 drops `Math.Abs(a.Price - b.Price) > tol` from the double-top arm,
+      so **two highs at any distance apart are called a double top**. 26 tests and none builds a
+      pattern outside a bound. Note both guards repeat once per pattern family (4 and 2 sites) —
+      **a kill written for one family leaves the others open**, which is itself worth a scan guard.
+      **Shape: for each family, one formation just inside the bound that must be found and one just
+      outside that must not be.**
+- [ ] **N23 + N24 — `HostedAlertMonitor`'s evaluation loop.** N23 makes
+      `if (n < FeedFailuresBeforeReporting)` unreachable, so **a dead data feed is never reported
+      and alerts silently stop evaluating** — the exact failure mode a hosted user cannot see.
+      N24 relaxes `bars.Count < 2` to `< 0`, evaluating a crossing with no previous bar to cross
+      from. `HostedAlertMonitorTests` has four cases, all about user enumeration and channel
+      fan-out; the evaluation loop itself is untested. **This is the highest-consequence pair of
+      the nine** — silent alert death on the hosted deployment.
+- [ ] **N28 — `ScreenerSpec.MatchCount` counts unevaluated rows.** See above; the fix is a fixture
+      with `Matched: true, Status: Failed`, which no test currently constructs.
+- [ ] **N26 — `CsvDataParser` row cap.** `lines.Count - 1 > MaxRows` widened to `int.MaxValue`; an
+      oversized import proceeds unbounded. **Shape: a CSV of `MaxRows + 1` rows must be refused.**
+      Cheap, and the sibling guard on the same file (N25, high-below-low) *was* caught — so the
+      fixture pattern already exists next door.
+- [ ] **N13 — the last tab can be closed.** `tabCount <= 1` widened to `<= 0`, leaving the
+      workspace with no tab at all. `WorkspaceStoreTests` covers `TabReducer` but never closes down
+      to one. **Shape: close from a single-tab workspace and assert the state is unchanged.**
 
 ---
 

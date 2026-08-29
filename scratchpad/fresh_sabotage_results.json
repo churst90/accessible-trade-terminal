@@ -1,0 +1,406 @@
+[
+ {
+  "id": "N01",
+  "area": "ohlcv cache completeness",
+  "file": "AccessibleTrader.Core/Services/OhlcvStore.cs",
+  "breaks": "a partial cache hit is served as if it were the full requested range",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OhlcvStoreTests.NotEnoughHistory_ReturnsNothingRatherThanAShortBlock"
+  ],
+  "status": "CAUGHT",
+  "seconds": 152
+ },
+ {
+  "id": "N02",
+  "area": "unclosed bar persisted",
+  "file": "AccessibleTrader.Core/Services/OhlcvStore.cs",
+  "breaks": "the still-forming bar is written to the store as final",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 5795,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day",
+   "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_bar_cannot_overwrite_the_closed_one_it_shadows",
+   "AccessibleTrader.Tests.OhlcvStoreTests.TheFormingBar_IsNeverStored"
+  ],
+  "status": "CAUGHT",
+  "seconds": 154
+ },
+ {
+  "id": "N25",
+  "area": "CSV import sanity",
+  "file": "AccessibleTrader.Core/Services/MyData/CsvDataParser.cs",
+  "breaks": "an imported bar whose high is below its low is accepted silently",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MyDataTests.High_below_low_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 150
+ },
+ {
+  "id": "N26",
+  "area": "CSV import row cap",
+  "file": "AccessibleTrader.Core/Services/MyData/CsvDataParser.cs",
+  "breaks": "an oversized CSV is imported with no bound",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 144
+ },
+ {
+  "id": "N03",
+  "area": "support versus resistance",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelPolarity.cs",
+  "breaks": "every level is announced as the opposite structural level",
+  "occurrences": 1,
+  "failed": 19,
+  "passed": 5779,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AutoNarrationTests.ABrokenResistance_IsAnnouncedAsResistance_NotAsWhatPriceMadeItByBreakingIt",
+   "AccessibleTrader.Tests.AutoNarrationTests.ABrokenSupport_IsAnnouncedAsSupport",
+   "AccessibleTrader.Tests.AutoNarrationTests.ALevelAbovePrice_IsCalledResistance_WhateverItsSpelling",
+   "AccessibleTrader.Tests.AutoNarrationTests.ALevelBelowPrice_IsStillCalledSupport",
+   "AccessibleTrader.Tests.AutoNarrationTests.TheNameLosesToThePosition",
+   "AccessibleTrader.Tests.LevelPolarityTests.ALevelIsResistanceIfItSitsAtOrAboveTheReferencePrice",
+   "AccessibleTrader.Tests.LevelPolarityTests.TheSpokenWordMatchesTheClassification",
+   "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance",
+   "AccessibleTrader.Tests.ZoneProximityClassificationTests.A_level_above_price_is_resistance_however_it_is_voiced",
+   "AccessibleTrader.Tests.ZoneProximityClassificationTests.A_level_below_price_is_support_however_it_is_voiced"
+  ],
+  "status": "CAUGHT",
+  "seconds": 147
+ },
+ {
+  "id": "N04",
+  "area": "level touch separation",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "one long touch is counted as many, inflating the respect score",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.LingeringAgainstTheLine_CountsAsOneInteractionNotMany"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "N05",
+  "area": "level break detection",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "a level approached from above is reported broken on every touch",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 5795,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.CleanRejectionWithoutPenetration_IsARicochet_Worth2",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.PenetrateThenReclaim_IsAReclaim_Worth1",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.WickThroughAndBack_CountsAsAHold_BecauseThatIsASweep"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "N06",
+  "area": "swing high strictness",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "breaks": "a flat top registers two swing highs \u2014 ties no longer disqualify",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 145
+ },
+ {
+  "id": "N07",
+  "area": "swing noise filter",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "breaks": "market structure is reported from every wiggle \u2014 the ATR filter is off",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 145
+ },
+ {
+  "id": "N08",
+  "area": "head-and-shoulders width bound",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "an unboundedly wide formation is reported as head-and-shoulders",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 147
+ },
+ {
+  "id": "N09",
+  "area": "double top tolerance",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "two highs at any distance apart are called a double top",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 142
+ },
+ {
+  "id": "N10",
+  "area": "short stop never triggers",
+  "file": "AccessibleTrader.Core/Services/Trading/ManagedExitRules.cs",
+  "breaks": "a short position's stop never fires on a rally",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 5791,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BacktestCarryCostTests.A_short_pays_borrow_for_the_calendar_time_it_is_held",
+   "AccessibleTrader.Tests.BacktestCarryCostTests.A_short_pays_the_spread_in_the_other_direction",
+   "AccessibleTrader.Tests.BacktestCarryCostTests.A_short_perp_is_CREDITED_when_the_funding_rate_is_positive",
+   "AccessibleTrader.Tests.BacktestCarryCostTests.Borrow_is_calendar_time_not_bar_count",
+   "AccessibleTrader.Tests.BacktestCarryCostTests.Funding_and_borrow_both_land_on_the_same_held_short",
+   "AccessibleTrader.Tests.BacktestCarryCostTests.The_default_config_charges_no_carry_and_no_spread",
+   "AccessibleTrader.Tests.StrategyBacktesterTests.Costs_ShortEntry_PaysSlippageDownAndCommissionOnBothSides"
+  ],
+  "status": "CAUGHT",
+  "seconds": 144
+ },
+ {
+  "id": "N11",
+  "area": "trailing stop ratchets the wrong way",
+  "file": "AccessibleTrader.Core/Services/Trading/ManagedExitRules.cs",
+  "breaks": "a long's trailing stop moves DOWN, widening risk as price rises",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5796,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.The_atr_trail_ratchets_and_never_retreats",
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.The_trail_distance_scales_with_the_signals_atr_multiple"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "N12",
+  "area": "cursor target not clamped",
+  "file": "AccessibleTrader.Core/Services/ViewportNavigationService.cs",
+  "breaks": "an out-of-range navigation target puts the cursor outside the data",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WorkspaceStoreTests.NavigateAction_ClampsTargetIndexInsideData"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "N13",
+  "area": "the last tab can be closed",
+  "file": "AccessibleTrader.Core/Services/Workspace/Reducers/TabReducer.cs",
+  "breaks": "closing the only tab leaves the workspace with no tab at all",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 146
+ },
+ {
+  "id": "N14",
+  "area": "tab index shift after close",
+  "file": "AccessibleTrader.Core/Services/Workspace/Reducers/TabReducer.cs",
+  "breaks": "after a close, every later tab keeps its old index and snapshots bind to the wrong tab",
+  "occurrences": 1,
+  "failed": 6,
+  "passed": 5792,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MultiTabTests.CloseInactiveTab_RemovesSnapshot",
+   "AccessibleTrader.Tests.MultiTabTests.Closing_any_tab_of_four_leaves_a_dense_index_range",
+   "AccessibleTrader.Tests.MultiTabTests.Closing_the_active_tab_does_not_strand_the_others",
+   "AccessibleTrader.Tests.MultiTabTests.Closing_two_tabs_in_a_row_drops_exactly_two"
+  ],
+  "status": "CAUGHT",
+  "seconds": 148
+ },
+ {
+  "id": "N15",
+  "area": "output limiter disabled",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "breaks": "chart-scope audio clips again \u2014 an ordinary 18-voice layout peaks at 5.5x full scale",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5796,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutputHeadroomTests.AnOrdinaryChartScopeMixStaysInsideFullScale",
+   "AccessibleTrader.Tests.OutputHeadroomTests.TheFullVoiceBudgetStillDoesNotClip"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "N27",
+  "area": "unspecified-kind stamp spoken raw",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechTimeFormatter.cs",
+  "breaks": "a bar with unspecified kind is spoken in UTC while the chart shows local",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SpeechTimeZoneConsistencyTests.ToDisplay_TreatsAnUnspecifiedStampAsUtc_NotAsAlreadyLocal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 143
+ },
+ {
+  "id": "N16",
+  "area": "loopback is public",
+  "file": "AccessibleTrader.Core/Services/Alerts/OutboundNetworkGuard.cs",
+  "breaks": "an alert channel can be pointed at 127.0.0.1 \u2014 SSRF into the server's own loopback",
+  "occurrences": 1,
+  "failed": 10,
+  "passed": 5788,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Guarded_client_refuses_loopback_before_any_connection_is_made",
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Private_loopback_and_special_addresses_are_not_public",
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.A_push_endpoint_outside_the_public_internet_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 143
+ },
+ {
+  "id": "N17",
+  "area": "one private A record passes",
+  "file": "AccessibleTrader.Core/Services/Alerts/OutboundNetworkGuard.cs",
+  "breaks": "DNS rebinding \u2014 a host with one private address among public ones resolves through",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws"
+  ],
+  "status": "CAUGHT",
+  "seconds": 150
+ },
+ {
+  "id": "N18",
+  "area": "kraken legacy pair codes",
+  "file": "Plugins/Providers/AccessibleTrader.Plugins.Kraken/KrakenProvider.cs",
+  "breaks": "XXBTZUSD no longer folds to BTCUSD \u2014 History is empty for BTC/USD again",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 5793,
+  "failing_tests": [
+   "AccessibleTrader.Tests.KrakenPairVocabularyTests.One_pair_has_one_canonical_spelling",
+   "AccessibleTrader.Tests.KrakenPairVocabularyTests.The_users_spelling_and_krakens_spelling_agree"
+  ],
+  "status": "CAUGHT",
+  "seconds": 153
+ },
+ {
+  "id": "N19",
+  "area": "kraken asset normalisation",
+  "file": "Plugins/Providers/AccessibleTrader.Plugins.Kraken/KrakenProvider.cs",
+  "breaks": "balance queries ask Kraken for an asset code the venue does not use",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 5795,
+  "failing_tests": [
+   "AccessibleTrader.Tests.KrakenWalletTests.Bitcoin_is_translated_to_Krakens_own_code"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "N20",
+  "area": "twelvedata key escaping",
+  "file": "Plugins/Providers/AccessibleTrader.Plugins.TwelveData/TwelveDataProvider.cs",
+  "breaks": "a key containing '&' is truncated at the ampersand",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5796,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.TwelveData_sends_the_whole_key"
+  ],
+  "status": "CAUGHT",
+  "seconds": 142
+ },
+ {
+  "id": "N21",
+  "area": "finnhub key escaping",
+  "file": "Plugins/Providers/AccessibleTrader.Plugins.Finnhub/FinnhubProvider.cs",
+  "breaks": "same defect in a second provider \u2014 does the guard generalise, or is it per-provider?",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5796,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Finnhub_sends_the_whole_key"
+  ],
+  "status": "CAUGHT",
+  "seconds": 148
+ },
+ {
+  "id": "N22",
+  "area": "etherscan look-ahead guard",
+  "file": "Plugins/Analytics/AccessibleTrader.Plugins.Etherscan/EtherscanProvider.cs",
+  "breaks": "a historical request is answered with today's reading \u2014 a 24-hour look-ahead",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5797,
+  "failing_tests": [
+   "AccessibleTrader.Tests.EtherscanSnapshotHonestyTests.A_live_request_is_still_served"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "N23",
+  "area": "dead feed never reported",
+  "file": "AccessibleTrader.WebHost/Services/HostedAlertMonitor.cs",
+  "breaks": "a dead data feed is never reported \u2014 alerts silently stop evaluating",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 147
+ },
+ {
+  "id": "N24",
+  "area": "alert evaluated on one bar",
+  "file": "AccessibleTrader.WebHost/Services/HostedAlertMonitor.cs",
+  "breaks": "a crossing is evaluated with no previous bar to cross from",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 146
+ },
+ {
+  "id": "N28",
+  "area": "unevaluated rows counted as matches",
+  "file": "AccessibleTrader.Sdk/Screening/ScreenerSpec.cs",
+  "breaks": "a row the screener could not evaluate is reported as a match",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5798,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 144
+ }
+]

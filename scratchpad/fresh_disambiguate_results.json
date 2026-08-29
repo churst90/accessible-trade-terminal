@@ -1,0 +1,402 @@
+[
+ {
+  "id": "N01",
+  "area": "ohlcv cache completeness",
+  "tests": [
+   "AccessibleTrader.Tests.OhlcvStoreTests.NotEnoughHistory_ReturnsNothingRatherThanAShortBlock"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.OhlcvStoreTests.NotEnoughHistory_ReturnsNothingRatherThanAShortBlock",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.OhlcvStoreTests.NotEnoughHistory_ReturnsNothingRatherThanAShortBlock",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "N25",
+  "area": "CSV import sanity",
+  "tests": [
+   "AccessibleTrader.Tests.MyDataTests.High_below_low_is_refused"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.MyDataTests.High_below_low_is_refused",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.MyDataTests.High_below_low_is_refused",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "N04",
+  "area": "level touch separation",
+  "tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.LingeringAgainstTheLine_CountsAsOneInteractionNotMany"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.LevelRespectAnalyzerTests.LingeringAgainstTheLine_CountsAsOneInteractionNotMany",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.LevelRespectAnalyzerTests.LingeringAgainstTheLine_CountsAsOneInteractionNotMany",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "N11",
+  "area": "trailing stop ratchets the wrong way",
+  "tests": [
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.The_atr_trail_ratchets_and_never_retreats",
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.The_trail_distance_scales_with_the_signals_atr_multiple"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.StrategyPositionManagementTests.The_atr_trail_ratchets_and_never_retreats",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.StrategyPositionManagementTests.The_trail_distance_scales_with_the_signals_atr_multiple",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.StrategyPositionManagementTests.The_atr_trail_ratchets_and_never_retreats",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.StrategyPositionManagementTests.The_trail_distance_scales_with_the_signals_atr_multiple",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 12
+ },
+ {
+  "id": "N12",
+  "area": "cursor target not clamped",
+  "tests": [
+   "AccessibleTrader.Tests.WorkspaceStoreTests.NavigateAction_ClampsTargetIndexInsideData"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.WorkspaceStoreTests.NavigateAction_ClampsTargetIndexInsideData",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.WorkspaceStoreTests.NavigateAction_ClampsTargetIndexInsideData",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "N15",
+  "area": "output limiter disabled",
+  "tests": [
+   "AccessibleTrader.Tests.OutputHeadroomTests.AnOrdinaryChartScopeMixStaysInsideFullScale",
+   "AccessibleTrader.Tests.OutputHeadroomTests.TheFullVoiceBudgetStillDoesNotClip"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.OutputHeadroomTests.AnOrdinaryChartScopeMixStaysInsideFullScale",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.OutputHeadroomTests.TheFullVoiceBudgetStillDoesNotClip",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.OutputHeadroomTests.AnOrdinaryChartScopeMixStaysInsideFullScale",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.OutputHeadroomTests.TheFullVoiceBudgetStillDoesNotClip",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 13
+ },
+ {
+  "id": "N27",
+  "area": "unspecified-kind stamp spoken raw",
+  "tests": [
+   "AccessibleTrader.Tests.SpeechTimeZoneConsistencyTests.ToDisplay_TreatsAnUnspecifiedStampAsUtc_NotAsAlreadyLocal"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.SpeechTimeZoneConsistencyTests.ToDisplay_TreatsAnUnspecifiedStampAsUtc_NotAsAlreadyLocal",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.SpeechTimeZoneConsistencyTests.ToDisplay_TreatsAnUnspecifiedStampAsUtc_NotAsAlreadyLocal",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "N17",
+  "area": "one private A record passes",
+  "tests": [
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws",
+    "failed": 0,
+    "passed": 4,
+    "total": 4
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws",
+    "failed": 1,
+    "passed": 3,
+    "total": 4
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 15
+ },
+ {
+  "id": "N18",
+  "area": "kraken legacy pair codes",
+  "tests": [
+   "AccessibleTrader.Tests.KrakenPairVocabularyTests.One_pair_has_one_canonical_spelling",
+   "AccessibleTrader.Tests.KrakenPairVocabularyTests.The_users_spelling_and_krakens_spelling_agree"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.KrakenPairVocabularyTests.One_pair_has_one_canonical_spelling",
+    "failed": 0,
+    "passed": 10,
+    "total": 10
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.KrakenPairVocabularyTests.The_users_spelling_and_krakens_spelling_agree",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.KrakenPairVocabularyTests.One_pair_has_one_canonical_spelling",
+    "failed": 4,
+    "passed": 6,
+    "total": 10
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.KrakenPairVocabularyTests.The_users_spelling_and_krakens_spelling_agree",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 16
+ },
+ {
+  "id": "N19",
+  "area": "kraken asset normalisation",
+  "tests": [
+   "AccessibleTrader.Tests.KrakenWalletTests.Bitcoin_is_translated_to_Krakens_own_code"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.KrakenWalletTests.Bitcoin_is_translated_to_Krakens_own_code",
+    "failed": 0,
+    "passed": 5,
+    "total": 5
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.KrakenWalletTests.Bitcoin_is_translated_to_Krakens_own_code",
+    "failed": 3,
+    "passed": 2,
+    "total": 5
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 7
+ },
+ {
+  "id": "N20",
+  "area": "twelvedata key escaping",
+  "tests": [
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.TwelveData_sends_the_whole_key"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.TwelveData_sends_the_whole_key",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.TwelveData_sends_the_whole_key",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "N21",
+  "area": "finnhub key escaping",
+  "tests": [
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+   "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Finnhub_sends_the_whole_key"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Finnhub_sends_the_whole_key",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Every_KeyParam_declaration_actually_escapes",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ApiKeyUrlEscapingTests.Finnhub_sends_the_whole_key",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "N22",
+  "area": "etherscan look-ahead guard",
+  "tests": [
+   "AccessibleTrader.Tests.EtherscanSnapshotHonestyTests.A_live_request_is_still_served"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.EtherscanSnapshotHonestyTests.A_live_request_is_still_served",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.EtherscanSnapshotHonestyTests.A_live_request_is_still_served",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 7
+ }
+]
