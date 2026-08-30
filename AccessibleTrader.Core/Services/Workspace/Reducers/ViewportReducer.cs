@@ -134,17 +134,36 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
 
                 SeriesDataBuffer? updatedBuffer = null;
 
+                // ── DO THESE ARRAYS STILL DESCRIBE THESE BARS? ──────────────────────────
+                //
+                // Array LENGTHS cannot tell an append from a prepend, and the incremental
+                // branch below assumed they could: "one longer than last time" was read as a
+                // new live bar every time. A scrollback fetch that brings back exactly ONE bar
+                // has the same arithmetic, so Array.Copy put every old value back at 0..n-1
+                // with a new bar inserted in front of them — the close line and both candle
+                // wicks then sat one bar to the LEFT of the bar they were measured from, which
+                // on a chart reading left-to-right is a one-bar look-ahead. It stuck until some
+                // later update happened to change the length by more than one.
+                //
+                // FirstBarDate is the stamp IndicatorOrchestrator already uses for exactly this
+                // (see SeriesDataBuffer.FirstBarDate); this reducer never carried it. A null
+                // stamp means "built somewhere that does not stamp" and is treated as aligned,
+                // matching that convention — every buffer gets stamped below on its first pass
+                // through here, and the initial load is a full rebuild regardless.
+                bool aligned = !s.Data.FirstBarDate.HasValue
+                               || (list.Count > 0 && s.Data.FirstBarDate.Value == list[0].Date);
+
                 foreach (var c in s.Components)
                 {
                     if (string.IsNullOrEmpty(c.DataMapping)) continue;
 
                     var currentData = s.GetComponentData(c.Name);
-                    if (currentData.Length != list.Count)
+                    if (!aligned || currentData.Length != list.Count)
                     {
                         updatedBuffer ??= s.Data.Clone();
 
                         var compValues = new double[list.Count];
-                        bool isIncremental = currentData.Length == list.Count - 1 && !initial;
+                        bool isIncremental = aligned && currentData.Length == list.Count - 1 && !initial;
 
                         if (isIncremental)
                         {
@@ -169,6 +188,12 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                         updatedBuffer.ComponentData[c.Name] = arr;
                     }
                 }
+
+                // Stamp whatever we just wrote, so the alignment check above has something to
+                // work with on the next update. Buffers that needed no write keep whatever
+                // stamp they had — they are already in step with these bars by definition.
+                if (updatedBuffer != null && list.Count > 0)
+                    updatedBuffer.FirstBarDate = list[0].Date;
 
                 return updatedBuffer != null ? s.WithData(updatedBuffer) : s;
             }).ToImmutableList();

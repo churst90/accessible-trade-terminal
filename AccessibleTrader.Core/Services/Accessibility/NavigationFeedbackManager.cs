@@ -79,16 +79,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return;
             }
 
-            // When Heikin-Ashi is active, transform the current raw bar to its HA equivalent
-            // so that spoken OHLC values match what the user sees on screen.
-            Ohlcv pt = state.Data[state.CurrentDataIndex];
-            if (state.IsHeikinAshi && state.Data.Count > 1)
-            {
-                var rawSlice = new List<Ohlcv>(state.CurrentDataIndex + 1);
-                for (int i = 0; i <= state.CurrentDataIndex; i++) rawSlice.Add(state.Data[i]);
-                var haData = ChartMath.CalculateHeikinAshi(rawSlice);
-                if (haData.Count > 0) pt = haData[^1];
-            }
+            // The bar AS DRAWN, so spoken OHLC values match the candle on screen. Shared with
+            // the detail key and the sonifier rather than transformed here — see ChartMath.
+            // SpeechFormatter re-reads the RAW bar for the close line, which is raw whatever
+            // the candle style is; this point is the candles' answer.
+            Ohlcv pt = ChartMath.BarAsDrawn(state.Data, state.CurrentDataIndex, state.IsHeikinAshi);
 
             var seriesId = state.FocusedSeriesId ?? "candles";
             var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);

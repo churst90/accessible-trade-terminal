@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Audio;
 using Microsoft.Extensions.Logging;
@@ -75,6 +76,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             string seriesId = series.Id.ToLowerInvariant();
 
+            // ── WHICH BAR THIS SERIES DESCRIBES ─────────────────────────────────────────
+            //
+            // `pt` arrives as the bar AS DRAWN — Heikin-Ashi when that mode is on. That is the
+            // right answer for the CANDLES, whose whole point is to describe the candle on
+            // screen. It is the wrong answer for the close line, and that split is what this
+            // block exists to make explicit.
+            //
+            // The close line is raw whatever the candle style is. Three things quote it and
+            // they have to agree: the browser-title price (state.Data[^1].Close), the line the
+            // renderer draws (the "close" mapped component array, always raw OHLCV), and this
+            // sentence. With HA on they did not: the title said the raw close, this branch said
+            // the HA close — an average of four prices that never traded — and arrowing along
+            // the same line one keypress later said the raw close again, because the component
+            // path reads the mapped array. One series, two numbers, neither of them announced.
+            //
+            // Reported from live use as three disagreeing prices on one Bitstamp daily chart.
+            // The candles are the only readout expected to differ, because a Heikin-Ashi candle
+            // IS a different candle.
+            Ohlcv rawPt = (state.Data != null && state.Data.Count > 0)
+                ? state.Data[Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1)]
+                : pt;
+            bool readsRawBar = seriesId == CoreSeriesIds.Price;
+
             if (summary && seriesId == "candles")
             {
                 string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
@@ -97,7 +121,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 var priceComp = series.Components.FirstOrDefault(c => c.IsVisible && !c.IsMuted);
                 string lineType = priceComp != null ? FriendlyTypeName(priceComp.DisplayType) : "line";
-                msg = $"{series.Name}. {lineType}. {SpeechPriceFormatter.FormatPrice(pt.Close)}.";
+                // rawPt, not pt — see the note above. This branch also serves analytics providers
+                // (SingleValueLine), where the "close" is the metric's own value and a candle
+                // transform over it would be meaningless as well as wrong.
+                msg = $"{series.Name}. {lineType}. {SpeechPriceFormatter.FormatPrice(rawPt.Close)}.";
             }
             else if (summary)
             {
@@ -130,7 +157,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double? liveClose = state.Data != null && state.Data.Count > 0
                     ? (double?)state.Data[^1].Close
                     : null;
-                msg = FormatTemplateValue(series, comp, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
+                msg = FormatTemplateValue(series, comp, readsRawBar ? rawPt : pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                     isYMove: isYMove, liveClose: liveClose, provider: provider,
                     viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength);
             }
@@ -424,6 +451,31 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         internal static double GetPointValue(ChartSeries s, Ohlcv p, string c, int i)
         {
+            string sId = s.Id.ToLowerInvariant();
+
+            // ── THE CANDLES READ THE BAR, NOT THE ARRAY ─────────────────────────────────
+            //
+            // The candle series' components are NOT virtual any more: ViewportReducer syncs a
+            // mapped array for each of them (upper_wick→high, body→close, lower_wick→low), and
+            // those arrays are always RAW OHLCV. `p` is the bar as drawn. So with Heikin-Ashi
+            // on, the array lookup below answered the wick components with the raw high and low
+            // while the series summary one keypress earlier described the HA candle — the
+            // terminal reporting a lower wick of 19% for a candle drawn without a lower wick at
+            // all, which is the original Heikin-Ashi report, still live on this path.
+            //
+            // It only ever looked fixed because HeikinAshiSpeechTests built its candle series
+            // with an EMPTY data buffer, so the array lookup missed and execution fell through
+            // to the bar. Production has the arrays. The fixture now carries them too.
+            //
+            // With HA off the two sources are the same numbers, so this reorder is a no-op
+            // there. `PriceComponentFallback` returns NaN for any name that is not a candle
+            // part, so a plugin component hosted on this series still reaches its own array.
+            if (sId == "candles")
+            {
+                double drawn = ChartMath.PriceComponentFallback(c, p);
+                if (!double.IsNaN(drawn)) return drawn;
+            }
+
             var comp = s.Components.FirstOrDefault(x => x.Name.Trim().Equals(c.Trim(), StringComparison.OrdinalIgnoreCase));
             if (comp != null)
             {
@@ -439,10 +491,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // returned NaN and the wick spoke "no data" whenever the primary lookup missed.
             // Unlike the renderer, an unrecognised name stays NaN here — speech says "no data"
             // rather than reading out a close price under some other component's name.
-            string seriesId = s.Id.ToLowerInvariant();
-            if (seriesId == "price" || seriesId == "candles")
+            if (sId == "price" || sId == "candles")
                 return ChartMath.PriceComponentFallback(c, p);
-            if (seriesId == "volume") return p.Volume;
+            if (sId == "volume") return p.Volume;
             return double.NaN;
         }
     }

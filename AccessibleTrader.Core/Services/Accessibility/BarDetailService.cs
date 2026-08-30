@@ -149,17 +149,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// lower wick of 19% for a candle drawn without a lower wick at all. Reported from live
         /// use, and the numbers were never wrong about the raw bar — they were about the wrong bar.
         /// </para>
+        ///
+        /// <para>
+        /// The transform itself now lives in <see cref="ChartMath.BarAsDrawn"/>, shared with
+        /// <c>NavigationFeedbackManager</c> and <c>NavigationSonifier</c>, which each carried
+        /// their own copy of it.
+        /// </para>
         /// </summary>
         private static Ohlcv BarAsDrawn(WorkspaceState state, int idx)
-        {
-            var raw = state.Data![idx];
-            if (!state.IsHeikinAshi || state.Data.Count <= 1) return raw;
-
-            var slice = new List<Ohlcv>(idx + 1);
-            for (int i = 0; i <= idx; i++) slice.Add(state.Data[i]);
-            var ha = ChartMath.CalculateHeikinAshi(slice);
-            return ha.Count > 0 ? ha[^1] : raw;
-        }
+            => ChartMath.BarAsDrawn(state.Data!, idx, state.IsHeikinAshi);
 
         private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)
         {

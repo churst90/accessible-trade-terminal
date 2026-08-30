@@ -159,6 +159,42 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The bar at <paramref name="index"/> AS DRAWN: its Heikin-Ashi equivalent when that
+        /// mode is on, the raw bar otherwise.
+        ///
+        /// <para>
+        /// This existed three times — <c>BarDetailService.BarAsDrawn</c>, and inline copies in
+        /// <c>NavigationFeedbackManager</c> and <c>NavigationSonifier</c> — which is how the
+        /// readouts drifted apart in the first place: each one decided for itself whether it was
+        /// describing the drawn candle or the raw bar, and a reader had to check all three to
+        /// find out which. One function, one answer.
+        /// </para>
+        ///
+        /// <para>
+        /// It answers for the CANDLES only. The close line (<c>CoreSeriesIds.Price</c>) is raw
+        /// whatever the candle style is: it is rendered from the raw close, the title bar quotes
+        /// the raw close, and those two are what a trader reads as "the price". Callers on that
+        /// series pass <c>isHeikinAshi: false</c> or do not call this at all.
+        /// </para>
+        ///
+        /// <para>
+        /// The single-bar guard is inherited from all three original copies: with one bar loaded
+        /// the transform has no previous HA bar to derive an open from, and the seeded open makes
+        /// the result an average of one bar rather than a candle. Raw is the honest answer there.
+        /// </para>
+        /// </summary>
+        public static Ohlcv BarAsDrawn(IReadOnlyList<Ohlcv> data, int index, bool isHeikinAshi)
+        {
+            var raw = data[index];
+            if (!isHeikinAshi || data.Count <= 1) return raw;
+
+            var slice = new List<Ohlcv>(index + 1);
+            for (int i = 0; i <= index; i++) slice.Add(data[i]);
+            var ha = CalculateHeikinAshi(slice);
+            return ha.Count > 0 ? ha[^1] : raw;
+        }
+
+        /// <summary>
         /// Maps a cursor X pixel position to an absolute bar index in the loaded data.
         /// Inverse of the renderer's bar layout: 0 px = ViewportStartIndex, full width =
         /// start + length - 1. The result is NOT clamped to the data range — callers

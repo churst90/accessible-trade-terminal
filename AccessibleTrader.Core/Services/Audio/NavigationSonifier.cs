@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Models;
 
@@ -200,16 +201,16 @@ namespace AccessibleTrader.Core.Services.Audio
                 ? r
                 : (state.PaneRanges.TryGetValue(series.Pane, out var pr) ? pr : state.ViewportRange);
 
-            // When Heikin-Ashi is active, transform the raw bar so that pitch/direction
-            // reflect the HA close/open values (which match the visual candle colours).
-            Ohlcv navPoint = state.Data[idx];
-            if (state.IsHeikinAshi && state.Data.Count > 1)
-            {
-                var rawSlice = new List<Ohlcv>(idx + 1);
-                for (int i = 0; i <= idx; i++) rawSlice.Add(state.Data[i]);
-                var haData = ChartMath.CalculateHeikinAshi(rawSlice);
-                if (haData.Count > 0) navPoint = haData[^1];
-            }
+            // The bar AS DRAWN, so pitch and direction follow the candle colours on screen.
+            //
+            // The close line is the exception and is deliberately NOT transformed. It is drawn
+            // from the raw close, spoken as the raw close, and the title bar quotes the raw
+            // close; a pitch that swept to the Heikin-Ashi average while the words said the raw
+            // number would put the two halves of the same readout on different values. Every
+            // other series keeps the transform: they sit over the candles and are read against
+            // them.
+            bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price;
+            Ohlcv navPoint = ChartMath.BarAsDrawn(state.Data, idx, followsCandleTransform);
 
             var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume);
 

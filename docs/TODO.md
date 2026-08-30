@@ -117,8 +117,92 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-30 — the A2d mutation campaign ran, the honest catch rate
-> is 73.1%, and all seven survivors are closed.)**
+> **START HERE (current as of 2026-08-30, SECOND session that day — one chart was quoting three
+> different closing prices, and the close line now agrees with the title bar.)**
+>
+> **Reported from live use, on a Bitstamp BTC daily chart: "the title bar says 79.3k, the candle
+> close is at 78.6k and the price says 77.8K."** Three surfaces, three numbers, same bar. It was
+> not one bug; it was **four different definitions of "the close" live at once**, and which one
+> you got depended on the surface AND on whether you were in Series context or Component context.
+> Measured with a probe driving the real store and the real speech pipeline on one synthetic
+> daily bar (O 78,000 H 79,500 L 77,500 **C 79,300**), Heikin-Ashi on:
+>
+> | surface | said | source |
+> |---|---|---|
+> | browser title | 79,300 | `state.Data[^1].Close`, raw, always the LAST bar |
+> | candles, Series context | 78,575 | HA close, `(O+H+L+C)/4` |
+> | close line, Series context | 78,575 | HA close — same `pt` |
+> | close line, Component context | 79,300 | the mapped `line` array, which is raw |
+> | lower wick, Component context | 77,500 | the mapped `lower_wick` array, raw, while the summary one keypress earlier said the HA low 76,868.75 |
+>
+> With Heikin-Ashi OFF every one of them collapses to 79,300, which is why this only ever showed
+> up on an HA chart and why it looked like an HA bug rather than a plumbing one.
+>
+> **THE CONTRACT, decided by the user and now implemented and pinned:** the title bar is the live
+> raw close and never tracks the cursor; **the close line is raw whatever the candle style is**,
+> because it is RENDERED from the raw close and the title quotes the raw close, so a line that
+> speaks the HA average disagrees with its own pixels; **the candles are the only readout expected
+> to differ**, because a Heikin-Ashi candle IS a different candle.
+>
+> **What changed.** `ChartMath.BarAsDrawn` is the single answer to "which bar is this", replacing
+> three inline copies (`BarDetailService`, `NavigationFeedbackManager`, `NavigationSonifier`) that
+> each decided for themselves. `SpeechFormatter` now reads the RAW bar for the close line in both
+> contexts, and reads the DRAWN bar for the candle components — the array lookup used to win there,
+> and the arrays are always raw OHLCV. `NavigationSonifier` carves the close line out of the
+> transform so pitch and words are on the same number. The renderer needed no change: it already
+> drew candles from the HA data and the line from the raw array, which is exactly the contract.
+>
+> **A SECOND DEFECT, found while probing and unrelated to Heikin-Ashi: a one-bar scrollback shifted
+> every mapped array by one bar.** `ViewportReducer.SyncMappedComponentData` decided
+> append-vs-rebuild on array LENGTH alone, and a prepend that brings back exactly ONE bar has the
+> same arithmetic as one appended live bar — so `Array.Copy` put every old value back at `0..n-1`
+> with a new bar now in front of them. Measured: after a 1-bar prepend, `line[0]` = 76,800 while
+> `Data[0].Close` = 70,200, i.e. `line[i] == Data[i+1].Close` — **the close line and both wicks
+> reporting the NEXT bar's price at every historical bar, which is a one-bar look-ahead.** It
+> persisted until some later update happened to change the length by more than one. This is the
+> exact defect `SeriesDataBuffer.FirstBarDate` was introduced to catch in `IndicatorOrchestrator`;
+> this reducer never carried the stamp. It does now.
+>
+> **A VACUOUS GUARD, and it was guarding this.** `HeikinAshiSpeechTests` built its candle series
+> with an EMPTY `SeriesDataBuffer`. `SpeechFormatter.GetPointValue` tries the component's array
+> first and only falls through to the bar when the lookup misses — with no arrays it always
+> missed, so `TheLowerWickComponentReadsTheHeikinAshiLow` proved the fallback worked and said
+> nothing about the path a user walks. Production has the arrays. The fixture now carries them,
+> and re-applying the old lookup order turns that test red.
+>
+> **Every fix proved by sabotage** — the alignment stamp, the raw close line, the drawn-bar candle
+> lookup, the sonifier carve-out and the title-bar source were each reverted one at a time and the
+> matching guard went red each time. **19 new cases across four new files and one extended one.
+> Suite 5,897 in both configurations** (`--list-tests` 5,892 — the number `docs/README.md` must
+> match; the two figures differ because `--list-tests` names a `[Theory]` once and the run expands
+> its cases). Both configurations were also diffed by test NAME, not just by count: identical.
+>
+> **NEXT — unchanged, and the two carried items below it are new.** The StrategyLab statistics
+> re-run is still the top item (see the previous block: it is also the largest untested area in
+> the tree). Then the drawing calculators, then a fourth mutant set.
+>
+> **CARRIED FROM THIS SESSION, neither demonstrated as a defect:**
+>
+> 1. **Indicator series still receive the Heikin-Ashi bar.** Speech tokens like `{price}` on a
+>    marker template, and the sonifier's `PitchMapping.Price`, hand overlay series the drawn bar.
+>    That is arguably right — an overlay is read against the candles it sits on — but it is a
+>    third convention that nobody has stated, and indicators COMPUTE on raw OHLCV. Decide it
+>    deliberately rather than leaving it as whatever the transform happened to reach.
+> 2. **Should the candle readout SAY "Heikin-Ashi"?** Deliberately not added: the series-switch
+>    announcement and `ChartLayoutDescriber` both already name the mode, and prefixing every bar
+>    would be the kind of per-keypress noise that gets a feature switched off. But the number IS
+>    an average of four prices that never traded, and a user who left HA on an hour ago has no
+>    per-bar reminder. Open.
+> 3. **`ChartMath.GetPointValue` has no production callers** — only `ChartMathRenderingTests`.
+>    Noted because its ordering is now deliberately DIFFERENT from `SpeechFormatter.GetPointValue`
+>    (array-first vs drawn-bar-first for candles), and the two look like twins that ought to be
+>    unified. They must not be: the render side must stay raw so the close line's pixels match its
+>    words. Either delete it or document why it survives.
+>
+> ---
+>
+> **Previous (2026-08-30, FIRST session that day — the A2d mutation campaign ran, the honest catch
+> rate is 73.1%, and all seven survivors are closed.)**
 >
 > **The number is 73.1%, and it is the third independently-chosen set in a row.** 26 single-line
 > regressions, none of them in any of the 47 files A2 or A2c mutated: **19 caught, 7 survived,
