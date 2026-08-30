@@ -164,6 +164,22 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > `Core/Services/Drawing/Calculators` 8 of 16, `Core/Services/Accessibility/Dotpad` 7 of 9,
 > `BlazorClient/Services` 7 of 9. Raw list in `scratchpad/a2d_untested.json`.
 >
+> **A SIXTH FLAKE, found by this push and fixed, not re-run.** `689eb5f1` went green locally in
+> both configurations and **red on CI** — one test,
+> `GeneralOrderServiceTests.NonStreaming_order_gone_without_fill_is_treated_as_cancelled_not_filled`.
+> The cause is exact rather than suspected: the three fill lookups that follow an order leaving
+> the open list were **two REAL seconds apart** — the one delay in `GeneralOrderService` that was
+> not behind a tunable seam, while the poll cadence beside it was. `MakePollingFast` shortened the
+> polls and not that, so the test needed **four seconds of sleeping against a five-second
+> deadline**: a stopwatch with a one-second margin, which this session's 33 new tests were enough
+> load to tip. `FillLookupRetryDelay` is now internal like `OrderPollFastInterval` and
+> `ProtectionVerifyDelay` beside it, the class runs in 250 ms instead of five seconds, and the
+> guard was proved still live by cutting the retry loop to one attempt and watching it go red —
+> so shortening the delay did not make it vacuous. **The pattern is the one recorded on
+> 2026-08-29: a count of asynchronously-emitted events is a stopwatch. The generalisation this
+> adds is that a test-tunable seam is only as good as its neighbours** — one untuned `Task.Delay`
+> in the same method put the whole class back on the wall clock.
+>
 > **NEXT.** Unchanged in substance — **the StrategyLab statistics re-run is the top item**, and it
 > now has a second argument behind it: the StrategyLab is also the largest untested area in the
 > tree, so the re-run and the coverage hole are the same piece of work. After that, the two

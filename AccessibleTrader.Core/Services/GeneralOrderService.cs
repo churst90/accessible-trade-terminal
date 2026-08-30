@@ -563,6 +563,15 @@ namespace AccessibleTrader.Core.Services
         internal int OrderPollFastCount = 12;          // ~1 min of fast polling
         internal int OrderPollMaxConsecutiveErrors = 5;
 
+        /// <summary>
+        /// Gap between the three fill lookups that follow an order leaving the open list.
+        /// Internal for the same reason the poll intervals are: a test that shortens the poll
+        /// cadence but not this one still waits four real seconds for three lookups, which made
+        /// <c>NonStreaming_order_gone_without_fill_is_treated_as_cancelled_not_filled</c> a
+        /// stopwatch with a one-second margin — green on this box and red on a loaded CI runner.
+        /// </summary>
+        internal TimeSpan FillLookupRetryDelay = TimeSpan.FromSeconds(2);
+
         /// <summary>How many poll watches PlaceOrderAsync has started, incremented at the
         /// decision site itself. The streaming/non-streaming choice is made synchronously
         /// inside PlaceOrderAsync, so a test can assert it the moment the call returns —
@@ -705,7 +714,7 @@ namespace AccessibleTrader.Core.Services
                             "Fill lookup failed for {OrderId} on {Provider} (attempt {Attempt}).",
                             orderId, providerName, attempt + 1);
                     }
-                    try { await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false); }
+                    try { await Task.Delay(FillLookupRetryDelay, ct).ConfigureAwait(false); }
                     catch (OperationCanceledException) { return; }
                 }
 

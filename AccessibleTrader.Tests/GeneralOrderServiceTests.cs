@@ -472,6 +472,12 @@ namespace AccessibleTrader.Tests
         {
             svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(10);
             svc.OrderPollSlowInterval = TimeSpan.FromMilliseconds(10);
+            // The three fill lookups after an order leaves the open list are two REAL seconds
+            // apart in production. Shortening the poll cadence and not this one left
+            // NonStreaming_order_gone_without_fill_is_treated_as_cancelled_not_filled needing
+            // 4s of sleeps against a 5s deadline — green here, red on a loaded CI runner
+            // (2026-08-30, run 33303256161).
+            svc.FillLookupRetryDelay = TimeSpan.FromMilliseconds(10);
         }
 
         [Fact]
