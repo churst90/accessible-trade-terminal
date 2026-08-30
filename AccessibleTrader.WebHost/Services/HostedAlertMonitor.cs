@@ -258,26 +258,18 @@ namespace AccessibleTrader.WebHost.Services
         // symbol through different credentials, so one user's key expiring is not the other's
         // feed going down, and telling them both would be a false alarm for one of them.
 
-        private readonly System.Collections.Concurrent.ConcurrentDictionary<(string User, string Symbol), int>
-            _consecutiveFeedFailures = new();
-
-        private readonly System.Collections.Concurrent.ConcurrentDictionary<(string User, string Symbol), byte>
-            _reportedDeadFeeds = new();
-
-        /// <summary>Consecutive failed polls before the user is told. Above one, because a
-        /// single transient failure is normal and reporting it would be noise.</summary>
-        private const int FeedFailuresBeforeReporting = 3;
+        /// <summary>
+        /// The escalation, the once-only latch and the reset — shared with
+        /// <see cref="LocalBackgroundMonitor"/>, which used to carry its own copy of all three.
+        /// </summary>
+        private readonly DeadFeedTracker<(string User, string Symbol)> _deadFeeds = new();
 
         /// <remarks>Internal rather than private so the escalation can be driven directly —
         /// the loop that calls it needs the whole per-user DI stack to reach.</remarks>
         internal async Task ReportFeedFailureAsync(
             string userKey, LocalBackgroundMonitor.Watch watch, CancellationToken ct)
         {
-            var key = (userKey, watch.Symbol);
-            int n = _consecutiveFeedFailures.AddOrUpdate(key, 1, (_, prev) => prev + 1);
-
-            if (n < FeedFailuresBeforeReporting) return;
-            if (!_reportedDeadFeeds.TryAdd(key, 0)) return;
+            if (_deadFeeds.NoteFailure((userKey, watch.Symbol)) is not int n) return;
 
             string text = $"Alert monitoring stopped for {watch.Symbol}: {watch.Provider} has "
                         + $"failed {n} times in a row. Alerts on this symbol are not being watched.";
@@ -293,12 +285,12 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
+        /// <remarks>The hosted monitor does not announce the recovery — the return value is
+        /// discarded deliberately. A push saying "monitoring resumed" would arrive as a phone
+        /// notification for a user who may never have seen the failure one; the local monitor,
+        /// which speaks to somebody sitting at the machine, does say it.</remarks>
         internal void NoteFeedRecovered(string userKey, string symbol)
-        {
-            var key = (userKey, symbol);
-            _consecutiveFeedFailures.TryRemove(key, out _);
-            _reportedDeadFeeds.TryRemove(key, out _);
-        }
+            => _deadFeeds.NoteRecovery((userKey, symbol));
 
         private async Task<List<Ohlcv>?> FetchBarsAsync(
             IDataService data, LocalBackgroundMonitor.Watch watch, CancellationToken ct)

@@ -115,6 +115,11 @@ if (hostMode == HostMode.Full)
     // Per-circuit bridge: records browser-open alerts into the shared buffer too (the
     // monitor only covers browser-closed). Instantiated per circuit by the circuit handler.
     builder.Services.AddScoped<AccessibleTrader.WebHost.Services.InSessionAlertRecorder>();
+    // Sound, toast and speech for the monitor, behind a seam: the PATH probing and the
+    // Process.Start calls live in the presenter, so the monitor itself is constructible in a
+    // test and its dead-feed escalation can be driven without spawning anything.
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.IDesktopAlertPresenter,
+                                  AccessibleTrader.WebHost.Services.ProcessDesktopAlertPresenter>();
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
     // Cross-platform panel tray (Linux verified; Windows/macOS best-effort). Gives a control
     // surface — reopen the UI, review alerts, silence, status, copy address, toggle

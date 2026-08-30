@@ -15,7 +15,9 @@
     "actualFocus": "\u003Ch2 id=\u0027help-title\u0027\u003E \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
     "unnamedControls": [],
     "tabs": [],
-    "tabEscapes": [],
+    "tabEscapes": [
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D"
+    ],
     "tabStops": [
       "\u003Csummary (no id)\u003E \u201CGetting started (first chart in five steps)\u201D",
       "\u003Csummary (no id)\u003E \u201CUnderstanding the Soundscape\u201D",
@@ -23,14 +25,14 @@
       "\u003Csummary (no id)\u003E \u201CDrawing Tools Workflow\u201D",
       "\u003Csummary (no id)\u003E \u201CIndicators \u0026 Customization\u201D",
       "\u003Csummary (no id)\u003E \u201CMarket watch \u2014 watchlists \u0026 the screener\u201D",
-      "\u003Csummary (no id)\u003E \u201CStructure, value zones \u0026 the respect report\u201D",
-      "\u003Csummary (no id)\u003E \u201CBar replay \u0026 split view\u201D",
-      "\u003Csummary (no id)\u003E \u201CChart Navigation\u201D",
-      "\u003Csummary (no id)\u003E \u201CPlayback\u201D",
-      "\u003Csummary (no id)\u003E \u201CVolume \u0026 Audio\u201D",
-      "\u003Csummary (no id)\u003E \u201CAccessibility \u0026 Speech\u201D"
+      "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
+      "\u003Cbutton id=\u0027help-close\u0027 aria-label=\u0027Close help dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027help-close\u0027 aria-label=\u0027Close help dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027help-close\u0027 aria-label=\u0027Close help dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027help-close\u0027 aria-label=\u0027Close help dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027help-close\u0027 aria-label=\u0027Close help dialog\u0027\u003E \u201CClose\u201D"
     ],
-    "tabDistinctStops": 12,
+    "tabDistinctStops": 8,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -655,7 +657,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[09:50:01] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[19:28:33] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"

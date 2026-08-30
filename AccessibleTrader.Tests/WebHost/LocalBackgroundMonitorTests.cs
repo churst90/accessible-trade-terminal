@@ -4,6 +4,10 @@ using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Strategies;
 using AccessibleTrader.WebHost.Services;
+using AccessibleTrader.WebHost.Services.Tray;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace AccessibleTrader.Tests.WebHost;
 
@@ -218,7 +222,9 @@ public class LocalBackgroundMonitorTests
     [Fact]
     public void Generated_beep_is_a_valid_wav_with_audible_content()
     {
-        byte[] wav = LocalBackgroundMonitor.GenerateDefaultBeepWav();
+        // Moved with the rest of the delivery machinery when the presenter seam was extracted;
+        // the monitor no longer generates or plays anything itself.
+        byte[] wav = ProcessDesktopAlertPresenter.GenerateDefaultBeepWav();
 
         Assert.Equal((byte)'R', wav[0]); // RIFF magic
         Assert.Equal((byte)'F', wav[3]);
@@ -232,5 +238,183 @@ public class LocalBackgroundMonitorTests
             if (Math.Abs((int)s) > peak) peak = Math.Abs(s) > short.MaxValue ? short.MaxValue : (short)Math.Abs((int)s);
         }
         Assert.True(peak > short.MaxValue / 10, $"peak {peak} — beep would be inaudible");
+    }
+
+    // ── Dead-feed escalation (N23's twin, 2026-08-29) ────────────────────────
+    //
+    // The hosted monitor's identical escalation was pinned by four cases after mutant N23
+    // survived a green suite. This one was left alone because the class could not be built in a
+    // test: its constructor probed the PATH for notify-send / gdbus / spd-say / paplay and every
+    // delivery path called Process.Start. That is now behind IDesktopAlertPresenter, so the
+    // policy is drivable and the process spawning is not in the test's way.
+    //
+    // It matters more here than in the hosted twin, not less: this is the monitor whose whole
+    // reason to exist is that it can SPEAK to somebody sitting at the machine with the browser
+    // closed. If the escalation breaks, a blind user's alerts stop being watched and the
+    // application's only signal for that — the one it is uniquely able to give — never fires.
+
+    /// <summary>Records what would have been played, toasted and spoken, spawning nothing.</summary>
+    private sealed class SpyPresenter : IDesktopAlertPresenter
+    {
+        public readonly List<(string Title, string Text, bool Urgent)> Toasts = new();
+        public readonly List<string> Spoken = new();
+        public int SoundsPlayed;
+
+        public string Describe() => "spy";
+        public void PlayNotificationSound() => SoundsPlayed++;
+        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
+        public void Speak(string text) => Spoken.Add(text);
+    }
+
+    private static LocalBackgroundMonitor Monitor(out SpyPresenter presenter)
+    {
+        presenter = new SpyPresenter();
+        // The scope factory is never touched by the dead-feed path — it is reached from the
+        // poll loop, and these tests drive the escalation directly.
+        return new LocalBackgroundMonitor(
+            Substitute.For<IServiceScopeFactory>(),
+            new DemoPolicy(isDemo: false),
+            new RecentAlertsBuffer(),
+            new AlertSnooze(),
+            presenter,
+            NullLogger<LocalBackgroundMonitor>.Instance);
+    }
+
+    private static IReadOnlyList<string> Stopped(SpyPresenter p) =>
+        p.Spoken.Where(s => s.Contains("stopped", StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private static IReadOnlyList<string> Resumed(SpyPresenter p) =>
+        p.Spoken.Where(s => s.Contains("resumed", StringComparison.OrdinalIgnoreCase)).ToList();
+
+    /// <summary>
+    /// Two consecutive failures are transient and stay silent; the third is spoken, and it is
+    /// spoken ONCE. The counts are asserted as behaviour and the threshold constant is
+    /// deliberately not referenced — reading it back would make this test agree with whatever
+    /// value the constant took, which is the shape that left the bound untested to begin with.
+    /// </summary>
+    [Fact]
+    public void A_dead_feed_is_spoken_on_the_third_consecutive_failure_and_only_once()
+    {
+        var monitor = Monitor(out var presenter);
+
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        Assert.Empty(Stopped(presenter));
+
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        Assert.Empty(Stopped(presenter));
+
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        string said = Assert.Single(Stopped(presenter));
+        Assert.Contains("BTC/USD", said);
+        Assert.Contains("Bitstamp", said);
+
+        // The toast goes out with it, at critical urgency: this is the monitor reporting that
+        // it can no longer do its job, not an alert firing.
+        var toast = Assert.Single(presenter.Toasts);
+        Assert.True(toast.Urgent);
+        Assert.Equal("Alert monitoring", toast.Title);
+
+        // Still once, five polls later — a warning repeated every minute trains a user to
+        // ignore it, which is the same outcome as never saying it.
+        for (int i = 0; i < 5; i++) monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        Assert.Single(Stopped(presenter));
+        Assert.Single(presenter.Toasts);
+
+        // And nothing was filed as an alert: no sound, because a dead feed is not a fill.
+        Assert.Equal(0, presenter.SoundsPlayed);
+    }
+
+    /// <summary>
+    /// The counter is CONSECUTIVE, so a good poll resets it — two failures either side of a
+    /// success must not add up to a report.
+    /// </summary>
+    [Fact]
+    public void Recovery_resets_the_counter_so_scattered_failures_never_accumulate()
+    {
+        var monitor = Monitor(out var presenter);
+
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        monitor.NoteFeedRecovered("BTC/USD");
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+
+        Assert.Empty(Stopped(presenter));
+
+        // The third after the reset does report, which proves the silence above is the reset
+        // working rather than the escalation being broken outright.
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        Assert.Single(Stopped(presenter));
+    }
+
+    /// <summary>
+    /// Recovery is spoken, but only when the failure was — this is the half the hosted monitor
+    /// deliberately does not have. A user who heard "alerts on this symbol are not being
+    /// watched" has no other way to learn they are live again; a user who heard nothing must
+    /// not be told a feed recovered from a failure they were never told about.
+    /// </summary>
+    [Fact]
+    public void Recovery_is_announced_only_when_the_failure_was()
+    {
+        var monitor = Monitor(out var presenter);
+
+        // An ordinary good poll on a healthy feed says nothing at all.
+        monitor.NoteFeedRecovered("BTC/USD");
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        monitor.NoteFeedRecovered("BTC/USD");
+        Assert.Empty(presenter.Spoken);
+
+        // After a reported failure, it does.
+        for (int i = 0; i < 3; i++) monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        Assert.Single(Stopped(presenter));
+
+        monitor.NoteFeedRecovered("BTC/USD");
+        Assert.Contains("BTC/USD", Assert.Single(Resumed(presenter)));
+
+        // Said once: a second good poll is not more news.
+        monitor.NoteFeedRecovered("BTC/USD");
+        Assert.Single(Resumed(presenter));
+    }
+
+    /// <summary>
+    /// The count is per symbol. Three failures spread over three feeds are three transient
+    /// blips, not one dead feed, and reporting them would be a false alarm about a symbol that
+    /// has failed once.
+    /// </summary>
+    [Fact]
+    public void Failures_do_not_pool_across_symbols()
+    {
+        var monitor = Monitor(out var presenter);
+
+        monitor.NoteFeedFailure("BTC/USD", "Bitstamp");
+        monitor.NoteFeedFailure("ETH/USD", "Bitstamp");
+        monitor.NoteFeedFailure("XRP/USD", "Bitstamp");
+
+        Assert.Empty(Stopped(presenter));
+    }
+
+    /// <summary>
+    /// The seam stays a seam. Every test above exists because the monitor no longer probes the
+    /// PATH or starts processes itself — put either back and the class becomes unconstructible
+    /// in a test again, which is precisely how its escalation went untested while the hosted
+    /// twin's was pinned. The delivery belongs in <see cref="IDesktopAlertPresenter"/>.
+    /// </summary>
+    [Fact]
+    public void The_monitor_itself_neither_probes_the_path_nor_starts_processes()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AccessibleTrader.slnx")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        string source = File.ReadAllText(Path.Combine(
+            dir!.FullName, "AccessibleTrader.WebHost", "Services", "LocalBackgroundMonitor.cs"));
+
+        // Vacuity floor: the right file, and one that still delivers something.
+        Assert.Contains("class LocalBackgroundMonitor", source, StringComparison.Ordinal);
+        Assert.Contains("_presenter.Speak", source, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FindOnPath", source, StringComparison.Ordinal);
     }
 }

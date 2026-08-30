@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Alerts;
@@ -36,11 +35,11 @@ namespace AccessibleTrader.WebHost.Services
         private readonly RecentAlertsBuffer _recent;
         private readonly Tray.AlertSnooze _snooze;
         private readonly ILogger<LocalBackgroundMonitor> _logger;
-        private readonly string _soundPath;
-        private readonly string? _notifySend;
-        private readonly string? _gdbus;
-        private readonly string? _spdSay;
-        private readonly string? _player;
+
+        /// <summary>Sound, toast and speech. Injected rather than built here so this class can
+        /// be constructed — and its escalation driven — without probing the PATH or spawning a
+        /// process. See <see cref="IDesktopAlertPresenter"/>.</summary>
+        private readonly IDesktopAlertPresenter _presenter;
 
         // One evaluator for the monitor's lifetime: it owns the per-alert
         // hysteresis/edge state, so a level crossed at 03:00 doesn't re-fire
@@ -51,35 +50,17 @@ namespace AccessibleTrader.WebHost.Services
         public LocalBackgroundMonitor(
             IServiceScopeFactory scopes,
             DemoPolicy demo,
-            IPlatformPathService paths,
             RecentAlertsBuffer recent,
             Tray.AlertSnooze snooze,
+            IDesktopAlertPresenter presenter,
             ILogger<LocalBackgroundMonitor> logger)
         {
             _scopes = scopes;
             _demo = demo;
             _recent = recent;
             _snooze = snooze;
+            _presenter = presenter;
             _logger = logger;
-
-            _notifySend = WebHostSpeechManager.FindOnPath("notify-send", File.Exists);
-            _gdbus = WebHostSpeechManager.FindOnPath("gdbus", File.Exists);
-            _spdSay = WebHostSpeechManager.FindOnPath("spd-say", File.Exists);
-            _player = WebHostSpeechManager.FindOnPath("paplay", File.Exists)
-                   ?? WebHostSpeechManager.FindOnPath("pw-play", File.Exists);
-
-            // Notification sound: app-data/sounds/alert.wav. Users (or the future
-            // factory sound bank) drop their own file there; until then a small
-            // generated two-tone beep means the feature is audible on day one.
-            var soundsDir = Path.Combine(paths.AppDataDirectory, "sounds");
-            Directory.CreateDirectory(soundsDir);
-            _soundPath = Path.Combine(soundsDir, "alert.wav");
-            try
-            {
-                if (!File.Exists(_soundPath))
-                    File.WriteAllBytes(_soundPath, GenerateDefaultBeepWav());
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Could not write default alert sound."); }
         }
 
         // ── The poll loop ────────────────────────────────────────────────────
@@ -89,9 +70,8 @@ namespace AccessibleTrader.WebHost.Services
             if (_demo.IsDemo || _demo.IsHosted) return; // local desktops only
 
             _logger.LogInformation(
-                "Local background monitor available (speech: {Speech}, toast: {Toast}, sound: {Sound}). Waiting for the opt-in setting.",
-                _gdbus != null ? "orca" : _spdSay != null ? "spd-say" : "none",
-                _notifySend != null, _player != null);
+                "Local background monitor available ({Delivery}). Waiting for the opt-in setting.",
+                _presenter.Describe());
 
             while (!ct.IsCancellationRequested)
             {
@@ -170,28 +150,19 @@ namespace AccessibleTrader.WebHost.Services
         // speak through Orca, spd-say and notify-send, and it did not use any of them to
         // report its own failure. So the report goes out on the same channel the alerts do.
 
-        /// <summary>Consecutive failed polls per symbol.</summary>
-        private readonly Dictionary<string, int> _consecutiveFeedFailures = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>Symbols already reported as dead, so the warning is said once and not
-        /// once a minute for the rest of the session — which trains a user to ignore it.</summary>
-        private readonly HashSet<string> _reportedDeadFeeds = new(StringComparer.OrdinalIgnoreCase);
-
         /// <summary>
-        /// How many polls in a row must fail before the user is told. Above one, because a
-        /// single transient failure is normal and announcing it would be noise; low enough
-        /// that a genuinely dead feed is reported within a few minutes rather than never.
+        /// The escalation, the once-only latch and the reset — shared with
+        /// <see cref="HostedAlertMonitor"/>, which used to carry its own copy of all three.
+        /// Keyed on symbol alone: this monitor serves one desktop user.
         /// </summary>
-        private const int FeedFailuresBeforeSpeaking = 3;
+        private readonly DeadFeedTracker<string> _deadFeeds = new(StringComparer.OrdinalIgnoreCase);
 
-        private void NoteFeedFailure(string symbol, string provider)
+        /// <remarks>Internal rather than private so the escalation can be driven directly —
+        /// the loop that calls it needs a provider, a data service and a settings store to
+        /// reach, and an inline bound nobody can call is a bound nobody tests.</remarks>
+        internal void NoteFeedFailure(string symbol, string provider)
         {
-            _consecutiveFeedFailures.TryGetValue(symbol, out int n);
-            n++;
-            _consecutiveFeedFailures[symbol] = n;
-
-            if (n < FeedFailuresBeforeSpeaking) return;
-            if (!_reportedDeadFeeds.Add(symbol)) return;
+            if (_deadFeeds.NoteFailure(symbol) is not int n) return;
 
             string text = $"Alert monitoring stopped for {symbol}: {provider} has failed "
                         + $"{n} times in a row. Alerts on this symbol are not being watched.";
@@ -199,10 +170,9 @@ namespace AccessibleTrader.WebHost.Services
             Announce(text);
         }
 
-        private void NoteFeedRecovered(string symbol)
+        internal void NoteFeedRecovered(string symbol)
         {
-            _consecutiveFeedFailures.Remove(symbol);
-            if (!_reportedDeadFeeds.Remove(symbol)) return;
+            if (!_deadFeeds.NoteRecovery(symbol)) return;
 
             // Recovery is worth saying too: a user who heard the failure has no other way to
             // learn that their alerts are live again, and would keep watching manually.
@@ -218,12 +188,8 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         private void Announce(string text)
         {
-            if (_notifySend != null)
-                Run(_notifySend, "--app-name=Accessible Trade Terminal",
-                    "--urgency=critical", "Alert monitoring", text);
-
-            if (_gdbus != null && TrySpeakViaOrca(text)) return;
-            if (_spdSay != null) Run(_spdSay, text);
+            _presenter.Notify("Alert monitoring", text, urgent: true);
+            _presenter.Speak(text);
         }
 
         // Warn once per distinct set, not once per poll: the monitor polls every
@@ -317,82 +283,9 @@ namespace AccessibleTrader.WebHost.Services
             // Record it so the tray's recent-alerts list and unread-count label can show it.
             _recent.Add(text, fired.Symbol);
 
-            if (_player != null && File.Exists(_soundPath))
-                Run(_player, _soundPath);
-
-            if (_notifySend != null)
-                Run(_notifySend, "--app-name=Accessible Trade Terminal",
-                    "--urgency=normal", "Trading alert", text);
-
-            // Orca first (the user's own voice/rate config), spd-say fallback —
-            // the same ladder the in-session speech manager uses.
-            if (_gdbus != null && TrySpeakViaOrca(text)) return;
-            if (_spdSay != null) Run(_spdSay, text);
-        }
-
-        private bool TrySpeakViaOrca(string text)
-        {
-            try
-            {
-                Run(_gdbus!, "call", "--session",
-                    "--dest=org.gnome.Orca1.Service",
-                    "--object-path=/org/gnome/Orca1/Service",
-                    "--method=org.gnome.Orca1.Service.PresentMessage",
-                    text);
-                return true;
-            }
-            catch { return false; }
-        }
-
-        private void Run(string file, params string[] args)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = file,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                };
-                foreach (var a in args) psi.ArgumentList.Add(a);
-                using var _ = Process.Start(psi);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Background delivery command {File} failed.", file);
-            }
-        }
-
-        // ── Default sound (replace by dropping your own alert.wav) ───────────
-
-        /// <summary>16-bit mono 22.05 kHz WAV: a two-tone rising blip (660→880 Hz,
-        /// 300 ms total) with linear decay. Small, unambiguous, replaceable.</summary>
-        public static byte[] GenerateDefaultBeepWav()
-        {
-            const int rate = 22050;
-            const double dur = 0.3;
-            int samples = (int)(rate * dur);
-            var pcm = new short[samples];
-            for (int i = 0; i < samples; i++)
-            {
-                double t = (double)i / rate;
-                double freq = t < dur / 2 ? 660 : 880;
-                double envelope = 1.0 - (double)i / samples;
-                pcm[i] = (short)(Math.Sin(2 * Math.PI * freq * t) * envelope * short.MaxValue * 0.4);
-            }
-
-            using var ms = new MemoryStream();
-            using var w = new BinaryWriter(ms);
-            int dataLen = samples * 2;
-            w.Write("RIFF"u8); w.Write(36 + dataLen); w.Write("WAVE"u8);
-            w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)1);
-            w.Write(rate); w.Write(rate * 2); w.Write((short)2); w.Write((short)16);
-            w.Write("data"u8); w.Write(dataLen);
-            foreach (var s in pcm) w.Write(s);
-            w.Flush();
-            return ms.ToArray();
+            _presenter.PlayNotificationSound();
+            _presenter.Notify("Trading alert", text, urgent: false);
+            _presenter.Speak(text);
         }
     }
 }

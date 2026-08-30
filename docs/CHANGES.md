@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### One owner for the dead-feed rule, and a monitor that can finally be tested (2026-08-29)
+
+- **"Three consecutive failed polls, then report once, reset on recovery" now lives in one place.**
+  Both background monitors implemented it independently — two counters, two reported-sets, two
+  threshold constants. Both copies were correct; the risk is that a duplicated rule can be
+  half-fixed, which is the same reason `LevelPolarity` exists. `DeadFeedTracker<TKey>` owns the
+  escalation, the once-only latch and the reset. Delivery deliberately stays at the call sites: the
+  local monitor speaks through Orca and raises a critical desktop toast, the hosted one sends a Web
+  Push, and each writes its own words.
+- **The local monitor's dead-feed escalation is tested at last, and the blocker was its
+  constructor.** It probed the PATH for `notify-send`, `gdbus`, `spd-say` and `paplay`, created an
+  app-data sound directory and wrote a WAV file, and every delivery path started a process — so the
+  class could not be built in a test at all. That is now behind `IDesktopAlertPresenter`, with
+  `ProcessDesktopAlertPresenter` holding all of it. This is the monitor whose whole purpose is that
+  it can speak to somebody sitting at the machine with the browser closed; if its escalation
+  breaks, a blind user's alerts stop being watched and the one signal the application could have
+  given never comes.
+- **Guards.** Seven cases on the tracker, five on the monitor, plus two source scans: anything that
+  tells a user "Alert monitoring stopped" must ask the tracker, and no file may grow its own
+  consecutive-failure counter. All proved red — threshold lowered, latch removed, reset removed,
+  and a third implementation added in the shape the two real ones had.
+
 ### Two destructive controls that asked nothing and said nothing (2026-08-29)
 
 - **Removing an API key profile now asks first.** The ✕ on a credential profile called

@@ -117,7 +117,55 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29, FIFTH session that day — the loose ends. Two
+> **START HERE (current as of 2026-08-29, SIXTH session that day — the dead-feed rule has one
+> owner, and the desktop monitor is finally testable.)**
+>
+> **`DeadFeedTracker<TKey>` is the chokepoint, and both monitors now ask it.** "Three consecutive
+> failed polls, then report once, reset on recovery" was written twice — `LocalBackgroundMonitor`
+> and `HostedAlertMonitor` each had their own counter, their own reported-set and their own
+> threshold constant. Both copies were correct, which is exactly the point: a duplicated rule is a
+> rule that can be half-fixed, and this repo has the receipts on both sides of that (LevelPolarity
+> after support-versus-resistance was got wrong twice, and N08/N09 surviving because one guard had
+> been copied four times). **What stayed at the call sites is DELIVERY, not policy** — the local
+> monitor speaks through Orca and raises a critical toast, the hosted one sends a Web Push, each
+> writes its own words, and the keys differ (symbol vs (user, symbol)). The hosted monitor now
+> discards the recovery signal *deliberately and in writing*: a push saying "monitoring resumed"
+> would reach a phone whose owner may never have seen the failure one.
+>
+> **The `LocalBackgroundMonitor` seam is `IDesktopAlertPresenter`, and it was the whole blocker.**
+> The class could not be built in a test because its constructor probed the PATH for
+> `notify-send` / `gdbus` / `spd-say` / `paplay`, created an app-data sound directory and wrote a
+> WAV, and every delivery path called `Process.Start`. All of that is now
+> `ProcessDesktopAlertPresenter`; the monitor's constructor takes the interface and does nothing
+> else, and it lost `IPlatformPathService` on the way out (it only ever wanted the sound file).
+> **This is why N23's twin went untested for a fortnight while its hosted sibling was pinned by
+> four cases — not because anyone judged it less important, but because the class was unreachable.
+> An untestable constructor is a permanent coverage hole, and it does not announce itself.**
+>
+> **Five cases against the real monitor, seven against the tracker, and two scan guards.** The
+> guards are the LevelPolarity pair: a **path check** (anything in the WebHost that tells a user
+> "Alert monitoring stopped" must reference the tracker, with both monitors asserted present as a
+> vacuity floor) and a **shape ban** (no file may grow its own `_consecutive*Fail*` counter or
+> `const int *FailuresBefore*`). Everything was proved red — threshold dropped to 1, latch removed,
+> reset removed, and a third implementation added in the shape the two real ones had. **The two
+> middle sabotages turn all three suites red at once, which is the chokepoint demonstrating
+> itself: before this session each would have taken down one monitor's tests and left the other
+> silently broken.**
+>
+> **NEXT.** Two items, and the queue is now short:
+>
+> 1. **The StrategyLab statistics re-run** — the flagship p = 0.0045 tested the winner of a
+>    16-cell grid, is banner-marked provisional, and the honest re-run has not happened. The
+>    oldest thing on the list and the only one that is research rather than repair. It is now
+>    the top item by default as well as by age.
+> 2. **A fresh mutation campaign**, if a second repair session is wanted before the research one.
+>    The 2026-08-29 campaign's honest catch rate was **67.9%** and every survivor was a widened or
+>    deleted LIMIT — a fresh, independently-chosen mutant set is the only way to know whether that
+>    number moved. Re-anchor before running it: three of the previous 28 anchors had already gone.
+>
+> ---
+>
+> **Previous (2026-08-29, FIFTH session that day — the loose ends. Two
 > destructive controls now ask and answer, the last name exemption is gone, and the
 > `ShowModalAsync` dead-region sweep is finished.)**
 >
@@ -166,7 +214,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > site changed shape; only the return type did. `AsyncVoidScanTests` holds it, proved by turning
 > one back.
 >
-> **NEXT.** The queue is down to the three that are genuinely not small:
+> **NEXT (as it stood then; items 1 and 2 were done in the sixth session).** The queue was down
+> to the three that are genuinely not small:
 >
 > 1. **`LocalBackgroundMonitor` carries N23's untested twin** — the same
 >    `if (n < FeedFailuresBeforeSpeaking)` escalation and dedup, in the monitor a *desktop* user
@@ -1783,18 +1832,48 @@ in both configurations (`--list-tests` **5807**), browser harness 129/129, doc-d
 
 ### The work these kills created
 
-- [ ] **`LocalBackgroundMonitor` carries N23's twin, untested.** `NoteFeedFailure` has the identical
-      `if (n < FeedFailuresBeforeSpeaking) return;` escalation with the identical dedup, and the
-      desktop monitor is the one a user hears rather than reads. It was left alone here because its
-      constructor probes the PATH for `notify-send` / `spd-say` / `paplay` and `Announce` launches
-      them, so the class cannot be constructed in a test without spawning processes. **Shape: hoist
-      the process launcher behind a seam the constructor takes, then reuse the hosted monitor's four
-      cases.** Filed rather than done because it is a constructor refactor, not a test.
-- [ ] **Consider one chokepoint for the dead-feed rule.** Two monitors now implement "three
-      consecutive failures, then report once, reset on recovery" independently. This is the shape
+- [x] **DONE 2026-08-29 (sixth session). `LocalBackgroundMonitor` carries N23's twin, untested.**
+      `NoteFeedFailure` had the identical `if (n < FeedFailuresBeforeSpeaking) return;` escalation
+      with the identical dedup, and the desktop monitor is the one a user hears rather than reads.
+      It was left alone because its constructor probed the PATH for `notify-send` / `spd-say` /
+      `paplay` and `Announce` launched them, so the class could not be constructed in a test
+      without spawning processes.
+
+      **The seam is `IDesktopAlertPresenter`** (`Describe` / `PlayNotificationSound` / `Notify` /
+      `Speak`), with `ProcessDesktopAlertPresenter` holding every PATH probe, every
+      `Process.Start`, the app-data sound directory and `GenerateDefaultBeepWav`. The monitor's
+      constructor now takes it and does nothing else — it also lost `IPlatformPathService`, which
+      it only ever wanted for the sound file. Registered in `Program.cs` alongside the hosted
+      service, `HostMode.Full` only, so the timing of the PATH probing is unchanged in production.
+
+      Five cases against the real monitor with a spy presenter: the third consecutive failure is
+      SPOKEN and toasted at critical urgency and only once; recovery resets the count so scattered
+      failures never accumulate; recovery is announced only when the failure was, and once;
+      failures do not pool across symbols; and a source scan keeps the seam a seam
+      (`Process.Start` and `FindOnPath` may not reappear in the monitor). Proved red by dropping
+      the threshold to 1, by removing the once-only latch, and by making recovery not clear the
+      count — the last two turn all three suites (tracker, local, hosted) red together, which is
+      the chokepoint below doing its job.
+- [x] **DONE 2026-08-29 (sixth session). One chokepoint for the dead-feed rule.** Two monitors
+      implemented "three consecutive failures, then report once, reset on recovery" independently
+      — two counters, two reported-sets, two threshold constants, both correct. This is the shape
       `LevelPolarity` was created to collapse after the same invariant was got wrong twice in three
-      weeks, and the N08/N09 result — one guard duplicated four times — is the same lesson from the
-      other direction.
+      weeks, and the N08/N09 result — one guard duplicated four times, killed only where the test
+      knew to look — is the same lesson from the other direction.
+
+      **`DeadFeedTracker<TKey>`** owns the escalation, the once-only latch and the reset.
+      `NoteFailure` returns the failure count *only* on the poll worth reporting (null otherwise),
+      `NoteRecovery` returns whether this feed had been reported dead. What deliberately stays at
+      the call sites is DELIVERY: the local monitor speaks and toasts, the hosted one pushes, each
+      writes its own message, and the hosted one discards the recovery signal on purpose (a push
+      saying "monitoring resumed" would reach a phone whose owner may never have seen the failure
+      one). Keys differ too — symbol for the single-user local monitor, (user, symbol) for hosted.
+
+      Seven cases on the tracker plus two scan guards: **the path check** (anything in the WebHost
+      that says "Alert monitoring stopped" must reference the tracker, with both monitors asserted
+      present as a vacuity floor) and **the shape ban** (no file may declare its own
+      `_consecutive*Fail*` or `const int *FailuresBefore*`). Both proved red by adding a third
+      implementation written the way the two real ones were, and both name the offending lines.
 
 ---
 
