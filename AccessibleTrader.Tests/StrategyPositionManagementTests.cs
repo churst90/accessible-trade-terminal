@@ -700,6 +700,65 @@ namespace AccessibleTrader.Tests
             Assert.Equal(100.8, h.Manager.Get("inst-1")!.EntryPrice, 6);
         }
 
+        /// <summary>
+        /// <b>A fill correction is not permission to move the protective stop.</b>
+        ///
+        /// <para>
+        /// A2d/D08: deleting <c>p.FirstTargetFilled &amp;&amp;</c> from the fill-correction branch
+        /// left the whole suite green. The test above pins <c>EntryPrice</c> and says nothing
+        /// about <c>StopPrice</c>, and every other stop test drives the bar walk rather than the
+        /// fill event — so nothing anywhere watched what an entry fill does to the stop of a
+        /// position that has not reached its first target.
+        /// </para>
+        ///
+        /// <para>
+        /// The consequence is the worst shape a stop bug takes: a fresh long opened with a stop
+        /// 2% below entry has it yanked up to the fill price the instant the venue reports the
+        /// fill. The position now has no room at all, the user was told the stop was at 98, and
+        /// the next tick down closes them out. Both halves are asserted — before the first rung
+        /// the stop must not move, after it the breakeven stop must follow the real anchor,
+        /// because a fix that froze the stop in both cases would be exactly as wrong.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void A_fill_correction_before_the_first_rung_leaves_the_protective_stop_alone()
+        {
+            var h = new Harness(_dir);
+            h.Manager.OpenPosition(Active(), LadderSignal(stop: 98), quantity: 3.0, provider: "Kraken",
+                symbol: "BTC/USD", referencePrice: 100, entryOrderId: "entry-1");
+
+            h.Bus.Publish(new OrderFilledEvent(new OrderUpdate(
+                "entry-1", "BTC/USD", OrderSide.Buy, 3.0, 100.8, 0,
+                OrderStatus.Filled, false, false, DateTime.UtcNow)));
+
+            var p = h.Manager.Get("inst-1")!;
+            Assert.Equal(100.8, p.EntryPrice, 6);   // the anchor moves...
+            Assert.Equal(98.0, p.StopPrice!.Value, 6);     // ...the stop does NOT
+        }
+
+        [Fact]
+        public async Task A_fill_correction_after_the_first_rung_moves_the_breakeven_stop_with_the_anchor()
+        {
+            var h = new Harness(_dir);
+            h.Manager.OpenPosition(Active(), LadderSignal(stop: 98), quantity: 3.0, provider: "Kraken",
+                symbol: "BTC/USD", referencePrice: 100, entryOrderId: "entry-1");
+
+            var bars = new List<Ohlcv> { Bar(0, 100, 100.5, 99.5, 100) };
+            bars.Add(Bar(1, 100, 102.5, 99.8, 102));
+            Assert.True(await h.Manager.PlaceExitsAsync(h.Manager.OnBarClosed("inst-1", bars[^1], bars)));
+            Assert.Equal(100.0, h.Manager.Get("inst-1")!.StopPrice!.Value, 6);   // breakeven at the reference price
+
+            // The venue now reports the entry actually filled at 100.8. A "breakeven" stop at
+            // 100 is a losing stop for a position entered at 100.8, so it moves with the anchor.
+            h.Bus.Publish(new OrderFilledEvent(new OrderUpdate(
+                "entry-1", "BTC/USD", OrderSide.Buy, 3.0, 100.8, 0,
+                OrderStatus.Filled, false, false, DateTime.UtcNow)));
+
+            var p = h.Manager.Get("inst-1")!;
+            Assert.Equal(100.8, p.EntryPrice, 6);
+            Assert.Equal(100.8, p.StopPrice!.Value, 6);
+        }
+
         // ── The engine actually wires it in ──────────────────────────────────────
 
         /// <summary>

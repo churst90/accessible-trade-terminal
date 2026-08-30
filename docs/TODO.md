@@ -117,7 +117,63 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-29, SIXTH session that day — the dead-feed rule has one
+> **START HERE (current as of 2026-08-30 — the A2d mutation campaign ran, the honest catch rate
+> is 73.1%, and all seven survivors are closed.)**
+>
+> **The number is 73.1%, and it is the third independently-chosen set in a row.** 26 single-line
+> regressions, none of them in any of the 47 files A2 or A2c mutated: **19 caught, 7 survived,
+> ZERO spurious.** All 13 thin catches were re-run in isolation in both directions and every one
+> confirmed. The three quotable figures now form a series against three different mutant sets and
+> three different suite sizes — A2 61% (4,830 tests), A2c 67.9% (5,798), **A2d 73.1% (5,845)** —
+> and the 89.3% from A2b remains an upper bound that must not be quoted, because it re-ran A2's
+> own published list. Full write-up in "**A2d — the third fresh mutant set**" below; raw data in
+> `scratchpad/a2d_sabotage_results.json` and `scratchpad/a2d_disambiguate_results.json`.
+>
+> **THE FINDING, and it is not the one A2c produced.** A2c's nine survivors were all one shape —
+> boundary conditions in files that already had suites. A2d's seven split cleanly in two, and the
+> split is the useful part:
+>
+> * **Four were code nobody had ever written a test ABOUT** — `RollingQuantile` and
+>   `PivotLevelsProvider` were named in neither test project, and `BacktestWarmupAnalyzer` was
+>   named once, as a constructor argument being wired into a Blazor harness. The fourth,
+>   `ConditionEvaluator`'s Score-group fold, had a file of its own but every case in it drove the
+>   multi-timeframe path.
+> * **Three were a tested class's UNTESTED SENTENCE.** `BootstrapCi` has eight cases and none
+>   distinguishes a 2.5% tail from the median. `StrategyPositionManager` has a fill-correction
+>   test that asserts the entry price and never looks at the stop. `RateLimiter.ShouldRetry` is
+>   named in a test file whose own summary says it was "defeated the same way and retried a
+>   known-bad key three times" — and then tests the *other* caller of that fix.
+>
+> **The durable rule from the second group: a fix with two callers gets one test.** Three of the
+> seven are the same shape as the A2c finding one level up — not an untested class, but the one
+> sentence of a tested class that nobody asked about, sitting next to a test that looks like it
+> covers it.
+>
+> **All seven are closed, each proved red by re-applying its mutant** (`scratchpad/a2d_prove_kills.py`,
+> seven PROVED_RED, zero inconclusive). 33 new tests across five new files and two extended ones.
+> Suite **5,878** in both configurations (`--list-tests` 5873 — the number `docs/README.md` must
+> match). No production code changed: every one of the seven was a missing test, not a defect.
+>
+> **The census that goes with it** (`scratchpad/a2d_untested.py`, widened from the 2026-08-25
+> version to cover the plugin tree, the StrategyLab and the browser-test project): **929 of 1,291
+> declared production types are named by a test; 28% are never named at all.** It predicted two of
+> the seven survivors before the campaign finished. The biggest holes, in order:
+> **`AccessibleTrader.StrategyLab` 71 of 99 types unnamed** (the research harness — every
+> command, every provider), `WebHost/Pages/Account` 16 of 17, `Core/Services/Scripting` 14 of 23
+> (almost all of it platform interop), `Core/Services/Audio` 11 of 31,
+> `Core/Services/Drawing/Calculators` 8 of 16, `Core/Services/Accessibility/Dotpad` 7 of 9,
+> `BlazorClient/Services` 7 of 9. Raw list in `scratchpad/a2d_untested.json`.
+>
+> **NEXT.** Unchanged in substance — **the StrategyLab statistics re-run is the top item**, and it
+> now has a second argument behind it: the StrategyLab is also the largest untested area in the
+> tree, so the re-run and the coverage hole are the same piece of work. After that, the two
+> honest candidates are the drawing calculators (8 unnamed types, all pure functions, cheap) and
+> a fourth mutant set — but note the catch rate has moved 61 → 67.9 → 73.1 across three sets, and
+> a fourth run is worth less than closing an area that has no tests at all.
+>
+> ---
+>
+> **Previous (2026-08-29, SIXTH session that day — the dead-feed rule has one
 > owner, and the desktop monitor is finally testable.)**
 >
 > **`DeadFeedTracker<TKey>` is the chokepoint, and both monitors now ask it.** "Three consecutive
@@ -1670,6 +1726,106 @@ support a grade change on its own.
 - [x] **Run a fresh 28-mutant campaign chosen without reference to A2's list. DONE 2026-08-29.**
       19 caught, 9 survived, 0 spurious — **67.9%**. See "A2c — the fresh mutant set" immediately
       below.
+
+---
+
+## A2d — the third fresh mutant set (campaign run 2026-08-30) — CLOSED
+
+26 single-line regressions, chosen blind of both earlier lists. **Not one of the 47 files A2 or
+A2c mutated appears here.** Baseline verified green (5,845) immediately before the run; all 26
+anchors verified unique before spending the hour. Harness: `scratchpad/a2d_sabotage.py`,
+`a2d_disambiguate.py`, `a2d_prove_kills.py`; raw data in the matching `*_results.json`.
+
+**19 caught, 7 survived — 73.1%, with ZERO spurious catches.** All 13 catches backed by two or
+fewer failing tests were re-run in isolation in both directions (the named test must pass clean
+AND fail under the mutant, and a filter matching zero tests is INCONCLUSIVE, never green); all 13
+came back CONFIRMED. That closes A2's flaky-test correction for the third consecutive campaign.
+
+The series, against three different mutant sets and three suite sizes: **A2 61%** (4,830 tests),
+**A2c 67.9%** (5,798), **A2d 73.1%** (5,845). A2b's 89.3% is an upper bound on A2's own published
+mutants and is not part of the series.
+
+### The sampling frame
+
+    Core/Services/Strategies (risk, conditions, positions)  9    D01-D08, D25
+    Sdk/Services (shared plugin infrastructure)             4    D17, D19, D20, D24
+    Core/Services/Indicators (untouched providers)          3    D09-D11
+    Core/Services/Drawing/Calculators                       2    D13, D14
+    StrategyLab statistics                                  2    D15, D16
+    WebHost per-user scoping + tray                         2    D18, D22
+    Core/Services/Screening                                 1    D21
+    Core/Services/Accessibility/Dotpad                      1    D23
+    Core/Services/Workspace                                 1    D26
+    Core/Services/Strategies (trade ranking)                1    D12
+
+### The finding: two shapes, not one
+
+A2c's nine survivors were a single shape — boundary conditions in files that already had suites.
+These seven are two shapes, and the second one is new.
+
+**Four were code nobody had written a test ABOUT.** The type census (`scratchpad/a2d_untested.py`)
+predicted two of them before the campaign finished: `RollingQuantile` and `PivotLevelsProvider`
+are named in neither test project. `BacktestWarmupAnalyzer` is named once, as a constructor
+argument being wired into a Blazor harness — never asked a question. `ConditionEvaluator`'s
+Score-group fold has a test file of its own, but every case in it drives the multi-timeframe path.
+
+**Three were a tested class's untested SENTENCE**, and this is the durable one:
+
+* `BootstrapCi` has eight cases. `Lo <= Mean <= Hi` is satisfied by the median, and a uniformly
+  winning sample has a positive median too — so moving the lower bound from the 2.5th percentile
+  to the 50th degraded the entire survivor gate from "the CI lower bound is positive" to "the
+  point estimate is positive", which is the weaker claim the class exists to replace, and nothing
+  noticed.
+* `StrategyPositionManager` has a fill-correction test that asserts `EntryPrice` and never looks
+  at `StopPrice`; every other stop test drives the bar walk. So deleting `p.FirstTargetFilled &&`
+  from the fill branch — which yanks a fresh position's protective stop up to the fill price
+  before any target is hit — was invisible.
+* `RateLimiter.ShouldRetry` is named in `ProviderStatusCodeClassificationTests`, whose own summary
+  says *"RateLimiter.ShouldRetry was defeated the same way and retried a known-bad key three
+  times"* — and which then tests the other caller of that fix, `TransportFailure.IsTransient`.
+  One fix, two callers, one test.
+
+**The rule: a fix with two callers gets one test.** Worth reading alongside the A2c rule (a guard
+over two conditions is untested until a fixture makes them disagree) — both describe a suite that
+looks like it covers something it does not.
+
+### The seven, all CLOSED
+
+Every kill was proved red by re-applying its mutant (`a2d_prove_kills.py`: seven PROVED_RED, zero
+inconclusive). 33 new tests; **no production code changed** — all seven were missing tests.
+
+- [x] **D02 — `BootstrapCi.Compute`'s lower bound is a 2.5% tail, not the mean.**
+      `StrategyLabTests.Compute_PositiveMeanButWideSpread_HasALowerBoundBelowZero`: eight trades,
+      mean +0.625R, spread wide enough that the honest CI refuses to call it an edge.
+- [x] **D05 — a Score group must honour its threshold.** New `ConditionGroupFoldTests` (5 cases),
+      including the specimen the mutant produced: a sum of zero clears a threshold of zero, so a
+      group in which nothing fired would fire. And/Or asserted alongside as a vacuity floor.
+- [x] **D06 — the backtest warmup is set by the slowest indicator, not the floor.** New
+      `BacktestWarmupAnalyzerTests` (5 cases). A 200-period indicator has not converged at bar 60,
+      and a strategy gated on it trades the warmup residue.
+- [x] **D08 — a fill correction is not permission to move the protective stop.** Two cases added
+      to `StrategyPositionManagementTests`; both directions asserted, because freezing the stop in
+      both cases would be exactly as wrong.
+- [x] **D09 — the rolling quantile emits nothing before warmup.** New `RollingQuantileTests`
+      (5 cases), including the causality claim in the class's own summary, tested by prefix
+      agreement.
+- [x] **D11 — a price inside both a resistance and a support zone is neither.** New
+      `PivotLevelsProviderTests` (4 cases). The disagreement fixture runs the SAME bars twice and
+      changes only the tolerance, so the two conditions agree in one run and disagree in the
+      other. Also pins the pivot arithmetic itself, which had never been asserted.
+- [x] **D20 — only a failure that repeating could fix is repeated.** New
+      `RateLimiterRetryPolicyTests` (11 cases): 4xx once, 429/408/5xx twice, cancellation
+      immediate, client timeout retried.
+
+### The nineteen caught
+
+Recorded because a caught mutant is evidence too, and because the areas differ from A2c's. Order
+routing and risk (D03, D04, D07), the HTF look-ahead clip (D25), trade ranking (D12), indicator
+computability (D10), both drawing calculators (D13, D14), both StrategyLab statistics (D15, D16),
+symbol validation (D17), per-user path scoping (D18), the rate-limit window (D19), signed query
+building (D24), the tray's unread count (D22), the screener's insufficient-history status (D21),
+the Dot Pad's braille cell packing (D23), and the autosave prune (D26). The R-multiple sign flip
+for shorts (D01) was caught by a single test named for exactly that defect.
 
 ---
 

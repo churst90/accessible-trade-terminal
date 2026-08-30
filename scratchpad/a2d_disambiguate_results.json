@@ -1,0 +1,387 @@
+[
+ {
+  "id": "D01",
+  "area": "R multiple sign for shorts",
+  "tests": [
+   "AccessibleTrader.Tests.StrategyLabTests.TradeR_Short_SignFlipped_SoWinningShortIsPositive"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.StrategyLabTests.TradeR_Short_SignFlipped_SoWinningShortIsPositive",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.StrategyLabTests.TradeR_Short_SignFlipped_SoWinningShortIsPositive",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 23
+ },
+ {
+  "id": "D04",
+  "area": "over-allocated exit ladder",
+  "tests": [
+   "AccessibleTrader.Tests.BacktestMathFixTests.OverAllocatedLadder_IsNormalisedToSumOne_PreservingShape"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.BacktestMathFixTests.OverAllocatedLadder_IsNormalisedToSumOne_PreservingShape",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.BacktestMathFixTests.OverAllocatedLadder_IsNormalisedToSumOne_PreservingShape",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 14
+ },
+ {
+  "id": "D25",
+  "area": "higher-timeframe look-ahead",
+  "tests": [
+   "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.Evaluate_HtfIndicatorLeaf_ClipsToEndExclusive",
+   "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.HtfLastClosedIndex_PerfectAlignment_ExcludesEqualDateBar"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.Evaluate_HtfIndicatorLeaf_ClipsToEndExclusive",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.HtfLastClosedIndex_PerfectAlignment_ExcludesEqualDateBar",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.Evaluate_HtfIndicatorLeaf_ClipsToEndExclusive",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.HtfLastClosedIndex_PerfectAlignment_ExcludesEqualDateBar",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 15
+ },
+ {
+  "id": "D13",
+  "area": "risk:reward ratio inverted",
+  "tests": [
+   "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_LongSetup_ComputesRatio_AndThreeConstantLines",
+   "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_ShortSetup_UsesAbsoluteDistances"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_LongSetup_ComputesRatio_AndThreeConstantLines",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_ShortSetup_UsesAbsoluteDistances",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_LongSetup_ComputesRatio_AndThreeConstantLines",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_ShortSetup_UsesAbsoluteDistances",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 14
+ },
+ {
+  "id": "D14",
+  "area": "fib retracement direction",
+  "tests": [
+   "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_EmitsStandardLevels_FromP1Downward",
+   "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_InvertedAnchors_LevelsFlipDirection"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_EmitsStandardLevels_FromP1Downward",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_InvertedAnchors_LevelsFlipDirection",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_EmitsStandardLevels_FromP1Downward",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_InvertedAnchors_LevelsFlipDirection",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 13
+ },
+ {
+  "id": "D16",
+  "area": "block permutation minimum blocks",
+  "tests": [
+   "AccessibleTrader.Tests.LabStatisticsTests.Too_few_blocks_reports_no_evidence_rather_than_a_computed_looking_p"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.LabStatisticsTests.Too_few_blocks_reports_no_evidence_rather_than_a_computed_looking_p",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.LabStatisticsTests.Too_few_blocks_reports_no_evidence_rather_than_a_computed_looking_p",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "D17",
+  "area": "symbol path traversal",
+  "tests": [
+   "AccessibleTrader.Tests.SymbolValidatorTests.IsValid_HostilePatterns_ReturnsFalse"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.SymbolValidatorTests.IsValid_HostilePatterns_ReturnsFalse",
+    "failed": 0,
+    "passed": 14,
+    "total": 14
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.SymbolValidatorTests.IsValid_HostilePatterns_ReturnsFalse",
+    "failed": 2,
+    "passed": 12,
+    "total": 14
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "D19",
+  "area": "rate limit window cap",
+  "tests": [
+   "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "D24",
+  "area": "signed query parameters unescaped",
+  "tests": [
+   "AccessibleTrader.Tests.SdkHelperTests.BuildQuery_url_encodes_and_preserves_order"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.SdkHelperTests.BuildQuery_url_encodes_and_preserves_order",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.SdkHelperTests.BuildQuery_url_encodes_and_preserves_order",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "D18",
+  "area": "per-user directory sanitisation",
+  "tests": [
+   "AccessibleTrader.Tests.WebHost.UserScopedPathServiceTests.DataKey_IsSanitised_NoPathTraversal"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.WebHost.UserScopedPathServiceTests.DataKey_IsSanitised_NoPathTraversal",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.WebHost.UserScopedPathServiceTests.DataKey_IsSanitised_NoPathTraversal",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 9
+ },
+ {
+  "id": "D21",
+  "area": "screener insufficient history",
+  "tests": [
+   "AccessibleTrader.Tests.ScreenerServiceTests.TooFewBars_IsInsufficientHistory_NotAMatch"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.ScreenerServiceTests.TooFewBars_IsInsufficientHistory_NotAMatch",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.ScreenerServiceTests.TooFewBars_IsInsufficientHistory_NotAMatch",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ },
+ {
+  "id": "D23",
+  "area": "braille cell bit order",
+  "tests": [
+   "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellBottomLeft_SetsBit3",
+   "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellTopRight_SetsBit4"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellBottomLeft_SetsBit3",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellTopRight_SetsBit4",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellBottomLeft_SetsBit3",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellTopRight_SetsBit4",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 12
+ },
+ {
+  "id": "D26",
+  "area": "autosave prune keeps the wrong slot",
+  "tests": [
+   "AccessibleTrader.Tests.SessionAutosaveTests.Old_slots_are_pruned_but_recent_ones_are_left_alone"
+  ],
+  "checks": [
+   {
+    "phase": "clean",
+    "test": "AccessibleTrader.Tests.SessionAutosaveTests.Old_slots_are_pruned_but_recent_ones_are_left_alone",
+    "failed": 0,
+    "passed": 1,
+    "total": 1
+   },
+   {
+    "phase": "mutant",
+    "test": "AccessibleTrader.Tests.SessionAutosaveTests.Old_slots_are_pruned_but_recent_ones_are_left_alone",
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+   }
+  ],
+  "verdict": "CONFIRMED",
+  "seconds": 10
+ }
+]

@@ -1,0 +1,377 @@
+[
+ {
+  "id": "D01",
+  "area": "R multiple sign for shorts",
+  "file": "AccessibleTrader.Core/Services/Strategies/BootstrapCi.cs",
+  "breaks": "every short trade's R is reported with the wrong sign \u2014 losing shorts count as winners",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyLabTests.TradeR_Short_SignFlipped_SoWinningShortIsPositive"
+  ],
+  "status": "CAUGHT",
+  "seconds": 150
+ },
+ {
+  "id": "D02",
+  "area": "bootstrap CI lower bound",
+  "file": "AccessibleTrader.Core/Services/Strategies/BootstrapCi.cs",
+  "breaks": "the 95% CI lower bound is the median \u2014 the survivor gate becomes 'mean > 0'",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 150
+ },
+ {
+  "id": "D03",
+  "area": "reward:risk gate inverted",
+  "file": "AccessibleTrader.Core/Services/Strategies/RiskPlanResolver.cs",
+  "breaks": "only trades that MEET the minimum reward:risk are refused; the rest are taken",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 5841,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BacktestMathFixTests.OverAllocatedLadder_IsNormalisedToSumOne_PreservingShape",
+   "AccessibleTrader.Tests.BacktestMathFixTests.UnderAllocatedLadder_IsLeftUntouched",
+   "AccessibleTrader.Tests.StrategyConsumerCausalityTests.RiskPlanResolver_NanScanStaysBehindTheCurrentBar",
+   "AccessibleTrader.Tests.StrategyConsumerCausalityTests.RiskPlanResolver_PlacesTheStopAtTheCurrentBarsComponentValue"
+  ],
+  "status": "CAUGHT",
+  "seconds": 147
+ },
+ {
+  "id": "D04",
+  "area": "over-allocated exit ladder",
+  "file": "AccessibleTrader.Core/Services/Strategies/RiskPlanResolver.cs",
+  "breaks": "a ladder summing to 150% of the position is passed through unnormalised",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BacktestMathFixTests.OverAllocatedLadder_IsNormalisedToSumOne_PreservingShape"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D05",
+  "area": "scored condition group threshold",
+  "file": "AccessibleTrader.Core/Services/Strategies/ConditionEvaluator.cs",
+  "breaks": "a Score group fires at any score \u2014 the user's threshold is ignored",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 148
+ },
+ {
+  "id": "D06",
+  "area": "backtest warmup window",
+  "file": "AccessibleTrader.Core/Services/Strategies/BacktestWarmupAnalyzer.cs",
+  "breaks": "warmup falls back to the floor \u2014 a 200-period indicator signals from bar 60",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 145
+ },
+ {
+  "id": "D07",
+  "area": "re-signal while already open",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyPositionManager.cs",
+  "breaks": "a same-side re-signal opens a SECOND position; an opposite signal is swallowed",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 5841,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.A_counter_signal_closes_before_it_opens",
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.A_readopted_position_stops_the_restart_from_opening_a_second_one",
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.A_repeat_signal_on_the_same_side_adds_nothing_and_rearms_the_plan",
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.Registering_a_spec_on_a_fresh_engine_restores_its_position"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "D08",
+  "area": "breakeven stop before TP1",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyPositionManager.cs",
+  "breaks": "the stop is yanked to entry on the entry fill, before the first target is hit",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 147
+ },
+ {
+  "id": "D25",
+  "area": "higher-timeframe look-ahead",
+  "file": "AccessibleTrader.Core/Services/Strategies/ConditionEvaluator.cs",
+  "breaks": "the still-forming HTF bar is visible to every multi-timeframe leaf \u2014 look-ahead",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5843,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.Evaluate_HtfIndicatorLeaf_ClipsToEndExclusive",
+   "AccessibleTrader.Tests.ConditionEvaluatorHtfTests.HtfLastClosedIndex_PerfectAlignment_ExcludesEqualDateBar"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D12",
+  "area": "trade rank pivot alignment",
+  "file": "AccessibleTrader.Core/Services/Strategies/TradeRanker.cs",
+  "breaks": "a long at resistance scores highest \u2014 the confidence score is anti-correlated",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 5841,
+  "failing_tests": [
+   "AccessibleTrader.Tests.TradeRankerTests.Score_FullStackAlignedLong_ReachesVeryHigh",
+   "AccessibleTrader.Tests.TradeRankerTests.Score_LongAtResistance_PenalizesScore",
+   "AccessibleTrader.Tests.TradeRankerTests.Score_LongAtSupport_BoostsScore",
+   "AccessibleTrader.Tests.TradeRankerTests.Score_ShortAtResistance_BoostsScore"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D09",
+  "area": "rolling quantile warmup",
+  "file": "AccessibleTrader.Core/Services/Indicators/RollingQuantile.cs",
+  "breaks": "adaptive thresholds emit from the first bar, computed from one sample",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 145
+ },
+ {
+  "id": "D10",
+  "area": "uncomputable indicator refusal",
+  "file": "AccessibleTrader.Core/Services/Indicators/IndicatorComputability.cs",
+  "breaks": "no indicator is ever checked \u2014 PPO/HV/TMA are offered again and are permanently NaN",
+  "occurrences": 1,
+  "failed": 12,
+  "passed": 5833,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorsThatRenderNothingTests.AnIndicatorSkenderDoesNotImplement_IsNotOffered",
+   "AccessibleTrader.Tests.IndicatorsThatRenderNothingTests.EveryOfferedSkenderIndicator_ResolvesACalculation",
+   "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal",
+   "AccessibleTrader.Tests.SignalCatalogComputabilityTests.TheTwoListsAgreeBecauseTheyAskTheSameQuestion"
+  ],
+  "status": "CAUGHT",
+  "seconds": 143
+ },
+ {
+  "id": "D11",
+  "area": "pivot zone conjunction",
+  "file": "AccessibleTrader.Core/Services/Indicators/PivotLevelsProvider.cs",
+  "breaks": "a bar inside both a resistance and a support zone is announced as resistance",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 146
+ },
+ {
+  "id": "D13",
+  "area": "risk:reward ratio inverted",
+  "file": "AccessibleTrader.Core/Services/Drawing/Calculators/RiskRewardCalculator.cs",
+  "breaks": "a 3:1 setup is announced as 0.33:1 \u2014 the ratio the user hears is the reciprocal",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5843,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_LongSetup_ComputesRatio_AndThreeConstantLines",
+   "AccessibleTrader.Tests.DrawingCalculatorTests.RiskReward_ShortSetup_UsesAbsoluteDistances"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D14",
+  "area": "fib retracement direction",
+  "file": "AccessibleTrader.Core/Services/Drawing/Calculators/FibRetracementCalculator.cs",
+  "breaks": "every fib level is mirrored to the wrong side of the first anchor",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5843,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_EmitsStandardLevels_FromP1Downward",
+   "AccessibleTrader.Tests.DrawingCalculatorGeometryTests.FibRetracement_InvertedAnchors_LevelsFlipDirection"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D15",
+  "area": "permutation test becomes one-tailed",
+  "file": "AccessibleTrader.StrategyLab/LabStats.cs",
+  "breaks": "a negative observed effect makes every permutation extreme \u2014 p collapses",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 5842,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LabStatisticsTests.Block_permutation_is_more_conservative_than_row_wise_on_correlated_data",
+   "AccessibleTrader.Tests.LabStatsTests.PermutationP_IsTwoSided",
+   "AccessibleTrader.Tests.LabStatsTests.PermutationP_PerfectlySeparatedGroups_AreSignificant"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D16",
+  "area": "block permutation minimum blocks",
+  "file": "AccessibleTrader.StrategyLab/LabStats.cs",
+  "breaks": "a p-value is reported from one or two blocks \u2014 autocorrelation is unaccounted for",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LabStatisticsTests.Too_few_blocks_reports_no_evidence_rather_than_a_computed_looking_p"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "D17",
+  "area": "symbol path traversal",
+  "file": "AccessibleTrader.Sdk/Services/SymbolValidator.cs",
+  "breaks": "a symbol containing '..' is accepted and reaches cache path construction",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5843,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SymbolValidatorTests.IsValid_HostilePatterns_ReturnsFalse"
+  ],
+  "status": "CAUGHT",
+  "seconds": 144
+ },
+ {
+  "id": "D19",
+  "area": "rate limit window cap",
+  "file": "AccessibleTrader.Sdk/Services/RateLimiter.cs",
+  "breaks": "the per-window request cap never applies \u2014 the venue bans the key",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D20",
+  "area": "4xx responses retried",
+  "file": "AccessibleTrader.Sdk/Services/RateLimiter.cs",
+  "breaks": "a 401 or 403 is retried with backoff instead of failing fast",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 5845,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 167
+ },
+ {
+  "id": "D24",
+  "area": "signed query parameters unescaped",
+  "file": "AccessibleTrader.Sdk/Services/RestSigning.cs",
+  "breaks": "a parameter containing '&' or '+' signs one message and sends another",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SdkHelperTests.BuildQuery_url_encodes_and_preserves_order"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ },
+ {
+  "id": "D18",
+  "area": "per-user directory sanitisation",
+  "file": "AccessibleTrader.WebHost/Services/UserScopedPathService.cs",
+  "breaks": "a crafted data key escapes its own users/ directory into another account's",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.UserScopedPathServiceTests.DataKey_IsSanitised_NoPathTraversal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 144
+ },
+ {
+  "id": "D22",
+  "area": "tray unread alert count",
+  "file": "AccessibleTrader.WebHost/Services/RecentAlertsBuffer.cs",
+  "breaks": "the tray badge counts the alerts already read \u2014 unread alerts read as zero",
+  "occurrences": 1,
+  "failed": 8,
+  "passed": 5837,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.TrayControllerTests.Adding_an_alert_after_start_pushes_a_new_label_with_the_count",
+   "AccessibleTrader.Tests.WebHost.TrayControllerTests.ShowAlerts_with_alerts_speaks_count_and_opens_the_page",
+   "AccessibleTrader.Tests.WebHost.TrayControllerTests.SpeakStatus_reports_monitoring_armed_and_unread",
+   "AccessibleTrader.Tests.WebHost.TrayStateTests.Buffer_add_is_unread_and_visible",
+   "AccessibleTrader.Tests.WebHost.TrayStateTests.Dismiss_removes_it_from_the_snapshot",
+   "AccessibleTrader.Tests.WebHost.TrayStateTests.Mark_all_read_clears_every_unread",
+   "AccessibleTrader.Tests.WebHost.TrayStateTests.Mark_read_keeps_it_but_clears_unread_count",
+   "AccessibleTrader.Tests.WebHost.WebHostFullModeIntegrationTests.Mark_all_read_clears_every_unread_alert"
+  ],
+  "status": "CAUGHT",
+  "seconds": 146
+ },
+ {
+  "id": "D21",
+  "area": "screener insufficient history",
+  "file": "AccessibleTrader.Core/Services/Screening/ScreenerService.cs",
+  "breaks": "a symbol with one bar is evaluated instead of reported InsufficientHistory",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ScreenerServiceTests.TooFewBars_IsInsufficientHistory_NotAMatch"
+  ],
+  "status": "CAUGHT",
+  "seconds": 148
+ },
+ {
+  "id": "D23",
+  "area": "braille cell bit order",
+  "file": "AccessibleTrader.Core/Services/Accessibility/Dotpad/DotpadTactileDriver.cs",
+  "breaks": "every tactile cell is transposed \u2014 the Dot Pad renders a scrambled chart",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5843,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellBottomLeft_SetsBit3",
+   "AccessibleTrader.Tests.DotpadTactileDriverTests.PackViewport_SingleDotAtCellTopRight_SetsBit4"
+  ],
+  "status": "CAUGHT",
+  "seconds": 147
+ },
+ {
+  "id": "D26",
+  "area": "autosave prune keeps the wrong slot",
+  "file": "AccessibleTrader.Core/Services/Workspace/SessionAutosaveService.cs",
+  "breaks": "the prune deletes THIS session's slot and keeps every stale one",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5844,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SessionAutosaveTests.Old_slots_are_pruned_but_recent_ones_are_left_alone"
+  ],
+  "status": "CAUGHT",
+  "seconds": 145
+ }
+]

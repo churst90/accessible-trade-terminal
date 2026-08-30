@@ -70,6 +70,39 @@ namespace AccessibleTrader.Tests
             Assert.True(ci.Lo > 0, $"uniformly winning sample must have CIlo>0, was {ci.Lo}");
         }
 
+        /// <summary>
+        /// <b>The lower bound is a 2.5% tail, not a second name for the mean.</b>
+        ///
+        /// <para>
+        /// A2d/D02: moving <c>loIdx</c> from the 2.5th percentile of the resample means to the
+        /// 50th left the whole suite green. Nothing above notices — <c>Lo &lt;= Mean &lt;= Hi</c>
+        /// is satisfied by the median, and a uniformly winning sample has a positive median too.
+        /// So the gate the whole research harness rests on ("is the lower bound of the 95% CI
+        /// positive in BOTH halves of the walk-forward") silently degraded to "is the point
+        /// estimate positive", which is the weaker claim <c>BootstrapCi</c>'s own summary says
+        /// it exists to replace.
+        /// </para>
+        ///
+        /// <para>
+        /// The sample below is the case that separates them: eight trades, mean +0.625R, spread
+        /// wide enough that the 2.5th percentile of the bootstrap distribution sits below zero.
+        /// A real CI refuses to call it an edge. A median-as-lower-bound calls it a survivor.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void Compute_PositiveMeanButWideSpread_HasALowerBoundBelowZero()
+        {
+            var rs = new List<double> { -2.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0 };
+
+            var ci = BootstrapCi.Compute(rs);
+
+            Assert.Equal(0.625, ci.Mean, 6);            // the point estimate IS positive
+            Assert.True(ci.Lo < 0,
+                $"a mean of {ci.Mean:F3}R on eight noisy trades is not an edge; CIlo was {ci.Lo:F3}");
+            Assert.True(ci.Hi > ci.Mean,
+                $"the upper bound must sit above the mean, was {ci.Hi:F3} vs {ci.Mean:F3}");
+        }
+
         [Fact]
         public void ExtractRs_FiltersUncomputableTrades()
         {

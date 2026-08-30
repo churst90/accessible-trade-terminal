@@ -1,0 +1,121 @@
+[
+ {
+  "id": "D02",
+  "area": "bootstrap CI lower bound",
+  "filter": "FullyQualifiedName~StrategyLabTests.Compute_PositiveMeanButWideSpread",
+  "clean": {
+   "failed": 0,
+   "passed": 1,
+   "total": 1
+  },
+  "mutant": {
+   "failed": 1,
+   "passed": 0,
+   "total": 1
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D05",
+  "area": "scored condition group threshold",
+  "filter": "FullyQualifiedName~ConditionGroupFoldTests",
+  "clean": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "mutant": {
+   "failed": 2,
+   "passed": 3,
+   "total": 5
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D06",
+  "area": "backtest warmup window",
+  "filter": "FullyQualifiedName~BacktestWarmupAnalyzerTests",
+  "clean": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "mutant": {
+   "failed": 3,
+   "passed": 2,
+   "total": 5
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D08",
+  "area": "breakeven stop before TP1",
+  "filter": "FullyQualifiedName~StrategyPositionManagementTests.A_fill_correction",
+  "clean": {
+   "failed": 0,
+   "passed": 2,
+   "total": 2
+  },
+  "mutant": {
+   "failed": 1,
+   "passed": 1,
+   "total": 2
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D09",
+  "area": "rolling quantile warmup",
+  "filter": "FullyQualifiedName~RollingQuantileTests",
+  "clean": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "mutant": {
+   "failed": 2,
+   "passed": 3,
+   "total": 5
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D11",
+  "area": "pivot zone conjunction",
+  "filter": "FullyQualifiedName~PivotLevelsProviderTests",
+  "clean": {
+   "failed": 0,
+   "passed": 4,
+   "total": 4
+  },
+  "mutant": {
+   "failed": 1,
+   "passed": 3,
+   "total": 4
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 6
+ },
+ {
+  "id": "D20",
+  "area": "4xx responses retried",
+  "filter": "FullyQualifiedName~RateLimiterRetryPolicyTests",
+  "clean": {
+   "failed": 0,
+   "passed": 11,
+   "total": 11
+  },
+  "mutant": {
+   "failed": 4,
+   "passed": 7,
+   "total": 11
+  },
+  "verdict": "PROVED_RED",
+  "seconds": 16
+ }
+]
