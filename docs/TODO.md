@@ -117,7 +117,102 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-31, THIRD session that day — the provider symbol lists, and
+> **START HERE (current as of 2026-08-31, FOURTH session that day — the nine status-blind HTTP
+> reads are closed, and the worst of them was not an empty read but a false "order placed".)**
+>
+> **Commit `3df67460`. Suite 6,000 in a full run (`--list-tests` 5995 — the number
+> `docs/README.md` must match). Full run green, one new test file:
+> `AccessibleTrader.Tests/ProviderTradingReadSilenceTests.cs` (+64 tests).**
+>
+> **The work.** Item 1 of the previous block — the nine call sites that read a response body
+> without ever consulting the HTTP status, on trading paths the symbol sweep could not reach.
+> All nine were confirmed by a fresh scan (plus IBKR's `/tickle`, which is fine — try/catch
+> keepalive) and all nine are fixed on the Gemini `ReadJson` contract: **body first, then
+> status** — a refusal the venue explains keeps its classification (Kraken's `error` array,
+> Bitstamp's `status:"error"`, MEXC's `code`+`msg`, Kraken Futures' `result:error`), any other
+> non-2xx throws an `HttpRequestException` naming the status and the PATH, never the URL.
+>
+> **What the fixes actually prevented, worst first:**
+>
+> 1. **MEXC spot placement read `json["orderId"] ?? "ORDER_SUBMITTED"`** after checking only
+>    `code` — a proxy 502 answering `{"message":"bad gateway"}` parsed, carried neither field,
+>    and announced **"order placed" for an order the venue never booked**. Bitstamp placement
+>    had the identical shape via `json["id"] ?? "ORDER_SUBMITTED"`.
+> 2. **Kraken's four private READS never looked at the `error` array** its own AddOrder checks.
+>    `{"error":["EAPI:Invalid key"]}` has no `result`, so `GetBalancesAsync` reported the
+>    account FLAT — the reconciliation overwrite `ProviderResult.cs` documents — with the
+>    "No catch: a failed read must throw" comment sitting directly above the code path that
+>    could not throw. Bitstamp (`status:"error"` body → no `*_available` keys → flat) and MEXC
+>    (explained refusal → no `balances` field → flat) had the same silent-flat one layer up;
+>    all three now throw classified.
+> 3. Coinbase's `GetSignedStringAsync` (six callers: balances, fills, orders, book, OHLCV),
+>    Kraken Futures' private pair, IBKR's conid resolution (`catch { return null; }` made a
+>    dead gateway indistinguishable from "IBKR does not list this symbol" — for every chart
+>    load and order on the venue), and Tradier's two stream-session mints (refusals are
+>    PLAIN-TEXT, so the blind `JObject.Parse` spoke a parse error every five seconds instead
+>    of "the key was refused").
+>
+> **The coverage answer, since that was the commissioned question.** A method-by-method census
+> of every `ITradingProvider`/`IMarketDataProvider` member against both test projects found the
+> trading READ side nearly as bare as the symbol side was: `GetBalancesAsync` was tested on 3
+> of 12 trading venues, `GetOrderBookAsync` on 4, `SetLeverageAsync` on 4 — all hand-typed
+> lists. **Three new roster sweeps** (same `ProviderRoster` enrollment-by-existing as the
+> symbol sweep): balances, order book, and OHLCV, each under a dead transport, each asserting
+> *a venue that reached the wire and returned nothing must have thrown or said why*, each with
+> an at-the-wire anti-vacuity floor (a guard that returns before any HTTP call is a skip, not
+> a pass). Thirteen targeted guards pin the signed/private paths the sweeps cannot reach. The
+> sweeps also flushed out **three bare `catch { return empty; }` order-book reads** (OANDA,
+> Polygon, IBKR — the exact venues `ProviderSilentFailureTests` never enumerated) and
+> FmpAnalytics' bare OHLCV catch; all four now say so, and FmpAnalytics also rethrows
+> transient faults (the `Every_provider_rethrows...` scan gate demanded it the moment the
+> catch became scannable — its old `catch {` had no parenthesis, so the gate's
+> `catch\s*\(` regex never saw the method at all).
+>
+> **Proved by sabotage** — fifteen reintroductions from a committed baseline, file-copy
+> restores, unique-anchor asserts, control run green at the end (the harness rules held; see
+> `sabotage-harness-rules`).
+>
+> ---
+>
+> ### NEXT — in this order
+>
+> **1. Binance is geo-blocked from the VPS — a PRODUCT decision, not a code fix.** Unchanged
+> from the previous block: `GET /api/v3/ping` → HTTP 451 from the hosted head. Hide it there,
+> or say plainly the server cannot reach it. **Needs Cody's decision before anything is
+> written.** (With the Gemini-pattern status checks now fleet-wide, a 451 at least throws with
+> its status instead of parsing as an empty success — but the dropdown still offers a venue
+> the server can never reach.)
+>
+> **2. The StrategyLab statistics re-run — still the top research item**, and still the
+> largest untested area in the tree (71 of 99 types).
+>
+> **ALSO RECORDED, smaller, none of it fixed:**
+>
+> * **`SupportsSymbolSearch` is declared by 16 providers and consumed by NOTHING.**
+>   `TwelveDataProvider.SearchSymbolsAsync` (the only implementation) has zero callers
+>   anywhere in the app — verified by whole-tree grep, not just the census. Either wire the
+>   symbol picker to it or delete the flag and the method; testing it as-is would be testing
+>   dead code.
+> * **Three OHLCV paths announce failures but never rethrow them** (Gemini, Kraken Futures,
+>   and Bitstamp's inline non-2xx branch), so the orchestrator's retry and circuit breaker
+>   cannot see a dead venue through them. From a read-only survey — **explicitly unverified**,
+>   no failing behaviour demonstrated (the scan gate passes them for its own reasons; check
+>   before believing either).
+> * **Two balance guards cannot be satisfied without a network round-trip** — Schwab needs
+>   `_primaryAccountHash` (populated by `ValidateApiKeyAsync`) and MEXC needs `_connected`
+>   (set in `EnsureConnectedAsync`) — so the balance sweep skips both at the wire, honestly.
+>   MEXC's order path IS covered (targeted tests set the flag); Schwab's balance read has no
+>   dead-transport guard at all.
+> * **Tradier's account-events session fix is verified by inspection only** — its twin (the
+>   market-stream session mint, same shape, same fix) is test-covered, but the account-events
+>   path only runs inside a real WebSocket connect callback no test reaches.
+> * "Needs key" in the server report's health sweep still means UNTESTED, the 10,000-symbol
+>   cap is still a wall, and the provider contract still has one return value for "no
+>   symbols" and "lookup failed" — all carried unchanged from the previous block.
+>
+> ---
+>
+> **Previous (2026-08-31, THIRD session that day — the provider symbol lists, and
 > a gate that stated the right rule while asserting a different method.)**
 >
 > **Commit `490b36d7`. Suite 5,936 in both configurations** (`--list-tests` **5931** — the number

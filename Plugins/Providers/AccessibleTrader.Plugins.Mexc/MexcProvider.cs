@@ -605,7 +605,8 @@ namespace AccessibleTrader.Plugins.Mexc
                 var path = string.IsNullOrEmpty(want) ? "/api/v1/private/order/list/open_orders" : $"/api/v1/private/order/list/open_orders/{want}";
                 var body = await _rateLimiter.ExecuteAsync(() => _rest.FuturesSignedAsync(HttpMethod.Get, path, key, secret)).ConfigureAwait(false);
                 // A spot-only key gets an error BODY here (success=false), not an
-                // exception — FuturesSignedAsync never throws on HTTP status. That
+                // exception — FuturesSignedAsync hands venue-explained bodies
+                // through and throws only for a non-2xx it cannot classify. That
                 // legitimate no-futures-access case stays quiet by body shape;
                 // transport failures and garbage bodies now propagate instead of
                 // being swallowed into "no futures orders".
