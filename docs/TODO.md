@@ -117,8 +117,142 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-30, SECOND session that day — one chart was quoting three
-> different closing prices, and the close line now agrees with the title bar.)**
+> **START HERE (current as of 2026-08-31, THIRD session that day — the provider symbol lists, and
+> a gate that stated the right rule while asserting a different method.)**
+>
+> **Commit `490b36d7`. Suite 5,936 in both configurations** (`--list-tests` **5931** — the number
+> `docs/README.md` must match; the two differ because `--list-tests` names a `[Theory]` once and a
+> run expands its cases). Full run green, doc-drift green. **32 new tests, one new file:**
+> `AccessibleTrader.Tests/ProviderSymbolListTests.cs`.
+>
+> **The report.** `patches/twelvedata-symbol-list.patch` plus
+> `patches/PROVIDER-SYMBOL-LISTS-2026-08-31.md`, from the server agent. After `ab4a7737` fixed the
+> `"Twelve Data"` name drift the key was accepted and logged — **and TSLA still would not load.**
+> Two defects stacked, either enough on its own:
+>
+> 1. **`/stocks` takes ONE exchange per call.** `exchange=NYSE,NASDAQ` is not rejected; it answers
+>    **HTTP 200 with `{"data":[],"count":0,"status":"ok"}` — an empty SUCCESS**, byte-for-byte what
+>    a market with genuinely no symbols looks like. Measured against the live API: the comma form
+>    returns 0 rows, `NASDAQ` alone 4,499, `NYSE` alone 3,072.
+> 2. **`.OrderBy(s => s).Take(2000)` after the merge.** NYSE+NASDAQ is 7,570 unique symbols and the
+>    cut landed on **`"DIBS"`**. `AAPL` survived, which is exactly why the provider looked like it
+>    worked; `MSFT`, `NVDA` and `TSLA` did not. Finnhub had the identical cut against a US universe
+>    far larger than 2,000. Those two were the ONLY capped symbol lists in the tree — verified by a
+>    brace-matched scan of every provider's symbol method, not by grep.
+>
+> The patch was applied unchanged. It is not the interesting part.
+>
+> **THE COVERAGE ANSWER: not one test in the suite called `GetAvailableSymbolsAsync` on ANY of the
+> seventeen market-data providers.** Every grep hit was either an analytics provider (SEC EDGAR,
+> CFTC, Wikipedia, Deribit, MyData) or a stub override on a fake. `SupportsSymbolSearch` is
+> declared by providers and named by no test at all; `TwelveDataProvider.SearchSymbolsAsync` has
+> none either. The harness was never the problem — `FakeHttpMessageHandler` plus the
+> reflection HttpClient swap covers `FetchOhlcvAsync` for seven providers in
+> `ProviderFetchOhlcvTests.Enrollment.cs`. The symbol path was simply never enrolled.
+>
+> **THE DURABLE FINDING, and it is about the gate, not the venue.**
+> `ProviderSilentFailureTests` is titled *"A read that failed says so. An empty answer and a dead
+> endpoint are not the same fact"* — the exact rule this bug breaks — and its own summary names
+> *"Coinbase did the same for its symbol list."* **All five of its tests exercise the order book,
+> the cancel and the leverage call, over four providers typed out by hand.** The rule was written
+> down, four providers deep, aimed one method to the left of where it was needed. **Read what a
+> gate ASSERTS, never what its summary says it is for** — and grep for the method name before
+> believing a path is covered.
+>
+> **What replaced it.** `ProviderSymbolListSilenceTests` enumerates `ProviderRoster` the way
+> `ProviderConformanceTests` does, so a new venue is enrolled by existing: every route answers 401,
+> each venue is asked for a market and sub-type **it declares itself**
+> (`SupportedMarkets[0]` + `GetSupportedSubTypesAsync(...).First()` — a guessed `"Spot"` returns an
+> honest empty list for a reason unrelated to the rule), and a provider that returns NOTHING must
+> have said why. A static suggestion list is a legitimate answer and passes. The anti-vacuity half
+> is two-part: ≥16 venues swept **and** ≥8 of them actually went empty, or the early `return` fires
+> every time and nothing is asserted.
+>
+> **It found Gemini on its first run. `GetPublicAsync` never looked at the HTTP status.**
+> `ThrowOnError` fires only for a body shaped `{"result":"error"}`, so any other non-2xx — an edge
+> 401, a CDN 429, a proxy 502, **the 451 Binance answers a geo-blocked server with** — parsed as
+> ordinary JSON and came back a success carrying nothing. `GetAvailableSymbolsAsync` then read
+> `json as JArray ?? new JArray()` and returned an **empty list with no exception to catch and
+> nothing said** — the same silent-empty mechanism as the Twelve Data comma, in a different venue.
+> Fixed with a shared `ReadJson`: body first, so `ThrowOnError`'s classified
+> `UnauthorizedAccessException` survives, then status.
+>
+> **Four more the sweep found, all fixed:** Schwab returned empty forever and never said it has no
+> bulk endpoint; **Interactive Brokers presented 45 hardcoded tickers as IBKR's coverage** (the
+> only hardcoded symbol list in the tree — it never touches the gateway, so the count is identical
+> whether or not one is running); OANDA and FMP both had `catch { return empty; }` on the symbol
+> path.
+>
+> **The report's section 4 is wrong and the correction matters:** it claimed "0 of 16 log anything
+> inside a catch block in the symbol path". **Eight already did**, and Finnhub/Polygon were already
+> the reference pattern the patch copies. The genuinely silent set was six, not sixteen.
+>
+> **Everything proved by sabotage** — seven reintroductions, each guard red, then a control run
+> green: the comma URL, the 2,000 cap (both providers), the `status:"error"` body check, the
+> Twelve Data bare catch, Gemini's status check, Schwab's message, OANDA's bare catch. **Two
+> harness lessons went into `sabotage-harness-rules` the hard way**: an anchor that appears in both
+> the symbol path and the OHLCV path patches nothing and the run then prints `Passed!`, which reads
+> exactly like a verified guard; and **restoring with `git checkout --` reverts the uncommitted FIX
+> along with the sabotage** — commit first, restore from a file copy, and diff every file against
+> its backup at the end.
+>
+> ---
+>
+> ### NEXT — three items, in this order
+>
+> **1. The nine status-blind HTTP reads (NEW, recorded not fixed — this is the direct follow-on).**
+> The Gemini bug is a shape, not a one-off: nine call sites read a response body and never consult
+> the status code, on **trading and OHLCV paths the new sweep does not reach**. Found by scanning
+> for `SendAsync`/`GetAsync`/`PostAsync` with no `IsSuccessStatusCode` /
+> `EnsureSuccessStatusCode` / `StatusCode` within the following twelve lines, then hand-filtering
+> the WebSocket `ws.SendAsync` false positives.
+>
+> | file | lines | path |
+> |---|---|---|
+> | `KrakenFuturesProvider.cs` | 476, 491 | `GetPrivateAsync` / `PostPrivateAsync` — **signed, i.e. the order path** |
+> | `MexcRestApi.cs` | 113, 161 | spot + futures REST |
+> | `BitstampProvider.cs` | 702 | signed POST |
+> | `CoinbaseProvider.cs` | 744 | shared send helper |
+> | `KrakenProvider.cs` | 1264 | signed send |
+> | `InteractiveBrokersProvider.cs` | 786 | `/iserver/secdef/search` — conid resolution |
+> | `TradierProvider.cs` | 196, 310 | session-create for the stream |
+>
+> Note `KrakenFuturesProvider.GetPublicJsonAsync` (line ~467) is FINE and passed the sweep for the
+> right reason: it uses `GetStringAsync`, which throws on non-success. It is the private half that
+> hand-reads the body. **Do not assume the sweep passing a provider means all its reads are safe —
+> it only reaches the symbol path.** The obvious shape for this is a second roster sweep over
+> `FetchOhlcvAsync` and `GetOrderBookAsync` with a 502-answering transport, asserting the same
+> rule; that would also subsume part of `ProviderSilentFailureTests`.
+>
+> **2. Binance is geo-blocked from the VPS — a PRODUCT decision, not a code fix.**
+> `GET https://api.binance.com/api/v3/ping` → **HTTP 451**, "Service unavailable from a restricted
+> location". The hosted terminal lists Binance in the provider dropdown where it can only ever
+> return nothing, while the same build works perfectly on a desktop in an eligible country. Either
+> hide it on the hosted head or have it say plainly that the server cannot reach Binance. Right now
+> it reads as a broken app. **Needs Cody's decision before anything is written.**
+>
+> **3. The StrategyLab statistics re-run — still the top research item**, unchanged from the two
+> previous blocks, and still the largest untested area in the tree.
+>
+> **ALSO CARRIED, smaller:**
+>
+> * **"Needs key" in the server report's health sweep means UNTESTED, not working.** Twelve Data
+>   passed its credential check and returned nothing, which is the whole point. Every provider
+>   marked "needs key" in section 5 of `patches/PROVIDER-SYMBOL-LISTS-2026-08-31.md` was never
+>   exercised past the credential check. The keys in `patches/api keys/` cover some of them.
+> * **The symbol-list cap is 10,000 and is still a wall.** The report's own table shows Twelve Data
+>   with no exchange filter returns 198,692 symbols, so adding a third exchange re-arms the same
+>   bug. Truncation is now announced rather than silent, which is the right property, but the cap
+>   is a limit that will bite again.
+> * **The provider contract still has one return value for two facts.** "No symbols" and "lookup
+>   failed" are both `new List<string>()`; the sweep forces a *message* but the UI still cannot
+>   render the difference structurally. The report recommends splitting them at the SDK level and
+>   deliberately left it out of the patch. Agreed — it is a real refactor, not a fix.
+>
+> ---
+>
+> **Previous (2026-08-30, SECOND session that day — one chart was quoting three different closing
+> prices, and the close line now agrees with the title bar.)**
 >
 > **Reported from live use, on a Bitstamp BTC daily chart: "the title bar says 79.3k, the candle
 > close is at 78.6k and the price says 77.8K."** Three surfaces, three numbers, same bar. It was
