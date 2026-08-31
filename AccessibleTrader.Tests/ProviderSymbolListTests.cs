@@ -31,7 +31,12 @@ namespace AccessibleTrader.Tests
         public static Dictionary<string, string> Credentials() => new()
         {
             ["ApiKey"]      = "test-key",
-            ["ApiSecret"]   = "test-secret",
+            // Valid base64 ("testsecret") on purpose: Kraken and Kraken Futures
+            // base64-DECODE the secret before signing, and a secret that is not
+            // base64 throws FormatException before the request is ever built — so
+            // a sweep meaning to prove "a dead endpoint is announced" would never
+            // reach the endpoint at all.
+            ["ApiSecret"]   = "dGVzdHNlY3JldA==",
             ["AccessToken"] = "test-token",
             ["AccountId"]   = "test-account",
             ["CustomerId"]  = "test-customer",

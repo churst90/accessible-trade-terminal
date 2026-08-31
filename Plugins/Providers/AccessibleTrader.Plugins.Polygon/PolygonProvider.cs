@@ -390,7 +390,14 @@ namespace AccessibleTrader.Plugins.Polygon
                     }
                 });
             }
-            catch { return (new List<OrderBookEntry>(), new List<OrderBookEntry>()); }
+            catch (Exception ex)
+            {
+                // An empty ladder must not be the only thing the user hears: for this
+                // product's audience it is indistinguishable from a book with no
+                // liquidity, and those are opposite facts.
+                _errorStream.OnNext($"Polygon order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
+            }
         }
 
         // ── IOrderBookProvider ──────────────────────────────────────────────

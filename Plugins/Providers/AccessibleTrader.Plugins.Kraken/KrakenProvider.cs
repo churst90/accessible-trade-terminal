@@ -8,6 +8,7 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Services;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
@@ -657,6 +658,22 @@ namespace AccessibleTrader.Plugins.Kraken
 
         // ── ITradingProvider ────────────────────────────────────────────────
 
+        /// <summary>
+        /// Parse a private-endpoint answer and refuse to treat a refusal as data.
+        /// Kraken reports refusals as HTTP 200 with a populated <c>error</c> array, and
+        /// the four account READS below used to skip that check (only AddOrder made it):
+        /// <c>{"error":["EAPI:Invalid key"]}</c> has no <c>result</c>, so balances came
+        /// back as an account that is FLAT — the reconciliation incident
+        /// ProviderResult.cs documents, reachable by any expired key.
+        /// </summary>
+        private static JObject ParsePrivate(string result, string what)
+        {
+            var json = JObject.Parse(result);
+            if (json["error"] is JArray errors && errors.Count > 0)
+                throw new InvalidOperationException($"Kraken refused {what}: {string.Join(", ", errors)}");
+            return json;
+        }
+
         public async Task<List<Balance>> GetBalancesAsync()
         {
             if (!IsConnected) return new();
@@ -667,7 +684,7 @@ namespace AccessibleTrader.Plugins.Kraken
             return await _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/Balance", new Dictionary<string, string>());
-                var json = JObject.Parse(result);
+                var json = ParsePrivate(result, "the balance read");
                 var balances = json["result"] as JObject;
                 if (balances == null) return new List<Balance>();
 
@@ -692,7 +709,7 @@ namespace AccessibleTrader.Plugins.Kraken
             return await _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/OpenPositions", new Dictionary<string, string>());
-                var json = JObject.Parse(result);
+                var json = ParsePrivate(result, "the open-positions read");
                 var positions = json["result"] as JObject;
                 if (positions == null) return new List<Position>();
 
@@ -738,7 +755,7 @@ namespace AccessibleTrader.Plugins.Kraken
             return await _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/TradesHistory", new Dictionary<string, string>());
-                var json = JObject.Parse(result);
+                var json = ParsePrivate(result, "the trade-history read");
                 var trades = json["result"]?["trades"] as JObject;
                 if (trades == null) return new List<TradeFill>();
 
@@ -772,7 +789,7 @@ namespace AccessibleTrader.Plugins.Kraken
             return await _privateRateLimiter.ExecuteAsync(async () =>
             {
                 var result = await PostPrivateAsync("/0/private/OpenOrders", new Dictionary<string, string>());
-                var json = JObject.Parse(result);
+                var json = ParsePrivate(result, "the open-orders read");
                 var open = json["result"]?["open"] as JObject;
                 if (open == null) return new List<OpenOrder>();
 
@@ -1262,7 +1279,24 @@ namespace AccessibleTrader.Plugins.Kraken
             request.Headers.Add("API-Sign", apiSign);
 
             var response = await _httpClient.SendAsync(request);
-            return await response.Content.ReadAsStringAsync();
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            // Kraken explains refusals in the error array and callers classify that
+            // shape themselves, so it is returned whatever the HTTP status says. Any
+            // OTHER non-2xx used to come back as an ordinary body: a proxy 502 whose
+            // JSON has no error array parsed as success carrying nothing, and the
+            // balance read reported the account flat. Only the path travels in the
+            // message — the post data carries the nonce and rides under the signature.
+            if (!response.IsSuccessStatusCode)
+            {
+                bool venueExplained;
+                try { venueExplained = JObject.Parse(responseBody)["error"] is JArray err && err.Count > 0; }
+                catch (JsonReaderException) { venueExplained = false; }   // an HTML gateway page is not JSON
+                if (!venueExplained)
+                    throw new HttpRequestException(
+                        $"Kraken refused {path}: HTTP {(int)response.StatusCode}.", null, response.StatusCode);
+            }
+            return responseBody;
         }
 
         // ── Helpers ─────────────────────────────────────────────────────────

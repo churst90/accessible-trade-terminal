@@ -535,8 +535,14 @@ namespace AccessibleTrader.Plugins.Mexc
             {
                 var (key, secret) = await CheckoutMexcCredentialsAsync().ConfigureAwait(false);
                 var body = await _rest.SpotSignedAsync(HttpMethod.Get, "/api/v3/account", key, secret).ConfigureAwait(false);
-                var balances = JObject.Parse(body)["balances"] as JArray;
-                if (balances == null) return new List<Balance>();
+                var json = JObject.Parse(body);
+                // A refusal MEXC explains in the body (code + msg) comes back from
+                // SpotSignedAsync as an ordinary body, not an exception — an account
+                // answer with no balances field is that refusal, not an empty account.
+                // An empty account is "balances": [].
+                if (json["balances"] is not JArray balances)
+                    throw new InvalidOperationException(
+                        $"MEXC refused the balance read: {json["msg"] ?? json["message"] ?? "no balances field in the answer"}");
                 return balances.Select(b => new Balance(
                         b["asset"]?.ToString() ?? "", ParseD(b["free"]?.ToString()), ParseD(b["locked"]?.ToString())))
                     .Where(b => b.Free > 0 || b.Locked > 0).ToList();

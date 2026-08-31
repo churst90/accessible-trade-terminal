@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using AccessibleTrader.Sdk.Services;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Mexc
 {
@@ -124,7 +126,7 @@ namespace AccessibleTrader.Plugins.Mexc
                     continue;
                 }
 
-                return body;
+                return BodyOrThrow(response, body, path);
             }
         }
 
@@ -159,7 +161,34 @@ namespace AccessibleTrader.Plugins.Mexc
                 request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
             using var response = await _http.SendAsync(request).ConfigureAwait(false);
-            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return BodyOrThrow(response, await response.Content.ReadAsStringAsync().ConfigureAwait(false), path);
+        }
+
+        /// <summary>
+        /// A non-2xx whose body MEXC itself explains (spot's <c>code</c>+<c>msg</c>,
+        /// futures' <c>success</c>) is returned so the caller classifies it — that is
+        /// how a spot-only key's futures refusal stays a quiet no-access rather than a
+        /// fault. Any OTHER non-2xx used to come back as an ordinary body: a proxy 502
+        /// answering <c>{"message":"bad gateway"}</c> parsed in PlaceSpotOrderAsync as
+        /// code-absent, which reads as success — an order announced as placed that the
+        /// venue never booked. Only the path travels in the message; the signed query
+        /// string never does.
+        /// </summary>
+        private static string BodyOrThrow(HttpResponseMessage response, string body, string path)
+        {
+            if (response.IsSuccessStatusCode) return body;
+
+            try
+            {
+                var json = JObject.Parse(body);
+                bool venueExplained = json["success"] != null
+                    || (json["code"] != null && (json["msg"] ?? json["message"]) != null);
+                if (venueExplained) return body;
+            }
+            catch (JsonReaderException) { }   // an HTML gateway page is not JSON
+
+            throw new HttpRequestException(
+                $"MEXC refused {path}: HTTP {(int)response.StatusCode}.", null, response.StatusCode);
         }
 
         // ── Interval tokens ──────────────────────────────────────────────────

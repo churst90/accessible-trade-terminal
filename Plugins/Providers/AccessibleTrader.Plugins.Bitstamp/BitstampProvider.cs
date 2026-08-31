@@ -8,6 +8,7 @@ using AccessibleTrader.Sdk.Trading;
 using AccessibleTrader.Sdk.Enums;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Services;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Bitstamp
@@ -578,6 +579,12 @@ namespace AccessibleTrader.Plugins.Bitstamp
             {
                 var response = await PostAuthenticatedAsync("/api/v2/balance/", new Dictionary<string, string>());
                 var json     = JObject.Parse(response);
+                // A refusal Bitstamp explains (status:"error" + reason) parses fine and
+                // simply has no *_available properties — which used to read as an
+                // account that is FLAT, the exact overwrite the comment above exists
+                // to prevent. Classify it instead of mining an error body for balances.
+                if (json["status"]?.ToString() == "error")
+                    throw new InvalidOperationException($"Bitstamp refused the balance read: {json["reason"]}");
                 var result   = new List<Balance>();
                 var currencies = json.Properties().Where(p => p.Name.EndsWith("_available")).Select(p => p.Name.Replace("_available", "")).ToList();
 
@@ -611,7 +618,13 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     ? $"/api/v2/open_orders/{ToBitstampPair(symbol)}/"
                     : "/api/v2/open_orders/all/";
                 var response = await PostAuthenticatedAsync(endpoint, new Dictionary<string, string>());
-                var arr = JArray.Parse(response);
+                // Success is a bare array; a refusal is an OBJECT with status:"error".
+                // JArray.Parse on the object threw a cast error whose message named
+                // neither the venue nor the reason — say the actual fact instead.
+                var tok = JToken.Parse(response);
+                if (tok is JObject refusal && refusal["status"]?.ToString() == "error")
+                    throw new InvalidOperationException($"Bitstamp refused the open-orders read: {refusal["reason"]}");
+                var arr = (JArray)tok;
                 return arr.Select(o => new OpenOrder(
                     o["id"]?.ToString() ?? "",
                     o["currency_pair"]?.ToString() ?? symbol ?? "",
@@ -700,7 +713,25 @@ namespace AccessibleTrader.Plugins.Bitstamp
             var postParams = new Dictionary<string, string>(parameters) { ["key"] = apiKey, ["signature"] = signature, ["nonce"] = nonce };
             var content  = new FormUrlEncodedContent(postParams);
             var response = await _httpClient.PostAsync($"https://www.bitstamp.net{endpoint}", content);
-            return await response.Content.ReadAsStringAsync();
+            string body  = await response.Content.ReadAsStringAsync();
+
+            // Callers classify a status:"error" body themselves — PlaceOrderAsync turns
+            // it into ORDER_FAILED:{reason} — so that shape is returned whatever the
+            // HTTP status says. Any OTHER non-2xx used to come back as an ordinary
+            // body: GetBalancesAsync parsed a 502 gateway page's JSON, found no
+            // *_available properties and reported the account FLAT, and PlaceOrderAsync
+            // read a body with no "id" as ORDER_SUBMITTED. Only the endpoint travels in
+            // the message — the form body carries the key and signature.
+            if (!response.IsSuccessStatusCode)
+            {
+                bool venueExplained;
+                try { venueExplained = JObject.Parse(body)["status"]?.ToString() == "error"; }
+                catch (JsonReaderException) { venueExplained = false; }   // an HTML gateway page is not JSON
+                if (!venueExplained)
+                    throw new HttpRequestException(
+                        $"Bitstamp refused {endpoint}: HTTP {(int)response.StatusCode}.", null, response.StatusCode);
+            }
+            return body;
         }
 
         // Sign-time credential checkout (phase 4 Track B). Prefers the

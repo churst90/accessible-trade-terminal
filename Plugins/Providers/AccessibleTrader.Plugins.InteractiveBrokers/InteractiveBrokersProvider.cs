@@ -528,7 +528,14 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     return (bids, asks);
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // An empty ladder must not be the only thing the user hears: for this
+                // product's audience it is indistinguishable from a book with no
+                // liquidity, and those are opposite facts.
+                _errorStream.OnNext($"IBKR order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new(), new());
+            }
         }
 
         // ── ITradingProvider ────────────────────────────────────────────────
@@ -785,11 +792,28 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     var content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
                     var response = await _httpClient.PostAsync($"{_gatewayUrl}/iserver/secdef/search", content);
                     var respStr = await response.Content.ReadAsStringAsync();
+                    // A gateway that refuses the search (an expired session answers 401)
+                    // used to fall into the catch below and come back as a bare null —
+                    // indistinguishable from "IBKR does not list this symbol", which is
+                    // the opposite fact: one is fixable by re-authenticating the gateway.
+                    if (!response.IsSuccessStatusCode)
+                        throw new HttpRequestException(
+                            $"HTTP {(int)response.StatusCode}", null, response.StatusCode);
                     var arr = JArray.Parse(respStr);
                     return arr.FirstOrDefault()?["conid"]?.ToString();
                 });
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                // Null stays the return value — the callers' "unknown symbol" handling
+                // is right either way — but the reason is now SAID. Every symbol lookup,
+                // chart load and order on this venue starts here, so a silent null made
+                // all of them fail with no explanation at all.
+                _errorStream.OnNext(
+                    $"IBKR could not resolve '{symbol}' via the gateway ({(ex as HttpRequestException)?.Message ?? ex.GetType().Name}). "
+                  + "Check the gateway is running and authenticated.");
+                return null;
+            }
         }
 
         private static string MapToPeriod(MarketDataRequest request)

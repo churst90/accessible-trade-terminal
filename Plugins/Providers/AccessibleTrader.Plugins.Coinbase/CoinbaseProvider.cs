@@ -747,7 +747,16 @@ namespace AccessibleTrader.Plugins.Coinbase
         private async Task<string> GetSignedStringAsync(string url, string requestPath)
         {
             using var resp = await SendSignedAsync(HttpMethod.Get, url, requestPath).ConfigureAwait(false);
-            return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            // Every caller of this helper parses the body for its expected fields and
+            // finds none in an error body, so a non-2xx used to flatten into an empty
+            // result — balances read as an account with nothing in it. The POST callers
+            // check the status themselves; this GET helper is where the read was blind.
+            // Only the request path travels in the message, never the full URL.
+            if (!resp.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"Coinbase refused {requestPath}: HTTP {(int)resp.StatusCode}.", null, resp.StatusCode);
+            return body;
         }
 
         /// <summary>WebSocket JWT. Same key and ES256 signing as the REST one,

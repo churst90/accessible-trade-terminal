@@ -194,6 +194,14 @@ namespace AccessibleTrader.Plugins.Tradier
                 .OnConnected(async ws =>
                 {
                     var resp = await _httpClient.PostAsync($"{_baseUrl}/accounts/events/session", null);
+                    // Tradier answers a refused session with a PLAIN-TEXT body ("Invalid
+                    // Access Token"), so the blind JObject.Parse below used to turn a 401
+                    // into a JsonReaderException — the stream's error handler then spoke a
+                    // parse error instead of the actual fact, which is that the key was
+                    // refused and reconnecting will never help.
+                    if (!resp.IsSuccessStatusCode)
+                        throw new InvalidOperationException(
+                            $"Tradier account-events session refused (HTTP {(int)resp.StatusCode}). Check the access token.");
                     var json = JObject.Parse(await resp.Content.ReadAsStringAsync());
                     var sessionId = json["stream"]?["sessionid"]?.ToString();
                     if (string.IsNullOrEmpty(sessionId))
@@ -309,6 +317,17 @@ namespace AccessibleTrader.Plugins.Tradier
                     // Step 1: Get a streaming session
                     var sessionResp = await _httpClient.PostAsync(
                         $"{_baseUrl}/markets/events/session", null, ct);
+                    // A refusal carries a plain-text body, so the JObject.Parse below
+                    // used to throw on a 401 and the retry loop spoke a parse error
+                    // every five seconds. Name the actual fact instead — a refused key
+                    // is fixable, a vague "failed to get session" is not.
+                    if (!sessionResp.IsSuccessStatusCode)
+                    {
+                        _errorStream.OnNext(
+                            $"Tradier: stream session refused (HTTP {(int)sessionResp.StatusCode}). Check the access token.");
+                        await Task.Delay(5000, ct);
+                        continue;
+                    }
                     var sessionJson = JObject.Parse(await sessionResp.Content.ReadAsStringAsync(ct));
                     var sessionId = sessionJson["stream"]?["sessionid"]?.ToString();
                     if (string.IsNullOrEmpty(sessionId))

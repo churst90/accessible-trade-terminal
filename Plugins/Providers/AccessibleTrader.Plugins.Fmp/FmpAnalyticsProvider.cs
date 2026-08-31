@@ -263,7 +263,15 @@ namespace AccessibleTrader.Plugins.Fmp
                     return (bars, volume);
                 }).ConfigureAwait(false);
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // FetchArrayAsync explains most HTTP failures itself; this clause
+                // caught whatever escaped it — and said nothing. An analytics panel
+                // that is empty and an analytics fetch that died are different facts.
+                _errorStream.OnNext($"FMP analytics fetch failed for {request.Symbol} ({ex.GetType().Name})");
+                if (TransportFailure.IsTransient(ex)) throw;
+                return (new(), new());
+            }
         }
 
         private async Task<List<Ohlcv>> FetchMetricAsync(string symbol, int limit)

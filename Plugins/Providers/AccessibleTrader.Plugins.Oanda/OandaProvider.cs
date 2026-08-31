@@ -685,7 +685,14 @@ namespace AccessibleTrader.Plugins.Oanda
                     return (bids, asks);
                 });
             }
-            catch { return (new(), new()); }
+            catch (Exception ex)
+            {
+                // An empty ladder must not be the only thing the user hears: for this
+                // product's audience it is indistinguishable from a book with no
+                // liquidity, and those are opposite facts.
+                _errorStream.OnNext($"OANDA order book unavailable for {symbol}: {ex.GetType().Name}");
+                return (new(), new());
+            }
         }
 
         // ── ITradingProvider ────────────────────────────────────────────────

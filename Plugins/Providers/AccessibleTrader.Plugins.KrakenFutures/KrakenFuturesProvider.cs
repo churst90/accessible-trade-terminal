@@ -8,6 +8,7 @@ using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Services;
 using AccessibleTrader.Sdk.Trading;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.KrakenFutures
@@ -474,7 +475,7 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             await _privateLimiter.WaitAsync().ConfigureAwait(false);
             using var req = Signed(HttpMethod.Get, path, "");
             var res = await _http.SendAsync(req).ConfigureAwait(false);
-            return JObject.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
+            return ReadPrivateJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), path);
         }
 
         private async Task<JObject> PostPrivateAsync(string path, IEnumerable<(string Key, string Value)> args)
@@ -489,7 +490,34 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             using var req = Signed(HttpMethod.Post, path, body);
             req.Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded");
             var res = await _http.SendAsync(req).ConfigureAwait(false);
-            return JObject.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
+            return ReadPrivateJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), path);
+        }
+
+        /// <summary>
+        /// Body first, then status — and neither one alone. Callers classify a
+        /// <c>result: error</c> body through <see cref="Throw"/>, so a refusal the
+        /// venue explains keeps its explanation whatever the status code. But every
+        /// caller ALSO used to read the body blind: a proxy 502 or an edge 401 whose
+        /// JSON lacks <c>result: error</c> parsed as success carrying nothing, and
+        /// <c>GetBalancesAsync</c> then reported the account flat — the reconciliation
+        /// failure <c>ProviderResult.cs</c> documents. Only the path travels in the
+        /// message; the URL never does, because private URLs are the credential-leak
+        /// channel five providers shipped.
+        /// </summary>
+        private static JObject ReadPrivateJson(HttpResponseMessage res, string body, string path)
+        {
+            JObject? json = null;
+            try { json = JObject.Parse(body); }
+            catch (JsonReaderException) { }   // an HTML gateway page is not JSON
+
+            if (json != null && ErrorOf(json) != null) return json;
+
+            if (!res.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"Kraken Futures refused {path}: HTTP {(int)res.StatusCode}.", null, res.StatusCode);
+
+            return json ?? throw new HttpRequestException(
+                $"Kraken Futures answered {path} with a non-JSON body (HTTP {(int)res.StatusCode}).");
         }
 
         private HttpRequestMessage Signed(HttpMethod method, string path, string postData)
