@@ -362,6 +362,13 @@ namespace AccessibleTrader.Plugins.Schwab
         {
             // Schwab has no bulk-symbol-list endpoint. A host UI is expected
             // to collect a symbol string from the user directly.
+            //
+            // The empty list is correct and the SILENCE was not: an empty dropdown reads as
+            // "Schwab has no symbols" or "the fetch broke", and for a screen reader user it is
+            // indistinguishable from either. Say which it is.
+            SurfaceError(
+                "Schwab does not publish a symbol list — type the symbol you want instead of "
+              + "picking one from the list.");
             return Task.FromResult(new List<string>());
         }
 

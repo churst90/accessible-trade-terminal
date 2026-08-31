@@ -295,6 +295,13 @@ namespace AccessibleTrader.Plugins.Finnhub
             }
         }
 
+        /// <summary>
+        /// Upper bound on a returned symbol list. See TwelveDataProvider for why an
+        /// alphabetical sort plus a small cap is a silent data-loss bug rather than a
+        /// harmless convenience.
+        /// </summary>
+        private const int SymbolListCap = 10_000;
+
         public override async Task<List<string>> GetAvailableSymbolsAsync(MarketType market, string subType = "Spot")
         {
             if (!IsConfigured) return new List<string>();
@@ -317,13 +324,24 @@ namespace AccessibleTrader.Plugins.Finnhub
                     var response = await _httpClient.GetStringAsync(url);
                     var arr = JArray.Parse(response);
 
-                    return arr
+                    var all = arr
                         .Select(s => s["symbol"]?.ToString() ?? s["displaySymbol"]?.ToString() ?? "")
                         .Where(s => !string.IsNullOrEmpty(s))
                         .Distinct()
                         .OrderBy(s => s)
-                        .Take(2000)
                         .ToList();
+
+                    if (all.Count <= SymbolListCap) return all;
+
+                    // Same defect as TwelveData had: an alphabetical sort followed by
+                    // a small Take() silently deletes the tail of the alphabet. The US
+                    // stock universe is far larger than 2,000, so every ticker past the
+                    // cut was unselectable and nothing said so.
+                    var capped = all.Take(SymbolListCap).ToList();
+                    _errorStream.OnNext(
+                        $"Finnhub: symbol list truncated to {SymbolListCap} of {all.Count}; "
+                        + $"symbols after '{capped[^1]}' are not listed.");
+                    return capped;
                 });
             }
             catch (HttpRequestException ex)

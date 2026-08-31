@@ -29,12 +29,24 @@ namespace AccessibleTrader.Tests
         public static IEnumerable<string> ProviderPluginProjectsOnDisk()
         {
             foreach (var group in new[] { "Providers", "Analytics" })
-            {
-                var root = Path.Combine(RepoRoot(), "Plugins", group);
-                if (!Directory.Exists(root)) continue;
-                foreach (var d in Directory.GetDirectories(root))
-                    yield return Path.GetFileName(d);
-            }
+                foreach (var d in PluginProjectsIn(group))
+                    yield return d;
+        }
+
+        /// <summary>
+        /// Just <c>Plugins/Providers</c> — the market-data/trading venues, without the analytics
+        /// feeds. Some contracts are specific to a venue: a venue is expected to be able to list
+        /// what it trades, where an analytics feed's "symbols" are the series names it computes
+        /// and are legitimately a fixed set.
+        /// </summary>
+        public static IEnumerable<string> MarketDataPluginProjectsOnDisk() => PluginProjectsIn("Providers");
+
+        private static IEnumerable<string> PluginProjectsIn(string group)
+        {
+            var root = Path.Combine(RepoRoot(), "Plugins", group);
+            if (!Directory.Exists(root)) yield break;
+            foreach (var d in Directory.GetDirectories(root))
+                yield return Path.GetFileName(d);
         }
     }
 }

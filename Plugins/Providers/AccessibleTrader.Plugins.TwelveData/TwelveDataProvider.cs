@@ -54,6 +54,14 @@ namespace AccessibleTrader.Plugins.TwelveData
             MarketType.Stock, MarketType.Forex, MarketType.Crypto, MarketType.Index
         };
         public override bool SupportsSymbolSearch => true;
+        /// <summary>
+        /// Upper bound on a returned symbol list. NYSE+NASDAQ together is ~7,570
+        /// symbols; the previous cap of 2,000, applied AFTER an alphabetical sort,
+        /// cut the list off at "DIBS". Anything above the cap is reported through
+        /// the error stream rather than dropped in silence.
+        /// </summary>
+        private const int SymbolListCap = 10_000;
+
         public override bool RequiresApiKey => true;
         public override bool IsConfigured => !string.IsNullOrEmpty(_apiKey);
         public override bool SupportsLiveUpdates => true;
@@ -310,39 +318,80 @@ namespace AccessibleTrader.Plugins.TwelveData
             {
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
-                    string type = market switch
+                    // /stocks takes ONE exchange per call. A comma-separated list
+                    // ("NYSE,NASDAQ") is not rejected — it returns
+                    // {"data":[],"count":0,"status":"ok"}, an empty success that is
+                    // indistinguishable from "this market has no symbols". So query
+                    // each exchange separately and merge.
+                    string[] urls = market switch
                     {
-                        MarketType.Stock  => "Stock",
-                        MarketType.Forex  => "Forex",
-                        MarketType.Crypto => "Digital Currency",
-                        MarketType.Index  => "Index",
-                        _                 => "Stock"
+                        MarketType.Forex  => new[] { $"{RestUrl}/forex_pairs?apikey={KeyParam}" },
+                        MarketType.Crypto => new[] { $"{RestUrl}/cryptocurrencies?apikey={KeyParam}" },
+                        MarketType.Index  => new[] { $"{RestUrl}/indices?apikey={KeyParam}" },
+                        _                 => new[]
+                        {
+                            $"{RestUrl}/stocks?source=docs&exchange=NYSE&apikey={KeyParam}",
+                            $"{RestUrl}/stocks?source=docs&exchange=NASDAQ&apikey={KeyParam}",
+                        }
                     };
 
-                    // Fetch US exchange symbols by default; global coverage available
-                    string url = $"{RestUrl}/stocks?source=docs&exchange=NYSE,NASDAQ&apikey={KeyParam}";
-                    if (market == MarketType.Forex)
-                        url = $"{RestUrl}/forex_pairs?apikey={KeyParam}";
-                    else if (market == MarketType.Crypto)
-                        url = $"{RestUrl}/cryptocurrencies?apikey={KeyParam}";
-                    else if (market == MarketType.Index)
-                        url = $"{RestUrl}/indices?apikey={KeyParam}";
+                    var symbols = new List<string>();
+                    foreach (string url in urls)
+                    {
+                        string response = await _httpClient.GetStringAsync(url);
+                        var json = JObject.Parse(response);
 
-                    var response = await _httpClient.GetStringAsync(url);
-                    var json = JObject.Parse(response);
-                    var data = json["data"] as JArray;
-                    if (data == null) return new List<string>();
+                        // Twelve Data reports quota and plan errors in the body with
+                        // HTTP 200, so a bare status check is the only way to see them.
+                        if (json["status"]?.ToString() == "error")
+                        {
+                            _errorStream.OnNext($"TwelveData: symbol list refused: {json["message"]}");
+                            continue;
+                        }
 
-                    return data
-                        .Select(s => s["symbol"]?.ToString() ?? "")
+                        if (json["data"] is JArray data)
+                            symbols.AddRange(data.Select(s => s["symbol"]?.ToString() ?? ""));
+                    }
+
+                    var result = symbols
                         .Where(s => !string.IsNullOrEmpty(s))
                         .Distinct()
                         .OrderBy(s => s)
-                        .Take(2000) // Cap to avoid huge lists
+                        .Take(SymbolListCap)
                         .ToList();
+
+                    // Alphabetical truncation silently removed everything after the
+                    // cut — at the old cap of 2000 the NYSE+NASDAQ list ended at
+                    // "DIBS", so TSLA could never be selected. Say so rather than
+                    // hand back a quietly incomplete list.
+                    if (symbols.Distinct().Count() > SymbolListCap)
+                        _errorStream.OnNext(
+                            $"TwelveData: symbol list truncated to {SymbolListCap} of "
+                            + $"{symbols.Distinct().Count()}; symbols after "
+                            + $"'{result[^1]}' are not listed.");
+
+                    return result;
                 });
             }
-            catch { return new List<string>(); }
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"TwelveData: network error fetching symbol list: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (TaskCanceledException)
+            {
+                return new List<string>();
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"TwelveData: malformed symbol-list response: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                _errorStream.OnNext($"TwelveData: symbol-list error: {ex.GetType().Name}");
+                return new List<string>();
+            }
         }
 
         /// <summary>

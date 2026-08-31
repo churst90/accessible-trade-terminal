@@ -152,7 +152,31 @@ namespace AccessibleTrader.Plugins.Fmp
                     _ => new List<string>()
                 };
             }
-            catch { return new List<string>(); }
+            // FetchJsonAsync already reports an HTTP refusal and returns null, so what reached
+            // this bare catch was a malformed payload or a transport fault — the two cases that
+            // came back as an empty dropdown with nothing said. An empty list is how this
+            // provider spells both "no symbols" and "the lookup failed"; only one of them is
+            // worth the user retrying.
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"FMP: network error fetching symbol list: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (TaskCanceledException)
+            {
+                return new List<string>();
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"FMP: malformed symbol-list response: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                // ex.Message can carry the request URL, and the key rides on it (KeyParam).
+                _errorStream.OnNext($"FMP: symbol-list error: {ex.GetType().Name}");
+                return new List<string>();
+            }
         }
 
         private async Task<List<string>> GetStockSymbolsAsync()

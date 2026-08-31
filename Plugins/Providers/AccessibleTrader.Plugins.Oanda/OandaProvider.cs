@@ -618,7 +618,30 @@ namespace AccessibleTrader.Plugins.Oanda
                         .ToList();
                 });
             }
-            catch { return new List<string>(); }
+            // An empty instrument list is how this provider spelled both "your account trades
+            // nothing in this market" and "the read failed" — the same fact for a user who can
+            // only hear the result. See ProviderSymbolListSilenceTests.
+            catch (HttpRequestException ex)
+            {
+                _errorStream.OnNext($"OANDA: network error fetching instrument list: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (TaskCanceledException)
+            {
+                return new List<string>();
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                _errorStream.OnNext($"OANDA: malformed instrument-list response: {ex.GetType().Name}");
+                return new List<string>();
+            }
+            catch (Exception ex)
+            {
+                // The access token rides in a header rather than the URL here, but ex.Message
+                // still carries the account id — name the type, not the message.
+                _errorStream.OnNext($"OANDA: instrument-list error: {ex.GetType().Name}");
+                return new List<string>();
+            }
         }
 
         public override Task<List<string>> GetSupportedSubTypesAsync(MarketType market) =>

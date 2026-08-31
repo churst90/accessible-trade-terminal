@@ -520,9 +520,44 @@ namespace AccessibleTrader.Plugins.Gemini
             await _publicLimiter.WaitAsync().ConfigureAwait(false);
             using var req = new HttpRequestMessage(HttpMethod.Get, $"{Host}{pathAndQuery}");
             using var res = await _http.SendAsync(req).ConfigureAwait(false);
-            var json = JToken.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
-            ThrowOnError(json);
-            return json;
+            return ReadJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), pathAndQuery);
+        }
+
+        /// <summary>
+        /// Body first, then status — and neither one alone.
+        ///
+        /// <para>
+        /// Reading the body regardless of status is right, and it used to be the ONLY check:
+        /// <see cref="ThrowOnError"/> fires only for a body shaped <c>{"result":"error"}</c>, so
+        /// any other non-2xx — an edge 401, a CDN 429, a proxy 502, a 451 geo-block of the kind
+        /// Binance answers with — parsed as ordinary JSON and came back as a success carrying
+        /// nothing. <c>GetAvailableSymbolsAsync</c> then read <c>json as JArray ?? new JArray()</c>
+        /// and returned an EMPTY LIST with no exception to catch and nothing said, which is the
+        /// same silent-empty failure the Twelve Data symbol list shipped. Found by
+        /// <c>ProviderSymbolListSilenceTests</c>, not by a report.
+        /// </para>
+        ///
+        /// <para>
+        /// Order matters: Gemini's own error shape is classified first, because
+        /// <see cref="ThrowOnError"/> turns an auth-shaped reason into an
+        /// <see cref="UnauthorizedAccessException"/> the order service acts on, where a bare
+        /// status would flatten it back to "something went wrong".
+        /// </para>
+        /// </summary>
+        private JToken ReadJson(HttpResponseMessage res, string body, string what)
+        {
+            JToken? json = null;
+            JsonException? unparseable = null;
+            try { json = JToken.Parse(body); }
+            catch (JsonException ex) { unparseable = ex; }   // an HTML error page is not JSON
+
+            if (json is not null) ThrowOnError(json);
+
+            if (!res.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"Gemini refused {what}: HTTP {(int)res.StatusCode}.", null, res.StatusCode);
+
+            return json ?? throw unparseable!;
         }
 
         // Master-scoped keys (the sandbox's default kind) must name the account in
@@ -572,9 +607,7 @@ namespace AccessibleTrader.Plugins.Gemini
             req.Content = new StringContent("", Encoding.UTF8, "text/plain");
 
             using var res = await _http.SendAsync(req).ConfigureAwait(false);
-            var json = JToken.Parse(await res.Content.ReadAsStringAsync().ConfigureAwait(false));
-            ThrowOnError(json);
-            return json;
+            return ReadJson(res, await res.Content.ReadAsStringAsync().ConfigureAwait(false), path);
         }
 
         /// <summary>

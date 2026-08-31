@@ -417,6 +417,15 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         {
             // IBKR doesn't have a "list all symbols" endpoint.
             // Return common symbols as suggestions; users search via symbol picker.
+            //
+            // This list is a HARDCODED suggestion set, not IBKR's coverage — it does not touch
+            // the gateway and is identical whether or not one is running. A dropdown of 45
+            // stocks reads as "these are the stocks IBKR has", which would be wrong by four
+            // orders of magnitude, so the list says what it is rather than implying coverage
+            // it never had.
+            SurfaceError(
+                "Interactive Brokers has no symbol-list endpoint — these are common suggestions, "
+              + "not the full list. Type any symbol IBKR trades.");
             return market switch
             {
                 MarketType.Stock => new List<string>
