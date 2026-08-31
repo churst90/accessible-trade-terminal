@@ -501,7 +501,14 @@ namespace AccessibleTrader.Tests
         /// <paramref name="signature"/>, by brace matching. Null when absent.</summary>
         internal static string? MethodBody(string source, string signature)
         {
-            int i = source.IndexOf(signature, StringComparison.Ordinal);
+            // Whitespace-tolerant after '(': Gemini and Kraken Futures wrap the
+            // parameter list onto the next line, and a literal IndexOf never saw
+            // their FetchOhlcvAsync at all — so both swallowed transport faults for
+            // months while this gate said the fleet was clean. A scan gate is only
+            // as good as what its pattern can parse.
+            var match = Regex.Match(source,
+                Regex.Escape(signature).Replace(@"\(", @"\(\s*"));
+            int i = match.Success ? match.Index : -1;
             if (i < 0) return null;
             int open = source.IndexOf('{', i);
             if (open < 0) return null;

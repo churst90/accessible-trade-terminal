@@ -497,11 +497,13 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 return await _rateLimiter.ExecuteAsync(async () =>
                 {
                     var response = await _httpClient.GetAsync(url);
+                    // Throw, don't return: this inline branch used to message and
+                    // return empty for EVERY non-2xx, so a 502 never reached the
+                    // catch below and the retry + circuit breaker stayed blind to a
+                    // dead venue. The catch messages it and eats only the non-transient.
                     if (!response.IsSuccessStatusCode)
-                    {
-                        _errorStream.OnNext($"Bitstamp data unavailable for {request.Symbol} ({(int)response.StatusCode} {response.StatusCode}).");
-                        return (new List<Ohlcv>(), new List<(long, double)>());
-                    }
+                        throw new HttpRequestException(
+                            $"{(int)response.StatusCode} {response.StatusCode}", null, response.StatusCode);
 
                     var jsonStr = await response.Content.ReadAsStringAsync();
                     var json    = JObject.Parse(jsonStr);

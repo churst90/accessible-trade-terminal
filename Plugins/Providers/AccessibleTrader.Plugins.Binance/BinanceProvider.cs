@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text;
@@ -1177,7 +1178,15 @@ namespace AccessibleTrader.Plugins.Binance
         /// did not.</para>
         /// </summary>
         private static HttpRequestException HttpFailure(HttpResponseMessage resp, string body)
-            => new($"{(int)resp.StatusCode} {body}", null, resp.StatusCode);
+            // 451 gets a sentence a person can act on, not the venue's legalese:
+            // Binance geo-blocks by server location, so the hosted head gets this on
+            // every call while the same build works from a desktop in an eligible
+            // region — and "451 <json>" read as OUR bug rather than that fact.
+            => resp.StatusCode == HttpStatusCode.UnavailableForLegalReasons
+                ? new("451 Binance is not reachable from this machine's network location (geo-restricted). "
+                    + "The same app works from an eligible region; this server cannot reach Binance at all.",
+                    null, resp.StatusCode)
+                : new($"{(int)resp.StatusCode} {body}", null, resp.StatusCode);
 
         private async Task<string> GetPublicAsync(string baseUrl, string path, string? query)
         {

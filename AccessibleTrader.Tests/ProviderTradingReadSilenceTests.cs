@@ -66,6 +66,132 @@ namespace AccessibleTrader.Tests
         public static string SymbolFor(BaseMarketDataProvider provider)
             => provider.SupportedMarkets[0].ToString().Contains("Crypto", StringComparison.OrdinalIgnoreCase)
                 ? "BTC/USD" : "AAPL";
+
+        /// <summary>Every route, every method, one canned answer.</summary>
+        public static FakeHttpMessageHandler AllRoutes(string body, System.Net.HttpStatusCode status)
+        {
+            var handler = new FakeHttpMessageHandler { StrictMode = false };
+            foreach (var method in new[] { HttpMethod.Get, HttpMethod.Post, HttpMethod.Put, HttpMethod.Delete })
+                handler.Add(method, ".*", body, status);
+            return handler;
+        }
+    }
+
+    /// <summary>
+    /// <b>A dead venue must reach the circuit breaker; a refusal must not.</b>
+    ///
+    /// <para>
+    /// The fleet contract (see <c>TransportFailure</c>): a transient fault — a 5xx, a
+    /// connection failure — rethrows out of <c>FetchOhlcvAsync</c> so the pipeline's
+    /// retry and breaker can act, while a non-transient refusal is announced and eaten.
+    /// Three providers broke the first half and the scan gate that polices it never saw
+    /// them: Gemini and Kraken Futures wrap <c>FetchOhlcvAsync</c>'s parameter list onto
+    /// the next line, which the gate's literal <c>IndexOf</c> could not find, and
+    /// Bitstamp's inline non-2xx branch returned before its (correct) catch could run.
+    /// The gate is now whitespace-tolerant and these pin the behaviour directly, so the
+    /// rule is held twice — once by scan, once by execution.
+    /// </para>
+    /// </summary>
+    [Collection("ProviderCredentialBridge")]
+    public class ProviderBreakerVisibilityTests
+    {
+        private static readonly MarketDataRequest CryptoRequest = new("Crypto", "BTC/USD", "1h", 50);
+
+        [Fact]
+        public async Task Gemini_a_5xx_rethrows_into_the_retry_pipeline()
+        {
+            using var p = new AccessibleTrader.Plugins.Gemini.GeminiProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"bad gateway"}""", HttpStatusCode.BadGateway));
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => p.FetchOhlcvAsync(CryptoRequest));
+        }
+
+        [Fact]
+        public async Task Gemini_a_4xx_is_announced_and_eaten()
+        {
+            // The other half of the contract — a refusal is ours to explain, not the
+            // breaker's to trip. Without this, "rethrow everything" would also pass.
+            using var p = new AccessibleTrader.Plugins.Gemini.GeminiProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"not found"}""", HttpStatusCode.NotFound));
+            var said = SymbolListHarness.Recorded(p);
+
+            var (bars, _) = await p.FetchOhlcvAsync(CryptoRequest);
+
+            Assert.Empty(bars);
+            Assert.Contains(said, m => m.Contains("candles failed", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public async Task KrakenFutures_a_5xx_rethrows_into_the_retry_pipeline()
+        {
+            using var p = new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"bad gateway"}""", HttpStatusCode.BadGateway));
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => p.FetchOhlcvAsync(CryptoRequest));
+        }
+
+        [Fact]
+        public async Task KrakenFutures_a_4xx_is_announced_and_eaten()
+        {
+            using var p = new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"not found"}""", HttpStatusCode.NotFound));
+            var said = SymbolListHarness.Recorded(p);
+
+            var (bars, _) = await p.FetchOhlcvAsync(CryptoRequest);
+
+            Assert.Empty(bars);
+            Assert.Contains(said, m => m.Contains("candles failed", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public async Task Bitstamp_a_5xx_rethrows_into_the_retry_pipeline()
+        {
+            // Bitstamp's catch already rethrew transients — the inline non-2xx branch
+            // above it returned empty first, so no status ever became an exception.
+            using var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"bad gateway"}""", HttpStatusCode.BadGateway));
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => p.FetchOhlcvAsync(CryptoRequest));
+        }
+
+        [Fact]
+        public async Task Bitstamp_a_4xx_is_announced_and_eaten()
+        {
+            using var p = new AccessibleTrader.Plugins.Bitstamp.BitstampProvider();
+            SymbolListHarness.SwapEveryHttpClient(p,
+                TradingReadHarness.AllRoutes("""{"message":"not found"}""", HttpStatusCode.NotFound));
+            var said = SymbolListHarness.Recorded(p);
+
+            var (bars, _) = await p.FetchOhlcvAsync(CryptoRequest);
+
+            Assert.Empty(bars);
+            Assert.Contains(said, m => m.Contains("Bitstamp", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task Binance_a_451_says_plainly_it_is_geo_blocked()
+        {
+            // What the hosted VPS actually gets on every Binance call. The raw venue
+            // body is legalese that read as OUR bug; the message now states the fact
+            // the user can act on. Not transient — the breaker must not retry a
+            // geo-block — so it is announced and eaten, not thrown.
+            using var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
+            SymbolListHarness.SwapEveryHttpClient(p, TradingReadHarness.AllRoutes(
+                """{"code":0,"msg":"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms."}""",
+                HttpStatusCode.UnavailableForLegalReasons));
+            var said = SymbolListHarness.Recorded(p);
+
+            var (bars, _) = await p.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USDT", "1h", 50));
+
+            Assert.Empty(bars);
+            Assert.Contains(said, m => m.Contains("geo-restricted", StringComparison.OrdinalIgnoreCase)
+                                    && m.Contains("network location", StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     /// <summary>

@@ -217,6 +217,12 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             catch (Exception ex)
             {
                 SurfaceError($"Kraken Futures candles failed for {request.Symbol}: {ex.Message}", ErrorSeverity.Medium, ErrorCategory.Provider);
+                // Transport faults belong to the pipeline's retry + circuit breaker
+                // (see TransportFailure); swallowing them left an empty chart as the
+                // only symptom of a dead venue. The scan gate never saw this method —
+                // its signature is line-wrapped — which is how this one outlived the
+                // fleet-wide fix.
+                if (TransportFailure.IsTransient(ex)) throw;
             }
             return (bars, vols);
         }
