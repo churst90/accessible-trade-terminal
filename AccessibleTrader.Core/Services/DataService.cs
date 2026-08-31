@@ -76,9 +76,34 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// The single way this service turns a provider NAME into a provider object.
+        ///
+        /// <para>
+        /// Exact (case-insensitive) match first. Only if nothing matches exactly does the
+        /// spelling-tolerant comparison run, and only an UNAMBIGUOUS loose match counts —
+        /// so a name typed with a space in the wrong place still finds its provider, while
+        /// two providers with similar names can never be confused for one another. The
+        /// caller that made this necessary was the API-keys dropdown, which offered
+        /// "TwelveData" for a provider that calls itself "Twelve Data": the key saved fine,
+        /// resolved to nothing here, and the symbol list went on demanding a key the user
+        /// had already supplied.
+        /// </para>
+        /// </summary>
+        private IMarketDataProvider? FindProvider(string? providerName)
+        {
+            if (string.IsNullOrWhiteSpace(providerName)) return null;
+
+            var exact = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            if (exact != null) return exact;
+
+            var loose = _providers.Where(p => ProviderNames.Match(p.Name, providerName)).ToList();
+            return loose.Count == 1 ? loose[0] : null;
+        }
+
         private async Task EnsureProviderConfiguredAsync(string providerName, string marketType = "Spot")
         {
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             if (provider == null) return;
 
             var key = await _apiKeyService.GetKeyForProviderAsync(providerName, marketType).ConfigureAwait(false);
@@ -119,8 +144,23 @@ namespace AccessibleTrader.Core.Services
                 // by editing storage, so an active withdrawal profile can exist —
                 // and its key must never become a provider's session credential.
                 if (!k.IsActive || k.AllowsWithdrawal || string.IsNullOrEmpty(k.ApiKey)) continue;
-                var provider = _providers.FirstOrDefault(p => p.Name.Equals(k.Provider, StringComparison.OrdinalIgnoreCase));
-                if (provider == null || provider.IsConfigured) continue;
+                var provider = FindProvider(k.Provider);
+                if (provider == null)
+                {
+                    // This used to be a silent `continue`, and silence is what made the
+                    // "TwelveData" vs "Twelve Data" mismatch undiagnosable: the key was
+                    // stored, the modal said saved, and the only symptom anywhere was a
+                    // dropdown that still read "API key required". A stored credential
+                    // that names a provider nothing answers to is always a mistake worth
+                    // printing — the name is a hand-typed string, and the fix is to say
+                    // which one did not land.
+                    _logger.LogWarning(
+                        "Stored key '{Nickname}' names provider '{Provider}', which no loaded provider "
+                      + "answers to — the key is stored but unused. Loaded providers: {Loaded}.",
+                        k.Nickname, k.Provider, string.Join(", ", _providers.Select(p => p.Name)));
+                    continue;
+                }
+                if (provider.IsConfigured) continue;
                 try
                 {
                     provider.Configure(new Dictionary<string, string>
@@ -202,7 +242,7 @@ namespace AccessibleTrader.Core.Services
         public async Task<List<string>> GetSupportedSubTypesAsync(string providerName, string marketTypeStr)
         {
             if (!_isInitialized) return new List<string> { "Spot" };
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             if (provider == null) return new List<string> { "Spot" };
 
             if (Enum.TryParse<MarketType>(marketTypeStr, out var marketType))
@@ -215,7 +255,7 @@ namespace AccessibleTrader.Core.Services
         public async Task<List<string>> LoadSymbolsAsync(string marketInfo, string providerName)
         {
             if (!_isInitialized) return new List<string>();
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             if (provider == null) return new List<string>();
 
             var parts = marketInfo.Split('|');
@@ -280,7 +320,7 @@ namespace AccessibleTrader.Core.Services
         public async Task<(List<Ohlcv> Ohlcv, List<(long Timestamp, double Volume)> Volume)> FetchOhlcvAsync(string providerName, MarketDataRequest request, CancellationToken ct = default)
         {
             if (!_isInitialized) return (new List<Ohlcv>(), new List<(long, double)>());
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             if (provider == null) return (new List<Ohlcv>(), new List<(long, double)>());
 
             var parts = request.Market.Split('|');
@@ -419,14 +459,14 @@ namespace AccessibleTrader.Core.Services
         public Task<List<MarketType>> GetSupportedMarketsForProviderAsync(string providerName)
         {
             if (!_isInitialized) return Task.FromResult(new List<MarketType>());
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             return Task.FromResult(provider != null ? provider.SupportedMarkets : new List<MarketType>());
         }
 
         public async Task<List<string>> GetSupportedTimeframesAsync(string providerName)
         {
             if (!_isInitialized) return new List<string>();
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             return provider != null ? await provider.GetSupportedTimeframesAsync().ConfigureAwait(false) : new List<string>();
         }
 
@@ -436,21 +476,21 @@ namespace AccessibleTrader.Core.Services
         public bool IsProviderConfigured(string providerName)
         {
             if (!_isInitialized) return false;
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             return provider?.IsConfigured ?? false;
         }
 
         public Task<bool> ProviderRequiresApiKeyAsync(string providerName)
         {
             if (!_isInitialized) return Task.FromResult(false);
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             return Task.FromResult(provider?.RequiresApiKey ?? false);
         }
 
         public async Task<(List<OrderBookEntry> Bids, List<OrderBookEntry> Asks)> GetOrderBookAsync(string providerName, string symbol, int limit = 10)
         {
             if (!_isInitialized) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
-            var provider = _providers.FirstOrDefault(p => p.Name.Equals(providerName, StringComparison.OrdinalIgnoreCase));
+            var provider = FindProvider(providerName);
             if (provider == null) return (new List<OrderBookEntry>(), new List<OrderBookEntry>());
             
             await EnsureProviderConfiguredAsync(providerName, "Spot").ConfigureAwait(false);
@@ -469,7 +509,7 @@ namespace AccessibleTrader.Core.Services
         public Task<IMarketDataProvider?> GetProviderAsync(string name)
         {
             if (!_isInitialized) return Task.FromResult<IMarketDataProvider?>(null);
-            return Task.FromResult<IMarketDataProvider?>(_providers.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
+            return Task.FromResult<IMarketDataProvider?>(FindProvider(name));
         }
 
         public Task<IProviderPlugin?> GetPluginAsync(string name)

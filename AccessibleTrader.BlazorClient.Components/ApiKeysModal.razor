@@ -298,17 +298,92 @@
     private bool   _newAllowsWithdrawal;
     private string? _formError;
 
-    // KrakenFutures and MEXC were MISSING here even though both plugins trade —
-    // so their keys literally could not be saved through this dropdown, and the
-    // Kraken Futures verification instructions pointed at a flow that did not
-    // exist. A provider that takes a key belongs in this list the day it ships.
-    private static readonly List<string> _knownProviders = new()
+    /// <summary>
+    /// The provider names offered when the plugin host has told us nothing — a fresh
+    /// install whose plugins have not loaded, or a unit-test container with a substituted
+    /// data service. The live list is built from the LOADED providers (see
+    /// <see cref="BuildProviderChoicesAsync"/>), because a hand-maintained list is exactly
+    /// what broke here.
+    ///
+    /// <para>
+    /// Every name below is a provider's own <c>Name</c>, character for character. The
+    /// dropdown's value becomes the <c>Provider</c> field of a stored credential, and every
+    /// later lookup resolves a provider object by that string — so a name that differs by a
+    /// space stores a working key against a provider nothing answers to. That is precisely
+    /// what <c>"TwelveData"</c> did for a provider called <c>"Twelve Data"</c>: the key
+    /// saved, the modal said saved, and the symbol dropdown went on reading "API key
+    /// required" with no way out short of editing storage.
+    /// <c>ApiKeysProviderNameTests</c> now checks this list against the real providers.
+    /// </para>
+    ///
+    /// <para>
+    /// KrakenFutures and MEXC were once MISSING here even though both plugins trade — so
+    /// their keys literally could not be saved through this dropdown. A provider that takes
+    /// a key belongs in this list the day it ships; better still, it just needs to load.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> FallbackProviders = new List<string>
     {
         "Alpaca", "BGeometrics", "Binance", "Bitstamp", "Coinbase", "CoinMetrics",
-        "DefiLlama", "Etherscan", "Finnhub", "FMP", "FRED", "Gemini", "Glassnode",
-        "Kraken", "KrakenFutures", "Mempool", "MEXC", "Oanda", "Polygon", "Schwab",
-        "Tradier", "TwelveData", "Custom"
+        "DefiLlama", "Etherscan", "Finnhub", "FMP", "FMP Analytics", "FRED", "Gemini",
+        "Glassnode", "Kraken", "KrakenFutures", "Mempool", "MEXC", "OANDA", "Polygon",
+        "Schwab", "Tradier", "Twelve Data", CustomProvider
     };
+
+    /// <summary>
+    /// The escape hatch for a credential that belongs to no loaded provider. It matches
+    /// nothing on purpose, so the "this key reached no provider" warning skips it.
+    /// </summary>
+    public const string CustomProvider = "Custom";
+
+    private List<string> _knownProviders = FallbackProviders.ToList();
+
+    /// <summary>
+    /// Whether a saved profile's provider name resolves to a provider this process actually
+    /// loaded. False means the credential is stored and inert. Errors answer TRUE: a broken
+    /// lookup must not turn a good save into a scary warning — the honest failure mode of
+    /// this check is silence, not a false alarm.
+    /// </summary>
+    private async Task<bool> ReachesALoadedProviderAsync(string providerName)
+    {
+        if (string.IsNullOrWhiteSpace(providerName)) return true;
+        if (providerName.Equals(CustomProvider, StringComparison.OrdinalIgnoreCase)) return true;
+        try { return await DataService.GetProviderAsync(providerName) != null; }
+        catch { return true; }
+    }
+
+    /// <summary>
+    /// The dropdown, built from the providers actually loaded in this process, with the
+    /// fallback names added for anything not present. Sourcing it from the plugin host is
+    /// the real fix: a name that comes from the provider itself cannot be spelled wrong,
+    /// and a provider that ships tomorrow appears here without anyone remembering to type
+    /// it in.
+    /// </summary>
+    private async Task<List<string>> BuildProviderChoicesAsync()
+    {
+        List<string> loaded;
+        try { loaded = await DataService.LoadProvidersAsync() ?? new List<string>(); }
+        catch { loaded = new List<string>(); }
+
+        var choices = loaded.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+
+        // Add fallback names the host did not report. ProviderNames.Match, not string
+        // equality: if the loaded provider is "Twelve Data", the fallback "Twelve Data"
+        // must not produce a second, differently-spelled entry beside it.
+        foreach (var name in FallbackProviders)
+            if (!choices.Any(c => ProviderNames.Match(c, name))) choices.Add(name);
+
+        choices = choices
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // "Custom" is not a provider — it goes last, where an escape hatch belongs, rather
+        // than alphabetically among the real ones.
+        choices.RemoveAll(n => n.Equals(CustomProvider, StringComparison.OrdinalIgnoreCase));
+        choices.Add(CustomProvider);
+        return choices;
+    }
 
     protected override void OnInitialized()
     {
@@ -329,6 +404,12 @@
     private async Task ShowAsync()
     {
         _keys = await ApiKeyService.GetAllKeysAsync();
+        _knownProviders = await BuildProviderChoicesAsync();
+        // The default has to be an option that exists, or the <select> shows the first
+        // entry while _newProvider still holds something else — and the profile is then
+        // saved for a provider the user never chose.
+        if (!_knownProviders.Any(p => p.Equals(_newProvider, StringComparison.OrdinalIgnoreCase)))
+            _newProvider = _knownProviders.FirstOrDefault() ?? CustomProvider;
         _formError = null;
         _pendingRemoval = null;
         _isVisible = true;
@@ -369,11 +450,10 @@
         // user would believe the new key is in use while the old one still moves the
         // money. Refusing with the fix beats an arbitrary winner.
         if (_newAllowsWithdrawal &&
-            _keys.Any(k => k.AllowsWithdrawal &&
-                           k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase)))
+            _keys.Any(k => k.AllowsWithdrawal && ProviderNames.Match(k.Provider, _newProvider)))
         {
             _formError = $"{_newProvider} already has a withdrawal profile "
-                       + $"(\"{_keys.First(k => k.AllowsWithdrawal && k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase)).Nickname}\"). "
+                       + $"(\"{_keys.First(k => k.AllowsWithdrawal && ProviderNames.Match(k.Provider, _newProvider)).Nickname}\"). "
                        + "Remove it first — only one withdrawal profile per provider is used.";
             return;
         }
@@ -388,8 +468,7 @@
             // activated, and their presence must not stop the NEXT trading key from
             // auto-activating.
             bool autoActivate = !_newAllowsWithdrawal && !_keys.Any(k =>
-                !k.AllowsWithdrawal &&
-                k.Provider.Equals(_newProvider, StringComparison.OrdinalIgnoreCase) && k.IsActive);
+                !k.AllowsWithdrawal && ProviderNames.Match(k.Provider, _newProvider) && k.IsActive);
 
             var config = new ApiKeyConfig(
                 Provider:    _newProvider,
@@ -427,13 +506,30 @@
             // that had just been added, and only a restart cleared it.
             EventBus.Publish(new ApiKeysChangedEvent(config.Provider));
 
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                config.AllowsWithdrawal
-                    ? $"Withdrawal profile {config.Nickname} saved for {config.Provider}. "
-                      + "It will be used only by the Withdraw screen, never for trading."
-                    : autoActivate
-                        ? $"Profile {config.Nickname} saved and activated"
-                        : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
+            // "Saved" is not the same claim as "in use", and the gap between them is the
+            // whole reported bug: a profile naming a provider that is not loaded is stored
+            // perfectly and does nothing at all. Say so HERE, where the user still has the
+            // form open, instead of leaving them to infer it from a symbol dropdown that
+            // goes on asking for a key. Custom is exempt — it names no provider by design.
+            bool reachedAProvider = await ReachesALoadedProviderAsync(config.Provider);
+            if (!reachedAProvider)
+            {
+                _formError = $"Saved, but no loaded provider is named \"{config.Provider}\", so this key "
+                           + "is not in use. Check the provider plugin is installed.";
+                StateHasChanged();
+            }
+
+            EventBus.Publish(new FeedbackRequestEvent(
+                reachedAProvider ? FeedbackType.StateChange : FeedbackType.Error,
+                !reachedAProvider
+                    ? $"Profile {config.Nickname} saved, but no loaded provider is named "
+                      + $"{config.Provider}, so the key is not in use."
+                    : config.AllowsWithdrawal
+                        ? $"Withdrawal profile {config.Nickname} saved for {config.Provider}. "
+                          + "It will be used only by the Withdraw screen, never for trading."
+                        : autoActivate
+                            ? $"Profile {config.Nickname} saved and activated"
+                            : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
         }
         catch (Exception ex)
         {

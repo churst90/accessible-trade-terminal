@@ -122,10 +122,26 @@ namespace AccessibleTrader.Core.Services
             return results;
         }
 
+        /// <summary>
+        /// Every profile stored for <paramref name="provider"/>, matched by provider IDENTITY
+        /// rather than by string equality — see <see cref="ProviderNames"/>. A profile saved
+        /// as "TwelveData" belongs to the provider that calls itself "Twelve Data"; refusing
+        /// to see that is what left a correctly-entered key looking unconfigured.
+        /// </summary>
+        private List<ApiKeyMetadata> MetaForProvider(string provider)
+        {
+            // Exact first. Only when nothing matches exactly does the spelling-tolerant
+            // comparison run, so two providers whose names merely resemble each other can
+            // never take one another's credentials.
+            var exact = _cache.Where(k => k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (exact.Count > 0) return exact;
+            return _cache.Where(k => ProviderNames.Match(k.Provider, provider)).ToList();
+        }
+
         public async Task<List<ApiKeyConfig>> GetKeysForProviderAsync(string provider)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var metas = _cache.Where(k => k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase)).ToList();
+            var metas = MetaForProvider(provider);
             var results = new List<ApiKeyConfig>();
             foreach (var meta in metas)
                 results.Add(await ToConfigAsync(meta).ConfigureAwait(false));
@@ -140,9 +156,9 @@ namespace AccessibleTrader.Core.Services
             // fallback quietly hands the withdrawal-enabled key to the order path —
             // and the fallbacks here are deliberately generous, which is exactly the
             // shape of mistake that would do it.
-            var meta = _cache.FirstOrDefault(k =>
+            var candidates = MetaForProvider(provider);
+            var meta = candidates.FirstOrDefault(k =>
                 !k.AllowsWithdrawal &&
-                k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.MarketType.Equals(marketType, StringComparison.OrdinalIgnoreCase));
 
             // Fallback: if no profile matches this market sub-type, accept any profile
@@ -151,12 +167,8 @@ namespace AccessibleTrader.Core.Services
             // API Keys modal also offers market names ("Crypto"/"Stocks") that never
             // equal a sub-type, so an exact-match-only lookup would strand a good key.
             if (meta == null)
-                meta = _cache.FirstOrDefault(k =>
-                            !k.AllowsWithdrawal &&
-                            k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) && k.IsActive)
-                    ?? _cache.FirstOrDefault(k =>
-                            !k.AllowsWithdrawal &&
-                            k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
+                meta = candidates.FirstOrDefault(k => !k.AllowsWithdrawal && k.IsActive)
+                    ?? candidates.FirstOrDefault(k => !k.AllowsWithdrawal);
 
             if (meta == null) return null;
             return await ToConfigAsync(meta).ConfigureAwait(false);
@@ -165,9 +177,8 @@ namespace AccessibleTrader.Core.Services
         public async Task<ApiKeyConfig?> GetActiveKeyForProviderAsync(string provider, string environment = "Paper")
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var meta = _cache.FirstOrDefault(k =>
+            var meta = MetaForProvider(provider).FirstOrDefault(k =>
                 !k.AllowsWithdrawal &&
-                k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 k.Environment.Equals(environment, StringComparison.OrdinalIgnoreCase) &&
                 k.IsActive);
 
@@ -181,13 +192,19 @@ namespace AccessibleTrader.Core.Services
         /// convenience fallback here would silently rejoin the two powers this
         /// separation exists to keep apart, and it would do so on the one path where
         /// being wrong moves money.
+        ///
+        /// <para>
+        /// The spelling-tolerant provider match added for the API-keys dropdown does not
+        /// loosen that: <see cref="MetaForProvider"/> stops at the exact-name profiles when
+        /// any exist, so a withdrawal profile stored under a different spelling than the
+        /// caller asked for yields null and the withdrawal is refused. Refusing is the only
+        /// direction this method is allowed to be wrong in.
+        /// </para>
         /// </summary>
         public async Task<ApiKeyConfig?> GetWithdrawalKeyAsync(string provider)
         {
             await EnsureLoadedAsync().ConfigureAwait(false);
-            var meta = _cache.FirstOrDefault(k =>
-                k.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
-                k.AllowsWithdrawal);
+            var meta = MetaForProvider(provider).FirstOrDefault(k => k.AllowsWithdrawal);
 
             if (meta == null) return null;
             return await ToConfigAsync(meta).ConfigureAwait(false);
@@ -217,7 +234,12 @@ namespace AccessibleTrader.Core.Services
                 for (int i = 0; i < _cache.Count; i++)
                 {
                     var m = _cache[i];
-                    if (m.Provider.Equals(target.Provider, StringComparison.OrdinalIgnoreCase) &&
+                    // ProviderNames.Match, not string equality: a store can hold the same
+                    // provider under two spellings (an older profile saved as "TwelveData"
+                    // beside a new "Twelve Data" one). Both are that provider, so exactly
+                    // one of them may be active — otherwise the lookup picks whichever it
+                    // reaches first and the user cannot tell which key is in use.
+                    if (ProviderNames.Match(m.Provider, target.Provider) &&
                         m.Environment.Equals(target.Environment, StringComparison.OrdinalIgnoreCase))
                     {
                         _cache[i] = m with { IsActive = m.Nickname == nickname };
