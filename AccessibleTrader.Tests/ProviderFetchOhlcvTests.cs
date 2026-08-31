@@ -121,13 +121,19 @@ public class ProviderFetchOhlcvTests
             }
 
             [Fact]
-            public async Task NonSuccessStatus_ReturnsEmpty()
+            public async Task TransientStatus_Rethrows_NonTransientReturnsEmpty()
             {
-                var handler = new FakeHttpMessageHandler().Get(@"/ohlc/", "{}", HttpStatusCode.InternalServerError);
-                var provider = NewProvider(handler);
+                // This test used to pin the OPPOSITE for the 5xx half: the inline
+                // non-2xx branch returned empty for every status, so a dead venue
+                // never reached the pipeline's retry and circuit breaker (see
+                // TransportFailure and ProviderBreakerVisibilityTests). The fleet
+                // contract: a 5xx rethrows, a 4xx is announced and eaten.
+                var five = new FakeHttpMessageHandler().Get(@"/ohlc/", "{}", HttpStatusCode.InternalServerError);
+                await Assert.ThrowsAsync<HttpRequestException>(() =>
+                    NewProvider(five).FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USD", "1m", 100)));
 
-                var result = await provider.FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USD", "1m", 100));
-
+                var four = new FakeHttpMessageHandler().Get(@"/ohlc/", "{}", HttpStatusCode.NotFound);
+                var result = await NewProvider(four).FetchOhlcvAsync(new MarketDataRequest("Crypto", "BTC/USD", "1m", 100));
                 Assert.Empty(result.Ohlcv);
             }
 

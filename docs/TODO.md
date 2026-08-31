@@ -176,12 +176,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### NEXT — in this order
 >
-> **1. Binance is geo-blocked from the VPS — a PRODUCT decision, not a code fix.** Unchanged
-> from the previous block: `GET /api/v3/ping` → HTTP 451 from the hosted head. Hide it there,
-> or say plainly the server cannot reach it. **Needs Cody's decision before anything is
-> written.** (With the Gemini-pattern status checks now fleet-wide, a 451 at least throws with
-> its status instead of parsing as an empty success — but the dropdown still offers a venue
-> the server can never reach.)
+> **1. Binance geo-block — the "say plainly" half is DONE (pre-2.5.0), the dropdown half is
+> still Cody's.** `HttpFailure` now maps 451 to a sentence a person can act on ("not reachable
+> from this machine's network location (geo-restricted); the same app works from an eligible
+> region"), pinned by `Binance_a_451_says_plainly_it_is_geo_blocked`. What REMAINS a product
+> decision: whether the hosted head should list Binance in the provider dropdown at all, given
+> the server can never reach it.
 >
 > **2. The StrategyLab statistics re-run — still the top research item**, and still the
 > largest untested area in the tree (71 of 99 types).
@@ -193,11 +193,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   anywhere in the app — verified by whole-tree grep, not just the census. Either wire the
 >   symbol picker to it or delete the flag and the method; testing it as-is would be testing
 >   dead code.
-> * **Three OHLCV paths announce failures but never rethrow them** (Gemini, Kraken Futures,
->   and Bitstamp's inline non-2xx branch), so the orchestrator's retry and circuit breaker
->   cannot see a dead venue through them. From a read-only survey — **explicitly unverified**,
->   no failing behaviour demonstrated (the scan gate passes them for its own reasons; check
->   before believing either).
+> * **CLOSED pre-2.5.0 — the three OHLCV paths that never rethrew** (Gemini, Kraken Futures,
+>   Bitstamp's inline non-2xx branch). Verified, and the reason the scan gate had passed them
+>   is a finding of its own: **Gemini and Kraken Futures line-wrap `FetchOhlcvAsync`'s
+>   parameter list, and the gate's literal `IndexOf` never found the method at all** — the
+>   gate said the fleet was clean while being blind to two of its members. The gate is now
+>   whitespace-tolerant (and goes red itself if either rethrow is removed), plus seven
+>   behaviour tests pin both halves of the contract per venue: a 5xx reaches the breaker, a
+>   4xx is announced and eaten.
 > * **Two balance guards cannot be satisfied without a network round-trip** — Schwab needs
 >   `_primaryAccountHash` (populated by `ValidateApiKeyAsync`) and MEXC needs `_connected`
 >   (set in `EnsureConnectedAsync`) — so the balance sweep skips both at the wire, honestly.
