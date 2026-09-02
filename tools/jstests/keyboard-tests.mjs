@@ -60,11 +60,21 @@ function makeHarness() {
   // `parent` links a node to an ancestor chain so closest() can walk it; `focusable`
   // puts the node in the dialog's tab-stop list. Both default off, so every existing
   // test keeps the node it had.
+  //
+  // Two visibility answers, and they are deliberately NOT derived from each other.
+  // `offsetParent` is what the trap used to filter on, and it is null for a rendered
+  // element that is itself position:fixed — Toolbar's alertdialog. `getClientRects()`
+  // is what the trap filters on now, and it is empty only for something with no layout
+  // box. `fixed: true` models the first case: rendered, boxes present, offsetParent null.
+  // Before this option existed the harness answered `offsetParent: {}` for every node,
+  // so it could not express the one dialog that was actually escaping the trap. A double
+  // that hands the code its own answer cannot fail for the thing it is meant to check.
   const node = (tagName, attrs = {}, opts = {}) => {
     const n = {
       tagName,
       isContentEditable: false,
-      offsetParent: opts.hidden ? null : {},
+      offsetParent: (opts.hidden || opts.fixed) ? null : {},
+      getClientRects: () => (opts.hidden ? [] : [{ width: 1, height: 1 }]),
       parent: opts.parent ?? null,
       focusable: !!opts.focusable,
       focused: false,
@@ -92,25 +102,29 @@ function makeHarness() {
   // saw 19 tab stops that this file's selector did not, hit the `idx === -1` snap-back, and
   // pinned focus on one control in both directions. A harness that hands the code under test
   // its own answer cannot fail for the thing it is meant to be checking.
+  //
+  // `:not([tabindex="-1"])` is honoured on EVERY clause, not only the [tabindex] one. The
+  // browser honours a negative tabindex on any element, and the harness used to ignore the
+  // exclusion on tag clauses ("ignore the rest") — which is why the unconditional `summary`
+  // clause looked correct here while ObjectTreeModal's roved-out <summary role="treeitem">
+  // was escaping the trap backwards in a real browser.
   const matchesSelector = (sel, n) =>
     sel.split(',').map(x => x.trim()).some(part => {
-      if (part.startsWith('[tabindex]')) {
-        const ti = n.getAttribute('tabindex');
-        return ti !== null && !part.includes(':not([tabindex="-1"])') ? true
-             : ti !== null && ti !== '-1';
-      }
+      const ti = n.getAttribute('tabindex');
+      if (part.includes(':not([tabindex="-1"])') && ti === '-1') return false;
+      if (part.startsWith('[tabindex]')) return ti !== null;
       const tag = part.match(/^[a-zA-Z]+/);
       if (!tag) return false;
       if (tag[0].toLowerCase() !== n.tagName.toLowerCase()) return false;
-      // `:not([disabled])` and friends — honour the disabled exclusion, ignore the rest.
+      // `:not([disabled])` — honour the disabled exclusion; attribute parts are ignored.
       if (part.includes(':not([disabled])') && n.hasAttribute('disabled')) return false;
       return true;
     });
 
   // A dialog element with a candidate child list, wired the way the trap reads it. What
   // actually becomes a tab stop is decided by the selector the trap passes in.
-  const dialog = (role, focusables) => {
-    const d = node('DIV', { role });
+  const dialog = (role, focusables, opts = {}) => {
+    const d = node('DIV', { role }, opts);
     for (const f of focusables) f.parent = d;
     d.querySelectorAll = (sel) => focusables.filter(f => matchesSelector(sel, f));
     d.contains = (el) => el === d || focusables.includes(el) ||
@@ -358,6 +372,94 @@ test('focus that has escaped the dialog is rehomed to the correct end', () => {
   h.setActive(outside);
   assert.equal(h.press('Tab', outside, { shift: true }), true);
   assert.equal(h.doc.activeElement, last, 'backward rehome goes to the last control');
+});
+
+// ── The three escapes the 2026-09-02 review demonstrated ────────────────────
+
+test('a dialog that is itself position:fixed (offsetParent null) is still seen by the trap', () => {
+  // THE headline of the review, and the reason "trapped at last" was false. Toolbar's
+  // destructive "strip your indicators and drawings" alertdialog carries position:fixed on
+  // the element ITSELF, and CSSOM-View defines offsetParent as null for such an element.
+  // The trap filtered dialogs on `offsetParent !== null`, so the widened selector found the
+  // alertdialog and the very next line threw it away — Chromium 140 saw zero dialogs and
+  // Tab walked out of an unanswered destructive prompt. The test above this section passed
+  // throughout because every node here answered `offsetParent: {}`.
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const heading = h.node('H3', { tabindex: '-1' });
+  const d = h.dialog('alertdialog', [first, last], { fixed: true });
+  heading.parent = d;
+  h.mountDialogs(d);
+
+  h.setActive(heading);
+  assert.equal(h.press('Tab', heading, { shift: true }), true,
+    'a position:fixed alertdialog is invisible to the trap — its offsetParent is null, and ' +
+    'Shift+Tab from its heading walks out onto the Load button that raised it');
+  assert.equal(h.doc.activeElement, last);
+
+  h.setActive(last);
+  assert.equal(h.press('Tab', last), true, 'Tab from the last button must wrap, not escape');
+  assert.equal(h.doc.activeElement, first);
+});
+
+test('a <summary> roved to tabindex="-1" is NOT a tab stop, so the tree dialog does not leak backwards', () => {
+  // The regression the `summary` fix opened. ObjectTreeModal's pane headers are
+  // <summary role="treeitem"> under a roving tabindex; after one ArrowDown, treeKeyboard.js
+  // has set the summary to -1 and the series div to 0. On a hosted build nothing focusable
+  // precedes the tree, so the browser's backward order from the series div leaves the
+  // dialog. The trap's selector said `summary` with no exclusion, listed the roved-out
+  // summary as index 0 and the series div as index 1, and let the keystroke through.
+  const h = makeHarness();
+  const heading = h.node('H2', { tabindex: '-1' });
+  const pane    = h.node('SUMMARY', { role: 'treeitem', tabindex: '-1' });
+  const series  = h.node('DIV',     { role: 'treeitem', tabindex: '0' });
+  const close   = h.node('BUTTON');
+  const d = h.dialog('dialog', [pane, series, close]);
+  heading.parent = d;
+  h.mountDialogs(d);
+  h.setActive(series);
+
+  assert.equal(h.press('Tab', series, { shift: true }), true,
+    'Shift+Tab from the first REAL tab stop was let through — the roved-out summary is being ' +
+    'counted as a stop ahead of it, and the browser walks backward out of the dialog');
+  assert.equal(h.doc.activeElement, close,
+    'Shift+Tab from the first real stop must wrap to the last control');
+});
+
+test('with two dialogs open, the trap keeps focus in the one that HAS focus, not the last in the DOM', () => {
+  // Stacked dialogs, demonstrated rather than inferred. HelpModal is rendered before nineteen
+  // other modals in MainLayout and F1 is allowed while a modal is open, so Settings then F1
+  // stacks Help on top while Settings stays LAST in the document. The trap took
+  // dialogs[length - 1], judged Help's focus to be "outside the modal", and moved it into
+  // Settings' search box by its own hand. Mitigation until the ordered stack exists: the
+  // dialog containing document.activeElement wins.
+  const h = makeHarness();
+  const sSearch = h.node('INPUT', { type: 'search' });
+  const sClose  = h.node('BUTTON');
+  const settings = h.dialog('dialog', [sSearch, sClose]);
+  const hSummary = h.node('SUMMARY');
+  const hClose   = h.node('BUTTON');
+  const help = h.dialog('dialog', [hSummary, hClose]);
+  h.mountDialogs(help, settings);   // DOM order: Help first, Settings last
+  h.api.setModalOpen(true);         // two open (mountDialogs armed the first)
+
+  h.setActive(hSummary);
+  assert.equal(h.press('Tab', hSummary), false,
+    'Tab from the first of two stops in Help must be an ordinary move the browser owns — ' +
+    'it was claimed, which means the trap thinks focus is outside "the" modal (Settings)');
+  assert.equal(h.doc.activeElement, hSummary, 'focus must not have been moved into Settings');
+
+  h.setActive(hClose);
+  assert.equal(h.press('Tab', hClose), true);
+  assert.equal(h.doc.activeElement, hSummary,
+    'Tab from the end of Help must wrap inside HELP, not land in Settings');
+
+  // Focus that has left every dialog still gets rehomed, into the DOM-last one as before.
+  const outside = h.node('BUTTON');
+  h.setActive(outside);
+  assert.equal(h.press('Tab', outside), true);
+  assert.equal(h.doc.activeElement, sSearch);
 });
 
 // ── Scroll keys inside a dialog (2026-09-01 accessibility audit) ────────────

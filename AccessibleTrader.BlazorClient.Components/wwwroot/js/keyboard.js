@@ -131,14 +131,45 @@ window.accessibleTrader = {
         // trap armed, then querySelectorAll found nothing and the trap returned — leaving
         // Tab free to walk out of an unanswered destructive prompt onto the Load button
         // that raised it. A role the trap does not know is a way out of the trap.
+        //
+        // Widening the selector did NOT trap it, and the commit that widened it said it had.
+        // The next line used to filter on `el.offsetParent !== null`, and CSSOM-View defines
+        // offsetParent as null for an element that is itself `position: fixed` — which is
+        // exactly how Toolbar's alertdialog is styled. ModalBase dialogs survived that filter
+        // only because THEIR position:fixed is on the parent .modal-overlay. So the selector
+        // found the alertdialog and the filter one line below threw it away; reproduced in a
+        // real Chromium, zero dialogs seen. offsetParent is not a visibility test. An element
+        // is rendered iff it has at least one layout box, and getClientRects() reports exactly
+        // that — empty for display:none (and for anything inside a display:none ancestor),
+        // non-empty for fixed, sticky, absolute and static alike.
+        //
+        // A filter one line below a widened selector is invisible to a scan that reads the
+        // selector string. The guard in ChromeAccessibilityScanTests now reads this whole
+        // block for `offsetParent`, and keyboard-tests.mjs has a node that is fixed and
+        // therefore offsetParent-less, so this cannot regress silently in either direction.
         window.addEventListener('keydown', function (e) {
             if (e.key !== 'Tab') return;
             if (self._openModalCount <= 0) return;
             const dialogs = Array.prototype.slice.call(
                     document.querySelectorAll('[role="dialog"], [role="alertdialog"]'))
-                .filter(el => el.offsetParent !== null);
+                .filter(el => el.getClientRects().length > 0);
             if (dialogs.length === 0) return;
-            const modal = dialogs[dialogs.length - 1];
+
+            // Prefer the dialog that CONTAINS focus, and fall back to the last one in the DOM.
+            //
+            // `dialogs[dialogs.length - 1]` alone is DOM order, and DOM order is fixed by
+            // MainLayout, where HelpModal is rendered before nineteen other modals. F1 is in
+            // the dispatcher's allowedWhileModalOpen list, so Settings then F1 stacks Help
+            // on top of Settings while Settings is still the last dialog in the document.
+            // From anywhere in Help, the first Tab was then judged "outside the modal" and
+            // this trap itself moved focus INTO Settings — underneath the dialog the user
+            // was reading. This is a mitigation, not the fix: the fix is the ordered modal
+            // stack that CommandDispatcher already keeps, shared with this trap. Until then,
+            // the dialog the user is standing in is the dialog to keep them in; the DOM-last
+            // fallback only decides where a focus that escaped ALL dialogs gets rehomed.
+            const active0 = document.activeElement;
+            const modal = dialogs.find(d => active0 && d.contains(active0))
+                       || dialogs[dialogs.length - 1];
 
             // This list must match the BROWSER'S real tab order, not merely look sensible, because
             // of the `idx === -1` branch below: an element that is inside the dialog and IS a tab
@@ -154,13 +185,28 @@ window.accessibleTrader = {
             //
             // The others are here for the same reason and not because anything uses them today:
             // each is a default tab stop, so each is a future instance of the identical bug.
+            //
+            // Every tag clause carries `:not([tabindex="-1"])`, because the browser honours a
+            // negative tabindex on ANY element and so must this list. The unconditional
+            // `summary` clause that fixed HelpModal opened the mirror-image hole in
+            // ObjectTreeModal: its pane headers are <summary role="treeitem"> under a roving
+            // tabindex, and treeKeyboard.js sets every treeitem but the current one to -1. On a
+            // hosted build nothing focusable precedes the tree, so after Alt+O, Tab, ArrowDown
+            // the current series div was index 1 of THIS list (the roved-out summary was
+            // index 0), no branch fired, and the browser walked backward past the summary and
+            // the heading — both -1 — out of the dialog. A fix that widens a selector needs the
+            // same exclusions on every new clause.
             const focusableSelector =
-                'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
-                'select:not([disabled]), textarea:not([disabled]), summary, iframe, ' +
-                'audio[controls], video[controls], [contenteditable]:not([contenteditable="false"]), ' +
+                'a[href]:not([tabindex="-1"]), area[href]:not([tabindex="-1"]), ' +
+                'button:not([disabled]):not([tabindex="-1"]), ' +
+                'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"]), ' +
+                'select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), ' +
+                'summary:not([tabindex="-1"]), iframe:not([tabindex="-1"]), ' +
+                'audio[controls]:not([tabindex="-1"]), video[controls]:not([tabindex="-1"]), ' +
+                '[contenteditable]:not([contenteditable="false"]):not([tabindex="-1"]), ' +
                 '[tabindex]:not([tabindex="-1"])';
             const focusables = Array.prototype.slice.call(modal.querySelectorAll(focusableSelector))
-                .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+                .filter(el => !el.hasAttribute('disabled') && el.getClientRects().length > 0);
             if (focusables.length === 0) return;
 
             const first = focusables[0];

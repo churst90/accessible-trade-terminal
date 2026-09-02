@@ -1,0 +1,41 @@
+<!doctype html><html><head><link rel="stylesheet" href="file:///home/cody/external-rescue/Github/accessible-trade-terminal/AccessibleTrader.BlazorClient/wwwroot/app.css">
+<style>.hidden{display:none} body{height:2000px}</style></head><body>
+<button id="bg-before">Background Load</button>
+
+<!-- 1. Toolbar.razor's alertdialog, verbatim styling: position:fixed on the element ITSELF -->
+<div id="ad" class="hidden" role="alertdialog" aria-modal="true" aria-labelledby="switchWarnTitle"
+     style="position:fixed; top:30%; left:50%; transform:translateX(-50%); background:#222; color:#eee; padding:16px 20px; border:2px solid #ff8c00; border-radius:6px; z-index:9999; max-width:480px;">
+  <h3 id="switchWarnTitle" tabindex="-1">Switching to analytics</h3>
+  <button id="ad-continue" class="primary">Continue (strip &amp; load)</button>
+  <button id="ad-newtab">Open in New Tab</button>
+  <button id="ad-cancel" aria-label="Cancel, keep the current tab as it is">Cancel</button>
+</div>
+
+<!-- 2. ObjectTreeModal after one ArrowDown on a hosted build: summary roved to -1, series div 0 -->
+<div id="tree-overlay" class="modal-overlay hidden"><div class="modal-content" role="dialog" aria-modal="true" id="tree">
+  <h2 id="tree-h2" tabindex="-1">Object Tree</h2>
+  <div role="tree"><details open><summary id="pane" role="treeitem" tabindex="-1">Pane 0</summary>
+    <div role="group"><div id="series" role="treeitem" tabindex="0">Candles</div></div></details></div>
+  <button id="tree-close">Close</button>
+</div></div>
+
+<!-- 3. Stacked: Help is FIRST in the DOM, Settings LAST; Help is the one opened on top -->
+<div id="help-overlay" class="modal-overlay hidden"><div class="modal-content" role="dialog" aria-modal="true" id="help">
+  <h2 id="help-h2" tabindex="-1">Help</h2>
+  <details><summary id="help-summary">Keyboard reference</summary><p>prose</p></details>
+  <button id="help-close">Close</button>
+</div></div>
+<div id="settings-overlay" class="modal-overlay hidden"><div class="modal-content" role="dialog" aria-modal="true" id="settings">
+  <h2 id="settings-h2" tabindex="-1">Settings</h2>
+  <input id="settings-search" type="search" aria-label="Search settings">
+  <button id="settings-close">Close</button>
+</div></div>
+
+<button id="bg-after">Background After</button>
+<script src="file://KEYBOARD_JS"></script>
+<script>
+window.accessibleTrader.registerKeyboardHandler({invokeMethodAsync:()=>Promise.resolve()});
+window.flog=[];(function(){const of=HTMLElement.prototype.focus;HTMLElement.prototype.focus=function(){window.flog.push('focus('+this.id+')');const r=of.apply(this,arguments);window.flog.push('  -> active='+document.activeElement.id);return r;};})();document.addEventListener('focusin',e=>window.flog.push('focusin '+e.target.id),true);document.addEventListener('focusout',e=>window.flog.push('focusout '+e.target.id),true);
+window.addEventListener('keydown', e => window.flog.push(e.key+(e.shiftKey?'+shift':'')+' prevented='+e.defaultPrevented), false);
+window.show=(ids,opens)=>{ for(const id of ids) document.getElementById(id).classList.remove('hidden'); for(let i=0;i<opens;i++) window.accessibleTrader.setModalOpen(true); return 'ok'; };
+</script></body></html>

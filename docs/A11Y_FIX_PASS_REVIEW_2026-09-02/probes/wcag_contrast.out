@@ -1,0 +1,93 @@
+Parsed 12 themes from ThemeService.cs: SteelGray, Blackout, Classic, AmberCrt, Walnut, Paper, MidnightBlue, HighContrastDark, HighContrastLight, SoftDark, Solarized, BrailleOptimized
+
+== Self-check vs numbers claimed in commit bc52e652 / audit 3.8 ==
+  SteelGray          old #fff header on bg #4e545e: 7.63:1 | old crosshair rgba(255,255,255,.45)->#9ea1a6: 2.94:1 | new AxisText: 6.43:1 | new Crosshair: 5.46:1
+  Paper              old #fff header on bg #fdfbf6: 1.03:1 | old crosshair rgba(255,255,255,.45)->#fefdfa: 1.02:1 | new AxisText: 14.38:1 | new Crosshair: 7.68:1
+  HighContrastLight  old #fff header on bg #ffffff: 1.00:1 | old crosshair rgba(255,255,255,.45)->#ffffff: 1.00:1 | new AxisText: 21.00:1 | new Crosshair: 11.45:1
+
+== Q1: status header colour (theme.AxisText, via GetThemeTextHex) vs chart background (theme.Background) — 4.5:1 ==
+  theme              text     bg         ratio  4.5:1   | sibling: TextMuted(--text-muted) vs bg  4.5:1
+  SteelGray          #e8ecf2 #4e545e    6.43  PASS   | #d4dae3    5.42  PASS
+  Blackout           #e8e8e8 #000000   17.14  PASS   | #b4b4b4   10.13  PASS
+  Classic            #d1d4dc #131722   12.07  PASS   | #9da5b4    7.22  PASS
+  AmberCrt           #ffb000 #0d0b06   10.74  PASS   | #c48c28    6.68  PASS
+  Walnut             #f0e3d2 #2a201a   12.59  PASS   | #d2bea4    8.82  PASS
+  Paper              #2a2722 #fdfbf6   14.38  PASS   | #5c564c    7.03  PASS
+  MidnightBlue       #d7dff2 #11182b   13.22  PASS   | #a6b4d0    8.46  PASS
+  HighContrastDark   #ffffff #000000   21.00  PASS   | #bebebe   11.30  PASS
+  HighContrastLight  #000000 #ffffff   21.00  PASS   | #464646    9.44  PASS
+  SoftDark           #b4b9c8 #12141c    9.38  PASS   | #969cac    6.69  PASS
+  Solarized          #839496 #002b36    4.75  PASS   | #aaaaaa    6.46  PASS
+  BrailleOptimized   #ffffff #000000   21.00  PASS   | #aaaaaa    9.04  PASS
+
+== Q2a: theme.Crosshair (--crosshair-color) vs chart background — 3:1 (1.4.11) ==
+  theme              xhair    bg-top     ratio  3:1    | bg-end     ratio  3:1
+  SteelGray          #ffd65c #4e545e    5.46  PASS   | #22252a   11.00  PASS
+  Blackout           #ffd54f #000000   14.88  PASS   | (flat)
+  Classic            #9da5b4 #131722    7.22  PASS   | (flat)
+  AmberCrt           #ffd266 #0d0b06   13.73  PASS   | #070603   14.15  PASS
+  Walnut             #c9a227 #2a201a    6.58  PASS   | #18110d    7.72  PASS
+  Paper              #1a4ca8 #fdfbf6    7.68  PASS   | #f3efe6    6.92  PASS
+  MidnightBlue       #7dd3fc #11182b   10.59  PASS   | #080c18   11.70  PASS
+  HighContrastDark   #ffff00 #000000   19.56  PASS   | (flat)
+  HighContrastLight  #0000c8 #ffffff   11.45  PASS   | (flat)
+  SoftDark           #78b4ff #12141c    8.55  PASS   | (flat)
+  Solarized          #268bd2 #002b36    4.08  PASS   | (flat)
+  BrailleOptimized   #ffffff #000000   21.00  PASS   | (flat)
+
+== Q2b: :root fallback #ffd65c vs every theme's chart background — 3:1 ==
+  SteelGray          #ffd65c  #4e545e    5.46  PASS   | bg-end #22252a   11.00  PASS
+  Blackout           #ffd65c  #000000   15.03  PASS   
+  Classic            #ffd65c  #131722   12.81  PASS   
+  AmberCrt           #ffd65c  #0d0b06   14.07  PASS   | bg-end #070603   14.50  PASS
+  Walnut             #ffd65c  #2a201a   11.38  PASS   | bg-end #18110d   13.36  PASS
+  Paper              #ffd65c  #fdfbf6    1.35  FAIL   | bg-end #f3efe6    1.22  FAIL
+  MidnightBlue       #ffd65c  #11182b   12.63  PASS   | bg-end #080c18   13.96  PASS
+  HighContrastDark   #ffd65c  #000000   15.03  PASS   
+  HighContrastLight  #ffd65c  #ffffff    1.40  FAIL   
+  SoftDark           #ffd65c  #12141c   13.15  PASS   
+  Solarized          #ffd65c  #002b36   10.74  PASS   
+  BrailleOptimized   #ffd65c  #000000   15.03  PASS   
+
+== Q3: focus ring (ThemeCssBridge.FocusRingFor) vs chart bg, chart bg-end, page bg (--bg-primary = ChromeBottomEnd ?? ChromeBottom), toolbar (--bg-toolbar = SurfaceRaised) — 3:1 ==
+  theme              ring     chart     ratio       chart-end  ratio       page      ratio       toolbar   ratio
+  SteelGray          #ffff00 #4e545e   7.10 PASS  #22252a    14.32 PASS  #17191d  16.39 PASS  #676e79   4.79 PASS
+  Blackout           #ffff00 #000000  19.56 PASS  #000000    19.56 PASS  #0a0a0a  18.44 PASS  #0a0a0a  18.44 PASS
+  Classic            #ffff00 #131722  16.67 PASS  #131722    16.67 PASS  #10131c  17.28 PASS  #1e222d  14.79 PASS
+  AmberCrt           #ffff00 #0d0b06  18.32 PASS  #070603    18.87 PASS  #120e06  17.92 PASS  #1a1408  17.04 PASS
+  Walnut             #ffff00 #2a201a  14.82 PASS  #18110d    17.39 PASS  #2e2119  14.51 PASS  #5a4032   8.83 PASS
+  Paper              #0020b0 #fdfbf6  11.07 PASS  #f3efe6     9.98 PASS  #e6e1d6   8.78 PASS  #ece7dc   9.29 PASS
+  MidnightBlue       #ffff00 #11182b  16.44 PASS  #080c18    18.17 PASS  #050811  18.64 PASS  #1e2a46  13.26 PASS
+  HighContrastDark   #ffff00 #000000  19.56 PASS  #000000    19.56 PASS  #0e0e0e  17.98 PASS  #141414  17.16 PASS
+  HighContrastLight  #0020b0 #ffffff  11.45 PASS  #ffffff    11.45 PASS  #e2e2e2   8.84 PASS  #eeeeee   9.87 PASS
+  SoftDark           #ffff00 #12141c  17.12 PASS  #12141c    17.12 PASS  #14161e  16.81 PASS  #1e212c  14.94 PASS
+  Solarized          #ffff00 #002b36  13.98 PASS  #002b36    13.98 PASS  #181818  16.54 PASS  #1e1e1e  15.52 PASS
+  BrailleOptimized   #ffff00 #000000  19.56 PASS  #000000    19.56 PASS  #181818  16.54 PASS  #1e1e1e  15.52 PASS
+
+== Q3b: :root fallback ring #ffff00 (what renders before the bridge publishes) vs chart bg / page bg — 3:1 ==
+  SteelGray          #ffff00  chart #4e545e   7.10 PASS   page #17191d  16.39 PASS
+  Blackout           #ffff00  chart #000000  19.56 PASS   page #0a0a0a  18.44 PASS
+  Classic            #ffff00  chart #131722  16.67 PASS   page #10131c  17.28 PASS
+  AmberCrt           #ffff00  chart #0d0b06  18.32 PASS   page #120e06  17.92 PASS
+  Walnut             #ffff00  chart #2a201a  14.82 PASS   page #2e2119  14.51 PASS
+  Paper              #ffff00  chart #fdfbf6   1.04 FAIL   page #e6e1d6   1.21 FAIL
+  MidnightBlue       #ffff00  chart #11182b  16.44 PASS   page #050811  18.64 PASS
+  HighContrastDark   #ffff00  chart #000000  19.56 PASS   page #0e0e0e  17.98 PASS
+  HighContrastLight  #ffff00  chart #ffffff   1.07 FAIL   page #e2e2e2   1.21 FAIL
+  SoftDark           #ffff00  chart #12141c  17.12 PASS   page #14161e  16.81 PASS
+  Solarized          #ffff00  chart #002b36  13.98 PASS   page #181818  16.54 PASS
+  BrailleOptimized   #ffff00  chart #000000  19.56 PASS   page #181818  16.54 PASS
+
+== Adjacent literals still in ChartArea.razor (not this commit's fix, reported for completeness) ==
+  SteelGray          readout #fff on rgba(18,18,18,.92)->#171718: 17.92:1 PASS | #bbb on box:  9.33:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  2.09:1
+  Blackout           readout #fff on rgba(18,18,18,.92)->#111111: 18.88:1 PASS | #bbb on box:  9.84:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.32:1
+  Classic            readout #fff on rgba(18,18,18,.92)->#121213: 18.72:1 PASS | #bbb on box:  9.75:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.12:1
+  AmberCrt           readout #fff on rgba(18,18,18,.92)->#121111: 18.85:1 PASS | #bbb on box:  9.82:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.24:1
+  Walnut             readout #fff on rgba(18,18,18,.92)->#141313: 18.55:1 PASS | #bbb on box:  9.66:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.00:1
+  Paper              readout #fff on rgba(18,18,18,.92)->#252524: 15.34:1 PASS | #bbb on box:  7.99:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg: 15.38:1
+  MidnightBlue       readout #fff on rgba(18,18,18,.92)->#121214: 18.71:1 PASS | #bbb on box:  9.75:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.11:1
+  HighContrastDark   readout #fff on rgba(18,18,18,.92)->#111111: 18.88:1 PASS | #bbb on box:  9.84:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.32:1
+  HighContrastLight  readout #fff on rgba(18,18,18,.92)->#252525: 15.33:1 PASS | #bbb on box:  7.98:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg: 15.91:1
+  SoftDark           readout #fff on rgba(18,18,18,.92)->#121213: 18.72:1 PASS | #bbb on box:  9.75:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.16:1
+  Solarized          readout #fff on rgba(18,18,18,.92)->#111415: 18.51:1 PASS | #bbb on box:  9.64:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.06:1
+  BrailleOptimized   readout #fff on rgba(18,18,18,.92)->#111111: 18.88:1 PASS | #bbb on box:  9.84:1 PASS | progress #0078d4 on #222 track:  3.51:1 | track #222 on bg:  1.32:1

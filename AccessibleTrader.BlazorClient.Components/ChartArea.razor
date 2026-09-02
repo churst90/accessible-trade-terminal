@@ -110,7 +110,7 @@
                published by ThemeCssBridge. It used to be a hardcoded rgba(255,255,255,0.45),
                which composites to 1.00:1 on High Contrast Light and 1.02:1 on Paper — the ONLY
                visual indication of which bar the cursor is on, invisible on light themes while
-               the price readout beside it updated. The theme value measures 11.45:1 and 7.95:1.
+               the price readout beside it updated. The theme value measures 11.45:1 and 7.68:1.
                2px rather than 1px: a position indicator at 1px is below what 1.4.11 practice
                treats as perceivable, and the Skia path already draws its crosshair wider. *@
             <div style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
@@ -153,7 +153,7 @@
            away: on High Contrast Light that is white on #ffffff — 1.00:1, a literally invisible
            headline — and 1.03:1 on Paper. Those are the two themes a low-vision user is most
            likely to pick, and this is the text that explains why the chart is empty.
-           theme.AxisText on theme.Background measures 21.00:1 and 15.29:1 respectively. *@
+           theme.AxisText on theme.Background measures 21.00:1 and 14.38:1 respectively. *@
         <div style="font-size: 1.8rem; margin-bottom: 1rem;">
             @GetStatusHeader()
         </div>

@@ -1,0 +1,15 @@
+1. Toolbar alertdialog, position:fixed on the element itself: rendered dialogs seen by the trap's predicate = ad(offsetParent=null)
+  (priming Tab from heading -> ad-continue)
+  Tab from heading (trap seeds first): -> ad-continue  OK
+  Shift+Tab from Continue (first button): -> bg-before  FAIL (expected ad-cancel)
+  Tab from Cancel (last button): -> ad-continue  OK
+  Shift+Tab from heading: -> bg-before  FAIL (expected ad-cancel)
+  keydown log: Shift prevented=false | Tab prevented=false | Tab prevented=false | Tab+shift prevented=false | Tab prevented=false | Tab+shift prevented=false
+2. ObjectTree, summary roved to -1, focus on series div
+  Shift+Tab from series (first real stop): -> bg-before  FAIL (expected tree-close)
+  Tab from Close (last): -> pane  FAIL (expected series)
+3. stacked: Help (DOM first) over Settings (DOM last)
+  Tab from Help summary: -> settings-search  FAIL (expected help-close)
+  Tab from Help Close (last in Help): -> settings-close  FAIL (expected help-summary)
+  Shift+Tab from Help heading: -> settings-close  FAIL (expected help-close)
+  keydown log: Shift prevented=false | focus(help-summary) | focusin help-summary |   -> active=help-summary | focus(settings-search) | focusout help-summary | focusin settings-search |   -> active=settings-search | Tab prevented=true | Tab prevented=false | focusout settings-search | focusin settings-close | focus(help-h2) | focusout settings-close | focusin help-h2 |   -> active=help-h2 | focus(settings-close) | focusout help-h2 | focusin settings-close |   -> active=settings-close | Tab+shift prevented=true

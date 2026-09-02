@@ -1,0 +1,16 @@
+<!doctype html><html><head><link rel="stylesheet" href="file:///home/cody/external-rescue/Github/accessible-trade-terminal/AccessibleTrader.BlazorClient/wwwroot/app.css"></head><body>
+<div style="display:flex;width:600px;height:300px">
+<div role="application" aria-label="Chart" tabindex="0" id="chart-interact-zone"
+     style="flex: 1; background: transparent; position: relative; width: 100%; height: 100%; touch-action: none; cursor: default;"></div>
+</div>
+<div class="modal-overlay"><div class="modal-content" role="dialog">
+<ul role="tree"><li id="ti" role="treeitem" tabindex="0" style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid #4a8;">leaf</li></ul>
+</div></div>
+<pre id="out"></pre>
+<script>
+function rep(el){ el.focus(); const cs=getComputedStyle(el);
+  return el.id+': focus-visible='+el.matches(':focus-visible')+' outline='+cs.outlineWidth+' '+cs.outlineStyle+' '+cs.outlineColor+' offset='+cs.outlineOffset; }
+const root=getComputedStyle(document.documentElement);
+document.getElementById('out').textContent = rep(document.getElementById('chart-interact-zone'))+'\n'+rep(document.getElementById('ti'))
+ +'\n--focus-outline-color='+root.getPropertyValue('--focus-outline-color').trim()+' --crosshair-color='+root.getPropertyValue('--crosshair-color').trim();
+</script></body></html>

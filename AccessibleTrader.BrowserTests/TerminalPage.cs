@@ -301,24 +301,69 @@ internal sealed class TerminalPage : IAsyncDisposable
 
     // ── dialogs ──────────────────────────────────────────────────────────────
 
-    /// <summary>Ids (or a positional fallback) of every VISIBLE role="dialog" on the page.</summary>
+    // Every dialog-discovery expression below selects the WHOLE ARIA dialog family and filters
+    // on `getClientRects().length > 0`, never `offsetParent` — the same two choices keyboard.js's
+    // Tab trap makes, for the same reason. The 2026-09-02 review found this harness green for a
+    // dialog it could not see: Toolbar's destructive "strip your indicators" confirmation is an
+    // alertdialog that is itself position:fixed, and CSSOM-View makes offsetParent null for such
+    // an element. `[role="dialog"]` plus an offsetParent filter missed it twice over, and the two
+    // containment predicates in ModalBrowserContractTests then returned TRUE when they found zero
+    // dialogs — "inside" was also what "no dialog visible" looked like. One predicate now, whose
+    // empty case is the failing case (FocusPlace.NoDialogSeen). ChromeAccessibilityScanTests reads
+    // this project's sources for both regressions.
+
+    /// <summary>
+    /// Where focus is relative to the topmost visible dialog, judged the way the Tab trap judges
+    /// it. <see cref="FocusPlace.NoDialogSeen"/> is deliberately its own answer, so that a test
+    /// which opened a dialog can fail on "the trap cannot see it" instead of passing on it.
+    /// </summary>
+    public async Task<FocusPlace> FocusRelativeToTopDialogAsync()
+    {
+        int code = await Page.EvaluateAsync<int>(@"() => {
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                 .filter(el => el.getClientRects().length > 0);
+            if (dialogs.length === 0) return 0;
+            const active = document.activeElement;
+            const top = dialogs.find(d => active && d.contains(active)) || dialogs[dialogs.length - 1];
+            return top.contains(active) ? 2 : 1;
+        }");
+        return code switch { 2 => FocusPlace.Inside, 1 => FocusPlace.Outside, _ => FocusPlace.NoDialogSeen };
+    }
+
+    /// <summary>
+    /// The number of real tab stops in the topmost visible dialog — the vacuity floor for the two
+    /// trap theories. Zero when no dialog is visible, which those theories already fail on.
+    /// </summary>
+    public Task<int> TabStopCountInTopDialogAsync() =>
+        Page.EvaluateAsync<int>(@"() => {
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                 .filter(el => el.getClientRects().length > 0);
+            if (dialogs.length === 0) return 0;
+            const d = dialogs[dialogs.length - 1];
+            return Array.from(d.querySelectorAll(
+                'button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex=""-1""])'))
+                .filter(el => el.getClientRects().length > 0 && !el.hasAttribute('disabled')
+                           && el.getAttribute('tabindex') !== '-1').length;
+        }");
+
+    /// <summary>Ids (or a positional fallback) of every VISIBLE dialog-family element on the page.</summary>
     public async Task<IReadOnlyList<string>> VisibleDialogIdsAsync()
     {
         var json = await Page.EvaluateAsync<string>(@"() => JSON.stringify(
-            Array.from(document.querySelectorAll('[role=""dialog""]'))
-                 .filter(el => el.offsetParent !== null)
+            Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                 .filter(el => el.getClientRects().length > 0)
                  .map((el, i) => el.id || ('(unnamed dialog #' + i + ')')))");
         return JsonSerializer.Deserialize<List<string>>(json)!;
     }
 
     /// <summary>The topmost visible dialog — the one the Tab trap and Escape act on.</summary>
-    public ILocator TopDialog() => Page.Locator("[role='dialog']:visible").Last;
+    public ILocator TopDialog() => Page.Locator("[role='dialog']:visible, [role='alertdialog']:visible").Last;
 
     public async Task<bool> WaitForDialogAsync(int timeoutMs = 10_000)
     {
         try
         {
-            await Page.Locator("[role='dialog']:visible").Last
+            await Page.Locator("[role='dialog']:visible, [role='alertdialog']:visible").Last
                       .WaitForAsync(new LocatorWaitForOptions { Timeout = timeoutMs });
             return true;
         }
@@ -331,8 +376,8 @@ internal sealed class TerminalPage : IAsyncDisposable
         try
         {
             await Page.WaitForFunctionAsync(
-                @"() => Array.from(document.querySelectorAll('[role=""dialog""]'))
-                             .filter(el => el.offsetParent !== null).length === 0",
+                @"() => Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                             .filter(el => el.getClientRects().length > 0).length === 0",
                 null, new PageWaitForFunctionOptions { Timeout = timeoutMs });
             return true;
         }
@@ -350,8 +395,8 @@ internal sealed class TerminalPage : IAsyncDisposable
     public async Task<string?> TopDialogAccessibleNameAsync()
     {
         return await Page.EvaluateAsync<string?>(@"() => {
-            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
-                                 .filter(el => el.offsetParent !== null);
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                 .filter(el => el.getClientRects().length > 0);
             if (dialogs.length === 0) return null;
             const d = dialogs[dialogs.length - 1];
             const by = d.getAttribute('aria-labelledby');
@@ -426,8 +471,8 @@ internal sealed class TerminalPage : IAsyncDisposable
     /// </summary>
     public Task<int> ControlCountInTopDialogAsync() =>
         Page.EvaluateAsync<int>(@"() => {
-            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
-                                 .filter(el => el.offsetParent !== null);
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                 .filter(el => el.getClientRects().length > 0);
             if (dialogs.length === 0) return 0;
             const d = dialogs[dialogs.length - 1];
             const sel = 'button, a[href], input, select, textarea, summary, ' +
@@ -449,8 +494,8 @@ internal sealed class TerminalPage : IAsyncDisposable
         var json = await Page.EvaluateAsync<string>(@"(inDialog) => {
             let d = document.body;
             if (inDialog) {
-                const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
-                                     .filter(el => el.offsetParent !== null);
+                const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                     .filter(el => el.getClientRects().length > 0);
                 if (dialogs.length === 0) return '[]';
                 d = dialogs[dialogs.length - 1];
             }
@@ -565,8 +610,8 @@ internal sealed class TerminalPage : IAsyncDisposable
     public async Task<IReadOnlyList<string>> TopDialogTabNamesAsync()
     {
         var json = await Page.EvaluateAsync<string>(@"() => {
-            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""]'))
-                                 .filter(el => el.offsetParent !== null);
+            const dialogs = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                                 .filter(el => el.getClientRects().length > 0);
             if (dialogs.length === 0) return '[]';
             const d = dialogs[dialogs.length - 1];
             return JSON.stringify(Array.from(d.querySelectorAll('[role=""tab""]'))
@@ -589,4 +634,13 @@ internal sealed class TerminalPage : IAsyncDisposable
     {
         try { await _context.CloseAsync(); } catch { /* the browser may already be gone */ }
     }
+}
+
+/// <summary>Where focus is relative to the topmost visible dialog. See <see cref="TerminalPage.FocusRelativeToTopDialogAsync"/>.</summary>
+public enum FocusPlace
+{
+    /// <summary>The dialog-family predicate found nothing rendered. For a test that opened a dialog, this is a failure, not "inside".</summary>
+    NoDialogSeen,
+    Outside,
+    Inside,
 }

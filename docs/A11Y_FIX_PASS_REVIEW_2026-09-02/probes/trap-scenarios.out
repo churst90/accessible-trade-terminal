@@ -1,0 +1,66 @@
+
+## Q1a: focus on <h2 tabindex=-1> (idx -1, inside)
+Tab       prevented=true -> first-btn
+Shift+Tab prevented=true -> last-btn
+
+## Q1b: focus on a <summary> in the middle of the list
+Tab       prevented=false (browser owns; next is summary2)
+Tab@last  prevented=true -> close
+Shift+Tab prevented=false (browser owns; prev is close)
+
+## Q1c: focus on a DISABLED control inside (became disabled while focused)
+Tab       prevented=true -> first-btn (contained; goes to FIRST, not next)
+Shift+Tab prevented=true -> last-btn (contained; goes to LAST, not prev)
+
+## Q1d: focus on a non-heading tabindex=-1 element inside (roving treeitem div)
+Tab       prevented=true -> first-btn (contained; jumps to FIRST instead of last-btn)
+Shift+Tab prevented=true -> last-btn (contained; jumps to LAST instead of first-btn)
+
+## Q1e: focus OUTSIDE the dialog (body / background control)
+body  Tab       prevented=true -> first-btn
+body  Shift+Tab prevented=true -> last-btn
+bgbtn Tab       prevented=true -> first-btn
+null  Tab       prevented=true -> first-btn
+
+## Q1f: dialog with ZERO focusable elements
+Tab       prevented=false  <-- false means the browser walks OUT
+Shift+Tab prevented=false  <-- false means the browser walks OUT
+
+## Q1g: dialog with exactly ONE focusable
+h2   Tab       prevented=true -> only
+only Tab       prevented=true -> only
+only Shift+Tab prevented=true -> only
+
+## Q1h: ObjectTreeModal — pane <summary role=treeitem> roved to tabindex=-1, focus on the roved series div
+open: Tab from h2 prevented=true -> pane1-summary
+after ArrowDown: pane1-summary tabindex=-1, series-node tabindex=0
+Shift+Tab from series-node prevented=false -> series-node
+  browser sequential-backward from series-node skips pane1-summary (tabindex=-1) and h2 (-1): NOTHING inside precedes it -> focus leaves the dialog
+
+## Q1i: Toolbar alertdialog is position:fixed -> offsetParent null in Chromium
+Tab       prevented=false  <-- false: dialogs[] is empty after the offsetParent filter
+Shift+Tab prevented=false
+control (offsetParent non-null): Shift+Tab prevented=true -> switchWarnTitle
+
+## Q2a: STACKED — Help (DOM 105) opened over Settings (DOM 113): selector picks dialogs[last] = Settings
+Help h2:      Tab       prevented=true -> settings-search
+Help h2:      Shift+Tab prevented=true -> settings-close
+Help summary: Tab       prevented=true -> settings-search
+Help close:   Tab       prevented=true -> settings-search
+
+## Q2b: STACKED — ThemeEditor (DOM 148) opened over Settings (DOM 113): top is later in DOM
+Theme h2:    Shift+Tab prevented=true -> theme-close
+Theme close: Tab       prevented=true -> theme-first
+Theme first: Shift+Tab prevented=true -> theme-close
+
+## Q2c: context menu only (role=menu) with _openModalCount>0
+Tab       prevented=false  (menu is not in the dialog-family selector)
+
+## Scroll-key release scoping
+ArrowDown on button in modal:  prevented=false calls=0
+Shift+ArrowDown on button:     prevented=false calls=0
+Ctrl+ArrowDown on button:      prevented=true calls=1
+ArrowDown on listbox option:   prevented=true calls=2
+ArrowDown on radio in group:   prevented=false (form-control gate returns first)
+ArrowDown on combobox input:   prevented=false
+no modal, ArrowDown on button: prevented=true calls=1

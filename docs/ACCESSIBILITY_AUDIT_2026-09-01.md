@@ -649,6 +649,23 @@ reason is the only kind worth trusting**; the same applies to a conformance clai
 
 ## 7. Recommended order
 
+> **REVIEW 2026-09-02.** The fix pass was reviewed by four specialists (modal, keyboard, ARIA,
+> contrast) after the original review died mid-run; reports and probe scripts are in
+> `docs/A11Y_FIX_PASS_REVIEW_2026-09-02/`. Verdict: ARIA and contrast SHIP; the `keyboard.js`
+> work is a real improvement, **but §3.1(a) is NOT closed** — `Toolbar.razor`'s `alertdialog` has
+> `position:fixed` on itself, `keyboard.js:139`'s `offsetParent` filter discards it, and the trap
+> never sees it. Reproduced in Chromium 140. `553960f7`'s `summary` clause also opened a new
+> Shift+Tab escape in ObjectTreeModal (roving `tabindex="-1"` summaries), and the stacked-dialog
+> defect §3.1(c) is now demonstrated rather than inferred. Item 2 below therefore stays OPEN for
+> the alertdialog; the `:root` fallbacks in item 5 fail on the two light themes if the bridge
+> never publishes.
+>
+> **Later on 2026-09-02:** the review's four one-line fixes are in and each was proved red first
+> (jstests, a widened C# scan, and a real-Chromium CDP record in the same directory). §3.1(a) is now
+> closed for the alertdialog by test AND by observation; §3.1(c) has the containment mitigation
+> until the ordered stack exists. The `:root` fallbacks, the landmark gaps and the toolbar-scan
+> spelling remain open.
+>
 > **STATUS 2026-09-01, after two fix passes.** Items 1-5 and 10's second clause are **DONE**;
 > item 8 is **recorded, not fixed**. Item 1 grew a fourth route (armed state surviving
 > close/reopen) that this list did not contain. Item 10's first clause — the ordered modal stack —

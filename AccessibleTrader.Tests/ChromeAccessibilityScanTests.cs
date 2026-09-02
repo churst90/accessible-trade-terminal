@@ -126,6 +126,100 @@ namespace AccessibleTrader.Tests
                     $"role=\"{role}\". An overlay with that role increments _openModalCount, arms " +
                     "the trap, and is then invisible to it — so Tab walks out of it. The C# " +
                     "scanner covers the whole dialog family; this selector must too.");
+
+            // The selector is not the pipeline. The 2026-09-02 review found this very guard green
+            // while the alertdialog was still escaping: the selector DID name alertdialog, and the
+            // line under it filtered `el.offsetParent !== null`, which CSSOM-View defines as null
+            // for an element that is itself position:fixed — Toolbar's alertdialog exactly. A
+            // filter one line below a widened selector is invisible to a scan that reads the
+            // selector string. So this reads the whole Tab-trap block, comments stripped, for the
+            // property that was wrong: nothing in it may decide visibility by offsetParent.
+            string trap = TabTrapBlockCodeOnly(js);
+            Assert.True(trap.Length > 200,
+                "The Tab-trap block in keyboard.js could not be delimited (from the '── Tab trap' " +
+                "banner to its '}, true);' registration). The trap has been restructured, so " +
+                "rewrite this guard against whatever replaced it rather than deleting it.");
+            Assert.False(trap.Contains("offsetParent"),
+                "keyboard.js's Tab trap decides visibility by offsetParent again. That is null for " +
+                "a rendered element that is itself position:fixed — Toolbar's alertdialog — so the " +
+                "widened selector finds the dialog and the filter throws it away. Use " +
+                "getClientRects().length > 0, which is empty only for something with no layout box.");
+            Assert.True(trap.Contains("getClientRects()"),
+                "keyboard.js's Tab trap no longer filters on getClientRects(). If visibility is now " +
+                "decided some other way, prove it against a position:fixed dialog in " +
+                "tools/jstests/keyboard-tests.mjs (the `fixed: true` node) before changing this.");
+        }
+
+        /// <summary>
+        /// The Tab-trap keydown listener in keyboard.js, from its banner comment to the
+        /// <c>}, true);</c> that registers it, with every <c>//</c> comment line removed — the
+        /// fix for this defect documents the banned identifier by name.
+        /// </summary>
+        private static string TabTrapBlockCodeOnly(string js)
+        {
+            int start = js.IndexOf("── Tab trap", StringComparison.Ordinal);
+            if (start < 0) return "";
+            int end = js.IndexOf("}, true);", start, StringComparison.Ordinal);
+            if (end < 0) return "";
+            var lines = js.Substring(start, end - start).Split('\n')
+                .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal));
+            return string.Join("\n", lines);
+        }
+
+        // ── 2b. The browser harness must see what the trap sees, and fail when it sees nothing ──
+
+        [Fact]
+        public void TheBrowserHarnessDiscoversDialogsTheWayTheTrapDoes()
+        {
+            // The third of the four reasons the alertdialog escape stayed green. The browser
+            // containment predicates in ModalBrowserContractTests used `[role="dialog"]` plus the
+            // same offsetParent filter as the trap — so they could not see the alertdialog either —
+            // and then returned TRUE when they found zero dialogs. "Inside" was also what "no
+            // dialog visible" looked like. A probe whose empty branch is the passing branch cannot
+            // fail on the dialog it cannot see.
+            //
+            // The harness is a separate project the main suite does not reference, so this reads
+            // its sources. Comments are stripped for the same reason as everywhere in this file.
+            var dir = Path.Combine(RepoRoot(), "AccessibleTrader.BrowserTests");
+            var files = Directory.EnumerateFiles(dir, "*.cs", SearchOption.TopDirectoryOnly)
+                .Where(f => !Path.GetFileName(f).StartsWith("A3", StringComparison.Ordinal)) // survey probes, not gates
+                .ToList();
+            Assert.True(files.Count >= 5, $"Only {files.Count} sources under {dir}; is the harness still there?");
+
+            var failures = new List<string>();
+            foreach (var f in files)
+            {
+                string code = string.Join("\n", File.ReadAllLines(f)
+                    .Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)
+                             && !l.TrimStart().StartsWith("///", StringComparison.Ordinal)));
+                string name = Path.GetFileName(f);
+
+                // Dialog discovery: any querySelectorAll on role="dialog" must also name
+                // alertdialog, and must not be followed by an offsetParent filter.
+                foreach (Match m in Regex.Matches(code, @"querySelectorAll\((?<q>['""]+)(?<sel>\[role=[^)]*?)\k<q>\)\)"))
+                {
+                    string sel = m.Groups["sel"].Value;
+                    if (!sel.Contains("dialog")) continue;
+                    if (!sel.Contains("alertdialog"))
+                        failures.Add($"{name}: dialog discovery on '{sel}' does not include alertdialog");
+                    string tail = code.Substring(m.Index, Math.Min(200, code.Length - m.Index));
+                    int stop = tail.IndexOf(';');
+                    if (stop > 0) tail = tail.Substring(0, stop);
+                    if (tail.Contains("offsetParent"))
+                        failures.Add($"{name}: dialog discovery on '{sel}' filters by offsetParent, " +
+                                     "which is null for a dialog that is itself position:fixed");
+                }
+
+                if (Regex.IsMatch(code, @"dialogs\.length\s*===\s*0\)\s*return\s+true"))
+                    failures.Add($"{name}: a dialog predicate returns TRUE when it sees zero dialogs — " +
+                                 "'inside' is then also what 'invisible to the trap' looks like");
+            }
+
+            // Anti-vacuity: the harness must still contain dialog discovery at all.
+            Assert.True(File.ReadAllText(Path.Combine(dir, "TerminalPage.cs")).Contains("alertdialog"),
+                "TerminalPage.cs no longer mentions alertdialog; dialog discovery has moved and this " +
+                "guard is reading the wrong file.");
+            Assert.True(failures.Count == 0, string.Join("\n", failures));
         }
 
         // ── 3. role="toolbar" is an arrow-key promise ───────────────────────────────

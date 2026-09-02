@@ -117,8 +117,94 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-01 — the twelve-domain accessibility audit, and the four
-> one-line fixes it put at the top of the list. The headline finding is a FINANCIAL bug.)**
+> **START HERE (current as of 2026-09-02 — the four fixes the fix-pass review put at the top of
+> the list are IN; what the review left open is listed under NEXT.)**
+>
+> ### FIXED 2026-09-02 — the four one-line fixes from the review below, each proved red first
+>
+> All four of the review's "one-line fixes, in order" are in `keyboard.js`, the jstests, the browser
+> harness and `ChromeAccessibilityScanTests`. Nothing in the app's markup changed — `Toolbar.razor`'s
+> alertdialog still carries `position:fixed` on itself, which is what makes the new tests real.
+>
+> 1. **The trap decides visibility by `getClientRects().length > 0`, not `offsetParent`** (both the
+>    dialog list and the focusables list). The browser harness now uses ONE dialog predicate over
+>    the whole `{dialog, alertdialog}` family with the same filter, and its containment answer is a
+>    three-valued `FocusPlace` whose empty case (`NoDialogSeen`) is the FAILING case in both Tab
+>    theories. `keyboard-tests.mjs` nodes have a `fixed: true` option (offsetParent null, boxes
+>    present) and a `getClientRects` answer that is not derived from `offsetParent`.
+> 2. **Every tag clause of `focusableSelector` carries `:not([tabindex="-1"])`**, and the jstests
+>    harness now honours that exclusion on tag clauses instead of ignoring it.
+> 3. **The trap keeps focus in the dialog that CONTAINS it**, falling back to DOM-last only for a
+>    focus that has left every dialog. Mitigation; the ordered stack is still NEXT item 1.
+> 4. The two `ChartArea.razor` comment ratios read 7.68:1 and 14.38:1; the "trapped at last"
+>    comment in `keyboard.js` now says why widening the selector did not trap it.
+>
+> **Proved, not argued.** Three new jstests (27 total), one per fix; each reverted alone reddens
+> exactly its own test. `TheJsTabTrapCoversTheWholeAriaDialogFamily` now reads the whole trap
+> block, comments stripped, for `offsetParent` (red when it is put back), and a new
+> `TheBrowserHarnessDiscoversDialogsTheWayTheTrapDoes` reads the harness sources for the two
+> shapes that hid the defect (red on either). **Observed in real Chromium 140 over CDP** with the
+> exact Toolbar alertdialog markup — `probes/cdp-fix.mjs` + `cdp-fix-before.out`/`-after.out`: with
+> the old file every Tab in the alertdialog passes unprevented and Shift+Tab from its first button
+> lands on the background Load button; with the fix every one is trapped and wraps. The stacked log
+> shows the old trap calling `focus()` on Settings' search box from inside Help, and the fix not.
+>
+> **AND THE BROWSER HARNESS RUNS ON THIS BOX.** `dotnet test AccessibleTrader.BrowserTests` armed
+> today: 153/153 green on the fixed tree, and it OBSERVES `keyboard.js` — disabling the trap
+> reddened `ShiftTab_never_escapes_an_open_dialog` on every route, and blinding the new predicate
+> reddened `Tab_never_escapes_an_open_dialog` on every route. The earlier "cannot start here" was
+> not re-diagnosed (it may have been the port-5145 clash recorded in `TerminalServerFactory`); the
+> standing rule "CI is the only place keyboard.js can be observed" is withdrawn. Full suite 6,021
+> run / 6,016 listed.
+>
+> **Still open from the review, recorded not fixed:** the two `:root` fallbacks that fail 1.4.11 on
+> Paper/HighContrastLight when the theme bridge never publishes; TabBar/StatusBar/speech buffers
+> outside every landmark; the toolbar scan's two-spelling gate; the alertdialog has no cold-start
+> browser route (recorded in `ModalRoutes.NoColdStartRoute` with what it would need — a loaded
+> chart with a non-core series AND an analytics-shaped provider selected). The `role="menu"`
+> context menus remain unverified against the trap.
+>
+> ### REVIEW 2026-09-02 — the fix pass was reviewed at last, and its headline claim is FALSE
+>
+> Four specialist reviews of `bc52e652` + `553960f7` (the review that died on a session limit on
+> 2026-09-01). Reports, probe scripts and the synthesis: `docs/A11Y_FIX_PASS_REVIEW_2026-09-02/`.
+> **The code improves everything it touches, but "the alertdialog is trapped at last" is not true.**
+>
+> 1. **The only `alertdialog` in the app is STILL invisible to the trap.** `keyboard.js:139` filters
+>    `el.offsetParent !== null`; `Toolbar.razor:430-432` puts `position:fixed` on the alertdialog
+>    element ITSELF, and CSSOM-View makes `offsetParent` null for a fixed element (ModalBase dialogs
+>    survive only because their `position:fixed` is on the parent overlay). **Reproduced in real
+>    Chromium 140 over CDP**: zero dialogs seen, Tab not prevented, Tab and Shift+Tab both land on a
+>    background control. Four gates green for four reasons: the jstest fakes `offsetParent: {}`;
+>    the C# scan reads the selector string and cannot see the filter one line below; the browser
+>    probe uses the SAME filter and **returns `true` when it finds zero dialogs**; and the alertdialog
+>    is not a `ModalRoute`. Fix: `getClientRects().length > 0` in `keyboard.js:139` and both browser
+>    predicates, probe returns false on zero dialogs, a `fixed:true` jstest node, one browser route.
+> 2. **`553960f7`'s unconditional `summary` clause opened a Shift+Tab escape in ObjectTreeModal**
+>    on hosted/demo builds: `treeKeyboard.js:111-122` roves the `<summary role="treeitem">` to
+>    `tabindex="-1"`, the selector has no `:not([tabindex="-1"])` on `summary`, so after Alt+O, Tab,
+>    ArrowDown, Shift+Tab the browser walks backward out of the dialog. Node repro. Fix: append
+>    `:not([tabindex="-1"])` to every tag clause of `focusableSelector`.
+> 3. **Stacked dialogs are now DEMONSTRATED**: `keyboard.js:141` picks `dialogs[length-1]` in DOM
+>    order, and Help renders at `MainLayout.razor:105` before 19 other modals. Settings, then F1:
+>    the first Tab is `preventDefault`ed and focus is sent INTO Settings by the trap's own hand.
+>    One-line mitigation `dialogs.find(d => d.contains(document.activeElement)) ?? dialogs.at(-1)`
+>    until the ordered stack (NEXT item 1) exists.
+> 4. The `:root` fallbacks (`#ffd65c` crosshair, `#ffff00` ring) fail 1.4.11 on Paper and
+>    HighContrastLight if `ThemeCssBridge` never publishes (1.35 / 1.07:1); two comment ratios in
+>    `ChartArea.razor:113,156` are wrong (7.68 not 7.95; 14.38 not 15.29); TabBar/StatusBar/speech
+>    buffers sit outside every landmark; the toolbar scan sees two spellings of the role.
+>
+> **Checked and CORRECT, do not re-check:** every touched contrast pair passes on all 12 themes;
+> the ring reaches chart (3px inset) and treeitems (2px) at ≥ 7.10:1; three named, distinct `<nav>`
+> landmarks; scroll release never double-handles native controls and never reaches .NET; single-
+> dialog trap holds from every focus position tried; both `app.css` copies identical on every
+> touched rule. Full lists in the four reports.
+>
+> **Technique:** the Playwright Chromium binary under `~/.cache/ms-playwright/` runs headless on
+> this box and answers CDP — `probes/cdp-drive.mjs` is how defect 1 was OBSERVED. The app harness
+> still cannot start here; standalone pages loading the committed `keyboard.js` can.
+>
 >
 > **Full report: `docs/ACCESSIBILITY_AUDIT_2026-09-01.md`** — the first accessibility document in
 > a `docs/` of 76 files. 272 raw findings (21 Critical/High, 69 Serious, 101 Moderate, 81 Minor)

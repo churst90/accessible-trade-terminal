@@ -1,0 +1,18 @@
+<!doctype html><html><head><link rel="stylesheet" href="file:///home/cody/external-rescue/Github/accessible-trade-terminal/AccessibleTrader.BlazorClient/wwwroot/app.css">
+<style>.modal-content{max-height:200px;overflow-y:auto} body{height:2000px}</style></head><body>
+<button id="bg-before">Background Load</button>
+<div class="modal-overlay" role="none" id="overlay"><div class="modal-content" role="dialog" aria-modal="true" id="dlg">
+  <h2 id="h" tabindex="-1">Help</h2>
+  <div role="tablist" id="tl"><button role="tab" id="tab1">A</button><button role="tab" id="tab2">B</button></div>
+  <div id="filler" style="height:1500px">prose</div>
+  <button id="close">Close</button>
+</div></div>
+<div role="alertdialog" aria-modal="true" id="ad" style="position:fixed; top:30%; left:50%; transform:translateX(-50%); background:#222; padding:16px; z-index:9999; display:none">
+  <h3 id="adh" tabindex="-1">Switch warning</h3><button id="ad-continue">Continue</button><button id="ad-cancel">Cancel</button>
+</div>
+<button id="bg-after">Background After</button>
+<script src="file:///home/cody/external-rescue/Github/accessible-trade-terminal/AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js"></script>
+<script>
+window.sent=[];
+window.accessibleTrader.registerKeyboardHandler({invokeMethodAsync:(m,...a)=>{window.sent.push([m,...a]);return Promise.resolve();}});
+</script></body></html>

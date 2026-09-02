@@ -123,6 +123,14 @@ internal static class ModalRoutes
             ["CustomScriptsModal"] = "Alt+comma, and the scripting surface needs the script worker",
             ["LabelTextModal"]     = "prompted mid-gesture while placing a Label drawing",
             ["ThemeEditorModal"]   = "opened from the Settings appearance tab, not from the toolbar",
+            // Not a *Modal.razor at all — it is inline in Toolbar.razor — so the completeness test
+            // would never ask about it. Listed anyway: this is the one alertdialog in the app, the
+            // one the Tab trap could not see until 2026-09-02, and the sweep still cannot open it.
+            ["Toolbar shape-change warning (alertdialog)"] =
+                "shown by Load when the selected provider is analytics-shaped AND the current tab " +
+                "holds a non-core series; a cold start has neither a loaded chart nor a network. " +
+                "Its trap behaviour is pinned by keyboard-tests.mjs (a fixed, offsetParent-less " +
+                "node) and was observed in a standalone Chromium page over CDP.",
         };
 
     public static IEnumerable<ModalRoute> All => Keyboard.Concat(Toolbar);

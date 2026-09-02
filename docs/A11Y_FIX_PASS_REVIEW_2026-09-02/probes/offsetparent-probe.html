@@ -1,0 +1,17 @@
+<!doctype html><html><body>
+<div class="modal-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex">
+  <div class="modal-content" role="dialog" aria-modal="true"><h2 tabindex="-1">Help</h2><button>Close</button></div>
+</div>
+<div role="alertdialog" aria-modal="true" style="position:fixed; top:30%; left:50%; transform:translateX(-50%); background:#222; padding:16px;">
+  <h3 tabindex="-1">Switch warning</h3><button>Continue</button><button>Cancel</button>
+</div>
+<pre id="out"></pre>
+<script>
+const all = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [role="alertdialog"]'));
+const kept = all.filter(el => el.offsetParent !== null);
+document.getElementById('out').textContent =
+  'matched=' + all.map(e => e.getAttribute('role')).join(',') +
+  ' | offsetParent null? ' + all.map(e => e.getAttribute('role') + ':' + (e.offsetParent === null)).join(',') +
+  ' | kept after filter=' + kept.map(e => e.getAttribute('role')).join(',') +
+  ' | UA=' + navigator.userAgent.match(/Chrome\/[\d.]+/)[0];
+</script></body></html>
