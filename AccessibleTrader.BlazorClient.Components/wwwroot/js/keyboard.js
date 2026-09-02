@@ -405,13 +405,23 @@ window.accessibleTrader = {
             if (!isTrapped && !isModified) return;
 
             // Allow normal keyboard use inside form controls unless a modifier is held.
-            // Escape is the exception: it's never a text-input character, and it must always reach
-            // the dispatcher so it can close the open modal — otherwise a form-heavy modal (e.g. the
-            // Sound Designer) can't be Escaped out of while focus sits on a <select>/<input>/<textarea>.
+            // Escape and the function keys are the exceptions: neither is ever a text-input
+            // character, and both must always reach the dispatcher. Escape so a form-heavy modal
+            // (e.g. the Sound Designer) can be Escaped out of while focus sits on a
+            // <select>/<input>/<textarea>; F-keys because until 2026-09-02 this guard swallowed
+            // them too, so F1 in Settings' search box opened nothing, F2 could not mute while
+            // typing, and F12 opened the browser's DevTools from the toolbar's own <select>s —
+            // the exact controls the comment above promises function keys work from (WCAG 2.1.1).
+            // An F-key that is not in trappedKeys (F8) never reaches this line. Shift+F10 is
+            // carved back out: it is the keyboard equivalent of right-click, and in a text
+            // field the native context menu (paste, spell-check) is what the user wants —
+            // the command it maps to (OpenDrawingContextMenu) is chart-scoped and would be
+            // dropped by the dispatcher anyway, so trapping it would only cost the menu.
             const tag = e.target.tagName;
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             const isEditable = e.target.isContentEditable === true;
-            if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape') return;
+            const isFunctionKey = /^F\d{1,2}$/.test(e.key) && !(e.key === 'F10' && isShifted);
+            if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape' && !isFunctionKey) return;
 
             // ── Scroll keys belong to the dialog while a dialog owns the keyboard ───
             //

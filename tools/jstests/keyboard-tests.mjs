@@ -268,6 +268,60 @@ test('Escape still reaches the dispatcher from inside a form control', () => {
   assert.deepEqual(keysSent(h.calls), ['ESCAPE']);
 });
 
+// ── F-keys in form controls ─────────────────────────────────────────────────
+//
+// The form-control guard returned for every unmodified key except Escape, so F1 in Settings'
+// search box opened nothing, F2 could not mute while typing, and F12 opened the browser's
+// DevTools from the toolbar's own <select>s — the exact place the handler promises F-keys
+// work. Function keys are never text-input characters; they go through like Escape does.
+
+test('F1 reaches the dispatcher from inside a text input', () => {
+  const h = makeHarness();
+  assert.equal(h.press('F1', h.node('INPUT')), true);
+  assert.deepEqual(keysSent(h.calls), ['F1']);
+});
+
+test('F2 and F12 reach the dispatcher from a <select> and a <textarea>', () => {
+  const h = makeHarness();
+  assert.equal(h.press('F2', h.node('SELECT')), true);
+  assert.equal(h.press('F12', h.node('TEXTAREA')), true);
+  assert.deepEqual(keysSent(h.calls), ['F2', 'F12']);
+});
+
+test('F1 reaches the dispatcher from a contenteditable region', () => {
+  const h = makeHarness();
+  const editable = h.node('DIV');
+  editable.isContentEditable = true;
+  assert.equal(h.press('F1', editable), true);
+  assert.deepEqual(keysSent(h.calls), ['F1']);
+});
+
+test('an unbound F-key (F8) in a text input is still left alone', () => {
+  const h = makeHarness();
+  assert.equal(h.press('F8', h.node('INPUT')), false);
+  assert.deepEqual(keysSent(h.calls), []);
+});
+
+test('Shift+F10 in a text field keeps the native context menu (paste, spell-check)', () => {
+  // The keyboard equivalent of right-click. Its command (OpenDrawingContextMenu) is
+  // chart-scoped and the dispatcher drops it off-chart, so trapping it here would only
+  // cost the user the menu. Plain F10 (ReplayPlayPause) still goes through.
+  const h = makeHarness();
+  assert.equal(h.press('F10', h.node('INPUT'), { shift: true }), false);
+  assert.equal(h.press('F10', h.node('TEXTAREA'), { shift: true }), false);
+  assert.deepEqual(keysSent(h.calls), []);
+  assert.equal(h.press('F10', h.node('INPUT')), true);
+  assert.deepEqual(keysSent(h.calls), ['F10']);
+});
+
+test('letters in a text input stay typable even with the chart focused', () => {
+  const h = makeHarness();
+  h.api.setChartFocused(true);
+  assert.equal(h.press('h', h.node('INPUT')), false);
+  assert.equal(h.press('m', h.node('TEXTAREA')), false);
+  assert.deepEqual(keysSent(h.calls), []);
+});
+
 test('single-letter chart commands stay gated on chart focus', () => {
   const h = makeHarness();
   assert.equal(h.press('h', h.node('DIV')), false, 'chart not focused — h must stay typable');

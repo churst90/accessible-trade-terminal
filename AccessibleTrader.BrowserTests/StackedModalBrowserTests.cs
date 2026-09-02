@@ -50,9 +50,10 @@ public sealed class StackedModalBrowserTests
     /// Help stacked on top of Settings, with Settings LAST in the DOM. The Tabs are deliberate:
     /// the return target after Help closes is then a specific control — a heading is also where
     /// a dialog puts focus on open, so "back on the heading" could be imitated by a re-focus.
-    /// Two rather than one because F1 pressed INSIDE the search input does nothing: the keydown
-    /// handler returns for every unmodified key in a form control except Escape, F-keys
-    /// included (keyboard.js, the isFormControl guard), which is its own finding.
+    /// Two rather than one for history as much as anything: when this route was written, F1
+    /// pressed INSIDE the search input did nothing (the keydown handler's form-control guard
+    /// swallowed every F-key). That is fixed and pinned by FunctionKeysInFormControlsBrowserTests;
+    /// the return-target argument above is the reason the second Tab stays.
     /// </summary>
     private static async Task<TerminalPage> OpenSettingsThenHelpAsync(TerminalPage t)
     {

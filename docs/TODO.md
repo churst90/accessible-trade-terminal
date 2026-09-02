@@ -117,9 +117,30 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, later the same day — the ORDERED MODAL STACK is IN and
-> proved in a real browser; the four review fixes below it are also in. Read the NEXT list at the
-> end of the 2026-09-01 block; item 3 there is now done and one new item leads it.)**
+> **START HERE (current as of 2026-09-02, evening — F1–F12 now WORK IN TEXT FIELDS; the ORDERED
+> MODAL STACK is IN and proved in a real browser; the four review fixes below it are also in. Read
+> the NEXT list at the end of the 2026-09-01 block; items 0 and 3 are done, so it opens at item 1,
+> `PropertiesModal`'s 24 unnamed controls.)**
+>
+> ### FIXED 2026-09-02 (evening) — F1–F12 reach the dispatcher from inside a text field
+>
+> The "NEW NEXT ITEM 0" recorded below. `keyboard.js`'s form-control guard now lets
+> `/^F\d{1,2}$/` through exactly as it lets Escape through; letters, Space and every other
+> unmodified key in an `<input>/<textarea>/<select>`/contenteditable are untouched, and an F-key
+> that is not in `trappedKeys` (F8) never reaches the guard. **Demonstrated first:** a new
+> `FunctionKeysInFormControlsBrowserTests` (two cases — F1 from Settings' `s-search` after F12,Tab;
+> F1 from the toolbar's `market-select` on cold start) was red in real Chromium on the unfixed tree
+> with focus still in the field, then green; five new jstests (43 total), three red on the old
+> guard and two controls (F8 in an input; `h`/`m` in an input with the chart focused) green
+> throughout. **The keyboard-navigator review added one carve-out:** Shift+F10 in a text field
+> stays native (it is the keyboard right-click, and `OpenDrawingContextMenu` is chart-scoped so
+> the dispatcher would drop it anyway — trapping it only cost the paste/spell-check menu); a
+> sixth jstest pins it, red when the carve-out is removed. Browser suite **162/162**; jstests
+> 44/44; gesture 15/15; full suite 6,032. The stacked-modal route's "two Tabs past the search
+> box" still stands for its return-target reason; its comment no longer claims F1 is dead there.
+> Open from the review: F2/F12/textarea/contenteditable are pinned in the vm harness only, and
+> the `?v=20260716b` cache-buster on `keyboard.js` has not moved for four keyboard.js commits
+> (unverified whether a hosted browser could hold a stale copy).
 >
 > ### FIXED 2026-09-02 (later) — one ordered modal stack, and the first test that opens two dialogs
 >
@@ -167,7 +188,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > behaviour, not worse. Giving the menus `data-modal-name` and letting `_topDialog` see them would
 > close it.
 >
-> **Found, not fixed — NEW NEXT ITEM 0 (serious, WCAG 2.1.1).** `keyboard.js` returns for every
+> **Found, not fixed — NEW NEXT ITEM 0 (serious, WCAG 2.1.1). DONE 2026-09-02 (evening), see the
+> block above.** `keyboard.js` returned for every
 > unmodified key in `<input>/<textarea>/<select>` except Escape, so **F1–F12 are dead in every
 > text field**: F1 in Settings' search box opens nothing (verified in Chromium — it is why the
 > stacked route presses Tab twice to a button first), F2 cannot mute while typing, F12 opens
