@@ -53,6 +53,25 @@ Two things are:
 **`TradingDashboardModal.razor:301-315, 1539, 2005, 1553, 2062`** · Severity: **Critical** ·
 WCAG 3.3.4 Error Prevention (Legal, Financial, Data), AA · **Verified independently.**
 
+> **CLOSED 2026-09-01 (second pass), and it was REPRODUCED before it was fixed.**
+> `AccessibleTrader.Tests/Blazor/LiveOrderReviewStalenessTests.cs` drives the real component
+> through the real `SubmitOrder`: arm at 1 BTC, edit the field, press Confirm, and the order
+> service **received `Quantity: 5`**. This entry said "verified by hand against the source, not
+> inferred"; it is now verified by execution. A second demonstration flips the SIDE after arming,
+> through the BUY/SELL buttons, which are plain `@onclick` and cannot be reached by any binding
+> hook — which is why the fix is not only per-control voiding. `BuildSignal()` was extracted from
+> `SubmitOrder` so the review and the submit build the same order, and confirm-time compares the
+> whole `TradeSignal` record. That also closes two holes this entry did not name: **Symbol and
+> Provider are sent with every order and are not ticket fields**, so a chart moving to ETH under
+> an armed BTC review was a third route to the same defect, and `SizeFromRisk` writes the quantity
+> in C# where no input hook can observe it. Eight sabotages red, control green.
+>
+> **A FOURTH ROUTE, which this audit missed entirely:** `Close()` did not reset `_reviewArmed`
+> and neither did `ShowAsync()`. Arm on BTC, Escape, load ETH, Alt+T — the dialog reopened with
+> Confirm/Cancel already rendered and, because `ShowAsync` blanks `_orderStatus`, **nothing spoken
+> and nothing on screen**. One Enter sent a live order on the new symbol that had never been
+> reviewed at all. `Close()`'s own comment explains why a half-typed limit price must not come
+> back, and the one flag that spends money was left out of it.
 
 `ArmLiveReview()` builds a full spoken review — quantity, price, estimated cost, fee, stop, target,
 and a liquidation-vs-stop risk warning — and requires a second explicit Confirm. That design is
@@ -93,6 +112,23 @@ Two adjacent defects on the same path, from separate audits:
   (`FeedbackRouters.cs:176-181`). Under F2 mute: failures announce, successes and the armed
   confirmation gate do not.
 
+  > **CORRECTION, 2026-09-01 second pass. The prescribed fix was wrong and was NOT applied.**
+  > Adding `role="status"` here would have made this the THIRD live region carrying the same
+  > string: `MainLayout.razor:157-160` is the assertive double buffer every spoken message is
+  > written into, and `StatusBar.razor:8` is a polite region fed from *every*
+  > `FeedbackRequestEvent` — which this same audit records at its own "ungoverned second live
+  > region" finding. The `@if` wrapper also creates region and content in one DOM mutation, the
+  > pattern this audit lists as missed by Orca and Firefox+NVDA. The OCO sibling at `:362` is a
+  > second instance of that defect, not a model to copy.
+  >
+  > The real defect is the **channel asymmetry**, and that is what was fixed: `Error` →
+  > `Critical` (never muted) versus `Info`/`StateChange` → `Manual` (F2-muted), so with speech
+  > off the terminal spoke every rejection and no confirmation — and **the arm review itself was
+  > silent**, which means F2 switched off the readback for a real-money order while leaving the
+  > order sendable. `FeedbackRequestEvent` gained an optional `Channel`; all eight speaking arms
+  > of `OnFeedbackRequest` honour it with their defaults unchanged; the review and the placement
+  > outcome now ride `SpeechChannel.OrderEvent`, the tier every *asynchronous* order outcome
+  > already used. Sabotaging the override reddens `FeedbackTypeCoverageTests`.
 
 ---
 
@@ -613,9 +649,16 @@ reason is the only kind worth trusting**; the same applies to a conformance clai
 
 ## 7. Recommended order
 
+> **STATUS 2026-09-01, after two fix passes.** Items 1-5 and 10's second clause are **DONE**;
+> item 8 is **recorded, not fixed**. Item 1 grew a fourth route (armed state surviving
+> close/reopen) that this list did not contain. Item 10's first clause — the ordered modal stack —
+> is still open and is now the top item in `docs/TODO.md`, alongside 11 and 9 in that order.
+
 **Before the next release**
 
 1. **F-01** — void `_reviewArmed` on any ticket edit. *Financial correctness, not accessibility.*
+   **DONE** — and the prescription here was incomplete: per-control voiding alone does not cover
+   the side buttons, `SizeFromRisk`, or Symbol/Provider. See the CLOSED note on the finding itself.
 2. **`keyboard.js`** — three small edits to one file close §3.1(a), (b) and §3.2: widen the selector
    to `[role="dialog"],[role="alertdialog"]`, trap on containment rather than identity with
    `first`/`last`, and release the scroll keys while a dialog is open. **These close the two worst
@@ -629,13 +672,17 @@ reason is the only kind worth trusting**; the same applies to a conformance clai
 7. **`SetupSonifier`** — inject the router, not the manager. Then rename one of the two
    `IsSpeechEnabled` flags.
 8. **`TradingDashboardModal.razor:403`** — drop `role="status"` from the portfolio summary.
+   **STILL OPEN.** It is recomputed by the 2-second refresh timer, so it re-announces on every
+   tick and competes with the order review for the same live region.
 
 **Next**
 
 9. Implement a real WCAG ratio function once; use it in the theme editor as a **blocking** check
    and replace the luminance-delta assertions with it.
 10. Focus management: one ordered modal stack read by both the JS trap and `CommandDispatcher`
-    (closes §3.1(c) and (d) together); focus the Confirm button when the live review arms.
+    (closes §3.1(c) and (d) together) — **still open**; focus the Confirm button when the live
+    review arms — **DONE**, and it must happen BEFORE the review is spoken, because the focus
+    announcement interrupts the live region and speak-then-focus clips the review at word one.
 11. `PropertiesModal` — 24 labels, following the `RiskPlanEditor` template.
 12. Playback: speech during playback, start/stop/complete announcements, subscribe
     `PlaybackFinished`, **and fix the false comment.**

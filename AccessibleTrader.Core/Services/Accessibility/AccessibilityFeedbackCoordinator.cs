@@ -556,11 +556,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // those words would have been dropped on the floor. That is precisely the
             // silent-failure shape the comments at the bottom of this switch exist to
             // prevent, so the filter is gone rather than narrowed.
+            // The channel a Type would get on its own, unless the publisher named one.
+            //
+            // Only the dialogs that move money name one. Everything on the chart keeps the
+            // tier its Type implies, which is why this is an override rather than a
+            // parameter every publisher has to think about: a message that does not opt in
+            // behaves exactly as it did before this line existed.
+            SpeechChannel Ch(SpeechChannel fallback) => e.Channel ?? fallback;
+
             switch (e.Type)
             {
                 case FeedbackType.StateChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true);
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
                     break;
 
                 case FeedbackType.Navigation:
@@ -587,7 +595,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 case FeedbackType.VolumeChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: false);
+                        _speechRouter.Speak(e.Message, interrupt: false, channel: Ch(SpeechChannel.Manual));
                     break;
 
                 case FeedbackType.Error:
@@ -598,7 +606,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // produced no earcon — violating the silent-failure rule.
                     _audioRouter.PlayEarcon(FeedbackType.Error, ErrorSeverity.High);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true, channel: SpeechChannel.Critical);
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Critical));
                     break;
 
                 case FeedbackType.Boundary:
@@ -616,7 +624,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // broken binding — the exact failure the feedback contract forbids.
                     _audioRouter.PlayEarcon(FeedbackType.Boundary);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true);
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
                     break;
 
                 // Alert had no arm at all, so every FeedbackRequestEvent(Alert) was constructed,
@@ -633,7 +641,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 case FeedbackType.Alert:
                     _audioRouter.PlayEarcon(FeedbackType.Alert);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: SpeechChannel.Event);
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Event));
                     break;
 
                 // The remaining members. None of these has a publisher that carries a message
@@ -646,7 +654,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 case FeedbackType.PointFocus:
                 case FeedbackType.ViewportChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt);
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Manual));
                     break;
 
                 case FeedbackType.Info:
@@ -689,7 +697,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                     else if (!string.IsNullOrEmpty(e.Message))
                     {
-                        _speechRouter.Speak(e.Message, interrupt: true);
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
                     }
                     break;
 
@@ -702,7 +710,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         "[AccessibilityFeedbackCoordinator] Unhandled FeedbackType {Type} — message '{Message}' has no routing arm.",
                         e.Type, e.Message);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt);
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Manual));
                     break;
             }
         }

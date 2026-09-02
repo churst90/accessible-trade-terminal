@@ -233,35 +233,91 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > tablist callers do not `preventDefault`; both `app.css` copies have drifted). A fresh review pass
 > is still owed.
 >
+> ### DONE 2026-09-01, SECOND PASS — items 1, 2 and 3, plus a fourth the review found
+>
+> **All four were DEMONSTRATED before being fixed** — six bUnit tests driving the real component
+> through the real `SubmitOrder`, red first, in `AccessibleTrader.Tests/Blazor/LiveOrderReviewStalenessTests.cs`.
+> The headline is no longer "verified by hand against the source": the venue mock **received
+> `Quantity: 5` after a spoken review that said 1**.
+>
+> * **1. `_reviewArmed` went stale — CLOSED.** Two demonstrations: editing the quantity, and
+>   pressing SELL after arming a BUY. The fix has two layers because one is not enough.
+>   `VoidReviewIfArmed(what)` is on `@oninput` for all 20 ticket controls, on both side buttons
+>   (plain `@onclick`, so no binding hook can reach them) and on `SizeFromRisk`, which writes the
+>   quantity in C# where no hook can see it at all. **The backstop is the important half:**
+>   `BuildSignal()` was extracted from `SubmitOrder` so the review and the submit build the SAME
+>   order, and confirm-time compares the whole `TradeSignal` record against the one the review was
+>   spoken against. Comparing hand-picked FIELDS does not work here — half of them are conditioned
+>   on capability and order type as the signal is assembled, so a raw snapshot would refuse a
+>   Market order because a limit price the venue never sees had been edited. The record comparison
+>   also covers **Symbol and Provider, which go out with every order and are not ticket fields**:
+>   the chart moving to ETH under an armed BTC review is now refused.
+> * **2. Focus destroyed on arm — CLOSED.** `#order-confirm-live`, focused **before** the review is
+>   spoken: a screen reader announces the newly focused control on the focus event and that
+>   announcement cuts off the live region, so speak-then-focus clips the review at word one.
+>   The Confirm button also gained `disabled="@(!CanSubmit)"` — it had only `_orderInFlight`, so
+>   quantity 0 left a live-order button that **did nothing and said nothing** (`SubmitOrder`'s
+>   `if (!CanSubmit) return;` is silent) — and the size and symbol moved into its VISIBLE label
+>   with `aria-label` extending it, per the 2.5.3 containment rule. The focus announcement is the
+>   one channel that reaches the user in every speech configuration and in braille.
+> * **3. The order result — FIXED, BUT NOT THE WAY THE AUDIT SAID.** The audit prescribed
+>   `role="status"` on `:319`. **That would have been wrong and I did not do it.**
+>   `MainLayout.razor:157-160` already renders every spoken message into an assertive
+>   double-buffered live region, and `StatusBar.razor:8` is a second, polite one fed from *every*
+>   `FeedbackRequestEvent` — so the div would have been the **third** live region for the same
+>   string, and it is created in the same DOM mutation as its content, the pattern this audit
+>   itself records as missed by Orca and Firefox+NVDA. The real defect was a **channel asymmetry**:
+>   `FeedbackType.Error` routes to `SpeechChannel.Critical` (never muted) while `Info` and
+>   `StateChange` route to `Manual` (muted by F2), so with speech off the terminal spoke every
+>   rejection and no confirmation — and **the arm review itself was silent**, meaning F2 turned the
+>   readback for a real-money order off while leaving the order sendable. `FeedbackRequestEvent`
+>   gained an optional `Channel`, all eight speaking arms of `OnFeedbackRequest` honour it via
+>   `Ch(fallback)` with defaults unchanged, and the review and the placement outcome now ride
+>   `SpeechChannel.OrderEvent` — the tier every ASYNCHRONOUS order outcome already used and whose
+>   own docstring calls it "the one feedback you never miss".
+> * **4. THE ARMED REVIEW SURVIVED CLOSE AND REOPEN — found by the review agent, not the audit.**
+>   `Close()` reset both inline editors, with a comment saying exactly why a half-typed price must
+>   not come back, and left out the one flag that spends money. `ShowAsync()` blanked
+>   `_orderStatus` but not `_reviewArmed`. So: arm on BTC, Escape, load ETH, Alt+T — the dialog
+>   reopened with Confirm/Cancel **already rendered and nothing spoken or on screen**, one Enter
+>   from a live order that had never been reviewed. Now one `ResetLiveReview()` with five callers.
+>
+> **THE SHARPEST PROCEDURAL RESULT: a sabotage survivor exposed my own unfalsifiable guard.**
+> The first campaign was **7 of 8 red with S3 GREEN**. The cause was belt-and-braces: I had reset
+> the armed state in BOTH `Close()` and `ShowAsync()`, so deleting either copy left the other
+> clearing the flag before the reopen rendered, and the guard could not fail for its own reason.
+> **Two independent copies of a safety reset mask each other and neither is pinned.** Collapsed to
+> one `ResetLiveReview()`; re-run is **8 of 8 red, control green**.
+>
+> **A PRE-EXISTING GUARD WENT RED, AND A SECOND HAD ALREADY GONE BLIND.**
+> Extracting `BuildSignal()` reddened `MoneyPathSafetyTests.TheTicketsReduceOnlyStaysCapabilityGated`,
+> which reads the `SubmitOrder` body — the guard working as designed, pointed at the line that
+> decides what reaches the venue, and that line changed method. While re-pointing it I found
+> `DashboardRefusalScanTests.The_order_ticket_is_still_chart_bound_on_purpose` asserting
+> `Contains("Store.State.Identity")` against `SubmitOrder`, which **still passes** because
+> `SubmitOrder` mentions the identity for the provider and the latch label — so `Symbol:` could
+> have been deleted from the order and the guard would have stayed green. Both are now pointed at
+> `BuildSignal` with the assertion narrowed to the exact line.
+>
+> **RECORDED, NOT FIXED:** `TradingDashboardModal.razor:403` is a `role="status"` P&L sentence
+> recomputed by the 2-second refresh timer, so it re-announces on every tick and competes with the
+> order review for the same live region. It needs throttling or removing.
+>
 > ### NEXT — in this order
 >
-> **1. `_reviewArmed` goes stale — the financial one.** Void it on any change to quantity, price,
-> side, order type, stop or target, or disable the inputs while armed; announce the voiding. This
-> is the top item in the tree, above the two carried over below.
->
-> **2. Focus is destroyed when the live-order review arms.** `TradingDashboardModal.razor:301-315`
-> swaps Submit for Confirm/Cancel with a bare `StateHasChanged()` and no focus move, so focus falls
-> to `<body>` on a 2,093-line dialog **immediately after arming a real-money order**. Give the
-> Confirm button a stable id and focus it, as `ApiKeysModal.razor:419` already does.
->
-> **3. The order-placement result has no live region.** `TradingDashboardModal.razor:319` is a bare
-> `<div class='status-msg'>`; the OCO sibling at `:362` has `role="status"`, so this is an omission,
-> not policy. The compensating speech runs on the `Manual` channel and is **silenced by F2**, so
-> under F2 mute failures announce and successes do not.
->
-> **4. `PropertiesModal` — 24 controls with no accessible name at all.** Orphan `<label>` with no
+> **1. `PropertiesModal` — 24 controls with no accessible name at all.** Orphan `<label>` with no
 > `for` and no wrapping; lines `361` and `411` have no label text whatsoever. This is the
 > sonification config, the file that decides what the chart sounds like.
 > `RiskPlanEditor.razor:86-142` is the correct in-repo template.
 >
-> **5. Implement a real WCAG contrast function, once.** `grep 0.04045|1.055|12.92` over all `.cs`
+> **2. Implement a real WCAG contrast function, once.** `grep 0.04045|1.055|12.92` over all `.cs`
 > returns nothing. Three non-WCAG proxies are live, including **squared Euclidean RGB distance** at
 > `ThemeEditorModal.razor:260`, which waves through `#0000ff` on `#000000` (Euclidean 65,025 vs a
 > 12,000 threshold; actual **2.44:1**). Its docstring claims "a preset is always safe" — false as
 > measured, across **89 failing pairs in 12 themes**. Use it as a BLOCKING check in the theme
 > editor and replace `ThemeCoverageTests`' luminance-delta assertions with it.
 >
-> **6. One ordered modal stack, read by both the JS trap and `CommandDispatcher`.** The trap takes
+> **3. One ordered modal stack, read by both the JS trap and `CommandDispatcher`.** The trap takes
 > `dialogs[dialogs.length-1]` (DOM order); the dispatcher keeps a real `Stack<string?>` (open
 > order). Open Settings then Help and Escape closes Help while **Tab is trapped in Settings**. Same
 > root cause as: closing a stacked modal restores focus to nothing, because restoration fires only

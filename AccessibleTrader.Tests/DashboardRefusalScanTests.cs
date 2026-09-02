@@ -84,9 +84,15 @@ namespace AccessibleTrader.Tests
             // actions on existing rows were ever wrong to ask. If this ever goes red the
             // ticket has been decoupled too, which needs an account selector of its own
             // rather than a silent guess.
-            string body = DashboardSourceReader.MethodStripped("private async Task SubmitOrder()");
+            // Pointed at BuildSignal, which is where the chart's identity now enters the
+            // order. SubmitOrder still mentions Store.State.Identity — for the provider it
+            // passes to PlaceOrderAsync and for the in-flight latch's label — so this test
+            // kept passing after the signal construction moved out from under it, and would
+            // have kept passing with `Symbol:` deleted. A guard that cannot fail for its own
+            // reason is not guarding anything.
+            string body = DashboardSourceReader.MethodStripped("private TradeSignal BuildSignal()");
 
-            Assert.Contains("Store.State.Identity", body, StringComparison.Ordinal);
+            Assert.Contains("Symbol:     Store.State.Identity.Symbol!", body, StringComparison.Ordinal);
         }
 
         [Fact]

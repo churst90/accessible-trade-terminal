@@ -100,7 +100,12 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void TheTicketsReduceOnlyStaysCapabilityGated()
         {
-            string body = DashboardMethod("private async Task SubmitOrder()");
+            // BuildSignal, not SubmitOrder. The ticket's signal construction moved into its
+            // own method when the live review needed to build the SAME order twice — once to
+            // read aloud, once to send — and this guard went red on the move, which is the
+            // guard working: it is pointed at the line that decides what reaches the venue,
+            // and that line changed method. Re-point it, never widen it to the whole file.
+            string body = DashboardMethod("private TradeSignal BuildSignal()");
             Assert.Contains("ReduceOnly:     Can(ProviderCapabilities.ReduceOnly) && _reduceOnly", body,
                 StringComparison.Ordinal);
         }

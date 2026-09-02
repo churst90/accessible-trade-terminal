@@ -34,7 +34,24 @@ namespace AccessibleTrader.Core.Models
         bool IncludeSonification = true,
         bool IsXMove = false,
         bool IsYMove = false,
-        bool IsJump = false);
+        bool IsJump = false,
+        // Overrides the mute tier this message's Type would otherwise get.
+        //
+        // Every publisher used to inherit its channel from its FeedbackType, and for the
+        // chart that is right: a zoom readout is Manual because zooming is something you
+        // asked for. It is wrong for the one dialog that spends money. The live-order
+        // review and the placement outcome were published as StateChange and Info, both
+        // of which land on Manual — the tier F2 silences — while a REJECTION rode Error
+        // to Critical and could not be silenced. So with speech off the terminal spoke
+        // every refusal and no confirmation, and the pre-submit readback for a real-money
+        // order said nothing at all.
+        //
+        // SpeechChannel.OrderEvent already exists for exactly this ("the one feedback you
+        // never miss", FeedbackRouters.cs) and every ASYNCHRONOUS order outcome — fill,
+        // partial, stop, take-profit, reject, cancel, expiry, replace — already uses it.
+        // The synchronous ones could not reach it because this record had no way to say so.
+        // Null keeps the Type's own default, so nothing that does not opt in changes.
+        Services.Accessibility.SpeechChannel? Channel = null);
 
     public record ChartFocusEvent();
 

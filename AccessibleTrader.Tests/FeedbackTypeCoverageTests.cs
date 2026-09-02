@@ -117,6 +117,46 @@ public class FeedbackTypeCoverageTests
         Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.Event);
     }
 
+    /// <summary>
+    /// A publisher may name the mute tier its message belongs to, and that name wins.
+    ///
+    /// <para>
+    /// Every arm of this switch used to hardcode its channel from the <see cref="FeedbackType"/>,
+    /// which is right for the chart — a zoom readout is Manual because zooming is something you
+    /// asked for — and wrong for the one dialog that spends money. The live-order review was
+    /// published as <c>StateChange</c>, landed on Manual, and F2 silenced it, so with speech off
+    /// the readback for a real-money order said nothing while a rejection (Error, hence Critical)
+    /// was still spoken. The override exists so a money path can reach
+    /// <see cref="SpeechChannel.OrderEvent"/> without every publisher having to think about tiers.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void APublisherMayOverrideTheChannelItsTypeWouldGet()
+    {
+        var h = new Harness();
+
+        h.Bus.Publish(new FeedbackRequestEvent(
+            FeedbackType.StateChange, "armed live order review",
+            Channel: SpeechChannel.OrderEvent));
+
+        Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.OrderEvent);
+    }
+
+    /// <summary>
+    /// And a message that does NOT opt in keeps the tier it always had. Pinned because the
+    /// tempting simplification — routing everything through the override — would quietly move
+    /// the whole chart onto a channel F2 no longer silences.
+    /// </summary>
+    [Fact]
+    public void WithoutAnOverrideAStateChangeStaysOnTheManualTier()
+    {
+        var h = new Harness();
+
+        h.Bus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "zoomed to 120 bars"));
+
+        Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.Manual);
+    }
+
     /// <summary>An alert earcons as well as speaks — the immediate cue, like the Error branch.</summary>
     [Fact]
     public void AnAlertAlsoEarcons()

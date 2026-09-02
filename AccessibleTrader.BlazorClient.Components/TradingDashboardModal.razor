@@ -100,10 +100,10 @@
                         <section class="panel order-entry">
                             <h3>Place Order</h3>
                             <div class="entry-row side-row" role="group" aria-label="Order side">
-                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' aria-pressed="@(_orderSide == "Buy" ? "true" : "false")" @onclick='() => _orderSide = "Buy"'>
+                                <button class='side-btn buy @(_orderSide == "Buy" ? "active" : "")' aria-pressed="@(_orderSide == "Buy" ? "true" : "false")" @onclick='() => { _orderSide = "Buy"; VoidReviewIfArmed("Side"); }'>
                                     <span class="side-arrow" aria-hidden="true">▲</span>BUY
                                 </button>
-                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' aria-pressed="@(_orderSide == "Sell" ? "true" : "false")" @onclick='() => _orderSide = "Sell"'>
+                                <button class='side-btn sell @(_orderSide == "Sell" ? "active" : "")' aria-pressed="@(_orderSide == "Sell" ? "true" : "false")" @onclick='() => { _orderSide = "Sell"; VoidReviewIfArmed("Side"); }'>
                                     <span class="side-arrow" aria-hidden="true">▼</span>SELL
                                 </button>
                             </div>
@@ -118,7 +118,8 @@
                             {
                                 <div class="entry-row">
                                     <label for="order-market">Market</label>
-                                    <select id="order-market" aria-label="Market type for this order" @bind="_subType">
+                                    <select id="order-market" aria-label="Market type for this order" @bind="_subType"
+                                            @oninput='() => VoidReviewIfArmed("Market type")'>
                                         @foreach (var st in _subTypes)
                                         {
                                             <option value="@st">@st</option>
@@ -129,12 +130,14 @@
 
                             <div class="entry-row">
                                 <label for="order-qty">Quantity</label>
-                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity" @bind="_orderQty" />
+                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity" @bind="_orderQty"
+                                       @oninput='() => VoidReviewIfArmed("Quantity")' />
                             </div>
 
                             <div class="entry-row">
                                 <label for="order-type">Type</label>
-                                <select id="order-type" aria-label="Order type" @bind="_orderType">
+                                <select id="order-type" aria-label="Order type" @bind="_orderType"
+                                        @oninput='() => VoidReviewIfArmed("Order type")'>
                                     <option value="Market">Market</option>
                                     <option value="Limit">Limit</option>
                                     <option value="Stop-Market">Stop-Market</option>
@@ -148,7 +151,8 @@
                             {
                                 <div class="entry-row">
                                     <label for="trigger-price">Trigger Price</label>
-                                    <input id="trigger-price" type="number" step="any" aria-label="Trigger price" @bind="_triggerPrice" />
+                                    <input id="trigger-price" type="number" step="any" aria-label="Trigger price" @bind="_triggerPrice"
+                                           @oninput='() => VoidReviewIfArmed("Trigger price")' />
                                 </div>
                             }
 
@@ -156,7 +160,8 @@
                             {
                                 <div class="entry-row">
                                     <label for="limit-price">Limit Price</label>
-                                    <input id="limit-price" type="number" step="any" aria-label="Limit price" @bind="_limitPrice" />
+                                    <input id="limit-price" type="number" step="any" aria-label="Limit price" @bind="_limitPrice"
+                                           @oninput='() => VoidReviewIfArmed("Limit price")' />
                                 </div>
                                 @* Both are gated: an IOC order silently sent as GTC rests when it
                                    was meant to vanish, and a maker-only order sent as a taker pays
@@ -167,7 +172,8 @@
                                 {
                                 <div class="entry-row">
                                     <label for="order-tif">Time in force</label>
-                                    <select id="order-tif" aria-label="Time in force" @bind="_tif">
+                                    <select id="order-tif" aria-label="Time in force" @bind="_tif"
+                                            @oninput='() => VoidReviewIfArmed("Time in force")'>
                                         <option value="GTC">GTC — good till canceled</option>
                                         <option value="IOC">IOC — immediate or cancel</option>
                                         <option value="FOK">FOK — fill or kill</option>
@@ -178,7 +184,8 @@
                                 {
                                 <div class="entry-row">
                                     <label for="post-only">Post-only (maker)</label>
-                                    <input id="post-only" type="checkbox" checked="@_postOnly" @onchange="e => _postOnly = e.Value is bool b && b" />
+                                    <input id="post-only" type="checkbox" checked="@_postOnly"
+                                           @onchange='e => { _postOnly = e.Value is bool b && b; VoidReviewIfArmed("Post-only"); }' />
                                 </div>
                                 }
                             }
@@ -187,12 +194,14 @@
                             {
                                 <div class="entry-row">
                                     <label for="stop-loss">Stop Loss</label>
-                                    <input id="stop-loss" type="number" step="any" aria-label="Stop loss price, optional" @bind="_stopLoss" placeholder="Optional" />
+                                    <input id="stop-loss" type="number" step="any" aria-label="Stop loss price, optional" @bind="_stopLoss" placeholder="Optional"
+                                           @oninput='() => VoidReviewIfArmed("Stop loss")' />
                                 </div>
 
                                 <div class="entry-row">
                                     <label for="take-profit">Take Profit</label>
-                                    <input id="take-profit" type="number" step="any" aria-label="Take profit price, optional" @bind="_takeProfit" placeholder="Optional" />
+                                    <input id="take-profit" type="number" step="any" aria-label="Take profit price, optional" @bind="_takeProfit" placeholder="Optional"
+                                           @oninput='() => VoidReviewIfArmed("Take profit")' />
                                 </div>
 
                                 <div class="entry-row">
@@ -205,34 +214,39 @@
                                 {
                                 <div class="entry-row">
                                     <label for="trail-mode">Trailing stop</label>
-                                    <select id="trail-mode" aria-label="Trailing stop mode" @bind="_trailMode">
+                                    <select id="trail-mode" aria-label="Trailing stop mode" @bind="_trailMode"
+                                            @oninput='() => VoidReviewIfArmed("Trailing stop mode")'>
                                         <option value="None">None</option>
                                         <option value="Percent">Percent</option>
                                         <option value="Amount">Amount</option>
                                     </select>
                                     @if (_trailMode != "None")
                                     {
-                                        <input type="number" step="any" min="0" aria-label="Trailing stop distance" @bind="_trailValue" placeholder="@(_trailMode == "Percent" ? "%" : "amount")" />
+                                        <input type="number" step="any" min="0" aria-label="Trailing stop distance" @bind="_trailValue" placeholder="@(_trailMode == "Percent" ? "%" : "amount")"
+                                               @oninput='() => VoidReviewIfArmed("Trailing stop distance")' />
                                     }
                                 </div>
 
                                 <div class="entry-row">
                                     <label for="trailtp-mode">Trailing take-profit</label>
-                                    <select id="trailtp-mode" aria-label="Trailing take-profit mode" @bind="_trailTpMode">
+                                    <select id="trailtp-mode" aria-label="Trailing take-profit mode" @bind="_trailTpMode"
+                                            @oninput='() => VoidReviewIfArmed("Trailing take-profit mode")'>
                                         <option value="None">None</option>
                                         <option value="Percent">Percent</option>
                                         <option value="Amount">Amount</option>
                                     </select>
                                     @if (_trailTpMode != "None")
                                     {
-                                        <input type="number" step="any" min="0" aria-label="Trailing take-profit distance" @bind="_trailTpValue" placeholder="@(_trailTpMode == "Percent" ? "%" : "amount")" />
+                                        <input type="number" step="any" min="0" aria-label="Trailing take-profit distance" @bind="_trailTpValue" placeholder="@(_trailTpMode == "Percent" ? "%" : "amount")"
+                                               @oninput='() => VoidReviewIfArmed("Trailing take-profit distance")' />
                                     }
                                 </div>
                                 @if (_trailTpMode != "None")
                                 {
                                     <div class="entry-row">
                                         <label for="trailtp-activation">TP activation price</label>
-                                        <input id="trailtp-activation" type="number" step="any" aria-label="TP activation price for the trailing take-profit, optional" @bind="_trailTpActivation" placeholder="Optional" />
+                                        <input id="trailtp-activation" type="number" step="any" aria-label="TP activation price for the trailing take-profit, optional" @bind="_trailTpActivation" placeholder="Optional"
+                                               @oninput='() => VoidReviewIfArmed("Activation price")' />
                                     </div>
                                 }
                                 }
@@ -258,7 +272,8 @@
                                        the behaviour their account already had. *@
                                     <select id="margin-type-select"
                                             aria-label="Margin mode for this order"
-                                            @bind="_marginType">
+                                            @bind="_marginType"
+                                            @oninput='() => VoidReviewIfArmed("Margin mode")'>
                                         <option value="Isolated">Isolated — loss capped at this position's collateral</option>
                                         <option value="Cross">Cross — draws on the whole balance, and takes it</option>
                                     </select>
@@ -273,7 +288,8 @@
                                     <label for="leverage-input">Leverage</label>
                                     <input id="leverage-input" type="number" min="1" max="@_maxLeverage" step="1"
                                            aria-label="Leverage multiplier"
-                                           @bind="_leverage" />
+                                           @bind="_leverage"
+                                           @oninput='() => VoidReviewIfArmed("Leverage")' />
                                     <span style="font-size:0.8rem; color:var(--text-muted);">×&nbsp;(max @_maxLeverage)</span>
                                 </div>
                             }
@@ -282,7 +298,8 @@
                             {
                                 <div class="entry-row">
                                     <label for="pos-side">Position side</label>
-                                    <select id="pos-side" aria-label="Position side" @bind="_positionSide">
+                                    <select id="pos-side" aria-label="Position side" @bind="_positionSide"
+                                            @oninput='() => VoidReviewIfArmed("Position side")'>
                                         <option value="BOTH">One-way</option>
                                         <option value="LONG">Long</option>
                                         <option value="SHORT">Short</option>
@@ -294,16 +311,35 @@
                             {
                                 <div class="entry-row">
                                     <label for="reduce-only">Reduce-only</label>
-                                    <input id="reduce-only" type="checkbox" checked="@_reduceOnly" @onchange="e => _reduceOnly = e.Value is bool b && b" />
+                                    <input id="reduce-only" type="checkbox" checked="@_reduceOnly"
+                                           @onchange='e => { _reduceOnly = e.Value is bool b && b; VoidReviewIfArmed("Reduce-only"); }' />
                                 </div>
                             }
 
                             @if (_reviewArmed)
                             {
                                 <div class="entry-row" role="group" aria-label="Confirm live order">
-                                    @* Disabled while a submit is in flight, same as the plain button:
-                                       this is the LIVE-money one, and it was the one with no gate at all. *@
-                                    <button class="submit-btn @(_orderSide.ToLower())" disabled="@_orderInFlight" @onclick="SubmitOrder">Confirm @_orderSide</button>
+                                    @* Disabled on the SAME condition as the plain button, not just
+                                       _orderInFlight. With only the in-flight latch, clearing the
+                                       quantity to 0 left Confirm enabled while SubmitOrder's own
+                                       `if (!CanSubmit) return;` bailed in silence — a live-order
+                                       button that does nothing and says nothing, which
+                                       BeginOrderAction's comment calls the worst available outcome
+                                       on a screen nobody can see.
+
+                                       The size and symbol are in the VISIBLE label, not only in the
+                                       spoken review. The focus announcement is the one thing that
+                                       reaches the user in every speech configuration and in braille,
+                                       at any verbosity — so the number about to be sent is carried by
+                                       the control itself rather than by a live region that may have
+                                       been interrupted. aria-label EXTENDS the visible text rather
+                                       than replacing it, per WCAG 2.5.3 Label in Name: containment,
+                                       not equality. *@
+                                    <button id="order-confirm-live"
+                                            class="submit-btn @(_orderSide.ToLower())"
+                                            disabled="@(!CanSubmit)"
+                                            aria-label="@($"Confirm {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()} order. Sends to the live account.")"
+                                            @onclick="SubmitOrder">Confirm @_orderSide @PriceFormatter.FormatQuantity(_orderQty) @Store.State.Identity.Symbol</button>
                                     <button type="button" @onclick="CancelReview" aria-label="Cancel, do not submit the live order">Cancel</button>
                                 </div>
                             }
@@ -1004,6 +1040,10 @@
     private async Task ShowAsync()
     {
         _orderStatus = null;
+        // Nothing half-confirmed is resumable by reopening, and this is asserted on the way IN
+        // as well as on the way out: Close() is not the only path that ends a dialog, and the
+        // failure mode is a Confirm button rendered with no review behind it.
+        ResetLiveReview();
         // Hosted/demo: real-money trading is desktop-only, so force paper mode regardless of
         // the saved setting. (There are also no live broker keys in these modes — the API-keys
         // modal is gated off — so this is belt-and-suspenders over the no-keys backstop.)
@@ -1521,6 +1561,12 @@
         // has since moved, sitting one Enter away from a live exit.
         _editing = null;
         _closingAtLimit = null;
+        // And the armed live-order review, for the same reason and more sharply. It used to
+        // survive: arm a review on BTC, press Escape, load an ETH chart, press Alt+T — the
+        // dialog reopened with the Confirm/Cancel pair already rendered, but ShowAsync had
+        // blanked _orderStatus, so NOTHING was spoken and nothing was on screen to explain
+        // it. One Enter then sent a live ETH order that had never been reviewed at all.
+        ResetLiveReview();
         _refreshTimer?.Dispose();
         _refreshTimer = null;
         StateHasChanged();
@@ -1538,7 +1584,21 @@
         // Live orders get a spoken review + explicit confirm; paper submits directly.
         if (_isLiveEnvironment && !_paperMode && !_reviewArmed)
         {
-            ArmLiveReview();
+            await ArmLiveReview();
+            return;
+        }
+
+        // THE BACKSTOP. The per-control void above catches an edit as it is typed; this catches
+        // everything it cannot see — a control added to this ticket later with no hook, a chart
+        // symbol change under the dialog (Symbol and Provider go out with the order and are not
+        // ticket fields at all), a programmatic write like the Size button. Comparing the whole
+        // built signal rather than a list of fields is what makes that guarantee hold without
+        // anyone maintaining the list.
+        if (_reviewArmed
+            && (BuildSignal() != _reviewedSignal
+                || (Store.State.Identity.Provider ?? "") != _reviewedProvider))
+        {
+            await ArmLiveReview("Ticket changed since the review. Nothing was sent.");
             return;
         }
         // Direction check on the attached bracket, BEFORE anything is sent. A stop on
@@ -1550,67 +1610,14 @@
         if (!ValidateTicketProtectiveLevels()) return;
 
         if (!BeginOrderAction($"{_orderSide} {Store.State.Identity.Symbol}")) return;
-        _reviewArmed = false;
+        ResetLiveReview();
         _orderStatus = "Submitting…";
         _orderError  = false;
         StateHasChanged();
 
         try
         {
-            var side  = _orderSide == "Sell" ? OrderSide.Sell : OrderSide.Buy;
-            var type  = _orderType switch
-            {
-                "Limit"              => OrderType.Limit,
-                "Stop-Market"        => OrderType.StopMarket,
-                "Stop-Limit"         => OrderType.StopLimit,
-                "Take-Profit-Market" => OrderType.TakeProfitMarket,
-                "Take-Profit-Limit"  => OrderType.TakeProfitLimit,
-                _                    => OrderType.Market
-            };
-            double? price   = NeedsLimit   ? _limitPrice   : (double?)null;
-            double? trigger = NeedsTrigger ? _triggerPrice : (double?)null;
-            double? sl  = IsEntryType && _stopLoss   > 0 ? _stopLoss   : (double?)null;
-            double? tp  = IsEntryType && _takeProfit > 0 ? _takeProfit : (double?)null;
-            // Gated on the SAME capability that decides whether the control is drawn.
-            // The two must agree: a field set here but ignored by the provider is the
-            // silent half of the same defect as a control drawn over nothing — the
-            // order goes out looking like the one that was asked for.
-            double? lev = Can(ProviderCapabilities.Leverage) && _leverage > 1 ? _leverage : null;
-            TrailMode? trailMode = _trailMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
-            double? trailVal = IsEntryType && trailMode != null && _trailValue > 0 ? _trailValue : (double?)null;
-            string? tif = NeedsLimit && Can(ProviderCapabilities.TimeInForce) ? _tif : null;
-            string? posSide = Can(ProviderCapabilities.HedgeMode) && _positionSide != "BOTH" ? _positionSide : null;
-            TrailMode? trailTpMode = _trailTpMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
-            double? trailTpVal = IsEntryType && trailTpMode != null && _trailTpValue > 0 ? _trailTpValue : (double?)null;
-            double? trailTpAct = trailTpVal != null && _trailTpActivation > 0 ? _trailTpActivation : (double?)null;
-
-            // The market type the ticket is set to. TradeSignal.SubType has existed
-            // since the contract was written and nothing ever set it from here — the
-            // value was inferred from the chart's identity, so the futures book was
-            // unreachable unless you had already loaded a futures chart.
-            string? subType = string.IsNullOrEmpty(_subType) ? null : _subType;
-
-            var signal = new TradeSignal(
-                Symbol:     Store.State.Identity.Symbol!,
-                Side:       side,
-                Quantity:   _orderQty,
-                Type:       type,
-                Price:      price,
-                StopLoss:   sl,
-                TakeProfit: tp,
-                Leverage:     lev,
-                SubType:      subType,
-                MarginType:     Can(ProviderCapabilities.IsolatedMargin) ? _marginType : null,
-                TriggerPrice:   trigger,
-                TrailStopMode:  trailVal != null ? trailMode : null,
-                TrailStopValue: trailVal,
-                TrailTpMode:    trailTpVal != null ? trailTpMode : null,
-                TrailTpValue:   trailTpVal,
-                TrailTpActivation: trailTpAct,
-                TimeInForce:    tif,
-                ReduceOnly:     Can(ProviderCapabilities.ReduceOnly) && _reduceOnly,
-                PostOnly:       NeedsLimit && Can(ProviderCapabilities.PostOnly) && _postOnly,
-                PositionSide:   posSide);
+            var signal = BuildSignal();
 
             var placement = await OrderService.PlaceOrderAsync(Store.State.Identity.Provider!, signal);
 
@@ -1636,7 +1643,16 @@
                 : placed;
 
             // COHERENT SPEECH ANNOUNCEMENT
-            EventBus.Publish(new FeedbackRequestEvent(_orderError ? FeedbackType.Error : FeedbackType.Info, _orderStatus, true));
+            // OrderEvent on the success path. Error already reached Critical and could not be
+            // silenced; Info landed on Manual, which F2 mutes — so with speech off this terminal
+            // spoke every rejection and no confirmation, and the user could not tell a placed
+            // order from a button that had not registered. Every ASYNCHRONOUS outcome (fill,
+            // partial, stop, take-profit, reject, cancel, expiry, replace) is already on this
+            // channel; the synchronous acknowledgement was the only one that was not, and it is
+            // the one the user pressed the button for.
+            EventBus.Publish(new FeedbackRequestEvent(
+                _orderError ? FeedbackType.Error : FeedbackType.Info, _orderStatus, true,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
 
             if (!_orderError) await LoadAccountDataAsync();
         }
@@ -1650,6 +1666,81 @@
         {
             EndOrderAction();
         }
+    }
+
+
+    /// <summary>
+    /// The order this ticket currently describes, exactly as it would go to the venue.
+    ///
+    /// <para>
+    /// Extracted from <c>SubmitOrder</c> so that the LIVE REVIEW and the SUBMIT that follows
+    /// it are built by the same code. The review is the only rendering of the order a blind
+    /// trader gets before it is sent, which makes "what was read aloud" and "what is sent"
+    /// two values that must be comparable — and comparing hand-picked FIELDS does not work
+    /// here, because half of them are conditioned on capability and order type as the signal
+    /// is assembled (<c>NeedsLimit</c>, <c>IsEntryType</c>, <c>Can(...)</c>). A raw field
+    /// snapshot would refuse a Market order because a limit price the venue never sees had
+    /// been edited. <c>TradeSignal</c> is a record, so comparing two of them is exact and
+    /// costs nothing, and every field added to the ticket in future is covered without
+    /// anyone remembering to add it to a list.
+    /// </para>
+    /// </summary>
+    private TradeSignal BuildSignal()
+    {
+        var side  = _orderSide == "Sell" ? OrderSide.Sell : OrderSide.Buy;
+        var type  = _orderType switch
+        {
+            "Limit"              => OrderType.Limit,
+            "Stop-Market"        => OrderType.StopMarket,
+            "Stop-Limit"         => OrderType.StopLimit,
+            "Take-Profit-Market" => OrderType.TakeProfitMarket,
+            "Take-Profit-Limit"  => OrderType.TakeProfitLimit,
+            _                    => OrderType.Market
+        };
+        double? price   = NeedsLimit   ? _limitPrice   : (double?)null;
+        double? trigger = NeedsTrigger ? _triggerPrice : (double?)null;
+        double? sl  = IsEntryType && _stopLoss   > 0 ? _stopLoss   : (double?)null;
+        double? tp  = IsEntryType && _takeProfit > 0 ? _takeProfit : (double?)null;
+        // Gated on the SAME capability that decides whether the control is drawn.
+        // The two must agree: a field set here but ignored by the provider is the
+        // silent half of the same defect as a control drawn over nothing — the
+        // order goes out looking like the one that was asked for.
+        double? lev = Can(ProviderCapabilities.Leverage) && _leverage > 1 ? _leverage : null;
+        TrailMode? trailMode = _trailMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
+        double? trailVal = IsEntryType && trailMode != null && _trailValue > 0 ? _trailValue : (double?)null;
+        string? tif = NeedsLimit && Can(ProviderCapabilities.TimeInForce) ? _tif : null;
+        string? posSide = Can(ProviderCapabilities.HedgeMode) && _positionSide != "BOTH" ? _positionSide : null;
+        TrailMode? trailTpMode = _trailTpMode switch { "Percent" => TrailMode.Percent, "Amount" => TrailMode.Amount, _ => (TrailMode?)null };
+        double? trailTpVal = IsEntryType && trailTpMode != null && _trailTpValue > 0 ? _trailTpValue : (double?)null;
+        double? trailTpAct = trailTpVal != null && _trailTpActivation > 0 ? _trailTpActivation : (double?)null;
+
+        // The market type the ticket is set to. TradeSignal.SubType has existed
+        // since the contract was written and nothing ever set it from here — the
+        // value was inferred from the chart's identity, so the futures book was
+        // unreachable unless you had already loaded a futures chart.
+        string? subType = string.IsNullOrEmpty(_subType) ? null : _subType;
+
+        return new TradeSignal(
+            Symbol:     Store.State.Identity.Symbol!,
+            Side:       side,
+            Quantity:   _orderQty,
+            Type:       type,
+            Price:      price,
+            StopLoss:   sl,
+            TakeProfit: tp,
+            Leverage:     lev,
+            SubType:      subType,
+            MarginType:     Can(ProviderCapabilities.IsolatedMargin) ? _marginType : null,
+            TriggerPrice:   trigger,
+            TrailStopMode:  trailVal != null ? trailMode : null,
+            TrailStopValue: trailVal,
+            TrailTpMode:    trailTpVal != null ? trailTpMode : null,
+            TrailTpValue:   trailTpVal,
+            TrailTpActivation: trailTpAct,
+            TimeInForce:    tif,
+            ReduceOnly:     Can(ProviderCapabilities.ReduceOnly) && _reduceOnly,
+            PostOnly:       NeedsLimit && Can(ProviderCapabilities.PostOnly) && _postOnly,
+            PositionSide:   posSide);
     }
 
     /// <summary>
@@ -1773,6 +1864,10 @@
         // Round DOWN, not to nearest: rounding half-away-from-zero can put the sized
         // quantity above the risk budget the user just asked to stay inside.
         _orderQty = Math.Floor(equity * _riskPct / 100.0 / perUnit * 1e6) / 1e6;
+        // The Size button changes the quantity WITHOUT the user typing in the field, so no
+        // @oninput hook on the ticket can see it. Voiding here keeps the rule whole: the
+        // number in the review is the number that goes out, however it got there.
+        VoidReviewIfArmed("Quantity");
         if (_orderQty <= 0)
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1994,17 +2089,134 @@
         await ClosePositionAtLimit(row, parsed.Value);
     }
 
-    // Live-order safety: speak a one-line review and require an explicit confirm.
-    private void ArmLiveReview()
+    // ── Live-order safety: the spoken review, and keeping it true ────────────
+    //
+    // For a sighted trader the ticket stays on screen under the Confirm button. For a blind
+    // trader the SPOKEN REVIEW *is* the ticket — it is the only rendering of the order they
+    // get before it reaches the venue. That makes this a WCAG 3.3.4 mechanism (Error
+    // Prevention, Legal/Financial: "a mechanism is available for reviewing, confirming and
+    // correcting information before finalizing"), and it had the one flaw that turns such a
+    // mechanism into a hazard: it could go stale without saying so.
+    //
+    // Arm at 1 BTC, Tab back, type 5, press Confirm — 5 went to the venue while the review
+    // had said 1, and the user had no way to know. Demonstrated end to end in
+    // LiveOrderReviewStalenessTests before this was written.
+    //
+    // WithdrawModal solved the same problem first and its comment states the rule:
+    // "What was read aloud must be exactly what is sent."
+
+    /// <summary>
+    /// The signal the review was spoken against, and the venue it was going to. Null
+    /// whenever no review is armed — including after a close, which is the point:
+    /// an armed confirmation must never survive the dialog it was armed in.
+    /// </summary>
+    private TradeSignal? _reviewedSignal;
+    private string       _reviewedProvider = "";
+
+    /// <summary>
+    /// Disarms the review and forgets what it was spoken against.
+    ///
+    /// <para>
+    /// ONE method rather than the same three assignments at each of the five sites that need
+    /// them, and that is a test-visibility decision as much as a tidiness one. The first cut
+    /// wrote them out in both <c>Close()</c> and <c>ShowAsync()</c>; a sabotage run then showed
+    /// that deleting either copy left <c>AnArmedReviewDoesNotSurviveCloseAndReopen</c> GREEN,
+    /// because the survivor still cleared the flag before the reopen rendered. Two independent
+    /// copies of a safety reset mask each other, so neither is pinned and the guard cannot fail
+    /// for its own reason. With one method there is one line to delete and the guard reddens.
+    /// </para>
+    /// </summary>
+    private void ResetLiveReview()
+    {
+        _reviewArmed      = false;
+        _reviewedSignal   = null;
+        _reviewedProvider = "";
+    }
+
+    /// <summary>The one-line spoken review of the order the ticket currently describes.</summary>
+    private string BuildReviewText()
     {
         double price = NeedsLimit && _limitPrice > 0 ? _limitPrice : GetCurrentPrice();
         double cost = _orderQty * price;
         double fee = cost * 0.0004;
         string sl = IsEntryType && _stopLoss > 0 ? $" Stop {PriceFormatter.FormatPrice(_stopLoss)}." : "";
         string tp = IsEntryType && _takeProfit > 0 ? $" Target {PriceFormatter.FormatPrice(_takeProfit)}." : "";
-        _reviewArmed = true;
+        return $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
+    }
+
+    /// <summary>
+    /// Speaks the review and requires an explicit confirm. <paramref name="prefix"/> carries
+    /// the reason when this is a RE-arm after a stale ticket was refused.
+    ///
+    /// <para>
+    /// The prefix is composed into the same utterance rather than published as a second event,
+    /// because two Speak calls inside one Blazor event handler do not produce two
+    /// announcements: the handler renders once and only the last write to the live region
+    /// reaches the DOM. The note on <c>FeedbackType.Navigation</c> in
+    /// <c>AccessibilityFeedbackCoordinator</c> records the same trap.
+    /// </para>
+    ///
+    /// <para>
+    /// Focus moves BEFORE the review is spoken. Arming destroys the button the user is
+    /// standing on — the markup swaps "Submit" for "Confirm"/"Cancel" — so focus was landing
+    /// on &lt;body&gt; in a 2,000-line dialog immediately after arming a real-money order.
+    /// Speaking first and focusing after would not help: the screen reader announces the newly
+    /// focused control on the focus event and that announcement cuts off whatever is in the
+    /// live region, clipping the review at its first word.
+    /// </para>
+    /// </summary>
+    private async Task ArmLiveReview(string? prefix = null)
+    {
+        _reviewArmed      = true;
+        _reviewedSignal   = BuildSignal();
+        _reviewedProvider = Store.State.Identity.Provider ?? "";
+        _orderError       = false;
+        _orderStatus      = string.IsNullOrEmpty(prefix)
+            ? BuildReviewText()
+            : prefix + " " + BuildReviewText();
+        StateHasChanged();
+
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "order-confirm-live"); }
+        catch { /* focus is best-effort, as everywhere else; Tab still reaches it */ }
+
+        // OrderEvent, not the Manual tier this used to inherit from StateChange. The review is
+        // the readback for an irreversible money action, and on Manual F2 silenced it — so with
+        // speech off, arming said NOTHING and the next Enter sent a live order with no readback
+        // at all, while a rejection (Error -> Critical) was still spoken. Order outcomes are
+        // "the one feedback you never miss"; the confirmation prompt for one belongs with them.
+        EventBus.Publish(new FeedbackRequestEvent(
+            FeedbackType.StateChange, _orderStatus, true,
+            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
+    }
+
+    /// <summary>
+    /// Voids an armed review because <paramref name="what"/> was edited, and says so.
+    ///
+    /// <para>
+    /// Called from the ticket's own <c>@oninput</c>/<c>@onclick</c> hooks, so the user learns at
+    /// the keystroke rather than at the confirm. It is deliberately a VOID and not a disable of
+    /// the inputs: "I armed it, now I want to change the size" is the ordinary recovery, and
+    /// disabling fifteen controls would take them out of the tab order and have NVDA read them
+    /// as unavailable — indistinguishable from a broken dialog for someone who cannot see that
+    /// a Confirm button appeared. WithdrawModal voids for the same reason.
+    /// </para>
+    ///
+    /// <para>
+    /// Manual channel, unlike the review itself: nothing was sent, so this is not an outcome,
+    /// and a user who pressed F2 asked for quiet. The recovery announces itself anyway — the
+    /// Confirm button is gone and focus lands back on "Submit ... Order".
+    /// </para>
+    /// </summary>
+    private void VoidReviewIfArmed(string what)
+    {
+        if (!_reviewArmed) return;
+        ResetLiveReview();
         _orderError = false;
-        _orderStatus = $"Confirm: {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()}.{sl}{tp} Estimated cost {PriceFormatter.FormatPrice(cost)}, fee {PriceFormatter.FormatPrice(fee)}.{BuildRiskWarnings(price)} Confirm or cancel.";
+        // Not "canceled": CancelReview already owns that word, and two different events must
+        // not share a verb in a dialog that spends money.
+        _orderStatus = $"{what} changed. The review no longer matches — nothing was sent. "
+                     + $"Press Submit {_orderSide} Order to review again.";
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
         StateHasChanged();
     }
@@ -2059,7 +2271,7 @@
 
     private void CancelReview()
     {
-        _reviewArmed = false;
+        ResetLiveReview();
         _orderStatus = "Order canceled before submit.";
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
     }
