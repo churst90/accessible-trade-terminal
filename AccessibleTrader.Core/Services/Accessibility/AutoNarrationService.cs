@@ -26,6 +26,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Seeding: when narration is enabled for a series, the current bar count is recorded.
     /// Only bars with index >= that count are eligible for marker announcements, preventing
     /// retroactive announcement of pre-existing signals.
+    ///
+    /// ONE SCAN, ONE UTTERANCE: everything a single scan finds — across every narrated series —
+    /// is composed into one phrase and spoken once, most consequential first, capped. See
+    /// <see cref="ScanUtterance"/> for why, for the order, and for what a cap can safely drop.
     /// </summary>
     public sealed class AutoNarrationService : IAutoNarrationService, IDisposable
     {
@@ -133,6 +137,163 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Subscribe(_ => OnIndicatorsUpdated()));
         }
 
+        // ── One scan, one utterance ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Collects everything a single scan found and composes it into ONE phrase.
+        ///
+        /// <para>
+        /// <b>Why.</b> This narrator used to make up to nine separate <c>Speak</c> calls inside a
+        /// single <c>RedrawEvent</c> handler — a marker signal, a broken level, a level tested
+        /// again, an approach, a cross, a cloud entry or exit, an oscillator zone change and an
+        /// oscillator crossover. On the web head speech is delivered by assigning
+        /// <c>MainLayout</c>'s <c>_latestSpeech</c> field, and Blazor batches an entire handler
+        /// into one render, so the field was assigned nine times and only the last value ever
+        /// reached the DOM. The other eight were never muted or filtered — they were overwritten
+        /// before a screen reader could read any of them, and the one that survived was whichever
+        /// happened to be last, not whichever mattered. On the desktop head the failure inverts:
+        /// all nine queue and the listener cannot get out from under them.
+        /// </para>
+        ///
+        /// <para>
+        /// This is the same defect <c>NavigationFeedbackManager</c> was fixed for — its
+        /// "ONE UTTERANCE PER BAR" comment describes it exactly — and this narrator was not fixed
+        /// with it. Composing first and speaking once is the only arrangement correct on every
+        /// head, and a single utterance cannot cut itself off half way through.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>The order.</b> Ordering is not cosmetic in an audio interface. The narrator runs in
+        /// the background while the user is doing something else, so whatever is most consequential
+        /// has to arrive in the opening syllables or it is heard after attention has moved on. So:
+        /// a level that has ceased to exist, then price changing side of one, then the indicator's
+        /// own discrete signal, then a level tested again, then an approach to something that has
+        /// not happened yet, and last the oscillator commentary — which is the most frequent thing
+        /// this narrator says and therefore the least worth leading with.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>The series name.</b> Every clause is built already carrying "<c>{series}: </c>",
+        /// which read correctly when each was its own utterance and reads as a stutter once they
+        /// are joined. The prefix is dropped from a clause whose series is the same as the
+        /// previous clause's, so a name is spoken once per run of clauses about that series and
+        /// again whenever the utterance moves to another one. Clauses from a user-authored
+        /// <c>SignalSpeechTemplate</c> simply do not match the prefix and are left alone.
+        /// </para>
+        /// </summary>
+        private sealed class ScanUtterance
+        {
+            /// <summary>A level ceased to exist. The most consequential thing this narrator says.</summary>
+            public const int TierBreak = 1;
+            /// <summary>
+            /// The indicator printed one of its own discrete signals — an entry trigger, a
+            /// divergence, a break of structure. Ahead of a cross because this is the call the
+            /// indicator was added to the chart to make, while any plotted line gets crossed
+            /// routinely.
+            /// </summary>
+            public const int TierSignal = 2;
+            /// <summary>Price changed side of a level or a cloud.</summary>
+            public const int TierCross = 3;
+            /// <summary>A level was tested again and held.</summary>
+            public const int TierTouch = 4;
+            /// <summary>Price came within the proximity band of a level. Has not happened yet.</summary>
+            public const int TierApproach = 5;
+            /// <summary>Oscillator zone changes and crossovers — the most repetitive commentary.</summary>
+            public const int TierOscillator = 6;
+
+            /// <summary>
+            /// Ceiling on clauses in one utterance, matching the cap
+            /// <c>NavigationFeedbackManager.GetAdditionalSignalSpeech</c> puts on the same kind of
+            /// list. The clause count is not bounded by anything else — the scan walks a 20-bar
+            /// window across every component of every narrated series — and an utterance that runs
+            /// for twenty seconds is not a text equivalent of anything, it is an obstruction: the
+            /// speech router protects an in-flight utterance from a lower-priority interrupt
+            /// (<c>SpeechFeedbackRouter.MayInterrupt</c>), so an arrow key pressed underneath one
+            /// is queued behind the rest of it.
+            ///
+            /// <para>
+            /// Dropping is safe here only BECAUSE the tiers above exist: what goes is always the
+            /// least consequential thing the scan found, deterministically, rather than whatever
+            /// the live region happened to overwrite last. That is the whole difference between
+            /// this and the defect being fixed.
+            /// </para>
+            /// </summary>
+            private const int MaxClauses = 5;
+
+            private readonly List<(int Tier, int Order, string Series, string Key, string Text)> _clauses = new();
+            private readonly HashSet<string> _approachSuppressed = new();
+            private int _next;
+
+            /// <param name="key">
+            /// "{seriesId}:{componentName}" — the key convention used by this service's tracking
+            /// dictionaries. Identifies which component a clause is about, so two clauses about
+            /// the same one can be reconciled.
+            /// </param>
+            public void Add(int tier, string seriesName, string key, string? text)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return;
+                _clauses.Add((tier, _next++, seriesName, key, text.Trim()));
+            }
+
+            /// <summary>
+            /// Price has just crossed this component, so anything said about approaching it is
+            /// stale. Separate utterances could get away with the pair — they were minutes apart
+            /// in the ordinary case and, on the web head, seven of eight never arrived at all.
+            /// In one breath "Price crossed above R1 at 103.50. Approaching support at 103.50."
+            /// is a contradiction: you are not approaching a level you are already past.
+            /// </summary>
+            public void SuppressApproachFor(string key) => _approachSuppressed.Add(key);
+
+            /// <summary>
+            /// Tier first, then the order the scan found them in — a stable sort, so within one
+            /// tier the series and components keep the order they were scanned in.
+            /// </summary>
+            public string Compose()
+            {
+                var kept = _clauses
+                    .Where(c => c.Tier != TierApproach || !_approachSuppressed.Contains(c.Key))
+                    .OrderBy(c => c.Tier).ThenBy(c => c.Order)
+                    .Take(MaxClauses)
+                    .ToList();
+
+                // Naming every series is only needed when there is more than one to confuse.
+                // On a single-series utterance this leaves each clause exactly as it was built,
+                // which is what the narrator has always said.
+                bool multiSeries = kept.Select(c => c.Series).Distinct().Count() > 1;
+
+                var parts = new List<string>(kept.Count);
+                string? prevSeries = null;
+
+                foreach (var clause in kept)
+                {
+                    string text = clause.Text;
+                    string prefix = clause.Series + ": ";
+                    bool carriesName = text.StartsWith(prefix, StringComparison.Ordinal);
+
+                    if (prevSeries == clause.Series)
+                    {
+                        if (carriesName) text = text[prefix.Length..];
+                    }
+                    else if (multiSeries && !carriesName)
+                    {
+                        // A clause built from a SignalSpeechTemplate names no series — none of the
+                        // 61 shipped templates contains {series} — so joined behind another
+                        // series' clause it would be heard as belonging to that one.
+                        text = prefix + text;
+                    }
+
+                    // 47 of those 61 templates also end without a full stop, which read fine as
+                    // whole utterances and run into the next clause once they are joined.
+                    if (!".!?".Contains(text[^1])) text += ".";
+
+                    parts.Add(text);
+                    prevSeries = clause.Series;
+                }
+
+                return string.Join(" ", parts);
+            }
+        }
+
         // ── StateStream: detect narration enable/disable ─────────────────────────
 
         private void OnStateChanged(WorkspaceState state)
@@ -203,6 +364,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int closedBound = isNewBar ? scanIndex : currentCount - 2;
             if (closedBound < 0) return;
 
+            // Everything this scan finds, across every narrated series, goes into ONE phrase —
+            // see ScanUtterance. Nine Speak calls in one handler is eight discarded on the web
+            // head and an unstoppable queue of nine on the desktop one.
+            var utterance = new ScanUtterance();
+
             foreach (var series in state.ActiveSeries)
             {
                 if (!series.IsAutoNarrated) continue;
@@ -213,13 +379,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int scanFrom = Math.Max(seedCount, closedBound - PivotConfirmWindow);
                 if (scanFrom > closedBound) continue;
 
-                ScanSeriesForChanges(series, state, scanFrom, closedBound, isNewBar);
+                ScanSeriesForChanges(series, state, scanFrom, closedBound, isNewBar, utterance);
             }
+
+            string composed = utterance.Compose();
+            if (!string.IsNullOrEmpty(composed))
+                _speechRouter.Speak(composed, interrupt: false, channel: SpeechChannel.Event);
         }
 
         // ── Core scanning logic ──────────────────────────────────────────────────
 
-        private void ScanSeriesForChanges(ChartSeries series, WorkspaceState state, int fromIndex, int toIndex, bool isBarClose)
+        private void ScanSeriesForChanges(ChartSeries series, WorkspaceState state, int fromIndex, int toIndex, bool isBarClose, ScanUtterance utterance)
         {
             // 1. Marker signals (discrete signal dots/arrows/shapes)
             foreach (var comp in series.Components)
@@ -254,7 +424,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string msg = BuildMarkerMessage(series, comp, val, state, barIndex);
                     if (!string.IsNullOrEmpty(msg))
                     {
-                        _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
+                        utterance.Add(ScanUtterance.TierSignal, series.FriendlyName, markerKey, msg);
                         announced.Add(barIndex);
                         if (!_lastSeenPivotIndex.TryGetValue(pivotKey, out int cur) || barIndex > cur)
                             _lastSeenPivotIndex[pivotKey] = barIndex;
@@ -263,10 +433,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             // 1b. SR zone line scanning — runs on every update
-            ScanZoneLines(series, state, toIndex);
+            ScanZoneLines(series, state, toIndex, utterance);
 
             // 1c. Cloud entry/exit detection — runs on every update
-            ScanCloudTransitions(series, state, toIndex);
+            ScanCloudTransitions(series, state, toIndex, utterance);
 
             // 2. Oscillator zone transitions — only on bar close (confirmed candle)
             if (!isBarClose) return;
@@ -282,16 +452,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (prev.Zone != oscContext.Zone)
                     {
                         string? zoneMsg = BuildZoneTransitionMessage(series.FriendlyName, oscContext.ComponentName, oscContext.Zone, prev.Zone);
-                        if (zoneMsg != null)
-                            _speechRouter.Speak(zoneMsg, interrupt: false, channel: SpeechChannel.Event);
+                        utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, oscKey, zoneMsg);
                     }
 
                     // Crossover appeared
                     if (oscContext.Crossover != CrossoverStatus.None && prev.Crossover == CrossoverStatus.None)
                     {
                         string? crossMsg = BuildCrossoverMessage(series.FriendlyName, oscContext);
-                        if (crossMsg != null)
-                            _speechRouter.Speak(crossMsg, interrupt: false, channel: SpeechChannel.Event);
+                        utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, oscKey, crossMsg);
                     }
                 }
 
@@ -389,7 +557,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
         }
 
-        private void ScanZoneLines(ChartSeries series, WorkspaceState state, int barIndex)
+        private void ScanZoneLines(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
             double currentClose = (double)state.Data[barIndex].Close;
@@ -435,7 +603,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         string breakMsg = LevelPolarity.IsResistance(lastVal, breakRefClose)
                             ? $"{series.FriendlyName}: Resistance at {SpeechPriceFormatter.FormatPrice(lastVal)} broken."
                             : $"{series.FriendlyName}: Support at {SpeechPriceFormatter.FormatPrice(lastVal)} broken.";
-                        _speechRouter.Speak(breakMsg, interrupt: false, channel: SpeechChannel.Event);
+                        utterance.Add(ScanUtterance.TierBreak, series.FriendlyName, zoneKey, breakMsg);
                         _lastZoneLineValue.Remove(zoneKey);
                         _lastZoneClose.Remove(zoneKey);
                         _inProximity.Remove(zoneKey);
@@ -467,7 +635,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         string touchMsg = isResistance
                             ? $"{series.FriendlyName}: Price tested resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}."
                             : $"{series.FriendlyName}: Price tested support at {SpeechPriceFormatter.FormatPrice(currentVal)}. Tested {currentTouches} {(currentTouches == 1 ? "time" : "times")}.";
-                        _speechRouter.Speak(touchMsg, interrupt: false, channel: SpeechChannel.Event);
+                        utterance.Add(ScanUtterance.TierTouch, series.FriendlyName, zoneKey, touchMsg);
                     }
                     _lastTouchCount[tcKey] = currentTouches;
                 }
@@ -481,7 +649,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string approachMsg = isResistance
                         ? $"{series.FriendlyName}: Approaching resistance at {SpeechPriceFormatter.FormatPrice(currentVal)}."
                         : $"{series.FriendlyName}: Approaching support at {SpeechPriceFormatter.FormatPrice(currentVal)}.";
-                    _speechRouter.Speak(approachMsg, interrupt: false, channel: SpeechChannel.Event);
+                    utterance.Add(ScanUtterance.TierApproach, series.FriendlyName, zoneKey, approachMsg);
                 }
                 _inProximity[zoneKey] = nowNear;
 
@@ -490,9 +658,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (_lastPriceAboveZone.TryGetValue(zoneKey, out bool wasAbove))
                 {
                     if (!wasAbove && priceAboveNow)
+                    {
                         bullishCrosses.Add($"{lineName} at {SpeechPriceFormatter.FormatPrice(currentVal)}");
+                        utterance.SuppressApproachFor(zoneKey);
+                    }
                     else if (wasAbove && !priceAboveNow)
+                    {
                         bearishCrosses.Add($"{lineName} at {SpeechPriceFormatter.FormatPrice(currentVal)}");
+                        utterance.SuppressApproachFor(zoneKey);
+                    }
                 }
                 _lastPriceAboveZone[zoneKey] = priceAboveNow;
             }
@@ -501,18 +675,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (bullishCrosses.Count > 0)
             {
                 string crossed = string.Join(", ", bullishCrosses);
-                _speechRouter.Speak($"{series.FriendlyName}: Price crossed above {crossed}.", interrupt: false, channel: SpeechChannel.Event);
+                utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:crosses",
+                              $"{series.FriendlyName}: Price crossed above {crossed}.");
             }
             if (bearishCrosses.Count > 0)
             {
                 string crossed = string.Join(", ", bearishCrosses);
-                _speechRouter.Speak($"{series.FriendlyName}: Price crossed below {crossed}.", interrupt: false, channel: SpeechChannel.Event);
+                utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:crosses",
+                              $"{series.FriendlyName}: Price crossed below {crossed}.");
             }
         }
 
         // ── Cloud entry/exit detection ───────────────────────────────────────────
 
-        private void ScanCloudTransitions(ChartSeries series, WorkspaceState state, int barIndex)
+        private void ScanCloudTransitions(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
             double close = (double)state.Data[barIndex].Close;
@@ -557,8 +733,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _ => null
                     };
 
-                    if (msg != null)
-                        _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
+                    utterance.Add(ScanUtterance.TierCross, series.FriendlyName, cloudKey, msg);
                 }
 
                 _lastCloudPosition[cloudKey] = position;

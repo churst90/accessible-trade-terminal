@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The narrator that said nine things and was heard saying one (2026-09-02)
+
+- **`AutoNarrationService` made up to nine `Speak` calls inside one `RedrawEvent` handler, and on
+  the web head eight of them were overwritten before anything could read them.** Speech there is
+  delivered by assigning `MainLayout`'s single `_latestSpeech` field; Blazor batches an entire
+  handler into one render; so the field was written nine times and only the last value reached the
+  DOM. Measured on a scan carrying eight findings: the user heard *"Money Flow Wave bullish
+  crossover."* and lost *"Resistance at 105.00 broken."* — the survivor is whichever the scan
+  reached last, never whichever mattered. On the desktop head the failure inverts: all nine queue
+  and the listener cannot get out from under them. `NavigationFeedbackManager` documents this exact
+  mechanism at its "ONE UTTERANCE PER BAR" comment and was fixed by composing; the narrator was
+  not fixed with it.
+- **One scan is now one utterance, most consequential first.** A `ScanUtterance` collector gathers
+  every clause the scan finds across every narrated series and speaks them once, ordered by what
+  they are rather than by which loop found them: a level that has ceased to exist, then the
+  indicator's own discrete signal, then price changing side of a level or a cloud, then a level
+  tested again, then an approach to something that has not happened yet, and last the oscillator
+  commentary — the most frequent thing this narrator says and so the least worth leading with.
+  Markers are the first thing the scan looks at and now come second, which is how the order is
+  known to be a decision rather than an artefact.
+- **Capped at five clauses, matching the cap `NavigationFeedbackManager` puts on the same kind of
+  list.** Nothing else bounds the count — the scan walks a 20-bar window across every component of
+  every narrated series — and a twenty-second utterance is not a text equivalent, it is an
+  obstruction: the router protects an in-flight utterance from a lower-priority interrupt, so an
+  arrow key pressed underneath one queues behind the rest of it. Dropping is safe only *because*
+  the tiers exist: what goes is always the least consequential thing found, deterministically,
+  which is the whole difference between this and the defect being fixed.
+- **Three defects that composing itself would have introduced, found by the screen-reader review
+  and fixed with it.** (a) Every clause this service builds carries `"{series}: "`, which read
+  correctly alone and stutters five times over once joined — the name is now spoken once per run
+  of clauses about that series. (b) **None of the 61 shipped `SignalSpeechTemplate` values contains
+  `{series}`**, so a templated clause joined behind another series' clause is heard as belonging to
+  that series; a clause that does not name itself is now named when the utterance moves to it, and
+  left exactly as written when there is only one series to confuse. (c) **47 of those 61 end with
+  no full stop** — invisible as whole utterances, a run-on once joined — so a clause that does not
+  punctuate itself is punctuated.
+- **And one the composition made audible: "Price crossed above R1 at 103.50. Approaching support at
+  103.50."** You are not approaching a level you are already past. Separate utterances got away
+  with the pair; in one breath, with the tier sort putting two unrelated clauses between them, it
+  is a contradiction. An approach to a level crossed in the same scan is now dropped.
+- **Proved red first, then fourteen sabotages.** `AutoNarrationUtteranceTests` drives the real
+  service through the real store transitions; the crowded fixture measured **eight** Speak calls
+  before the fix. **Two sabotages survived green and both were harness defects, not code:** the
+  first put every clause on one series, where the marker leads whether the tiers exist or not, so
+  collapsing two tiers changed nothing — the fixture now splits the clauses across two series so
+  scan order and tier order disagree; the second deleted the crossed-level suppression and stayed
+  green because the cap was already dropping that clause, **two guards masking each other**, so the
+  rule has a two-clause fixture of its own where the pair is the whole utterance.
+
+
 ### One ordered modal stack, read by the Tab trap and by Escape alike (2026-09-02)
 
 - **There were two ideas of "which dialog is on top", and they disagreed.** `CommandDispatcher`

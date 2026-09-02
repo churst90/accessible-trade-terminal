@@ -445,6 +445,22 @@ This is a **known, documented, already-fixed-elsewhere defect class.**
 A bar tripping three conditions announces only the last — and the most important signal can be the
 one discarded. On the desktop head the failure inverts: all nine queue, uninterruptibly.
 
+> **CLOSED 2026-09-02 (late night).** Confirmed and measured: a scan carrying eight findings made
+> **eight** `Speak` calls, of which the survivor was "Money Flow Wave bullish crossover." and the
+> loss was "Resistance at 105.00 broken." — this service's own source calls a break "arguably the
+> most consequential thing this narrator says". A `ScanUtterance` collector now composes one
+> utterance per scan across every narrated series, ordered break → the indicator's own signal →
+> cross of a level or cloud → touch → approach → oscillator commentary, and capped at five clauses
+> to match `NavigationFeedbackManager.GetAdditionalSignalSpeech` (nothing else bounds the count,
+> and a twenty-second utterance queues the user's own arrow key behind it). Three defects the
+> composition itself would have introduced were found by the screen-reader review and fixed with
+> it: the repeated `"{series}: "` prefix; **none of the 61 shipped `SignalSpeechTemplate` values
+> contains `{series}`**, so a templated clause was attributed to the previous clause's series; and
+> **47 of those 61 end with no full stop**, a run-on once joined. Plus one the composition made
+> audible — an approach to a level price crossed in the same scan. `AutoNarrationUtteranceTests`,
+> 15 cases, fourteen sabotages; **two survived green and both were harness defects**, recorded in
+> `docs/TODO.md`'s START HERE block.
+
 ### 3.12 An existing drawing's anchors can only be moved with a 10-pixel mouse drag
 
 **`DrawingInteractionManager.cs:360, 623, 89`** · **High** · WCAG 2.1.1 (A), 2.5.7 (AA)

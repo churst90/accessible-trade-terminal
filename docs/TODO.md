@@ -117,14 +117,81 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, night — PLAYBACK SPEAKS: start, pause, resume, stop
-> versus finished, speed mid-playback, and calendar landmarks while it runs; the WCAG CONTRAST
-> FUNCTION exists and the theme editor blocks on it; `PropertiesModal`'s 24 unnamed controls
-> are NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in. Read the NEXT list at
-> the end of the 2026-09-01 block; items 0, 1, 2, 3 and 7 are done, so it opens at item 8,
-> `AutoNarrationService`'s nine `Speak` calls per scan. Still carried: the Binance 451
-> geo-block, a product decision needing Cody, and the StrategyLab statistics re-run. One
-> decision for Cody is filed two blocks below: Steel Gray's falling candle.)**
+> **START HERE (current as of 2026-09-02, late night — THE NARRATOR SPEAKS ONCE PER SCAN:
+> `AutoNarrationService`'s nine `Speak` calls are one composed, tier-ordered, capped utterance;
+> before that, PLAYBACK SPEAKS; the WCAG CONTRAST FUNCTION exists and the theme editor blocks on
+> it; `PropertiesModal`'s 24 unnamed controls are NAMED; F1–F12 work in text fields; the ORDERED
+> MODAL STACK is in. Read the NEXT list at the end of the 2026-09-01 block; items 0, 1, 2, 3, 7
+> and 8 are done, so it opens at **item 9, error state is conveyed nowhere** (`aria-invalid`,
+> `aria-required`, `required=`, `aria-disabled` all zero across both projects — four cheap
+> scan-guard candidates). Still carried: the Binance 451 geo-block, a product decision needing
+> Cody, and the StrategyLab statistics re-run. One decision for Cody is filed three blocks below:
+> Steel Gray's falling candle.)**
+>
+> ### FIXED 2026-09-02 (late night) — the narrator said nine things and was heard saying one
+>
+> Item 8 of the NEXT list below. **Confirmed exactly as the audit wrote it, and measured: eight
+> `Speak` calls in one scan, of which the user heard "Money Flow Wave bullish crossover." and lost
+> "Resistance at 105.00 broken."** Speech on the web head is `MainLayout`'s single `_latestSpeech`
+> field; Blazor batches a whole handler into one render; so the field was assigned eight times and
+> only the last reached the DOM. The survivor is whichever the scan reached last, never whichever
+> mattered. On the desktop head the failure inverts — all nine queue and the listener cannot get
+> out from under them. `NavigationFeedbackManager` documents this mechanism in its own source and
+> was fixed by composing; the narrator was not fixed with it.
+>
+> **One scan is now one utterance**, built by a `ScanUtterance` collector across every narrated
+> series and ordered by what a clause IS rather than by which loop found it: a level that has
+> ceased to exist → the indicator's own discrete signal → price changing side of a level or a
+> cloud → a level tested again → an approach to something that has not happened yet → the
+> oscillator commentary, which is the most frequent thing this narrator says. Markers are the
+> FIRST thing the scan looks at and now come second, which is how the order is known to be a
+> decision and not an artefact.
+>
+> **Capped at five clauses**, matching the cap `NavigationFeedbackManager.GetAdditionalSignalSpeech`
+> puts on the same kind of list. Nothing else bounds the count (a 20-bar window across every
+> component of every narrated series), and a twenty-second utterance is not a text equivalent, it
+> is an obstruction: `SpeechFeedbackRouter.MayInterrupt` protects an in-flight utterance from a
+> lower-priority interrupt, so an arrow key pressed underneath one queues behind the rest of it.
+> **Dropping is safe only BECAUSE the tiers exist** — what goes is the least consequential thing
+> found, deterministically, which is the whole difference between this and the defect being fixed.
+>
+> **The screen-reader review (run as the specialists, on the diff) found three defects the
+> composition itself would have introduced, all fixed with it:** the `"{series}: "` prefix every
+> built clause carries, which read correctly alone and stuttered five times over once joined (now
+> spoken once per run of clauses about that series); **none of the 61 shipped
+> `SignalSpeechTemplate` values contains `{series}`**, so a templated clause joined behind another
+> series' clause was heard as belonging to that series (a clause that does not name itself is now
+> named when the utterance moves to it, and left exactly as written when there is only one series
+> to confuse); and **47 of those 61 end with no full stop**, invisible alone and a run-on once
+> joined (now punctuated). Plus one the composition made audible: "Price crossed above R1 at
+> 103.50. Approaching support at 103.50." — you are not approaching a level you are already past,
+> so an approach to a level crossed in the same scan is dropped.
+>
+> **Proof.** `AutoNarrationUtteranceTests`, 15 cases driving the real service through the real
+> store transitions, with a spy that records the channel and the interrupt flag as well as the
+> text. Fourteen sabotages. **Two survived green and BOTH were harness defects rather than code
+> ones** — the durable half of this item: (a) the first ordering fixture put every clause on one
+> series, where the marker leads whether the tiers exist or not, so collapsing `TierSignal` into
+> `TierCross` changed nothing; the fixture now splits the clauses across two series so scan order
+> and tier order disagree, and the same sabotage reddens. (b) A sabotage deleting the
+> crossed-level suppression stayed green **because the cap was already dropping that clause** —
+> two guards masking each other, the same shape as the doubled safety reset in the live-order
+> work — so the rule has a two-clause fixture of its own where the pair IS the whole utterance.
+>
+> **Recorded by the review, NOT fixed, for the list:** (a) `SignalTierClassifier`
+> (`Services/Audio`, already used by `NavigationFeedbackManager`) could order marker signals
+> AMONG themselves; today they all share one tier and fall back to component declaration order.
+> (b) The review would split the cross tier so a cloud entry/exit outranks a plain zone-line
+> cross; kept as one tier here deliberately. (c) `MainLayout.razor:158/161` sets `role="status"`
+> AND `aria-live="assertive"` on the same element — an implicit-polite role against an explicit
+> assertive one, inconsistently supported across NVDA/JAWS/VoiceOver, so the delivered politeness
+> is AT-dependent and `interrupt: false` is not merely unhonoured on the web head but undefined.
+> This strengthens the already-recorded "a polite second region is the fix".
+>
+> **Durable, for the list:** *a cap and a suppression that remove the same clause hide each
+> other* — when two rules can each explain an absence, the fixture has to make only one of them
+> apply; and *a fixture where scan order agrees with the rule under test cannot fail* — the
+> ordering guard has to be built so the two disagree.
 >
 > ### FIXED 2026-09-02 (night) — playback was a speech-free island, and now it is not
 >
@@ -750,9 +817,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > `PlaybackFinished` has zero production subscribers, and the speed announcement sits BELOW the
 > gate so Shift+= during playback is silent. **Fix the comment as part of the fix.**
 >
-> **8. `AutoNarrationService` emits up to nine `Speak` calls per scan; on the web head eight are
-> silently overwritten.** `NavigationFeedbackManager.cs:281-292` documents this exact failure and
-> was fixed by composing one utterance; `AutoNarrationService` was not.
+> **8. DONE 2026-09-02 (late night) — `AutoNarrationService`'s nine `Speak` calls per scan.** See
+> the START HERE block at the top of this section: one `ScanUtterance` per scan, tier-ordered,
+> capped at five, with the series named once per run; three defects the composition itself would
+> have introduced fixed with it, and the crossed-level approach dropped. Original entry: emits up
+> to nine `Speak` calls per scan; on the web head eight are silently overwritten.
+> `NavigationFeedbackManager.cs:281-292` documents this exact failure and was fixed by composing
+> one utterance; `AutoNarrationService` was not.
 >
 > **9. Error state is conveyed nowhere.** Verified sweeps: `aria-invalid` **0**, `aria-required`
 > **0**, `required=` **0**, `aria-disabled` **0** across both projects. Every auth model carries
