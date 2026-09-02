@@ -76,6 +76,7 @@ function makeHarness() {
       offsetParent: (opts.hidden || opts.fixed) ? null : {},
       getClientRects: () => (opts.hidden ? [] : [{ width: 1, height: 1 }]),
       parent: opts.parent ?? null,
+      isConnected: opts.detached ? false : true,
       focusable: !!opts.focusable,
       focused: false,
       getAttribute: (k) => (k in attrs ? attrs[k] : null),
@@ -123,8 +124,14 @@ function makeHarness() {
 
   // A dialog element with a candidate child list, wired the way the trap reads it. What
   // actually becomes a tab stop is decided by the selector the trap passes in.
+  //
+  // `opts.name` is the dialog's data-modal-name — the ModalName it published, which is how
+  // the trap maps the top of the modal stack to an element. Defaults to the role so the
+  // single-dialog tests need not care.
   const dialog = (role, focusables, opts = {}) => {
-    const d = node('DIV', { role }, opts);
+    const attrs = { role, 'data-modal-name': opts.name ?? role };
+    if (opts.labelledBy) attrs['aria-labelledby'] = opts.labelledBy;
+    const d = node('DIV', attrs, opts);
     for (const f of focusables) f.parent = d;
     d.querySelectorAll = (sel) => focusables.filter(f => matchesSelector(sel, f));
     d.contains = (el) => el === d || focusables.includes(el) ||
@@ -132,11 +139,13 @@ function makeHarness() {
     return d;
   };
 
-  // Put dialogs in the document so the trap's querySelectorAll finds them.
+  // Put dialogs in the document so the trap's querySelectorAll finds them, and push the
+  // modal stack in MOUNT order — which is both DOM order and open order here, so a test
+  // that wants the two to disagree calls api.setModalStack itself afterwards.
   const mountDialogs = (...ds) => {
     sandbox.document.querySelectorAll = (sel) =>
       sel.includes('role=') ? ds.filter(d => sel.includes(`[role="${d.getAttribute('role')}"]`)) : [];
-    sandbox.window.accessibleTrader.setModalOpen(true);
+    sandbox.window.accessibleTrader.setModalStack(ds.map(d => d.getAttribute('data-modal-name')));
   };
 
   const setActive = (el) => { sandbox.document.activeElement = el; };
@@ -427,22 +436,22 @@ test('a <summary> roved to tabindex="-1" is NOT a tab stop, so the tree dialog d
     'Shift+Tab from the first real stop must wrap to the last control');
 });
 
-test('with two dialogs open, the trap keeps focus in the one that HAS focus, not the last in the DOM', () => {
+test('with two dialogs open, the trap keeps focus in the one on TOP OF THE STACK, not the last in the DOM', () => {
   // Stacked dialogs, demonstrated rather than inferred. HelpModal is rendered before nineteen
   // other modals in MainLayout and F1 is allowed while a modal is open, so Settings then F1
   // stacks Help on top while Settings stays LAST in the document. The trap took
   // dialogs[length - 1], judged Help's focus to be "outside the modal", and moved it into
-  // Settings' search box by its own hand. Mitigation until the ordered stack exists: the
-  // dialog containing document.activeElement wins.
+  // Settings' search box by its own hand. The fix is the ordered modal stack CommandDispatcher
+  // aims Escape by, pushed here by MainLayout and resolved to an element by data-modal-name.
   const h = makeHarness();
   const sSearch = h.node('INPUT', { type: 'search' });
   const sClose  = h.node('BUTTON');
-  const settings = h.dialog('dialog', [sSearch, sClose]);
+  const settings = h.dialog('dialog', [sSearch, sClose], { name: 'Settings' });
   const hSummary = h.node('SUMMARY');
   const hClose   = h.node('BUTTON');
-  const help = h.dialog('dialog', [hSummary, hClose]);
+  const help = h.dialog('dialog', [hSummary, hClose], { name: 'Help' });
   h.mountDialogs(help, settings);   // DOM order: Help first, Settings last
-  h.api.setModalOpen(true);         // two open (mountDialogs armed the first)
+  h.api.setModalStack(['Settings', 'Help']);   // open order: Settings first, Help on top
 
   h.setActive(hSummary);
   assert.equal(h.press('Tab', hSummary), false,
@@ -455,11 +464,228 @@ test('with two dialogs open, the trap keeps focus in the one that HAS focus, not
   assert.equal(h.doc.activeElement, hSummary,
     'Tab from the end of Help must wrap inside HELP, not land in Settings');
 
-  // Focus that has left every dialog still gets rehomed, into the DOM-last one as before.
+  // Focus that has left every dialog is rehomed into the dialog on TOP OF THE STACK — Help —
+  // not the DOM-last one. The containment mitigation left this case rehoming into Settings,
+  // underneath Help; observed in a real browser as Tab from <body> landing in s-search.
   const outside = h.node('BUTTON');
   h.setActive(outside);
   assert.equal(h.press('Tab', outside), true);
-  assert.equal(h.doc.activeElement, sSearch);
+  assert.equal(h.doc.activeElement, hSummary,
+    'escaped focus must be rehomed into the top of the stack (Help), not DOM-last (Settings)');
+});
+
+test('focus standing in the dialog BENEATH the top one is brought up into the top one', () => {
+  // Top of the stack is Help, which is DOM-first; the user is somehow standing in Settings
+  // underneath it (a click, a stale focus). aria-modal on Help has already told the screen
+  // reader not to describe anything outside Help, so the next Tab must move them into Help —
+  // the containment mitigation would have kept them in Settings.
+  const h = makeHarness();
+  const sSearch = h.node('INPUT', { type: 'search' });
+  const sClose  = h.node('BUTTON');
+  const settings = h.dialog('dialog', [sSearch, sClose], { name: 'Settings' });
+  const hSummary = h.node('SUMMARY');
+  const hClose   = h.node('BUTTON');
+  const help = h.dialog('dialog', [hSummary, hClose], { name: 'Help' });
+  h.mountDialogs(help, settings);
+  h.api.setModalStack(['Settings', 'Help']);   // Settings opened first, Help on top
+
+  h.setActive(sClose);
+  assert.equal(h.press('Tab', sClose), true);
+  assert.equal(h.doc.activeElement, hSummary, 'focus under the top dialog is brought up into it (Tab)');
+  h.setActive(sSearch);
+  assert.equal(h.press('Tab', sSearch, { shift: true }), true);
+  assert.equal(h.doc.activeElement, hClose, 'focus under the top dialog is brought up into it (Shift+Tab)');
+});
+
+test('a stack entry with no dialog element (a role=menu) falls through to the entry beneath', () => {
+  // The context menus push onto the stack under names no dialog wears. With Help (DOM-first)
+  // under such an entry, the trap must resolve Help — not DOM-last Settings, not nothing.
+  const h = makeHarness();
+  const sSearch = h.node('INPUT', { type: 'search' });
+  const sClose  = h.node('BUTTON');
+  const settings = h.dialog('dialog', [sSearch, sClose], { name: 'Settings' });
+  const hSummary = h.node('SUMMARY');
+  const hClose   = h.node('BUTTON');
+  const help = h.dialog('dialog', [hSummary, hClose], { name: 'Help' });
+  h.mountDialogs(help, settings);
+  h.api.setModalStack(['Settings', 'Help', 'ChartContextMenu']);   // the menu is not a dialog
+
+  const outside = h.node('BUTTON');
+  h.setActive(outside);
+  assert.equal(h.press('Tab', outside), true);
+  assert.equal(h.doc.activeElement, hSummary, 'Help is the nearest entry below the menu that has a dialog');
+});
+
+test('a return target OUTSIDE the dialog now on top is not used — the heading is', () => {
+  // A opened from the chart; B opened over A; A closed out of order (a parent closing under
+  // its child). A's recorded return target is the chart control, which is BEHIND B's
+  // aria-modal — putting the user there would be the original defect by another route.
+  const h = makeHarness();
+  const chart = h.node('DIV', { tabindex: '0' });
+  const aClose = h.node('BUTTON');
+  const a = h.dialog('dialog', [aClose], { name: 'A' });
+  const bHeading = h.node('H2', { id: 'b-title', tabindex: '-1' });
+  const bClose = h.node('BUTTON');
+  const b = h.dialog('dialog', [bClose], { name: 'B', labelledBy: 'b-title' });
+  h.doc.getElementById = (id) => (id === 'b-title' ? bHeading : null);
+  h.setActive(chart);
+  h.mountDialogs(a);            // [A], return target: chart
+  h.setActive(aClose);
+  h.mountDialogs(a, b);         // [A, B], return target: aClose
+  h.setActive(null);            // focus dropped (the closing render took it) — not in B
+
+  h.api.setModalStack(['B']);   // A closed underneath B
+  assert.equal(h.doc.activeElement, bHeading,
+    'the chart is outside B, so B\'s heading is where the user goes — never behind an aria-modal');
+});
+
+test('closing a dialog UNDERNEATH the top one leaves focus where it is, in the top one', () => {
+  // A parent closing under its child, or a late close event: the user is in B, A goes away
+  // beneath them. Yanking them to B's heading would be a focus bug of this file's own making.
+  const h = makeHarness();
+  const aClose = h.node('BUTTON');
+  const a = h.dialog('dialog', [aClose], { name: 'A' });
+  const bHeading = h.node('H2', { id: 'b-title', tabindex: '-1' });
+  const bInput = h.node('INPUT');
+  const b = h.dialog('dialog', [bInput], { name: 'B', labelledBy: 'b-title' });
+  h.doc.getElementById = (id) => (id === 'b-title' ? bHeading : null);
+  h.mountDialogs(a);
+  h.setActive(aClose);
+  h.mountDialogs(a, b);
+  h.setActive(bInput);
+
+  h.api.setModalStack(['B']);   // A closed underneath B
+  assert.equal(h.doc.activeElement, bInput, 'the user was already in the top dialog; nothing should move');
+});
+
+test('a disabled opener is not a place to return to — the heading is', () => {
+  const h = makeHarness();
+  const sHeading = h.node('H2', { id: 's-title', tabindex: '-1' });
+  const opener   = h.node('BUTTON', { disabled: '' });   // disabled itself after opening
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [opener, sClose], { name: 'Settings', labelledBy: 's-title' });
+  const editor   = h.dialog('dialog', [h.node('BUTTON')], { name: 'ThemeEditor' });
+  h.doc.getElementById = (id) => (id === 's-title' ? sHeading : null);
+  h.mountDialogs(settings);
+  h.setActive(opener);
+  h.mountDialogs(settings, editor);
+  h.setActive(null);
+
+  h.api.setModalStack(['Settings']);
+  assert.equal(h.doc.activeElement, sHeading, 'a disabled control cannot take focus; the heading can');
+});
+
+test('a re-open that moves an entry to the top keeps the return targets it already knew', () => {
+  // F1 with Help already open UNDER Settings: the C# stack moves Help to the top and pushes
+  // [Settings, Help]; this side saw [Help, Settings]. That is a reorder — the rebuild path —
+  // and Settings' return target must survive it, because Settings will still close later.
+  const h = makeHarness();
+  const chart    = h.node('DIV', { tabindex: '0' });
+  const hSummary = h.node('SUMMARY');
+  const help     = h.dialog('dialog', [hSummary], { name: 'Help' });
+  const opener   = h.node('BUTTON');
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [opener, sClose], { name: 'Settings' });
+  h.setActive(chart);
+  h.mountDialogs(help);                 // [Help], Help's return target: chart
+  h.setActive(hSummary);
+  h.mountDialogs(help, settings);       // [Help, Settings], Settings' return target: hSummary
+  h.setActive(sClose);
+
+  h.api.setModalStack(['Settings', 'Help']);   // F1 again: Help moved to the top (a reorder)
+  assert.deepEqual(h.api._modalStack.map(e => e.name), ['Settings', 'Help']);
+  assert.equal(h.api._modalStack[0].returnTo, hSummary, 'Settings still knows where it came from');
+  assert.equal(h.api._modalStack[1].returnTo, chart, 'and so does Help');
+});
+
+test('a return target that has left the document is not used — the heading is', () => {
+  const h = makeHarness();
+  const sHeading = h.node('H2', { id: 's-title', tabindex: '-1' });
+  const opener   = h.node('BUTTON', {}, { detached: true });   // re-rendered away meanwhile
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [opener, sClose], { name: 'Settings', labelledBy: 's-title' });
+  const editor   = h.dialog('dialog', [h.node('BUTTON')], { name: 'ThemeEditor' });
+  h.doc.getElementById = (id) => (id === 's-title' ? sHeading : null);
+  h.mountDialogs(settings);
+  h.setActive(opener);
+  h.mountDialogs(settings, editor);
+  h.setActive(null);
+
+  h.api.setModalStack(['Settings']);
+  assert.equal(h.doc.activeElement, sHeading, 'a detached opener cannot take focus; the heading can');
+});
+
+test('closing a stacked dialog returns focus to the control that opened it', () => {
+  // Settings' "New theme" button opens the theme editor. When the editor closes, Settings is
+  // still open and the user should be back on that button — not on <body>, which is where the
+  // closing render used to leave them (the dispatcher only sends focus to the chart when the
+  // LAST modal closes, and nothing else moved it).
+  const h = makeHarness();
+  const newTheme = h.node('BUTTON');
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [newTheme, sClose], { name: 'Settings' });
+  const tInput   = h.node('INPUT');
+  const tClose   = h.node('BUTTON');
+  const editor   = h.dialog('dialog', [tInput, tClose], { name: 'ThemeEditor' });
+  h.mountDialogs(settings);                 // stack: [Settings]
+  h.setActive(newTheme);                    // the user is on the button that opens the editor
+  h.mountDialogs(settings, editor);         // stack: [Settings, ThemeEditor] — push records newTheme
+  h.setActive(tClose);                      // the user worked in the editor
+
+  h.api.setModalStack(['Settings']);        // the editor closed; Settings remains
+  assert.equal(h.doc.activeElement, newTheme, 'focus must return to the control that opened the closed dialog');
+  assert.equal(h.api._openModalCount, 1);
+});
+
+test('when the opener is no longer rendered, focus returns to the top dialog\'s heading', () => {
+  const h = makeHarness();
+  const heading  = h.node('H2', { id: 's-title', tabindex: '-1' });
+  const opener   = h.node('BUTTON', {}, { hidden: true });   // e.g. on a tab panel now hidden
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [opener, sClose], { name: 'Settings', labelledBy: 's-title' });
+  const editor   = h.dialog('dialog', [h.node('BUTTON')], { name: 'ThemeEditor' });
+  h.doc.getElementById = (id) => (id === 's-title' ? heading : null);
+  h.mountDialogs(settings);
+  h.setActive(opener);
+  h.mountDialogs(settings, editor);
+  h.setActive(null);
+
+  h.api.setModalStack(['Settings']);
+  assert.equal(h.doc.activeElement, heading, 'a hidden opener is not a place to put the user; the heading is');
+});
+
+test('the LAST close moves nothing here — the chart focus request is the dispatcher\'s', () => {
+  const h = makeHarness();
+  const sClose   = h.node('BUTTON');
+  const settings = h.dialog('dialog', [sClose], { name: 'Settings' });
+  const outside  = h.node('BUTTON');
+  h.setActive(outside);
+  h.mountDialogs(settings);                 // records outside as the return target
+  h.setActive(sClose);
+
+  h.api.setModalStack([]);
+  assert.equal(h.doc.activeElement, sClose, 'no dialog remains, so nothing is refocused from here');
+  assert.equal(h.api._openModalCount, 0);
+  assert.equal(h.api._modalStack.length, 0);
+});
+
+test('an out-of-step stack is rebuilt from the names rather than thrown away', () => {
+  const h = makeHarness();
+  const sSearch  = h.node('INPUT');
+  const settings = h.dialog('dialog', [sSearch], { name: 'Settings' });
+  const hSummary = h.node('SUMMARY');
+  const help     = h.dialog('dialog', [hSummary], { name: 'Help' });
+  h.mountDialogs(help, settings);
+  h.api.setModalStack(['Wallet']);                       // something this side never saw
+  h.api.setModalStack(['Settings', 'Help', 'Wallet']);   // two pushes at once — cannot diff
+  assert.deepEqual(h.api._modalStack.map(e => e.name), ['Settings', 'Help', 'Wallet']);
+  assert.equal(h.api._openModalCount, 3);
+
+  // Wallet has no element; Help is the nearest entry with one, so the trap still works.
+  const outside = h.node('BUTTON');
+  h.setActive(outside);
+  assert.equal(h.press('Tab', outside), true);
+  assert.equal(h.doc.activeElement, hSummary);
 });
 
 // ── Scroll keys inside a dialog (2026-09-01 accessibility audit) ────────────
@@ -470,7 +696,7 @@ test('scroll keys are released while a modal is open, so a tall dialog can be re
   // HelpModal has two focusable elements with ~400 lines of guide between them: the
   // keyboard reference could not be scrolled by keyboard.
   const h = makeHarness();
-  h.api.setModalOpen(true);
+  h.api.setModalStack(['Help']);
   for (const key of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End']) {
     assert.equal(h.press(key, h.node('H2', { tabindex: '-1' })), false,
       `${key} was swallowed inside a dialog, so the content cannot be scrolled`);
@@ -520,7 +746,7 @@ test('scroll keys are still trapped inside a dialog composite widget', () => {
   // None of the three NavigateTablistAsync callers calls preventDefault — they rely on
   // this file for it. Releasing the key here would move the tab AND scroll the dialog.
   const h = makeHarness();
-  h.api.setModalOpen(true);
+  h.api.setModalStack(['Help']);
   const tablist = h.node('DIV', { role: 'tablist' });
   const tab = h.node('BUTTON', { role: 'tab' }, { parent: tablist });
 

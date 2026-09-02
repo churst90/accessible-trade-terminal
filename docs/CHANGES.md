@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### One ordered modal stack, read by the Tab trap and by Escape alike (2026-09-02)
+
+- **There were two ideas of "which dialog is on top", and they disagreed.** `CommandDispatcher`
+  kept a private stack in OPEN order and aimed Escape by it; `keyboard.js`'s Tab trap took the
+  last visible dialog in DOM order — which is the constant render order in `MainLayout.razor`,
+  where Help is rendered before nineteen other modals. Open Settings, press F1 (Help is allowed
+  while a modal is open): Escape closed Help while Tab was trapped in Settings, underneath the
+  dialog the user was reading, whose `aria-modal="true"` had already told the screen reader not
+  to describe anything outside it. The 2026-09-02 review's mitigation (prefer the dialog that
+  contains focus) still rehomed a focus that had left every dialog into Settings; observed in a
+  real Chromium as Tab from `<body>` landing in Settings' search box under Help.
+- **Now there is one stack.** `ModalStack` in Core subscribes to `ModalStateChangedEvent` itself,
+  is owned by DI at the dispatcher's lifetime (scoped per circuit on the web host, singleton in the
+  MAUI head), and is read by the dispatcher for Escape and pushed whole — names, bottom first — to
+  `accessibleTrader.setModalStack` by `MainLayout` on every change. Every dialog element now wears
+  the name it publishes as `data-modal-name` (26 elements; `ModalContractScanTests` requires the
+  attribute and that it agrees with the open/close/Escape names and, for a plain `ModalBase`
+  inheritor, with the default `ModalName`). The trap resolves the top NAME to that element; an
+  entry with no dialog element (the `role="menu"` context menus) falls through to the entry
+  beneath it, and only then to containment and DOM order.
+- **Closing a stacked dialog no longer drops the user on `<body>`.** Focus restoration used to
+  fire only when the LAST modal closed, so closing the theme editor over Settings, or Help over
+  anything, left focus on the body with a dialog still open and nowhere to continue from. The JS
+  side records the element that had focus when each entry was pushed — the control that opened
+  the dialog, because the push arrives before the render that shows it — and on a stacked close
+  puts focus back there if it is still rendered and inside the dialog now on top, else on that
+  dialog's labelling heading. The last close still goes to the chart via the dispatcher.
+- **Proved red first, in a real browser.** `StackedModalBrowserTests` is the first file in the
+  repository to open two dialogs: six cases over F12→F1 and Settings→theme editor. On the old
+  tree the Tab-from-body case put focus in Settings' search box and the stack was absent; after
+  the fix all six pass. Eight fast sabotages (JS top resolution, JS focus return, DOM-last trap,
+  a missing or misspelt `data-modal-name`, the dispatcher ignoring the supplied stack, the stack
+  popping by position, chart focus on every close) and three browser sabotages each redden
+  exactly the tests meant to catch them; the keyboard-navigator review's probe sent Tab and
+  Shift+Tab from twenty positions and none reached the lower dialog.
+- **Two things the harness taught, recorded in the fixture and the test.** Orca was running on
+  the development box, headless Chromium connected to it over AT-SPI, and Orca READ the page it
+  was handed: whenever focus fell to `<body>` it walked the caret sentence by sentence and
+  Chromium moved keyboard focus to follow — no `focus()` call, no key, no DOM change — which made
+  a "focus returns beneath" assertion pass on the unfixed tree. The Playwright launch now sets
+  `NO_AT_BRIDGE=1`, matching CI. And `GlobalInputService`'s 50 ms two-pipeline dedupe drops a
+  second Escape sent inside 50 ms of the first, which the harness can do and a person cannot;
+  the test paces the two like a person and says why.
+- **The reviews added a pre-existing defect to the fix: F1, F1 used to leave a phantom modal.**
+  `OpenHelp` is allowed while a modal is open and `HelpModal.ShowAsync` never checked whether it
+  was already visible, so two F1s pushed Help twice; one Escape closed the dialog and left an
+  entry no dialog answered to, and from then on Escape targeted an invisible modal and every chart
+  command was refused until reload. `ModalStack` treats an open for an already-open name as a
+  move-to-top, and a browser case presses F1 twice, Escape, then F12 and requires Settings to
+  open. Also from the reviews: a dialog closing UNDERNEATH the top one no longer moves focus at
+  all, a disabled or unfocusable opener falls back to the heading, the rebuild path keeps the
+  return targets it still recognises, and `ModalStack` has a single bus-fed constructor so DI
+  cannot silently choose a parameterless one. jstests 27 → 38 in total.
+- **Found, not fixed:** F1–F12 are dead while focus is in any `<input>`, `<textarea>` or
+  `<select>` — the keydown handler returns for every unmodified key in a form control except
+  Escape, so F1 (help), F2 (mute) and F12 (settings) do nothing from the symbol picker or a search
+  box, and the browser's own F1/F12 fire instead. Verified in Chromium (F1 in Settings' search
+  box opened nothing). WCAG 2.1.1, serious. Filed at the top of the NEXT list.
+
 ### One owner for the dead-feed rule, and a monitor that can finally be tested (2026-08-29)
 
 - **"Three consecutive failed polls, then report once, reset on recovery" now lives in one place.**

@@ -45,6 +45,16 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
             // developer boxes or CI containers. The page under test is a localhost app this
             // process just started, so there is nothing here the sandbox is protecting against.
             Args = new[] { "--no-sandbox", "--disable-dev-shm-usage" },
+            // No AT-SPI bridge. Headless Chromium connects to the desktop's accessibility bus
+            // when an assistive technology is running, and on a box where Orca is up — the
+            // author's — Orca then READS the page it is handed: whenever focus falls to <body>
+            // it walks the caret sentence by sentence at speech cadence, and Chromium moves
+            // keyboard focus to follow it. Found 2026-09-02: a "focus returns to the dialog
+            // beneath" assertion passed on an unfixed tree because Orca re-focused the
+            // Settings heading a second after the close, with no focus() call, no key and no
+            // DOM change anywhere in the page. CI has no AT, so this makes the two match; the
+            // server side already pins `orcaAvailable: false` for the same reason.
+            Env = new Dictionary<string, string> { ["NO_AT_BRIDGE"] = "1" },
         });
     }
 

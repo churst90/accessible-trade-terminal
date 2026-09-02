@@ -14,7 +14,9 @@ namespace AccessibleTrader.Tests
     ///   1. Inherits ModalBase (which arms everything), OR self-implements:
     ///      a. subscribes CloseTopModalEvent comparing e.ModalName to a name,
     ///      b. publishes ModalStateChangedEvent(true, name) and (false, name),
-    ///      c. all of those names are the SAME string.
+    ///      c. all of those names are the SAME string,
+    ///   2. and (2026-09-02) the dialog element wears that same name as data-modal-name,
+    ///      which is how keyboard.js maps the top of the shared ModalStack to an element.
     /// </summary>
     public class ModalContractScanTests
     {
@@ -129,10 +131,45 @@ namespace AccessibleTrader.Tests
                         failures.Add($"{name}: no CloseTopModalEvent subscription — Escape cannot close it.");
                 }
 
+                // The dialog element must WEAR the name it publishes, as data-modal-name. The
+                // browser's Tab trap resolves the top of the shared ModalStack — a NAME — to
+                // a dialog element through this attribute; a dialog without it, or with a
+                // different spelling, is a dialog the trap cannot find, and the trap then
+                // falls back to DOM order, which is the exact defect the stack replaced
+                // (Settings then F1: focus trapped underneath Help). This is checked on the
+                // opening tag, not the file, so an attribute on some other element does not
+                // count.
+                var dialogTags = OpeningTagsContaining(text, "role=\"dialog\"")
+                    .Concat(OpeningTagsContaining(text, "role='dialog'"))
+                    .Concat(OpeningTagsContaining(text, "role=\"alertdialog\""))
+                    .Concat(OpeningTagsContaining(text, "role='alertdialog'"))
+                    .ToList();
+                var attrNames = new List<string>();
+                foreach (var tag in dialogTags)
+                {
+                    var m = Regex.Match(tag, @"data-modal-name\s*=\s*[""']([^""']*)[""']");
+                    if (!m.Success)
+                        failures.Add($"{name}: dialog element has no data-modal-name — the Tab trap cannot map the modal stack's top to this dialog.");
+                    else if (m.Groups[1].Value.Length == 0 || m.Groups[1].Value.StartsWith("@"))
+                        failures.Add($"{name}: data-modal-name must be the literal published name, not \"{m.Groups[1].Value}\".");
+                    else
+                        attrNames.Add(m.Groups[1].Value);
+                }
+
                 var allNames = openNames.Concat(closeNames).Concat(escapeNames).Concat(declaredNames)
-                    .Distinct().ToList();
+                    .Concat(attrNames).Distinct().ToList();
                 if (allNames.Count > 1)
-                    failures.Add($"{name}: open/close/Escape names disagree: {string.Join(", ", allNames)}.");
+                    failures.Add($"{name}: open/close/Escape/data-modal-name names disagree: {string.Join(", ", allNames)}.");
+
+                // A ModalBase inheritor with no literal anywhere publishes ModalBase's default —
+                // the class name with "Modal" stripped — so that is what the attribute must say.
+                if (inheritsModalBase && openNames.Count == 0 && declaredNames.Count == 0)
+                {
+                    string cls = Path.GetFileNameWithoutExtension(file);
+                    string expected = cls.EndsWith("Modal", StringComparison.Ordinal) ? cls[..^5] : cls;
+                    foreach (var a in attrNames.Where(a => a != expected))
+                        failures.Add($"{name}: data-modal-name is \"{a}\" but ModalBase will publish \"{expected}\" (the default ModalName).");
+                }
             }
 
             Assert.True(scanned >= 15, $"Only {scanned} dialogs scanned — the glob is broken, not the modals.");

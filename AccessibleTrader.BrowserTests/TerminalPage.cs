@@ -346,6 +346,60 @@ internal sealed class TerminalPage : IAsyncDisposable
                            && el.getAttribute('tabindex') !== '-1').length;
         }");
 
+    /// <summary>
+    /// Where focus is relative to ONE named dialog — the one whose <c>aria-labelledby</c> is
+    /// <paramref name="labelledBy"/> — rather than "the top one". With two dialogs open, which is
+    /// on top is exactly the question under test, so a stacked-dialog test must name the dialog
+    /// it means by the id it opened rather than let the harness pick. Same predicate shape as
+    /// <see cref="FocusRelativeToTopDialogAsync"/>: whole ARIA dialog family, rendered means
+    /// <c>getClientRects().length &gt; 0</c>, and the dialog-not-visible case is its own answer.
+    /// </summary>
+    public async Task<FocusPlace> FocusRelativeToDialogAsync(string labelledBy)
+    {
+        int code = await Page.EvaluateAsync<int>(@"(id) => {
+            const d = Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                           .filter(el => el.getClientRects().length > 0)
+                           .find(el => el.getAttribute('aria-labelledby') === id);
+            if (!d) return 0;
+            return d.contains(document.activeElement) ? 2 : 1;
+        }", labelledBy);
+        return code switch { 2 => FocusPlace.Inside, 1 => FocusPlace.Outside, _ => FocusPlace.NoDialogSeen };
+    }
+
+    /// <summary>Wait until the dialog labelled by <paramref name="labelledBy"/> is no longer rendered.</summary>
+    public async Task<bool> WaitForDialogGoneAsync(string labelledBy, int timeoutMs = 10_000)
+    {
+        try
+        {
+            await Page.WaitForFunctionAsync(
+                @"(id) => !Array.from(document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                              .filter(el => el.getClientRects().length > 0)
+                              .some(el => el.getAttribute('aria-labelledby') === id)",
+                labelledBy, new PageWaitForFunctionOptions { Timeout = timeoutMs });
+            return true;
+        }
+        catch (TimeoutException) { return false; }
+        catch (PlaywrightException) { return false; }
+    }
+
+    /// <summary>Drop focus onto &lt;body&gt; the way a click on an inert part of an overlay does.</summary>
+    public Task BlurActiveElementAsync() =>
+        Page.EvaluateAsync("() => { const a = document.activeElement; if (a && a.blur) a.blur(); }");
+
+    /// <summary>
+    /// The app's own ordered modal stack as the Tab trap sees it — bottom first, top last. Empty
+    /// when the app does not expose one, which is itself a finding.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ModalStackAsync()
+    {
+        var json = await Page.EvaluateAsync<string>(@"() => {
+            const at = window.accessibleTrader;
+            const stack = at && Array.isArray(at._modalStack) ? at._modalStack : [];
+            return JSON.stringify(stack.map(e => (e && typeof e === 'object') ? String(e.name) : String(e)));
+        }");
+        return JsonSerializer.Deserialize<List<string>>(json)!;
+    }
+
     /// <summary>Ids (or a positional fallback) of every VISIBLE dialog-family element on the page.</summary>
     public async Task<IReadOnlyList<string>> VisibleDialogIdsAsync()
     {

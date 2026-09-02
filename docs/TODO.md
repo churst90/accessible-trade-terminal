@@ -117,8 +117,63 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02 — the four fixes the fix-pass review put at the top of
-> the list are IN; what the review left open is listed under NEXT.)**
+> **START HERE (current as of 2026-09-02, later the same day — the ORDERED MODAL STACK is IN and
+> proved in a real browser; the four review fixes below it are also in. Read the NEXT list at the
+> end of the 2026-09-01 block; item 3 there is now done and one new item leads it.)**
+>
+> ### FIXED 2026-09-02 (later) — one ordered modal stack, and the first test that opens two dialogs
+>
+> `ModalStack` (Core) is THE stack: fed by `ModalStateChangedEvent`, owned by DI at the
+> dispatcher's lifetime, read by `CommandDispatcher` for Escape, pushed whole to
+> `accessibleTrader.setModalStack(names)` by `MainLayout`. Every dialog element wears its published
+> name as `data-modal-name` (26 elements, guarded by `ModalContractScanTests`), and the Tab trap
+> resolves the stack's top NAME to that element — falling through an entry with no dialog element
+> (the `role="menu"` context menus), then to containment, then DOM order. On a stacked close the
+> JS side returns focus to the element that had focus when the closed dialog was opened (its
+> opener), else the top dialog's heading; the last close still goes to the chart.
+>
+> **Demonstrated first.** `StackedModalBrowserTests` — six cases, F12→F1 and Settings→theme
+> editor. On the old tree: Tab from `<body>` with Help over Settings landed in `s-search` (Settings,
+> under Help), and there was no stack. After: 6/6. Sabotage: eight fast (jstests + C#) and three
+> browser, each red on exactly its own tests; control green; files restored byte-identical.
+> Keyboard-navigator probe: twenty Tab/Shift+Tab positions, none reached the lower dialog. jstests
+> 27 → 38, incl. guards the reviews found untested (`top.contains(target)`, `isConnected`,
+> `disabled`, the non-top removal, the reorder rebuild).
+> Full suite **6,032** run / **6,027** listed; browser suite **160**; all green on this box.
+>
+> **What the harness taught.** (1) **Orca was reading the test page.** Orca runs on this box,
+> headless Chromium connects to it over AT-SPI, and when focus fell to `<body>` Orca walked the
+> caret sentence by sentence at speech cadence while Chromium moved focus to follow — no `focus()`
+> call, no key, no mutation — so "focus returns beneath" PASSED on the unfixed tree. Found by a
+> forked agent with `NO_AT_BRIDGE=1` as the discriminator (`scratchpad/walker-findings.md`); the
+> fixture now sets it, matching CI. **A focus assertion made more than a few hundred ms after a
+> focus drop is contaminated on any box with a screen reader up.** (2) `GlobalInputService`'s
+> 50 ms dedupe swallows a second Escape the harness sends inside 50 ms; paced in the test.
+>
+> **The specialist reviews (modal-specialist, keyboard-navigator; reports in the session
+> scratchpad) added three things to the fix.** (1) **F1, F1 left a phantom modal on the stack** —
+> pre-existing: `OpenHelp` is allowed while a modal is open, `HelpModal.ShowAsync` has no
+> visibility guard, so the old private stack held `[Help, Help]`, one Escape closed the dialog and
+> left an entry no dialog answered to, and Escape plus every chart command were dead until reload.
+> `ModalStack` now treats an open for an already-open name as a move-to-top; pinned in C# and by a
+> browser case (F1, F1, Escape, then F12 must still open Settings). (2) A close UNDERNEATH the top
+> dialog no longer yanks the user to the top's heading — `_returnFocusAfterClose` leaves focus
+> alone when the top already contains it; a disabled or unfocusable opener falls to the heading;
+> the rebuild path keeps return targets it still recognises. (3) `ModalStack` has ONE constructor
+> (bus-fed) so DI cannot silently pick a parameterless one. **Unverified, recorded:** a
+> `role="menu"` context menu on top of a dialog is unreachable today (neither open command is in
+> `allowedWhileModalOpen`); if it ever were, `_topDialog` falls through the menu's entry and the
+> trap would pull focus out of the menu into the dialog beneath — the same as the old DOM-last
+> behaviour, not worse. Giving the menus `data-modal-name` and letting `_topDialog` see them would
+> close it.
+>
+> **Found, not fixed — NEW NEXT ITEM 0 (serious, WCAG 2.1.1).** `keyboard.js` returns for every
+> unmodified key in `<input>/<textarea>/<select>` except Escape, so **F1–F12 are dead in every
+> text field**: F1 in Settings' search box opens nothing (verified in Chromium — it is why the
+> stacked route presses Tab twice to a button first), F2 cannot mute while typing, F12 opens
+> DevTools in a browser, and the toolbar's own `<select>`s are the exact place the handler's doc
+> comment promises F-keys work. Fix shape: let `/^F\d{1,2}$/` through the guard like Escape, then
+> a browser theory pressing F1 from `s-search` and from the toolbar market select.
 >
 > ### FIXED 2026-09-02 — the four one-line fixes from the review below, each proved red first
 >
@@ -431,11 +486,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > measured, across **89 failing pairs in 12 themes**. Use it as a BLOCKING check in the theme
 > editor and replace `ThemeCoverageTests`' luminance-delta assertions with it.
 >
-> **3. One ordered modal stack, read by both the JS trap and `CommandDispatcher`.** The trap takes
-> `dialogs[dialogs.length-1]` (DOM order); the dispatcher keeps a real `Stack<string?>` (open
-> order). Open Settings then Help and Escape closes Help while **Tab is trapped in Settings**. Same
-> root cause as: closing a stacked modal restores focus to nothing, because restoration fires only
-> at `_openModalCount == 0`. **No test anywhere opens two dialogs.** Fix both together.
+> **3. DONE 2026-09-02 — one ordered modal stack.** See the START HERE block at the top of this
+> section. `StackedModalBrowserTests` opens two dialogs; `ModalStack` is the one stack.
 >
 > **7. Playback is a speech-free island.** `AccessibilityFeedbackCoordinator.cs:289-295` gates all
 > navigation feedback on `state.IsPlaying`, justified by a comment saying "the PlaybackOrchestrator

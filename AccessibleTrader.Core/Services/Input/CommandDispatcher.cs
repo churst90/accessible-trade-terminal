@@ -34,7 +34,6 @@ namespace AccessibleTrader.Core.Services.Input
         private readonly Trading.IQuickTradeService? _quickTrade;
         private readonly IDisposable _focusSub;
         private readonly IDisposable _blurSub;
-        private readonly IDisposable _modalSub;
 
         // Chart focus gate: every chart-scoped command (navigation, viewport, playback,
         // drawing, indicator toggle, properties, detail summary, etc.) requires the chart
@@ -50,19 +49,16 @@ namespace AccessibleTrader.Core.Services.Input
         private Timer? _deactivateDebounce;
         private const int DEACTIVATE_DEBOUNCE_MS = 50;
 
-        // Modal stack counter. Modals can stack (Strategy modal opens Help modal etc.) so we
-        // count opens and decrements on closes; the gate stays closed as long as count > 0.
-        // Without this, arrow keys pressed inside a modal leak through the global JS keyboard
-        // bridge into chart navigation — the user reported this as "modals don't trap input."
-        // Modals already publish ModalStateChangedEvent on open/close; we just subscribe here.
-        private int _openModalCount;
-
-        // Modal name stack. Parallel to _openModalCount but tracks the ModalName of each
-        // open modal so SystemCommand.CloseModal can target only the topmost. Without this,
-        // an Escape press in a stacked Help-inside-Strategy scenario would close both modals
-        // at once, dumping the user out of Strategy unexpectedly.
-        private readonly Stack<string?> _modalStack = new();
-        private readonly object _modalStackLock = new();
+        // THE ordered modal stack — see ModalStack. It used to be a private counter plus a
+        // private Stack<string?> here, while keyboard.js's Tab trap had its own, different idea
+        // of "top" (DOM order). Now there is one stack, owned by DI, read here for Escape and
+        // for the input trap, and pushed to the browser by MainLayout for the Tab trap.
+        //
+        // Without the trap, arrow keys pressed inside a modal leak through the global JS
+        // keyboard bridge into chart navigation — the user reported this as "modals don't trap
+        // input." Modals publish ModalStateChangedEvent on open/close; the stack subscribes.
+        private readonly ModalStack _modalStack;
+        private readonly bool _ownsModalStack;
 
         public CommandDispatcher(
             IEventBus eventBus,
@@ -71,7 +67,8 @@ namespace AccessibleTrader.Core.Services.Input
             IBarDetailService barDetailService,
             IndicatorCrossingEngine crossingEngine,
             Analysis.ChartPatternNavigator? patternNavigator = null,
-            Trading.IQuickTradeService? quickTrade = null)
+            Trading.IQuickTradeService? quickTrade = null,
+            ModalStack? modalStack = null)
         {
             _eventBus         = eventBus;
             _navEngine        = navEngine;
@@ -98,54 +95,33 @@ namespace AccessibleTrader.Core.Services.Input
 
             // Modal input trap: when ANY modal is open, suppress every chart command so the
             // user's keystrokes belong to the modal rather than leaking into chart navigation.
-            // Modals already publish ModalStateChangedEvent on open/close — we just count.
             //
+            // DI supplies the one shared ModalStack (scoped per circuit on the web host, a
+            // singleton in the MAUI head — the same lifetime as this dispatcher in each). The
+            // five-argument constructions in the test suite get a private one fed by the same
+            // bus, so their ModalStateChangedEvent publishes still drive Escape routing.
+            _ownsModalStack = modalStack == null;
+            _modalStack = modalStack ?? new ModalStack(eventBus);
+
             // Phase 5 keyboard scope: when the LAST modal closes, publish
             // RequestChartFocusEvent so focus returns to the chart automatically. Without
             // this, focus lands wherever Blazor / the browser default puts it (often the
             // body), which is bad UX for screen-reader users — they'd have to Tab to find
             // the chart again. The user's own modal-close speech ("X dialog closed") is
             // already in flight, so we don't add a separate announcement here.
-            _modalSub = _eventBus.AsObservable<ModalStateChangedEvent>()
-                .Subscribe(e =>
-                {
-                    if (e.IsOpen)
-                    {
-                        System.Threading.Interlocked.Increment(ref _openModalCount);
-                        lock (_modalStackLock) { _modalStack.Push(e.ModalName); }
-                    }
-                    else
-                    {
-                        System.Threading.Interlocked.Decrement(ref _openModalCount);
-                        lock (_modalStackLock)
-                        {
-                            // Pop the matching name. Most-recent-first removal handles the common
-                            // case of LIFO close order; the linear scan covers the rare case
-                            // where modals close out of order (e.g. a parent forcibly closes a
-                            // child via API rather than user gesture).
-                            if (_modalStack.Count > 0 && _modalStack.Peek() == e.ModalName)
-                            {
-                                _modalStack.Pop();
-                            }
-                            else
-                            {
-                                var remaining = new Stack<string?>();
-                                bool removed = false;
-                                while (_modalStack.Count > 0)
-                                {
-                                    var n = _modalStack.Pop();
-                                    if (!removed && n == e.ModalName) { removed = true; continue; }
-                                    remaining.Push(n);
-                                }
-                                while (remaining.Count > 0) _modalStack.Push(remaining.Pop());
-                            }
-                        }
-                    }
-                    if (_openModalCount < 0) _openModalCount = 0;
+            //
+            // A close that leaves OTHER modals open is the browser's to handle: keyboard.js
+            // puts focus back where it was in the dialog beneath (it recorded that element
+            // when the closing modal opened). Listening to the stack's own Changed event, not
+            // the bus, means the count read here is the count AFTER the stack applied the
+            // event, whatever order the bus dispatches its subscribers in.
+            _modalStack.Changed += OnModalStackChanged;
+        }
 
-                    if (!e.IsOpen && _openModalCount == 0)
-                        _eventBus.Publish(new RequestChartFocusEvent());
-                });
+        private void OnModalStackChanged(ModalStackChange change)
+        {
+            if (!change.IsOpen && change.Stack.Count == 0)
+                _eventBus.Publish(new RequestChartFocusEvent());
         }
 
         /// <summary>
@@ -155,7 +131,7 @@ namespace AccessibleTrader.Core.Services.Input
         /// to close) via standard Blazor / browser keydown semantics — none of which goes
         /// through this dispatcher.
         /// </summary>
-        public bool IsAnyModalOpen => _openModalCount > 0;
+        public bool IsAnyModalOpen => _modalStack.IsAnyOpen;
 
         public void SetChartActive(bool active)
         {
@@ -168,7 +144,8 @@ namespace AccessibleTrader.Core.Services.Input
         {
             _focusSub.Dispose();
             _blurSub.Dispose();
-            _modalSub.Dispose();
+            _modalStack.Changed -= OnModalStackChanged;
+            if (_ownsModalStack) _modalStack.Dispose();
             _deactivateDebounce?.Dispose();
         }
 
@@ -187,7 +164,7 @@ namespace AccessibleTrader.Core.Services.Input
             // CloseTopModalEvent) so every modal closes by Escape via a single dispatcher path.
             // Closes the audit gap where each modal had to re-implement its own Escape
             // handler — and HelpModal's silently failed on 2026-04-27 e18.
-            if (_openModalCount > 0)
+            if (_modalStack.IsAnyOpen)
             {
                 if (command == SystemCommand.CancelDrawing)
                     command = SystemCommand.CloseModal;
@@ -311,12 +288,7 @@ namespace AccessibleTrader.Core.Services.Input
                     // Peek the topmost modal name from the stack and target only that one.
                     // Each modal subscribes to CloseTopModalEvent and self-closes when the
                     // ModalName matches its own — stacked modals close one-at-a-time.
-                    string? top;
-                    lock (_modalStackLock)
-                    {
-                        top = _modalStack.Count > 0 ? _modalStack.Peek() : null;
-                    }
-                    _eventBus.Publish(new CloseTopModalEvent(top));
+                    _eventBus.Publish(new CloseTopModalEvent(_modalStack.Top));
                     return;
                 }
                 case SystemCommand.SaveWorkspace: _eventBus.Publish(new OpenSaveWorkspaceEvent()); return;

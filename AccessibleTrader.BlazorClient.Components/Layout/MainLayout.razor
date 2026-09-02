@@ -12,6 +12,7 @@
 @inject ISpeechManager SpeechManager
 @inject GlobalInputService InputService
 @inject IJSRuntime JSRuntime
+@inject AccessibleTrader.Core.Services.Input.ModalStack ModalStack
 @inject IAudioFeedbackRouter AudioRouter
 @inject IScriptWorkerLauncher ScriptWorkerLauncher
 @*
@@ -227,16 +228,17 @@
         // Focus-move alone is not enough — NVDA/JAWS users in browse mode don't hear
         // a focus change, so the live-region text is what tells them which modal
         // just opened or closed.
+        // The browser's Tab trap reads the SAME ordered stack the dispatcher aims Escape by.
+        // ModalStack subscribes to ModalStateChangedEvent itself and raises Changed afterwards,
+        // so what is pushed here is the stack as it stands after the event, not a guess made
+        // from the event alone — the old call sent a bare bool and keyboard.js kept a counter,
+        // which could count but could not order. Fire-and-forget; the trap no-ops if the JS
+        // runtime isn't ready yet, and the next change re-sends the whole stack.
+        ModalStack.Changed += OnModalStackChanged;
+
         _modalSub = _eventBus.AsObservable<ModalStateChangedEvent>()
             .Subscribe(evt =>
             {
-                // Arm/disarm the keyboard.js Tab trap for every modal (including
-                // those that publish ModalStateChangedEvent directly without going
-                // through ModalBase). Fire-and-forget; the trap no-ops if the JS
-                // runtime isn't ready yet.
-                try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setModalOpen", evt.IsOpen); }
-                catch { /* non-critical */ }
-
                 // Note: chart-focus tracking is NOT driven from modal open/close any
                 // more. ChartArea publishes ChartFocusEvent / DeactivateEvent on its
                 // own @onfocus / @onblur, and those drive both the .NET-side
@@ -271,6 +273,14 @@
             });
 
         await base.OnInitializedAsync();
+    }
+
+    private void OnModalStackChanged(AccessibleTrader.Core.Services.Input.ModalStackChange change)
+    {
+        // Names only, bottom first. Whatever the JS side knew before is replaced wholesale, so a
+        // dropped call cannot leave it one modal out of step for the rest of the session.
+        try { _ = JSRuntime.InvokeVoidAsync("accessibleTrader.setModalStack", change.Stack); }
+        catch { /* non-critical */ }
     }
 
     // ── Theme → CSS bridge ────────────────────────────────────────────────
@@ -413,6 +423,7 @@
     {
         _stateSub?.Dispose();
         _modalSub?.Dispose();
+        ModalStack.Changed -= OnModalStackChanged;
         _dataSub?.Dispose();
         _themeService.ThemeChanged -= OnThemeChangedForCss;
         SpeechManager.OnSpeak = null;

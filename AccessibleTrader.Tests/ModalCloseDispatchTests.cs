@@ -74,6 +74,56 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void CloseModal_ReadsTheSharedModalStack_WhenOneIsSupplied()
+        {
+            // DI hands the dispatcher the same ModalStack MainLayout pushes to the browser.
+            // Escape must aim by THAT stack, not a private copy — otherwise the two readers
+            // could disagree again, which is the defect the shared stack exists to end.
+            var bus = new EventBus();
+            var nav = Substitute.For<INavigationEngine>();
+            var store = Substitute.For<IWorkspaceStore>();
+            store.State.Returns(_ => WorkspaceState.Initial);
+            var bar = Substitute.For<IBarDetailService>();
+            var crossing = new IndicatorCrossingEngine(store, bus);
+            var shared = new ModalStack(new EventBus());   // on ANOTHER bus: the dispatcher must not feed it itself
+            var dispatcher = new CommandDispatcher(bus, nav, store, bar, crossing, modalStack: shared);
+            var captured = new List<CloseTopModalEvent>();
+            bus.Subscribe<CloseTopModalEvent>(captured.Add);
+
+            // Published on the bus, but the shared stack is unattached — so if the dispatcher
+            // were counting for itself it would see a modal here and the shared stack would not.
+            bus.Publish(new ModalStateChangedEvent(true, "Help"));
+            Assert.False(dispatcher.IsAnyModalOpen);
+
+            shared.Apply(new ModalStateChangedEvent(true, "Strategy manager"));
+            shared.Apply(new ModalStateChangedEvent(true, "Help"));
+            Assert.True(dispatcher.IsAnyModalOpen);
+
+            dispatcher.Dispatch(SystemCommand.CloseModal);
+            Assert.Single(captured);
+            Assert.Equal("Help", captured[0].ModalName);
+        }
+
+        [Fact]
+        public void ChartFocus_IsRequested_OnlyWhenTheLastModalCloses()
+        {
+            // A stacked close must NOT send focus to the chart: a dialog is still open and the
+            // browser side puts focus back inside it. The last close must.
+            var (dispatcher, bus, _) = BuildDispatcher();
+            var focusRequests = new List<RequestChartFocusEvent>();
+            bus.Subscribe<RequestChartFocusEvent>(focusRequests.Add);
+
+            bus.Publish(new ModalStateChangedEvent(true, "Settings"));
+            bus.Publish(new ModalStateChangedEvent(true, "Help"));
+            bus.Publish(new ModalStateChangedEvent(false, "Help"));
+            Assert.Empty(focusRequests);
+
+            bus.Publish(new ModalStateChangedEvent(false, "Settings"));
+            Assert.Single(focusRequests);
+            Assert.False(dispatcher.IsAnyModalOpen);
+        }
+
+        [Fact]
         public void EscapeAsCancelDrawing_ReroutesToCloseModal_WhenModalOpen()
         {
             var (dispatcher, bus, captured) = BuildDispatcher();

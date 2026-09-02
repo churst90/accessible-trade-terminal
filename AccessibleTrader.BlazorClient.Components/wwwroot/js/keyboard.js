@@ -49,11 +49,23 @@ window.accessibleTrader = {
     _scrollKeys: SCROLL_KEYS,
     _arrowWidgetSelector: ARROW_WIDGET_SELECTOR,
 
-    // Count of currently-open modals. Set by `setModalOpen(true|false)` from ModalBase
-    // on every open/close. When > 0, the Tab trap is armed; the modal element itself
-    // is discovered at trap time by the ARIA dialog-family lookup (role="dialog" OR
-    // role="alertdialog") so we don't require each modal to thread a selector string
-    // through. Keep that selector and this comment in step — they drifted once already.
+    // THE ordered modal stack, bottom first, as pushed by MainLayout from the C# ModalStack
+    // on every open/close: `[{ name, returnTo }]`. `name` is the ModalName the dialog
+    // published and wears as `data-modal-name`; `returnTo` is the element that had focus
+    // when the entry was pushed — the control that opened it, because the push arrives
+    // before the render that shows the dialog — and is where focus goes back to when that
+    // dialog closes while others remain open. When non-empty, the Tab trap is armed, and the
+    // top entry's name is resolved to a dialog element at trap time by the ARIA dialog-family
+    // lookup (role="dialog" OR role="alertdialog"). Keep that selector and this comment in
+    // step — they drifted once already.
+    //
+    // This replaced a bare counter fed by `setModalOpen(true|false)`. A counter can say
+    // whether a modal is open; it cannot say which one is on top, and "top" was being read
+    // off DOM order instead — which is MainLayout's constant render order, not open order.
+    _modalStack: [],
+
+    // Derived from _modalStack.length. Kept because the browser harness and the scan guards
+    // read it as "the app's own count of open modals".
     _openModalCount: 0,
 
     // Tracks whether the chart element currently has keyboard focus. Driven by
@@ -91,14 +103,113 @@ window.accessibleTrader = {
     },
 
     /**
-     * Called from ModalBase whenever any modal opens (isOpen=true) or closes
-     * (isOpen=false). Arms/disarms the Tab trap based on whether any modal is still
-     * visible. Uses a counter rather than a boolean so nested/stacked modals don't
-     * prematurely disarm the trap when one of several closes.
+     * Called from MainLayout with the WHOLE ordered stack of open modal names, bottom
+     * first, after every open or close. Replaces what was known before rather than
+     * adjusting it, so one dropped call cannot leave this side a modal out of step for
+     * the rest of the session.
+     *
+     * Exactly one entry changes per call in practice, and the diff below assumes at
+     * most one push or one removal; anything else (or a disagreement about the entries
+     * that should have stayed) rebuilds from the names alone, with no return targets —
+     * the trap still works, only the close-time focus return degrades to the heading.
+     *
+     * On a removal that leaves other modals open, focus is put back where it was when
+     * the removed modal opened, provided that element is still rendered and inside the
+     * dialog now on top; otherwise the top dialog's labelling heading. When the LAST
+     * modal closes nothing is done here — CommandDispatcher publishes
+     * RequestChartFocusEvent and the chart takes focus, as before.
      */
-    setModalOpen: function (isOpen) {
-        if (isOpen) this._openModalCount++;
-        else        this._openModalCount = Math.max(0, this._openModalCount - 1);
+    setModalStack: function (names) {
+        names = Array.isArray(names) ? names.map(n => (n === null || n === undefined) ? null : String(n)) : [];
+        const prev = this._modalStack;
+        let next = null;
+        let removed = null;
+
+        // First index at which the two sequences disagree (names.length / prev.length when
+        // one is a prefix of the other).
+        let d = 0;
+        while (d < prev.length && d < names.length && prev[d].name === names[d]) d++;
+
+        if (names.length === prev.length + 1 && prev.slice(d).every((e, k) => e.name === names[d + 1 + k])) {
+            next = prev.slice(0, d);
+            next.push({ name: names[d], returnTo: document.activeElement });
+            next = next.concat(prev.slice(d));
+        } else if (names.length === prev.length - 1 && prev.slice(d + 1).every((e, k) => e.name === names[d + k])) {
+            removed = prev[d];
+            next = prev.slice(0, d).concat(prev.slice(d + 1));
+        } else if (names.length === prev.length && d === names.length) {
+            next = prev;                                    // nothing changed
+        } else {
+            // Out of step (two changes at once, a dropped call, a re-open that moved an entry to
+            // the top): rebuild from the names, keeping the return target of every entry this
+            // side still recognises by name. Only entries it has never seen lose theirs.
+            next = names.map(n => ({ name: n, returnTo: (prev.find(e => e.name === n) || {}).returnTo || null }));
+        }
+
+        this._modalStack = next;
+        this._openModalCount = next.length;
+
+        if (removed && next.length > 0) this._returnFocusAfterClose(removed);
+    },
+
+    /**
+     * After a stacked close: back to the control that opened the closed dialog, if it is
+     * still rendered and inside the dialog now on top; else that dialog's heading.
+     *
+     * The call arrives before the render that removes the closed dialog, so this runs
+     * while the old dialog is still in the DOM with focus inside it — which is fine, the
+     * element being focused is in the dialog beneath and stays. Without this, the closing
+     * render removed the focused element and the browser dropped focus on <body>, inside
+     * no dialog, with a dialog still open and aria-modal telling the screen reader not to
+     * describe anything outside it.
+     */
+    _returnFocusAfterClose: function (removed) {
+        const dialogs = this._visibleDialogs();
+        const top = this._topDialog(dialogs);
+
+        // The removed entry was not the top (a parent closed underneath its child, or a close
+        // event arrived late): the user is already in the dialog that is on top, and moving
+        // them to its heading would be its own focus bug. Leave them where they are.
+        if (top && top.contains(document.activeElement)) return;
+
+        const target = removed.returnTo;
+        const usable = target && target.isConnected && target.focus
+                    && !(target.hasAttribute && target.hasAttribute('disabled'))
+                    && target.getClientRects().length > 0
+                    && (top ? top.contains(target) : dialogs.some(dlg => dlg.contains(target)));
+        if (usable) {
+            target.focus();
+            if (document.activeElement === target) return;   // else fall through to the heading
+        }
+        if (!top) return;
+        const labelId = top.getAttribute('aria-labelledby');
+        const heading = labelId ? document.getElementById(labelId) : null;
+        (heading && heading.focus ? heading : top).focus();
+    },
+
+    /** Every rendered element of the ARIA dialog family, in DOM order. */
+    _visibleDialogs: function () {
+        return Array.prototype.slice.call(
+                document.querySelectorAll('[role="dialog"], [role="alertdialog"]'))
+            .filter(el => el.getClientRects().length > 0);
+    },
+
+    /**
+     * The dialog element for the top of the modal stack: the rendered dialog wearing the
+     * top entry's name as `data-modal-name`, or — if that entry has no dialog element (a
+     * context menu is on the stack but is a role="menu", or the dialog has not rendered
+     * yet) — the next entry down that has one. Null when no entry resolves, which is the
+     * caller's cue to fall back to containment and then DOM order.
+     */
+    _topDialog: function (dialogs) {
+        const stack = this._modalStack;
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const name = stack[i].name;
+            if (name === null) continue;
+            const el = dialogs.find(dlg => dlg.getAttribute('data-modal-name') === name);
+            if (el) return el;
+        }
+        return null;
     },
 
     /**
@@ -149,26 +260,29 @@ window.accessibleTrader = {
         // therefore offsetParent-less, so this cannot regress silently in either direction.
         window.addEventListener('keydown', function (e) {
             if (e.key !== 'Tab') return;
-            if (self._openModalCount <= 0) return;
-            const dialogs = Array.prototype.slice.call(
-                    document.querySelectorAll('[role="dialog"], [role="alertdialog"]'))
-                .filter(el => el.getClientRects().length > 0);
+            if (self._modalStack.length === 0) return;
+            const dialogs = self._visibleDialogs();
             if (dialogs.length === 0) return;
 
-            // Prefer the dialog that CONTAINS focus, and fall back to the last one in the DOM.
+            // The dialog to keep focus in is the TOP OF THE MODAL STACK — the same stack, in
+            // the same open order, that CommandDispatcher aims Escape by. Its top name is
+            // resolved to the rendered dialog wearing it as data-modal-name.
             //
-            // `dialogs[dialogs.length - 1]` alone is DOM order, and DOM order is fixed by
+            // It used to be `dialogs[dialogs.length - 1]`: DOM order, which is fixed by
             // MainLayout, where HelpModal is rendered before nineteen other modals. F1 is in
-            // the dispatcher's allowedWhileModalOpen list, so Settings then F1 stacks Help
-            // on top of Settings while Settings is still the last dialog in the document.
-            // From anywhere in Help, the first Tab was then judged "outside the modal" and
-            // this trap itself moved focus INTO Settings — underneath the dialog the user
-            // was reading. This is a mitigation, not the fix: the fix is the ordered modal
-            // stack that CommandDispatcher already keeps, shared with this trap. Until then,
-            // the dialog the user is standing in is the dialog to keep them in; the DOM-last
-            // fallback only decides where a focus that escaped ALL dialogs gets rehomed.
+            // the dispatcher's allowedWhileModalOpen list, so Settings then F1 stacked Help on
+            // top of Settings while Settings was still the last dialog in the document. From
+            // anywhere in Help, the first Tab was judged "outside the modal" and this trap
+            // itself moved focus INTO Settings — underneath the dialog the user was reading.
+            // The interim mitigation (prefer the dialog containing focus) still rehomed a
+            // focus that had left every dialog — a click on the overlay — into Settings.
+            //
+            // The fallbacks are for a stack entry with no dialog element (role="menu" context
+            // menus are on the stack; a dialog not yet rendered): the dialog containing focus,
+            // then DOM-last, as before.
             const active0 = document.activeElement;
-            const modal = dialogs.find(d => active0 && d.contains(active0))
+            const modal = self._topDialog(dialogs)
+                       || dialogs.find(d => active0 && d.contains(active0))
                        || dialogs[dialogs.length - 1];
 
             // This list must match the BROWSER'S real tab order, not merely look sensible, because

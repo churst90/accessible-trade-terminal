@@ -609,6 +609,9 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IShortcutManager, ShortcutManager>();
             services.AddSingleton<IndicatorCrossingEngine>();
             services.AddSingleton<AccessibleTrader.Core.Services.Analysis.ChartPatternNavigator>();
+            // The one ordered modal stack. Same lifetime as the dispatcher that aims Escape by
+            // it and the layout that pushes it to the browser's Tab trap — see ModalStack.
+            services.AddSingleton<AccessibleTrader.Core.Services.Input.ModalStack>();
             services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
             services.AddSingleton<IInputRouter, InputRouter>();
             // Chart undo/redo. Same lifetime as the two managers that write to it, so
