@@ -39,7 +39,7 @@ public class TouchNavBarTests
 
         var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
 
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("nav[aria-label='Touch navigation']")));
     }
 
     [Fact]
@@ -55,14 +55,14 @@ public class TouchNavBarTests
         h.Ctx.JSInterop.Setup<bool>("accessibleTrader.isTouchCapable").SetResult(true);
 
         var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[role='toolbar']")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("nav[aria-label='Touch navigation']")));
 
         // The settings handler's exact effects:
         h.SettingsManager.GetSetting(AccessibleTrader.Core.Services.SettingsKeys.TouchNavBar)
             .Returns(Newtonsoft.Json.Linq.JToken.FromObject("hide"));
         cut.InvokeAsync(() => h.EventBus.Publish(new TouchNavBarModeChangedEvent("hide")));
 
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("nav[aria-label='Touch navigation']")));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class TouchNavBarTests
 
         var cut = h.Ctx.RenderComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>();
 
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='toolbar']")));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("nav[aria-label='Touch navigation']")));
     }
 
     private static IRenderedComponent<AccessibleTrader.BlazorClient.Components.TouchNavBar>
@@ -92,7 +92,7 @@ public class TouchNavBarTests
         using var _1 = h;
         var cut = Render(h);
 
-        Assert.NotEmpty(cut.FindAll("[role='toolbar']"));
+        Assert.NotEmpty(cut.FindAll("nav[aria-label='Touch navigation']"));
         var labels = cut.FindAll("button").Select(b => b.GetAttribute("aria-label")).ToList();
         Assert.Contains("Previous bar", labels);
         Assert.Contains("Next bar", labels);

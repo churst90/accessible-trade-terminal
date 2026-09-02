@@ -45,6 +45,9 @@ html, body {
     --focus-outline-color: #ffff00;
     --bullish-color: #77ff77;
     --bearish-color: #dd0000;
+    /* The HTML hover crosshair, matching the one Skia draws. Was a hardcoded
+       rgba(255,255,255,0.45) in ChartArea, i.e. 1.00:1 on High Contrast Light. */
+    --crosshair-color: #ffd65c;
 
     --focus-outline: 2px solid var(--focus-outline-color);
 }
@@ -261,6 +264,16 @@ textarea:focus-visible,
 [tabindex]:focus-visible {
     outline: var(--focus-outline);
     outline-offset: 2px;
+}
+
+/* The chart is the application's primary control and the gate for every single-letter
+   command, and it had NO focus indicator at all: an inline `outline: none` on
+   #chart-interact-zone beat the rule above, which carries no !important, and nothing
+   replaced it. The inline style is gone; this ring is INSET because the element fills a
+   flex container and an outset ring is clipped by it. 3px so it reads at magnification. */
+#chart-interact-zone:focus-visible {
+    outline: 3px solid var(--focus-outline-color);
+    outline-offset: -3px;
 }
 
 /* Dialog titles are focused PROGRAMMATICALLY when a dialog opens, so a screen reader

@@ -167,4 +167,66 @@ public sealed class ModalBrowserContractTests
             $"{stops.Distinct().Count()} of them. Either the trap is pinning focus, or this test is " +
             "proving nothing — both are worth failing over.");
     }
+
+    [BrowserTheory]
+    [MemberData(nameof(RouteNames))]
+    public async Task ShiftTab_never_escapes_an_open_dialog(string routeName)
+    {
+        // The missing half of the guard above, and the half that was broken.
+        //
+        // Tab_never_escapes_an_open_dialog has been green since it was written, and it was right
+        // — forward containment genuinely worked. But it only ever pressed Tab, so it exercised
+        // one direction of a rule stated in both. Shift+Tab escaped EVERY dialog in the app.
+        //
+        // The mechanism is worth stating because it is why nobody caught it by reading: the trap
+        // tested `active === first`, ModalBase opens focus on the <h2 tabindex="-1">, and the
+        // focusable selector deliberately excludes tabindex="-1". So on open the heading was
+        // neither `first` nor `last` and no branch fired at all. The very first Shift+Tab — the
+        // reflex after overshooting — walked backward out of the dialog onto the toolbar behind,
+        // while aria-modal="true" told the screen reader not to describe anything out there.
+        //
+        // Pressed from the opening focus target on purpose. Tabbing inward first would move focus
+        // onto a real tab stop and hide the defect completely.
+        var route = Route(routeName);
+        await using var t = await _fixture.NewPageAsync();
+        await OpenAsync(t, route);
+        await t.WaitForFocusAsync(route.ExpectedFocusId);
+
+        var stops = new List<string>();
+        for (int i = 0; i < 12; i++)
+        {
+            await t.PressAsync("Shift+Tab");
+            bool inside = await t.Page.EvaluateAsync<bool>(@"() => {
+                const dialogs = Array.from(
+                        document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                    .filter(el => el.offsetParent !== null);
+                if (dialogs.length === 0) return true;
+                return dialogs[dialogs.length - 1].contains(document.activeElement);
+            }");
+            var here = await t.ActiveElementAsync();
+            stops.Add(here.Describe());
+            Assert.True(inside,
+                $"Shift+Tab #{i + 1} in {route.Modal} moved focus to {here.Describe()}, outside " +
+                "the dialog. The overlay is still up and aria-modal=\"true\" has restricted the " +
+                "screen reader to the dialog, so the user is now standing on a control their " +
+                "screen reader will not describe.");
+        }
+
+        // Same vacuity floor as the forward case, same reason: "focus never left" is also what a
+        // Shift+Tab that does nothing looks like.
+        int focusable = await t.Page.EvaluateAsync<int>(@"() => {
+            const dialogs = Array.from(
+                    document.querySelectorAll('[role=""dialog""], [role=""alertdialog""]'))
+                .filter(el => el.offsetParent !== null);
+            if (dialogs.length === 0) return 0;
+            const d = dialogs[dialogs.length - 1];
+            return Array.from(d.querySelectorAll(
+                'button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex=""-1""])'))
+                .filter(el => el.offsetParent !== null && !el.hasAttribute('disabled')).length;
+        }");
+        Assert.True(stops.Distinct().Count() >= Math.Min(Math.Min(focusable, 12), 2) || focusable <= 1,
+            $"{route.Modal} reports {focusable} focusable controls but Shift+Tab only ever reached " +
+            $"{stops.Distinct().Count()} of them. Either the trap is pinning focus, or this test is " +
+            "proving nothing — both are worth failing over.");
+    }
 }

@@ -4,7 +4,11 @@
 @inject IEventBus EventBus
 @inject DemoPolicy Demo
 
-<div class="indicator-bar" role="toolbar" aria-label="Indicator Controls">
+@* A <nav> landmark, not role="toolbar". Every control here is a flat Tab stop with no
+   roving tabindex and no arrow-key handler, so role="toolbar" was advertising an
+   interaction model that does not exist. As a labelled landmark this bar becomes
+   reachable by the D key instead, which is how a screen-reader user finds chrome. *@
+<nav class="indicator-bar" aria-label="Indicator controls">
 
     <label for="indicator-select">Focused Indicator:</label>
     <select id="indicator-select"
@@ -52,7 +56,7 @@
                           OnClick="() => EventBus.Publish(new OpenCustomScriptsEvent())" />
     }
 
-</div>
+</nav>
 
 @code {
     private ChartSeries? _focusedSeries =>

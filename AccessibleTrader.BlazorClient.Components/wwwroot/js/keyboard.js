@@ -25,15 +25,35 @@ function isSpaceActivationTarget(target) {
     return !!role && SPACE_ACTIVATION_ROLES.indexOf(role) >= 0;
 }
 
+// Keys that scroll a scrollable container. Trapped for the chart, but released back to the
+// browser while a modal owns the keyboard — see the guard in the keydown handler.
+const SCROLL_KEYS = [
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End', 'PageUp', 'PageDown',
+];
+
+// Composite widgets that consume arrow keys themselves. Focus inside one of these keeps the
+// trapped behaviour even while a modal is open, because the widget's own handler needs the
+// key and relies on this file to suppress the browser's scroll.
+const ARROW_WIDGET_SELECTOR =
+    '[role="tablist"], [role="tab"], [role="tree"], [role="treeitem"], ' +
+    '[role="listbox"], [role="option"], [role="menu"], [role="menuitem"], ' +
+    '[role="radiogroup"], [role="slider"], [role="spinbutton"], [role="grid"]';
+
 window.accessibleTrader = {
 
     // Exposed for tests; the keydown trap calls the module-scope function directly.
     _isSpaceActivationTarget: isSpaceActivationTarget,
 
+    // Exposed for tests: the scroll-key release must be provably scoped.
+    _scrollKeys: SCROLL_KEYS,
+    _arrowWidgetSelector: ARROW_WIDGET_SELECTOR,
+
     // Count of currently-open modals. Set by `setModalOpen(true|false)` from ModalBase
     // on every open/close. When > 0, the Tab trap is armed; the modal element itself
-    // is discovered at trap time via `role="dialog"` lookup so we don't require each
-    // modal to thread a selector string through.
+    // is discovered at trap time by the ARIA dialog-family lookup (role="dialog" OR
+    // role="alertdialog") so we don't require each modal to thread a selector string
+    // through. Keep that selector and this comment in step — they drifted once already.
     _openModalCount: 0,
 
     // Tracks whether the chart element currently has keyboard focus. Driven by
@@ -101,10 +121,21 @@ window.accessibleTrader = {
         // than letting focus escape to the toolbar behind the overlay. The modal
         // element is discovered at trap time as the last visible `role="dialog"` —
         // last wins so stacked modals trap correctly (the topmost is active).
+        //
+        // The selector must cover the WHOLE ARIA dialog family, not just role="dialog".
+        // ModalContractScanTests was widened to {dialog, alertdialog} on 2026-08-29 after a
+        // recorded live miss, and this selector was not widened with it — so the C# scanner
+        // knew about alertdialog and the JavaScript did not. The one overlay that used the
+        // role was Toolbar's destructive "strip your indicators and drawings" confirmation:
+        // it publishes ModalStateChangedEvent, so _openModalCount went above zero and the
+        // trap armed, then querySelectorAll found nothing and the trap returned — leaving
+        // Tab free to walk out of an unanswered destructive prompt onto the Load button
+        // that raised it. A role the trap does not know is a way out of the trap.
         window.addEventListener('keydown', function (e) {
             if (e.key !== 'Tab') return;
             if (self._openModalCount <= 0) return;
-            const dialogs = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"]'))
+            const dialogs = Array.prototype.slice.call(
+                    document.querySelectorAll('[role="dialog"], [role="alertdialog"]'))
                 .filter(el => el.offsetParent !== null);
             if (dialogs.length === 0) return;
             const modal = dialogs[dialogs.length - 1];
@@ -120,14 +151,40 @@ window.accessibleTrader = {
             const last  = focusables[focusables.length - 1];
             const active = document.activeElement;
 
-            if (e.shiftKey && active === first) {
+            // Trap on CONTAINMENT AND POSITION, never on identity with first/last.
+            //
+            // The previous form tested `active === first` / `active === last`, which has a hole
+            // exactly one keystroke wide at the moment every dialog opens. ModalBase focuses the
+            // <h2 tabindex="-1">, and `focusableSelector` ends with [tabindex]:not([tabindex="-1"])
+            // — so the heading is DELIBERATELY not in `focusables`. On open the heading is neither
+            // `first` nor `last`, and modal.contains(active) is true, so no branch fired,
+            // preventDefault was never called, and the browser ran its own sequential navigation.
+            // Backward from the first element of the dialog means backward OUT of it, because
+            // nothing focusable precedes the h2 inside .modal-content.
+            //
+            // The user is then standing on a background control while the dialog still claims
+            // aria-modal="true", so the screen reader has restricted its buffer to the dialog and
+            // will not describe where they now are. On the Trading Dashboard the nearest control
+            // behind is the toolbar's Load button, which reloads the chart out from under an
+            // order form.
+            //
+            // Tab_never_escapes_an_open_dialog stayed green throughout because it only ever
+            // pressed Tab. The forward direction genuinely worked; the guard exercised one half
+            // of the rule it stated. Its Shift+Tab twin now covers the other half.
+            const inside = active && modal.contains(active);
+            const idx = inside ? focusables.indexOf(active) : -1;
+
+            if (!inside || idx === -1) {
+                // Either focus escaped the modal (a click outside), or it is on an element inside
+                // the modal that is not a tab stop — the opening heading being the case that
+                // matters. Both mean the browser's own sequential order would leave the dialog,
+                // so the trap owns this keystroke outright and seeds the correct end.
+                e.preventDefault();
+                (e.shiftKey ? last : first).focus();
+            } else if (e.shiftKey && idx === 0) {
                 e.preventDefault();
                 last.focus();
-            } else if (!e.shiftKey && active === last) {
-                e.preventDefault();
-                first.focus();
-            } else if (active && !modal.contains(active)) {
-                // Focus somehow escaped the modal (e.g. clicked outside). Rehome it.
+            } else if (!e.shiftKey && idx === focusables.length - 1) {
                 e.preventDefault();
                 first.focus();
             }
@@ -179,6 +236,30 @@ window.accessibleTrader = {
             const isFormControl = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             const isEditable = e.target.isContentEditable === true;
             if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape') return;
+
+            // ── Scroll keys belong to the dialog while a dialog owns the keyboard ───
+            //
+            // These keys are trapped here because they drive the chart. But CommandDispatcher
+            // already refuses every one of the resulting commands while a modal is open — its
+            // allowedWhileModalOpen list is Escape plus F1-F4 and nothing else — so calling
+            // preventDefault() here bought nothing and cost the user the ability to READ a
+            // dialog taller than the viewport.
+            //
+            // .modal-content is `max-height: calc(100vh - 120px); overflow-y: auto`, and focus
+            // opens on the <h2 tabindex="-1">. HelpModal has exactly two focusable elements —
+            // that heading and Close — with ~400 lines of guide and ten shortcut tables between
+            // them. Down and Page Down did nothing at all, so the keyboard reference could not be
+            // read by keyboard. Only Tab moved the viewport, which skips every line of prose
+            // that is not a control.
+            //
+            // Composite widgets are excluded: a tablist, tree, listbox, menu, radiogroup or
+            // slider consumes arrows itself, and none of the three NavigateTablistAsync callers
+            // calls preventDefault — they rely on this handler for it. Releasing the key there
+            // would move the tab AND scroll the dialog behind it.
+            if (self._openModalCount > 0 && !isModified && SCROLL_KEYS.indexOf(e.key) >= 0) {
+                const owner = e.target.closest ? e.target.closest(ARROW_WIDGET_SELECTOR) : null;
+                if (!owner) return;
+            }
 
             // ── Space must still activate whatever has focus ────────────────────────
             //

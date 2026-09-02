@@ -57,12 +57,50 @@ function makeHarness() {
   sandbox.window.accessibleTrader.registerKeyboardHandler(dotnet);
 
   // A minimal DOM node. `attrs` become getAttribute/hasAttribute answers.
-  const node = (tagName, attrs = {}) => ({
-    tagName,
-    isContentEditable: false,
-    getAttribute: (n) => (n in attrs ? attrs[n] : null),
-    hasAttribute: (n) => n in attrs,
-  });
+  // `parent` links a node to an ancestor chain so closest() can walk it; `focusable`
+  // puts the node in the dialog's tab-stop list. Both default off, so every existing
+  // test keeps the node it had.
+  const node = (tagName, attrs = {}, opts = {}) => {
+    const n = {
+      tagName,
+      isContentEditable: false,
+      offsetParent: opts.hidden ? null : {},
+      parent: opts.parent ?? null,
+      focusable: !!opts.focusable,
+      focused: false,
+      getAttribute: (k) => (k in attrs ? attrs[k] : null),
+      hasAttribute: (k) => k in attrs,
+      focus() { sandbox.document.activeElement = this; this.focused = true; },
+    };
+    // Minimal closest(): matches this node or an ancestor against a comma-separated
+    // list of [role="x"] selectors, which is all ARROW_WIDGET_SELECTOR contains.
+    n.closest = (selector) => {
+      const roles = [...selector.matchAll(/\[role="([^"]+)"\]/g)].map(m => m[1]);
+      for (let cur = n; cur; cur = cur.parent)
+        if (roles.includes(cur.getAttribute('role'))) return cur;
+      return null;
+    };
+    return n;
+  };
+
+  // A dialog element with a focusable list, wired the way the trap reads it.
+  const dialog = (role, focusables) => {
+    const d = node('DIV', { role });
+    for (const f of focusables) f.parent = d;
+    d.querySelectorAll = () => focusables;
+    d.contains = (el) => el === d || focusables.includes(el) ||
+                         (el && el.parent ? d.contains(el.parent) : false);
+    return d;
+  };
+
+  // Put dialogs in the document so the trap's querySelectorAll finds them.
+  const mountDialogs = (...ds) => {
+    sandbox.document.querySelectorAll = (sel) =>
+      sel.includes('role=') ? ds.filter(d => sel.includes(`[role="${d.getAttribute('role')}"]`)) : [];
+    sandbox.window.accessibleTrader.setModalOpen(true);
+  };
+
+  const setActive = (el) => { sandbox.document.activeElement = el; };
 
   // Fire a keydown and report whether the default action survived.
   const press = (key, target, mods = {}) => {
@@ -78,7 +116,8 @@ function makeHarness() {
     return defaultPrevented;
   };
 
-  return { calls, press, node, api: sandbox.window.accessibleTrader };
+  return { calls, press, node, dialog, mountDialogs, setActive,
+           doc: sandbox.document, api: sandbox.window.accessibleTrader };
 }
 
 const results = [];
@@ -188,6 +227,147 @@ test('single-letter chart commands stay gated on chart focus', () => {
   h.api.setChartFocused(true);
   assert.equal(h.press('h', h.node('DIV')), true);
   assert.deepEqual(keysSent(h.calls), ['H']);
+});
+
+// ── The Tab trap (2026-09-01 accessibility audit) ───────────────────────────
+
+test('Shift+Tab from the opening heading is trapped inside the dialog', () => {
+  // THE defect. ModalBase focuses the <h2 tabindex="-1"> on open, and the trap's
+  // focusableSelector ends with [tabindex]:not([tabindex="-1"]) — so the heading is
+  // deliberately NOT a tab stop. The old branch logic tested `active === first` and
+  // `active === last`; the heading is neither, and modal.contains(active) is true, so
+  // no branch fired at all. preventDefault never ran and the browser's own sequential
+  // navigation took over — backward from the first element of a dialog means backward
+  // OUT of it. Every one of the 25 dialogs leaked on the very first Shift+Tab.
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const heading = h.node('H2', { tabindex: '-1' });
+  const d = h.dialog('dialog', [first, last]);
+  heading.parent = d;
+  h.mountDialogs(d);
+  h.setActive(heading);
+
+  assert.equal(h.press('Tab', heading, { shift: true }), true,
+    'Shift+Tab from the heading was not trapped — focus escapes the dialog');
+  assert.equal(h.doc.activeElement, last,
+    'Shift+Tab from the heading must wrap to the LAST focusable, not the first');
+});
+
+test('Tab from the opening heading goes forward to the first control', () => {
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const heading = h.node('H2', { tabindex: '-1' });
+  const d = h.dialog('dialog', [first, last]);
+  heading.parent = d;
+  h.mountDialogs(d);
+  h.setActive(heading);
+
+  assert.equal(h.press('Tab', heading), true);
+  assert.equal(h.doc.activeElement, first);
+});
+
+test('Tab wraps at the end and Shift+Tab wraps at the start', () => {
+  // The behaviour the old logic DID get right. Pinned so the rewrite cannot lose it.
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const d = h.dialog('dialog', [first, last]);
+  h.mountDialogs(d);
+
+  h.setActive(last);
+  assert.equal(h.press('Tab', last), true);
+  assert.equal(h.doc.activeElement, first, 'Tab at the end must wrap to the start');
+
+  h.setActive(first);
+  assert.equal(h.press('Tab', first, { shift: true }), true);
+  assert.equal(h.doc.activeElement, last, 'Shift+Tab at the start must wrap to the end');
+});
+
+test('Tab in the middle of the list is left alone', () => {
+  // Anti-vacuity: a trap that claims EVERY Tab is a trap that pins focus.
+  const h = makeHarness();
+  const a = h.node('BUTTON', {}, { focusable: true });
+  const b = h.node('BUTTON', {}, { focusable: true });
+  const c = h.node('BUTTON', {}, { focusable: true });
+  const d = h.dialog('dialog', [a, b, c]);
+  h.mountDialogs(d);
+  h.setActive(b);
+
+  assert.equal(h.press('Tab', b), false,
+    'a Tab from the middle of the list must reach the browser untouched');
+});
+
+test('the trap sees role=alertdialog, not just role=dialog', () => {
+  // ModalContractScanTests was widened to {dialog, alertdialog} on 2026-08-29 and this
+  // selector was not widened with it, so the destructive "strip your indicators and
+  // drawings" confirmation armed the counter and then fell through
+  // `if (dialogs.length === 0) return`. A guard written in C# does not protect the JS.
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const heading = h.node('H2', { tabindex: '-1' });
+  const d = h.dialog('alertdialog', [first, last]);
+  heading.parent = d;
+  h.mountDialogs(d);
+  h.setActive(heading);
+
+  assert.equal(h.press('Tab', heading, { shift: true }), true,
+    'an alertdialog is invisible to the trap — Tab walks out of a destructive prompt');
+  assert.equal(h.doc.activeElement, last);
+});
+
+test('focus that has escaped the dialog is rehomed to the correct end', () => {
+  const h = makeHarness();
+  const first = h.node('BUTTON', {}, { focusable: true });
+  const last  = h.node('BUTTON', {}, { focusable: true });
+  const outside = h.node('BUTTON');
+  const d = h.dialog('dialog', [first, last]);
+  h.mountDialogs(d);
+
+  h.setActive(outside);
+  assert.equal(h.press('Tab', outside), true);
+  assert.equal(h.doc.activeElement, first, 'forward rehome goes to the first control');
+
+  h.setActive(outside);
+  assert.equal(h.press('Tab', outside, { shift: true }), true);
+  assert.equal(h.doc.activeElement, last, 'backward rehome goes to the last control');
+});
+
+// ── Scroll keys inside a dialog (2026-09-01 accessibility audit) ────────────
+
+test('scroll keys are released while a modal is open, so a tall dialog can be read', () => {
+  // CommandDispatcher's allowedWhileModalOpen list is Escape plus F1-F4 and nothing
+  // else, so preventDefault here bought nothing and cost the ability to READ a dialog.
+  // HelpModal has two focusable elements with ~400 lines of guide between them: the
+  // keyboard reference could not be scrolled by keyboard.
+  const h = makeHarness();
+  h.api.setModalOpen(true);
+  for (const key of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End']) {
+    assert.equal(h.press(key, h.node('H2', { tabindex: '-1' })), false,
+      `${key} was swallowed inside a dialog, so the content cannot be scrolled`);
+  }
+  assert.deepEqual(keysSent(h.calls), [], 'and no chart command fires either');
+});
+
+test('scroll keys are still trapped inside a dialog composite widget', () => {
+  // None of the three NavigateTablistAsync callers calls preventDefault — they rely on
+  // this file for it. Releasing the key here would move the tab AND scroll the dialog.
+  const h = makeHarness();
+  h.api.setModalOpen(true);
+  const tablist = h.node('DIV', { role: 'tablist' });
+  const tab = h.node('BUTTON', { role: 'tab' }, { parent: tablist });
+
+  assert.equal(h.press('ArrowRight', tab), true,
+    'a tablist consumes arrows itself and needs the browser scroll suppressed');
+});
+
+test('scroll keys still drive the chart when no modal is open', () => {
+  const h = makeHarness();
+  h.api.setChartFocused(true);
+  assert.equal(h.press('ArrowRight', h.node('DIV')), true);
+  assert.deepEqual(keysSent(h.calls), ['RIGHT'], 'chart navigation must be untouched');
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────

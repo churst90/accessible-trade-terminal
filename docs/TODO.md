@@ -117,7 +117,235 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-08-31, FOURTH session that day — the nine status-blind HTTP
+> **START HERE (current as of 2026-09-01 — the twelve-domain accessibility audit, and the four
+> one-line fixes it put at the top of the list. The headline finding is a FINANCIAL bug.)**
+>
+> **Full report: `docs/ACCESSIBILITY_AUDIT_2026-09-01.md`** — the first accessibility document in
+> a `docs/` of 76 files. 272 raw findings (21 Critical/High, 69 Serious, 101 Moderate, 81 Minor)
+> across twelve parallel domain audits. Nothing in the audit itself was edited; the fixes below
+> were a separate pass.
+>
+> **THE ONE TO FIX FIRST IS NOT AN ACCESSIBILITY BUG.** `TradingDashboardModal.razor:301-315`:
+> `_reviewArmed` is cleared ONLY at `:1553` (submit) and `:2062` (cancel). **No field edit voids
+> it**, and the ticket inputs are never disabled (`:132` has no `disabled`). Arm the spoken live
+> review at 0.5 BTC, edit quantity to 5, press "Confirm Buy" — **it sends 5 while the review said
+> 0.5.** For a blind trader the spoken review IS the order ticket, so the safety mechanism becomes
+> the delivery vehicle for the error. `WithdrawModal.razor:210-240` already solves exactly this
+> with `VoidQuote()` and says why in a comment. Verified by hand against the source, not inferred.
+> **NOT FIXED — it is the top item below.**
+>
+> **THE SYSTEMIC FINDING: ten green tests that assert something other than what they claim.** This
+> is the shape this repo has already recorded three times (`symbol-list-gap-closed-2026-08-31`,
+> the line-wrapped `FetchOhlcvAsync` gate, `ProviderSilentFailureTests`). It is now the dominant
+> failure mode and it is why a 6,007-test green suite coexists with this list. The four sharpest:
+>
+> 1. **`keyboard.js:107` queried `[role="dialog"]` only.** `ModalContractScanTests.cs:56-62` was
+>    widened to `{dialog, alertdialog}` on 2026-08-29 with a comment saying "a role the scanner
+>    does not know is a way out of the contract" — and the JS selector was never widened with it.
+>    **A guard written in C# does not protect the JavaScript it describes.**
+>    *(Correction to the audit as filed: it claimed no guard walked any `.js`. That was WRONG —
+>    `tools/jstests/keyboard-tests.mjs` loads `keyboard.js` into a vm sandbox and asserts on
+>    `preventDefault`, which no C# test can observe, and it runs in CI. The audit's grep looked
+>    inside the two test `.csproj`s and could not see a `node`-run suite under `tools/`. The real
+>    gap was narrower: it covered the Space-activation trap and not the Tab trap. **Nine tests
+>    added there today — 13 to 22 — and the Shift+Tab defect is DEMONSTRATED**: reverting the
+>    branch logic reddens four of them.)*
+> 2. **`DismissControlNameScanTests` cannot see `<ToolbarIconButton />`** — its regex is
+>    `<button\b…` and that is a COMPONENT tag, so all ~33 call sites are invisible to all four
+>    assertions in the file. Its `.Where(!VisibleText.Contains('@'))` filter then drops every
+>    dynamic label, and `@(x ? "Hide" : "Show")` is dynamic AND generic — the exact case.
+> 3. **`ToolbarControlSurfaceTests.cs:143` asserts `Contains("AriaLabel=")`** — presence, not
+>    containment. Gates 2 and 3 each see one of the two constructs; neither sees both.
+> 4. **`ModalBrowserContractTests.cs:121` pressed `Tab` and never `Shift+Tab`**, and `:132-137`
+>    **reimplements production's dialog-selection expression**, so a stacked-modal failure passes
+>    by construction.
+>
+> **WHAT WAS FIXED IN THIS PASS (items 2-5 of the report's recommended order).** All four were
+> chosen because each is one line or one attribute. Six sabotages red, control green.
+>
+> * **`keyboard.js` — three edits.** (a) Selector widened to the whole ARIA dialog family, so the
+>   destructive "strip your indicators and drawings" `alertdialog` is trapped at last. (b) The Tab
+>   trap now tests **containment and index position** instead of identity with `first`/`last`.
+>   The old form had a hole exactly one keystroke wide: `ModalBase` focuses the `<h2 tabindex="-1">`
+>   and the focusable selector deliberately excludes it, so on open the heading was neither `first`
+>   nor `last`, no branch fired, `preventDefault` never ran, and **Shift+Tab walked out of all 25
+>   dialogs** onto a background control while `aria-modal="true"` told the screen reader not to
+>   describe it. (c) Scroll keys (arrows/Home/End/PageUp/PageDown) are **released while a modal is
+>   open**, because `CommandDispatcher`'s `allowedWhileModalOpen` list is Escape plus F1-F4 and
+>   nothing else — so `preventDefault` bought nothing and cost the ability to READ a dialog.
+>   `HelpModal` has two focusable elements with ~400 lines of guide between them: **the keyboard
+>   reference could not be read by keyboard.** Composite widgets (`tablist`/`tree`/`listbox`/
+>   `menu`/`radiogroup`/`slider`/`grid`) are excluded, because **none of the three
+>   `NavigateTablistAsync` callers calls `preventDefault`** — they rely on this file for it, and a
+>   blanket release would move the tab AND scroll the dialog behind it.
+> * **The chart's focus ring.** `ChartArea.razor:67` carried an inline `outline: none`, which beats
+>   any stylesheet rule without `!important` and silently defeated app.css's own
+>   `[tabindex]:focus-visible`. Nothing replaced it, unlike the app's three other `outline: none`
+>   sites which all supply one. The chart is the gate for every single-letter command, so "my chart
+>   keys stopped working" had no visible answer. Ring is now drawn INSET (`outline-offset: -3px`)
+>   because the element fills a flex container and an outset ring is clipped.
+> * **`role="toolbar"` on all four sites.** The main toolbar had it on a `<nav>`, where an explicit
+>   role overrides the implicit one — so **the app had zero navigation landmarks** and NVDA's `D`
+>   key gave banner/main/contentinfo while the ~25 primary controls sat outside every landmark. The
+>   role is also an ARIA promise of roving tabindex, which the comment three lines above says was
+>   deliberately not implemented. Toolbar and IndicatorBar are now `<nav aria-label=…>` landmarks,
+>   TouchNavBar likewise, and JournalModal's filter row is `role="group"` (it is inside a dialog,
+>   where a `<nav>` would be wrong). Flat Tab stops are unchanged — that decision was correct.
+> * **Two measured 1.00:1 contrast failures on the chart.** The status headline hardcoded
+>   `color: #fff` **inside a parent that had already computed the correct `GetThemeTextHex()`** —
+>   white on `#ffffff` on High Contrast Light, an invisible headline on the screen that explains
+>   why the chart is empty. The hover crosshair hardcoded `rgba(255,255,255,0.45)`, 1.00:1 on
+>   HCLight and 1.02:1 on Paper, and it is the ONLY visual marker of which bar the cursor is on.
+>   Both now read theme values; `--crosshair-color` is published by `ThemeCssBridge` from
+>   `theme.Crosshair` (21.00:1 and 11.45:1 respectively) and given a `:root` fallback in **both**
+>   `app.css` copies, which have already drifted from each other once.
+>
+> **A fifth defect the new guard found on its first run, and it was not on my list.**
+> `ConditionTreeEditor.razor:347` carried the same inline `outline: none` on its roving-tabindex
+> treeitems — arrowing through a strategy's condition tree moved focus and nothing on screen
+> changed. Fixed in the same pass. **The guard caught it, not the audit.**
+>
+> **NEW GUARDS — `AccessibleTrader.Tests/ChromeAccessibilityScanTests.cs` (4 tests), plus
+> `ShiftTab_never_escapes_an_open_dialog` in `ModalBrowserContractTests`.** All markup checks run
+> against `ModalContractScanTests.CodeOnly`, and that is not a nicety: the fixes above added
+> comments that NAME the banned constructs, so a raw-text scan would fail on its own documentation.
+>
+> **Proved by sabotage — six reintroductions from a file-copy baseline, control green at 115:**
+> inline `outline: none` on the chart → red; JS selector narrowed back to `[role="dialog"]` → red;
+> `role="toolbar"` restored on the `<nav>` → red; `color: #fff` restored on the status header →
+> red; `rgba(255,255,255,0.45)` crosshair restored → red; `--crosshair-color` dropped from ONE
+> `app.css` → red in **two** guards (the new consumer check and the existing `ThemeCoverageTests`
+> parity check).
+>
+> **EXPLICITLY UNVERIFIED, and it must stay that way until CI says otherwise:**
+> `ShiftTab_never_escapes_an_open_dialog` **has never run.** The browser harness cannot start on
+> this box — `window.accessibleTrader._inputReady` stays false and the app never arms — and it
+> fails **identically on a pristine tree**, so this is the environment, not the change. Confirmed
+> by stashing `keyboard.js` and re-running: 2 failed / 2 passed either way. `node --check` passes.
+> The guard is therefore written, reviewed and unproven; **the CI `browser` job in `tests.yml` is
+> where it gets its first real run, and the Shift+Tab fix is unproven until it does.**
+>
+> **ALSO UNVERIFIED: the pre-edit review never happened.** The `accessibility-lead` agent was
+> dispatched to review these four changes before they were written and **died on an API session
+> limit** partway through. The changes were made against that same agent's earlier full audit plus
+> hand-verification of its four open questions (nothing depends on `role="toolbar"` except five
+> `TouchNavBarTests` assertions, now updated; `allowedWhileModalOpen` is Escape + F1-F4 only; the
+> tablist callers do not `preventDefault`; both `app.css` copies have drifted). A fresh review pass
+> is still owed.
+>
+> ### NEXT — in this order
+>
+> **1. `_reviewArmed` goes stale — the financial one.** Void it on any change to quantity, price,
+> side, order type, stop or target, or disable the inputs while armed; announce the voiding. This
+> is the top item in the tree, above the two carried over below.
+>
+> **2. Focus is destroyed when the live-order review arms.** `TradingDashboardModal.razor:301-315`
+> swaps Submit for Confirm/Cancel with a bare `StateHasChanged()` and no focus move, so focus falls
+> to `<body>` on a 2,093-line dialog **immediately after arming a real-money order**. Give the
+> Confirm button a stable id and focus it, as `ApiKeysModal.razor:419` already does.
+>
+> **3. The order-placement result has no live region.** `TradingDashboardModal.razor:319` is a bare
+> `<div class='status-msg'>`; the OCO sibling at `:362` has `role="status"`, so this is an omission,
+> not policy. The compensating speech runs on the `Manual` channel and is **silenced by F2**, so
+> under F2 mute failures announce and successes do not.
+>
+> **4. `PropertiesModal` — 24 controls with no accessible name at all.** Orphan `<label>` with no
+> `for` and no wrapping; lines `361` and `411` have no label text whatsoever. This is the
+> sonification config, the file that decides what the chart sounds like.
+> `RiskPlanEditor.razor:86-142` is the correct in-repo template.
+>
+> **5. Implement a real WCAG contrast function, once.** `grep 0.04045|1.055|12.92` over all `.cs`
+> returns nothing. Three non-WCAG proxies are live, including **squared Euclidean RGB distance** at
+> `ThemeEditorModal.razor:260`, which waves through `#0000ff` on `#000000` (Euclidean 65,025 vs a
+> 12,000 threshold; actual **2.44:1**). Its docstring claims "a preset is always safe" — false as
+> measured, across **89 failing pairs in 12 themes**. Use it as a BLOCKING check in the theme
+> editor and replace `ThemeCoverageTests`' luminance-delta assertions with it.
+>
+> **6. One ordered modal stack, read by both the JS trap and `CommandDispatcher`.** The trap takes
+> `dialogs[dialogs.length-1]` (DOM order); the dispatcher keeps a real `Stack<string?>` (open
+> order). Open Settings then Help and Escape closes Help while **Tab is trapped in Settings**. Same
+> root cause as: closing a stacked modal restores focus to nothing, because restoration fires only
+> at `_openModalCount == 0`. **No test anywhere opens two dialogs.** Fix both together.
+>
+> **7. Playback is a speech-free island.** `AccessibilityFeedbackCoordinator.cs:289-295` gates all
+> navigation feedback on `state.IsPlaying`, justified by a comment saying "the PlaybackOrchestrator
+> handles its own sonification/speech" — **that class has no speech router, no event bus and no
+> `Speak` call in its 97 lines.** Up to ~8 minutes of tone with no text equivalent. Also:
+> `PlaybackFinished` has zero production subscribers, and the speed announcement sits BELOW the
+> gate so Shift+= during playback is silent. **Fix the comment as part of the fix.**
+>
+> **8. `AutoNarrationService` emits up to nine `Speak` calls per scan; on the web head eight are
+> silently overwritten.** `NavigationFeedbackManager.cs:281-292` documents this exact failure and
+> was fixed by composing one utterance; `AutoNarrationService` was not.
+>
+> **9. Error state is conveyed nowhere.** Verified sweeps: `aria-invalid` **0**, `aria-required`
+> **0**, `required=` **0**, `aria-disabled` **0** across both projects. Every auth model carries
+> `[Required]` but `asp-for` emits `data-val-required` and there is no validation script, so it
+> reaches the server only. Four cheap scan-guard candidates.
+>
+> **10. Two flags named `IsSpeechEnabled`.** `ISpeechManager.IsSpeechEnabled` is declared `= true`
+> and has **no production assignment**; the real F2 mute is `WorkspaceState.IsSpeechEnabled`
+> (`FeedbackRouters.cs:178`). That collision is the root of `SetupSonifier.cs:104-114` speaking
+> "still confirmed, bar N" on every bar with **no way for the user to silence it** (1.4.2). Inject
+> the router, not the manager — the same bypass exists at `AIAnalystModal`, `WalletModal`,
+> `WithdrawModal` and `SummaryExport`. Then rename one of the flags.
+>
+> **11. Keyboard anchor editing.** `TryBeginEditDrag` has exactly one call site: a mouse-down. A
+> blind user can CREATE a trendline beautifully (15 tools, no drag, spoken prompts — 2.5.7 met for
+> creation) but **cannot nudge it one bar left**; they must delete and redraw. Machinery exists in
+> `PlaceAnchorAtCursor` (`:1158`).
+>
+> **12. Two data-correctness defects found by the tables audit, both formatter bugs:**
+> `OrderBookModal.razor:361` still uses `:G4` — the exact scientific-notation defect
+> `QuantityFormatter.cs`'s own doc comment records as fixed, so the spread reads aloud as "one
+> point two three E minus zero five", and `TradingDashboardModal.razor:2085` computes the same
+> value correctly (the two disagree). `"0.####"` at `WatchlistModal.razor:1043` and
+> `LevelReportModal.razor:225` collapses any sub-penny price to `"0"` — a SHIB screener shows a
+> Close column of zeros, indistinguishable from a worthless market.
+>
+> **13. The CSV export corrupts itself under any comma-decimal locale.**
+> `DataExportService.cs:39-51` uses `CurrentCulture` for numerics, so `de-DE`/`fr-FR`/`es-ES`/
+> `pt-BR` produce `64,900` inside a comma-separated file and every later column shifts. The date
+> format and `EscapeCsv` in the same file are careful; only the numerics were missed. This is the
+> chart's only durable text alternative.
+>
+> **14. Close the four remaining blind gates** (the audit lists ten; this pass closed the JS one).
+> Highest leverage, in order: assert against `TerminalPage.cs:405 TopDialogAriaSnapshotAsync` — the
+> one guard that uses the real browser accessibility tree, and it is **never called by any test** —
+> instead of the hand-rolled accname walker at `:468-514` that its own comment says was written to
+> avoid; extract ONE shared "is this a dialog?" helper for every C# scanner AND the JS trap
+> (`ModalContractScanTests.cs:72` accepts both quote styles, `RazorMarkupHazardTests.cs:78` accepts
+> only double — they already disagree); promote `A3SurveyProbe`'s page-wide unnamed-control sweep
+> to a real assertion (today its only assert is `Assert.Equal(routes.Count, report.Count)`); drive
+> `ModalEscapeCloseTests` from `ModalCatalog.DialogNames` (its header claims per-modal coverage and
+> it asserts 2 of 25).
+>
+> **15. Extend every scanner's file set to `Pages/**/*.cshtml` and `auth.css`.** Zero guards walk
+> the nine auth pages — `grep "cshtml"` across both test projects returns nothing — and both CSS
+> guards hardcode only the two `app.css` copies. This is the password, reset, 2FA-enrolment and
+> recovery-code surface.
+>
+> **CARRIED OVER, unchanged from the previous block:** the Binance 451 hosted-dropdown product
+> decision (Cody's), and the StrategyLab statistics re-run (still the top research item, still the
+> largest untested area at 71 of 99 types).
+>
+> **ALSO RECORDED FROM THE AUDIT, not fixed, not scheduled:** 29 of 33 tables have no
+> `scope="row"` and 17 have no accessible name; ~30 live regions are created in the same DOM
+> mutation as their content (Firefox+NVDA and Safari+VoiceOver frequently miss those, and
+> Firefox/Chromium + Orca is the primary Linux target); `StatusBar.razor:8` is a second, ungoverned
+> live region that re-introduces double-speech through the side door on exactly the backends
+> `ShouldEnableLiveRegion` was built to protect; `FeedbackRequestEvent.Interrupt` is discarded for
+> Info/StateChange/Error/Boundary against five publishers that deliberately pass `false`; three
+> destructive deletes have no confirm and no undo (the script one **announces nothing at all**);
+> 36 sites put a raw `ex.Message` in front of the user and two speak it aloud; `HelpModal` is 471
+> lines and 18 sections with **one heading**; `.modal-content` has a 466px floor so dialogs cannot
+> reflow at 320px; there is **zero `forced-colors` support** and the chart is a base64 PNG that
+> Windows High Contrast cannot touch; and 17 indicator components speak a code token
+> ("ChandelierExit") when the English phrase is already written two lines up as the parent's `Name`.
+>
+> ---
+>
+> **Previous (2026-08-31, FOURTH session that day — the nine status-blind HTTP
 > reads are closed, and the worst of them was not an empty read but a false "order placed".)**
 >
 > **Commit `3df67460`. Suite 6,000 in a full run (`--list-tests` 5995 — the number

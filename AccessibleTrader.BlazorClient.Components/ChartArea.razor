@@ -59,12 +59,21 @@
            @oninput="OnBarSliderInput" />
 }
 
+@* No `outline: none` in the style below. An inline declaration beats any author stylesheet rule
+   that does not carry !important, so it silently defeated app.css's own
+   `[tabindex]:focus-visible { outline: var(--focus-outline); }` — and nothing anywhere replaced
+   it, unlike the app's three other suppression sites which all supply one. The chart is the
+   application's primary control and the gate for every single-letter command, so "my chart keys
+   stopped working" had no visible answer for a low-vision user, a sighted colleague pairing with
+   a blind trader, or anyone on magnification. The ring is drawn INSET by
+   #chart-interact-zone:focus-visible in app.css, because this element fills a flex container and
+   an outset ring would be clipped. *@
 <div role="application"
      aria-label="@GetChartLabel()"
      tabindex="0"
      @ref="_chartContainer"
      id="chart-interact-zone"
-     style="flex: 1; background: transparent; position: relative; outline: none; width: 100%; height: 100%; touch-action: none; cursor: @(_isDragging ? "ns-resize" : "default");"
+     style="flex: 1; background: transparent; position: relative; width: 100%; height: 100%; touch-action: none; cursor: @(_isDragging ? "ns-resize" : "default");"
      @onfocus="OnChartFocused"
      @onblur="OnChartBlurred"
      @onkeydown="OnKeyDown"
@@ -97,8 +106,15 @@
     @if (_hover != null)
     {
         <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none; z-index: 6;">
-            <div style="position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.45); left:@(Px(_hover.BarX));"></div>
-            <div style="position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,0.45); top:@(Px(_hover.CursorY));"></div>
+            @* --crosshair-color is theme.Crosshair, the same value the Skia renderer draws with,
+               published by ThemeCssBridge. It used to be a hardcoded rgba(255,255,255,0.45),
+               which composites to 1.00:1 on High Contrast Light and 1.02:1 on Paper — the ONLY
+               visual indication of which bar the cursor is on, invisible on light themes while
+               the price readout beside it updated. The theme value measures 11.45:1 and 7.95:1.
+               2px rather than 1px: a position indicator at 1px is below what 1.4.11 practice
+               treats as perceivable, and the Skia path already draws its crosshair wider. *@
+            <div style="position:absolute; top:0; bottom:0; width:2px; background:var(--crosshair-color); left:@(Px(_hover.BarX));"></div>
+            <div style="position:absolute; left:0; right:0; height:2px; background:var(--crosshair-color); top:@(Px(_hover.CursorY));"></div>
             <div style="position:absolute; top:6px; right:72px; background:rgba(18,18,18,0.92); color:#fff;
                         border:1px solid var(--border-color); border-radius:4px; padding:4px 10px; font-size:0.85rem;
                         font-variant-numeric: tabular-nums; text-align:right; line-height:1.5;">
@@ -132,7 +148,13 @@
                 color: @(GetThemeTextHex()); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 pointer-events: none; user-select: none; z-index: 1000;">
             
-        <div style="font-size: 1.8rem; margin-bottom: 1rem; color: #fff;">
+        @* Inherits the parent's `color: @GetThemeTextHex()` (theme.AxisText). It used to
+           hardcode #fff, which the parent had already computed correctly and this child threw
+           away: on High Contrast Light that is white on #ffffff — 1.00:1, a literally invisible
+           headline — and 1.03:1 on Paper. Those are the two themes a low-vision user is most
+           likely to pick, and this is the text that explains why the chart is empty.
+           theme.AxisText on theme.Background measures 21.00:1 and 15.29:1 respectively. *@
+        <div style="font-size: 1.8rem; margin-bottom: 1rem;">
             @GetStatusHeader()
         </div>
         

@@ -337,6 +337,11 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
         bool isCollapsed = node.IsGroup && _collapsedGroups.Contains(node.Id);
         string label = NodeLabel(node);
 
+        @* No `outline: none` in the style below. This is a roving-tabindex treeitem: arrowing
+           through a strategy's condition tree MOVES focus, and with the ring suppressed inline —
+           where no stylesheet could put it back — nothing on screen changed as it moved. The
+           selected border-left is a SELECTION cue, not a focus cue; the two are different states.
+           app.css's [tabindex]:focus-visible rule now applies here. *@
         <li @key="node.Id"
             role="treeitem"
             aria-level="@level"
@@ -344,7 +349,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             aria-expanded="@(node.IsGroup ? (isCollapsed ? "false" : "true") : null)"
             aria-label="@($"{label}{(isSelected ? ", selected" : "")}")"
             tabindex="@(isSelected ? 0 : -1)"
-            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444"); outline: none;">
+            style="margin: 4px 0; padding: 4px 6px; border-left: 3px solid @(isSelected ? "#4a8" : "#444");">
 
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                 @if (node.IsGroup)

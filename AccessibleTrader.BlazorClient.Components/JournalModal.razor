@@ -34,7 +34,10 @@
             </p>
 
             @* ── Filter bar ──────────────────────────────────────────────────── *@
-            <div role="toolbar" aria-label="Journal filters"
+            @* role="group", not role="toolbar". These filters are flat Tab stops with no
+               arrow-key model, and this sits INSIDE a dialog, so a <nav> landmark would be
+               wrong. group keeps the accessible name without promising arrow traversal. *@
+            <div role="group" aria-label="Journal filters"
                  style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
                 @foreach (var (label, kind, key) in _filters)
                 {

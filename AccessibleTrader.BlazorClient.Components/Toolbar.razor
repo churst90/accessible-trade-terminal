@@ -27,8 +27,19 @@
 
 @* Main toolbar. All controls are flat Tab stops — no role="radiogroup" or nested
    focus traps — so screen readers in both browse mode and application mode can
-   reach every control with Tab/Shift+Tab without switching interaction modes. *@
-<nav class="toolbar" style="flex-direction: column; gap: 4px;" role="toolbar" aria-label="Main Toolbar">
+   reach every control with Tab/Shift+Tab without switching interaction modes.
+
+   No role="toolbar". That flat-Tab decision above is deliberate and correct, and
+   role="toolbar" contradicted it twice over. First, an explicit role OVERRIDES the
+   element's implicit one, so <nav role="toolbar"> exposed a toolbar and not a
+   navigation landmark — and this is the app's primary chrome, so pressing D in NVDA
+   gave banner/main/contentinfo and could not reach the ~25 controls here at all.
+   Second, role="toolbar" is an ARIA promise of roving tabindex and arrow-key
+   traversal, which is precisely the model the comment above says was rejected on
+   purpose: it told assistive tech to expect arrows that do nothing.
+   Dropping the role recovers the landmark, withdraws the false promise, and changes
+   no runtime behaviour whatsoever. *@
+<nav class="toolbar" style="flex-direction: column; gap: 4px;" aria-label="Main toolbar">
 
     @* ── Row 1: Chart setup | Analysis | Workspace | Meta ────────────────
        Trading and Analytics are no longer a mode toggle here — the two are unified.

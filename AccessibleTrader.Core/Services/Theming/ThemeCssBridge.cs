@@ -49,6 +49,7 @@ namespace AccessibleTrader.Core.Services.Theming
             "--focus-outline-color",
             "--bullish-color",
             "--bearish-color",
+            "--crosshair-color",
         };
 
         /// <summary>
@@ -105,6 +106,14 @@ namespace AccessibleTrader.Core.Services.Theming
                 // dashboard) agrees with the candles instead of using its own green and red.
                 ["--bullish-color"] = Css(theme.CandleBullishBody),
                 ["--bearish-color"] = Css(theme.CandleBearishBody),
+
+                // The HTML hover crosshair, so it agrees with the one Skia draws instead of
+                // using its own colour. It was a hardcoded rgba(255,255,255,0.45), which is
+                // 1.00:1 on High Contrast Light and 1.02:1 on Paper — the only visual marker of
+                // which bar the cursor is on, invisible on exactly the themes a low-vision user
+                // picks. Same reasoning as the focus ring: the chrome is themeable, so anything
+                // drawn on it has to be measured against the theme, not hand-picked once.
+                ["--crosshair-color"] = Css(theme.Crosshair),
             };
         }
 

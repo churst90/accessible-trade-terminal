@@ -27,7 +27,9 @@
 
 @if (_isTouchDevice)
 {
-    <div class="touch-nav" role="toolbar" aria-label="Touch navigation">
+    @* A <nav> landmark, not role="toolbar": these are flat Tab stops with no roving
+       tabindex and no arrow handler, so the role promised a model that is not here. *@
+    <nav class="touch-nav" aria-label="Touch navigation">
         <button class="touch-nav-btn" aria-label="Previous bar"
                 @onclick="@(() => Nav.ProcessNavigation("NAV_LEFT"))">
             <span aria-hidden="true">◀</span>
@@ -70,7 +72,7 @@
                 @onclick="OpenChartMenu">
             <span aria-hidden="true">☰</span>
         </button>
-    </div>
+    </nav>
 }
 
 @code {
