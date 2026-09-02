@@ -140,9 +140,25 @@ window.accessibleTrader = {
             if (dialogs.length === 0) return;
             const modal = dialogs[dialogs.length - 1];
 
+            // This list must match the BROWSER'S real tab order, not merely look sensible, because
+            // of the `idx === -1` branch below: an element that is inside the dialog and IS a tab
+            // stop, but is missing from this selector, gets treated as an escape and snapped back
+            // to `first`. Focus then bounces on one element forever, in both directions.
+            //
+            // `summary` is how that shipped. HelpModal is built from 37 <details> blocks and
+            // <summary> is focusable by default, so the browser saw ~19 tab stops and this
+            // selector saw 2 — every Tab landed on a summary, hit the snap-back, and returned to
+            // the same control. The keyboard reference became unreadable in the same release that
+            // released the scroll keys to make it readable. Caught by the CI browser job, which is
+            // the only place this file's behaviour can be observed.
+            //
+            // The others are here for the same reason and not because anything uses them today:
+            // each is a default tab stop, so each is a future instance of the identical bug.
             const focusableSelector =
                 'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
-                'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+                'select:not([disabled]), textarea:not([disabled]), summary, iframe, ' +
+                'audio[controls], video[controls], [contenteditable]:not([contenteditable="false"]), ' +
+                '[tabindex]:not([tabindex="-1"])';
             const focusables = Array.prototype.slice.call(modal.querySelectorAll(focusableSelector))
                 .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
             if (focusables.length === 0) return;
@@ -246,11 +262,13 @@ window.accessibleTrader = {
             // dialog taller than the viewport.
             //
             // .modal-content is `max-height: calc(100vh - 120px); overflow-y: auto`, and focus
-            // opens on the <h2 tabindex="-1">. HelpModal has exactly two focusable elements —
-            // that heading and Close — with ~400 lines of guide and ten shortcut tables between
-            // them. Down and Page Down did nothing at all, so the keyboard reference could not be
-            // read by keyboard. Only Tab moved the viewport, which skips every line of prose
-            // that is not a control.
+            // opens on the <h2 tabindex="-1">. HelpModal's own tab stops are its <summary>
+            // headings and Close, with ~400 lines of guide and ten shortcut tables between them.
+            // Down and Page Down did nothing at all, so the keyboard reference could not be read
+            // by keyboard. Only Tab moved the viewport, which skips every line of prose that is
+            // not a control. (This comment first said "exactly two focusable elements" — that was
+            // measured with the focusable selector above BEFORE it knew about <summary>, and
+            // believing it is what let the pinning defect through.)
             //
             // Composite widgets are excluded: a tablist, tree, listbox, menu, radiogroup or
             // slider consumes arrows itself, and none of the three NavigateTablistAsync callers

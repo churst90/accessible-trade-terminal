@@ -83,11 +83,36 @@ function makeHarness() {
     return n;
   };
 
-  // A dialog element with a focusable list, wired the way the trap reads it.
+  // Does `node` match one of the comma-separated simple selectors in `sel`?
+  //
+  // Only tag names and [tabindex] forms, which is all focusableSelector contains — but it
+  // is applied for real. The previous harness returned the candidate list VERBATIM from
+  // querySelectorAll, so the focusable selector was mocked past and never under test. That
+  // is precisely how `summary` shipped missing: every test here was green while the browser
+  // saw 19 tab stops that this file's selector did not, hit the `idx === -1` snap-back, and
+  // pinned focus on one control in both directions. A harness that hands the code under test
+  // its own answer cannot fail for the thing it is meant to be checking.
+  const matchesSelector = (sel, n) =>
+    sel.split(',').map(x => x.trim()).some(part => {
+      if (part.startsWith('[tabindex]')) {
+        const ti = n.getAttribute('tabindex');
+        return ti !== null && !part.includes(':not([tabindex="-1"])') ? true
+             : ti !== null && ti !== '-1';
+      }
+      const tag = part.match(/^[a-zA-Z]+/);
+      if (!tag) return false;
+      if (tag[0].toLowerCase() !== n.tagName.toLowerCase()) return false;
+      // `:not([disabled])` and friends — honour the disabled exclusion, ignore the rest.
+      if (part.includes(':not([disabled])') && n.hasAttribute('disabled')) return false;
+      return true;
+    });
+
+  // A dialog element with a candidate child list, wired the way the trap reads it. What
+  // actually becomes a tab stop is decided by the selector the trap passes in.
   const dialog = (role, focusables) => {
     const d = node('DIV', { role });
     for (const f of focusables) f.parent = d;
-    d.querySelectorAll = () => focusables;
+    d.querySelectorAll = (sel) => focusables.filter(f => matchesSelector(sel, f));
     d.contains = (el) => el === d || focusables.includes(el) ||
                          (el && el.parent ? d.contains(el.parent) : false);
     return d;
@@ -349,6 +374,44 @@ test('scroll keys are released while a modal is open, so a tall dialog can be re
       `${key} was swallowed inside a dialog, so the content cannot be scrolled`);
   }
   assert.deepEqual(keysSent(h.calls), [], 'and no chart command fires either');
+});
+
+test('a <summary> disclosure is a tab stop, so Tab is not pinned on a details-built dialog', () => {
+  // THE REGRESSION, and it reached main. HelpModal is built from 37 <details> blocks;
+  // <summary> is focusable by default, so the browser's tab order had ~19 stops while
+  // focusableSelector knew about 2. Every Tab landed on a summary, which is inside the
+  // dialog but absent from the trap's list, so the `idx === -1` branch treated it as an
+  // escape and snapped focus back to `first`. Focus bounced on one control forever, in
+  // BOTH directions — and the release that freed the scroll keys so the keyboard
+  // reference could be read is the one that made it unreadable by Tab.
+  const h = makeHarness();
+  const close   = h.node('BUTTON');
+  const summary = h.node('SUMMARY');
+  const d = h.dialog('dialog', [close, summary]);
+  h.mountDialogs(d);
+  h.setActive(close);
+
+  // From the first of two stops, a forward Tab is an ordinary move the browser owns.
+  assert.equal(h.press('Tab', close), false,
+    'Tab from the first of two real tab stops was trapped — the summary is not in the ' +
+    'trap\'s focusable list, so it snapped focus back and pinned the dialog');
+});
+
+test('an element inside the dialog that is genuinely NOT a tab stop still seeds the trap', () => {
+  // The other half, so the fix above cannot be "delete the idx === -1 branch". The opening
+  // <h2 tabindex="-1"> is inside the dialog and is deliberately not a tab stop; a Tab from
+  // it must still be claimed and seeded, or the browser walks out of the dialog.
+  const h = makeHarness();
+  const only = h.node('BUTTON');
+  const heading = h.node('H2', { tabindex: '-1' });
+  const d = h.dialog('dialog', [only]);
+  heading.parent = d;
+  h.mountDialogs(d);
+  h.setActive(heading);
+
+  assert.equal(h.press('Tab', heading), true,
+    'Tab from the non-focusable heading must be trapped and seeded');
+  assert.equal(h.doc.activeElement, only);
 });
 
 test('scroll keys are still trapped inside a dialog composite widget', () => {

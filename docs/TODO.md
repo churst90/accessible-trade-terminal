@@ -303,6 +303,34 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > recomputed by the 2-second refresh timer, so it re-announces on every tick and competes with the
 > order review for the same live region. It needs throttling or removing.
 >
+> **THE KEYBOARD FIX REGRESSED HELPMODAL, AND CI CAUGHT IT — FIXED IN THE SAME PUSH.**
+> The Shift+Tab work was pushed explicitly unverified because the browser harness cannot start on
+> this box. Its first real run failed **four** cases, and not only the new ones: `Tab_never_escapes`
+> — green since it was written — went red too. *"HelpModal reports 19 focusable controls but Tab
+> only ever reached 1 of them."*
+>
+> `focusableSelector` did not list `summary`. HelpModal is built from **37 `<details>` blocks**, and
+> `<summary>` is a tab stop by default, so the browser saw ~19 stops and the trap saw 2. Every Tab
+> landed on a summary — inside the dialog, absent from the trap's list — which the new
+> `idx === -1` branch treats as an escape, so it **snapped focus back to `first`**. Focus bounced on
+> one control forever, in both directions. **The release that freed the scroll keys so the keyboard
+> reference could be read is the one that made it unreadable by Tab.** Selector now also carries
+> `iframe`, `audio[controls]`, `video[controls]` and `[contenteditable]` — each a default tab stop,
+> each a future instance of the same bug.
+>
+> **The deeper lesson is about the harness, not the selector.** `tools/jstests/keyboard-tests.mjs`
+> was 22/22 green throughout, because its `dialog()` helper set
+> `d.querySelectorAll = () => focusables` — it handed the code under test its own answer, so **the
+> focusable selector was mocked past and never under test**. That is a new shape of gate-blindness
+> for the list: not a guard aimed at the wrong thing, but a *harness that cannot express the
+> failure*. The helper now applies the selector for real, and two tests cover both directions (a
+> `<summary>` must not pin; a `tabindex="-1"` heading must still seed). Sabotage: dropping `summary`
+> reddens exactly one test.
+>
+> **The stale comment mattered.** The old note said "HelpModal has exactly two focusable elements" —
+> measured with the selector *before* it knew about `<summary>`, and believing it is what let this
+> through. Corrected in place, with the reason.
+>
 > ### NEXT — in this order
 >
 > **1. `PropertiesModal` — 24 controls with no accessible name at all.** Orphan `<label>` with no
