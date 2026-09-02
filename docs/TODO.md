@@ -117,10 +117,50 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, evening — F1–F12 now WORK IN TEXT FIELDS; the ORDERED
-> MODAL STACK is IN and proved in a real browser; the four review fixes below it are also in. Read
-> the NEXT list at the end of the 2026-09-01 block; items 0 and 3 are done, so it opens at item 1,
-> `PropertiesModal`'s 24 unnamed controls.)**
+> **START HERE (current as of 2026-09-02, night — `PropertiesModal`'s 24 unnamed controls are
+> NAMED and a bUnit name sweep now covers every catalog dialog; F1–F12 work in text fields; the
+> ORDERED MODAL STACK is in and proved in a real browser. Read the NEXT list at the end of the
+> 2026-09-01 block; items 0, 1 and 3 are done, so it opens at item 2, a real WCAG contrast
+> function.)**
+>
+> ### FIXED 2026-09-02 (night) — `PropertiesModal`'s unnamed controls, and the bUnit half of the name sweep
+>
+> Item 1 of the NEXT list below. **Demonstrated first, and the count was the audit's exactly:**
+> a new `FormControlNameSweepTests` (bUnit) opened `PropertiesModal` on a series rich enough to
+> render every branch — a candle and a line component, a colour rule, a cloud fill, one level with
+> the earcon on and one off, and separately a trend line so the anchor editors render — walked all
+> four tabs, and listed **24 distinct rendered controls with no accessible name**: the four
+> drawing anchors, per-component colour/thickness/dash style, both cloud-fill colours, a level's
+> value, colour, zone texture and noise type (the last two had no label text at all), the master
+> series volume, and per-component waveform, volume and base frequency. Every one was the idiom
+> the audit named — an orphan `<label>` with no `for` and nothing wrapped. Fixed with the
+> `RiskPlanEditor` shape: an id/`for` pair so the visible word attaches to its field, plus, on
+> every per-component and per-level control, an `aria-label` that EXTENDS the visible text with
+> the component or level name ("Thickness for Signal Line", "Value of level Overbought"), because
+> "Thickness" repeated down every component is the wall-of-identical-names problem in a form-field
+> list. Ids derive from a `Slug()` of the name, index-first for levels — the two existing level
+> ids were `lvl-thick-{level.Name}`, an invalid id the moment a level is called "Oversold zone".
+> Sabotage: removing the master volume's id (the one control named by `for` alone) reddens
+> exactly the three sweep cases. A first sabotage that stripped only an id from a control that
+> ALSO carried an `aria-label` stayed green — that was the sabotage being ineffective, not the
+> guard, and it is recorded because it is the obvious sabotage to reach for.
+>
+> **Why bUnit and not the browser.** The browser sweep (`AccessibleNameSweepTests`) is the
+> authority where it can reach, and it cannot reach this dialog: Shift+F12 resolves the focused
+> series and returns silently on a cold-start page, so the one file that decides what the chart
+> sounds like was outside the only name sweep that existed. The new sweep renders every catalog
+> dialog with its seeded state and walks its tabs, applying the short list of ways a control in
+> this library may be named (`aria-label`, a resolving `aria-labelledby`, `label[for]` with text,
+> a wrapping label with text, `title`) — deliberately not an accname re-implementation, and
+> deliberately NOT counting `placeholder`, which vanishes once the field has content. A vacuity
+> case pins that it flags the orphan-label idiom and accepts each route; the rich-series case
+> carries a floor on controls swept. **The catalog theory found one more outside the item:**
+> `CustomScriptsModal`'s two paste textareas (legacy `.atpkg` JSON, Pine Script source) were
+> placeholder-only — the SoundDesigner finding of 2026-08-26 in a second file. Both now have a
+> `<label for>`; the JSON one reuses the instruction that was already on screen.
+>
+> Suite **6,060** (`--list-tests` 6055); 28 new cases. Browser suite not re-run: the dialog is on
+> no cold-start route and `keyboard.js` did not change.
 >
 > ### FIXED 2026-09-02 (evening) — F1–F12 reach the dispatcher from inside a text field
 >
@@ -496,10 +536,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### NEXT — in this order
 >
-> **1. `PropertiesModal` — 24 controls with no accessible name at all.** Orphan `<label>` with no
-> `for` and no wrapping; lines `361` and `411` have no label text whatsoever. This is the
+> **1. DONE 2026-09-02 (night) — `PropertiesModal`'s 24 unnamed controls.** See the START HERE
+> block at the top of this section: demonstrated by a new bUnit `FormControlNameSweepTests`
+> (24 distinct rendered controls, the audit's count exactly), fixed with the `RiskPlanEditor`
+> shape, and the sweep now runs over every catalog dialog. Original entry: orphan `<label>` with
+> no `for` and no wrapping; lines `361` and `411` had no label text whatsoever. This is the
 > sonification config, the file that decides what the chart sounds like.
-> `RiskPlanEditor.razor:86-142` is the correct in-repo template.
 >
 > **2. Implement a real WCAG contrast function, once.** `grep 0.04045|1.055|12.92` over all `.cs`
 > returns nothing. Three non-WCAG proxies are live, including **squared Euclidean RGB distance** at

@@ -172,26 +172,26 @@
                                     <legend>Drawing Coordinates</legend>
                                     @if (_drawingNeedsPrice1) {
                                         <div class="modal-row">
-                                            <label>@_price1Label</label>
-                                            <input type="number" step="any" value="@_series.Drawing.AnchorPrice1" @onchange='e => UpdateDrawingPrice(1, e.Value?.ToString())' />
+                                            <label for="drawing-price-1">@_price1Label</label>
+                                            <input id="drawing-price-1" type="number" step="any" value="@_series.Drawing.AnchorPrice1" @onchange='e => UpdateDrawingPrice(1, e.Value?.ToString())' />
                                         </div>
                                     }
                                     @if (_drawingNeedsDate1) {
                                         <div class="modal-row">
-                                            <label>@_date1Label</label>
-                                            <input type="datetime-local" value='@_series.Drawing.AnchorDate1?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(1, e.Value?.ToString())' />
+                                            <label for="drawing-date-1">@_date1Label</label>
+                                            <input id="drawing-date-1" type="datetime-local" value='@_series.Drawing.AnchorDate1?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(1, e.Value?.ToString())' />
                                         </div>
                                     }
                                     @if (_drawingNeedsPrice2) {
                                         <div class="modal-row">
-                                            <label>@_price2Label</label>
-                                            <input type="number" step="any" value="@_series.Drawing.AnchorPrice2" @onchange='e => UpdateDrawingPrice(2, e.Value?.ToString())' />
+                                            <label for="drawing-price-2">@_price2Label</label>
+                                            <input id="drawing-price-2" type="number" step="any" value="@_series.Drawing.AnchorPrice2" @onchange='e => UpdateDrawingPrice(2, e.Value?.ToString())' />
                                         </div>
                                     }
                                     @if (_drawingNeedsDate2) {
                                         <div class="modal-row">
-                                            <label>@_date2Label</label>
-                                            <input type="datetime-local" value='@_series.Drawing.AnchorDate2?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(2, e.Value?.ToString())' />
+                                            <label for="drawing-date-2">@_date2Label</label>
+                                            <input id="drawing-date-2" type="datetime-local" value='@_series.Drawing.AnchorDate2?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(2, e.Value?.ToString())' />
                                         </div>
                                     }
                                 </fieldset>
@@ -220,34 +220,43 @@
                             @foreach (var comp in _series.Components.Where(c =>
                                 string.IsNullOrEmpty(_selectedComponentName) || c.Name == _selectedComponentName))
                             {
+                                @* Every control in this fieldset is named twice over, the way
+                                   RiskPlanEditor's ladder rungs are: the id/for pair attaches the
+                                   visible word to its own field, and the aria-label adds the
+                                   component, because "Thickness" repeated down every component
+                                   is a wall of identical names in a screen reader's form-field
+                                   list. Each aria-label keeps the visible words inside it
+                                   (WCAG 2.5.3). The id is derived from the component name, so it
+                                   cannot collide across the @foreach. *@
+                                var cid = "app-" + Slug(comp.Name);
                                 <fieldset>
                                     <legend>Component: @comp.Name</legend>
                                     @if (comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Candle
                                         || comp.DisplayType == AccessibleTrader.Sdk.Models.ComponentDisplayType.Bar)
                                     {
                                         <div class="modal-row">
-                                            <label>Bullish Color</label>
-                                            <input type="color" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#00CC44")' />
+                                            <label for="@(cid)-bull-color">Bullish Color</label>
+                                            <input id="@(cid)-bull-color" type="color" aria-label="Bullish Color for @comp.Name" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#00CC44")' />
                                         </div>
                                         <div class="modal-row">
-                                            <label>Bearish Color</label>
-                                            <input type="color" value="@comp.ColorHexSecondary" @onchange='e => comp.ColorHexSecondary = e.Value?.ToString() ?? "#CC2200"' />
+                                            <label for="@(cid)-bear-color">Bearish Color</label>
+                                            <input id="@(cid)-bear-color" type="color" aria-label="Bearish Color for @comp.Name" value="@comp.ColorHexSecondary" @onchange='e => comp.ColorHexSecondary = e.Value?.ToString() ?? "#CC2200"' />
                                         </div>
                                     }
                                     else
                                     {
                                         <div class="modal-row">
-                                            <label>Color</label>
-                                            <input type="color" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#FFF")' />
+                                            <label for="@(cid)-color">Color</label>
+                                            <input id="@(cid)-color" type="color" aria-label="Color for @comp.Name" value="@comp.ColorHex" @onchange='e => SetComponentColor(comp, e.Value?.ToString() ?? "#FFF")' />
                                         </div>
                                     }
                                     <div class="modal-row">
-                                        <label>Thickness (@comp.Thickness.ToString("F1"))</label>
-                                        <input type="range" min="0.5" max="10" step="0.5" value="@comp.Thickness" @onchange='e => comp.Thickness = float.Parse(e.Value?.ToString() ?? "1")' />
+                                        <label for="@(cid)-thickness">Thickness (@comp.Thickness.ToString("F1"))</label>
+                                        <input id="@(cid)-thickness" type="range" min="0.5" max="10" step="0.5" aria-label="Thickness for @comp.Name" value="@comp.Thickness" @onchange='e => comp.Thickness = float.Parse(e.Value?.ToString() ?? "1")' />
                                     </div>
                                     <div class="modal-row">
-                                        <label>Dash Style</label>
-                                        <select value="@comp.DashStyle" @onchange='e => comp.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Solid")'>
+                                        <label for="@(cid)-dash">Dash Style</label>
+                                        <select id="@(cid)-dash" aria-label="Dash Style for @comp.Name" value="@comp.DashStyle" @onchange='e => comp.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Solid")'>
                                             @foreach (var style in Enum.GetValues<DashStyle>())
                                             {
                                                 <option value="@style">@style</option>
@@ -311,8 +320,10 @@
                             {
                                 <fieldset>
                                     <legend>Cloud Fills</legend>
+                                    @{ int fillIndex = 0; }
                                     @foreach (var fill in _series.CloudFills)
                                     {
+                                        var fid = $"fill-{fillIndex++}";
                                         <div style="border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;">
                                             <div class="modal-row" style="font-weight:bold; margin-bottom:4px;">
                                                 <span>@fill.DisplayName</span>
@@ -322,12 +333,12 @@
                                                 </label>
                                             </div>
                                             <div class="modal-row">
-                                                <label>Bullish Fill</label>
-                                                <input type="color" value="@fill.BullishColorHex" @onchange='e => fill.BullishColorHex = e.Value?.ToString() ?? "#26A69A"' />
+                                                <label for="@(fid)-bull">Bullish Fill</label>
+                                                <input id="@(fid)-bull" type="color" aria-label="Bullish Fill for @fill.DisplayName" value="@fill.BullishColorHex" @onchange='e => fill.BullishColorHex = e.Value?.ToString() ?? "#26A69A"' />
                                             </div>
                                             <div class="modal-row">
-                                                <label>Bearish Fill</label>
-                                                <input type="color" value="@fill.BearishColorHex" @onchange='e => fill.BearishColorHex = e.Value?.ToString() ?? "#EF5350"' />
+                                                <label for="@(fid)-bear">Bearish Fill</label>
+                                                <input id="@(fid)-bear" type="color" aria-label="Bearish Fill for @fill.DisplayName" value="@fill.BearishColorHex" @onchange='e => fill.BearishColorHex = e.Value?.ToString() ?? "#EF5350"' />
                                             </div>
                                         </div>
                                     }
@@ -340,8 +351,13 @@
                                     {
                                         <p>No reference levels on this series yet.</p>
                                     }
+                                    @{ int levelIndex = 0; }
                                     @foreach (var level in _series.Levels)
                                     {
+                                        @* Index first, then the name: two levels can share a name
+                                           ("Level" placed twice), and a name can carry spaces,
+                                           which an id cannot. *@
+                                        var lid = $"lvl-{levelIndex++}-{Slug(level.Name)}";
                                         <div style="border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;">
                                             <div class="modal-row" style="font-weight:bold; margin-bottom:4px;">
                                                 <span>@level.Name@(level.IsUserDefined ? " (yours)" : "")</span>
@@ -355,20 +371,21 @@
                                                         @onclick="() => RemoveLevel(level)">Remove</button>
                                             </div>
                                             <div class="modal-row">
-                                                <label>Value</label>
-                                                <input type="number" step="any" value="@level.Value"
+                                                <label for="@(lid)-value">Value</label>
+                                                <input id="@(lid)-value" type="number" step="any" aria-label="Value of level @level.Name" value="@level.Value"
                                                        @onchange='e => { if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double v)) level.Value = v; }' />
-                                                <input type="color" value="@level.ColorHex"
+                                                <label for="@(lid)-color">Color</label>
+                                                <input id="@(lid)-color" type="color" aria-label="Color of level @level.Name" value="@level.ColorHex"
                                                        @onchange='e => level.ColorHex = e.Value?.ToString() ?? "#888"' />
                                                 <select value="@level.DashStyle" style="width:80px;"
-                                                        aria-label="Line style"
+                                                        aria-label="Line style of level @level.Name"
                                                         @onchange='e => level.DashStyle = Enum.Parse<DashStyle>(e.Value?.ToString() ?? "Dash")'>
                                                     @foreach (var style in Enum.GetValues<DashStyle>()) { <option value="@style">@style</option> }
                                                 </select>
                                             </div>
                                             <div class="modal-row">
-                                                <label for="@($"lvl-thick-{level.Name}")">Thickness</label>
-                                                <input id="@($"lvl-thick-{level.Name}")" type="range" min="0.5" max="5" step="0.5"
+                                                <label for="@(lid)-thick">Thickness</label>
+                                                <input id="@(lid)-thick" type="range" min="0.5" max="5" step="0.5" aria-label="Thickness of level @level.Name"
                                                        value="@level.Thickness"
                                                        @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float tv)) level.Thickness = tv; }' />
                                                 <span>@level.Thickness.ToString("0.#") pixels</span>
@@ -394,8 +411,8 @@
                                                    neither was silently skipped — so the checkbox above did nothing at
                                                    all on a level you placed yourself. *@
                                                 <div class="modal-row">
-                                                    <label for="@($"lvl-dir-{level.Name}")">Report crossings</label>
-                                                    <select id="@($"lvl-dir-{level.Name}")" style="width:200px;"
+                                                    <label for="@(lid)-dir">Report crossings</label>
+                                                    <select id="@(lid)-dir" style="width:200px;" aria-label="Report crossings of level @level.Name"
                                                             @onchange='e => level.CrossDirection = Enum.Parse<LevelCrossDirection>(e.Value?.ToString() ?? "Auto")'>
                                                         <option value="Auto" selected="@(level.CrossDirection == LevelCrossDirection.Auto)">Automatic (@level.EffectiveCrossDirection)</option>
                                                         <option value="Both" selected="@(level.CrossDirection == LevelCrossDirection.Both)">Either direction</option>
@@ -405,10 +422,12 @@
                                                 </div>
                                             }
                                             <div class="modal-row">
-                                                <label>Zone Texture @((level.ZoneNoiseAmount * 100).ToString("F0"))%</label>
-                                                <input type="range" min="0" max="1" step="0.05" value="@level.ZoneNoiseAmount"
+                                                <label for="@(lid)-zone">Zone Texture @((level.ZoneNoiseAmount * 100).ToString("F0"))%</label>
+                                                <input id="@(lid)-zone" type="range" min="0" max="1" step="0.05" aria-label="Zone Texture of level @level.Name" value="@level.ZoneNoiseAmount"
                                                        @onchange='e => { if (float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float nv)) level.ZoneNoiseAmount = nv; }' />
-                                                <select value="@level.ZoneNoiseType" style="width:75px;"
+                                                <label for="@(lid)-zone-type">Noise</label>
+                                                <select id="@(lid)-zone-type" value="@level.ZoneNoiseType" style="width:75px;"
+                                                        aria-label="Zone noise type of level @level.Name"
                                                         @onchange='e => level.ZoneNoiseType = e.Value?.ToString() ?? "pink"'>
                                                     <option value="white">White</option>
                                                     <option value="pink">Pink</option>
@@ -537,8 +556,8 @@
                     case "Sonification":
                         <div class="scroll-area">
                             <div class="modal-row">
-                                <label>Master Series Volume</label>
-                                <input type="range" min="0" max="1" step="0.05" value="@_series.Volume" @onchange='e => _series.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
+                                <label for="son-master-volume">Master Series Volume</label>
+                                <input id="son-master-volume" type="range" min="0" max="1" step="0.05" value="@_series.Volume" @onchange='e => _series.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
                                 <span>@((_series.Volume * 100).ToString("F0"))%</span>
                             </div>
 
@@ -562,11 +581,13 @@
                             @foreach (var comp in _series.Components.Where(c =>
                                 string.IsNullOrEmpty(_selectedComponentName) || c.Name == _selectedComponentName))
                             {
+                                @* Named twice over, as on the Appearance tab — see the note there. *@
+                                var sid = "son-" + Slug(comp.Name);
                                 <fieldset>
                                     <legend>Acoustics: @comp.Name</legend>
                                     <div class="modal-row">
-                                        <label>Sound Patch</label>
-                                        <select value="@(comp.SoundPatchId ?? "")"
+                                        <label for="@(sid)-patch">Sound Patch</label>
+                                        <select id="@(sid)-patch" value="@(comp.SoundPatchId ?? "")"
                                                 @onchange="e => comp.SoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
                                                 aria-label="Sound patch for @comp.Name">
                                             <option value="">(manual — use controls below)</option>
@@ -582,8 +603,8 @@
                                     {
                                         var dir = DirectionLabels(comp);
                                         <div class="modal-row">
-                                            <label>@dir.Up</label>
-                                            <select value="@(comp.BullishSoundPatchId ?? "")"
+                                            <label for="@(sid)-bull-patch">@dir.Up</label>
+                                            <select id="@(sid)-bull-patch" value="@(comp.BullishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BullishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
                                                     aria-label="@dir.Up for @comp.Name">
                                                 <option value="">(use Sound Patch above)</option>
@@ -596,8 +617,8 @@
                                                     aria-label="Preview bullish patch for @comp.Name">&#9654;</button>
                                         </div>
                                         <div class="modal-row">
-                                            <label>@dir.Down</label>
-                                            <select value="@(comp.BearishSoundPatchId ?? "")"
+                                            <label for="@(sid)-bear-patch">@dir.Down</label>
+                                            <select id="@(sid)-bear-patch" value="@(comp.BearishSoundPatchId ?? "")"
                                                     @onchange="e => comp.BearishSoundPatchId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()"
                                                     aria-label="@dir.Down for @comp.Name">
                                                 <option value="">(use Sound Patch above)</option>
@@ -620,8 +641,8 @@
                                         Leave a field blank to fall back to the Sound Patch, then the manual controls below.
                                     </p>
                                     <div class="modal-row">
-                                        <label>Waveform (Instrument)</label>
-                                        <select value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
+                                        <label for="@(sid)-waveform">Waveform (Instrument)</label>
+                                        <select id="@(sid)-waveform" aria-label="Waveform (Instrument) for @comp.Name" value="@comp.Waveform" @onchange='e => comp.Waveform = e.Value?.ToString() ?? "sine"'>
                                             <option value="sine">Sine (Soft)</option>
                                             <option value="triangle">Triangle (Mellow)</option>
                                             <option value="sawtooth">Sawtooth (Bright)</option>
@@ -629,18 +650,18 @@
                                         </select>
                                     </div>
                                     <div class="modal-row">
-                                        <label>Volume</label>
-                                        <input type="range" min="0" max="1" step="0.05" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
+                                        <label for="@(sid)-volume">Volume</label>
+                                        <input id="@(sid)-volume" type="range" min="0" max="1" step="0.05" aria-label="Volume for @comp.Name" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
                                         <span>@((comp.Volume * 100).ToString("F0"))%</span>
                                     </div>
                                     <div class="modal-row">
-                                        <label>Base Frequency (Hz)</label>
-                                        <input type="number" step="10" min="50" max="2000" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
+                                        <label for="@(sid)-freq">Base Frequency (Hz)</label>
+                                        <input id="@(sid)-freq" type="number" step="10" min="50" max="2000" aria-label="Base Frequency (Hz) for @comp.Name" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
                                     </div>
                                     <div class="modal-row">
-                                        <label>Noise Texture (@(comp.NoiseAmount.ToString("F2")))</label>
-                                        <input type="range" min="0" max="1" step="0.05" value="@comp.NoiseAmount"
-                                               aria-label="Noise texture amount"
+                                        <label for="@(sid)-noise">Noise Texture (@(comp.NoiseAmount.ToString("F2")))</label>
+                                        <input id="@(sid)-noise" type="range" min="0" max="1" step="0.05" value="@comp.NoiseAmount"
+                                               aria-label="Noise Texture amount for @comp.Name"
                                                @onchange='e => comp.NoiseAmount = float.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float nv) ? nv : 0f' />
                                         <span style="min-width:32px;">@((comp.NoiseAmount * 100).ToString("F0"))%</span>
                                     </div>
@@ -856,6 +877,14 @@
             foreach (var p in user)
                 yield return (p.Id, p.Name);
     }
+
+    /// <summary>
+    /// A component or level name as an id fragment. Names carry spaces and punctuation
+    /// ("Signal Line", "Oversold zone"); an id cannot, and a <c>for</c> that points at an
+    /// invalid id is the orphan-label defect in a new coat.
+    /// </summary>
+    private static string Slug(string s) =>
+        new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
 
     private static string Prettify(string id) =>
         string.Join(' ', id.Split('_').Select(w => w.Length == 0 ? w : char.ToUpper(w[0]) + w.Substring(1)));

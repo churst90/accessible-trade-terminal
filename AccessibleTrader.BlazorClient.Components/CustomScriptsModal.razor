@@ -131,9 +131,11 @@
                         <button @onclick="ImportAtpkgFromFile" aria-label="Import from file: an .atpkg package on disk">
                             &#128194; Import from file…
                         </button>
-                        <span style="font-size:0.8rem; color:var(--text-muted);">— or paste legacy JSON below —</span>
+                        @* The instruction that was already on screen is the field's label. A
+                           placeholder alone is not a name: it vanishes once the field has content. *@
+                        <label for="cs-import-json" style="font-size:0.8rem; color:var(--text-muted);">— or paste legacy JSON below —</label>
                     </div>
-                    <textarea rows="3" style="width:100%; font-family:monospace; font-size:0.8rem;"
+                    <textarea id="cs-import-json" rows="3" style="width:100%; font-family:monospace; font-size:0.8rem;"
                               placeholder='Paste legacy .atpkg JSON: {"Name":"...","Code":"..."}'
                               @bind="_importJson"></textarea>
                     <div style="display:flex; gap:8px;">
@@ -153,7 +155,8 @@
             <details style="margin-top:8px;">
                 <summary style="cursor:pointer; font-weight:bold; padding:4px 0;">Transpile from Pine Script v5</summary>
                 <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
-                    <textarea rows="6" style="width:100%; font-family:monospace; font-size:0.8rem;"
+                    <label for="cs-pine-code" style="font-size:0.8rem; color:var(--text-muted);">Pine Script v5 source</label>
+                    <textarea id="cs-pine-code" rows="6" style="width:100%; font-family:monospace; font-size:0.8rem;"
                               placeholder="//@@version=5&#10;indicator(&quot;My Script&quot;)&#10;len = input(14, &quot;Length&quot;)&#10;value = ta.sma(close, len)&#10;plot(value, &quot;SMA&quot;)"
                               @bind="_pineCode"></textarea>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">

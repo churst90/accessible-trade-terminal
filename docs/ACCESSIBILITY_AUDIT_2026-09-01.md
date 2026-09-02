@@ -311,6 +311,15 @@ A blind trader configuring a series hears "colour edit", "slider", "spin button"
 
 `RiskPlanEditor.razor:86-142` is the correct in-repo template and should be the model for the fix.
 
+> **CLOSED 2026-09-02, and it was REPRODUCED before it was fixed.** A new bUnit
+> `FormControlNameSweepTests` opened the dialog on a series that renders every branch and listed
+> **24 distinct rendered controls with no name** — this entry's count exactly. Fixed with the
+> `RiskPlanEditor` shape (id/`for` plus an `aria-label` that extends the visible text with the
+> component or level name). The sweep now runs over every catalog dialog and its tabs, which is
+> the bUnit half the browser sweep could not supply for a dialog that needs a focused series; it
+> also found `CustomScriptsModal`'s two placeholder-only textareas, now labelled. Details in
+> `docs/TODO.md`, START HERE block.
+
 ### 3.8 Four critical contrast failures, and the reason behind all of them
 
 **The codebase contains no WCAG contrast function.** `grep` for `0.04045`, `1.055`, `12.92` across
