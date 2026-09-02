@@ -14,8 +14,8 @@
         "Gridlines, minor" means nothing on its own; the hint is the control.
       • Changes apply live so a sighted user sees them, and every change is announced
         so a screen-reader user knows it took.
-      • Contrast problems are reported inline, never auto-corrected — see the note on
-        ContrastWarnings below.
+      • Contrast is measured with the WCAG ratio (ThemeContrastChecks) and reported inline,
+        never auto-corrected. A text pair below 4.5:1 stops Save; see ContrastProblems below.
 *@
 @inherits ModalBase
 @using AccessibleTrader.Core.Services
@@ -38,7 +38,7 @@
 
             @if (!string.IsNullOrEmpty(_status))
             {
-                <div role="status" aria-live="polite" style="color:#6d6; margin:8px 0;">@_status</div>
+                <div role="status" aria-live="polite" style="margin:8px 0;">@_status</div>
             }
 
             <fieldset style="border:1px solid var(--border-color); padding:10px 14px; margin-bottom:14px;">
@@ -66,19 +66,22 @@
                 </p>
             </fieldset>
 
-            @if (ContrastWarnings is { Count: > 0 } warnings)
-            {
-                <div role="status" aria-live="polite"
-                     style="border:1px solid #ffb300; border-radius:4px; padding:8px 12px; margin-bottom:14px;">
-                    <strong style="color:#ffb300;">Hard to read:</strong>
+            @{ var problems = ContrastProblems; bool anyProblem = problems is { Count: > 0 }; }
+            @* The live region is always in the tree and only its children change, because a
+               region inserted already populated is announced inconsistently. *@
+            <div role="status" aria-live="polite" id="te-contrast"
+                 style="@(anyProblem ? "border:1px solid var(--border-color); border-radius:4px; padding:8px 12px; margin-bottom:14px;" : "")">
+                @if (anyProblem)
+                {
+                    <strong>Hard to read:</strong>
                     <ul style="margin:6px 0 0 1.1em; padding:0;">
-                        @foreach (var w in warnings)
+                        @foreach (var problem in problems!)
                         {
-                            <li>@w</li>
+                            <li>@problem.What@(problem.Severity == ThemeContrastChecks.Severity.Blocking ? " Fix this before saving." : "")</li>
                         }
                     </ul>
-                </div>
-            }
+                }
+            </div>
 
             @foreach (var group in Enum.GetValues<ThemeGroup>())
             {
@@ -90,6 +93,10 @@
                         var f = field;
                         var current = f.Get(_preview);
                         bool overridden = _preset?.Overrides.ContainsKey(f.Key) == true;
+                        // A colour behind a blocking pair is marked invalid and described by the
+                        // problem box, so the refusal is discoverable AT the field, not only after Save.
+                        bool blocked = anyProblem && problems!.Any(p => p.Severity == ThemeContrastChecks.Severity.Blocking && p.FieldKey == f.Key);
+                        string describedBy = blocked ? $"te-hint-{f.Key} te-contrast" : $"te-hint-{f.Key}";
 
                         <div class="modal-row" style="align-items:flex-start;">
                             <label for="te-@f.Key" style="min-width:190px;">
@@ -98,11 +105,14 @@
 
                             <input id="te-@f.Key" type="color"
                                    value="@Hex(current)"
-                                   aria-describedby="te-hint-@f.Key"
+                                   aria-describedby="@describedBy"
+                                   aria-invalid="@(blocked ? "true" : "false")"
                                    @onchange="e => SetField(f, e.Value?.ToString())" />
 
                             <input type="text" value="@Hex(current)" style="width:9em;"
                                    aria-label="@f.Label hex value"
+                                   aria-describedby="@describedBy"
+                                   aria-invalid="@(blocked ? "true" : "false")"
                                    @onchange="e => SetField(f, e.Value?.ToString())" />
 
                             @if (f.Optional)
@@ -241,47 +251,28 @@
     }
 
     /// <summary>
-    /// Reports pairings that will be hard to read, and does NOT fix them.
+    /// The pairings that will be hard to read, measured with the WCAG contrast ratio, and NOT
+    /// corrected.
     ///
     /// <para>
-    /// Every built-in theme is checked against these same rules by the test suite, so a preset is
-    /// always safe. A theme someone builds by hand is their own, and silently correcting a colour
-    /// they deliberately chose is worse than showing the problem and letting them decide — they
-    /// may be building for a projector, a photosensitivity, or a screenshot.
+    /// The list of pairs lives in <see cref="ThemeContrastChecks"/>, and the test suite runs that
+    /// same list over every built-in theme, which is what makes a preset safe by construction
+    /// rather than by assertion. Text pairs (toolbar, dialog, secondary, axis labels, primary
+    /// button ink) below 4.5:1 stop Save and use — a theme whose dialog text cannot be read is
+    /// not a theme anyone meant to keep. Candles below 3:1 and a gridline as loud as the price
+    /// data are reported and left to the person: they may be building for a projector, a
+    /// photosensitivity, or a screenshot, and silently recolouring a choice they made is worse
+    /// than showing the number and letting them decide.
+    /// </para>
+    ///
+    /// <para>
+    /// Until 2026-09-02 this measured squared Euclidean RGB distance against a threshold of
+    /// 12,000, which waved through #0000ff on #000000 (distance 65,025) — a pair that is 2.44:1
+    /// and unreadable. Nothing in the app had ever computed a contrast ratio.
     /// </para>
     /// </summary>
-    private List<string>? ContrastWarnings
-    {
-        get
-        {
-            if (_preview == null) return null;
-            var w = new List<string>();
-
-            void Check(string what, SKColor fg, SKColor bg, int threshold = 12_000)
-            {
-                int dr = fg.Red - bg.Red, dg = fg.Green - bg.Green, db = fg.Blue - bg.Blue;
-                if (dr * dr + dg * dg + db * db < threshold) w.Add(what);
-            }
-
-            var chartTop = _preview.Background;
-            var chartBottom = _preview.BackgroundGradientEnd ?? _preview.Background;
-
-            Check("Rising candles almost match the chart background.", _preview.CandleBullishBody, chartTop);
-            Check("Falling candles almost match the chart background.", _preview.CandleBearishBody, chartTop);
-            Check("Axis labels almost match the chart background.", _preview.AxisText, chartBottom);
-            Check("Toolbar text almost matches the toolbar.", _preview.TextPrimary, _preview.SurfaceRaised);
-            Check("Dialog text almost matches the dialog background.", _preview.TextOnDialog, _preview.SurfaceSunken);
-
-            // The opposite failure: a grid so loud it competes with the price data.
-            int gr = _preview.GridLine.Red - chartTop.Red,
-                gg = _preview.GridLine.Green - chartTop.Green,
-                gb = _preview.GridLine.Blue - chartTop.Blue;
-            if (gr * gr + gg * gg + gb * gb > 20_000)
-                w.Add("Gridlines stand out as much as the price data.");
-
-            return w;
-        }
-    }
+    private IReadOnlyList<ThemeContrastChecks.Finding>? ContrastProblems =>
+        _preview == null ? null : ThemeContrastChecks.Failures(_preview);
 
     private void CopyForSharing()
     {
@@ -304,6 +295,18 @@
     private void SaveAndApply()
     {
         if (string.IsNullOrWhiteSpace(_name)) { Announce("Give the theme a name first."); return; }
+
+        // Read out every blocking pair with its number, so the person knows which colour to
+        // move and by roughly how much, then leave the dialog open on it.
+        var blocking = ContrastProblems?
+            .Where(p => p.Severity == ThemeContrastChecks.Severity.Blocking)
+            .Select(p => p.What)
+            .ToList();
+        if (blocking is { Count: > 0 })
+        {
+            Announce("Not saved. " + string.Join(" ", blocking));
+            return;
+        }
 
         var saved = _preset! with { Name = _name.Trim(), BasedOn = _basedOn };
         Themes.Upsert(saved);

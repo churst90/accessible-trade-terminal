@@ -117,11 +117,89 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, night — `PropertiesModal`'s 24 unnamed controls are
-> NAMED and a bUnit name sweep now covers every catalog dialog; F1–F12 work in text fields; the
-> ORDERED MODAL STACK is in and proved in a real browser. Read the NEXT list at the end of the
-> 2026-09-01 block; items 0, 1 and 3 are done, so it opens at item 2, a real WCAG contrast
-> function.)**
+> **START HERE (current as of 2026-09-02, late — the WCAG CONTRAST FUNCTION exists and the theme
+> editor blocks on it; `PropertiesModal`'s 24 unnamed controls are NAMED; F1–F12 work in text
+> fields; the ORDERED MODAL STACK is in. Read the NEXT list at the end of the 2026-09-01 block;
+> items 0, 1, 2 and 3 are done, so it opens at item 7, playback as a speech-free island. Still
+> carried: the Binance 451 geo-block, a product decision needing Cody, and the StrategyLab
+> statistics re-run. One decision for Cody is filed in the block just below: Steel Gray's
+> falling candle.)**
+>
+> ### FIXED 2026-09-02 (late) — one WCAG contrast function, and the theme editor refuses what it cannot read
+>
+> Item 2 of the NEXT list below. **Measured first.** A throwaway probe ran a real ratio over
+> the pairs the editor and `ThemeCoverageTests` had been judging by proxy — toolbar, dialog,
+> secondary and axis text, primary-button ink, both candles against both ends of the chart
+> fade, the focus ring — on all twelve built-ins. **Every text pair on every theme already
+> cleared 4.5:1.** The failures were graphical: High Contrast Light's rising candle was
+> **2.94:1** on white (the theme that exists to be legible, and a value that had been brightened
+> to widen the bull/bear gap without anyone measuring the other floor), Paper's rising candle
+> was **2.99:1** at the chart's lower end, and **Steel Gray's falling candle, #DD0000, is 1.48:1
+> at the top of the chart and 2.98:1 at the bottom**. The audit's "89 failing pairs" is not
+> refuted by this — it was counted over the hard-coded literals in the modals and `app.css` as
+> well, which this pass did not touch — but the built-in palettes are not where it lives.
+>
+> **What is in.** `WcagContrast` (Core, `Services/Theming`) — the sRGB transfer curve, the
+> `(L1+0.05)/(L2+0.05)` ratio, a translucent foreground composited over its background first,
+> `MostContrasting` for picking a ring or an ink, and the 4.5 / 3.0 floors as named constants.
+> `ThemeContrastChecks` is the ONE list of pairs, with a severity on each: text pairs are
+> **Blocking**, candles / focus ring / "grid as loud as the price data" are **Advisory**. The
+> theme editor's "Hard to read" box now reads that list, every line carries its ratio and the
+> floor ("Dialog text is only 1.56:1 against the dialog background; 4.50:1 is needed."), and
+> **Save and use is refused while a Blocking pair fails**, the refusal spoken with the numbers so
+> the person knows which colour to move. Advisory pairs stay advice, for the reason the editor's
+> docstring always gave — a projector, a photosensitivity, a screenshot. `ThemeCoverageTests`
+> runs the same list over every built-in (two theories, plus a vacuity floor on the pair keys),
+> and its three luminance-delta assertions are now ratios; `FocusRingFor` and `InkOn` pick by
+> ratio. `ThemeCssBridge.Luminance` stays, relabelled as a brightness, not a contrast, measure.
+> `WcagContrastTests` pins the guideline's boundary pair (#767676 on white 4.54:1 passes,
+> #777777 4.48:1 fails — the case a gamma-less luminance cannot tell apart), the audit's
+> headline #0000ff-on-black at 2.44:1, and half-alpha white over black at 5.32:1.
+>
+> **Fixed:** High Contrast Light's rising candle (0,175,0) → (0,160,0), the value at which BOTH
+> floors hold (3.49:1 on white; still 0.29 apart from the bear in brightness for red-green
+> deficiency, over the 0.25 that test demands). Paper's #15A038 → #13962F (3.37:1 at the lower
+> end), its volume bar moved with it. **Recorded, NOT fixed — Cody's decision:** Steel Gray's
+> falling candle. No red clears 3:1 on a #4E545E grey; the nearest that does is a pink
+> (#FF8080, 3.15:1), and #DD0000 is pinned as a chosen colour. So
+> `SteelGray_fallingCandleIsBelowTheGraphicsFloor_recordedNotFixed` asserts the defect at
+> 1.4–1.6:1 and the candle theory exempts exactly that key — the day the colour changes, the
+> pin goes red and the exemption is deleted with it, so it cannot outlive its reason. The
+> falling WICK (#F23B3B) has the same problem and the same owner.
+>
+> **Sabotage, restored from file copies:** the transfer curve replaced by identity → the
+> boundary and alpha tests red, and nothing else (pure primaries measure the same under both
+> curves, which is why the boundary pair is the discriminator, not #0000ff); the editor's
+> blocking `return` removed → the gate test red; the dialog-text pair dropped from the list →
+> the vacuity floor AND the gate test red; each candle colour reverted to the original tree →
+> exactly its own theme's row red. Control green. Suite **6,097** (`--list-tests`
+> 6092); browser suite 162/162 — re-run because a dialog on a cold-start route changed
+> its markup.
+>
+> **The contrast specialist's review (run as a general-purpose agent over `contrast-master.md`;
+> the plugin's own agent type still is not registered) reproduced every number independently —
+> 4.5422, 4.4781, 2.4440, 5.3172 — and called three things WRONG, all fixed before commit.**
+> (1) The "secondary text" pair measured a colour dialogs never draw: `app.css:425` scopes
+> `--text-muted` inside `.modal-content` to the dialog ink at 68% alpha, so a hint is
+> `TextOnDialog` through glass, and 68% alpha always erodes the ratio — a user theme whose
+> dialog text just cleared 4.5:1 would have saved with every hint below it. Now measured as
+> `TextOnDialog.WithAlpha(173)` over the dialog surface (the alpha path in `Ratio` was there and
+> unused), pinned by `DialogHintText_isMeasuredAsTheDialogInkThroughGlass_notAsTextMuted`; the
+> `TextMuted` pair stays as what it really is, tab labels. (2) The grid finding's `Ratio` /
+> `Minimum` meant the opposite of the other rows'; the record now carries `AtMost`. (3) "Rising
+> candles is only 1.00:1" — a subject/verb mismatch in the one sentence the change exists to
+> speak. It also asked for the refusal to be discoverable AT the field: every finding now names
+> the `ThemeFields` key most likely to move, both inputs behind a blocking pair carry
+> `aria-invalid="true"` and are described by the problem box (the `"true":"false"` ternary —
+> the bare-bool scan guard caught the null-omission form first), the box is always in the tree
+> with only its children changing (a live region born populated is announced inconsistently),
+> the accent-ink message says to move the Accent (the ink is the app's pick, not a field), the
+> `_status` line no longer paints "Not saved." in a hard-coded success green, and three pairs it
+> ranked as missing are in: the toolbar's fade end, footer text, and the crosshair at 3:1 against
+> both chart ends. All built-ins pass every added pair. Sixth sabotage: the field marking
+> forced off → the gate test red. Left as the reviewer left it: polite is right for the refusal
+> (the queue is empty and `Announce` also speaks it on the app's channel); the box border and
+> the tab-label pair are cosmetic; Steel Gray's falling candle is still Cody's.
 >
 > ### FIXED 2026-09-02 (night) — `PropertiesModal`'s unnamed controls, and the bUnit half of the name sweep
 >
@@ -543,8 +621,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > no `for` and no wrapping; lines `361` and `411` had no label text whatsoever. This is the
 > sonification config, the file that decides what the chart sounds like.
 >
-> **2. Implement a real WCAG contrast function, once.** `grep 0.04045|1.055|12.92` over all `.cs`
-> returns nothing. Three non-WCAG proxies are live, including **squared Euclidean RGB distance** at
+> **2. DONE 2026-09-02 (late) — a real WCAG contrast function, once.** See the START HERE block at
+> the top of this section: `WcagContrast` + `ThemeContrastChecks`, the editor blocks on text
+> pairs, `ThemeCoverageTests` measures every built-in with the same list; two candle colours
+> fixed, Steel Gray's falling candle recorded for Cody. Original entry: `grep 0.04045|1.055|12.92`
+> over all `.cs` returns nothing. Three non-WCAG proxies are live, including **squared Euclidean RGB distance** at
 > `ThemeEditorModal.razor:260`, which waves through `#0000ff` on `#000000` (Euclidean 65,025 vs a
 > 12,000 threshold; actual **2.44:1**). Its docstring claims "a preset is always safe" — false as
 > measured, across **89 failing pairs in 12 themes**. Use it as a BLOCKING check in the theme

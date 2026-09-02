@@ -352,6 +352,24 @@ Two more that deserve naming:
   Windows High Contrast cannot touch. Highest-leverage fix: switch to the existing
   `HighContrastDark`/`Light` theme on `forced-colors: active`.
 
+> **THE FUNCTION EXISTS NOW — 2026-09-02.** `WcagContrast` (Core, `Services/Theming`) is the one
+> ratio: sRGB transfer curve, `(L1+0.05)/(L2+0.05)`, translucent foregrounds composited first;
+> pinned to the guideline's own boundary pair (#767676 on white 4.54:1 passes, #777777 4.48:1
+> does not — the case a gamma-less luminance cannot tell apart). `ThemeContrastChecks` is the ONE
+> list of pairs; the theme editor's "Hard to read" box reads it and **Save is refused while a
+> text pair is under 4.5:1**, with the ratio spoken; candles and the focus ring are measured at
+> 3:1 and reported, not enforced. `ThemeCoverageTests` runs the same list over every built-in,
+> replacing its luminance-delta assertions; `FocusRingFor`/`InkOn` pick by ratio. **Measured
+> against that list, "89 failing pairs" was not what the built-ins showed:** every text pair on
+> every theme already cleared 4.5:1, and three candle pairs failed 3:1 — High Contrast Light's
+> rising candle (2.94:1 on white) and Paper's (2.99:1 at the chart's lower end) are fixed, and
+> **Steel Gray's falling candle (#DD0000: 1.48:1 at the top of the chart, 2.98:1 at the bottom)
+> is recorded, not fixed** — no red clears 3:1 on that grey and it is a chosen colour, so the
+> test pins the defect and the decision is Cody's. The 89 must therefore live mostly in the
+> hard-coded literals in the modals and `app.css`, which this pass did not touch; the "6
+> demonstrated false negatives" in the editor are gone with the Euclidean check. Details in
+> `docs/TODO.md`, START HERE block.
+
 ### 3.9 The chart — the product's centre — has no visible focus indicator
 
 **`ChartArea.razor:67`** · **Serious** · WCAG 2.4.7 (A) · found independently by three audits
@@ -751,7 +769,7 @@ defect before being trusted:
 | `Layout/MainLayout.razor`, `Pages/Home.razor` | Excluded by `TopDirectoryOnly` and absent from `ModalCatalog.BareComponents` — yet they hold both ARIA live regions and `#main-heading`. |
 | `lang`, skip link, `alt`, page title, landmark roles, heading hierarchy | No guard asserts any of these anywhere. |
 | Stacked modals | No test opens two dialogs. |
-| WCAG contrast ratios | Never computed. |
+| WCAG contrast ratios | **CLOSED 2026-09-02.** `WcagContrast` + `ThemeContrastChecks`; every built-in measured by `ThemeCoverageTests`, the editor blocks on text pairs. |
 | axe-core / pa11y / Lighthouse | None. `BrowserTests.csproj` references only Playwright, MVC.Testing and xunit. |
 
 ---

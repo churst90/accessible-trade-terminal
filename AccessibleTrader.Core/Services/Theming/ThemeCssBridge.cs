@@ -130,12 +130,13 @@ namespace AccessibleTrader.Core.Services.Theming
         /// <para>
         /// The old ring was a fixed <c>#ffff00</c>. That is excellent on black and close to
         /// invisible on the light theme's #EEE toolbar. Rather than pick per theme by hand — which
-        /// is a thing to forget when a theme is added — this measures the chrome's luminance and
-        /// picks the high-contrast end: yellow on dark surfaces, deep blue on light ones.
+        /// is a thing to forget when a theme is added — this measures both candidates against the
+        /// chrome with the WCAG ratio and keeps the one that reads better: yellow on dark
+        /// surfaces, deep blue on light ones.
         /// </para>
         /// </summary>
         public static SKColor FocusRingFor(ChartTheme theme) =>
-            Luminance(theme.SurfaceRaised) > 0.5 ? new SKColor(0, 32, 176) : new SKColor(255, 255, 0);
+            WcagContrast.MostContrasting(theme.SurfaceRaised, new SKColor(255, 255, 0), new SKColor(0, 32, 176));
 
         /// <summary>
         /// Readable ink for text drawn on top of <paramref name="surface"/> — near-black on a
@@ -148,10 +149,14 @@ namespace AccessibleTrader.Core.Services.Theming
         /// </para>
         /// </summary>
         public static SKColor InkOn(SKColor surface) =>
-            Luminance(surface) > 0.5 ? new SKColor(12, 15, 20) : new SKColor(255, 255, 255);
+            WcagContrast.MostContrasting(surface, new SKColor(255, 255, 255), new SKColor(12, 15, 20));
 
-        /// <summary>Relative luminance, 0 (black) to 1 (white). sRGB coefficients, no gamma —
-        /// enough to answer "is this surface light or dark", which is all it is used for.</summary>
+        /// <summary>
+        /// Brightness, 0 (black) to 1 (white), sRGB coefficients with NO gamma curve. This is not
+        /// a contrast measure and must not be used as one — it answers "is this surface light or
+        /// dark" and "are these two candles far apart in brightness", nothing more. Anything that
+        /// asks "can this be read on that" goes through <see cref="WcagContrast"/>.
+        /// </summary>
         public static double Luminance(SKColor c) =>
             (0.2126 * c.Red + 0.7152 * c.Green + 0.0722 * c.Blue) / 255.0;
 

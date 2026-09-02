@@ -54,14 +54,15 @@ namespace AccessibleTrader.Tests
         {
             var theme = Build(type);
 
-            // Not a full WCAG ratio — just the failure that actually happens, which is a theme
-            // pairing light text with a light toolbar because only the chart half was considered.
-            double surface = ThemeCssBridge.Luminance(theme.SurfaceRaised);
-            double text    = ThemeCssBridge.Luminance(theme.TextPrimary);
+            // The failure that actually happened was a theme pairing light text with a light
+            // toolbar because only the chart half was considered. Until 2026-09-02 this was a
+            // gamma-less luminance delta against a hand-picked 0.35; it is now the WCAG ratio
+            // against the floor for body text, the same measure the theme editor applies.
+            double ratio = WcagContrast.Ratio(theme.TextPrimary, theme.SurfaceRaised);
 
-            Assert.True(Math.Abs(surface - text) > 0.35,
-                $"{type}: toolbar luminance {surface:0.00} vs text {text:0.00} — the chrome text " +
-                "is too close in brightness to the surface behind it.");
+            Assert.True(ratio >= WcagContrast.TextMinimum,
+                $"{type}: toolbar text is {WcagContrast.Format(ratio)} against the toolbar; " +
+                $"{WcagContrast.Format(WcagContrast.TextMinimum)} is the floor for body text.");
         }
 
         [Theory]
@@ -73,11 +74,11 @@ namespace AccessibleTrader.Tests
             // A fixed yellow ring is excellent on black and nearly invisible on the light theme's
             // near-white toolbar — and a focus ring you cannot see is the same as no keyboard
             // navigation at all for a low-vision user.
-            double surface = ThemeCssBridge.Luminance(theme.SurfaceRaised);
-            double ring    = ThemeCssBridge.Luminance(ThemeCssBridge.FocusRingFor(theme));
+            double ratio = WcagContrast.Ratio(ThemeCssBridge.FocusRingFor(theme), theme.SurfaceRaised);
 
-            Assert.True(Math.Abs(surface - ring) > 0.3,
-                $"{type}: focus ring luminance {ring:0.00} against a {surface:0.00} toolbar.");
+            Assert.True(ratio >= WcagContrast.GraphicsMinimum,
+                $"{type}: the focus ring is {WcagContrast.Format(ratio)} against the toolbar; " +
+                $"{WcagContrast.Format(WcagContrast.GraphicsMinimum)} is the floor for a UI component.");
         }
 
         [Theory]
@@ -91,12 +92,109 @@ namespace AccessibleTrader.Tests
             // wrong for any dark one, which is the label of the most consequential button in
             // every dialog. Measured per theme for the same reason as the focus ring: picking
             // it by hand is a thing to forget the next time a theme is added.
-            double accent = ThemeCssBridge.Luminance(theme.Accent);
-            double ink    = ThemeCssBridge.Luminance(ThemeCssBridge.InkOn(theme.Accent));
+            double ratio = WcagContrast.Ratio(ThemeCssBridge.InkOn(theme.Accent), theme.Accent);
 
-            Assert.True(Math.Abs(accent - ink) > 0.35,
-                $"{type}: accent luminance {accent:0.00} vs its ink {ink:0.00} — the primary " +
-                "button's label is too close in brightness to the button.");
+            Assert.True(ratio >= WcagContrast.TextMinimum,
+                $"{type}: the primary button's label is {WcagContrast.Format(ratio)} against the " +
+                $"button; {WcagContrast.Format(WcagContrast.TextMinimum)} is the floor for body text.");
+        }
+
+        // ── The pairs the editor promises are safe ───────────────────────
+
+        [Theory]
+        [MemberData(nameof(AllThemes))]
+        public void EveryTheme_keepsEveryTextPairAtTheWcagFloor(ThemeType type)
+        {
+            // ThemeContrastChecks is the ONE list of pairs — the editor refuses to save a theme
+            // that fails a text pair on it, and this runs the same list over every built-in. The
+            // editor's docstring says a preset is always safe; this is the sentence that makes
+            // it true. Measured against the undecorated base theme, which is what the editor
+            // starts from.
+            var theme = BaseThemeResolver.Resolve(type);
+
+            var failing = ThemeContrastChecks.Failures(theme)
+                .Where(f => f.Severity == ThemeContrastChecks.Severity.Blocking)
+                .Select(f => f.What)
+                .ToList();
+
+            Assert.True(failing.Count == 0,
+                $"{type} would be refused by the theme editor:\n  " + string.Join("\n  ", failing));
+        }
+
+        [Theory]
+        [MemberData(nameof(AllThemes))]
+        public void EveryTheme_keepsItsCandlesAndFocusRingAboveTheGraphicsFloor(ThemeType type)
+        {
+            // WCAG 1.4.11: a graphical object needs 3:1 against what it sits on, and a candle
+            // can sit anywhere on the chart gradient, so both ends are measured. The one
+            // recorded exception is pinned in its own test below so it cannot outlive its reason.
+            var theme = BaseThemeResolver.Resolve(type);
+
+            var failing = ThemeContrastChecks.Failures(theme)
+                .Where(f => f.Severity == ThemeContrastChecks.Severity.Advisory)
+                .Where(f => !(type == ThemeType.SteelGray && f.Key is "bearTop" or "bearBottom"))
+                .Select(f => f.What)
+                .ToList();
+
+            Assert.True(failing.Count == 0,
+                $"{type}:\n  " + string.Join("\n  ", failing));
+        }
+
+        [Fact]
+        public void SteelGray_fallingCandleIsBelowTheGraphicsFloor_recordedNotFixed()
+        {
+            // The shipped default's falling candle is #DD0000 on a chart that fades from
+            // #4E545E to #22252A. Measured 2026-09-02: 1.48:1 at the top of the chart and
+            // 2.98:1 at the bottom, against a 3:1 floor. No red reaches 3:1 on that grey — it
+            // takes a pink (#FF8080 is 3.15:1) — and #DD0000 is a chosen colour
+            // (SteelGray_usesTheChosenBullAndBearColours), so changing it is a product decision
+            // and not something to slip in under a contrast pass. This test pins the DEFECT: the
+            // day the colour changes it goes red, the exemption above is deleted with it, and
+            // the exemption can never quietly outlive its reason.
+            var theme = BaseThemeResolver.Resolve(ThemeType.SteelGray);
+            var bear = ThemeContrastChecks.Measure(theme).Single(f => f.Key == "bearTop");
+
+            Assert.False(bear.Passes, "SteelGray's falling candle now clears 3:1 — delete this test " +
+                                      "and the exemption in EveryTheme_keepsItsCandlesAndFocusRingAboveTheGraphicsFloor.");
+            Assert.InRange(bear.Ratio, 1.4, 1.6);
+        }
+
+        [Fact]
+        public void DialogHintText_isMeasuredAsTheDialogInkThroughGlass_notAsTextMuted()
+        {
+            // app.css scopes --text-muted inside .modal-content to the dialog ink at 68% alpha,
+            // so the colour a dialog's hints are actually drawn in is TextOnDialog composited
+            // over the dialog surface — and 68% alpha always erodes the ratio. A list that
+            // measured theme.TextMuted here would let a theme whose dialog text just clears
+            // 4.5:1 save with every hint in every dialog below it.
+            var theme = BaseThemeResolver.Resolve(ThemeType.SteelGray);
+            var hint = ThemeContrastChecks.Measure(theme).Single(f => f.Key == "secondaryText");
+            var text = ThemeContrastChecks.Measure(theme).Single(f => f.Key == "dialogText");
+
+            Assert.Equal(WcagContrast.Ratio(theme.TextOnDialog.WithAlpha(173), theme.SurfaceSunken), hint.Ratio, 6);
+            Assert.True(hint.Ratio < text.Ratio, "the hint is the same ink through glass; it must measure lower");
+            Assert.NotEqual(WcagContrast.Ratio(theme.TextMuted, theme.SurfaceSunken), hint.Ratio, 3);
+        }
+
+        [Fact]
+        public void TheChecks_coverEveryPairTheEditorPromises()
+        {
+            // A vacuity floor for the two theories above: a pair dropped from
+            // ThemeContrastChecks.Measure would make them pass by asking less, not by the
+            // themes getting better.
+            var keys = ThemeContrastChecks.Measure(BaseThemeResolver.Resolve(ThemeType.SteelGray))
+                .Select(f => f.Key).ToHashSet();
+
+            foreach (var expected in new[]
+                     {
+                         "toolbarText", "toolbarTextBottom", "dialogText", "secondaryText", "tabLabels", "footerText",
+                         "axisTextTop", "axisTextBottom", "accentInk",
+                         "bullTop", "bullBottom", "bearTop", "bearBottom", "crosshairTop", "crosshairBottom", "focusRing",
+                         ThemeContrastChecks.GridKey,
+                     })
+            {
+                Assert.Contains(expected, keys);
+            }
         }
 
         // ── The bridge ───────────────────────────────────────────────────

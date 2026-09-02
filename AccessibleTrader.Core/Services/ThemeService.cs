@@ -544,13 +544,15 @@ namespace AccessibleTrader.Core.Services
             // brightness gap between them — the pair first drawn here differed by 0.21 in
             // luminance and so stopped carrying direction in greyscale. Widened by lifting the
             // green and deepening the red, rather than by brightening the green alone, which
-            // would have cost contrast against the off-white.
-            CandleBullishBody = new SKColor(0x15, 0xA0, 0x38),
+            // would have cost contrast against the off-white. Then deepened one step more
+            // (#15A038 → #13962F): against the chart's lower, warmer end (#F3EFE6) the first
+            // value was 2.99:1, a hair under the 3:1 a candle needs as a graphical object.
+            CandleBullishBody = new SKColor(0x13, 0x96, 0x2F),
             CandleBearishBody = new SKColor(0x9E, 0x05, 0x05),
             CandleBullishWick = new SKColor(0x0F, 0x7C, 0x2B),
             CandleBearishWick = new SKColor(0x7A, 0x03, 0x03),
             CandleDojiBody = new SKColor(0x5A, 0x55, 0x4C),
-            VolumeBullish = new SKColor(0x15, 0xA0, 0x38, 110),
+            VolumeBullish = new SKColor(0x13, 0x96, 0x2F, 110),
             VolumeBearish = new SKColor(0x9E, 0x05, 0x05, 110),
             IndicatorPalette = ImmutableList.Create(
                 new SKColor(0x24, 0x21, 0x1C), new SKColor(0xB0, 0x1E, 0x6B), new SKColor(0xB5, 0x5A, 0x00),
@@ -695,10 +697,13 @@ namespace AccessibleTrader.Core.Services
             AxisText             = SKColors.Black,
             AxisLine             = new SKColor(100, 100, 100),
             Crosshair            = new SKColor(0, 0, 200),
-            // Brightened from (0,140,0): against (200,0,0) the pair differed in hue but barely
-            // in luminance, so it stopped carrying direction under red-green deficiency — in
-            // the one theme that exists specifically to be legible.
-            CandleBullishBody    = new SKColor(0, 175, 0),
+            // Two floors pull this green in opposite directions, and (0,160,0) is where both
+            // hold. Against the (190,0,0) bear it must stay far enough apart in brightness to
+            // carry direction under red-green deficiency (it started at (0,140,0), which did
+            // not). Against the white chart it must reach WCAG 1.4.11's 3:1 for a graphical
+            // object — (0,175,0), the first correction, was 2.94:1, below the floor in the one
+            // theme that exists specifically to be legible. Measured by ThemeCoverageTests.
+            CandleBullishBody    = new SKColor(0, 160, 0),
             CandleBearishBody    = new SKColor(190, 0, 0),
             CandleBullishWick    = SKColors.Black,
             CandleBearishWick    = SKColors.Black,
