@@ -232,8 +232,11 @@ namespace AccessibleTrader.Core.Services
 
             protected override void OnTransitioned(SonificationState newState)
             {
-                // Silence meta-speech about internal state transitions.
-                // We only want to hear Play/Pause/Stop which are handled by the CommandDispatcher/SpeechRouter.
+                // Silence meta-speech about internal state transitions. The user hears
+                // Play/Pause/Resume/Stop/Finished from AccessibilityFeedbackCoordinator, which
+                // watches IsPlaying / IsPaused on the store (see PlaybackNarration). An older
+                // version of this comment credited the CommandDispatcher, which has never spoken
+                // any of them — the audit of 2026-09-01 found no playback speech anywhere.
             }
         }
     }

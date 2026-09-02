@@ -248,13 +248,19 @@ Also on the toolbar's second row as **Split**, which shows its own pressed state
 
 | Key | Action | Notes |
 |-----|--------|-------|
-| Space | Play/Stop entire chart | All visible series, bar by bar |
-| Shift+Space | Play/Stop focused series | Only components of the focused indicator |
-| Ctrl+Shift+Space | Play/Stop focused component | Single component only |
-| Ctrl+Space | Pause / Resume active playback | Cursor syncs to pause point |
-| Shift+Escape | Force-stop all playback immediately | — |
-| Shift+= | Increase playback speed | — |
-| Shift+- | Decrease playback speed | — |
+| Space | Play/Stop entire chart | All visible, unmuted series, bar by bar. Speaks "Playing chart from <first bar>, N bars." on start; if every series is muted or hidden it refuses and says so |
+| Shift+Space | Play/Stop focused series | Only components of the focused indicator, from the cursor. "Playing <series> from <bar>, N bars." |
+| Ctrl+Shift+Space | Play/Stop focused component | Single component only. "Playing <series> <component> from <bar>, N bars." |
+| Ctrl+Space | Pause / Resume active playback | Cursor syncs to pause point; speaks "Paused at <bar>." / "Resumed." With nothing playing: "Nothing is playing." |
+| Shift+Escape | Force-stop all playback immediately | Speaks "Playback stopped at <bar>." With nothing playing: "Nothing is playing." When playback reaches the last bar on its own it says "Playback finished at <bar>." with the boundary earcon |
+| Shift+= | Increase playback speed | Spoken during playback too: "Playback speed: 1.5x" |
+| Shift+- | Decrease playback speed | Spoken during playback too |
+
+While playback runs the tones carry price and speech carries time: each time the bars cross a
+calendar boundary one step coarser than the bar spacing (a new hour on minute bars, a new day on
+hourly, a new month on daily, a new year on weekly — the finest unit that keeps the announcements
+about two seconds apart at the current speed) the new period is spoken without interrupting.
+Navigation readouts and viewport descriptions stay silent during playback; F2 mutes all of it.
 
 ---
 

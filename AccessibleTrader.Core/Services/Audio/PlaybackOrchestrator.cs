@@ -37,49 +37,37 @@ namespace AccessibleTrader.Core.Services.Audio
             _subs.Add(_sequencer.PointReached.Subscribe(idx => PlaybackPointReached?.Invoke(idx)));
         }
 
+        /// <summary>
+        /// Starts the sequencer on exactly the <see cref="PlaybackPlan"/> the dispatcher admitted
+        /// and the coordinator announced. The selection rule lives in
+        /// <see cref="PlaybackPlan.Resolve"/>, not here — see that type for why.
+        ///
+        /// <para>
+        /// Speech is NOT this class's job and never was, whatever an older comment in the
+        /// coordinator said: this class has no speech router and no event bus. Everything the
+        /// user hears in words about playback — start, pause, resume, stop, finished, speed, the
+        /// landmark dates while it runs — comes from
+        /// <c>AccessibilityFeedbackCoordinator</c> observing the store.
+        /// </para>
+        /// </summary>
         public void StartPlayback(WorkspaceState state)
         {
-            if (state.Data == null || state.Data.Count == 0) return;
+            var plan = PlaybackPlan.Resolve(state, state.PlaybackScope);
+            if (!plan.IsPlayable || state.Data == null) return;
 
             Stop();
             _playbackCts = new CancellationTokenSource();
 
             if (state.PlaybackScope == PlaybackScope.Chart)
             {
-                // Chart scope: every visible, unmuted, non-drawing, non-profile series plays
-                // simultaneously. All series' components are heard layered on top of each other,
-                // bar by bar. Muted series are excluded so the user's mute actually silences them.
-                var playList = state.ActiveSeries
-                    .Where(s => s.IsVisible && !s.IsMuted && !s.IsDrawing && !s.IsProfile)
-                    .ToList();
-
-                if (playList.Count == 0) return;
-
-                int start = Math.Clamp(state.ViewportStartIndex, 0, state.Data.Count - 1);
                 SafeFireAndForget.Run(
-                    () => _sequencer.StartMultiSeriesPlaybackAsync(playList, state.Data.ToList(), start, _playbackCts.Token),
+                    () => _sequencer.StartMultiSeriesPlaybackAsync(plan.Series, state.Data.ToList(), plan.StartIndex, _playbackCts.Token),
                     _logger, "MultiSeriesPlayback");
             }
             else
             {
-                // Series scope: all components of the focused series play simultaneously.
-                // Component scope: only the focused component of the focused series plays.
-                string seriesId = state.FocusedSeriesId ?? state.PrimarySeriesId;
-                var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId)
-                          ?? state.ActiveSeries.FirstOrDefault();
-                if (series == null) return;
-
-                // Series/Component: start from cursor so the user hears from the current position forward.
-                int start = Math.Clamp(Math.Max(0, state.CurrentDataIndex), 0, state.Data.Count - 1);
-
-                // -1 is already this call's "no component filter" value, which is the right
-                // answer for a series with nothing to filter to.
-                int componentFilter = state.PlaybackScope == PlaybackScope.Component
-                    ? series.ClampComponent(state.FocusedComponentIndex)
-                    : -1;
-
                 SafeFireAndForget.Run(
-                    () => _sequencer.StartPlaybackAsync(series, state.Data.ToList(), start, _playbackCts.Token, componentFilter),
+                    () => _sequencer.StartPlaybackAsync(plan.Series[0], state.Data.ToList(), plan.StartIndex, _playbackCts.Token, plan.ComponentFilter),
                     _logger, "SeriesPlayback");
             }
         }

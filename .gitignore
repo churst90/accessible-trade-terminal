@@ -117,3 +117,6 @@ dist/
 
 # Local research video corpus (multi-GB tutorial captures, never committed)
 /video content/
+
+# Personal research notes on a YouTube trader's calls — not part of the product.
+docs/CAMEL_TRACK_RECORD.md

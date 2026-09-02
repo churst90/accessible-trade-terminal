@@ -117,13 +117,119 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, late — the WCAG CONTRAST FUNCTION exists and the theme
-> editor blocks on it; `PropertiesModal`'s 24 unnamed controls are NAMED; F1–F12 work in text
-> fields; the ORDERED MODAL STACK is in. Read the NEXT list at the end of the 2026-09-01 block;
-> items 0, 1, 2 and 3 are done, so it opens at item 7, playback as a speech-free island. Still
-> carried: the Binance 451 geo-block, a product decision needing Cody, and the StrategyLab
-> statistics re-run. One decision for Cody is filed in the block just below: Steel Gray's
-> falling candle.)**
+> **START HERE (current as of 2026-09-02, night — PLAYBACK SPEAKS: start, pause, resume, stop
+> versus finished, speed mid-playback, and calendar landmarks while it runs; the WCAG CONTRAST
+> FUNCTION exists and the theme editor blocks on it; `PropertiesModal`'s 24 unnamed controls
+> are NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in. Read the NEXT list at
+> the end of the 2026-09-01 block; items 0, 1, 2, 3 and 7 are done, so it opens at item 8,
+> `AutoNarrationService`'s nine `Speak` calls per scan. Still carried: the Binance 451
+> geo-block, a product decision needing Cody, and the StrategyLab statistics re-run. One
+> decision for Cody is filed two blocks below: Steel Gray's falling candle.)**
+>
+> ### FIXED 2026-09-02 (night) — playback was a speech-free island, and now it is not
+>
+> Item 7 of the NEXT list below. **Confirmed exactly as the audit wrote it, and then some.**
+> The coordinator's playback gate returned before any announcement on the strength of
+> "The PlaybackOrchestrator handles its own sonification/speech" — that class has no speech
+> router and no event bus — and `SonificationManager` carried a SECOND false comment crediting
+> the CommandDispatcher with Play/Pause/Stop speech. A grep for any spoken "Playing", "Paused",
+> "Resumed", "Stopped" in Core, the components and the hosts found nothing. So: Space produced
+> tones and not a word, Ctrl+Space parked them in silence, the last bar ending sounded like a
+> crash, and Shift+= — useful only mid-playback — was announced only when idle, because the
+> announcement sat below the gate.
+>
+> **What speaks now, all from `AccessibilityFeedbackCoordinator` ABOVE the gate, with the
+> sentences in a new pure `PlaybackNarration`:**
+>
+> - Start: "Playing chart from February 10 2024, 60 bars." — series and component scope name
+>   the series ("Playing EMA 20 EMA from …"); intraday bars carry the time of day.
+> - "Paused at February 25 2024." / "Resumed." — a stop from paused is ONE sentence, because
+>   `SetPlaybackAction(false)` clears `IsPaused` in the same reduction.
+> - "Playback stopped at …" versus **"Playback finished at …"** — the sequencer walks the cursor
+>   to `Count - 1` before it ends, so the cursor on the last bar is what "the whole range
+>   sounded" looks like from the store; a user stop lands anywhere before it.
+> - "Playback speed: 1.5x" during playback, not only when idle.
+> - **Landmarks while it runs.** The tones carry price, so speech carries time: each time the
+>   bar's date crosses a calendar boundary — hour, day, month or year, the finest unit that keeps
+>   the announcements at least two seconds apart at the current speed (`UnitFor`: 1m→hour,
+>   1h→day, 4h and 1d→month, 1d at 10x and weekly→year) — the new period is spoken
+>   NON-interrupting. Nothing else per bar: a readout every 100 ms is noise, not an equivalent.
+>   The first NavigateAction after a start is a jump to the plan's start bar, not a step, and a
+>   coordinator flag keeps it silent.
+>
+> **The gate stays.** Navigation and viewport feedback for a cursor the USER moves is still
+> silenced during playback; a test pins that a pan mid-playback speaks nothing. **And none of
+> it fires on a tab switch** — the tab label owns the live region there, and on the web head a
+> second write in the same render batch would replace it.
+>
+> **One rule for what plays and from where.** `PlaybackPlan.Resolve(state, scope)` (Core,
+> `Services/Audio`) is the selection the orchestrator used to make privately — chart scope plays
+> every visible, unmuted, non-drawing, non-profile series from the viewport's left edge; series
+> and component scope play the focused series from the cursor, the component filter clamped.
+> The orchestrator plays it, the coordinator describes it, so the sentence and the sound cannot
+> name different series; a test drives the real orchestrator against a substitute sequencer and
+> asserts it received the plan's series and start bar.
+>
+> **A defect found on the way, and it had to be fixed for the announcement not to lie:** with
+> every series muted, `SetPlaybackAction(true)` was dispatched, the orchestrator found an empty
+> playlist and returned WITHOUT A SOUND, and the store said "playing" — gate engaged, every arrow
+> key silent, until the next Space "stopped" a playback that had never started. Announcing that
+> start would have said "Playing chart" over silence. The dispatcher now resolves the plan first
+> and refuses with a Boundary message ("Nothing to play. Every series is muted or hidden." / "No
+> series is loaded."), the shape the other why-did-that-key-do-nothing messages use.
+> `CommandDispatcherGatingTests`' `LoadedState()` had bars and no series — a chart that cannot
+> exist — and now carries its candle series.
+>
+> **The screen-reader review (run as the specialists, on the diff) found two more silent keys
+> in the same shape, both fixed:** Ctrl+Space with nothing playing flipped `IsPaused` with
+> `IsPlaying` false — silent, and it turned the NEXT Space into a silent "stop", two dead
+> presses in a row; Shift+Escape when idle was silent. Both now refuse with a Boundary "Nothing
+> is playing.", and the gating test that pinned paused-without-playing as a reachable state
+> pins the reachable one instead. Also from the review: the sequencer's own finish now QUEUES
+> (`interrupt: false`) and carries the boundary earcon — a two-bar component plan finishes
+> 200 ms after its start sentence, which an interrupting finish clipped, and under F2 the
+> earcon is the only end-of-stream marker; series scope's first real step no longer loses its
+> landmark (the flag was cleared only by an index MOVE, and series scope starts AT the cursor);
+> a one-component indicator no longer stutters ("EMA 20 EMA"); and the coordinator speaks the
+> refusal itself if any caller other than the dispatcher ever sets `IsPlaying` on an empty plan.
+>
+> **Recorded by the review, NOT fixed, for the list:** (a) on the web head the live region is
+> `aria-live="assertive"` for everything (`MainLayout.razor`), so `interrupt: false` is a
+> promise only the desktop/TTS paths keep — a polite second region is the fix; (b) two more
+> landmark units, six-hour and week, would tighten 5m (28.8 s between landmarks at 1x) and 4h
+> (18 s); (c) the gate stays engaged while PAUSED, so zoom/pan descriptions are swallowed with
+> the sequencer parked — and on resume the sequencer continues from its own index, not the
+> user's cursor, so record both together; (d) Shift+= at the 10.0x clamp is a silent key;
+> (e) a bar appended by the live feed mid-playback makes a full run read as "stopped" (the
+> sequencer iterates a snapshot) — noted in `ReachedEnd`'s doc comment.
+>
+> **`PlaybackFinished` deliberately gained no subscriber.** The audit counted zero and it is
+> still zero. The sequencer fires it from `finally` on EVERY ending — a user stop and a
+> cancellation included — and off the main thread, racing the `SetPlaybackAction(false)` that
+> `SonificationManager` posts; it cannot tell finished from stopped and it would arrive before
+> or after the state change on different heads. The store can tell (cursor on the last bar), so
+> the coordinator reads the ending from the store. The event stays, exposed for plugins.
+>
+> **Proof.** `PlaybackNarrationTests`: 38 cases (27 facts, 11 theory rows) driving the real
+> coordinator through the exact store transitions the dispatcher and sequencer produce, with a
+> speech spy that records `interrupt` and an audio spy that records earcons. Fourteen sabotages, each red on exactly the named test and
+> nothing else, control green: the speed line moved back below the gate; the start never
+> spoken; finished collapsed into stopped; the landmark made interrupting; the dispatcher
+> refusal removed; the orchestrator given its own selection again; the first-step flag never
+> set; pause never spoken; the pause branch put ahead of the stop branch ("Resumed." on a stop
+> from paused); the tab-switch arm demoted, so a switch away from a playing tab spoke over the
+> tab label. Both false comments fixed in place with the reason. **One sabotage survived on the
+> first try and was the harness's lesson, not the code's:** it removed a guard that was
+> REDUNDANT with the arm above it, so nothing changed — a green sabotage on a redundant guard
+> is a signal to delete the guard, which is what happened. The five guards the review added were
+> sabotaged the same way: the idle Ctrl+Space refusal, the start-bar first-step rule, the
+> queued finish, the one-component name, the coordinator's own refusal fallback.
+>
+> **Durable, for the list:** *a comment that names a class as the owner of a behaviour is a
+> claim to grep, not to believe* — it survived here because both comments pointed away from the
+> file the reader was in; and *an announcement of a state is only honest if the state cannot be
+> reached without the thing it announces* — the muted-playlist path had to close before "Playing
+> chart" could be spoken.
 >
 > ### FIXED 2026-09-02 (late) — one WCAG contrast function, and the theme editor refuses what it cannot read
 >
@@ -634,7 +740,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > **3. DONE 2026-09-02 — one ordered modal stack.** See the START HERE block at the top of this
 > section. `StackedModalBrowserTests` opens two dialogs; `ModalStack` is the one stack.
 >
-> **7. Playback is a speech-free island.** `AccessibilityFeedbackCoordinator.cs:289-295` gates all
+> **7. DONE 2026-09-02 (night) — playback speaks.** See the START HERE block at the top of this
+> section: `PlaybackNarration` + `PlaybackPlan`, start/pause/resume/stop-vs-finished/speed
+> above the gate, calendar landmarks while it runs, the dispatcher refuses an empty plan,
+> both false comments fixed. Original entry: `AccessibilityFeedbackCoordinator.cs:289-295` gates all
 > navigation feedback on `state.IsPlaying`, justified by a comment saying "the PlaybackOrchestrator
 > handles its own sonification/speech" — **that class has no speech router, no event bus and no
 > `Speak` call in its 97 lines.** Up to ~8 minutes of tone with no text equivalent. Also:

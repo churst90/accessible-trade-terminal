@@ -21,12 +21,25 @@ namespace AccessibleTrader.Tests
             new DateTime(2026, 1, 1, 0, minute, 0, DateTimeKind.Utc),
             close - 1, close + 1, close - 2, close, 1000);
 
-        private static WorkspaceState LoadedState() => WorkspaceState.Initial with
+        // A loaded chart carries at least its candle series. Until 2026-09-02 this fixture had
+        // bars and no series, and the play commands were dispatched regardless; now the
+        // dispatcher refuses to start a playback with nothing to play (PlaybackPlan), so the
+        // fixture has to be what a loaded chart actually is.
+        private static WorkspaceState LoadedState()
         {
-            Data = new TimeSeriesBuffer<Ohlcv>(
-                Enumerable.Range(0, 5).Select(i => Bar(100 + i, i)).ToList()),
-            CurrentDataIndex = 4,
-        };
+            var config = new SeriesConfig { Id = "candles", IndicatorCode = "candles", Name = "Price" };
+            config.Components.Add(new ComponentConfig { Name = "Body", DisplayName = "Body", IsVisible = true });
+            var candles = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "candles" });
+            return WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(
+                    Enumerable.Range(0, 5).Select(i => Bar(100 + i, i)).ToList()),
+                ActiveSeries = System.Collections.Immutable.ImmutableList.Create(candles),
+                PrimarySeriesId = "candles",
+                FocusedSeriesId = "candles",
+                CurrentDataIndex = 4,
+            };
+        }
 
         private static (CommandDispatcher dispatcher, SpyEventBus bus,
                         MockWorkspaceStore store, INavigationEngine nav)
@@ -174,8 +187,11 @@ namespace AccessibleTrader.Tests
             var stop = Assert.Single(store.DispatchedActions.OfType<SetPlaybackAction>());
             Assert.False(stop.IsPlaying);
 
-            // Paused (not playing) also counts as "active" — second press stops.
-            var (dispatcher2, _, store2, _) = Build(LoadedState() with { IsPaused = true });
+            // Paused (still playing) also counts as "active" — second press stops. Until
+            // 2026-09-02 this half pinned IsPaused WITHOUT IsPlaying, a state Ctrl+Space when
+            // idle could produce and that made the next Space a silent stop; the dispatcher no
+            // longer lets it exist (PlaybackNarrationTests covers the refusal).
+            var (dispatcher2, _, store2, _) = Build(LoadedState() with { IsPlaying = true, IsPaused = true });
             dispatcher2.SetChartActive(true);
             dispatcher2.Dispatch(SystemCommand.PlayChart);
 

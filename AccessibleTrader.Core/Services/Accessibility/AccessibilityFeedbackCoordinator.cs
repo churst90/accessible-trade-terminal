@@ -41,6 +41,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private WorkspaceState _previousState;
 
+        // True from a playback start until the sequencer's first NavigateAction lands. That
+        // first move is a jump to the plan's start bar, not a step through time, so it must not
+        // produce a landmark — see PlaybackNarration.LandmarkForStep.
+        private bool _awaitingFirstPlaybackStep;
+
         // Candle pattern debounce: only re-announce when pattern changes, not on every tick.
         private CandlePattern _lastAnnouncedPattern = CandlePattern.None;
         private CandleType _lastAnnouncedType = CandleType.Normal;
@@ -286,8 +291,91 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsLogScale != _previousState.IsLogScale)
                 _speechRouter.Speak(state.IsLogScale ? "Log scale" : "Linear scale", interrupt: true);
 
-            // 1. GATING: Silence all navigation feedback while playback is active
-            // The PlaybackOrchestrator handles its own sonification/speech.
+            // PLAYBACK. Every word the user hears about playback is spoken from here, and it has
+            // to sit ABOVE the gate below because the gate is exactly what playback engages.
+            //
+            // Until 2026-09-02 the gate's comment read "The PlaybackOrchestrator handles its own
+            // sonification/speech" and nothing did: the orchestrator owns tones only — it has no
+            // speech router and no event bus — and no other class spoke a start, pause, resume,
+            // stop or finish. Space produced tones with no words, Shift+= mid-playback changed
+            // the speed silently (the announcement was below the gate, so it worked only when it
+            // was useless), and the last bar ending sounded like a crash. PlaybackNarration holds
+            // the sentences; this block decides when each is due.
+            //
+            // Not on a tab switch. Two tabs can differ in every one of these flags, and the tab
+            // label is already being announced by WorkspaceStore.Dispatch; on the web head only
+            // the last write to the live region in a render batch survives, so "Playback speed:
+            // 2.0x" or "Playback stopped" here would eat the label. The sequencer does stop when
+            // the incoming tab is not playing (SonificationManager sees the same transition), and
+            // the user hears the tones end and the tab name — which is the whole story.
+            bool isTabSwitch    = state.ActiveTabIndex != _previousState.ActiveTabIndex;
+            bool playingToggled = state.IsPlaying != _previousState.IsPlaying;
+            bool scopeChanged   = state.PlaybackScope != _previousState.PlaybackScope;
+            bool pausedToggled  = state.IsPaused != _previousState.IsPaused;
+
+            if (isTabSwitch)
+            {
+                // First arm on purpose: it has to win over every playback transition below,
+                // including the speed line. Proven by sabotage — an unconditional speed line
+                // or this arm demoted below the chain both speak over the tab label.
+                _awaitingFirstPlaybackStep = false;
+            }
+            else if (state.PlaybackSpeed != _previousState.PlaybackSpeed)
+            {
+                _speechRouter.Speak(PlaybackNarration.SpeedText(state.PlaybackSpeed));
+            }
+            else if (state.IsPlaying && (playingToggled || scopeChanged))
+            {
+                // Announce the plan the orchestrator is about to play, from the same resolver it
+                // reads, so the sentence and the sound cannot name different series or bars.
+                var plan = Audio.PlaybackPlan.Resolve(state, state.PlaybackScope);
+                if (plan.IsPlayable)
+                    _speechRouter.Speak(PlaybackNarration.StartText(state, plan), interrupt: true);
+                else
+                    // The dispatcher refuses before dispatching, so this is for any OTHER
+                    // caller of SetPlaybackAction(true) — which would otherwise reproduce the
+                    // silent "playing" state exactly.
+                    _speechRouter.Speak(plan.RefusalReason ?? Audio.PlaybackPlan.NoSeriesReason, interrupt: true);
+                // Only a cursor that is NOT already on the start bar has a jump ahead of it.
+                // Series and component scope start AT the cursor, so their first NavigateAction
+                // moves nothing and the first real step must be allowed to land a landmark.
+                _awaitingFirstPlaybackStep = state.CurrentDataIndex != plan.StartIndex;
+            }
+            else if (playingToggled)
+            {
+                // SetPlaybackAction(false) clears IsPaused in the same reduction, so a stop
+                // from a paused state is one sentence, not "Resumed. Playback stopped".
+                //
+                // A user's stop answers a keypress and interrupts. The sequencer's own finish
+                // answers nothing: it must not clip a short plan's start sentence (a two-bar
+                // component plays out in 200 ms) or the last landmark, so it queues — and it
+                // carries the boundary earcon, because with F2 on the sentence is muted and
+                // the end of the tone stream would again be indistinguishable from a crash.
+                bool finished = PlaybackNarration.ReachedEnd(state);
+                if (finished) _audioRouter.PlayEarcon(FeedbackType.Boundary);
+                _speechRouter.Speak(PlaybackNarration.EndText(state), interrupt: !finished);
+            }
+            else if (state.IsPlaying && pausedToggled)
+            {
+                _speechRouter.Speak(state.IsPaused ? PlaybackNarration.PauseText(state) : PlaybackNarration.ResumeText,
+                    interrupt: true);
+            }
+            else
+            {
+                // Non-interrupting: a landmark must never clip the one before it, and it must
+                // never clip a speed or pause confirmation the user just asked for.
+                bool indexMoved = state.CurrentDataIndex != _previousState.CurrentDataIndex;
+                string? landmark = PlaybackNarration.LandmarkForStep(_previousState, state, isFirstStep: _awaitingFirstPlaybackStep);
+                if (state.IsPlaying && indexMoved) _awaitingFirstPlaybackStep = false;
+                if (landmark != null)
+                    _speechRouter.Speak(landmark, interrupt: false);
+            }
+
+            // 1. GATING: everything below is navigation and viewport feedback for a cursor the
+            // USER is moving. During playback the sequencer moves the cursor ten times a second,
+            // and a viewport description or a mute confirmation on every tick would bury the
+            // tones. Playback's own speech is the block above; the toggle confirmations are
+            // above that.
             if (state.IsPlaying)
             {
                 _previousState = state;
@@ -298,7 +386,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // state transition where ActiveTabIndex changes. The tab label is already announced
             // by WorkspaceStore.Dispatch via AnnouncementEvent. Letting viewport/initStatus
             // announcements race with that produces "loading history" / "loading link" speech.
-            bool isTabSwitch = state.ActiveTabIndex != _previousState.ActiveTabIndex;
             if (isTabSwitch)
             {
                 // Forget where the cursor was. The formation diff compares the current bar against
@@ -328,14 +415,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool viewportLengthChanged = state.ViewportLength      != _previousState.ViewportLength;
             bool viewportStartChanged  = state.ViewportStartIndex  != _previousState.ViewportStartIndex;
 
-            // 2. STATUS ANNOUNCEMENTS (Zoom, Pan, Speed, Mute, Hide)
+            // 2. STATUS ANNOUNCEMENTS (Zoom, Pan, Mute, Hide). Playback speed is in the playback
+            // block above the gate — it was here once, which is why Shift+= only spoke while
+            // nothing was playing.
             if (state.PanningGranularity != _previousState.PanningGranularity)
             {
                 _speechRouter.Speak($"Panning step: {state.PanningGranularity} percent");
-            }
-            if (state.PlaybackSpeed != _previousState.PlaybackSpeed)
-            {
-                _speechRouter.Speak($"Playback speed: {state.PlaybackSpeed.ToString("F1", CultureInfo.InvariantCulture)}x");
             }
 
             // VIEWPORT ANNOUNCEMENT POLICY:

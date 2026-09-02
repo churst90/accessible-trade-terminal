@@ -410,6 +410,24 @@ disconnect, or an empty dataset.
 **A stale comment naming a class that does not do the thing is how this survived.** Fix the comment
 as part of the fix.
 
+> **CLOSED 2026-09-02 (night).** Confirmed as written: no `Speak` about playback anywhere in the
+> tree, and the SonificationManager carried a second false comment crediting the
+> CommandDispatcher. `PlaybackNarration` (Core, `Services/Accessibility`) now holds the sentences
+> and the coordinator speaks them ABOVE the gate: "Playing chart from February 10 2024, 60 bars."
+> (scope, first bar, count — series and component scope name the series), "Paused at …" /
+> "Resumed.", "Playback stopped at …" versus **"Playback finished at …"** (the cursor on the last
+> bar is what the sequencer leaves behind; a stop lands anywhere before it), the speed
+> announcement moved up so Shift+= speaks mid-playback, and **calendar landmarks while it runs** —
+> the tones carry price, so speech carries time: hour, day, month or year, the finest unit that
+> keeps them ≥2 s apart at the current speed, non-interrupting. `PlaybackPlan.Resolve` is the ONE
+> rule for what plays and from where; the orchestrator plays it, the coordinator describes it,
+> and the dispatcher now **refuses with a spoken reason** when it is empty (every series muted;
+> before, `SetPlaybackAction(true)` went through, the orchestrator returned silently and the store
+> said "playing" with the gate engaged). `PlaybackFinished` deliberately gained no subscriber: the
+> sequencer fires it from `finally` on every ending including a user stop, off the main thread,
+> so it cannot tell finished from stopped — the store can. 38 tests, fourteen sabotages red, comment
+> fixed in both places. Details in `docs/TODO.md`, START HERE block.
+
 ### 3.11 AutoNarrationService emits up to nine `Speak` calls per scan; on the web head eight are silently discarded
 
 **`AutoNarrationService.cs:129-133`, emits at `:257, 286, 294, 438, 470, 484, 504, 509, 561`** ·
@@ -729,7 +747,8 @@ reason is the only kind worth trusting**; the same applies to a conformance clai
     announcement interrupts the live region and speak-then-focus clips the review at word one.
 11. `PropertiesModal` — 24 labels, following the `RiskPlanEditor` template.
 12. Playback: speech during playback, start/stop/complete announcements, subscribe
-    `PlaybackFinished`, **and fix the false comment.**
+    `PlaybackFinished`, **and fix the false comment.** — **DONE 2026-09-02** (all but the
+    subscription, which is the wrong signal; see §3.10's closing note).
 13. Compose `AutoNarrationService`'s nine emits into one utterance, mirroring
     `NavigationFeedbackManager`.
 14. Keyboard anchor editing (`SelectAnchor` / `NudgeAnchor`).

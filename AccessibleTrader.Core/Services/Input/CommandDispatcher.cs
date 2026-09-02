@@ -907,10 +907,24 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.PlayComponent:
                     TogglePlayback(PlaybackScope.Component);
                     break;
+                // Ctrl+Space and Shift+Escape with nothing playing used to be silent keys —
+                // and Ctrl+Space was worse than silent: TogglePauseAction flipped IsPaused with
+                // IsPlaying false, so the NEXT Space read as a stop and was silent too. Two dead
+                // presses in a row on the feature that had just learned to speak.
                 case SystemCommand.PlayPause:
+                    if (!_store.State.IsPlaying)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, NothingIsPlaying, true));
+                        break;
+                    }
                     _store.Dispatch(new TogglePauseAction());
                     break;
                 case SystemCommand.PlayStop:
+                    if (!_store.State.IsPlaying)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, NothingIsPlaying, true));
+                        break;
+                    }
                     _store.Dispatch(new SetPlaybackAction(false, _store.State.PlaybackScope));
                     break;
                 case SystemCommand.PlaySpeedUp:
@@ -922,15 +936,34 @@ namespace AccessibleTrader.Core.Services.Input
             }
         }
 
+        internal const string NothingIsPlaying = "Nothing is playing.";
+
         private void TogglePlayback(PlaybackScope scope)
         {
             // Second press always stops, regardless of scope match or pause state.
             // Ctrl+Space is the explicit pause/resume key; plain Space/Shift+Space/Ctrl+Shift+Space
             // are start-or-stop toggles with no intermediate hanging state.
             if (_store.State.IsPlaying || _store.State.IsPaused)
+            {
                 _store.Dispatch(new SetPlaybackAction(false, scope));
-            else
-                _store.Dispatch(new SetPlaybackAction(true, scope));
+                return;
+            }
+
+            // Refuse BEFORE dispatching when nothing would play. The orchestrator used to
+            // discover this on its own and return without a sound, leaving IsPlaying true in
+            // the store: the coordinator's playback gate stayed engaged, every navigation key
+            // went quiet, and the next Space "stopped" a playback that had never started. Now
+            // that a start is announced, dispatching first would also say "Playing chart"
+            // over silence. Boundary, like the other "why did that key do nothing" messages.
+            var plan = Audio.PlaybackPlan.Resolve(_store.State, scope);
+            if (!plan.IsPlayable)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary,
+                    plan.RefusalReason ?? Audio.PlaybackPlan.NoSeriesReason, true));
+                return;
+            }
+
+            _store.Dispatch(new SetPlaybackAction(true, scope));
         }
     }
 }
