@@ -49,21 +49,19 @@
 
         @* ── Chart setup: what you PUT on the chart ─────────────────────── *@
         <div class="toolbar-group">
-            <ToolbarIconButton Icon="object-tree" Label="Objects" Variant="neutral"
-                              Tooltip="Open series/object tree (Alt+O)"
-                              AriaLabel="Objects: chart object tree"
+            <ToolbarIconButton Icon="object-tree" Label="Object tree" Variant="neutral"
+                              Tooltip="Open object tree, Alt plus O"
                               OnClick="() => EventBus.Publish(new OpenObjectTreeEvent())" />
             @if (IsTradingTab)
             {
                 <ToolbarIconButton Icon="drawings" Label="Drawings" Variant="data"
-                                  Tooltip="Open drawing tools (Alt+D)"
+                                  Tooltip="Open drawing tools, Alt plus D"
                                   OnClick="() => EventBus.Publish(new OpenDrawingToolsEvent())" />
             }
             @if (Demo.AllowSoundDesigner)
             {
-                <ToolbarIconButton Icon="sound-designer" Label="Sound" Variant="neutral"
-                                  Tooltip="Sound Designer — customise audio patches and earcons (Alt+W)"
-                                  AriaLabel="Sound Designer"
+                <ToolbarIconButton Icon="sound-designer" Label="Sound designer" Variant="neutral"
+                                  Tooltip="Open sound designer, Alt plus W"
                                   OnClick="() => EventBus.Publish(new OpenSoundDesignerEvent())" />
             }
         </div>
@@ -72,62 +70,53 @@
         <div class="toolbar-group">
             @if (Demo.AllowTrading)
             {
-                <ToolbarIconButton Icon="trade" Label="Trade" Variant="action"
-                                  Tooltip="Open trading dashboard (Alt+T)"
-                                  AriaLabel="Trade dashboard"
+                <ToolbarIconButton Icon="trade" Label="Trade dashboard" Variant="action"
+                                  Tooltip="Open trade dashboard, Alt plus T"
                                   OnClick="() => EventBus.Publish(new OpenTradingDashboardEvent())" />
             }
             @if (Demo.AllowOrderBook)
             {
-                <ToolbarIconButton Icon="order-book" Label="Book" Variant="neutral"
-                                  Tooltip="Open order book (Alt+B)"
-                                  AriaLabel="Order Book"
+                <ToolbarIconButton Icon="order-book" Label="Order book" Variant="neutral"
+                                  Tooltip="Open order book, Alt plus B"
                                   OnClick="() => EventBus.Publish(new OpenOrderBookEvent())" />
             }
             @if (IsTradingTab && Demo.AllowStrategies)
             {
                 <ToolbarIconButton Icon="strategies" Label="Strategies" Variant="thought"
-                                  Tooltip="Open strategies (Alt+S)"
-                                  AriaLabel="Strategies"
+                                  Tooltip="Open strategies, Alt plus S"
                                   OnClick="() => EventBus.Publish(new OpenStrategiesEvent())" />
             }
             @if (!Demo.IsDemo)
             {
-                <ToolbarIconButton Icon="watchlist" Label="Watch" Variant="data"
-                                  Tooltip="Watchlists and screener — track symbols and scan them for conditions (Alt+M)"
-                                  AriaLabel="Watch lists and screener"
+                <ToolbarIconButton Icon="watchlist" Label="Watch lists" Variant="data"
+                                  Tooltip="Open watch lists and screener, Alt plus M"
                                   OnClick="() => EventBus.Publish(new OpenWatchlistEvent())" />
             }
             @if (IsTradingTab)
             {
-                <ToolbarIconButton Icon="analytics" Label="Zones" Variant="thought"
-                                  Tooltip="Level respect report — which moving averages and levels this symbol actually reacts to (Alt+R)"
-                                  AriaLabel="Zones: level respect report"
+                <ToolbarIconButton Icon="analytics" Label="Levels" Variant="thought"
+                                  Tooltip="Open level respect report, Alt plus R"
                                   OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
             }
-            <ToolbarIconButton Icon="journal" Label="Journal" Variant="neutral"
-                              Tooltip="Trade journal — review spoken messages and alert history (Ctrl+Alt+Shift+J)"
-                              AriaLabel="Trade Journal"
+            <ToolbarIconButton Icon="journal" Label="Trade journal" Variant="neutral"
+                              Tooltip="Open trade journal, Control plus Alt plus Shift plus J"
                               OnClick="() => EventBus.Publish(new OpenJournalEvent())" />
             @if (Demo.AllowAiAnalyst)
             {
-                <ToolbarIconButton Icon="ai-analyst" Label="AI" Variant="thought"
-                                  Tooltip="AI analyst — plain-language read of the current chart (Ctrl+Alt+Shift+A)"
-                                  AriaLabel="AI Analyst"
+                <ToolbarIconButton Icon="ai-analyst" Label="AI analyst" Variant="thought"
+                                  Tooltip="Open AI analyst, Control plus Alt plus Shift plus A"
                                   OnClick="() => EventBus.Publish(new OpenAIAnalystEvent())" />
             }
             @if (Demo.AllowAlerts)
             {
                 <ToolbarIconButton Icon="alerts" Label="Alerts" Variant="warning"
-                                  Tooltip="Manage price alerts (Alt+J)"
-                                  AriaLabel="Alerts"
+                                  Tooltip="Open alerts, Alt plus J"
                                   OnClick="() => EventBus.Publish(new OpenAlertsEvent())" />
             }
             @if (Demo.AllowApiKeysModal)
             {
-                <ToolbarIconButton Icon="api-keys" Label="API Keys" Variant="neutral"
-                                  Tooltip="Manage API keys for data and trading providers (Alt+K)"
-                                  AriaLabel="API Keys"
+                <ToolbarIconButton Icon="api-keys" Label="API keys" Variant="neutral"
+                                  Tooltip="Open API keys, Alt plus K"
                                   OnClick="() => EventBus.Publish(new OpenApiKeysEvent())" />
             }
             @* Present only when the connected provider genuinely has a wallet API.
@@ -138,7 +127,6 @@
             {
                 <ToolbarIconButton Icon="api-keys" Label="Deposit" Variant="neutral"
                                   Tooltip="Show a deposit address for this exchange"
-                                  AriaLabel="Deposit address"
                                   OnClick="() => EventBus.Publish(new OpenWalletEvent())" />
             }
             @* Present only when a withdrawal is actually possible: the provider
@@ -149,7 +137,6 @@
             {
                 <ToolbarIconButton Icon="api-keys" Label="Withdraw" Variant="warning"
                                   Tooltip="Withdraw funds to an address saved at the venue"
-                                  AriaLabel="Withdraw funds"
                                   OnClick="() => EventBus.Publish(new OpenWithdrawEvent())" />
             }
         </div>
@@ -158,13 +145,11 @@
         @if (Demo.AllowWorkspaceSaveLoad)
         {
             <div class="toolbar-group">
-                <ToolbarIconButton Icon="save-workspace" Label="Save" Variant="neutral"
-                                  Tooltip="Save current workspace layout (Ctrl+Alt+Shift+W)"
-                                  AriaLabel="Save Workspace"
+                <ToolbarIconButton Icon="save-workspace" Label="Save workspace" Variant="neutral"
+                                  Tooltip="Save workspace, Control plus Alt plus Shift plus W"
                                   OnClick="() => EventBus.Publish(new OpenSaveWorkspaceEvent())" />
-                <ToolbarIconButton Icon="load-workspace" Label="Load" Variant="neutral"
-                                  Tooltip="Load a saved workspace layout (Ctrl+Alt+W)"
-                                  AriaLabel="Load Workspace"
+                <ToolbarIconButton Icon="load-workspace" Label="Load workspace" Variant="neutral"
+                                  Tooltip="Load workspace, Control plus Alt plus W"
                                   OnClick="() => EventBus.Publish(new OpenLoadWorkspaceEvent())" />
             </div>
         }
@@ -174,13 +159,11 @@
             @if (Demo.AllowSettingsModal)
             {
                 <ToolbarIconButton Icon="settings" Label="Settings" Variant="neutral"
-                                  Tooltip="Open settings (F12)"
-                                  AriaLabel="Settings"
+                                  Tooltip="Open settings, F12"
                                   OnClick="() => EventBus.Publish(new OpenSettingsEvent())" />
             }
             <ToolbarIconButton Icon="help" Label="Help" Variant="neutral"
-                              Tooltip="Open keyboard shortcut reference (F1)"
-                              AriaLabel="Help"
+                              Tooltip="Open help, F1"
                               OnClick="() => EventBus.Publish(new OpenHelpEvent())" />
         </div>
 
@@ -336,16 +319,14 @@
         @if (IsMyDataMarketSelected)
         {
             <ToolbarIconButton Icon="load-workspace" Label="Import" Variant="neutral"
-                              Tooltip="Import a CSV data file (Ctrl+Alt+Shift+I)"
-                              AriaLabel="Import data file"
+                              Tooltip="Import a CSV data file, Control plus Alt plus Shift plus I"
                               OnClick="() => EventBus.Publish(new OpenMyDataEvent())" />
         }
 
-        <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"
+        <ToolbarIconButton Icon="load" Label="Load chart" Variant="action" Primary="true"
                           ElementId="toolbar-load-btn"
                           Gate="LoadGate"
-                          Tooltip="Load chart for selected symbol"
-                          AriaLabel="Load chart for selected symbol"
+                          Tooltip="Load chart for the selected symbol"
                           OnClick="LoadChart" />
 
         @if (_loadError != null)
@@ -363,19 +344,19 @@
         <div class="toolbar-group" role="group" aria-label="Chart view">
             <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
                               Gate="ChartDataGate"
-                              Tooltip="Pan left / back in time (Left arrow)"
+                              Tooltip="Pan left, back in time, Left arrow"
                               OnClick="PanLeft" />
             <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
                               Gate="ChartDataGate"
-                              Tooltip="Pan right / forward in time (Right arrow)"
+                              Tooltip="Pan right, forward in time, Right arrow"
                               OnClick="PanRight" />
             <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
                               Gate="ChartDataGate"
-                              Tooltip="Zoom in (Plus)"
+                              Tooltip="Zoom in, Plus key"
                               OnClick="ZoomIn" />
             <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
                               Gate="ChartDataGate"
-                              Tooltip="Zoom out (Minus)"
+                              Tooltip="Zoom out, Minus key"
                               OnClick="ZoomOut" />
         </div>
 
@@ -385,28 +366,23 @@
             <div class="toolbar-group">
                 <ToolbarIconButton Icon="heatmap" Label="Heatmap" Variant="data"
                                   IsToggleOn="@(IsHeatmapVisible == "true")"
-                                  Tooltip="Toggle Liquidity Heatmap (Alt+H)"
-                                  AriaLabel="Toggle liquidity heatmap"
+                                  Tooltip="Toggle liquidity heatmap, Alt plus H"
                                   OnClick="AddHeatmap" />
-                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin" Variant="data"
+                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
                                   IsToggleOn="@(Store.State.IsHeikinAshi)"
                                   Tooltip="Toggle Heikin Ashi candles"
-                                  AriaLabel="Toggle Heikin Ashi candles"
                                   OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
-                <ToolbarIconButton Icon="log-scale" Label="Log" Variant="data"
+                <ToolbarIconButton Icon="log-scale" Label="Log scale" Variant="data"
                                   IsToggleOn="@(Store.State.IsLogScale)"
                                   Tooltip="Toggle the logarithmic price scale"
-                                  AriaLabel="Toggle Log price scale"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
-                <ToolbarIconButton Icon="split-view" Label="Split" Variant="data"
+                <ToolbarIconButton Icon="split-view" Label="Split view" Variant="data"
                                   IsToggleOn="@IsSplitActive"
-                                  Tooltip="Toggle split view — show a second tab's chart alongside this one (Ctrl+Alt+Shift+S)"
-                                  AriaLabel="Toggle split view"
+                                  Tooltip="Toggle split view, a second chart beside this one, Control plus Alt plus Shift plus S"
                                   OnClick="ToggleSplit" />
                 <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
                                   IsToggleOn="@IsReplayActive"
-                                  Tooltip="Toggle bar replay — hide history and step forward one bar at a time (Ctrl+Alt+Shift+P)"
-                                  AriaLabel="Toggle bar replay"
+                                  Tooltip="Toggle bar replay, step forward one bar at a time, Control plus Alt plus Shift plus P"
                                   OnClick="ToggleReplay" />
             </div>
         }

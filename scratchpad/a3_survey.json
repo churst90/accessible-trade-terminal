@@ -291,7 +291,7 @@
   {
     "modal": "ObjectTreeModal",
     "how": "ToolbarButton",
-    "trigger": "Objects: chart object tree",
+    "trigger": "Object tree",
     "expectedFocus": "objtree-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -365,7 +365,7 @@
   {
     "modal": "SoundDesignerModal",
     "how": "ToolbarButton",
-    "trigger": "Sound Designer",
+    "trigger": "Sound designer",
     "expectedFocus": "sound-designer-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -452,7 +452,7 @@
   {
     "modal": "OrderBookModal",
     "how": "ToolbarButton",
-    "trigger": "Order Book",
+    "trigger": "Order book",
     "expectedFocus": "orderbook-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -541,7 +541,7 @@
   {
     "modal": "WatchlistModal",
     "how": "ToolbarButton",
-    "trigger": "Watch lists and screener",
+    "trigger": "Watch lists",
     "expectedFocus": "watchlist-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -587,7 +587,7 @@
   {
     "modal": "LevelReportModal",
     "how": "ToolbarButton",
-    "trigger": "Zones: level respect report",
+    "trigger": "Levels",
     "expectedFocus": "levelreport-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -631,7 +631,7 @@
   {
     "modal": "JournalModal",
     "how": "ToolbarButton",
-    "trigger": "Trade Journal",
+    "trigger": "Trade journal",
     "expectedFocus": "journal-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -655,7 +655,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[06:05:39] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[11:08:57] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"
@@ -668,7 +668,7 @@
   {
     "modal": "AIAnalystModal",
     "how": "ToolbarButton",
-    "trigger": "AI Analyst",
+    "trigger": "AI analyst",
     "expectedFocus": "ai-analyst-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -742,7 +742,7 @@
   {
     "modal": "ApiKeysModal",
     "how": "ToolbarButton",
-    "trigger": "API Keys",
+    "trigger": "API keys",
     "expectedFocus": "apikeys-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -779,7 +779,7 @@
   {
     "modal": "WalletModal",
     "how": "ToolbarButton",
-    "trigger": "Deposit address",
+    "trigger": "Deposit",
     "expectedFocus": "wallet-asset",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 0,
@@ -789,7 +789,7 @@
   {
     "modal": "WithdrawModal",
     "how": "ToolbarButton",
-    "trigger": "Withdraw funds",
+    "trigger": "Withdraw",
     "expectedFocus": "withdraw-asset",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 0,
@@ -799,7 +799,7 @@
   {
     "modal": "SaveWorkspaceModal",
     "how": "ToolbarButton",
-    "trigger": "Save Workspace",
+    "trigger": "Save workspace",
     "expectedFocus": "save-workspace-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -836,7 +836,7 @@
   {
     "modal": "LoadWorkspaceModal",
     "how": "ToolbarButton",
-    "trigger": "Load Workspace",
+    "trigger": "Load workspace",
     "expectedFocus": "load-workspace-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -962,7 +962,7 @@
   {
     "modal": "MyDataModal",
     "how": "ToolbarButton",
-    "trigger": "Import data file",
+    "trigger": "Import",
     "expectedFocus": "mydata-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,

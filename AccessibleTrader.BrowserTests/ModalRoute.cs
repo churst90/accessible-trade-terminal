@@ -85,30 +85,30 @@ internal static class ModalRoutes
     /// </summary>
     public static readonly IReadOnlyList<ModalRoute> Toolbar = new ModalRoute[]
     {
-        new("ObjectTreeModal",       OpenBy.ToolbarButton, "Objects: chart object tree", "objtree-title",         "heading names the dialog"),
+        new("ObjectTreeModal",       OpenBy.ToolbarButton, "Object tree", "objtree-title",         "heading names the dialog"),
         new("DrawingToolsModal",     OpenBy.ToolbarButton, "Drawings",                 "drawing-tools-title",   "heading names the dialog"),
-        new("SoundDesignerModal",    OpenBy.ToolbarButton, "Sound Designer",          "sound-designer-title",  "heading names the dialog"),
+        new("SoundDesignerModal",    OpenBy.ToolbarButton, "Sound designer",          "sound-designer-title",  "heading names the dialog"),
         new("TradingDashboardModal", OpenBy.ToolbarButton, "Trade dashboard",          "trade-title",           "heading names the dialog"),
-        new("OrderBookModal",        OpenBy.ToolbarButton, "Order Book",              "orderbook-title",       "heading names the dialog"),
+        new("OrderBookModal",        OpenBy.ToolbarButton, "Order book",              "orderbook-title",       "heading names the dialog"),
         new("StrategyModal",         OpenBy.ToolbarButton, "Strategies",              "strategy-title",        "heading names the dialog"),
-        new("WatchlistModal",        OpenBy.ToolbarButton, "Watch lists and screener", "watchlist-title",       "heading names the dialog"),
-        new("LevelReportModal",      OpenBy.ToolbarButton, "Zones: level respect report", "levelreport-title",     "heading names the dialog"),
-        new("JournalModal",          OpenBy.ToolbarButton, "Trade Journal",           "journal-title",         "heading names the dialog"),
-        new("AIAnalystModal",        OpenBy.ToolbarButton, "AI Analyst",              "ai-analyst-title",      "heading names the dialog"),
+        new("WatchlistModal",        OpenBy.ToolbarButton, "Watch lists", "watchlist-title",       "heading names the dialog"),
+        new("LevelReportModal",      OpenBy.ToolbarButton, "Levels", "levelreport-title",     "heading names the dialog"),
+        new("JournalModal",          OpenBy.ToolbarButton, "Trade journal",           "journal-title",         "heading names the dialog"),
+        new("AIAnalystModal",        OpenBy.ToolbarButton, "AI analyst",              "ai-analyst-title",      "heading names the dialog"),
         new("AlertsModal",           OpenBy.ToolbarButton, "Alerts",                  "alerts-title",          "heading names the dialog"),
-        new("ApiKeysModal",          OpenBy.ToolbarButton, "API Keys",                "apikeys-title",         "heading names the dialog"),
+        new("ApiKeysModal",          OpenBy.ToolbarButton, "API keys",                "apikeys-title",         "heading names the dialog"),
         // Both toolbar buttons are gated on a provider that actually has a wallet, so they are
         // absent from a credential-free session entirely. Kept in the catalog with the gate
         // recorded: a sweep that lists what it covered has to also list what it could not.
-        new("WalletModal",           OpenBy.ToolbarButton, "Deposit address",         "wallet-asset",
+        new("WalletModal",           OpenBy.ToolbarButton, "Deposit",         "wallet-asset",
             "money dialog: open on the asset picker, not the title", ColdStartReachable: false),
-        new("WithdrawModal",         OpenBy.ToolbarButton, "Withdraw funds",          "withdraw-asset",
+        new("WithdrawModal",         OpenBy.ToolbarButton, "Withdraw",          "withdraw-asset",
             "money dialog: open on the asset picker, not the title", ColdStartReachable: false),
-        new("SaveWorkspaceModal",    OpenBy.ToolbarButton, "Save Workspace",          "save-workspace-title",  "heading names the dialog"),
-        new("LoadWorkspaceModal",    OpenBy.ToolbarButton, "Load Workspace",          "load-workspace-title",  "heading names the dialog"),
+        new("SaveWorkspaceModal",    OpenBy.ToolbarButton, "Save workspace",          "save-workspace-title",  "heading names the dialog"),
+        new("LoadWorkspaceModal",    OpenBy.ToolbarButton, "Load workspace",          "load-workspace-title",  "heading names the dialog"),
         new("SettingsModal",         OpenBy.ToolbarButton, "Settings",                "settings-title",        "heading names the dialog"),
         new("HelpModal",             OpenBy.ToolbarButton, "Help",                    "help-title",            "heading names the dialog"),
-        new("MyDataModal",           OpenBy.ToolbarButton, "Import data file",        "mydata-title",          "heading names the dialog"),
+        new("MyDataModal",           OpenBy.ToolbarButton, "Import",        "mydata-title",          "heading names the dialog"),
     };
 
     /// <summary>

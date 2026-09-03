@@ -129,17 +129,35 @@
     private string? BlockedAttr => Reason is null ? null : "true";
 
     /// <summary>
-    /// The call site's own aria-describedby is kept and the reason id APPENDED — after
+    /// The call site's own aria-describedby is kept and the reason id APPENDED — before
     /// it, because a description is read in listed order and the reason a control is
     /// refused should not arrive behind a paragraph of standing hint text.
+    ///
+    /// <para>
+    /// The reason id is listed ONLY while there IS a reason. An aria-describedby that
+    /// resolves to the empty string is not "no description" — it is a description of "",
+    /// and it suppresses <c>title</c>, which is where a tooltip lives. That was measured
+    /// in Chromium on 2026-09-03 and it had silently deleted the spoken tooltip from every
+    /// button in <c>ToolbarIconButton</c>, which shares this contract. No GatedButton call
+    /// site passes a <c>title</c> today, so for THIS component the change is filed as
+    /// robustness — the defect is demonstrated on ToolbarIconButton, not here — but the
+    /// mechanism is identical and the next call site that adds a tooltip would hit it.
+    /// </para>
+    ///
+    /// <para>
+    /// Returning null omits the attribute entirely. Nothing dangles either way: the reason
+    /// span is rendered whether or not anything points at it.
+    /// </para>
     /// </summary>
-    private string DescribedByAttr
+    private string? DescribedByAttr
     {
         get
         {
             string? own = null;
             if (Extra != null && Extra.TryGetValue("aria-describedby", out var v))
                 own = v?.ToString();
+            bool blocked = Reason is not null;
+            if (!blocked) return string.IsNullOrWhiteSpace(own) ? null : own;
             return string.IsNullOrWhiteSpace(own) ? ReasonId : ReasonId + " " + own;
         }
     }

@@ -195,19 +195,129 @@ namespace AccessibleTrader.Tests
                 }
             }
 
-            // Two vacuity floors, and the SECOND is the one that matters. Counting call sites
-            // found says nothing about call sites compared: the previous version of this guard
-            // swept 34 and compared 27, and the 7 it did not compare included both of the
-            // buttons whose defect it was written to catch.
+            // THE VACUITY FLOOR, and it moved on 2026-09-03. It used to be `compared >= 25` —
+            // at least 25 call sites where BOTH a Label and an AriaLabel were read — because at
+            // the time nearly every button carried an override and a sweep that stopped comparing
+            // them would otherwise pass silently.
+            //
+            // The convention changed underneath that floor. Every AriaLabel on the top toolbar is
+            // gone: the visible label is the thing's own name and IS the accessible name, so 2.5.3
+            // holds by construction and the chord lives in the tooltip. Under that convention
+            // `compared` is legitimately ZERO, so the old floor could only be satisfied by putting
+            // the overrides back.
+            //
+            // So the floor is replaced by a POSITIVE statement of the convention, asserted in
+            // NoToolbarButtonOverridesItsOwnName below: no button carries an AriaLabel at all.
+            // That makes `compared == 0` a fact the suite proves rather than a hole it tolerates,
+            // and the containment check above stays armed for the day someone adds one back.
             Assert.True(swept >= 30,
                 $"the scan found only {swept} ToolbarIconButton call sites; there were 34 when "
                 + "this floor was written, so the tag split has stopped matching.");
-            Assert.True(compared >= 25,
-                $"the scan compared only {compared} of {swept} call sites. A button whose Label "
-                + "and AriaLabel were both read is guarded; the rest are not.");
             Assert.True(offenders.Count == 0,
                 "Toolbar buttons whose announced name does not contain their visible label "
                 + "(WCAG 2.5.3 — extend the visible words, do not replace them):\n  "
+                + string.Join("\n  ", offenders));
+        }
+
+        /// <summary>
+        /// THE TOOLBAR CONVENTION, set by Cody on 2026-09-03: a button's visible label is the
+        /// thing's own name, and that label IS its accessible name.
+        ///
+        /// <para>
+        /// An AriaLabel on a toolbar button can now only do harm. Before, it was where the full
+        /// phrase lived because the label was an abbreviation ("Book", "AI", "Watch") — and ten of
+        /// those overrides shipped announcing words that were not on the screen, which is what
+        /// WCAG 2.5.3 exists to stop. The labels are the full names now, so an override would
+        /// reintroduce exactly that risk while adding nothing: the chord and the sentence live in
+        /// the tooltip, which reaches the user as the accessible description.
+        /// </para>
+        ///
+        /// <para>
+        /// This is also the floor under
+        /// <see cref="EveryToolbarIconButton_announcesANameThatContainsItsVisibleLabel"/>. That
+        /// guard compares Label against AriaLabel and there are now none to compare, so without
+        /// this assertion "nothing to compare" and "the scan broke" would look identical.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void NoToolbarButtonOverridesItsOwnName()
+        {
+            var offenders = new List<string>();
+            int swept = 0;
+
+            foreach (var button in TopToolbarButtons())
+            {
+                swept++;
+                string? aria = AttributeValue(button, "AriaLabel");
+                if (aria is not null)
+                    offenders.Add($"button '{AttributeValue(button, "Icon") ?? "?"}' has "
+                                  + $"AriaLabel=\"{aria}\" — put the words in Label (they are the name) "
+                                  + "or in Tooltip (they are the description); an override can only "
+                                  + "break Label-in-Name");
+            }
+
+            Assert.True(swept >= 24,
+                $"the scan found only {swept} buttons in Toolbar.razor; there were 24 when this "
+                + "floor was written, so the tag split has stopped matching.");
+            Assert.True(offenders.Count == 0, string.Join("\n  ", offenders));
+        }
+
+        /// <summary>
+        /// Every toolbar button says what it does, and spells its chord in WORDS.
+        ///
+        /// <para>
+        /// The tooltip is the button's accessible description — the only place the keyboard
+        /// shortcut is spoken while arrowing along the toolbar (see
+        /// <c>ToolbarTooltipDescriptionTests</c> in the browser project, which measures the
+        /// description Chromium actually computes). A missing tooltip is therefore a button whose
+        /// chord the user can never discover from the toolbar.
+        /// </para>
+        ///
+        /// <para>
+        /// AND IT BANS A SPELLING ON PURPOSE, which this repo normally refuses to do. The
+        /// justification is that here the spelling IS the property: "Ctrl+Alt+Shift+J" is handed
+        /// to a speech synthesiser, and what each one does with "+" — read it, skip it, say
+        /// "plus" — is not something this app can rely on or test. "Control plus Alt plus Shift
+        /// plus J" voices identically everywhere. Same argument for the old parenthesised form:
+        /// "(Alt+O)" trailing a sentence is a visual convention.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void EveryToolbarButtonHasATooltipAndSpellsItsChordInWords()
+        {
+            var offenders = new List<string>();
+            int swept = 0, withTooltip = 0;
+
+            foreach (var button in TopToolbarButtons())
+            {
+                swept++;
+                string where = $"button '{AttributeValue(button, "Icon") ?? "?"}'";
+                string? tip = AttributeValue(button, "Tooltip");
+
+                if (tip is null || tip.Trim().Length == 0)
+                {
+                    offenders.Add($"{where} has no Tooltip, so its chord is undiscoverable from the toolbar");
+                    continue;
+                }
+                withTooltip++;
+
+                if (tip.Contains('+'))
+                    offenders.Add($"{where}: Tooltip \"{tip}\" writes a chord with '+'. Spell it: "
+                                  + "\"Control plus Alt plus Shift plus J\".");
+
+                foreach (var opener in new[] { "(Alt", "(Ctrl", "(Control", "(Shift", "(F1", "(F2", "(Left", "(Right", "(Plus", "(Minus" })
+                    if (tip.Contains(opener, StringComparison.OrdinalIgnoreCase))
+                        offenders.Add($"{where}: Tooltip \"{tip}\" puts its chord in parentheses. "
+                                      + "Use \", <chord in words>\" at the end instead.");
+            }
+
+            Assert.True(swept >= 24, $"the scan found only {swept} buttons in Toolbar.razor.");
+            Assert.True(withTooltip >= 24,
+                $"only {withTooltip} of {swept} buttons had a Tooltip READ. The '+' and "
+                + "parenthesis checks below say nothing about a button whose Tooltip this scan "
+                + "could not find, so this floor is what stops them passing on an empty sweep.");
+            Assert.True(offenders.Count == 0,
+                "Toolbar tooltips that a screen reader cannot voice reliably:\n  "
                 + string.Join("\n  ", offenders));
         }
 
@@ -268,6 +378,27 @@ namespace AccessibleTrader.Tests
         /// <para>Razor's own rule is what makes this parseable: a quoted attribute value ends at
         /// the first quote that is not inside a balanced <c>@( … )</c> expression. So walk it.</para>
         /// </summary>
+        /// <summary>
+        /// Every <c>ToolbarIconButton</c> call site in Toolbar.razor, as source text.
+        ///
+        /// <para>
+        /// Scoped to that ONE file on purpose. Cody's 2026-09-03 convention is for the top
+        /// toolbar. <c>IndicatorBar.razor</c> also uses this component, and its Hide/Mute buttons
+        /// legitimately carry an AriaLabel that a constant Label cannot: the name has to name the
+        /// SERIES ("Mute SMA 20"), which is per-row and not on the 40px face. Sweeping the whole
+        /// component directory would demand those be flattened, which is a regression dressed as
+        /// consistency.
+        /// </para>
+        /// </summary>
+        private static IReadOnlyList<string> TopToolbarButtons() =>
+            Toolbar().Split("<ToolbarIconButton").Skip(1)
+                .Select(chunk =>
+                {
+                    int end = chunk.IndexOf("/>", StringComparison.Ordinal);
+                    return end > 0 ? chunk[..end] : chunk;
+                })
+                .ToList();
+
         private static string? AttributeValue(string tag, string attributeName)
         {
             var m = Regex.Match(tag, @"\b" + Regex.Escape(attributeName) + @"\s*=\s*""");
@@ -318,14 +449,20 @@ namespace AccessibleTrader.Tests
         {
             // The toolbar is how a feature is DISCOVERED; the tooltip is how the keyboard user
             // learns the faster route. Pinning the six newest so the pattern isn't dropped.
+            //
+            // The expected FORM changed on 2026-09-03 with the toolbar convention: chords are
+            // spelled in words, not written "(Ctrl+Alt+Shift+J)". Same property — the chord is
+            // discoverable from the toolbar — in the form a speech synthesiser can voice. See
+            // EveryToolbarButtonHasATooltipAndSpellsItsChordInWords for why the spelling is the
+            // property here rather than an incidental detail.
             string toolbar = Toolbar();
 
-            Assert.Contains("(Alt+M)", toolbar);                 // watchlist
-            Assert.Contains("(Alt+R)", toolbar);                 // level respect report
-            Assert.Contains("(Ctrl+Alt+Shift+J)", toolbar);      // journal
-            Assert.Contains("(Ctrl+Alt+Shift+A)", toolbar);      // AI analyst
-            Assert.Contains("(Ctrl+Alt+Shift+S)", toolbar);      // split view
-            Assert.Contains("(Ctrl+Alt+Shift+P)", toolbar);      // bar replay
+            Assert.Contains("Alt plus M", toolbar);                                // watch lists
+            Assert.Contains("Alt plus R", toolbar);                                // level respect report
+            Assert.Contains("Control plus Alt plus Shift plus J", toolbar);        // journal
+            Assert.Contains("Control plus Alt plus Shift plus A", toolbar);        // AI analyst
+            Assert.Contains("Control plus Alt plus Shift plus S", toolbar);        // split view
+            Assert.Contains("Control plus Alt plus Shift plus P", toolbar);        // bar replay
         }
 
         [Fact]

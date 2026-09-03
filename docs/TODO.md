@@ -117,6 +117,169 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-03, FIFTH pass — THE SEGFAULT IS FIXED, drawings follow
+> the live edge, and the toolbar has ONE convention. This was a bug-report session: Cody
+> reported four things from real use and every one was a real defect. What is DONE is listed
+> below; what is LEFT is the numbered list after it, and it is the rest of the 2.6.0 release.**
+>
+> ### DONE this pass
+>
+> **1. The hosted heads' SIGSEGV — 20 in 31 days, one line.** `addr 0x8` named the field.
+> SkiaSharp zeroes `SKObject.Handle` on Dispose with no managed guard, and only `SKFont.Size`
+> (`SkFont::fSize`) and `SKPaint.Shader` fault at offset 8 — `SKPaint.Color` is 0x30, a disposed
+> canvas 0x0. One statement matched: `ChartRenderer.cs:82`, the first native touch per frame.
+> `ChartRenderer` is `AddScoped`; `ChartArea` renders in a bare `Task.Run` nothing tracks.
+> **`Dispose()` is now empty and that IS the fix** — a `_disposed` flag only closes the
+> sequential window, and SkiaSharp's finalizer cannot run while an in-flight render still holds
+> the renderer. Restoring the two Dispose calls CRASHES THE TEST HOST, which is the production
+> fault in-suite. `ChartRendererDisposalTests` (2).
+>
+> **2. Drawings were frozen at the bar count they were born with.** `IndicatorOrchestrator`'s
+> `if (isProfile || s.IsDrawing) continue;` skipped them every tick, so a trend line said
+> "no data" from the bar after placement onward — at the live edge. The prepend-realignment
+> check sat UNDER that clause, so a scrollback fetch also shifted every drawing's values onto
+> bars they were not computed from. Now `DrawingBufferIsStale` + `RecalculateDrawing`. Four
+> guards; two sabotages (original defect reddens three, unconditional-recalc reddens the
+> fourth) — the pair is what stops "recalculate when stale" and "recalculate always" passing
+> identically.
+>
+> **3. Every toolbar tooltip had been silent since the 2026-09-02 gated-button pass.** An
+> unconditional `aria-describedby` to an always-rendered EMPTY span suppresses `title`: the
+> accessible description takes describedby first and title only when that source is ABSENT, and
+> resolving to "" counts as present. Measured with CDP `getFullAXTree`. **A describedby to a
+> MISSING id falls back to the title, so the dangling case the old comment feared is the one
+> Chromium handles best.** Fixed in `ToolbarIconButton` and `GatedButton`; guard is
+> `ToolbarTooltipDescriptionTests` (browser), which asks the AX tree what the description IS.
+> The two buttons Cody could still hear were the only two whose `AriaLabel` said more than
+> their `Label` — he was hearing the NAME.
+>
+> **4. One toolbar convention (Cody's, and it now covers all 24 buttons).** Label = the thing's
+> own name; label IS the accessible name (every `AriaLabel` deleted, so 2.5.3 holds by
+> construction); tooltip = "<verb> <thing>, <chord spelled out>". **The chord spelling is the
+> property, not a style** — "+" goes to a synthesiser and is not reliably voiced, so the guard
+> bans it deliberately. Guards scoped to `Toolbar.razor` ONLY: `IndicatorBar`'s Hide/Mute
+> buttons legitimately need an AriaLabel because the name must name the SERIES. Zones → Levels
+> (which also un-collides it with the indicator called Zones).
+>
+> **5. Classic is the shipped default theme.** `ThemeService.DefaultTheme`, one authority, both
+> fallbacks routed through it. A new user is no longer handed the theme carrying the recorded
+> 1.48:1 exemption. `ThemeEditorContrastGateTests` had been measuring whatever theme SHIPPED
+> while hard-coding Steel Gray's ratios — it names its base explicitly now.
+>
+> ### REFUTED this pass, and worth not re-filing
+>
+> **Modal focus is NOT lost by async renders.** My hypothesis was wrong. All seven cold-start
+> keyboard modals land on their `h2` and hold it through +4000 ms — through `LoadAccountDataAsync`,
+> `RefreshBookAsync` and two ticks of the 2 s timer. What moves it is the **AT-SPI bridge**: with
+> `NO_AT_BRIDGE=1` 14/14 held; with the bridge on and Orca running, **6 of 14 wandered** — to
+> `BODY`, to the background speech-prompt heading, to background toolbar buttons, to
+> "Close order book dialog". The app's own call carries JS frames; **every subsequent move has an
+> EMPTY JavaScript stack** — dispatched by the embedder, not by page script. Evidence in
+> `scratchpad/modal_focus_persistence*`; probe is `ModalFocusPersistenceProbe.cs`.
+> Cody's decision: **do not patch per-screen-reader — use the standard modal treatment.** That
+> means `inert` on the background while a modal is open, which is item 5 below. Note
+> `TerminalPage.WaitForFocusAsync` returns the instant focus lands and never re-checks, so every
+> one of those wanders leaves the existing suite green — that blindness is confirmed.
+>
+> ### LEFT TO DO — the rest of 2.6.0, in this order
+>
+> **1. Wire up the drawing speech contract.** `DrawingSpeech.cs` is committed WITH NO CALLERS —
+> the rules only. The design it implements is `scratchpad/drawing-speech-design.md` (729 lines,
+> read it, it caught ten errors a naive implementation would have made). Remaining: register a
+> drawing strategy AHEAD of `StandardTemplateStrategy` in `SpeechFormatter`'s list (the sentence
+> is `{value}[, {position}][, {relation}].`, value first); thread the bar array into
+> `ComponentFormatContext` so the position clause can resolve anchor dates to bars; replace the
+> series-switch "N component" prefix (`NavigationFeedbackManager.cs:153-157`) with
+> "Trend line 2." for one component and "Gann box 1. 14 components, reading Level 0%." for many.
+> **The span must come from anchor DATES, never array length** — an array-length test would
+> announce "past end, 4 bars" about a line running through the bar the user is on.
+> **Do not rename `DisplayName`** to shorten a spoken name; that is a fresh 2.5.3 failure in the
+> dialog where twelve were just closed. Use `DrawingSpeech.SpokenComponentName`.
+> Also: `SpeechPriceFormatter.FormatPrice`, not `F2` — a drawing's series id is neither "price"
+> nor "candles", so `StandardTemplateStrategy` speaks a KAS trend line at 0.0363 as "0.04".
+>
+> **2. Make drawings sonify.** Delete `series.IsDrawing` from `AudioSequencer.BuildVoicePlan`
+> (line ~194). Today `PlaybackPlan.Resolve` accepts a drawing in Series/Component scope, the
+> narration says "Playing TrendLine Drawing from …, N bars", and then zero voices play — the
+> exact failure `PlaybackPlan`'s own doc says it exists to prevent. Distinguish a drawing by
+> **timbre only** (pitch, volume, pan and waveform are all already semantic): fixed pink
+> `NoiseAmount` plus one dedicated factory patch in every theme. A bare 500-bar linear ramp is
+> near-useless — play the drawing WITH price (announced), fire the cross earcon, click the
+> anchors. Sparse bars get `StopVoice`: silence, never skip.
+>
+> **3. Drawing keyboard, three parts.** (a) **`Alt+Shift+Arrow` moves to `Shift+Arrow`** —
+> Cody's call; Alt+Shift+Arrow is Orca's table-cell navigation. He was shown the two
+> objections and chose it anyway: `Shift+Arrow` is select-by-character in every text field and
+> in Orca browse mode, so **keyboard.js must release it to form controls** or this repeats the
+> F1–F12-dead-in-fields defect; and it is the last free arrow chord, so there is no room to
+> grow. (b) **`Ctrl+Alt+Shift+G` must MOVE THE CURSOR** to the selected anchor's bar — it
+> currently selects and speaks but publishes only a `FeedbackRequestEvent`. Speak nothing extra:
+> the §1 readback already says "end anchor", and a prefix would be the TextLabel
+> double-utterance defect. Beware recorded defect n8 — `BarIndexOf` answers 0 for a date before
+> `data[0]`, so an off-screen anchor would land on bar 0 and then be described in the grammar of
+> "start anchor". (c) **Two silent gates must speak** (Boundary tier, earcon per press, sentence
+> once): a modal being open, and the chart not having focus. Both are today indistinguishable
+> from an unbound key. **Cody agreed: allow the nudge while the OBJECT TREE is top of the
+> stack** — the tree is where you focus a drawing, so refusing there is an inside-out model —
+> and refuse only under editing dialogs.
+>
+> **4. Settings restructure (all decided by Cody this session).** New tab order:
+> `General, Speech, Sonification, Appearance, Keyboard, License, About`. Speech tab takes: enable
+> speech, speak timestamps, speak-the-time dropdown, speak values as, speak column headers,
+> announce new bars, describe chart patterns while navigating, speech output dropdown.
+> Sonification tab takes: sonification enabled, WASAPI latency (check whether it is still
+> needed), sound under the mouse, sound theme. Appearance tab: the panel is called **Theme**, not
+> Color; it holds ONLY the theme dropdown plus three buttons — **New**, **Clone**, **Edit** —
+> where Clone copies the selected theme (built-in or custom) into a new renameable user theme
+> and Edit edits the SELECTED theme in place without copying or renaming. **A built-in cannot be
+> edited in place, so Edit must be a gated button on one** ("Built-in themes can't be edited.
+> Use Clone to make your own copy.") — never `disabled`. **Delete the bullish/bearish (up/down)
+> colour pair** — Cody's call, made knowing it was the cross-theme override; `PropertiesModal`
+> already has per-component Bullish/Bearish Color. Move background colour and the gradient
+> settings INSIDE the New/Edit theme screens. A raw new theme starts from a safe scheme
+> (`000000` / `ff0000` / `00ff00`). Keep the accessibility options after the theme section but
+> **cut the explanatory prose hard** — "Visual earcons — shows on-screen notifications of app
+> activity for hearing-impaired users", not a paragraph. No text telling a blind user that
+> visual themes do not play sounds.
+>
+> **5. Modal background `inert`.** The standard treatment, per Cody. `inert` appears NOWHERE in
+> the component library today and 26 components declare `aria-modal="true"`, which is advisory
+> to the AT and does not make background content unfocusable. **The speech live regions
+> (`aria-speech-1`/`-2`, `MainLayout.razor:158-161`) are siblings of `<main>`, not inside it** —
+> so inert `<main>` plus the header/toolbar and BOTH the modals and the speech channel stay
+> outside the inert subtree. Inerting a wrapper would silence the app.
+>
+> **6. Alerts consolidation.** Move the Settings Alerts tab (webhook targets, setup-alert
+> toggles) into the Alt+J alerts modal behind a settings button — "tastefully", Cody's word.
+>
+> **7. Docs.** **WHATSNEW holds ONLY the current version** and is derived from the CHANGES diff
+> since the last tag — Cody restated the model this session: CHANGES is the full history and gets
+> an entry as each TODO item is dealt with; WHATSNEW is the release-note view of the delta.
+> CHANGES still lacks its `[2.5.0]` heading, split at the tag date. README for a curious
+> non-engineer. Then bump `<Version>` in `Directory.Build.props` to 2.6.0, rc1 first, tag,
+> publish.
+>
+> **8. Still carried from earlier passes:** the Object Tree follow-ups (b)–(f); the three row
+> buttons as a `treegrid`; `SupportsSymbolSearch` deletion; the Binance reachability probe (2.7);
+> Steel Gray's falling candle (now off the default path, so lower priority); the StrategyLab
+> statistics re-run.
+>
+> **9. Recorded, NOT fixed, from this pass:** (a) **the real fix for the segfault** is to make
+> `_textPaint`/`_textFont` per-frame `using` locals threaded through the draw helpers, so
+> `ChartRenderer` owns no native state — a 14-site change on the render path with no way to
+> verify output visually from here; it would also close (b) and (c). (b) `AIAnalystService`
+> calls `Render` with `density: 1.0f` on the same scoped renderer, which can retune the font
+> size underneath a browser frame drawing at another density — verified, cosmetic. (c) the
+> `SKTypeface` created in `ChartRenderer`'s constructor is never disposed. (d) `SKPaintPool.cs`
+> documents "rendering runs on a single thread", which is FALSE in the hosted head — up to 64
+> `SKPaint` natives retained per thread-pool thread with no reuse benefit. (e) the hosted
+> crash-dump path: the systemd unit sets `PrivateTmp=true`, so all 16 dumps were written and
+> destroyed; that edits systemd units and is Cody's call. (f) `CalculateLinearPoints` accepts
+> `extL`/`extR` and never reads them, so a trend line is drawn and spoken across every bar
+> regardless of ExtendLeft/ExtendRight — item 1's position clause makes this AUDIBLE for the
+> first time, which is the point at which it becomes reportable. (g) MS.DI disposes in reverse
+> INSTANTIATION order, not reverse registration order.**
+
 > **START HERE (current as of 2026-09-03, FOURTH pass — THE KEYBOARD NUDGE IS IN, and this
 > is a RELEASE session: the agreed order for the rest of it is (2) tests for
 > `treeKeyboard.js`, (3) the Object Tree follow-ups (b)–(f) below, (4) the three row buttons

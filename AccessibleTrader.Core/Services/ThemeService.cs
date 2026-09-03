@@ -54,9 +54,9 @@ namespace AccessibleTrader.Core.Services
         {
             _settings = settings;
             _themes = themes;
-            // Restore previously-saved theme; fall back to HighContrastDark if not set.
+            // Restore previously-saved theme; fall back to the shipped default when not set.
             var saved = _settings.GetSetting(ThemeSettingKey)?.ToString();
-            var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : ThemeType.SteelGray;
+            var type = Enum.TryParse<ThemeType>(saved, out var parsed) ? parsed : DefaultTheme;
             Current = WithAccessibilityOverrides(BuildTheme(type));
         }
 
@@ -184,8 +184,25 @@ namespace AccessibleTrader.Core.Services
             ThemeType.SoftDark          => SoftDark(),
             ThemeType.Solarized         => Solarized(),
             ThemeType.Braille           => BrailleOptimized(),
-            _                           => SteelGray()
+            _                           => BuildTheme(DefaultTheme)
         };
+
+        /// <summary>
+        /// The theme a brand-new install starts on. Changed from <see cref="ThemeType.SteelGray"/>
+        /// to <see cref="ThemeType.Classic"/> on 2026-09-03 (Cody's call): Classic is the dark
+        /// navy-and-teal scheme most charting sites use, so someone arriving from another platform
+        /// meets something their eye already knows.
+        ///
+        /// <para>
+        /// It also retires a known exemption from the default path. Steel Gray's falling candle is
+        /// #DD0000 against its gradient at 1.48:1 — below the 3:1 graphics floor, pinned as
+        /// recorded-not-fixed by
+        /// <c>ThemeCoverageTests.SteelGray_fallingCandleIsBelowTheGraphicsFloor_recordedNotFixed</c>.
+        /// That exemption still stands for anyone who chooses Steel Gray; it is simply no longer
+        /// what a new user is handed. Steel Gray remains one setting away.
+        /// </para>
+        /// </summary>
+        public const ThemeType DefaultTheme = ThemeType.Classic;
 
         /// <summary>
         /// The default. Cool neutral greys with a chart that fades UPWARD into the toolbar, so the

@@ -143,7 +143,7 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void SteelGray_fallingCandleIsBelowTheGraphicsFloor_recordedNotFixed()
         {
-            // The shipped default's falling candle is #DD0000 on a chart that fades from
+            // Steel Gray's falling candle is #DD0000 on a chart that fades from
             // #4E545E to #22252A. Measured 2026-09-02: 1.48:1 at the top of the chart and
             // 2.98:1 at the bottom, against a 3:1 floor. No red reaches 3:1 on that grey — it
             // takes a pink (#FF8080 is 3.15:1) — and #DD0000 is a chosen colour
@@ -157,6 +157,37 @@ namespace AccessibleTrader.Tests
             Assert.False(bear.Passes, "SteelGray's falling candle now clears 3:1 — delete this test " +
                                       "and the exemption in EveryTheme_keepsItsCandlesAndFocusRingAboveTheGraphicsFloor.");
             Assert.InRange(bear.Ratio, 1.4, 1.6);
+        }
+
+        [Fact]
+        public void TheShippedDefaultIsClassic_andItCarriesNoContrastExemption()
+        {
+            // Two claims in one test, because separately either would be misleading.
+            //
+            // (1) WHICH theme ships. Changed from SteelGray to Classic on 2026-09-03 (Cody's
+            //     call — the dark navy-and-teal most charting sites use). Pinned here so the
+            //     decision cannot drift back through a fallback expression nobody re-reads;
+            //     ThemeService.DefaultTheme is the single authority and both fallbacks in that
+            //     file now route through it.
+            //
+            // (2) That the theme a NEW USER meets is not the one carrying the known exemption.
+            //     SteelGray_fallingCandleIsBelowTheGraphicsFloor_recordedNotFixed above pins a
+            //     falling candle at 1.48:1 against a 3:1 floor. That exemption is fine for a
+            //     theme somebody chose; it is not fine for the one they are handed. So the
+            //     default is measured against the SAME list, with no exemptions applied.
+            Assert.Equal(ThemeType.Classic, ThemeService.DefaultTheme);   // see Classic_isWhatANewUserGets for the wiring half
+
+            var theme = BaseThemeResolver.Resolve(ThemeService.DefaultTheme);
+            var measured = ThemeContrastChecks.Measure(theme).ToList();
+
+            // The floor under the sweep: an empty list would make "nothing failed" agree with
+            // "nothing was measured".
+            Assert.NotEmpty(measured);
+
+            var failures = measured.Where(f => !f.Passes).ToList();
+            Assert.True(failures.Count == 0,
+                "The shipped default theme must clear every contrast check with no exemption. Failing: "
+                + string.Join(", ", failures.Select(f => $"{f.Key} at {f.Ratio:F2}:1")));
         }
 
         [Fact]
@@ -345,12 +376,18 @@ namespace AccessibleTrader.Tests
         // ── The default theme ────────────────────────────────────────────
 
         [Fact]
-        public void SteelGray_isWhatANewUserGets()
+        public void Classic_isWhatANewUserGets()
         {
             // No saved preference at all — a substituted settings manager returns null.
+            // Changed from SteelGray to Classic on 2026-09-03; see
+            // TheShippedDefaultIsClassic_andItCarriesNoContrastExemption for why.
+            //
+            // This asserts through a REAL ThemeService rather than reading the constant, so it
+            // still fails if the constructor's fallback stops routing through DefaultTheme.
             var service = new ThemeService(Substitute.For<ISettingsManager>());
 
-            Assert.Equal(ThemeType.SteelGray, service.Current.ThemeType);
+            Assert.Equal(ThemeType.Classic, service.Current.ThemeType);
+            Assert.Equal(ThemeService.DefaultTheme, service.Current.ThemeType);
         }
 
         [Fact]

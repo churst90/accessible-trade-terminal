@@ -81,12 +81,30 @@ public sealed class GatedButtonTests
     }
 
     [Fact]
-    public void The_reason_span_is_present_but_empty_when_the_button_works()
+    public void The_reason_span_is_present_but_empty_and_UNREFERENCED_when_the_button_works()
     {
-        // Two rules pulling in opposite directions, and both matter. The span cannot be
-        // removed when the gate opens — aria-describedby would then point at nothing, and
-        // a dangling IDREF is handled differently by every screen reader. Its TEXT must
-        // go, or an enabled Confirm would still announce "Enter a quantity above zero."
+        // REWRITTEN 2026-09-03. This test used to assert the opposite of its second half:
+        // that aria-describedby is present even when there is no reason, on the argument
+        // that removing it would leave a dangling IDREF. That argument was wrong twice.
+        //
+        // (1) Nothing dangles either way — the span below is rendered whether or not
+        //     anything points at it, so dropping the ATTRIBUTE is not dropping the target.
+        // (2) An aria-describedby that resolves to the empty string is not "no
+        //     description". It is a description of "", and it SUPPRESSES `title`. Measured
+        //     in Chromium with CDP Accessibility.getFullAXTree on 2026-09-03:
+        //         title only, no describedby    -> description "Open trading dashboard (Alt+T)"
+        //         describedby -> empty span     -> description NULL
+        //         describedby -> missing id     -> description falls back to the title
+        //     So the dangling case the old comment feared is the one Chromium handles
+        //     BEST, and the case it mandated is the one that loses the tooltip.
+        //
+        // That cost every ToolbarIconButton its spoken tooltip for a day — the user
+        // reported hearing no help text while arrowing the toolbar. See
+        // ToolbarTooltipDescriptionTests, which pins the resulting DESCRIPTION rather
+        // than any attribute spelling.
+        //
+        // The text must still go when the gate opens, or an enabled Confirm would still
+        // announce "Enter a quantity above zero."
         var (ctx, _, _) = NewContext();
         using var _c = ctx;
 
@@ -95,10 +113,31 @@ public sealed class GatedButtonTests
             .AddChildContent("Submit"));
 
         var btn = cut.Find("button");
+        Assert.Null(btn.GetAttribute("aria-describedby"));
+
+        // The span is still there, and still empty, so the gate closing has somewhere to
+        // write to and nothing stale to say.
+        var span = cut.Find("span.gated-reason");
+        Assert.Equal("", span.TextContent.Trim());
+        Assert.False(string.IsNullOrWhiteSpace(span.GetAttribute("id")));
+    }
+
+    [Fact]
+    public void The_reason_span_IS_referenced_the_moment_there_is_a_reason()
+    {
+        // The other half of the pair above: dropping the attribute while the button works
+        // is only correct if it comes back the instant the button stops working.
+        var (ctx, _, _) = NewContext();
+        using var _c = ctx;
+
+        var cut = ctx.RenderComponent<Cmp.GatedButton>(p => p
+            .Add(x => x.Gate, () => "Enter a quantity above zero.")
+            .AddChildContent("Submit"));
+
+        var btn = cut.Find("button");
         var id = btn.GetAttribute("aria-describedby");
         Assert.False(string.IsNullOrWhiteSpace(id));
-        var span = cut.Find("#" + id);
-        Assert.Equal("", span.TextContent.Trim());
+        Assert.Equal("Enter a quantity above zero.", cut.Find("#" + id).TextContent.Trim());
     }
 
     [Fact]

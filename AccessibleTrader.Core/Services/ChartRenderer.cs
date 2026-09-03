@@ -1099,6 +1099,60 @@ namespace AccessibleTrader.Core.Services
             ComponentDisplayType.Candle or ComponentDisplayType.Wick or
             ComponentDisplayType.Bar or ComponentDisplayType.Histogram;
 
-        public void Dispose() { _textPaint.Dispose(); _textFont.Dispose(); }
+        /// <summary>
+        /// DELIBERATELY EMPTY, AND THAT IS THE FIX FOR A CRASH. Do not "restore" the two
+        /// Dispose calls that used to be here, and do not replace them with a <c>_disposed</c>
+        /// flag — both reintroduce the fault, and the flag version reintroduces it silently.
+        ///
+        /// <para><b>THE CRASH.</b> The hosted heads took <b>20 SIGSEGVs in 31 days</b>, roughly
+        /// twice a day, every one of them at or within seconds of <c>Browser circuit closed</c>,
+        /// and all 16 captured faults byte-identical: <c>signo 11 code 0001 addr 0x8</c>. A null
+        /// dereference at offset 8, deterministically, for a month.</para>
+        ///
+        /// <para><b>WHY THE ADDRESS NAMED THE LINE.</b> SkiaSharp 3.x zeroes
+        /// <c>SKObject.Handle</c> on <c>Dispose()</c> and adds no managed guard, so any later
+        /// call passes NULL straight into native Skia — and each property faults at its own
+        /// field offset. Measured across 43 disposed-object operations, each in its own process:
+        /// only <c>SKFont.Size</c> (<c>SkFont::fSize</c>) and <c>SKPaint.Shader</c>
+        /// (<c>SkPaint::fShader</c>) land on <c>0x8</c>. <c>SKPaint.Color</c> gives 0x30,
+        /// <c>DrawText</c> with a disposed paint 0x28, a disposed canvas 0x0. That collapses a
+        /// month of crashes to one statement.</para>
+        ///
+        /// <para><b>THE STATEMENT.</b> <c>_textFont.Size = ...</c> near the top of
+        /// <see cref="Render"/> — the FIRST native touch in every frame, which is why all 16
+        /// faults are identical rather than scattered. <c>ChartRenderer</c> is
+        /// <c>AddScoped</c>, so the circuit scope disposes it at teardown, while
+        /// <c>ChartArea.razor</c> draws each frame inside a bare <c>Task.Run</c> that its own
+        /// <c>Dispose</c> neither tracks, cancels nor awaits. Circuit closes, container frees
+        /// the font, a parked frame resumes on a thread-pool thread, and the first thing it does
+        /// is write to a freed <c>SkFont</c>. Reproduced against this very class: not disposed
+        /// survives; disposed-then-frame gives <c>addr 0x8</c>; the <c>Task.Run</c> race gives
+        /// <c>addr 0x8</c>; disposing ONLY <c>_textFont</c> gives <c>addr 0x8</c>; disposing only
+        /// <c>_textPaint</c> gives <c>addr 0x30</c>.</para>
+        ///
+        /// <para><b>WHY A <c>_disposed</c> GUARD IS NOT THE FIX.</b> It closes only the
+        /// sequential window. The in-flight case shows a frame can already be past the guard
+        /// when <c>Dispose()</c> runs — so the guard converts a reliable twice-a-day crash into
+        /// a rare one, which is strictly worse to diagnose.</para>
+        ///
+        /// <para><b>WHY EMPTY IS CORRECT, not merely quiet.</b> <c>SKPaint</c> and <c>SKFont</c>
+        /// carry SkiaSharp's own finalizer, and a finalizer cannot run while the object is
+        /// reachable. An in-flight render holds a strong reference to this renderer, which holds
+        /// these two fields — so the handles are reclaimed exactly when no frame can still be
+        /// using them, which is the property a hand-written Dispose here cannot express. The
+        /// cost is one small paint and one small font per circuit reclaimed at GC rather than at
+        /// teardown. Nothing calls this by hand; the container is the only caller.</para>
+        ///
+        /// <para><b>THE REAL FIX, NOT ATTEMPTED HERE.</b> Make <c>_textPaint</c> and
+        /// <c>_textFont</c> per-frame <c>using</c> locals threaded through the draw helpers.
+        /// Then this type owns no native state and the question cannot arise. That is a
+        /// fourteen-site change on the render path with no way to verify the output visually
+        /// from here, so it is recorded rather than rushed — see docs/TODO.md. It would also
+        /// close two adjacent defects this change does NOT: the leaked <c>SKTypeface</c> in the
+        /// constructor, and <c>AIAnalystService</c> calling <c>Render</c> with
+        /// <c>density: 1.0f</c> on this same shared instance, which can retune the font size
+        /// underneath a browser frame drawing at a different density.</para>
+        /// </summary>
+        public void Dispose() { }
     }
 }

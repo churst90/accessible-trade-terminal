@@ -250,8 +250,36 @@ namespace AccessibleTrader.Core.Services
                     continue;
                 }
 
-                // Skip full profile/drawing recalculation on every tick for performance
-                if (isProfile || s.IsDrawing) continue;
+                // Profiles are genuinely expensive to rebuild — a volume distribution over every
+                // loaded bar — and their anchoring rules mean a tick cannot update one
+                // incrementally. They are skipped, as before.
+                if (isProfile) continue;
+
+                // DRAWINGS ARE NOT. Until 2026-09-03 they were skipped by the same clause, under
+                // the same "for performance" comment, and the consequence was that a drawing's
+                // component array stayed frozen at whatever bar count it was born with:
+                //
+                //   place a trend line on a 100-bar chart, and bar 100 onward reads "no data"
+                //
+                // — and the live edge is exactly where a trader stands. Reported from real use as
+                // a trend line that says "no data" when you arrow onto the newest bars.
+                //
+                // The performance argument does not transfer. A profile bins every bar's volume;
+                // a drawing is linear arithmetic between two anchors, O(bars) in doubles, and it
+                // only runs on the ticks where the buffer has actually gone stale (below).
+                //
+                // The stale test is the same question the indicator branch asks a few lines down,
+                // and it catches BOTH ways a buffer stops describing these bars: a bar appended at
+                // the right (length grows) and a scrollback fetch prepended at the left (index 0
+                // now means a different bar). The second one mattered here too and was invisible:
+                // the prepend-realignment check below sits UNDER this clause, so a drawing's
+                // values were silently shifted against the bars after every backfill.
+                if (s.IsDrawing)
+                {
+                    if (!DrawingBufferIsStale(s, data)) continue;
+                    RecalculateDrawing(s, data);
+                    continue;
+                }
 
                 // ── Does this buffer still describe THESE bars? ──────────────────────────
                 //
@@ -382,6 +410,85 @@ namespace AccessibleTrader.Core.Services
                         "Data will be silently ignored. Check that buffer.Write() key matches the component Name in metadata.",
                         providerName, key, series.IndicatorCode);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Does this drawing's buffer still describe <paramref name="data"/>?
+        ///
+        /// <para>
+        /// Three ways it can stop, and all three are the same defect from the user's side — the
+        /// number they hear does not belong to the bar they are standing on:
+        /// </para>
+        /// <list type="number">
+        ///   <item>a component array shorter (or longer) than the bar count — a bar was appended
+        ///         or the chart was truncated, so the tail reads "no data";</item>
+        ///   <item>index 0 no longer belongs to the same bar — a scrollback fetch prepended
+        ///         history and every value is now sitting on a bar it was not computed from;</item>
+        ///   <item>no component arrays at all, while the series still declares components — a
+        ///         workspace restore that handed over an empty buffer. That reads "no data" at
+        ///         EVERY bar, which is the shape the user first reported.</item>
+        /// </list>
+        ///
+        /// <para>
+        /// A null <c>FirstBarDate</c> is NOT treated as aligned here, unlike the indicator path.
+        /// There the alternative was a full recalculation of every indicator on the first tick
+        /// after a workspace restore; a drawing costs a subtraction per bar, so the cheap and
+        /// honest answer is to rebuild it and be certain.
+        /// </para>
+        /// </summary>
+        private static bool DrawingBufferIsStale(ChartSeries s, IReadOnlyList<Ohlcv> data)
+        {
+            if (s.Drawing == null) return false;          // nothing to rebuild it from
+            if (data.Count == 0) return false;            // RecalculateLastAsync already returned
+
+            var arrays = s.Data.ComponentData;
+
+            // (3) declared components with no data behind them.
+            if (arrays.Count == 0) return s.Components.Count > 0;
+
+            // (2) index 0 means a different bar now — or we cannot prove it does not.
+            if (s.Data.FirstBarDate != data[0].Date) return true;
+
+            // (1) any array that is not one value per bar.
+            foreach (var arr in arrays.Values)
+                if (arr.Length != data.Count) return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Rebuilds a drawing's per-bar values from its anchors.
+        ///
+        /// <para>
+        /// Deliberately NOT routed through <see cref="RecalculateSeriesFullAsync"/>: that method
+        /// returns immediately when <c>IndicatorCode</c> is empty, and a drawing has none — so
+        /// sending drawings there would have looked like a fix and done nothing at all.
+        /// </para>
+        ///
+        /// <para>
+        /// A fresh buffer, matching what <see cref="RecalculateAllAsync"/>'s drawing branch
+        /// dispatches. A drawing's buffer holds nothing but its component arrays, so there is no
+        /// heatmap or profile state to carry across, and cloning the stale one would risk keeping
+        /// an array for a component the calculator no longer returns.
+        /// </para>
+        /// </summary>
+        private void RecalculateDrawing(ChartSeries s, IReadOnlyList<Ohlcv> data)
+        {
+            if (s.Drawing == null) return;
+            try
+            {
+                var buffer = new SeriesDataBuffer { SeriesId = s.Id };
+                buffer.ComponentData = _drawingService.CalculateDrawingData(s.Drawing, data);
+                buffer.FirstBarDate = data[0].Date;
+                _store.Dispatch(new UpdateSeriesDataAction(s.Id, buffer));
+            }
+            catch (Exception ex)
+            {
+                // Same posture as the indicator path: a drawing that cannot be recomputed keeps
+                // its previous values rather than blanking the series. It is logged because a
+                // drawing silently freezing is the defect this method exists to fix.
+                _logger.LogError(ex, "Drawing recalculation failed for series {SeriesId}", s.Id);
             }
         }
 

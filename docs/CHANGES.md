@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The address that named the line, the drawings that froze at the live edge, and the empty span that deleted every tooltip (2026-09-03)
+
+- **The hosted heads stop segfaulting.** Both took roughly two SIGSEGVs a day for a month — 20 in
+  31 days — always at or within seconds of `Browser circuit closed`, and all 16 captured faults
+  byte-identical: `signo 11 code 0001 addr 0x8`. The address named the line. SkiaSharp zeroes
+  `SKObject.Handle` on `Dispose()` and adds no managed guard, so a later call passes NULL into
+  native Skia and faults at that property's own field offset; across 43 disposed-object
+  operations only `SKFont.Size` (`SkFont::fSize`) and `SKPaint.Shader` land on `0x8`, while
+  `SKPaint.Color` gives 0x30 and a disposed canvas 0x0. That left one statement:
+  `ChartRenderer.cs:82`, the first native touch in every frame. `ChartRenderer` is `AddScoped`,
+  so the circuit scope disposed it at teardown while `ChartArea` was still rendering inside a
+  bare `Task.Run` nothing tracked, cancelled or awaited — the parked frame resumed and wrote to a
+  freed `SkFont`. **`ChartRenderer.Dispose()` is now empty, and that is the fix.** A `_disposed`
+  flag is NOT: it closes only the sequential window, so a frame already past the flag still
+  faults, turning a reliable crash into a rare one. Empty is correct because `SKPaint` and
+  `SKFont` carry SkiaSharp's own finalizer, which cannot run while the object is reachable, and
+  an in-flight render holds the renderer that holds them — so the handles are reclaimed exactly
+  when no frame can still use them. Two guards pin it; restoring the two Dispose calls **crashes
+  the test host**, which is the production fault reproduced in-suite.
+- **A drawing no longer says "no data" at the bars you are standing on.** `IndicatorOrchestrator`
+  skipped every drawing on every tick, commented "for performance" — so a drawing's component
+  array stayed frozen at the bar count it was born with, and a trend line placed on a 100-bar
+  chart read "no data" from bar 100 onward, at the live edge, which is where a trader stands. The
+  same clause hid a second defect: the prepend-realignment check sat underneath it, so after every
+  scrollback fetch a drawing's values were silently shifted onto bars they were not computed from.
+  Drawings are now recomputed when, and only when, their buffer has stopped describing the bars —
+  a bar appended, history prepended, or a workspace restore that handed over an empty buffer.
+  Profiles are still skipped: a profile bins every bar's volume, a drawing is arithmetic between
+  two anchors.
+- **Every toolbar button had lost its spoken tooltip.** Giving them all an unconditional
+  `aria-describedby` pointing at a reason span that is empty while the button works deleted the
+  lot, silently: the accessible description is computed from `aria-describedby` first and from
+  `title` only when that source is absent, and resolving to the empty string counts as present.
+  Measured in Chromium — `title` alone describes "Open trade dashboard"; `title` plus a
+  describedby to an empty span describes nothing; a describedby to a *missing* id falls back to
+  the title, so the dangling case the original comment feared is the one handled best. The reason
+  id is now listed only when there is a reason, in `ToolbarIconButton` and `GatedButton` both. A
+  browser guard asks Chromium's accessibility tree what each button's description IS, rather than
+  checking an attribute.
+- **One convention across the whole top toolbar.** A button's visible label is the thing's own
+  name — "Object tree", "Order book", "Trade journal", not "Objects", "Book", "Journal" — and that
+  label IS its accessible name: every `AriaLabel` override is gone, so WCAG 2.5.3 Label-in-Name
+  holds by construction rather than by 24 hand-written strings, ten of which had shipped
+  announcing words that were not on the screen. The tooltip is "&lt;verb&gt; &lt;thing&gt;,
+  &lt;chord spelled out&gt;" — "Open object tree, Alt plus O", never "(Alt+O)", because the chord
+  is handed to a speech synthesiser and what each one does with "+" is not something this app can
+  rely on. The **Zones** button is now **Levels**, which also stops it colliding with the
+  indicator actually called Zones.
+- **The shipped default theme is Classic**, the dark navy-and-teal most charting sites use, so
+  someone arriving from another platform starts from something their eye already knows. It also
+  means a new user is no longer handed the one theme carrying a recorded contrast exemption —
+  Steel Gray's falling candle measures 1.48:1 against a 3:1 floor. Steel Gray is unchanged and one
+  setting away; the exemption still stands for anyone who chooses it.
+
+
 ### The anchor that could only be dragged, the tree that could be collapsed and never re-opened, and the fixture that was named the way the docs read (2026-09-03)
 
 - **Drawing anchors can be nudged from the keyboard.** Focus a drawing (Page Up / Page Down or

@@ -30,7 +30,7 @@
         aria-label="@EffectiveAriaLabel"
         aria-pressed="@PressedAttr"
         aria-disabled="@BlockedAttr"
-        aria-describedby="@ReasonId"
+        aria-describedby="@DescribedByAttr"
         @onclick="ActivateAsync">
     <span class="icon-btn-glyph" aria-hidden="true">
         <svg viewBox="0 0 28 28">
@@ -46,6 +46,11 @@
     Always present so aria-describedby never dangles, blank while the button works.
     Same contract as GatedButton — see that component's header for why a toolbar
     button that VANISHES is worse than one that says why it cannot be pressed.
+
+    But the button only POINTS at it while there is a reason to read. See
+    DescribedByAttr: an aria-describedby resolving to the empty string is not
+    "no description", it is a description of "", and it SUPPRESSES the title —
+    which is where every toolbar tooltip in this app lives.
 *@<span id="@ReasonId" role="none" class="gated-reason">@Reason</span>
 
 @code {
@@ -146,6 +151,36 @@
     private string? Reason => Gate?.Invoke();
 
     private string? BlockedAttr => Reason is null ? null : "true";
+
+    /// <summary>
+    /// The reason id while the button is gated; NOTHING while it works.
+    ///
+    /// <para>
+    /// This is not a tidiness choice, it is the tooltip. The accessible DESCRIPTION is
+    /// computed from aria-describedby FIRST and from <c>title</c> only if that source is
+    /// absent — and "resolves to the empty string" counts as present. Measured in
+    /// Chromium on 2026-09-03 with CDP <c>Accessibility.getFullAXTree</c>, on a button
+    /// carrying both <c>title</c> and an aria-describedby pointing at an empty span:
+    /// </para>
+    /// <code>
+    ///   title only, no describedby        -> description "Open trading dashboard (Alt+T)"
+    ///   describedby -> empty span         -> description NULL      &lt;-- the defect
+    ///   describedby -> whitespace span    -> description NULL
+    ///   describedby -> span with text     -> description that text
+    ///   describedby -> missing id         -> description falls back to the title
+    /// </code>
+    /// <para>
+    /// So making aria-describedby unconditional on 2026-09-02 (the GatedButton pass)
+    /// silently deleted the spoken tooltip from EVERY toolbar button. The two the user
+    /// still heard something from — Objects and Zones — are simply the only two whose
+    /// AriaLabel says more than their Label; he was hearing the NAME, not the tooltip.
+    /// </para>
+    /// <para>
+    /// Pointing at nothing is safe here: the span is still rendered either way, so no
+    /// IDREF ever dangles, and the reason arrives at exactly the moment there is one.
+    /// </para>
+    /// </summary>
+    private string? DescribedByAttr => Reason is null ? null : ReasonId;
 
     private async Task ActivateAsync()
     {

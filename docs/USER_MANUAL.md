@@ -235,7 +235,7 @@ because it tells you where to look for anything.
 
 The **first row opens things.** Left to right it holds the object tree, drawing
 tools and the sound designer; then the trading dashboard, order book, strategies,
-**Watch** (watchlists and the screener), **Zones** (the respect report),
+**Watch** (watchlists and the screener), **Levels** (the respect report),
 **Journal** and **AI**; then alerts and API keys; then save and load workspace;
 and finally settings and help. Every one of these opens a dialog, and every one
 has a keyboard shortcut named in its tooltip, so the toolbar is how you *find* a
@@ -1372,7 +1372,7 @@ judging it.
 Every chart has more lines on it than matter. The respect report tells you which
 ones this market actually reacts to — measured, not assumed.
 
-Open it with **Alt+R**, or with the **Zones** button on the toolbar's first row.
+Open it with **Alt+R**, or with the **Levels** button on the toolbar's first row.
 It measures over the loaded history and presents two tabs: **Levels near price**
 (support and resistance levels from the indicators you have on the chart, prior
 period highs and lows, round numbers) and **Moving-average ranking** (a standard

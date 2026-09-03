@@ -17,8 +17,24 @@ namespace AccessibleTrader.Tests.Blazor;
 
 public class ThemeEditorContrastGateTests
 {
-    private static IRenderedComponent<ThemeEditorModal> Open(BlazorTestHarness h) =>
-        h.OpenModal<ThemeEditorModal>(b => b.Publish(new OpenThemeEditorEvent()));
+    /// <summary>
+    /// Opens the editor on a KNOWN base theme.
+    ///
+    /// <para>
+    /// ThemeEditorModal seeds <c>_basedOn</c> from <c>ThemeService.Current.ThemeType</c>, so
+    /// until 2026-09-03 these tests silently measured whatever theme happened to ship — and every
+    /// ratio written into them below is a Steel Gray number. Changing the shipped default to
+    /// Classic turned them red for a reason that had nothing to do with the gate they test. The
+    /// base is stated here instead: a test that names a ratio must name the surfaces it was
+    /// measured against.
+    /// </para>
+    /// </summary>
+    private static IRenderedComponent<ThemeEditorModal> Open(BlazorTestHarness h)
+    {
+        h.Ctx.Services.GetRequiredService<AccessibleTrader.Core.Services.ThemeService>()
+         .SetTheme(AccessibleTrader.Sdk.Enums.ThemeType.SteelGray);
+        return h.OpenModal<ThemeEditorModal>(b => b.Publish(new OpenThemeEditorEvent()));
+    }
 
     private static void SetDialogText(IRenderedComponent<ThemeEditorModal> cut, string hex) =>
         cut.Find("input[aria-label='Dialog text hex value']").Change(hex);
