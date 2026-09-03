@@ -49,11 +49,11 @@
             }
 
             <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
-                <button class="primary"
-                        disabled="@string.IsNullOrWhiteSpace(_workspaceName)"
-                        @onclick="Save">
+                <GatedButton class="primary"
+                        Gate="SaveGate"
+                        OnClick="Save">
                     Save
-                </button>
+                </GatedButton>
                 <button @onclick="Close" aria-label="Cancel, close the save workspace dialog">Cancel</button>
             </div>
         </div>
@@ -61,6 +61,10 @@
 }
 
 @code {
+    /// <summary>Null when the workspace can be saved; otherwise why it cannot.</summary>
+    private string? SaveGate() =>
+        string.IsNullOrWhiteSpace(_workspaceName) ? "Enter a name for this workspace first." : null;
+
     private string _workspaceName = "";
     private List<string> _existingProfiles = new();
     private string? _statusMessage;

@@ -111,15 +111,26 @@
             {
                 <div class="modal-row">
                     <label for="withdraw-amount">Amount (@_asset.ToUpperInvariant())</label>
+                    @* Required always; invalid only once something has been TYPED that is not a
+                       positive number. An empty field is not a rejection — aria-required is what
+                       says a blank one will not do — and marking it invalid on open would greet
+                       the user with "invalid entry" before they had touched it. *@
                     <input id="withdraw-amount" type="text" inputmode="decimal"
                            value="@_amountText" @oninput="OnAmountInput"
                            aria-label="@($"Amount of {_asset.ToUpperInvariant()} to withdraw")"
+                           aria-required="true"
+                           aria-invalid="@(AmountInvalid ? "true" : "false")"
+                           aria-describedby="@(AmountInvalid ? "withdraw-amount-err" : null)"
                            spellcheck="false" autocomplete="off" style="width:12em;" />
-                    <button type="button" @onclick="LoadQuoteAsync"
-                            disabled="@(!CanQuote)"
+                    @if (AmountInvalid)
+                    {
+                        <span id="withdraw-amount-err" class="field-error">Enter an amount above zero.</span>
+                    }
+                    <GatedButton OnClick="LoadQuoteAsync"
+                            Gate="QuoteGate" Channel="SpeechChannel.Critical"
                             aria-label="Get quote: the fee and the amount that will arrive, without sending anything">
                         Get quote
-                    </button>
+                    </GatedButton>
                 </div>
             }
 
@@ -143,11 +154,11 @@
                                aria-describedby="withdraw-readback"
                                spellcheck="false" autocomplete="off"
                                style="width:12em; font-family:monospace;" />
-                        <button type="button" class="primary" @onclick="SendAsync"
-                                disabled="@_sending"
+                        <GatedButton class="primary" OnClick="SendAsync"
+                                Gate="SendGate" Channel="SpeechChannel.Critical"
                                 aria-label="Send the withdrawal now. This cannot be undone.">
                             @(_sending ? "Sending…" : "Send")
-                        </button>
+                        </GatedButton>
                     </div>
                 </div>
             }
@@ -182,7 +193,25 @@
     private double Amount =>
         double.TryParse(_amountText, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0;
 
+    /// <summary>Something was typed and it is not an amount. Blank is not invalid, it is blank.</summary>
+    private bool AmountInvalid => _amountText.Length > 0 && Amount <= 0;
+
     private bool CanQuote => Selected is not null && Amount > 0;
+
+    // Critical channel on both: this dialog moves real funds off the venue, so a
+    // refusal it cannot explain is the same failure as the live-order readback that
+    // F2 silenced. See GatedButton.Channel.
+
+    /// <summary>Null when a quote can be fetched; otherwise why it cannot.</summary>
+    private string? QuoteGate() =>
+          Selected is null ? "Choose a destination address first."
+        : Amount > 0       ? null
+        : "Enter an amount above zero.";
+
+    /// <summary>Null when the withdrawal can be sent; otherwise why it cannot.</summary>
+    private string? SendGate() =>
+        _sending ? "This withdrawal is already being sent. Wait for it to finish." : null;
+
 
     protected override void OnInitialized()
     {

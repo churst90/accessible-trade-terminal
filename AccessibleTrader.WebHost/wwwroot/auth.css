@@ -166,6 +166,22 @@ body {
 .auth-error ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
 .field-error { display: block; margin-top: 0.3rem; font-size: 0.88rem; color: var(--danger); }
 
+/* The required marker and its legend. The asterisk is aria-hidden — aria-required
+   already tells a screen reader the field is mandatory, and a label that also read
+   "Email star" would say it twice — so this pair exists for the sighted and
+   low-vision half of the audience, who until 2026-09-02 were told nothing at all
+   about which fields were mandatory until they submitted and failed. */
+.req { margin-left: 0.15rem; color: var(--danger); font-weight: 700; }
+.auth-required-note { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--text-muted); }
+
+/* The page-level error box and the success note take focus on load (tabindex="-1"
+   plus autofocus, added by AuthErrorBoxTagHelper), so for the first time they can be
+   the focused element and have to show a focus ring. `:focus`, not `:focus-visible`:
+   a programmatically focused element is not reliably matched by the latter, and a
+   focus ring that appears only for keyboard-initiated focus is no ring at all here. */
+.auth-error:focus,
+.auth-note:focus { outline: 3px solid var(--brand-accent); outline-offset: 2px; }
+
 /* Neutral status / confirmation banner (password updated, reset requested).
    Brand-accent framing keeps it distinct from the danger-red error banner. */
 .auth-note {

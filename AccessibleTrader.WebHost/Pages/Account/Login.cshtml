@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign in — Accessible Trade Terminal</title>
+    <title auth-error="@(!string.IsNullOrEmpty(Model.Error))">Sign in — Accessible Trade Terminal</title>
     <link rel="stylesheet" href="~/auth.css" />
     <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
@@ -26,26 +26,31 @@
             <h1>Sign in</h1>
             <p class="auth-sub">Welcome back &mdash; sign in to your paper-trading account.</p>
 
-            @if (Model.PasswordReset)
-            {
-                <div class="auth-note" role="status" aria-live="polite">Your password has been updated. Sign in with your new password.</div>
-            }
-
+            @* The error block sits ABOVE the note deliberately. The two cannot both render
+               today, but if they ever do, the one that renders first takes the page's
+               opening focus (AuthErrorBoxTagHelper), and a failure outranks a stale
+               confirmation. Structural rather than a flag someone has to remember. *@
             @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
+            }
+
+            @if (Model.PasswordReset)
+            {
+                <div class="auth-note" auth-announce role="status" aria-live="polite">Your password has been updated. Sign in with your new password.</div>
             }
 
             <form method="post">
+                <p class="auth-required-note">Fields marked with an asterisk are required.</p>
                 <div class="auth-field">
                     <label asp-for="Input.Email">Email</label>
                     <input class="auth-input" asp-for="Input.Email" type="email" autocomplete="username" autofocus aria-describedby="email-err" />
-                    <span id="email-err" class="field-error" asp-validation-for="Input.Email" role="alert"></span>
+                    <span id="email-err" class="field-error" asp-validation-for="Input.Email"></span>
                 </div>
                 <div class="auth-field">
                     <label asp-for="Input.Password">Password</label>
                     <input class="auth-input" asp-for="Input.Password" type="password" autocomplete="current-password" aria-describedby="pw-err" />
-                    <span id="pw-err" class="field-error" asp-validation-for="Input.Password" role="alert"></span>
+                    <span id="pw-err" class="field-error" asp-validation-for="Input.Password"></span>
                 </div>
                 <label class="auth-check">
                     <input asp-for="Input.RememberMe" type="checkbox" /> Keep me signed in

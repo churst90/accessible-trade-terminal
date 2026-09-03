@@ -99,6 +99,30 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void The_amount_field_says_it_is_required_and_only_says_it_is_invalid_once_typed_in()
+        {
+            // The money path's own half of the 2026-09-02 error-state work. Two rules, and
+            // the second is the one that is easy to get wrong: an EMPTY amount must not
+            // announce "invalid entry", because the field starts empty and the user would
+            // meet the refusal before typing a character. Blank is what aria-required is
+            // for; aria-invalid means a value was entered and rejected.
+            //
+            // A source scan, in this file's idiom, because nothing renders this dialog in a
+            // test — the whole withdraw surface is guarded by reading it. Recorded as a gap
+            // rather than left implied.
+            string modal = Read("AccessibleTrader.BlazorClient.Components", "WithdrawModal.razor");
+
+            int at = modal.IndexOf("id=\"withdraw-amount\"", StringComparison.Ordinal);
+            Assert.True(at > 0, "The amount field is gone — update this test with what replaced it.");
+            string field = modal.Substring(at, 600);
+            Assert.Contains("aria-required=\"true\"", field);
+            Assert.Contains("aria-invalid=", field);
+
+            // The predicate itself: typed AND unusable, never merely empty.
+            Assert.Contains("AmountInvalid => _amountText.Length > 0 && Amount <= 0", modal);
+        }
+
+        [Fact]
         public void Editing_anything_voids_the_quote_and_the_typed_word()
         {
             // What was read aloud must be exactly what is sent. Each of the three

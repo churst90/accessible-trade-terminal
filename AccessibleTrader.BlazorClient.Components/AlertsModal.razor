@@ -179,12 +179,12 @@
                     </select>
                 </div>
                 <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end;">
-                    <button @onclick="AddAlert"
+                    <GatedButton OnClick="AddAlert"
                             aria-label="Add alert"
                             class="primary"
-                            disabled="@(string.IsNullOrWhiteSpace(_newAlertName) || (_advancedCondition && _advancedSpec.Root == null))">
+                            Gate="AddAlertGate">
                         Add Alert
-                    </button>
+                    </GatedButton>
                 </div>
             </div>
 
@@ -196,6 +196,13 @@
 }
 
 @code {
+    /// <summary>Null when the alert can be added; otherwise why it cannot.</summary>
+    private string? AddAlertGate() =>
+          string.IsNullOrWhiteSpace(_newAlertName) ? "Enter a name for this alert first."
+        : _advancedCondition && _advancedSpec.Root == null
+            ? "Build at least one condition, or switch back to a simple alert."
+        : null;
+
     private List<AlertDefinition> _activeAlerts = new();
     private string _newAlertName = "";
     private AlertTarget _newAlertTarget = AlertTarget.Price;

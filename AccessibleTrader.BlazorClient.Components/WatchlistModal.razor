@@ -86,9 +86,12 @@
                         <label for="wl-new-name">New list name:</label>
                         <input id="wl-new-name" type="text" @bind="_newListName" style="width:40%;" />
                         <button type="button" @onclick="CreateList">Create list</button>
-                        <button type="button" @onclick="DeleteList"
-                                disabled="@(string.IsNullOrEmpty(_selectedListId))"
-                                aria-label="Delete list, the selected watchlist">Delete list</button>
+                        @* No "the selected watchlist" in the name: read as one utterance with
+                           the refusal it becomes "Delete list, the selected watchlist, unavailable,
+                           Choose a watchlist first." — a name asserting the very thing the reason
+                           denies. The visible text is unambiguous on its own. *@
+                        <GatedButton OnClick="DeleteList"
+                                Gate="ListSelectedGate">Delete list</GatedButton>
                     </div>
                 </fieldset>
 
@@ -137,13 +140,12 @@
                             }
                         </select>
 
-                        <button type="button" @onclick="AddEntry"
-                                disabled="@(string.IsNullOrEmpty(_selectedListId) || string.IsNullOrEmpty(_addSymbol))">Add</button>
-                        <button type="button" @onclick="AddAllShown"
-                                disabled="@(string.IsNullOrEmpty(_selectedListId) || _visibleSymbols.Count == 0)"
+                        <GatedButton OnClick="AddEntry" Gate="AddEntryGate">Add</GatedButton>
+                        <GatedButton OnClick="AddAllShown"
+                                Gate="AddAllShownGate"
                                 aria-label="Add all shown symbols to the selected watchlist">
                             Add all shown
-                        </button>
+                        </GatedButton>
                     </div>
 
                     <p id="wl-symbol-count" role="status" aria-live="polite"
@@ -196,9 +198,9 @@
                             }
                         </select>
                         <button type="button" @onclick="NewScreen">New</button>
-                        <button type="button" @onclick="DeleteScreen"
-                                disabled="@(string.IsNullOrEmpty(_editScreenId))"
-                                aria-label="Delete the screen being edited">Delete</button>
+                        <GatedButton OnClick="DeleteScreen"
+                                Gate="ScreenSelectedGate"
+                                aria-label="Delete screen">Delete</GatedButton>
                     </div>
 
                     <div class="modal-row">
@@ -356,10 +358,10 @@
                     </div>
 
                     <div class="modal-row">
-                        <button type="button" @onclick="RunScreenAsync" disabled="@_running">
+                        <GatedButton OnClick="RunScreenAsync" Gate="RunScreenGate">
                             @(_running ? "Running…" : "Run screen")
-                        </button>
-                        <button type="button" @onclick="CancelRun" disabled="@(!_running)" aria-label="Cancel the running screen">Cancel</button>
+                        </GatedButton>
+                        <GatedButton OnClick="CancelRun" Gate="CancelRunGate" aria-label="Cancel screen run">Cancel</GatedButton>
                         <label>
                             <input type="checkbox" @bind="_matchesOnly" /> Show matches only
                         </label>
@@ -428,6 +430,34 @@
 }
 
 @code {
+    /// <summary>Null when a watchlist is selected; otherwise why the action cannot be taken.</summary>
+    private string? ListSelectedGate() =>
+        string.IsNullOrEmpty(_selectedListId) ? "Choose a watchlist first." : null;
+
+    /// <summary>Null when a symbol can be added to the selected list; otherwise why it cannot.</summary>
+    private string? AddEntryGate() =>
+          string.IsNullOrEmpty(_selectedListId) ? "Choose a watchlist first."
+        : string.IsNullOrEmpty(_addSymbol)      ? "Choose a symbol to add."
+        : null;
+
+    /// <summary>Null when every shown symbol can be added; otherwise why it cannot.</summary>
+    private string? AddAllShownGate() =>
+          string.IsNullOrEmpty(_selectedListId) ? "Choose a watchlist first."
+        : _visibleSymbols.Count == 0            ? "No symbols are shown to add."
+        : null;
+
+    /// <summary>Null when a screen is selected for editing; otherwise why it cannot be acted on.</summary>
+    private string? ScreenSelectedGate() =>
+        string.IsNullOrEmpty(_editScreenId) ? "Choose a screen to edit first." : null;
+
+    /// <summary>Null when a screen run can start; otherwise why it cannot.</summary>
+    private string? RunScreenGate() =>
+        _running ? "The screen is already running. Cancel it first, or wait." : null;
+
+    /// <summary>Null when a run can be cancelled; otherwise why it cannot.</summary>
+    private string? CancelRunGate() =>
+        _running ? null : "No screen is running.";
+
     private enum Tab { Lists, Build, Screen }
 
     private Tab _tab = Tab.Lists;

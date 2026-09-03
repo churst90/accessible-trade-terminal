@@ -333,7 +333,7 @@
 
         <ToolbarIconButton Icon="load" Label="Load" Variant="action" Primary="true"
                           ElementId="toolbar-load-btn"
-                          Disabled="@(!CanLoad)"
+                          Gate="LoadGate"
                           Tooltip="Load chart for selected symbol"
                           AriaLabel="Load chart for selected symbol"
                           OnClick="LoadChart" />
@@ -352,22 +352,22 @@
         <div class="toolbar-separator" aria-hidden="true"></div>
         <div class="toolbar-group" role="group" aria-label="Chart view">
             <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
-                              Disabled="@(!HasChartData)"
+                              Gate="ChartDataGate"
                               Tooltip="Pan left / back in time (Left arrow)"
                               AriaLabel="Pan chart left"
                               OnClick="PanLeft" />
             <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
-                              Disabled="@(!HasChartData)"
+                              Gate="ChartDataGate"
                               Tooltip="Pan right / forward in time (Right arrow)"
                               AriaLabel="Pan chart right"
                               OnClick="PanRight" />
             <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
-                              Disabled="@(!HasChartData)"
+                              Gate="ChartDataGate"
                               Tooltip="Zoom in (Plus)"
                               AriaLabel="Zoom chart in"
                               OnClick="ZoomIn" />
             <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
-                              Disabled="@(!HasChartData)"
+                              Gate="ChartDataGate"
                               Tooltip="Zoom out (Minus)"
                               AriaLabel="Zoom chart out"
                               OnClick="ZoomOut" />
@@ -546,6 +546,18 @@
     // ── Chart view controls (pan / zoom) ─────────────────────────────────
     // Pan/zoom are no-ops with no data, so the buttons disable until a chart loads.
     private bool HasChartData => Store.State.Data.Count > 0;
+
+    /// <summary>Null when the Load button will do something; otherwise why it will not.</summary>
+    private string? LoadGate() =>
+          string.IsNullOrEmpty(MarketOrchestrator.SelectedSymbol)
+            ? "Choose a symbol first."
+        : MarketOrchestrator.SelectedSymbol == AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel
+            ? "This provider needs an API key before it can list symbols. Add one in API Keys."
+        : null;
+
+    /// <summary>Null when the pan and zoom buttons have a chart to act on; otherwise why not.</summary>
+    private string? ChartDataGate() =>
+        HasChartData ? null : "No chart is loaded yet. Choose a symbol and press Load.";
 
     // Route through IViewportManager exactly like NavigationEngine's keyboard commands
     // (VIEW_PAN_LEFT/RIGHT, VIEW_ZOOM_IN/OUT) so mouse and keyboard behave identically,

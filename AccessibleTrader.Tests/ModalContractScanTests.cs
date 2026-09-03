@@ -243,6 +243,37 @@ namespace AccessibleTrader.Tests
         /// from its <c>&lt;</c> to the <c>&gt;</c> that closes it, with quoted attribute
         /// values skipped so a <c>&gt;</c> inside an inline style cannot end the tag early.
         /// </summary>
+        /// <summary>
+        /// Razor comments removed, so a scan cannot be tripped — or satisfied — by prose.
+        ///
+        /// <para>
+        /// Found 2026-09-02: a comment in GatedButton.razor explaining why the reason span
+        /// carries role="none" mentions <c>role="tablist"</c>, and
+        /// <see cref="EveryTablistHandlesArrowKeys"/> promptly failed a component that has no
+        /// tablist in it. The same hole runs the other way and is worse — a comment quoting
+        /// the shape a scan looks FOR makes the scan pass on a file that no longer has it.
+        /// <c>DashboardSourceReader.Stripped()</c> exists for exactly this reason; these
+        /// scans predate it.
+        /// </para>
+        /// </summary>
+        internal static string WithoutRazorComments(string markup)
+        {
+            var sb = new System.Text.StringBuilder(markup.Length);
+            int i = 0;
+            while (i < markup.Length)
+            {
+                int open = markup.IndexOf("@*", i, StringComparison.Ordinal);
+                if (open < 0) { sb.Append(markup, i, markup.Length - i); break; }
+                sb.Append(markup, i, open - i);
+                int close = markup.IndexOf("*@", open + 2, StringComparison.Ordinal);
+                if (close < 0) break;                      // unterminated: drop the rest
+                // Keep the newlines so any line-based reader downstream still lines up.
+                for (int k = open; k < close + 2; k++) if (markup[k] == '\n') sb.Append('\n');
+                i = close + 2;
+            }
+            return sb.ToString();
+        }
+
         internal static IEnumerable<string> OpeningTagsContaining(string markup, string needle)
         {
             int from = 0;
@@ -294,7 +325,7 @@ namespace AccessibleTrader.Tests
             {
                 if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")) continue;
 
-                string text = File.ReadAllText(file);
+                string text = WithoutRazorComments(File.ReadAllText(file));
                 foreach (var tag in OpeningTagsContaining(text, "role=\"tablist\""))
                 {
                     tablists++;

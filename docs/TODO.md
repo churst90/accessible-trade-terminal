@@ -117,16 +117,178 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-02, late night — THE NARRATOR SPEAKS ONCE PER SCAN:
-> `AutoNarrationService`'s nine `Speak` calls are one composed, tier-ordered, capped utterance;
-> before that, PLAYBACK SPEAKS; the WCAG CONTRAST FUNCTION exists and the theme editor blocks on
-> it; `PropertiesModal`'s 24 unnamed controls are NAMED; F1–F12 work in text fields; the ORDERED
-> MODAL STACK is in. Read the NEXT list at the end of the 2026-09-01 block; items 0, 1, 2, 3, 7
-> and 8 are done, so it opens at **item 9, error state is conveyed nowhere** (`aria-invalid`,
-> `aria-required`, `required=`, `aria-disabled` all zero across both projects — four cheap
-> scan-guard candidates). Still carried: the Binance 451 geo-block, a product decision needing
-> Cody, and the StrategyLab statistics re-run. One decision for Cody is filed three blocks below:
-> Steel Gray's falling candle.)**
+> **START HERE (current as of 2026-09-03 — ERROR STATE IS CONVEYED NOW: `aria-invalid`,
+> `aria-required` and `aria-disabled` exist across the app for the first time, 34 buttons
+> that VANISHED when their condition held now stay reachable and say why, and the nine
+> account pages put focus on what actually failed. Before that: the narrator speaks once
+> per scan; playback speaks; the WCAG contrast function exists; `PropertiesModal`'s 24
+> unnamed controls are NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in.
+> Read the NEXT list at the end of the 2026-09-01 block; items 0, 1, 2, 3, 7, 8 and 9 are
+> all done, so **the audit's numbered NEXT list is EMPTY**. What is left from it is
+> recorded under "Recorded, not fixed" in the 2026-09-03 block below — the biggest are
+> the four `<nav role="toolbar">` containers that leave the app with zero navigation
+> landmarks, `HelpModal`'s 471 lines under one heading, `ObjectTreeModal`'s missing
+> `aria-expanded`, and an existing drawing's anchors being movable only by mouse. Still
+> carried: Steel Gray's falling candle and the Binance 451 geo-block (both decisions for
+> Cody), and the StrategyLab statistics re-run.)**
+>
+> ### FIXED 2026-09-03 — error state was conveyed nowhere, in either half of the app
+>
+> Item 9, the last numbered item on the audit's NEXT list. **Confirmed exactly as the
+> audit wrote it, and demonstrated twice before anything was written.** The audit's four
+> sweeps returned zero across both projects (`aria-invalid`, `aria-required`, `required=`,
+> `aria-disabled`), and the two demonstrations were:
+>
+> - **A bUnit probe on the order ticket.** Type 0 into Quantity and the rendered DOM comes
+>   back `[Submit Buy Order] disabled=True aria-disabled=- ` and `#order-qty aria-invalid=-`.
+>   For a sighted user a disabled button is greyed out, still on screen, and its position
+>   says which field to go back and fix. For the user this product exists for, `disabled`
+>   is **deletion**: out of the tab order, out of the screen reader's button list, nothing
+>   said, and the field that removed it still announcing itself as valid. This is the money
+>   screen. **Thirty-four buttons across sixteen files carried a dynamic `disabled`.**
+> - **An HTTP POST to the sign-in page** with an empty email: the response carries the
+>   validation message in the DOM and **no `aria-invalid` anywhere in the document**. Every
+>   auth model carries `[Required]`, but `asp-for` emits `data-val-required` and there is no
+>   unobtrusive-validation script on any of the nine pages, so the requirement reached the
+>   server and stopped. These pages had **never been touched by a test of any kind**.
+>
+> **`GatedButton` — a button that is UNAVAILABLE rather than ABSENT.** Never natively
+> disabled, so it keeps its place in the tab order and in the button list; `aria-disabled`
+> while blocked; the reason in an always-present visually-hidden span wired to
+> `aria-describedby` (blank when the gate is open, because an enabled Confirm that still
+> said "Enter a quantity above zero." would be worse than silence); and the component
+> itself swallows the activation and SPEAKS the reason, so the handler is exactly as
+> unreachable as it was under `disabled`. **The gate is a `Func<string?>`, not a bool, and
+> that is the whole safety argument**: `aria-disabled` stops nothing in the DOM, so a
+> second Enter arriving before the re-render — the double-Enter the order ticket's
+> in-flight latch exists because of, having once placed two live orders — would reach the
+> handler off a cached parameter. It is re-evaluated at click time against the same
+> expression that drew the button. Returning the SENTENCE rather than a bool also means a
+> gate with five causes cannot report the wrong one; `CanSubmit` is now *defined* as
+> `SubmitGate() is null`, so the state and the explanation cannot drift.
+>
+> **Money buttons refuse on `SpeechChannel.Critical`.** `FeedbackType.Boundary` speaks on
+> Manual, which F2 silences — so a muted terminal would have answered a refused order with
+> an earcon and no words, on a screen with no visual channel. Same shape as the live-order
+> readback F2 silenced until 2026-09-01. Found by the design review before the code was
+> written.
+>
+> **The nine account pages, by four tag helpers rather than by hand**, because the failure
+> being fixed is "somebody forgot" and a tenth page should get this by existing:
+> `aria-required` on every field the model will not accept empty; `aria-invalid` on the
+> ones the server rejected; **focus moved to the FIRST REJECTED FIELD** (the unconditional
+> `autofocus` on Email dropped the user into Email no matter what failed) with every other
+> `autofocus` stripped, since the browser honours the first in tree order; the page-level
+> error box made focusable and focused when no field owns the failure — `role="alert"` on
+> PARSE-TIME content does not fire in NVDA or VoiceOver, so it had been announced by
+> nothing; a visible `*` plus a per-form legend, because the audit's point is that the
+> requirement was conveyed by nothing *visually or* programmatically; and **"Error: " on
+> the `<title>`**, which is the one thing every screen reader announces unconditionally on
+> a full page load, as the backstop for the autofocus/virtual-buffer race.
+>
+> **Deliberately NOT added: the native `required` attribute**, which is the third of the
+> audit's four sweeps and stays at zero. Native validation pops a bubble that is announced
+> inconsistently and short-circuits the round trip that produces these pages' careful
+> messages (the sign-in failure is generic on purpose — saying which half was wrong is an
+> enumeration oracle). Recorded in `AuthPageErrorStateTests`' header so a later reader does
+> not "fix" the omission back.
+>
+> **The screen-reader review, run as the specialists twice — once on the DESIGN before any
+> code, once on the diff — and both passes found things worth having.** The design pass
+> caught the Critical-channel hole above, the `aria-describedby="pw-hint pw-err"` ordering
+> (a user who had just failed heard the twelve-word password policy before the error), and
+> that `EnableAuthenticator` sets a page-level Error on a ModelState failure too, so the
+> two kinds of failure are NOT mutually exclusive. The diff pass found **two defects the
+> fix itself introduced**: the three OCO fields all default to 0, so binding `aria-invalid`
+> to "is it still zero" made a pristine OCO panel announce "Quantity, invalid entry. Limit
+> price, invalid entry. Stop trigger, invalid entry." before the user had typed anything —
+> **`aria-invalid` means REJECTED, not blank; blank is what `aria-required` is for** — and
+> the same shape on the withdrawal amount. It also found five buttons whose name asserted
+> the very thing their refusal denied ("Delete list, the selected watchlist, unavailable,
+> Choose a watchlist first."), and that the reason span, as a sibling of the button, sits
+> inside a `role="menu"` and two `role="tablist"` containers whose owned children are
+> constrained — now `role="none"`.
+>
+> **And a defect of its own on `EnableAuthenticator`:** a blank code produced "That code
+> didn't match. Codes change every 30 seconds", a sentence about the wrong problem, sending
+> the user to look at their phone instead of the empty box. The page now claims a mismatch
+> only when there was something to compare.
+>
+> **Proof, and the sharpest number in it came from the harness rather than from a test.**
+> `scratchpad/a3_survey.json` is the A3 browser survey's record of what each dialog offers
+> a keyboard user; re-running it after this change moved four dialogs' distinct Tab-stop
+> counts — SoundDesigner **5 → 7** (Clone, Delete), Watchlist **9 → 10** (Cancel screen
+> run), Alerts **10 → 11** (Add Alert), Load Workspace **2 → 3** (Load) — because those
+> controls were not "greyed out" before, they were **not in the document's tab order at
+> all**. Real Chromium, counted by walking Tab. Plus 6,189 unit tests (`--list-tests` 6184)
+> and 165 browser tests, including the first browser test that drives a refused control in
+> real Chromium — the cold-start toolbar, where the five vanished buttons lived. **Twenty-nine sabotages, all red.** Three
+> survived on the first pass and every one of them was informative rather than a nuisance:
+>
+> - the honeypot skip in the validation tag helper was **unreachable** — the field escapes
+>   because `Website` is a nullable string and carries no validators, so two rules removed
+>   the same thing and the one that could be observed was not this one. Deleted; with it
+>   gone the honeypot case reddens the moment `Website` becomes non-nullable, which is the
+>   refactor that would actually reintroduce the defect.
+> - the field-beats-the-box precedence could not be observed through any page, because once
+>   `EnableAuthenticator` stopped setting a false Error, **no page renders an error box
+>   while ModelState is invalid**. Kept — it is the general rule and the shape will be
+>   written again — but moved to a direct tag-helper test where the failing case exists.
+> - a note-versus-error clash on Login and Security turned out to be unreachable too
+>   (`PasswordReset` is set only in `OnGet`; `Status` and `Error` are exclusive branches).
+>   The `Announce="false"` parameter written for it was **deleted rather than kept green**,
+>   and the precedence made structural instead: the error block is placed above the note.
+>
+> **Two harness defects found on the way, both the same shape as things this repo has
+> recorded before.** `ModalContractScanTests.EveryTablistHandlesArrowKeys` reads raw Razor
+> including COMMENTS, and failed `GatedButton.razor` — which has no tablist — because a
+> comment in it mentions `role="tablist"`. The hole runs the other way and is worse: a
+> comment quoting the shape a scan looks for makes the scan pass on a file that no longer
+> has it. `WithoutRazorComments` now strips them. And a scripted sabotage that deleted
+> `@onkeydown="OnKeyDown"` from a tablist read GREEN because
+> `@onkeydown:stopPropagation="true"` still contains the substring — **an ineffective
+> sabotage reads exactly like a verified guard**; redone by hand, it reddens.
+>
+> **Recorded, NOT fixed.** The audit's numbered list is empty but its serious-findings
+> section is not, and these are the ones this pass touched or uncovered:
+> (a) **`<nav role="toolbar">` at `Toolbar.razor:31` and three more containers give the app
+> ZERO navigation landmarks** — the audit calls deleting the role the single highest
+> value-to-effort fix in the report;
+> (b) `HelpModal.razor` is 471 lines and 18 sections under ONE heading;
+> (c) `ObjectTreeModal` exposes no `aria-expanded` anywhere;
+> (d) an existing drawing's anchors can still only be moved with a 10-pixel mouse drag —
+> the population this product exists for can create a trendline and cannot nudge it;
+> (e) **a Limit order with limit price 0 is submittable** — `CanSubmit` never checks it and
+> `BuildSignal` sends `Price: 0`. Not silent (the venue rejects it), which is why it was
+> recorded rather than folded into this change;
+> (f) `opacity: 0.4` now lands on controls that are focusable and respond. They are
+> declared inactive by `aria-disabled`, which is what WCAG 1.4.3's exemption is for, and the
+> value deliberately matches the existing `:disabled` look so nothing regressed visually —
+> but more people will now encounter them, and the honest next step is to MEASURE the
+> composited pair with `WcagContrast` rather than adjust it by eye;
+> (g) `ResetPassword` with an empty hidden Token rejects on a field that renders no message
+> and takes no focus; only reachable from a malformed reset link, and the "Error: " title is
+> the backstop;
+> (h) the withdraw dialog still has no behavioural test at all — its whole surface is
+> guarded by reading the file;
+> (i) two identical "Fields marked with an asterisk are required." notes on Security, one
+> per form.
+>
+> **Two flakes observed, and they are NOT this change.** Across five full runs of the
+> 6,189-test suite: three clean, one with `PlaybackNarrationTests.Orchestrator_PlaysExactly
+> ThePlan_TheSentenceWasBuiltFrom` red, one with that plus both
+> `ThemeEditorContrastGateTests` dialog-text cases. All three pass in isolation and pass on
+> a re-run of the same filter; both classes were written in the two commits before this one
+> (`a76e343c`, `0bc68cfd`) and neither touches anything this change edits. Recorded rather
+> than smoothed over — this repo has been bitten before by reading a flake as a result.
+> **The flake count is now seven or eight, and fixing them is worth a session of its own.**
+>
+> **Durable, for the list:** *`aria-invalid` means REJECTED, not blank* — a field that is
+> empty because nobody has typed in it yet is what `aria-required` is for, and binding
+> invalid to a default value greets the user with a form full of errors they did not make.
+> And *a guard that cannot be observed through the product is not protection* — either
+> delete it, or move it to the layer where its failing case exists.
+
 >
 > ### FIXED 2026-09-02 (late night) — the narrator said nine things and was heard saying one
 >

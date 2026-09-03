@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Account security — Accessible Trade Terminal</title>
+    <title auth-error="@(!string.IsNullOrEmpty(Model.Error))">Account security — Accessible Trade Terminal</title>
     <link rel="stylesheet" href="~/auth.css" />
     <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
 </head>
@@ -25,13 +25,17 @@
             <h1>Account security</h1>
             <p class="auth-sub">Signed in as @Model.Email</p>
 
-            @if (!string.IsNullOrEmpty(Model.Status))
-            {
-                <div class="auth-note" role="status" aria-live="polite">@Model.Status</div>
-            }
+            @* The error block sits ABOVE the note deliberately. The two cannot both render
+               today, but if they ever do, the one that renders first takes the page's
+               opening focus (AuthErrorBoxTagHelper), and a failure outranks a stale
+               confirmation. Structural rather than a flag someone has to remember. *@
             @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Status))
+            {
+                <div class="auth-note" auth-announce role="status" aria-live="polite">@Model.Status</div>
             }
 
             @if (Model.NewRecoveryCodes != null)
@@ -59,9 +63,14 @@
                 <h3>Generate new recovery codes</h3>
                 <p>Invalidates every existing code and issues ten new ones. Confirm with your password.</p>
                 <form method="post" asp-page-handler="RegenerateCodes">
+                    <p class="auth-required-note">Fields marked with an asterisk are required.</p>
                     <div class="auth-field">
-                        <label for="regen-password">Current password</label>
+                        @* Not an asp-for control — the handler reads a bare `Password` form
+                           value — so ValidationStateTagHelper cannot reach it and the
+                           required state is carried by hand. *@
+                        <label for="regen-password">Current password<span class="req" aria-hidden="true">*</span></label>
                         <input id="regen-password" class="auth-input" name="Password" type="password"
+                               aria-required="true"
                                autocomplete="current-password" />
                     </div>
                     <button class="auth-btn" type="submit">Generate new recovery codes</button>
@@ -70,9 +79,14 @@
                 <h3>Turn off two-factor</h3>
                 <p>Your account goes back to password-only sign-in. Confirm with your password.</p>
                 <form method="post" asp-page-handler="Disable">
+                    <p class="auth-required-note">Fields marked with an asterisk are required.</p>
                     <div class="auth-field">
-                        <label for="disable-password">Current password</label>
+                        @* Not an asp-for control — the handler reads a bare `Password` form
+                           value — so ValidationStateTagHelper cannot reach it and the
+                           required state is carried by hand. *@
+                        <label for="disable-password">Current password<span class="req" aria-hidden="true">*</span></label>
                         <input id="disable-password" class="auth-input" name="Password" type="password"
+                               aria-required="true"
                                autocomplete="current-password" />
                     </div>
                     <button class="auth-btn" type="submit">Turn off two-factor</button>

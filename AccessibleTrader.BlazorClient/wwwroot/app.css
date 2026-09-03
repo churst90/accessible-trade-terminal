@@ -204,12 +204,12 @@ button {
     transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not([aria-disabled="true"]) {
     background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
     border-color: var(--border-color);
 }
 
-button:active:not(:disabled) {
+button:active:not(:disabled):not([aria-disabled="true"]) {
     background-color: var(--bg-surface);
 }
 
@@ -231,7 +231,7 @@ button.primary {
     font-weight: 600;
 }
 
-button.primary:hover:not(:disabled) {
+button.primary:hover:not(:disabled):not([aria-disabled="true"]) {
     filter: brightness(1.08);
 }
 
@@ -244,16 +244,48 @@ button.warning {
     font-weight: 600;
 }
 
-button.warning:hover:not(:disabled) {
+button.warning:hover:not(:disabled):not([aria-disabled="true"]) {
     background-color: color-mix(in srgb, #ffb300 32%, transparent);
     border-color: #ffb300;
 }
 
 button:disabled,
-button[disabled] {
+button[disabled],
+/* An UNAVAILABLE button, not an absent one. Native `disabled` deletes a control
+   from the tab order and from the screen reader's button list, so the user this
+   product is for cannot find it, cannot hear its name, and is never told why the
+   action is refused. GatedButton keeps it focusable and says why; this keeps it
+   looking exactly as inert as it is. */
+button[aria-disabled="true"] {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* An aria-disabled button is FOCUSABLE, which a native disabled button never was,
+   so for the first time the dimming lands on a control that has to show a focus
+   ring. `opacity` composites the whole element, outline included, so 0.4 would take
+   a 3:1 focus indicator down to something that fails WCAG 1.4.11 at the exact moment
+   it is needed. Full strength while focused; the announced "unavailable" state and
+   the not-allowed cursor still say what it is. */
+button[aria-disabled="true"]:focus-visible,
+.icon-btn[aria-disabled="true"]:focus-visible {
+    opacity: 1;
+}
+
+/* Field-level error text. Deliberately NOT a red: every colour this app paints
+   text in is a measured pair in ThemeContrastChecks, and inventing an unmeasured
+   one to say "this is wrong" would be the same class of defect as the falling
+   candle at 1.48:1. The sentence itself carries the meaning (WCAG 1.4.1 — colour
+   is never the only cue here), aria-invalid carries it programmatically, and
+   --text-primary is the one ink already proven readable on this surface. */
+.field-error {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 
 /* ── Focus Indicators (WCAG AA minimum) ──────────────────────────────────── */
 
@@ -476,7 +508,7 @@ label {
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
 
-.modal-content button:hover:not(:disabled) {
+.modal-content button:hover:not(:disabled):not([aria-disabled="true"]) {
     background: color-mix(in srgb, var(--bg-surface) 40%, #fff 12%);
     border-color: var(--border-color);
 }
@@ -488,7 +520,7 @@ label {
     font-weight: 600;
 }
 
-.modal-content button.primary:hover:not(:disabled) {
+.modal-content button.primary:hover:not(:disabled):not([aria-disabled="true"]) {
     filter: brightness(1.08);
 }
 
@@ -640,15 +672,16 @@ label {
     transition: transform 0.08s ease-out;
 }
 
-.icon-btn:hover:not(:disabled) {
+.icon-btn:hover:not(:disabled):not([aria-disabled="true"]) {
     transform: translateY(-1px);
 }
 
-.icon-btn:active:not(:disabled) {
+.icon-btn:active:not(:disabled):not([aria-disabled="true"]) {
     transform: translateY(0);
 }
 
-.icon-btn:disabled {
+.icon-btn:disabled,
+.icon-btn[aria-disabled="true"] {
     opacity: 0.35;
     cursor: not-allowed;
 }
@@ -667,7 +700,7 @@ label {
     transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 
-.icon-btn:hover:not(:disabled) .icon-btn-glyph {
+.icon-btn:hover:not(:disabled):not([aria-disabled="true"]) .icon-btn-glyph {
     background: color-mix(in srgb, var(--btn-color) 25%, transparent);
     border-color: color-mix(in srgb, var(--btn-color) 70%, transparent);
 }
@@ -710,7 +743,7 @@ label {
     border-color: var(--btn-color);
 }
 
-.icon-btn-primary:hover:not(:disabled) .icon-btn-glyph {
+.icon-btn-primary:hover:not(:disabled):not([aria-disabled="true"]) .icon-btn-glyph {
     filter: brightness(1.1);
 }
 

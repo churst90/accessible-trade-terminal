@@ -42,8 +42,8 @@
          @oncontextmenu:preventDefault="true">
         @if (_selectedSeries == null)
         {
-            <button id="chart-ctx-first" role="menuitem" class="ctx-item" @onclick="OnPlayFromHere"
-                    disabled="@(_barIndex < 0)">Play from here</button>
+            <GatedButton ElementId="chart-ctx-first" role="menuitem" class="ctx-item" OnClick="OnPlayFromHere"
+                    Gate="PlayFromHereGate">Play from here</GatedButton>
             <button role="menuitem" class="ctx-item" @onclick="OnJumpToLatest">Jump to latest</button>
             <button role="menuitem" class="ctx-item" @onclick="OnToggleCrosshair">
                 @(HoverTracker.IsEnabled ? "Hide crosshair" : "Show crosshair")
@@ -80,8 +80,8 @@
                 @(_selectedSeries.IsVisible ? "Hide" : "Show")
             </button>
             <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
-            <button role="menuitem" class="ctx-item" @onclick="OnRemove"
-                    disabled="@(!CanRemove(_selectedSeries))">Remove</button>
+            <GatedButton role="menuitem" class="ctx-item" OnClick="OnRemove"
+                    Gate="RemoveGate">Remove</GatedButton>
         }
     </div>
 }
@@ -258,6 +258,16 @@
 
     private static bool CanRemove(ChartSeries s)
         => s.Id != "candles" && s.Id != "price";
+
+    /// <summary>Null when playback can start from the clicked bar; otherwise why it cannot.</summary>
+    private string? PlayFromHereGate() =>
+        _barIndex < 0 ? "The pointer is not over a bar." : null;
+
+    /// <summary>Null when the selected series can be removed; otherwise why it cannot.</summary>
+    private string? RemoveGate() =>
+          _selectedSeries is null ? "No series is selected."
+        : CanRemove(_selectedSeries) ? null
+        : "The price series cannot be removed; the chart is built on it.";
 
     private void OnRemove()
     {

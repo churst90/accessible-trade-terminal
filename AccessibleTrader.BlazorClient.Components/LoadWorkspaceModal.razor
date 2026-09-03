@@ -54,11 +54,11 @@
             <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
                 @if (_profiles.Count > 0)
                 {
-                    <button class="primary"
-                            disabled="@(_selectedIndex < 0 || _selectedIndex >= _profiles.Count)"
-                            @onclick="LoadSelected">
+                    <GatedButton class="primary"
+                            Gate="LoadGate"
+                            OnClick="LoadSelected">
                         Load
-                    </button>
+                    </GatedButton>
                 }
                 <button @onclick="Close" aria-label="Cancel, close the load workspace dialog">Cancel</button>
             </div>
@@ -67,6 +67,12 @@
 }
 
 @code {
+    /// <summary>Null when a workspace can be loaded; otherwise why it cannot.</summary>
+    private string? LoadGate() =>
+        _selectedIndex < 0 || _selectedIndex >= _profiles.Count
+            ? "Choose a saved workspace from the list first."
+            : null;
+
     private List<string> _profiles = new();
     private int _selectedIndex = -1;
     private string? _statusMessage;

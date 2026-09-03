@@ -222,14 +222,17 @@ public class AlertsModalTests
     }
 
     [Fact]
-    public void AlertsModal_AddButton_DisabledWhenNameBlank()
+    public void AlertsModal_AddButton_RefusedWhenNameBlank_AndSaysWhy()
     {
         var (ctx, _, bus) = BuildContext();
 
         var cut = OpenModal(ctx, bus);
 
+        // Was `Assert.True(HasAttribute("disabled"))`. A natively disabled Add button is
+        // not "greyed out" to this product's user — it is missing from the dialog, with
+        // no account of which field is holding it. It now stays reachable and says so.
         var addBtn = cut.Find("button[aria-label='Add alert']");
-        Assert.True(addBtn.HasAttribute("disabled"));
+        GatedButtonAssert.IsRefusedBecause(cut, addBtn, "name for this alert");
     }
 
     [Fact]
@@ -246,7 +249,7 @@ public class AlertsModalTests
         // WaitForAssertion + re-find: the enable re-render settles asynchronously
         // on slow (2-core) CI runners — same bUnit timing flake as the modal tests.
         cut.WaitForAssertion(() =>
-            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+            GatedButtonAssert.IsAvailable(cut, cut.Find("button[aria-label='Add alert']")));
 
         cut.Find("button[aria-label='Add alert']").Click();
 
@@ -282,7 +285,8 @@ public class AlertsModalTests
         // with no conditions can never fire and must not be creatable.
         cut.Find("input#alert-name").Change("Tree alert");
         cut.WaitForAssertion(() =>
-            Assert.True(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+            GatedButtonAssert.IsRefusedBecause(
+                cut, cut.Find("button[aria-label='Add alert']"), "at least one condition"));
     }
 
     [Fact]
@@ -297,7 +301,7 @@ public class AlertsModalTests
         cut.Find("input#alert-name").Change("Big BTC move");
         cut.Find("input#alert-threshold").Change("65000");
         cut.WaitForAssertion(() =>
-            Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
+            GatedButtonAssert.IsAvailable(cut, cut.Find("button[aria-label='Add alert']")));
         cut.Find("button[aria-label='Add alert']").Click();
 
         cut.WaitForAssertion(() =>

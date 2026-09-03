@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recovery code — Accessible Trade Terminal</title>
+    <title auth-error="@(!string.IsNullOrEmpty(Model.Error))">Recovery code — Accessible Trade Terminal</title>
     <link rel="stylesheet" href="~/auth.css" />
     <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
 </head>
@@ -30,15 +30,16 @@
 
             @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <div class="auth-error" role="alert" aria-live="assertive">@Model.Error</div>
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">@Model.Error</div>
             }
 
             <form method="post">
+                <p class="auth-required-note">Fields marked with an asterisk are required.</p>
                 <div class="auth-field">
                     <label asp-for="Input.RecoveryCode">Recovery code</label>
                     <input class="auth-input" asp-for="Input.RecoveryCode" type="text"
                            autocomplete="off" autofocus aria-describedby="rc-err" />
-                    <span id="rc-err" class="field-error" asp-validation-for="Input.RecoveryCode" role="alert"></span>
+                    <span id="rc-err" class="field-error" asp-validation-for="Input.RecoveryCode"></span>
                 </div>
                 <button class="auth-btn" type="submit">Sign in</button>
             </form>

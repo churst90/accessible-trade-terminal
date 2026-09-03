@@ -61,7 +61,13 @@ namespace AccessibleTrader.WebHost.Pages.Account
 
             if (!valid)
             {
-                Error = "That code didn't match. Codes change every 30 seconds — enter the current one and press Turn on again.";
+                // Only when there WAS a code to check. `valid` is false for a blank field too
+                // (ModelState.IsValid is the first term), and "that code didn't match" is not
+                // what went wrong when nothing was entered — it sends the user to look at their
+                // authenticator instead of at the empty box. The [Required] message on the field
+                // is the accurate one, and the field is where focus now lands.
+                if (ModelState.IsValid)
+                    Error = "That code didn't match. Codes change every 30 seconds — enter the current one and press Turn on again.";
                 await LoadKeyAsync(user);
                 return Page();
             }

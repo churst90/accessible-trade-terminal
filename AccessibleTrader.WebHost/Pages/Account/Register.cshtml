@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create an account — Accessible Trade Terminal</title>
+    <title auth-error="@(Model.Errors.Count > 0)">Create an account — Accessible Trade Terminal</title>
     <link rel="stylesheet" href="~/auth.css" />
     <link rel="icon" type="image/png" sizes="32x32" href="~/icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
@@ -28,7 +28,7 @@
 
             @if (Model.Errors.Count > 0)
             {
-                <div class="auth-error" role="alert" aria-live="assertive">
+                <div class="auth-error" auth-announce role="alert" aria-live="assertive">
                     <strong>Please fix the following:</strong>
                     <ul>
                         @foreach (var e in Model.Errors) { <li>@e</li> }
@@ -37,6 +37,7 @@
             }
 
             <form method="post">
+                <p class="auth-required-note">Fields marked with an asterisk are required.</p>
                 @* Honeypot: hidden from real users (visually-hidden + aria-hidden +
                    out of the tab order). Bots that fill every field trip it and are
                    silently rejected server-side. Not a validated field. *@
@@ -47,18 +48,18 @@
                 <div class="auth-field">
                     <label asp-for="Input.Email">Email</label>
                     <input class="auth-input" asp-for="Input.Email" type="email" autocomplete="username" autofocus aria-describedby="email-err" />
-                    <span id="email-err" class="field-error" asp-validation-for="Input.Email" role="alert"></span>
+                    <span id="email-err" class="field-error" asp-validation-for="Input.Email"></span>
                 </div>
                 <div class="auth-field">
                     <label asp-for="Input.Password">Password</label>
-                    <input class="auth-input" asp-for="Input.Password" type="password" autocomplete="new-password" aria-describedby="pw-hint pw-err" />
+                    <input class="auth-input" asp-for="Input.Password" type="password" autocomplete="new-password" aria-describedby="pw-err pw-hint" />
                     <span id="pw-hint" class="auth-hint">At least 10 characters, including an uppercase letter and a number.</span>
-                    <span id="pw-err" class="field-error" asp-validation-for="Input.Password" role="alert"></span>
+                    <span id="pw-err" class="field-error" asp-validation-for="Input.Password"></span>
                 </div>
                 <div class="auth-field">
                     <label asp-for="Input.ConfirmPassword">Confirm password</label>
                     <input class="auth-input" asp-for="Input.ConfirmPassword" type="password" autocomplete="new-password" aria-describedby="cpw-err" />
-                    <span id="cpw-err" class="field-error" asp-validation-for="Input.ConfirmPassword" role="alert"></span>
+                    <span id="cpw-err" class="field-error" asp-validation-for="Input.ConfirmPassword"></span>
                 </div>
                 <button class="auth-btn" type="submit">Create account</button>
             </form>

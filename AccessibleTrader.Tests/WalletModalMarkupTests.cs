@@ -82,11 +82,14 @@ namespace AccessibleTrader.Tests
         public void The_network_is_chosen_before_an_address_is_fetched_and_has_no_default()
         {
             // Picking a network for the user is picking which chain their money goes
-            // to. The Get-address button stays disabled until they choose.
+            // to. The Get-address button refuses until they choose — and since
+            // 2026-09-02 it refuses OUT LOUD rather than by vanishing, so the gate is
+            // now the AddressGate expression rather than a `disabled` attribute.
             string s = Modal();
 
             Assert.Contains("— choose a network —", s);
-            Assert.Contains("disabled=\"@(string.IsNullOrEmpty(_network))\"", s);
+            Assert.Contains("Gate=\"AddressGate\"", s);
+            Assert.Contains("string.IsNullOrEmpty(_network) ? \"Choose a network first.\" : null", s);
         }
 
         [Fact]

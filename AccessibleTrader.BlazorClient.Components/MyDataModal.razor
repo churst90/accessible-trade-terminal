@@ -66,11 +66,11 @@
                         From Excel or LibreOffice: File, Save As, CSV.
                     </p>
 
-                    <button type="button" @onclick="ImportAsync"
-                            disabled="@(_importing)"
+                    <GatedButton OnClick="ImportAsync"
+                            Gate="ImportGate"
                             aria-label="Import the pasted or chosen CSV as a new dataset">
                         @(_importing ? "Importing…" : "Import")
-                    </button>
+                    </GatedButton>
                     <button type="button" @onclick="ToggleTemplates"
                             aria-expanded="@(_showTemplates ? "true" : "false")">
                         @(_showTemplates ? "Hide templates" : "Show templates")
@@ -127,6 +127,10 @@
 }
 
 @code {
+    /// <summary>Null when the import can start; otherwise why it cannot.</summary>
+    private string? ImportGate() =>
+        _importing ? "An import is already running. Wait for it to finish." : null;
+
     public const string OhlcvTemplate = "date,open,high,low,close,volume\n2026-01-01,100,105,98,103,5000\n2026-01-02,103,108,102,107,6200";
     public const string SeriesTemplate = "date,Income,Expenses,Net\n2026-01-01,5000,4200,800\n2026-02-01,5100,4400,700";
     public const string EventsTemplate = "date,label,value\n2026-03-01,Bought 0.5 BTC,42000\n2026-05-10,Sold 0.25 BTC,61000";

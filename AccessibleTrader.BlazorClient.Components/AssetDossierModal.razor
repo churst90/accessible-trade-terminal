@@ -63,7 +63,7 @@
                             Checks (@_dossier.RaisedFlags.Count of @_dossier.Flags.Count flagged)
                         </button>
                     }
-                    <button type="button" @onclick="RefreshAsync" disabled="@_busy">Rebuild</button>
+                    <GatedButton OnClick="RefreshAsync" Gate="RefreshGate">Rebuild</GatedButton>
                 </div>
 
                 <div id="dossier-panel" role="tabpanel" aria-labelledby="@TabId(_tab)">
@@ -175,6 +175,10 @@
 }
 
 @code {
+    /// <summary>Null when a rebuild can start; otherwise why it cannot.</summary>
+    private string? RefreshGate() =>
+        _busy ? "Still rebuilding. Wait for this pass to finish." : null;
+
     private const string ChecksTab = "Checks";
 
     private AssetDossier? _dossier;

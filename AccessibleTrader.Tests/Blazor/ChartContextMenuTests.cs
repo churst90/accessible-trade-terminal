@@ -90,8 +90,14 @@ public class ChartContextMenuTests
         Assert.Equal("SERIES", seen.Scope);
     }
 
+    // The two refusals below used to be `disabled`, which is invisible to the user this
+    // product is for: the menu item is not greyed out for them, it is ABSENT from the
+    // menu they are arrowing through. Both now assert the whole of the new contract —
+    // still refused, still reachable, and it says why — because asserting only
+    // aria-disabled would pass on a button that had quietly stopped refusing.
+
     [Fact]
-    public void Remove_is_disabled_for_the_primary_price_series()
+    public void Remove_is_refused_for_the_primary_price_series_and_says_why()
     {
         var h = NewHarness(NewSeries("candles", "Candles"));
         using var _ = h;
@@ -99,18 +105,29 @@ public class ChartContextMenuTests
         cut.FindAll("button").First(b => b.TextContent.Contains("Candles")).Click();
 
         var remove = cut.FindAll("button").First(b => b.TextContent.Trim() == "Remove");
-        Assert.True(remove.HasAttribute("disabled"));
+        GatedButtonAssert.IsRefusedBecause(cut, remove, "cannot be removed");
+
+        // And it still refuses: pressing it deletes nothing.
+        int deletes = 0;
+        using var sub = h.EventBus.Subscribe<DeleteSeriesEvent>(_ => deletes++);
+        remove.Click();
+        Assert.Equal(0, deletes);
     }
 
     [Fact]
-    public void Play_from_here_is_disabled_when_the_click_landed_in_the_empty_right_margin()
+    public void Play_from_here_is_refused_when_the_click_landed_in_the_empty_right_margin()
     {
         var h = NewHarness(NewSeries("candles", "Candles"));
         using var _ = h;
         var cut = Open(h, barIndex: -1);
 
         var play = cut.FindAll("button").First(b => b.TextContent.Contains("Play from here"));
-        Assert.True(play.HasAttribute("disabled"));
+        GatedButtonAssert.IsRefusedBecause(cut, play, "not over a bar");
+
+        int plays = 0;
+        using var sub = h.EventBus.Subscribe<PlaybackCommand>(_ => plays++);
+        play.Click();
+        Assert.Equal(0, plays);
     }
 
     [Fact]

@@ -2,3 +2,8 @@
 @using AccessibleTrader.WebHost.Account
 @namespace AccessibleTrader.WebHost.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@* The account pages' accessibility tag helpers: aria-required / aria-invalid on every
+   asp-for control, focus placed on what actually failed, the required marker, and the
+   "Error: " title prefix. Registered here so a page added later gets them by existing
+   rather than by remembering. See AccessibleTrader.WebHost/TagHelpers/. *@
+@addTagHelper *, AccessibleTrader.WebHost

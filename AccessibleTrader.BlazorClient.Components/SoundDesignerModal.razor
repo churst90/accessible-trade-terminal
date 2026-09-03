@@ -47,9 +47,9 @@
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button @onclick="NewPatch" aria-label="New patch">+ New</button>
-                        <button @onclick="ClonePatch" disabled="@(_selectedPatch == null)" aria-label="Clone selected patch">Clone</button>
-                        <button @onclick="DeletePatch" disabled="@(_selectedPatch == null)" aria-label="Delete selected patch"
-                                style="color: #f88;">Delete</button>
+                        <GatedButton OnClick="ClonePatch" Gate="PatchSelectedGate" aria-label="Clone patch">Clone</GatedButton>
+                        <GatedButton OnClick="DeletePatch" Gate="PatchSelectedGate" aria-label="Delete patch"
+                                style="color: #f88;">Delete</GatedButton>
                     </div>
                 </div>
 
@@ -106,9 +106,9 @@
                                                 </optgroup>
                                             }
                                         </select>
-                                        <button @onclick="() => RemoveOscillator(idx)"
-                                                disabled="@(_editOscillators.Count <= 1)"
-                                                aria-label="Remove oscillator @(idx + 1)" style="color: #f88;">Remove</button>
+                                        <GatedButton OnClick="() => RemoveOscillator(idx)"
+                                                Gate="RemoveOscillatorGate"
+                                                aria-label="@($"Remove oscillator {idx + 1}")" style="color: #f88;">Remove</GatedButton>
                                     </div>
                                     <div class="modal-row">
                                         <label for="sd-gain-@idx">Level (@layer.Gain.ToString("P0"))</label>
@@ -323,6 +323,14 @@
 }
 
 @code {
+    /// <summary>Null when a patch is selected; otherwise why the action cannot be taken.</summary>
+    private string? PatchSelectedGate() =>
+        _selectedPatch == null ? "Choose a patch from the list first." : null;
+
+    /// <summary>Null when an oscillator can be removed; otherwise why it cannot.</summary>
+    private string? RemoveOscillatorGate() =>
+        _editOscillators.Count <= 1 ? "A patch needs at least one oscillator." : null;
+
     // CommandDispatcher's Escape handling and MainLayout's canvas hiding both key on
     // this exact name, which predates the ModalBase default ("SoundDesigner").
     protected override string ModalName => "Sound designer";

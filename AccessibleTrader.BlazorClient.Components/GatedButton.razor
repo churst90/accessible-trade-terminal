@@ -1,0 +1,162 @@
+@*
+    A button that is UNAVAILABLE rather than ABSENT.
+
+    Native `disabled` removes a control from the tab order and from the screen
+    reader's button list. For a sighted user that is fine — the greyed-out button is
+    still on screen, still says what it does, and its position tells them which field
+    to go back and fix. For the user this product exists for, `disabled` is deletion:
+    type 0 into the order ticket's Quantity and "Submit Buy Order" simply stops
+    existing, with nothing said, and there is no way to find out why. That was
+    demonstrated on 2026-09-02 — one bUnit test, quantity 0, the submit button
+    `disabled=True` and the quantity field carrying no invalid state at all.
+
+    So this renders a button that is never natively disabled:
+
+      * `aria-disabled="true"` while blocked — every screen reader announces
+        "unavailable" / "dimmed", so the control is still THERE and still says its
+        name, which is what tells the user a path exists at all;
+      * the reason is a real sentence in a visually-hidden span wired to
+        `aria-describedby`, so tabbing to the button announces name, state and cause
+        together — the one channel that reaches the user at every verbosity level and
+        in braille, without depending on a live region that may have been interrupted;
+      * activating it while blocked SPEAKS the reason and does not invoke OnClick.
+
+    THE GATE IS A FUNCTION, NOT A BOOL, and that is the whole safety argument.
+    `aria-disabled` stops nothing in the DOM: unlike `disabled`, the browser will
+    happily deliver a second click. A cached `Blocked` parameter is only as fresh as
+    the last render, so a double-Enter — which the order ticket's in-flight latch
+    exists precisely because it once placed two live orders — could reach the handler
+    on stale state. Gate() is therefore evaluated AGAIN, synchronously, at click time,
+    against the same expression that drew the button. Returning null means "go ahead";
+    returning a sentence means "refuse, and here is why", so a gate with several causes
+    cannot report the wrong one.
+
+    Callers keep their own guards. `SubmitOrder`'s `if (!CanSubmit) return;` still
+    stands behind this; defence in depth, not a replacement.
+
+    Usage:
+        <GatedButton class="submit-btn" Gate="SubmitGate" OnClick="SubmitOrder">
+            Submit @_orderSide Order
+        </GatedButton>
+
+        private string? SubmitGate() =>
+            _orderInFlight ? "An order is already being sent."
+            : _orderQty <= 0 ? "Enter a quantity above zero."
+            : null;
+*@
+@inject IEventBus EventBus
+
+<button @attributes="Extra"
+        type="@Type"
+        id="@ElementId"
+        aria-disabled="@BlockedAttr"
+        aria-describedby="@DescribedByAttr"
+        @onclick="ActivateAsync">@ChildContent</button>@*
+    Always rendered, and blank when the action is available. A conditionally rendered
+    span would leave aria-describedby pointing at nothing — a dangling IDREF, handled
+    differently by every screen reader — while a span whose TEXT is conditional reads
+    as the empty string, which is announced as nothing at all. And the text must go
+    when the gate opens: an enabled Confirm that still said "Enter a quantity above
+    zero." after the field was fixed would be worse than saying nothing.
+
+    role="none" because this span is a SIBLING of the button, and some of the buttons
+    it follows sit inside a role="menu" (ChartContextMenu) or a role="tablist", whose
+    owned children are required to be menuitems / tabs. A presentational element is
+    not an owned child, so the container's structure stays conformant — and the text
+    is still reachable, because aria-describedby resolves through the text alternative
+    computation rather than through the accessibility tree.
+*@<span id="@ReasonId" role="none" class="gated-reason">@Reason</span>
+
+@code {
+    /// <summary>
+    /// The gate. Returns null when the action can be taken; otherwise the reason it
+    /// cannot, as a sentence the user can act on — "Enter a quantity above zero.",
+    /// not "Invalid input". Called on every render AND again at click time, so it must
+    /// be cheap and side-effect free.
+    ///
+    /// <para>
+    /// Required at every call site — including sites that cannot be blocked today,
+    /// because the gate expression is the thing that changes. A gate that never blocks
+    /// is written <c>() =&gt; null</c> and costs nothing.
+    /// </para>
+    /// </summary>
+    [Parameter, EditorRequired] public Func<string?> Gate { get; set; } = () => null;
+
+    /// <summary>Invoked only when <see cref="Gate"/> returns null at click time.</summary>
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    /// <summary>
+    /// Which speech channel carries the refusal. Left at Manual — the channel every
+    /// other "why did that key do nothing" message uses — for ordinary controls.
+    ///
+    /// <para>
+    /// Pass <c>SpeechChannel.Critical</c> for anything that spends money.
+    /// <c>FeedbackType.Boundary</c> speaks on Manual, which F2 silences, so a muted
+    /// terminal would answer a refused order button with an earcon and no account of
+    /// why — the same shape as the live-order readback that F2 silenced until
+    /// 2026-09-01, on a screen with no visual channel to fall back to.
+    /// </para>
+    /// </summary>
+    [Parameter] public SpeechChannel? Channel { get; set; }
+
+    /// <summary>
+    /// Optional DOM id. Set it when something needs to move focus here;
+    /// <c>accessibleTrader.focusElement</c> addresses elements by id.
+    /// </summary>
+    [Parameter] public string? ElementId { get; set; }
+
+    /// <summary>
+    /// Defaults to "button". Overridable because a button inside a &lt;form&gt;
+    /// defaults to submit in HTML and this component must not change that silently.
+    /// </summary>
+    [Parameter] public string Type { get; set; } = "button";
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Everything else the call site wrote — class, aria-label, title, style. Splatted
+    /// FIRST so the attributes this component owns (aria-disabled, aria-describedby,
+    /// type, id) win over a stray duplicate rather than being silently replaced by one.
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Extra { get; set; }
+
+    private readonly string _reasonId = "gated-" + Guid.NewGuid().ToString("N")[..8];
+    private string ReasonId => _reasonId;
+
+    private string? Reason => Gate?.Invoke();
+
+    private string? BlockedAttr => Reason is null ? null : "true";
+
+    /// <summary>
+    /// The call site's own aria-describedby is kept and the reason id APPENDED — after
+    /// it, because a description is read in listed order and the reason a control is
+    /// refused should not arrive behind a paragraph of standing hint text.
+    /// </summary>
+    private string DescribedByAttr
+    {
+        get
+        {
+            string? own = null;
+            if (Extra != null && Extra.TryGetValue("aria-describedby", out var v))
+                own = v?.ToString();
+            return string.IsNullOrWhiteSpace(own) ? ReasonId : ReasonId + " " + own;
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        // Re-evaluated here, not read from the last render. See the header.
+        var reason = Gate?.Invoke();
+        if (reason is not null)
+        {
+            // Boundary, not Error: nothing has gone wrong, the user has arrived at the
+            // edge of what this control will do. Same channel and same earcon as every
+            // other refusal in the app, unless the call site raised it.
+            EventBus.Publish(new FeedbackRequestEvent(
+                FeedbackType.Boundary, reason, Channel: Channel));
+            return;
+        }
+        await OnClick.InvokeAsync();
+    }
+}

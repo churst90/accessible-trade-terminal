@@ -382,19 +382,19 @@
     "tabEscapes": [],
     "tabStops": [
       "\u003Cbutton (no id) aria-label=\u0027New patch\u0027\u003E \u201C\u002B New\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Clone patch\u0027\u003E \u201CClone\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Delete patch\u0027\u003E \u201CDelete\u201D",
       "\u003Csummary (no id)\u003E \u201CEarcon Assignments\u201D",
       "\u003Csummary (no id)\u003E \u201CImport WAV (wavetable or sample)\u201D",
       "\u003Csummary (no id)\u003E \u201CImport Patch JSON\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close sound designer\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id) aria-label=\u0027New patch\u0027\u003E \u201C\u002B New\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Clone patch\u0027\u003E \u201CClone\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Delete patch\u0027\u003E \u201CDelete\u201D",
       "\u003Csummary (no id)\u003E \u201CEarcon Assignments\u201D",
-      "\u003Csummary (no id)\u003E \u201CImport WAV (wavetable or sample)\u201D",
-      "\u003Csummary (no id)\u003E \u201CImport Patch JSON\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close sound designer\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027New patch\u0027\u003E \u201C\u002B New\u201D",
-      "\u003Csummary (no id)\u003E \u201CEarcon Assignments\u201D"
+      "\u003Csummary (no id)\u003E \u201CImport WAV (wavetable or sample)\u201D"
     ],
-    "tabDistinctStops": 5,
+    "tabDistinctStops": 7,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -570,16 +570,16 @@
       "\u003Cselect id=\u0027scr-list\u0027\u003E",
       "\u003Cinput id=\u0027scr-tf\u0027\u003E",
       "\u003Cbutton (no id)\u003E \u201CRun screen\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Cancel screen run\u0027\u003E \u201CCancel\u201D",
       "\u003Cinput (no id)\u003E",
       "\u003Cbutton (no id) aria-label=\u0027Close watchlists and screener dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton id=\u0027watchlist-tab-lists\u0027 role=\u0027tab\u0027\u003E \u201CWatchlists\u201D",
       "\u003Cbutton id=\u0027watchlist-tab-build\u0027 role=\u0027tab\u0027\u003E \u201CBuild a screen\u201D",
       "\u003Cbutton id=\u0027watchlist-tab-screen\u0027 role=\u0027tab\u0027\u003E \u201CRun screener\u201D",
       "\u003Cselect id=\u0027scr-select\u0027\u003E \u201C\u2014 every symbol (quote screen) \u2014\u201D",
-      "\u003Cselect id=\u0027scr-list\u0027\u003E",
-      "\u003Cinput id=\u0027scr-tf\u0027\u003E"
+      "\u003Cselect id=\u0027scr-list\u0027\u003E"
     ],
-    "tabDistinctStops": 9,
+    "tabDistinctStops": 10,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -655,7 +655,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[04:06:40] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[19:34:41] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"
@@ -730,11 +730,11 @@
       "\u003Cselect id=\u0027alert-delivery\u0027\u003E \u201CSpeech                         Earcon                       \u2026\u201D",
       "\u003Cselect id=\u0027alert-symbol\u0027\u003E \u201CThis symbol (current chart)                         Any symb\u2026\u201D",
       "\u003Cselect id=\u0027alert-webhook\u0027\u003E \u201C\u2014 none \u2014\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Add alert\u0027\u003E \u201CAdd Alert\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close alerts dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cinput id=\u0027alert-name\u0027\u003E",
-      "\u003Cinput id=\u0027alert-advanced\u0027\u003E"
+      "\u003Cinput id=\u0027alert-name\u0027\u003E"
     ],
-    "tabDistinctStops": 10,
+    "tabDistinctStops": 11,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
@@ -816,19 +816,19 @@
     "tabEscapes": [],
     "tabStops": [
       "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
+      "\u003Cbutton (no id)\u003E \u201CSave\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D",
       "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
+      "\u003Cbutton (no id)\u003E \u201CSave\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D",
       "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
+      "\u003Cbutton (no id)\u003E \u201CSave\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D",
       "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
-      "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D",
-      "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
-      "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D",
-      "\u003Cinput id=\u0027workspace-name-input\u0027\u003E",
+      "\u003Cbutton (no id)\u003E \u201CSave\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Cancel, close the save workspace dialog\u0027\u003E \u201CCancel\u201D"
     ],
-    "tabDistinctStops": 2,
+    "tabDistinctStops": 3,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"

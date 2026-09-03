@@ -849,12 +849,12 @@
                                     @(isCapturing ? "▶ waiting..." : binding.DisplayString)
                                 </td>
                                 <td style="padding:4px 8px; text-align:center;">
-                                    <button style="font-size:0.75rem; padding:2px 6px;"
-                                            @onclick="() => StartCapture(binding)"
-                                            disabled="@(_capturingCommand != null && !isCapturing)"
-                                            aria-label="Rebind @binding.Description">
+                                    <GatedButton style="font-size:0.75rem; padding:2px 6px;"
+                                            OnClick="() => StartCapture(binding)"
+                                            Gate="@(() => RebindGate(isCapturing))"
+                                            aria-label="@($"Rebind {binding.Description}")">
                                         @(isCapturing ? "…" : "Rebind")
-                                    </button>
+                                    </GatedButton>
                                 </td>
                             </tr>
                         }
@@ -1161,6 +1161,15 @@
 }
 
 @code {
+    /// <summary>
+    /// Null when this row's shortcut can be rebound; otherwise why it cannot. One capture
+    /// runs at a time — the row already capturing stays live so the user can see it through.
+    /// </summary>
+    private string? RebindGate(bool isCapturing) =>
+        _capturingCommand != null && !isCapturing
+            ? "Another shortcut is waiting for a key. Press it, or press Escape to cancel."
+            : null;
+
     private bool _isVisible;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;

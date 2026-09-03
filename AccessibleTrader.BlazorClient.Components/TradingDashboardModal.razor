@@ -128,10 +128,25 @@
                                 </div>
                             }
 
+                            @* Quantity is the field that decides whether this ticket can be sent
+                               at all, and until 2026-09-02 clearing it just made the Submit button
+                               VANISH — a control removed from the tab order and from the screen
+                               reader's button list, with nothing said and no way to find out which
+                               field had done it. The state now lives on the field that caused it:
+                               aria-required says it must be filled BEFORE the user gets there, and
+                               aria-invalid plus the message say so afterwards. *@
                             <div class="entry-row">
                                 <label for="order-qty">Quantity</label>
-                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity" @bind="_orderQty"
+                                <input id="order-qty" type="number" step="0.01" aria-label="Order quantity"
+                                       aria-required="true"
+                                       aria-invalid="@(QtyInvalid ? "true" : "false")"
+                                       aria-describedby="@(QtyInvalid ? "order-qty-err" : null)"
+                                       @bind="_orderQty"
                                        @oninput='() => VoidReviewIfArmed("Quantity")' />
+                                @if (QtyInvalid)
+                                {
+                                    <span id="order-qty-err" class="field-error">@QtyErrorText</span>
+                                }
                             </div>
 
                             <div class="entry-row">
@@ -334,20 +349,29 @@
                                        the control itself rather than by a live region that may have
                                        been interrupted. aria-label EXTENDS the visible text rather
                                        than replacing it, per WCAG 2.5.3 Label in Name: containment,
-                                       not equality. *@
-                                    <button id="order-confirm-live"
-                                            class="submit-btn @(_orderSide.ToLower())"
-                                            disabled="@(!CanSubmit)"
+                                       not equality.
+
+                                       GatedButton rather than `disabled`: the refusal condition is
+                                       unchanged and SubmitOrder's own `if (!CanSubmit) return;`
+                                       still stands behind it, but the armed live order is precisely
+                                       the moment a vanished button is worst — the user has heard the
+                                       review, is reaching for Confirm, and under `disabled` finds
+                                       nothing there and no account of why. *@
+                                    <GatedButton ElementId="order-confirm-live"
+                                            class="@SubmitButtonClass"
+                                            Gate="SubmitGate" Channel="SpeechChannel.Critical"
                                             aria-label="@($"Confirm {_orderSide} {PriceFormatter.FormatQuantity(_orderQty)} {Store.State.Identity.Symbol}, {_orderType.ToLowerInvariant()} order. Sends to the live account.")"
-                                            @onclick="SubmitOrder">Confirm @_orderSide @PriceFormatter.FormatQuantity(_orderQty) @Store.State.Identity.Symbol</button>
+                                            OnClick="SubmitOrder">Confirm @_orderSide @PriceFormatter.FormatQuantity(_orderQty) @Store.State.Identity.Symbol</GatedButton>
                                     <button type="button" @onclick="CancelReview" aria-label="Cancel, do not submit the live order">Cancel</button>
                                 </div>
                             }
                             else
                             {
-                                <button class="submit-btn @(_orderSide.ToLower())" disabled="@(!CanSubmit)" @onclick="SubmitOrder">
+                                <GatedButton class="@SubmitButtonClass"
+                                             Gate="SubmitGate" Channel="SpeechChannel.Critical"
+                                             OnClick="SubmitOrder">
                                     Submit @_orderSide Order
-                                </button>
+                                </GatedButton>
                             }
 
                             @if (!string.IsNullOrEmpty(_orderStatus))
@@ -377,22 +401,54 @@
                                             <option value="Buy">Buy (breakout + pullback entry)</option>
                                         </select>
                                     </div>
+                                    @* All three are required and all three gate the button. The
+                                       last rule is the one nobody guesses: a limit and a stop at the
+                                       SAME price cannot be a pair, because neither can be the one
+                                       that fills first and cancels the other. Under `disabled` that
+                                       rule was unstateable — the button was simply gone. *@
+                                    @* aria-required, but NOT aria-invalid for being empty. All
+                                       three of these default to 0, so binding invalid to "is it
+                                       still zero" made a pristine OCO panel announce "Quantity,
+                                       invalid entry. Limit price, invalid entry. Stop trigger,
+                                       invalid entry." before the user had typed a character.
+                                       aria-invalid means REJECTED, not blank — required is what
+                                       says a blank one will not do — so the only thing marked
+                                       here is the pair rule, which is a judgement on values the
+                                       user actually entered. *@
                                     <div class="modal-row">
                                         <label for="oco-qty">Quantity:</label>
-                                        <input id="oco-qty" type="number" step="any" min="0" @bind="_ocoQty" />
+                                        <input id="oco-qty" type="number" step="any" min="0"
+                                               aria-required="true"
+                                               @bind="_ocoQty" />
                                     </div>
                                     <div class="modal-row">
                                         <label for="oco-limit">Limit price (the favorable side):</label>
-                                        <input id="oco-limit" type="number" step="any" min="0" @bind="_ocoLimitPrice" />
+                                        <input id="oco-limit" type="number" step="any" min="0"
+                                               aria-required="true"
+                                               aria-invalid="@(OcoPairInvalid ? "true" : "false")"
+                                               aria-describedby="@(OcoPairInvalid ? "oco-pair-err" : null)"
+                                               @bind="_ocoLimitPrice" />
                                     </div>
                                     <div class="modal-row">
                                         <label for="oco-stop">Stop trigger (the protective side):</label>
-                                        <input id="oco-stop" type="number" step="any" min="0" @bind="_ocoStopPrice" />
+                                        <input id="oco-stop" type="number" step="any" min="0"
+                                               aria-required="true"
+                                               aria-invalid="@(OcoPairInvalid ? "true" : "false")"
+                                               aria-describedby="@(OcoPairInvalid ? "oco-pair-err" : null)"
+                                               @bind="_ocoStopPrice" />
                                     </div>
-                                    <button class="submit-btn" disabled="@(!CanSubmitOco || _orderInFlight)" @onclick="SubmitOcoPair"
-                                            aria-label="Place OCO pair: limit and stop, one cancels the other">
+                                    @if (OcoPairInvalid)
+                                    {
+                                        @* One message, both fields — the defect is the PAIR, and
+                                           either field is the one to change. *@
+                                        <span id="oco-pair-err" class="field-error">@OcoPairErrorText</span>
+                                    }
+                                    <GatedButton class="submit-btn"
+                                                 Gate="OcoGate" Channel="SpeechChannel.Critical"
+                                                 OnClick="SubmitOcoPair"
+                                                 aria-label="Place OCO pair: limit and stop, one cancels the other">
                                         Place OCO pair
-                                    </button>
+                                    </GatedButton>
                                     @if (!string.IsNullOrEmpty(_ocoStatus))
                                     {
                                         <div class='status-msg @(_ocoError ? "error" : "success")' role="status">@_ocoStatus</div>
@@ -532,7 +588,7 @@
                                                        would be a control that does two different things to two presses
                                                        that felt the same. *@
                                                     <td>
-                                                        <button aria-label="@($"Close position at market, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}")" disabled="@_orderInFlight" @onclick="() => ClosePosition(row)">Close position</button>
+                                                        <GatedButton aria-label="@($"Close position at market, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}")" Gate="InFlightGate" Channel="SpeechChannel.Critical" OnClick="() => ClosePosition(row)">Close position</GatedButton>
                                                         @if (IsClosingAtLimit(row))
                                                         {
                                                             <input id="@LimitCloseFieldId(row)"
@@ -549,7 +605,7 @@
                                                             @* No "…" in the visible text: the ellipsis is a sighted
                                                                convention for "opens further input", and it is read as
                                                                "dot dot dot" or dropped entirely. The label says it. *@
-                                                            <button aria-label="@($"Close at limit, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Opens a price field.")" disabled="@_orderInFlight" @onclick="() => BeginLimitClose(row)">Close at limit</button>
+                                                            <GatedButton aria-label="@($"Close at limit, {PositionLabel.Direction(p)} {PositionLabel.Instrument(p)} on {row.Account.DisplayName}. Opens a price field.")" Gate="InFlightGate" Channel="SpeechChannel.Critical" OnClick="() => BeginLimitClose(row)">Close at limit</GatedButton>
                                                         }
                                                     </td>
                                                 </tr>
@@ -599,7 +655,7 @@
                                                        as "ex", or skipped entirely depending on the screen reader and
                                                        its punctuation level, and a button whose name might be nothing
                                                        at all is the worst control on a money screen. *@
-                                                    <td><button aria-label="@($"Cancel order, {o.Side} {o.Type} {PriceFormatter.FormatQuantity(o.Quantity)} {o.Symbol} on {row.Account.DisplayName}")" disabled="@_orderInFlight" @onclick="() => CancelOrder(row)">Cancel order</button></td>
+                                                    <td><GatedButton aria-label="@($"Cancel order, {o.Side} {o.Type} {PriceFormatter.FormatQuantity(o.Quantity)} {o.Symbol} on {row.Account.DisplayName}")" Gate="InFlightGate" Channel="SpeechChannel.Critical" OnClick="() => CancelOrder(row)">Cancel order</GatedButton></td>
                                                 </tr>
                                             }
                                             @if (!_openOrders.Any())
@@ -975,11 +1031,40 @@
     private bool _tradingNotSupported;
     private bool _paperMode;
 
-    private bool CanSubmit =>
-        _orderQty > 0
-        && !string.IsNullOrEmpty(Store.State.Identity.Symbol)
-        && !string.IsNullOrEmpty(Store.State.Identity.Provider)
-        && !_orderInFlight;
+    // ── The submit gate ──────────────────────────────────────────────────────
+    // ONE expression, read two ways: GatedButton calls it to decide whether to draw
+    // the button as unavailable and what to say when it is pressed anyway, and
+    // CanSubmit is defined as "the gate is open". They cannot drift, which matters
+    // because a reason that names the wrong cause — "Enter a quantity above zero"
+    // for a block that is really the in-flight latch — is worse than no reason: it
+    // sends the user to edit a field that was never the problem.
+    //
+    // Order is deliberate. The in-flight latch leads because it is the only cause
+    // that clears on its own, so "wait" is the correct instruction even when a field
+    // is also empty. Nothing to trade comes before the quantity, because a quantity
+    // is not the thing to fix on a chart with no symbol.
+
+    /// <summary>Null when the ticket can be sent; otherwise why it cannot.</summary>
+    private string? SubmitGate()
+    {
+        if (_orderInFlight) return "An order is already being sent. Wait for it to finish.";
+        if (string.IsNullOrEmpty(Store.State.Identity.Symbol)
+            || string.IsNullOrEmpty(Store.State.Identity.Provider))
+            return "No chart symbol is loaded, so there is nothing to trade.";
+        if (_orderQty <= 0) return "Enter a quantity above zero.";
+        return null;
+    }
+
+    private bool CanSubmit => SubmitGate() is null;
+
+    // Built in C# rather than interpolated in the attribute: a COMPONENT attribute
+    // (unlike an element one) cannot mix literal text and a C# expression at all.
+    private string SubmitButtonClass => "submit-btn " + _orderSide.ToLowerInvariant();
+
+    /// <summary>Drives aria-invalid on the Quantity field, and the message beneath it.</summary>
+    private bool QtyInvalid => _orderQty <= 0;
+
+    private const string QtyErrorText = "Enter a quantity above zero.";
 
     // ── The in-flight latch ──────────────────────────────────────────────────
     // Set for the whole duration of any call that PLACES or CANCELS something,
@@ -1892,11 +1977,50 @@
     private bool _ocoError;
     private bool _supportsOco;
 
-    private bool CanSubmitOco =>
-        _ocoQty > 0 && _ocoLimitPrice > 0 && _ocoStopPrice > 0 && _ocoLimitPrice != _ocoStopPrice;
+    /// <summary>
+    /// Null when the OCO pair can be placed; otherwise why it cannot. The last clause is
+    /// the rule nobody guesses from the form: a limit and a stop at the SAME price cannot
+    /// be a pair, because neither can be the one that fills first and cancels the other.
+    /// Under `disabled` that rule was unstateable — the button was simply not there.
+    /// </summary>
+    private string? OcoGate()
+    {
+        if (_orderInFlight) return "An order is already being sent. Wait for it to finish.";
+        if (_ocoQty <= 0) return "Enter an OCO quantity above zero.";
+        if (_ocoLimitPrice <= 0) return "Enter a limit price above zero.";
+        if (_ocoStopPrice <= 0) return "Enter a stop trigger above zero.";
+        if (_ocoLimitPrice == _ocoStopPrice) return OcoPairErrorText;
+        return null;
+    }
+
+    private bool CanSubmitOco => OcoGate() is null;
+
+    /// <summary>
+    /// The one OCO rule that is a judgement on entered values rather than a blank field: a limit
+    /// and a stop at the SAME price cannot be a pair. Both prices must be filled in before it can
+    /// be true, so it never fires on an untouched form.
+    /// </summary>
+    private bool OcoPairInvalid =>
+        _ocoLimitPrice > 0 && _ocoStopPrice > 0 && _ocoLimitPrice == _ocoStopPrice;
+
+    private const string OcoPairErrorText =
+        "The limit price and the stop trigger must differ. One cancels the other, so at the same "
+        + "price neither can fill first.";
+
+    /// <summary>
+    /// The gate on every per-row action — closing a position, cancelling an order. All of
+    /// them share the one in-flight latch, so all of them share one reason.
+    /// </summary>
+    private string? InFlightGate() =>
+        _orderInFlight ? "An order is already being sent. Wait for it to finish." : null;
 
     private async Task SubmitOcoPair()
     {
+        // Defence in depth, matching SubmitOrder's own `if (!CanSubmit) return;`.
+        // GatedButton refuses the click before it gets here, but aria-disabled stops
+        // nothing in the DOM and this handler is now reachable from anywhere a click
+        // can be synthesised.
+        if (!CanSubmitOco) return;
         var provider = Store.State.Identity.Provider;
         var symbol = Store.State.Identity.Symbol;
         if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(symbol)) return;

@@ -251,10 +251,10 @@
                               aria-describedby="strategy-import-hint"
                               @bind="_importPasted"></textarea>
 
-                    <button type="button" @onclick="ImportStrategies" disabled="@_importing"
+                    <GatedButton OnClick="ImportStrategies" Gate="ImportGate"
                             aria-label="Import strategies from the chosen file or pasted text">
                         Import
-                    </button>
+                    </GatedButton>
 
                     @if (!string.IsNullOrEmpty(_importMessage))
                     {
@@ -455,12 +455,12 @@
                             Clear range
                         </button>
                     </div>
-                    <button class="primary"
-                            @onclick="RunBacktestAsync"
-                            disabled="@(_btRunning || string.IsNullOrEmpty(_btSelectedSpecId))"
+                    <GatedButton class="primary"
+                            OnClick="RunBacktestAsync"
+                            Gate="BacktestGate"
                             aria-label="Run backtest with current settings">
                         @(_btRunning ? "Running…" : "Run Backtest")
-                    </button>
+                    </GatedButton>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_btMessage))
@@ -555,11 +555,11 @@
                         <label for="lab-windows">Windows</label>
                         <input id="lab-windows" type="number" min="2" max="12" value="@_labWindows"
                                @onchange="e => int.TryParse(e.Value?.ToString(), out _labWindows)" />
-                        <button class="primary" @onclick="RunLabWindowsAsync"
-                                disabled="@(_labRunning || string.IsNullOrEmpty(_labSpecId))"
+                        <GatedButton class="primary" OnClick="RunLabWindowsAsync"
+                                Gate="LabWindowsGate"
                                 aria-label="Run walk-forward windows">
                             @(_labRunning ? "Running…" : "Run windows")
-                        </button>
+                        </GatedButton>
                     </div>
                     @if (_labWindowResults.Count > 0)
                     {
@@ -601,11 +601,11 @@
                         weaker regime.
                     </p>
                     <div class="modal-row">
-                        <button class="primary" @onclick="RunLabComparisonAsync"
-                                disabled="@(_labRunning || !StrategyLibrary.All.Any())"
+                        <GatedButton class="primary" OnClick="RunLabComparisonAsync"
+                                Gate="LabComparisonGate"
                                 aria-label="Compare all saved strategies on both halves of the data">
                             @(_labRunning ? "Running…" : $"Compare {StrategyLibrary.All.Count} strategies")
-                        </button>
+                        </GatedButton>
                     </div>
                     @if (_labComparison.Count > 0)
                     {
@@ -703,12 +703,12 @@ public class MyStrategy : BaseStrategy
                         <option value="@StrategyExecutionMode.Suggestion">Suggestion — signal only, no auto-trade</option>
                         <option value="@StrategyExecutionMode.Auto">Auto — place orders automatically</option>
                     </select>
-                    <button class="primary"
-                            @onclick="CompileAndAddCustomStrategyAsync"
-                            disabled="@_customCompiling"
+                    <GatedButton class="primary"
+                            OnClick="CompileAndAddCustomStrategyAsync"
+                            Gate="CompileGate"
                             aria-label="Compile and add custom strategy">
                         @(_customCompiling ? "Compiling…" : "Compile & Add")
-                    </button>
+                    </GatedButton>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_customScriptMessage))
@@ -729,6 +729,32 @@ public class MyStrategy : BaseStrategy
 }
 
 @code {
+    /// <summary>Null when an import can start; otherwise why it cannot.</summary>
+    private string? ImportGate() =>
+        _importing ? "An import is already running. Wait for it to finish." : null;
+
+    /// <summary>Null when a backtest can start; otherwise why it cannot.</summary>
+    private string? BacktestGate() =>
+          _btRunning                              ? "A backtest is already running. Wait for it to finish."
+        : string.IsNullOrEmpty(_btSelectedSpecId) ? "Choose a strategy to backtest first."
+        : null;
+
+    /// <summary>Null when a walk-forward run can start; otherwise why it cannot.</summary>
+    private string? LabWindowsGate() =>
+          _labRunning                        ? "A lab run is already going. Wait for it to finish."
+        : string.IsNullOrEmpty(_labSpecId)   ? "Choose a strategy first."
+        : null;
+
+    /// <summary>Null when the comparison can start; otherwise why it cannot.</summary>
+    private string? LabComparisonGate() =>
+          _labRunning                   ? "A lab run is already going. Wait for it to finish."
+        : !StrategyLibrary.All.Any()    ? "There are no saved strategies to compare."
+        : null;
+
+    /// <summary>Null when a custom script can be compiled; otherwise why it cannot.</summary>
+    private string? CompileGate() =>
+        _customCompiling ? "Still compiling. Wait for this pass to finish." : null;
+
     private bool _isVisible;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;

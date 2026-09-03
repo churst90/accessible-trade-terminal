@@ -1,3 +1,4 @@
+@inject IEventBus EventBus
 @*
     Circular-icon toolbar button. Renders a 40px circle with the named SVG
     symbol above a 10px text label so the user gets both a color-coded glyph
@@ -23,8 +24,9 @@
         title="@Tooltip"
         aria-label="@EffectiveAriaLabel"
         aria-pressed="@PressedAttr"
-        disabled="@Disabled"
-        @onclick="OnClick">
+        aria-disabled="@BlockedAttr"
+        aria-describedby="@ReasonId"
+        @onclick="ActivateAsync">
     <span class="icon-btn-glyph" aria-hidden="true">
         <svg viewBox="0 0 28 28">
             @* xlink:href is the compatibility shim: with <base href="/"> set in
@@ -35,7 +37,11 @@
         </svg>
     </span>
     <span class="icon-btn-label">@Label</span>
-</button>
+</button>@*
+    Always present so aria-describedby never dangles, blank while the button works.
+    Same contract as GatedButton — see that component's header for why a toolbar
+    button that VANISHES is worse than one that says why it cannot be pressed.
+*@<span id="@ReasonId" role="none" class="gated-reason">@Reason</span>
 
 @code {
     /// <summary>Icon symbol id (without the "icon-" prefix) — e.g. "alerts", "settings".</summary>
@@ -73,7 +79,16 @@
     /// <summary>Emphasised style — filled background at full variant color.</summary>
     [Parameter] public bool Primary { get; set; }
 
-    [Parameter] public bool Disabled { get; set; }
+    /// <summary>
+    /// The gate: null when the button works, otherwise the reason it does not, as a
+    /// sentence the user can act on. Evaluated on every render AND again at click time.
+    /// Replaced the old <c>bool Disabled</c> on 2026-09-02: `disabled` took the four
+    /// pan/zoom buttons and Load out of the tab order and out of the screen reader's
+    /// button list entirely whenever no chart was loaded, so the toolbar a new user
+    /// meets on a cold start was five controls shorter with nothing to explain it.
+    /// See GatedButton for the full argument.
+    /// </summary>
+    [Parameter] public Func<string?>? Gate { get; set; }
 
     [Parameter] public EventCallback OnClick { get; set; }
 
@@ -101,4 +116,24 @@
         IsToggleOn is null ? null : (IsToggleOn.Value ? "true" : "false");
 
     private string HashRef => $"#icon-{Icon}";
+
+    private readonly string _reasonId = "tib-" + Guid.NewGuid().ToString("N")[..8];
+    private string ReasonId => _reasonId;
+
+    private string? Reason => Gate?.Invoke();
+
+    private string? BlockedAttr => Reason is null ? null : "true";
+
+    private async Task ActivateAsync()
+    {
+        // Re-read the gate here rather than trusting the last render: aria-disabled
+        // does not stop a click the way `disabled` did.
+        var reason = Gate?.Invoke();
+        if (reason is not null)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, reason));
+            return;
+        }
+        await OnClick.InvokeAsync();
+    }
 }

@@ -45,7 +45,7 @@
                 <button role="tab" id="lr-tab-mas"
                         aria-selected="@(_tab == Tab.MovingAverages ? "true" : "false")" aria-controls="lr-panel"
                         @onclick="() => _tab = Tab.MovingAverages">Moving-average ranking</button>
-                <button type="button" @onclick="RefreshAsync" disabled="@_busy">Re-measure</button>
+                <GatedButton OnClick="RefreshAsync" Gate="RefreshGate">Re-measure</GatedButton>
                 <label>
                     <input type="checkbox" @bind="_reliableOnly" />
                     Only lines with at least @_options.MinTouches touches
@@ -133,6 +133,10 @@
 }
 
 @code {
+    /// <summary>Null when a re-measure can start; otherwise why it cannot.</summary>
+    private string? RefreshGate() =>
+        _busy ? "Still measuring. Wait for this pass to finish." : null;
+
     private enum Tab { Levels, MovingAverages }
 
     private Tab _tab = Tab.Levels;

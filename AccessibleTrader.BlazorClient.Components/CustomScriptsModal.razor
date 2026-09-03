@@ -55,8 +55,8 @@
                     </div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         <button @onclick="NewScript" aria-label="New script">+ New</button>
-                        <button @onclick="DeleteScript" disabled="@(_selectedScript == null)"
-                                aria-label="Delete selected script" style="color:#f88;">Delete</button>
+                        <GatedButton OnClick="DeleteScript" Gate="DeleteScriptGate"
+                                aria-label="Delete script" style="color:#f88;">Delete</GatedButton>
                     </div>
                 </div>
 
@@ -190,6 +190,10 @@
 }
 
 @code {
+    /// <summary>Null when a script can be deleted; otherwise why it cannot.</summary>
+    private string? DeleteScriptGate() =>
+        _selectedScript == null ? "Choose a script from the list first." : null;
+
     private bool _isVisible;
     private IDisposable? _eventSub;
     private IDisposable? _closeSub;

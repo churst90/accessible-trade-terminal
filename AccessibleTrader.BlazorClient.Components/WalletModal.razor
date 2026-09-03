@@ -71,8 +71,8 @@
                             <option value="@n">@n</option>
                         }
                     </select>
-                    <button type="button" @onclick="LoadAddressAsync" disabled="@(string.IsNullOrEmpty(_network))"
-                            aria-label="Get address for deposits on this asset and network">Get address</button>
+                    <GatedButton OnClick="LoadAddressAsync" Gate="AddressGate"
+                            aria-label="Get address for deposits on this asset and network">Get address</GatedButton>
                 </div>
             }
 
@@ -143,6 +143,10 @@
 }
 
 @code {
+    /// <summary>Null when a deposit address can be fetched; otherwise why it cannot.</summary>
+    private string? AddressGate() =>
+        string.IsNullOrEmpty(_network) ? "Choose a network first." : null;
+
     private string _provider = "";
     private string _asset = "";
     private string _network = "";

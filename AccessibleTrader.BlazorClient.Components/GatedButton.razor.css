@@ -1,0 +1,19 @@
+/* The blocked-reason span. Visually hidden, not display:none — a display:none
+   element is removed from the accessibility tree too, and this text exists to be
+   read by a screen reader through aria-describedby.
+
+   Scoped to the component rather than borrowing the hosts' `.visually-hidden`
+   utility: that class is defined in each host's own app.css, so a consumer that
+   takes this component library on its own would render the reason as stray text
+   under every gated button. */
+.gated-reason {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

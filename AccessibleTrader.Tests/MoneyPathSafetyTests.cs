@@ -149,25 +149,54 @@ namespace AccessibleTrader.Tests
         }
 
         /// <summary>
-        /// And the latch disables the controls rather than only refusing inside the handler: a
+        /// And the latch reaches the CONTROLS rather than only refusing inside the handler: a
         /// button that looks live and does nothing is indistinguishable from a broken one.
+        ///
+        /// <para>
+        /// Re-pointed 2026-09-02. This used to count <c>disabled="@…_orderInFlight"</c>
+        /// bindings, and it counted four. Every one of those has become a
+        /// <c>GatedButton Gate="…"</c>, because `disabled` did not make those buttons look
+        /// inert to a blind trader — it made them ABSENT, out of the tab order with nothing
+        /// said. The property being guarded is unchanged and the guard is now stronger: the
+        /// latch has to be inside the gate EXPRESSION, which is what both draws the state
+        /// and refuses the click, so a gate that stopped reading it would let a second
+        /// Enter through as well as looking live.
+        /// </para>
         /// </summary>
         [Fact]
-        public void TheLatchAlsoDisablesTheButtons()
+        public void TheLatchAlsoRefusesAtTheControls()
         {
             string src = DashboardSourceReader.Source();
-            int gated = Regex.Matches(src, @"disabled=""@[^""]*_orderInFlight").Count;
-            Assert.True(gated >= 4,
-                $"Only {gated} controls read _orderInFlight in their disabled binding; 4 did when this "
-                + "guard was written (live-confirm, close, cancel, OCO).");
 
-            // The fifth is the plain Submit button, which is disabled through CanSubmit —
-            // so CanSubmit itself has to carry the latch. Before this it checked quantity,
-            // symbol and provider, none of which change across the await.
+            // Each of the three gates that a money control hangs off must read the latch.
+            foreach (var gate in new[] { "private string? SubmitGate()",
+                                         "private string? OcoGate()",
+                                         "private string? InFlightGate()" })
+            {
+                // Member(), not Method(): InFlightGate is expression-bodied, and brace
+                // matching on an `=>` member silently reads whatever is declared NEXT.
+                string body = DashboardSourceReader.Member(gate);
+                Assert.True(body.Contains("_orderInFlight", StringComparison.Ordinal),
+                    $"`{gate}` no longer reads the in-flight latch, so the control it draws stays "
+                    + "live across the await and a second Enter reaches the handler.");
+            }
+
+            // And they are actually WIRED to controls — a gate nothing calls guards nothing.
+            // Four money controls, matching the four this guard was written against:
+            // live-confirm and plain Submit (SubmitGate), the OCO pair (OcoGate), and the
+            // per-row close/cancel actions (InFlightGate).
+            int wired = Regex.Matches(src, @"Gate=""(SubmitGate|OcoGate|InFlightGate)""").Count;
+            Assert.True(wired >= 4,
+                $"Only {wired} controls hang off a latch-reading gate; 4 did when this guard was "
+                + "written (live-confirm, plain submit, OCO, and the per-row close/cancel).");
+
+            // CanSubmit is defined AS the gate being open, so the latch cannot be in one and
+            // not the other. Before 2026-09-02 they were separate expressions and CanSubmit
+            // checked quantity, symbol and provider — none of which change across the await.
             int at = src.IndexOf("private bool CanSubmit =>", StringComparison.Ordinal);
             Assert.True(at >= 0, "CanSubmit is gone — re-point this guard.");
             int end = src.IndexOf(';', at);
-            Assert.Contains("!_orderInFlight", src[at..end], StringComparison.Ordinal);
+            Assert.Contains("SubmitGate() is null", src[at..end], StringComparison.Ordinal);
         }
 
         /// <summary>
