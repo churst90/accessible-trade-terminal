@@ -5,8 +5,20 @@
 @inject DemoPolicy Demo
 @implements IDisposable
 
-<div class="status-bar" role="status" aria-live="polite">
-    <div class="status-content">
+@* A landmark, not a bare <div>. This strip carries the PAPER badge — the one persistent
+   signal that orders are simulated (MainLayout says so where it places this component) — and
+   it holds nothing focusable, so Tab cannot reach it either. Outside every landmark it was
+   unreachable by BOTH of a screen-reader user's structural routes: D/landmark navigation and
+   Tab. A named <section> is a region landmark and costs one element.
+
+   role="status" moved INWARD onto .status-content deliberately. An element cannot be both a
+   landmark and a live region — an explicit role overrides the implicit one, which is the same
+   mistake role="toolbar" made on <nav>. Putting it on the content div also takes the badge OUT
+   of the live region, which is right: a badge that appears when paper mode is toggled was
+   re-announcing the whole strip, and SettingsModal already publishes "Paper trading enabled."
+   as its own feedback. *@
+<section class="status-bar" aria-label="Terminal status">
+    <div class="status-content" role="status" aria-live="polite">
         <span class="status-label">Last Feedback:</span>
         <span class="status-text">@_lastMessage</span>
     </div>
@@ -20,7 +32,7 @@
             PAPER
         </span>
     }
-</div>
+</section>
 
 <style>
     .status-bar {

@@ -26,10 +26,39 @@
                 Use the sections below to learn how the platform works and what keys to press.
             </p>
 
+            @* Every section title is an <h3> INSIDE its <summary>, which the HTML content model
+               for <summary> allows explicitly ("phrasing content, optionally intermixed with
+               heading content"). It cannot be the other way round — <summary> must be the first
+               child of <details>, so wrapping it in an <h3> breaks the disclosure outright.
+
+               This is the screen where heading navigation matters most and it had ONE heading for
+               eighteen sections: 471 lines reachable only by arrowing through them. The h3 is
+               styled to render exactly as the bold summary text did (display:inline, and font
+               size/weight inherited from the <summary>) so nothing moves visually.
+
+               Inline styles rather than a class on purpose: there are two copies of app.css and
+               they have already drifted, so a class added to one head would leave the other's
+               headings rendering at 1.17em with 1em margins.
+
+               display:inline, and not display:contents, which renders the same. That choice was
+               made against display:contents' history of removing elements from the accessibility
+               tree, and it is NOT backed by a demonstration here: a sabotage swapping one for the
+               other left the browser suite green, but Playwright's role queries are its own
+               in-page ARIA implementation — which has explicit display:contents handling of its
+               own — so that sabotage measured the harness, not the browser. display:inline is
+               kept because it is the version that needs no assumption. What IS demonstrated is
+               the construct itself: Chromium's real accessibility tree, read over CDP in
+               LandmarkAndHeadingBrowserTests, reports all eighteen as unignored level-3 headings.
+               Firefox and Orca — the stack this product is actually used on — were not tested.
+
+               Do not add tabindex to these headings. Both Tab counters — keyboard.js's
+               focusableSelector and TerminalPage.TabStopCountInTopDialogAsync — would gain 18
+               stops where Enter does nothing, and the browser contract's floor would stay green. *@
+
             @* ── CONCEPTUAL SECTIONS (User Guide content) ────────────────────── *@
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Getting started (first chart in five steps)</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Getting started (first chart in five steps)</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <ol style="margin:4px 0 4px 1.2em;">
                         <li>Pick a <strong>Market</strong> in the toolbar (Crypto needs no account or key).</li>
@@ -48,7 +77,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Understanding the Soundscape</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Understanding the Soundscape</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>The terminal uses a <strong>Hybrid Voice</strong> system. Your screen reader provides exact data values. The sonification engine provides the <em>shape</em> of the market.</p>
                     <ul style="margin:4px 0 4px 1.2em;">
@@ -65,7 +94,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Volume Profile Navigation</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Volume Profile Navigation</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>When you focus a Volume Profile (VPVR/VPFR/TPO) series using <strong>Page Up/Down</strong>:</p>
                     <ul style="margin:4px 0 4px 1.2em;">
@@ -80,7 +109,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Drawing Tools Workflow</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Drawing Tools Workflow</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>All drawing tools use <strong>Sequential Anchoring</strong> — navigate to each point and press the shortcut. No holding keys required.</p>
 
@@ -110,7 +139,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Indicators &amp; Customization</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Indicators &amp; Customization</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>Press <strong>Alt+A</strong> (or the Indicators button in the toolbar) to open the Indicator search. Indicators are grouped by type:</p>
                     <ul style="margin:4px 0 4px 1.2em;">
@@ -126,7 +155,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Market watch — watchlists &amp; the screener</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Market watch — watchlists &amp; the screener</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>Press <strong>Alt+M</strong>, or the <strong>Watch</strong> button on the toolbar's first row. Three tabs:</p>
                     <ul style="margin:4px 0 4px 1.2em;">
@@ -149,7 +178,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Structure, value zones &amp; the respect report</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Structure, value zones &amp; the respect report</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p><strong>Market Structure</strong> is on your charts by default. It marks swing highs (red
                        square) and lows (green square), labels each higher or lower than the last, and adds a
@@ -176,7 +205,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Bar replay &amp; split view</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Bar replay &amp; split view</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p><strong>Bar replay</strong> hides everything after the bar you are on and gives it back one bar
                        at a time, so you can practise reading a market without hindsight. Start and stop with
@@ -195,7 +224,7 @@
             @* ── KEYBOARD REFERENCE (Shortcut tables) ─────────────────────── *@
 
             <details open style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Chart Navigation</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Chart Navigation</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
                     <tbody>
@@ -221,7 +250,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Playback</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Playback</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
@@ -236,7 +265,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Volume &amp; Audio</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Volume levels &amp; muting</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
                     <tbody>
@@ -249,7 +278,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Accessibility &amp; Speech</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Accessibility &amp; Speech</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th><th>Speech Feedback</th></tr></thead>
                     <tbody>
@@ -266,7 +295,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">UI &amp; Settings</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Opening dialogs &amp; chart commands</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
@@ -309,7 +338,7 @@
                 a default binding is missing from either.
             *@
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Orientation &amp; recovery</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Orientation &amp; recovery</h3></summary>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
@@ -322,7 +351,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Chart tabs &amp; workspaces</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Chart tabs &amp; workspaces</h3></summary>
                 <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
                     Browsers reserve Ctrl+T and Ctrl+Tab for their own tabs, so the web host also
                     binds Alt+Shift+N (new chart tab) and Ctrl+Alt+Shift+T (focus the tab bar and
@@ -344,7 +373,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Quick trade (keyboard order entry)</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Quick trade (keyboard order entry)</h3></summary>
                 <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
                     Three-modifier chords, deliberately: these move money and must be impossible to
                     hit by accident. Nothing is sent until you are armed, and the stop is set before
@@ -365,12 +394,12 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">Drawing Tools</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Drawing tool shortcuts</h3></summary>
                 <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
                     On the Linux web host, every <strong>Ctrl+Shift+&lt;letter&gt;</strong> drawing chord below is
                     remapped to <strong>Alt+Shift+&lt;letter&gt;</strong> (Firefox reserves several Ctrl+Shift chords).
-                    Same letter, same tool. The "All Keyboard Shortcuts (Live)" section above always shows the
-                    bindings actually in effect on this host.
+                    Same letter, same tool. The <strong>All Keyboard Shortcuts (Live — from current profile)</strong> section at
+                    the END of this dialog always shows the bindings actually in effect on this host.
                 </p>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
@@ -397,7 +426,7 @@
 
             @* ── Live Shortcut Reference (auto-generated from ShortcutManager) ─── *@
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;">All Keyboard Shortcuts (Live — from current profile)</summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">All Keyboard Shortcuts (Live — from current profile)</h3></summary>
                 <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
                     This table is generated live from the active shortcut profile (@ShortcutManager.CurrentProfile.Name).
                     It always matches the actual key bindings in use, including any user customisations.

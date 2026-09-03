@@ -117,20 +117,138 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-03 — ERROR STATE IS CONVEYED NOW: `aria-invalid`,
-> `aria-required` and `aria-disabled` exist across the app for the first time, 34 buttons
-> that VANISHED when their condition held now stay reachable and say why, and the nine
-> account pages put focus on what actually failed. Before that: the narrator speaks once
-> per scan; playback speaks; the WCAG contrast function exists; `PropertiesModal`'s 24
-> unnamed controls are NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in.
-> Read the NEXT list at the end of the 2026-09-01 block; items 0, 1, 2, 3, 7, 8 and 9 are
-> all done, so **the audit's numbered NEXT list is EMPTY**. What is left from it is
-> recorded under "Recorded, not fixed" in the 2026-09-03 block below — the biggest are
-> the four `<nav role="toolbar">` containers that leave the app with zero navigation
-> landmarks, `HelpModal`'s 471 lines under one heading, `ObjectTreeModal`'s missing
-> `aria-expanded`, and an existing drawing's anchors being movable only by mouse. Still
-> carried: Steel Gray's falling candle and the Binance 451 geo-block (both decisions for
-> Cody), and the StrategyLab statistics re-run.)**
+> **START HERE (current as of 2026-09-03, second pass — THE HELP DIALOG HAS HEADINGS NOW,
+> and the landmark item turned out to be ALREADY CLOSED. `HelpModal`'s 18 sections were
+> bold `<summary>` text and one `<h2>` for 471 lines; they are real headings, and so are
+> the 8 disclosure sections in five other dialogs the audit never counted. The
+> `<nav role="toolbar">` item was fixed in `bc52e652` two days before it was written into
+> the "Recorded, not fixed" list — VERIFY BEFORE FIXING; what was actually missing was a
+> guard, because the existing scan bans the bad role and pins nothing. `StatusBar` — the
+> PAPER badge — was outside every landmark with nothing focusable in it and is now a named
+> region. Earlier: error state is conveyed; the narrator speaks once per scan; playback
+> speaks; the WCAG contrast function exists; `PropertiesModal`'s 24 unnamed controls are
+> NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in. **The audit's numbered
+> NEXT list is EMPTY.** What is left from it is under "Recorded, not fixed" in the block
+> below — the biggest are now `ObjectTreeModal`'s missing `aria-expanded`, an existing
+> drawing's anchors being movable only by mouse, and the ten WCAG 2.5.3 Label-in-Name
+> failures. Still carried: Steel Gray's falling candle and the Binance 451 geo-block (both
+> decisions for Cody), and the StrategyLab statistics re-run.)**
+>
+> ### FIXED 2026-09-03 (second pass) — the help dialog had one heading, and the landmark item was already closed
+>
+> **Item (a) of the previous block's "Recorded, not fixed" list was STALE, and finding that
+> out is the more useful half of this entry.** It read `<nav role="toolbar">` at
+> `Toolbar.razor:31` and three more containers give the app ZERO navigation landmarks. All
+> four were fixed in `bc52e652` on 2026-09-01 — Toolbar, IndicatorBar and TouchNavBar are
+> plain `<nav aria-label=…>`, JournalModal is `role="group"` because it sits inside a dialog.
+> Measured, not read: a probe against the running app in real Chromium reports `banner`,
+> `nav "Main toolbar"`, `nav "Indicator controls"`, `main`, `contentinfo` and one region. Two days is long enough
+> for a backlog entry to be wrong; the rule this earns is **verify a recorded defect before
+> fixing it, the same way you would verify one before believing it.**
+>
+> **What was actually missing was the guard.**
+> `ChromeAccessibilityScanTests.NoContainerDeclaresToolbarWithoutAnArrowKeyModel` opens with
+> `if (!text.Contains("role=\"toolbar\"")) continue;` — so it bans the bad role and cannot
+> pin the good one. Change `<nav>` back to `<div>`, or just delete an `aria-label`, and the
+> file goes straight past it: the app is back to three landmarks with every test green and
+> not even a comment gone stale. **A guard that forbids one spelling of a defect is not a
+> guard on the property.** `LandmarkContractTests` now asserts the property — each chrome
+> surface is a landmark ELEMENT, carries no `role` that would override it, and has a
+> non-empty `aria-label` — and it is proved red four ways, including a `<div>` swap that has
+> to fix the closing tag too, because **a sabotage that breaks the Razor build prints no
+> pass/fail line at all and reads exactly like a run that never happened.**
+>
+> **`StatusBar` was outside every landmark and holds nothing focusable**, so neither of a
+> screen-reader user's two structural routes reached it — and what it holds is the PAPER
+> badge, the one persistent sign that orders are simulated. Now `<section aria-label="Terminal
+> status">` with `role="status" aria-live="polite"` moved inward onto the content div, because
+> **an element cannot be both a landmark and a live region** — an explicit role overrides the
+> implicit one, which is the same mistake `role="toolbar"` made on `<nav>`. Moving it also
+> takes the badge out of the live region, which is right: `role="status"` implies
+> `aria-atomic`, so the whole strip was being re-read on every message, and the paper toggle
+> already publishes "Paper trading enabled." as its own feedback.
+>
+> **`HelpModal`: 471 lines, 18 sections, ONE heading.** Demonstrated twice before anything was
+> written — a bUnit render of every catalog dialog, and Playwright's ARIA snapshot of the real
+> dialog showing eighteen bare `group:` entries with the titles as plain `text:`. The sweep
+> found the same shape in five more dialogs the audit never counted: SoundDesigner 3,
+> CustomScripts 2, ObjectTree 2, Settings 1, Strategy 2. **27 disclosure sections, not one of
+> them a heading.** Fixing only the dialog the audit named would have left a guard that passed
+> for the wrong reason.
+>
+> The construct is `<summary><h3>…</h3></summary>`, which the HTML content model for `<summary>`
+> allows explicitly ("phrasing content, optionally intermixed with heading content"). It cannot
+> be `<h3><summary>`: `<summary>` must be the FIRST CHILD of `<details>`, so wrapping it breaks
+> the disclosure outright. ObjectTree's two are exempt and stay exempt — they are
+> `role="treeitem"` nodes under a `role="tree"`, not document sections — and the exemption is
+> pinned to that marker so it fails rather than widens if the tree goes.
+>
+> **The diff review found a defect in the reasoning, not the code, and it is the sharper
+> finding of the two passes.** The browser guard's docstring said Playwright's `GetByRole`
+> reads the accessibility tree, and cited a `display:contents` sabotage that stayed green as
+> evidence Blink exposes the heading either way. **Both halves were wrong.** Playwright ships
+> its own in-page ARIA implementation (`getAriaRole`, `kAriaLevelRoles`, and its own
+> `display: contents` handling in `injectedScriptSource.js`) — so that sabotage measured the
+> harness, not the browser, and a non-demonstration had been written up as a demonstration in
+> a docstring that would be quoted as fact. The guard now reads Chromium's real tree over CDP
+> (`Accessibility.getFullAXTree`) and asserts eighteen UNIGNORED level-3 headings — `ignored`
+> being the flag no role query can report and the failure mode the whole fix turns on.
+>
+> **Also fixed, all found by the two review passes rather than by me.** The Drawing Tools
+> section pointed a user at the live-shortcuts table "above" when it is the last section in the
+> dialog. Three section titles were poor headings once they became navigation targets:
+> "Drawing Tools" collided with "Drawing Tools Workflow", "UI & Settings" named 27 rows of
+> "everything else", and "Volume & Audio" meant loudness while "Volume Profile Navigation"
+> meant traded volume — renamed to "Drawing tool shortcuts", "Opening dialogs & chart commands"
+> and "Volume levels & muting" (the second review caught that the first rename, "Audio levels
+> & muting", had removed the searchable word "volume" from the heading list entirely, while
+> `docs/SHORTCUTS.md` still calls the section "Volume Controls").
+>
+> **Proof.** Suite **6,220** (`--list-tests` 6215), **168** browser tests, 44 keyboard and 15
+> gesture JS tests. **Eighteen sabotages: seventeen red, and the one that stayed GREEN is the
+> `display:contents` swap above — the survivor was the finding.** Three of the red ones are
+> worth naming: an
+> EMPTY `<h3>` beside the bold text satisfies "contains a heading" and gives the user an unnamed
+> entry in the heading list, so the rule is a heading WITH TEXT; StrategyModal's backtest Trade
+> Log lives behind two `@if`s a cold catalog open never renders, so the render sweep reported a
+> clean pass over a section that still had the defect and a source scan was added beside it; and
+> a `>` inside a Razor lambda (`@onclick="() => { }"`) written before a `role=` made the landmark
+> scan's `[^>]*` stop early, hiding the attribute it exists to find — **an attribute-order blind
+> spot is a silent false negative, and the scan is quote-aware now.** Re-running the A3 browser
+> survey moved no Tab-stop count, which is the independent check that eighteen headings added
+> eighteen nothing to the keyboard walk.
+>
+> **Recorded, NOT fixed, from this pass:**
+> (a) **Firefox + Orca has NOT been run against a heading inside `<summary>`.** Blink's tree is
+> not AT-SPI, and an unignored node is not the same as an AT announcing it — `<summary>` is in
+> the button family, whose children ARIA calls presentational. This is the one thing that
+> matters most here and it is explicitly unverified; Chromium says yes, the target stack is
+> untested;
+> (b) the PAPER badge cannot be asserted from the browser harness at all — it boots the WebHost
+> in `HostMode.Full`, so `AllowLiveTrading` is true, paper mode defaults off and the badge never
+> renders. The landmark test asserts the live region nested inside the landmark instead, and
+> says so;
+> (c) `TabBar` (the workspace tablist) is still outside every landmark. Lower value than
+> StatusBar was — it is a Tab stop and has its own chord (`Ctrl+Alt+Shift+T`) — and wrapping it
+> means adding a flex item to `.app-container`, which is a layout change made blind;
+> (d) **`<nav>` is not honest for the Toolbar**: ~41 buttons and selects, zero links, and both
+> the HTML and ARIA definitions of navigation say links. `<section aria-label>` is the accurate
+> landmark. Deliberately NOT changed — the landed fix removed a broken *promise* (roving
+> tabindex that did not exist), this would only correct a *label*, and a `<section>` with no name
+> is not a landmark at all, so the churn adds a new way to fail. **A decision for Cody**, with
+> the note that TouchNavBar should stay `<nav>` either way — moving a cursor through content is
+> the one thing here that really is navigation;
+> (e) the editor panes in SoundDesigner and CustomScripts still have no heading, so the new
+> heading list jumps straight from the sidebar's "Patches"/"Scripts" over the whole editor;
+> (f) the 18 Help headings are split about evenly between Title Case and sentence case. It
+> never mattered while they were read one at a time; it is audible as a list. Predates this pass;
+> (g) ten `<table>` elements in HelpModal have no `<caption>` — a table list gives ten unnamed
+> tables. The natural second half of this work, but it is a table pass, not a heading pass;
+> (h) the live shortcut table's Command column is enum text ("Nav Left") where the static tables
+> carry prose ("Move cursor one bar left or right"), so the section guaranteed to be correct is
+> the least readable one.
+>
+> >
 >
 > ### FIXED 2026-09-03 — error state was conveyed nowhere, in either half of the app
 >
@@ -251,10 +369,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > **Recorded, NOT fixed.** The audit's numbered list is empty but its serious-findings
 > section is not, and these are the ones this pass touched or uncovered:
-> (a) **`<nav role="toolbar">` at `Toolbar.razor:31` and three more containers give the app
-> ZERO navigation landmarks** — the audit calls deleting the role the single highest
-> value-to-effort fix in the report;
-> (b) `HelpModal.razor` is 471 lines and 18 sections under ONE heading;
+> (a) ~~**`<nav role="toolbar">` at `Toolbar.razor:31` and three more containers give the app
+> ZERO navigation landmarks**~~ — **WRONG WHEN WRITTEN. `bc52e652` had already fixed all four
+> on 2026-09-01.** Left here struck through rather than deleted, because the mistake is the
+> lesson: this entry was carried forward from the audit without re-reading the tree, and it
+> would have sent the next session to "fix" four already-correct files. See the 2026-09-03
+> second-pass block above;
+> (b) ~~`HelpModal.razor` is 471 lines and 18 sections under ONE heading~~ — **FIXED
+> 2026-09-03, second pass**, along with 8 more disclosure sections in five other dialogs;
 > (c) `ObjectTreeModal` exposes no `aria-expanded` anywhere;
 > (d) an existing drawing's anchors can still only be moved with a 10-pixel mouse drag —
 > the population this product exists for can create a trendline and cannot nudge it;
