@@ -85,14 +85,14 @@ internal static class ModalRoutes
     /// </summary>
     public static readonly IReadOnlyList<ModalRoute> Toolbar = new ModalRoute[]
     {
-        new("ObjectTreeModal",       OpenBy.ToolbarButton, "Object Tree",             "objtree-title",         "heading names the dialog"),
-        new("DrawingToolsModal",     OpenBy.ToolbarButton, "Drawing Tools",           "drawing-tools-title",   "heading names the dialog"),
+        new("ObjectTreeModal",       OpenBy.ToolbarButton, "Objects: chart object tree", "objtree-title",         "heading names the dialog"),
+        new("DrawingToolsModal",     OpenBy.ToolbarButton, "Drawings",                 "drawing-tools-title",   "heading names the dialog"),
         new("SoundDesignerModal",    OpenBy.ToolbarButton, "Sound Designer",          "sound-designer-title",  "heading names the dialog"),
-        new("TradingDashboardModal", OpenBy.ToolbarButton, "Trading Dashboard",       "trade-title",           "heading names the dialog"),
+        new("TradingDashboardModal", OpenBy.ToolbarButton, "Trade dashboard",          "trade-title",           "heading names the dialog"),
         new("OrderBookModal",        OpenBy.ToolbarButton, "Order Book",              "orderbook-title",       "heading names the dialog"),
         new("StrategyModal",         OpenBy.ToolbarButton, "Strategies",              "strategy-title",        "heading names the dialog"),
-        new("WatchlistModal",        OpenBy.ToolbarButton, "Watchlists and Screener", "watchlist-title",       "heading names the dialog"),
-        new("LevelReportModal",      OpenBy.ToolbarButton, "Level Respect Report",    "levelreport-title",     "heading names the dialog"),
+        new("WatchlistModal",        OpenBy.ToolbarButton, "Watch lists and screener", "watchlist-title",       "heading names the dialog"),
+        new("LevelReportModal",      OpenBy.ToolbarButton, "Zones: level respect report", "levelreport-title",     "heading names the dialog"),
         new("JournalModal",          OpenBy.ToolbarButton, "Trade Journal",           "journal-title",         "heading names the dialog"),
         new("AIAnalystModal",        OpenBy.ToolbarButton, "AI Analyst",              "ai-analyst-title",      "heading names the dialog"),
         new("AlertsModal",           OpenBy.ToolbarButton, "Alerts",                  "alerts-title",          "heading names the dialog"),

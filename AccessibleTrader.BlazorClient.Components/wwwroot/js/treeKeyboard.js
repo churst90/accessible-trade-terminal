@@ -17,10 +17,13 @@
 // responsible for setting one visible treeitem to tabindex="0" so keyboard
 // users can enter the tree via Tab.
 //
-// Expand/collapse detection:
-//   - aria-expanded="true" | "false" on the treeitem itself (ConditionTreeEditor).
-//   - <details open> ancestor on/inside the treeitem (ObjectTreeModal uses
-//     <details><summary role="treeitem">…</summary>…</details>).
+// Expand/collapse detection, IN THIS ORDER:
+//   - <details open> owned by the treeitem (ObjectTreeModal uses
+//     <details><summary role="treeitem">…</summary>…</details> at the pane level and
+//     <div role="treeitem"><details>…</details></div> at the series level).
+//   - aria-expanded="true" | "false" on the treeitem itself (ConditionTreeEditor, which
+//     has no <details> at all).
+// The order is load-bearing — see isExpanded.
 //
 // Expand/collapse dispatch:
 //   1. Fire a synthetic click on any descendant button with data-tree-toggle="true".
@@ -52,20 +55,39 @@
     function visibleTreeitems(tree) {
         const all = Array.prototype.slice.call(tree.querySelectorAll('[role="treeitem"]'));
         return all.filter(function (el) {
-            // Hidden when any ancestor treeitem has aria-expanded="false" or an
-            // ancestor <details> is not open.
+            // Two checks, and each one is here for a reason the other cannot cover.
+            //
+            // The ancestor <details> check STAYS. The argument for deleting it was that a
+            // closed <details> puts its children in display:none so they already fail the
+            // rects test — true of the old UA stylesheet, but Chromium hides closed
+            // content through `::details-content { content-visibility: hidden }` now, and
+            // "skipped contents" is not the same question as "generates no box". Nothing
+            // in this repo measures which is true in the WebView2 build: treeKeyboard.js
+            // has no JS tests, and the bUnit suite has no layout at all. An unmeasured
+            // claim is not a reason to delete a cheap, certain check — if it is wrong,
+            // every series under a collapsed pane rejoins the arrow-key walk while the
+            // user cannot see them.
+            //
+            // The aria-expanded clause is GONE, and that one was measured. Both consumers
+            // make it unreachable — ObjectTreeModal's collapsed children are inside a
+            // closed <details>, and ConditionTreeEditor omits collapsed children from the
+            // DOM entirely (ConditionTreeEditor.razor:383) — and once ObjectTreeModal
+            // started rendering aria-expanded it became actively dangerous: `toggle` is
+            // queued, so a value stale by one task turn would have dropped a VISIBLE
+            // series' components out of the walk. A visibility test that can disagree with
+            // the layout is worse than not having it.
             let p = el.parentElement;
             while (p && p !== tree) {
                 if (p.tagName === 'DETAILS' && !p.open) return false;
-                if (p.getAttribute && p.getAttribute('aria-expanded') === 'false') {
-                    // The expanded-false ancestor itself stays visible; only its
-                    // descendants hide. If this element equals the expanded-false
-                    // ancestor, keep it.
-                    if (p !== el) return false;
-                }
                 p = p.parentElement;
             }
-            return el.offsetParent !== null;
+
+            // getClientRects(), not offsetParent: offsetParent is null for a
+            // position:fixed element and for anything inside one in some engines, and
+            // this tree lives inside a fixed modal overlay. That is the same mistake
+            // keyboard.js's focusable scan made until 2026-09-02 — offsetParent answers
+            // "what do I lay out against", not "am I visible".
+            return el.getClientRects().length > 0;
         });
     }
 
@@ -89,12 +111,21 @@
     }
 
     function isExpanded(treeitem) {
-        const exp = treeitem.getAttribute('aria-expanded');
-        if (exp === 'true') return true;
-        if (exp === 'false') return false;
+        // The <details> is the SOURCE OF TRUTH; aria-expanded is only its projection.
+        //
+        // This order matters and the reverse of it is a keyboard trap. ObjectTreeModal
+        // renders aria-expanded from C# and re-renders it when the browser's `toggle`
+        // event arrives — and `toggle` is queued, not synchronous, so for at least one
+        // task turn after ArrowLeft the attribute still says "true" while the details is
+        // already closed. Reading the attribute first, ArrowRight would then take the
+        // "already expanded, move to first child" branch, find no child, and do nothing:
+        // the pane could be collapsed and never re-opened, and ArrowLeft would be the key
+        // that expands it. Read from the DOM and a stale attribute can only mislead the
+        // screen reader for one tick; read from the attribute and it inverts the keys.
         const d = findOwnedDetails(treeitem);
         if (d) return d.open;
-        return false;
+        const exp = treeitem.getAttribute('aria-expanded');
+        return exp === 'true';
     }
 
     function toggleExpand(treeitem) {

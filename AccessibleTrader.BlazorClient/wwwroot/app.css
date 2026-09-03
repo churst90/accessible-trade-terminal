@@ -213,9 +213,15 @@ button:active:not(:disabled):not([aria-disabled="true"]) {
     background-color: var(--bg-surface);
 }
 
-/* aria-pressed="true" — visually indicates the pressed/active state */
+/* aria-pressed="true" — visually indicates the pressed/active state.
+   `.icon-btn-on` is in the list because ToolbarIconButton's `Highlighted` parameter is the
+   same visual state WITHOUT aria-pressed, for buttons whose label already carries the state
+   (IndicatorBar's Hide/Show and Mute/Unmute). Without this line, dropping the redundant
+   aria-pressed from those two also dropped the whole-button tint and inset shadow — the
+   glyph-disc rule further down was the only part `.icon-btn-on` restored. */
 button[aria-pressed="true"],
-button[aria-checked="true"] {
+button[aria-checked="true"],
+button.icon-btn-on {
     background-color: color-mix(in srgb, var(--accent-color) 24%, transparent);
     border-color: var(--accent-color);
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);

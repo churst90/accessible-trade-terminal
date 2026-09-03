@@ -498,7 +498,7 @@
                                         }
                                     }
                                     <table class="mini-table">
-                                        <caption class="sr-only">Account balances and value</caption>
+                                        <caption class="visually-hidden">Account balances and value</caption>
                                         <thead><tr>
                                             <th scope="col">Asset</th><th scope="col">Exchange</th>
                                             <th scope="col">Free</th><th scope="col">Locked</th>
@@ -550,7 +550,7 @@
                                 else if (_accountTab == "Positions")
                                 {
                                     <table class="mini-table">
-                                        <caption class="sr-only">Open positions</caption>
+                                        <caption class="visually-hidden">Open positions</caption>
                                         @* The leading column is the instrument AS HELD — "BTCUSDT isolated 1x" —
                                            rather than a bare symbol, and Direction is spelled out rather than
                                            left to the sign of the quantity. Both were reachable before only by
@@ -630,7 +630,7 @@
                                 else if (_accountTab == "Orders")
                                 {
                                     <table class="mini-table">
-                                        <caption class="sr-only">Open orders</caption>
+                                        <caption class="visually-hidden">Open orders</caption>
                                         @* Symbol and Exchange lead, and neither column existed. The tab used
                                            to be filtered to the focused chart's symbol, so one symbol was the
                                            only possibility and naming it looked redundant — but the filter was
@@ -669,7 +669,7 @@
                                 else if (_accountTab == "History")
                                 {
                                     <table class="mini-table">
-                                        <caption class="sr-only">Trade history</caption>
+                                        <caption class="visually-hidden">Trade history</caption>
                                         <thead><tr><th scope="col">Time</th><th scope="col">Symbol</th><th scope="col">Exchange</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th><th scope="col">Fee</th></tr></thead>
                                         <tbody>
                                             @foreach (var row in _fills)
@@ -833,7 +833,11 @@
     .tab-note { font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 0; }
     .plus { color: #4f4; }
     .minus { color: #f44; }
-    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    /* No local .sr-only here any more. It was the ONLY definition of that class in the tree,
+       it lived inside a component that renders only when Demo.AllowTrading, and seven elements
+       in three other components were relying on it — so on a build with trading gated off they
+       were plain visible text. Everything now uses `.visually-hidden`, which both hosts'
+       app.css defines; VisuallyHiddenClassTests pins that. */
 
     .alert-box { padding: 10px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
     .alert-box.warning { background: #443300; color: #ffcc00; border: 1px solid #665500; }

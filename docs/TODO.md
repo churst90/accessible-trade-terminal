@@ -117,6 +117,304 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-03, THIRD pass — THE LAST THREE ITEMS OF THE
+> 2026-09-01 AUDIT ARE CLOSED. `ObjectTreeModal` exposes `aria-expanded` and keeps it
+> in step with the DOM through the browser's own `toggle` event; twelve controls (not
+> ten — two were miscounted) that failed WCAG 2.5.3 Label in Name now announce a name
+> that contains the words a user can see; and every coordinate of every drawing type is
+> editable from the keyboard, which it was not for nine of the sixteen types. Earlier:
+> the help dialog has headings; error state is conveyed; the narrator speaks once per
+> scan; playback speaks; the WCAG contrast function exists; `PropertiesModal`'s 24
+> unnamed controls are NAMED; F1–F12 work in text fields; the ORDERED MODAL STACK is in.
+> **The 2026-09-01 audit's numbered NEXT list and its "Recorded, not fixed" list are both
+> empty of accessibility work now.** What is left is in the block below under "Recorded,
+> NOT fixed": the biggest is the KEYBOARD NUDGE for drawing anchors, whose design and key
+> bindings are worked out and recorded there ready to implement. Still carried: Steel
+> Gray's falling candle and the Binance 451 geo-block (both decisions for Cody), and the
+> StrategyLab statistics re-run.)**
+>
+> ### FIXED 2026-09-03 (third pass) — the tree said nothing about expansion, twelve controls announced words that were not on screen, and nine drawing types could not be edited without a mouse
+>
+> **The Object Tree never said whether a node was open or shut.** `role="treeitem"` on a
+> `<summary>` REPLACES the native disclosure mapping — the browser stops exposing the
+> summary as a disclosure and exposes it as a treeitem, whose expanded state comes from
+> one place only — so `treeKeyboard.js` knew the state (it reads `details.open`) and the
+> user never heard it. Collapsing a pane and re-opening it produced the same announcement
+> both times. Demonstrated first: a bUnit sweep over a two-pane, three-series, seven-
+> component tree found 5 expandable treeitems with no `aria-expanded` between them.
+>
+> **The state is now owned in C# and kept honest by the browser's own `toggle` event.**
+> `<details>` is toggled by three parties that never call back into Blazor — a native
+> click on the summary, `treeKeyboard.js`'s `d.open = !d.open`, and the user's keyboard on
+> the summary — and `toggle` is the one thing all three have in common, since the HTML
+> spec fires it on every open-state change however caused. Blazor treats `toggle` as a
+> non-bubbling event and attaches the handler to the element rather than delegating at the
+> document, which is exactly right here because `toggle` does not bubble; that was checked
+> against the shipped `blazor.web.js`, not assumed. The handler FLIPS rather than reads,
+> which is exact: `toggle` fires if and only if the state changed.
+>
+> **The ARIA review caught a keyboard trap the fix would otherwise have introduced, and it
+> is the sharpest thing in this pass.** `treeKeyboard.js`'s `isExpanded` read
+> `aria-expanded` FIRST and fell back to `details.open`. That was harmless while no
+> ObjectTree treeitem had the attribute. With it rendered, `toggle` is queued rather than
+> synchronous — so for at least one task turn after ArrowLeft the attribute still says
+> "true" while the details is already closed, and ArrowRight would then take the "already
+> expanded, move to first child" branch, find no child, and do nothing. **The pane could
+> be collapsed and never re-opened, and ArrowLeft would be the key that expanded it.** The
+> precedence is inverted now: the `<details>` is the source of truth and `aria-expanded`
+> is its projection, so a stale attribute can mislead a screen reader for one tick but can
+> never invert a key. **A projected state must never outrank the state it projects.**
+>
+> Also in that file: `visibleTreeitems`'s ancestor walk is deleted rather than kept. Both
+> its clauses were dead (children of a closed `<details>` are `display:none` and already
+> fail the rects test; the other consumer, `ConditionTreeEditor`, omits collapsed children
+> from the DOM entirely) and the `aria-expanded="false"` clause was about to become
+> dangerous for the same one-task-turn reason — it would have dropped a visible series'
+> components out of the arrow-key walk. **Two visibility tests that can disagree are worse
+> than one.** `offsetParent` became `getClientRects().length > 0` in the same edit, and
+> that half is filed as consistency with `keyboard.js`, NOT as a demonstrated fix — no
+> treeitem here is itself `position:fixed`, so nothing observable changes.
+>
+> **Two more defects in the same dialog, found by the review rather than by the audit.**
+> The component-level Hide/Mute buttons had no `aria-label` and were named by their own
+> text, so a five-component series put five identical "Hide" buttons in the screen
+> reader's button list (`title` does not become the name when an element has text
+> content). And Delete removed the element the user's focus was inside, so focus fell to
+> `<body>` — OUTSIDE a container carrying `aria-modal="true"` — with the screen reader's
+> buffer still restricted to a dialog its focus was no longer in; focus now goes to the
+> dialog heading. The footer's "Use Tab to navigate" contradicted the declared role and
+> now describes the arrow-key model while still naming Tab, which genuinely is how the row
+> buttons are reached.
+>
+> **Twelve controls failed WCAG 2.5.3 Label in Name, and the audit counted ten.** The two
+> it missed were `Watch`/"Watchlists and Screener" and `Log`/"Toggle logarithmic price
+> scale" — 2.5.3 asks for a contiguous WORD sequence, and "Watch" is not the word
+> "Watchlists". Fixed by extending the visible text, the shape that closed the original 32
+> on 2026-08-29: `Objects: chart object tree`, `Trade dashboard`, `Zones: level respect
+> report`, `Watch lists and screener`, `Toggle Log price scale`. Four of the twelve were
+> fixed by DELETING the override instead — `Drawings`, and the four pan/zoom buttons,
+> whose "Pan chart left" bought no context a screen reader ever delivered (a `role="group"`
+> label is not concatenated into a button's name) and cost the containment. A thirteenth,
+> found on the way: the `Add key` button's accessible name was a 99-character sentence
+> that was ALSO its `title`, so a screen reader read the paragraph twice and a button list
+> showed it as the row; the sentence is now a described-by span that the symbol dropdown
+> points at too, since it had been pointing at the button.
+>
+> **`IndicatorBar`'s two toggles carried three contradictory signals at once.** The caption
+> showed the STATE ("Visible", "Muted"), the accessible name gave the ACTION ("Hide SMA
+> 20"), and `aria-pressed` gave a third — so a muted series announced "Unmute SMA 20,
+> toggle button, PRESSED". The two buttons even used opposite polarity: pressed meant
+> hidden on the left and muted on the right. They now say the action, like the Object
+> Tree's row buttons already did, with no `aria-pressed`; a new `Highlighted` parameter
+> keeps the visual on-state so dropping the ARIA does not drop the cue a low-vision user
+> reads.
+>
+> **The guard that should have caught all twelve was aimed one construct to the left.**
+> `ToolbarControlSurfaceTests` asserted `button.Contains("AriaLabel=")` — the audit's gate
+> 4, "PRESENCE, not containment" — which could not fail for any of the twelve, because
+> every one of them HAD an AriaLabel. It asserts the containment property now, comparing
+> dynamic values literal-by-literal instead of skipping them (skipping was gate 3), and it
+> is joined by `LabelInNameRenderSweepTests`, which asks the same question of the RENDERED
+> DOM over every catalog dialog and the three chrome surfaces. Rendering is what closes
+> gate 2: `<ToolbarIconButton />` is a component tag and no `<button\b` regex can see its
+> ~34 call sites, but a rendered one is a `<button>` whatever the Razor tag was. Both use
+> ONE containment function, shared, so a source scan and a render sweep cannot disagree
+> about which controls are failures. The render sweep immediately found three more in
+> `StrategyModal` that the source scan's `@`-filter had been skipping.
+>
+> **Nine of the sixteen drawing types had no editable coordinates at all.** The audit wrote
+> "an existing drawing's anchors can still only be moved with a 10-pixel mouse drag". That
+> was PARTLY STALE — `PropertiesModal` has had price and date fields since 2026-04-27 —
+> and the part that was true was worse than the sentence. The fields came from four
+> hand-written per-type lists, and measured against what the calculators actually
+> dereference, **27 coordinates across 9 types had no keyboard editor**: GannFan,
+> RiskReward, AnchoredVwap, MeasureTool, GannBox, AndrewsPitchfork and AngleFib appeared
+> in none of the lists, slot 3 was offered to nobody (so a Fib Extension's projection
+> origin and a Risk/Reward's take-profit were mouse-only), and a text label offered its
+> date but not its price. **VERIFY BEFORE FIXING cut both ways this time: the recorded
+> defect was stale, and what replaced it was bigger.**
+>
+> `DrawingAnchorSchema` in Core now says which slots and axes each type has and what to
+> call each one — a Risk/Reward's three prices are Entry, Stop loss and Take profit, not
+> "anchor 1/2/3 price", and the label is the only thing a screen-reader user gets in a
+> form-field list. **NOT derived from the live anchor values, and that is the load-bearing
+> choice**: too few, because a Fib Extension abandoned after two clicks has a null slot 3,
+> renders nothing on the chart, and would then offer no field to repair the very anchor
+> that is missing; too many, because the placement fallback writes slot 3 on every drawing
+> type, so a horizontal line would sprout a "Price 3" box that changes nothing. The schema
+> says what a type HAS; the live values only fill the boxes in. `DrawingAnchorSchemaTests`
+> re-derives the census from the calculator SOURCES and fails if the two ever disagree —
+> the schema is a hand-written table, the census is a grep over sixteen files, so neither
+> is the other's mirror.
+>
+> Two defects fell out of doing it. `UpdateDrawingDate` had no `anchor == 3` branch while
+> `UpdateDrawingPrice` did, so the moment a slot-3 date editor rendered the price would
+> have saved and the date gone nowhere, silently — invisible while no such editor existed.
+> And no coordinate edit said anything; every other edit in this app answers, including
+> the mouse drag that moves the same anchor, so a number typed into a silent box was a
+> change a blind user had to take on trust. Each edit now names the field and speaks the
+> value, and a value that will not parse says so instead of being dropped.
+>
+> **A review's critical finding was checked and is WRONG, which is worth as much as the
+> ones that were right.** The keyboard specialist reported the coordinate fields as a
+> silent no-op — anchors written but geometry never recomputed — and rated it critical.
+> Traced end to end instead: Apply publishes `IndicatorUpdatedEvent`,
+> `DataOrchestrationService` answers it with `OnDataUpdated(forceFull: true)`, and
+> `IndicatorOrchestrator`'s drawings branch runs `CalculateDrawingData` over the new
+> anchors before the redraw. The test that "demonstrated" it was measuring the seeded
+> series while the dialog edits a `Clone()`, which is how Cancel discards. **A specialist
+> report is evidence, not a finding.**
+>
+> **Proof.** Suite **6,319** (`--list-tests` 6314), **168** browser tests, 44 keyboard and 15 gesture JS tests, all green. Eight sabotages, each proved red: both `@ontoggle` handlers removed
+> (two disclosure tests red); `AriaLabel="Object Tree"` restored (the render sweep AND the
+> rewritten source guard, both naming it); RiskReward's take-profit dropped from the schema
+> (the census disagreement named the exact anchor); `UpdateDrawingDate`'s `anchor == 3`
+> branch deleted (the original defect, red); the schema widened past what a calculator reads
+> (the hard-count assertion red). **That last one found a test of mine that could not fail:**
+> `NoEditorIsOfferedForACoordinateNothingReads` reads `DrawingAnchorSchema` and the markup
+> RENDERS from `DrawingAnchorSchema`, so between them they can only prove the dialog follows
+> the schema — widen the schema wrongly and both stay green, which the sabotage demonstrated.
+> Seven hard counts taken from the calculators by hand are the leg that does not move when the
+> schema does; IndicatorBar checked out at HEAD (the rewritten Label-in-Name guard names four
+> failing arms where the old one printed `Passed!`); ONLY the unrendered "Hidden" arm broken (the
+> render sweep and the source guard red together); and `sr-only` put back on the API-key span (the
+> new class guard names both host stylesheets). **Two of the new tests were flaky and were
+> caught by the full run, not the filtered one** — `TriggerEvent` queues the handler on the
+> renderer's dispatcher, so both disclosure toggles were reading before the re-render; both
+> now wait, and both were re-proved red afterwards so the wait did not make them vacuous.
+> That is the sixth and seventh instance of this repo's own rule and the second time it has
+> been hit by a test written days after the rule was written down.
+>
+> **THE DIFF REVIEW FOUND MORE THAN THE DESIGN REVIEW DID, AND THE WORST OF IT WAS MINE.**
+> Run as two specialists over the finished diff, per the standing "run them twice" rule. Nine
+> findings were verified and fixed before this landed; the three that matter:
+>
+> - **The rewritten Label-in-Name guard could not fail on the two buttons it was written for.**
+> `Label="([^"]*)"` stops at the FIRST INNER QUOTE, so `Label="@(x ? "Hide" : "Show")"` captured
+> `@(x ? ` — a string with no quotes left in it — the literal extractor returned nothing, and the
+> comparison loop ran zero times. Measured over the real component directory: 34 call sites
+> swept, **27 compared, 5 correctly skipped, and 2 asserting nothing** — IndicatorBar's pair, the
+> entire population the rewrite existed for. Checked out at HEAD, it is green on the ORIGINAL
+> defect too. **And the evidence was already in front of me**: sabotage 4's failure message
+> printed the truncated capture `(@(_focusedSeries.IsVisible ? )` and I read past it, exactly as I
+> read past the wrong time in the coordinate probe below. The value is parsed now, not
+> regexed — a quoted Razor attribute ends at the first quote not inside a balanced `@( … )`, so
+> walk it — an unreadable expression is an OFFENDER rather than a skip, and the vacuity floor
+> counts COMPARED rather than swept, because "34 call sites found" said nothing about the seven
+> that were not being compared. Re-proved by checking IndicatorBar out at HEAD: four failing arms
+> named, where the old version printed `Passed!`.
+> - **`class="sr-only"` is defined nowhere the toolbar can see it.** The only definition of that
+> class in the tree is an inline `<style>` inside `TradingDashboardModal.razor`, which is
+> instantiated only when `Demo.AllowTrading`. Eight elements in three components were relying on
+> it, so on the demo and hosted builds they were plain VISIBLE text — four table captions, a
+> label, and the 96-character API-key sentence this pass had just moved out of an `aria-label`
+> and into a span, wedged into the toolbar row. Everything uses `.visually-hidden` now, which both
+> hosts define; the local definition is deleted; and `VisuallyHiddenClassTests` pins the property
+> — **an RCL's `class=` is a promise about a file in another project, and nothing was checking
+> it.**
+> - **The date readback spoke a different time from the field it was confirming.** The input
+> rendered the stored stamp RAW while the new announcement went through `SpeechTimeFormatter`,
+> which resolves an Unspecified kind as UTC — so on any machine not on UTC the field said 09:30
+> and the confirmation said 04:30. **My own probe printed "Pivot 3 date Jun 15 04:30" for a typed
+> 09:30 and I did not look at it.** Both ends share one conversion now, and the write is the
+> inverse of the read; the parse also pins `InvariantCulture` + `AssumeLocal`, since the price
+> half already did and a non-Gregorian default culture puts an ISO string in the wrong year.
+>
+> The other six: the readback fired on `@onchange`, which Chromium raises on **every arrow-key
+> step** of a number or datetime input against an interrupting announcement — thirteen clipped
+> fragments and one sentence for a fourteen-step walk, the narrator's flood defect in a new place
+> — so it is on blur now, asserted by COUNT; a rejected value quoted back the empty string
+> (a number input never hands over unparseable text) and left the field showing content the model
+> did not hold, so it says so once and carries `aria-invalid`; StrategyModal's two lab buttons
+> both read "Running…" off the same flag in adjacent fieldsets, an indistinguishable pair for the
+> length of a run; a series with NO components announced as a collapsed group with nothing to
+> reveal (a drawing abandoned mid-placement is exactly that), so `aria-expanded` is null there;
+> dropping `aria-pressed` also dropped the whole-button tint that `.icon-btn-on` never painted, so
+> `.icon-btn-on` joins that CSS rule; and the coordinate loop had no `@key`, so opening the dialog
+> on a second drawing diffed a trend line's `[price, date, price, date]` against a risk/reward's
+> `[price, price, price]` positionally.
+>
+> **Two fixture holes, both the "arrangement agrees with the rule" shape.** `SeedChartState` gives
+> one series that is VISIBLE, AUDIBLE and has ZERO components — so across the whole suite the only
+> arms ever rendered of every state-in-the-label control were "Hide" and "Mute", and the
+> per-component row buttons this pass just named were swept by nothing. Both now have a
+> hidden-and-muted three-component fixture, and sabotaging ONLY the unrendered arm
+> (`"Hide" : "Hidden"`) reddens the render sweep and the source guard together. The hard
+> coordinate counts also went from 7 types to all 15 — two of the eight omitted were GannFan and
+> FibExtension, which is to say two of the seven types the change exists to fix had only the
+> mirror covering them.
+>
+> **One review claim was REJECTED after checking.** The ARIA pass argued the `<details>` clause of
+> `visibleTreeitems`' ancestor walk was safe to delete because closed content is `display:none`;
+> Chromium hides it through `::details-content { content-visibility: hidden }` now, and "skipped
+> contents" is not "generates no box". The correctness pass argued the opposite. Nothing in this
+> repo can settle it — `treeKeyboard.js` has no JS tests and bUnit has no layout — so the cheap
+> certain check STAYS and only the measured-dead `aria-expanded` clause is gone. **An unmeasured
+> claim is not a reason to delete a working check.**
+>
+> **Recorded, NOT fixed, from this pass:**
+> (a) **THE KEYBOARD NUDGE IS THE NEXT PIECE OF WORK AND IT IS SCOPED.** Typing an absolute
+> price into a dialog is a keyboard ROUTE, not the ergonomic equivalent of nudging a
+> trendline endpoint three bars right, and the audit's sentence was about nudging. The
+> design research is done and is worth not repeating: `Ctrl+Alt+Arrow` must be REJECTED —
+> on macOS `Control+Option` IS the VoiceOver modifier, so it is VO+Arrow; on Linux it is
+> the workspace switch in KDE, Cinnamon, Xfce and GNOME, grabbed by the compositor before
+> the browser sees it; in NVDA and JAWS browse mode it is table navigation.
+> `Ctrl+Alt+<letter>` is `AltGr` on Windows and prints a character on several layouts.
+> `Ctrl+Shift+Arrow` is select-by-word in every text field. `Alt+Shift+<letter>` is owned by
+> `WebHostShortcutRemap`, which rewrites every `Ctrl+Shift+<letter>` into it. **What is free
+> and safe is `Alt+Shift+Arrow`** (four nudges) **and `Ctrl+Alt+Shift+G`** (cycle which
+> anchor is selected) — the three-modifier family being the repo's "means the same on both
+> heads" family. Further requirements the review established: every nudge must re-announce
+> the drawing name AND which anchor of how many, because a speech user has no persistent
+> status bar; the selection must reset on focus change, series removal and tab switch;
+> auto-repeat at ~30/s against an interrupting `AnnouncementEvent` is the
+> `AutoNarrationService` flood defect in a new place, so speak on settle and earcon per
+> press; the readback must ride an explicit `SpeechChannel` or F2 silences it; a nudge
+> dispatched while a modal is open is swallowed in total silence by `CommandDispatcher`;
+> the x step must be a BAR INDEX (`Data[i±1].Date`), never date arithmetic, because
+> weekends and halts make those different and `DateToScreenX` binary-searches by date; the
+> price step wants a floor of one unit in the last place of `SpeechPriceFormatter` or the
+> key is indistinguishable from a dead one; and consecutive nudges should coalesce into one
+> undo entry, since `ChartUndoStack` holds 50 and thirty identical "Undone: Move Trend line"
+> sentences would push the destructive edits undo exists for off the bottom. A snap-to-OHLC
+> command is the companion that makes it usable at all;
+> (a2) **`treeKeyboard.js` has no tests of any kind** — not in `tools/jstests`, not in the browser
+> suite. Its roving tabindex, its arrow model, `isExpanded`'s reordered precedence and
+> `visibleTreeitems`' filter are all unexercised, and the browser harness cannot reach the Object
+> Tree because a cold-start WebHost has no series to put in it. The `content-visibility` question
+> above is unanswerable until this exists. Highest-value test debt in the file;
+> (b) `ObjectTreeModal`'s roving `tabindex` can be orphaned: `focusTreeitem` writes it from
+> JS while C# renders a constant `0` on the first pane, so when Delete removes the treeitem
+> holding the `0` Blazor has no changed value to re-apply and no treeitem is a Tab stop.
+> The focus half is fixed; this half is NOT, and it is not demonstrated either — it needs a
+> browser test on a dialog the harness cannot reach with a removable series on a cold start;
+> (c) the three row buttons sit INSIDE a `<summary>`, which is invalid HTML (`<summary>`
+> takes phrasing content) and nests interactive controls inside a disclosure control. APG's
+> answer for a tree whose items hold several controls is `role="treegrid"`. Recorded as the
+> honest shape, not attempted;
+> (d) `aria-setsize` / `aria-posinset` are absent throughout the tree while `aria-level` is
+> set by hand, which ARIA requires together when the DOM does not convey the hierarchy — and
+> at the pane level it does not, because the `role="group"` is the treeitem's SIBLING rather
+> than its descendant. A user arrowing through eight components hears no position at all;
+> (e) `aria-selected="false"` is on every series and on nothing else, and the series
+> `aria-label` appends ", focused" for the same state — two words for one state that can
+> drift apart;
+> (f) six `<select>` elements in Toolbar/IndicatorBar override a perfectly good visible
+> `<label for>` with an `aria-label` that adds only the word "Select"; five `title`
+> attributes are byte-identical to their `aria-label`, so a screen reader says the same
+> string twice. All PASS 2.5.3 — this is a hygiene pass, not a defect;
+> (g) **the "Zones" button is called four different things** — caption "Zones", dialog
+> "Level Respect Report", event `OpenLevelReportEvent`, shortcut `Alt+R` for *Report*. 2.5.3
+> is satisfied by the new name, but WCAG 3.2.4 Consistent Identification is not, and fixing
+> it properly means renaming the visible button (to "Levels") and five user-facing documents.
+> **A decision for Cody**;
+> (h) `Firefox + Orca` has still not been run against any of this — Chromium's tree is not
+> AT-SPI. Carried from the previous pass and it applies to `aria-expanded` on a
+> `role="treeitem"` `<summary>` exactly as it applied to a heading inside one.
+>
+> >
+
 > **START HERE (current as of 2026-09-03, second pass — THE HELP DIALOG HAS HEADINGS NOW,
 > and the landmark item turned out to be ALREADY CLOSED. `HelpModal`'s 18 sections were
 > bold `<summary>` text and one `<h2>` for 471 lines; they are real headings, and so are

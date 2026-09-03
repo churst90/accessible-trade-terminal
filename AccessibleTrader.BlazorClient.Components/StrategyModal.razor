@@ -556,15 +556,26 @@
                         <input id="lab-windows" type="number" min="2" max="12" value="@_labWindows"
                                @onchange="e => int.TryParse(e.Value?.ToString(), out _labWindows)" />
                         <GatedButton class="primary" OnClick="RunLabWindowsAsync"
-                                Gate="LabWindowsGate"
-                                aria-label="Run walk-forward windows">
-                            @(_labRunning ? "Running…" : "Run windows")
+                                Gate="LabWindowsGate">
+                            @* No aria-label: the visible text carries the whole name, which is
+                               the only shape that survives a label that CHANGES. An aria-label
+                               fixed at one of the two states fails WCAG 2.5.3 in the other, and
+                               this button spends its longest moments in the state the fixed label
+                               did not describe.
+
+                               The busy text has to stay DISTINCT, though. Both this button and
+                               the comparison button below are driven by the same `_labRunning`
+                               flag and sit in adjacent fieldsets, so a bare "Running…" on each
+                               made them one indistinguishable pair in the button list for the
+                               whole duration of a run — and their gates return the same sentence
+                               too, so the description did not separate them either. *@
+                            @(_labRunning ? "Running walk-forward windows…" : "Run walk-forward windows")
                         </GatedButton>
                     </div>
                     @if (_labWindowResults.Count > 0)
                     {
                         <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
-                            <caption class="sr-only">Walk-forward window results</caption>
+                            <caption class="visually-hidden">Walk-forward window results</caption>
                             <thead>
                                 <tr>
                                     <th scope="col">Window</th><th scope="col">Range</th>
@@ -602,15 +613,14 @@
                     </p>
                     <div class="modal-row">
                         <GatedButton class="primary" OnClick="RunLabComparisonAsync"
-                                Gate="LabComparisonGate"
-                                aria-label="Compare all saved strategies on both halves of the data">
-                            @(_labRunning ? "Running…" : $"Compare {StrategyLibrary.All.Count} strategies")
+                                Gate="LabComparisonGate">
+                            @(_labRunning ? "Running strategy comparison…" : $"Compare all {StrategyLibrary.All.Count} saved strategies")
                         </GatedButton>
                     </div>
                     @if (_labComparison.Count > 0)
                     {
                         <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
-                            <caption class="sr-only">Strategy comparison, ranked by weaker-half confidence bound</caption>
+                            <caption class="visually-hidden">Strategy comparison, ranked by weaker-half confidence bound</caption>
                             <thead>
                                 <tr>
                                     <th scope="col">Rank</th><th scope="col">Strategy</th>
@@ -705,9 +715,8 @@ public class MyStrategy : BaseStrategy
                     </select>
                     <GatedButton class="primary"
                             OnClick="CompileAndAddCustomStrategyAsync"
-                            Gate="CompileGate"
-                            aria-label="Compile and add custom strategy">
-                        @(_customCompiling ? "Compiling…" : "Compile & Add")
+                            Gate="CompileGate">
+                        @(_customCompiling ? "Compiling…" : "Compile & add custom strategy")
                     </GatedButton>
                 </div>
 

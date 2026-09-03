@@ -27,7 +27,7 @@ public sealed class RefusedControlBrowserTests
     private readonly TerminalBrowserFixture _fixture;
     public RefusedControlBrowserTests(TerminalBrowserFixture fixture) => _fixture = fixture;
 
-    private const string PanLeft = "button[aria-label='Pan chart left']";
+    private const string PanLeft = "button[aria-label='Pan left']";
 
     [BrowserFact]
     public async Task A_refused_toolbar_button_is_still_in_the_tab_order_and_still_has_a_name()

@@ -291,7 +291,7 @@
   {
     "modal": "ObjectTreeModal",
     "how": "ToolbarButton",
-    "trigger": "Object Tree",
+    "trigger": "Objects: chart object tree",
     "expectedFocus": "objtree-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -328,7 +328,7 @@
   {
     "modal": "DrawingToolsModal",
     "how": "ToolbarButton",
-    "trigger": "Drawing Tools",
+    "trigger": "Drawings",
     "expectedFocus": "drawing-tools-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -402,7 +402,7 @@
   {
     "modal": "TradingDashboardModal",
     "how": "ToolbarButton",
-    "trigger": "Trading Dashboard",
+    "trigger": "Trade dashboard",
     "expectedFocus": "trade-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -524,7 +524,7 @@
       "\u003Cinput id=\u0027custom-script-name\u0027\u003E",
       "\u003Ctextarea id=\u0027custom-script-code\u0027 aria-label=\u0027C# Code editor, C sharp, for the custom strategy\u0027\u003E",
       "\u003Cselect id=\u0027custom-exec-mode\u0027 aria-label=\u0027Custom strategy execution mode\u0027\u003E \u201CSuggestion \u2014 signal only, no auto-trade                     \u2026\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Compile and add custom strategy\u0027\u003E \u201CCompile \u0026 Add\u201D",
+      "\u003Cbutton (no id)\u003E \u201CCompile \u0026 add custom strategy\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close strategy manager dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton id=\u0027tab-library\u0027 role=\u0027tab\u0027\u003E \u201CLibrary (0)\u201D",
       "\u003Cbutton id=\u0027tab-build\u0027 role=\u0027tab\u0027\u003E \u201CBuild Setup\u201D",
@@ -541,7 +541,7 @@
   {
     "modal": "WatchlistModal",
     "how": "ToolbarButton",
-    "trigger": "Watchlists and Screener",
+    "trigger": "Watch lists and screener",
     "expectedFocus": "watchlist-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -587,7 +587,7 @@
   {
     "modal": "LevelReportModal",
     "how": "ToolbarButton",
-    "trigger": "Level Respect Report",
+    "trigger": "Zones: level respect report",
     "expectedFocus": "levelreport-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "toolbarButtonCount": 1,
@@ -655,7 +655,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[01:35:35] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[02:53:08] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"

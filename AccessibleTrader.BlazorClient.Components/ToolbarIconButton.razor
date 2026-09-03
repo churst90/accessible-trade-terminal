@@ -8,9 +8,14 @@
     <use> element inherits via `currentColor`. Change a variant → every icon of
     that variant repaints without touching the sprite.
 
-    Always pass AriaLabel. Label is an abbreviation sized for a 40px circle
-    ("Watch", "AI", "Book"); AriaLabel is the only place the full name exists for
-    a screen reader, and ToolbarControlSurfaceTests enforces it on every button.
+    Label is an abbreviation sized for a 40px circle ("Watch", "AI", "Book"), and
+    AriaLabel is where the full name lives. Pass AriaLabel whenever the Label alone
+    does not say what the button does — but it is NOT required, and it must not be
+    a rewrite: the accessible name has to CONTAIN the visible Label word for word
+    (WCAG 2.5.3), so "Pan left" is better served by no AriaLabel at all than by
+    "Pan chart left". ToolbarControlSurfaceTests enforces the containment, not the
+    presence; enforcing presence is what let ten of these ship announcing words
+    that were not on the screen.
 
     Usage:
         <ToolbarIconButton Icon="alerts" Label="Alerts" Variant="warning"
@@ -73,8 +78,26 @@
     /// </summary>
     [Parameter] public string Variant { get; set; } = "neutral";
 
-    /// <summary>When set, renders an aria-pressed toggle surface + "on" style when true.</summary>
+    /// <summary>
+    /// When set, renders an aria-pressed toggle surface + "on" style when true.
+    ///
+    /// <para>USE THIS ONLY WHEN <see cref="Label"/> IS CONSTANT. A toggle button may say what
+    /// it does and let aria-pressed carry the state ("Heikin", pressed), or it may put the
+    /// state in the label and carry no pressed state at all ("Hide" / "Show") — the ARIA
+    /// button pattern offers both and warns against combining them. IndicatorBar used to do
+    /// both at once, so a muted series announced "Unmute SMA 20, toggle button, PRESSED":
+    /// the name said unmute and the state said pressed. Its two buttons even used opposite
+    /// polarity (visibility inverted, audio not), so "pressed" meant different things one
+    /// control apart. For a state-in-the-label button use <see cref="Highlighted"/>.</para>
+    /// </summary>
     [Parameter] public bool? IsToggleOn { get; set; }
+
+    /// <summary>
+    /// The "on" highlight with NO aria-pressed — decoration for a button whose LABEL already
+    /// carries the state. Exists so dropping aria-pressed from a state-in-the-label button
+    /// does not also drop the visual cue a low-vision user reads.
+    /// </summary>
+    [Parameter] public bool Highlighted { get; set; }
 
     /// <summary>Emphasised style — filled background at full variant color.</summary>
     [Parameter] public bool Primary { get; set; }
@@ -102,7 +125,7 @@
         {
             var sb = new System.Text.StringBuilder("icon-btn icon-btn-");
             sb.Append(string.IsNullOrEmpty(Variant) ? "neutral" : Variant);
-            if (IsToggleOn == true) sb.Append(" icon-btn-on");
+            if (IsToggleOn == true || Highlighted) sb.Append(" icon-btn-on");
             if (Primary) sb.Append(" icon-btn-primary");
             return sb.ToString();
         }

@@ -263,7 +263,13 @@ public class DismissControlNameScanTests
                 $"{c.File}:{c.Line}  visible \"{c.VisibleText}\" vs announced \"{c.Name}\"")));
     }
 
-    private static bool ContainsVisibleWords(string accessibleName, string visibleText)
+    /// <summary>
+    /// WCAG 2.5.3's comparison, and the ONE definition of it in this suite —
+    /// <see cref="LabelInNameRenderSweepTests"/> calls this rather than growing a second
+    /// one, because a render sweep and a source scan that disagree about what "contains"
+    /// means would each report the other's findings as false positives.
+    /// </summary>
+    internal static bool ContainsVisibleWords(string accessibleName, string visibleText)
     {
         var announced = Words.Matches(accessibleName).Select(w => w.Value).ToList();
         var visible = Words.Matches(visibleText).Select(w => w.Value).ToList();

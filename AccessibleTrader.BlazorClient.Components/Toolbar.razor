@@ -51,13 +51,12 @@
         <div class="toolbar-group">
             <ToolbarIconButton Icon="object-tree" Label="Objects" Variant="neutral"
                               Tooltip="Open series/object tree (Alt+O)"
-                              AriaLabel="Object Tree"
+                              AriaLabel="Objects: chart object tree"
                               OnClick="() => EventBus.Publish(new OpenObjectTreeEvent())" />
             @if (IsTradingTab)
             {
                 <ToolbarIconButton Icon="drawings" Label="Drawings" Variant="data"
                                   Tooltip="Open drawing tools (Alt+D)"
-                                  AriaLabel="Drawing Tools"
                                   OnClick="() => EventBus.Publish(new OpenDrawingToolsEvent())" />
             }
             @if (Demo.AllowSoundDesigner)
@@ -75,7 +74,7 @@
             {
                 <ToolbarIconButton Icon="trade" Label="Trade" Variant="action"
                                   Tooltip="Open trading dashboard (Alt+T)"
-                                  AriaLabel="Trading Dashboard"
+                                  AriaLabel="Trade dashboard"
                                   OnClick="() => EventBus.Publish(new OpenTradingDashboardEvent())" />
             }
             @if (Demo.AllowOrderBook)
@@ -96,14 +95,14 @@
             {
                 <ToolbarIconButton Icon="watchlist" Label="Watch" Variant="data"
                                   Tooltip="Watchlists and screener — track symbols and scan them for conditions (Alt+M)"
-                                  AriaLabel="Watchlists and Screener"
+                                  AriaLabel="Watch lists and screener"
                                   OnClick="() => EventBus.Publish(new OpenWatchlistEvent())" />
             }
             @if (IsTradingTab)
             {
                 <ToolbarIconButton Icon="analytics" Label="Zones" Variant="thought"
                                   Tooltip="Level respect report — which moving averages and levels this symbol actually reacts to (Alt+R)"
-                                  AriaLabel="Level Respect Report"
+                                  AriaLabel="Zones: level respect report"
                                   OnClick="() => EventBus.Publish(new OpenLevelReportEvent())" />
             }
             <ToolbarIconButton Icon="journal" Label="Journal" Variant="neutral"
@@ -263,12 +262,23 @@
         </select>
         @if (NeedsApiKey)
         {
-            @* Visible next to the disabled Load button rather than crammed into the dropdown,
-               and a live region so the reason is announced when the provider switch causes it. *@
-            <button type="button" class="warning" id="symbol-key-help"
-                    title="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
-                    aria-label="@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp"
+            @* Next to the Load button rather than crammed into the dropdown.
+
+               The reason sentence is a DESCRIPTION, not the button's name. It used to be
+               the aria-label, which made the accessible name a 99-character paragraph that
+               did not contain the visible words "Add key" — a WCAG 2.5.3 failure and a
+               2.4.6 one, since a button list read the whole sentence as the row. It was
+               also the `title` at the same time, so a screen reader announced name then
+               description and said it twice.
+
+               It now lives once, in a hidden span that BOTH the button and the symbol
+               dropdown point at with aria-describedby — the dropdown pointed at the button
+               itself before, so the select's description was computed from the button's
+               name and moved with it. *@
+            <button type="button" class="warning"
+                    aria-describedby="symbol-key-help"
                     @onclick="() => EventBus.Publish(new OpenApiKeysEvent())">Add key</button>
+            <span id="symbol-key-help" class="visually-hidden">@AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredHelp</span>
         }
 
         <div class="toolbar-separator" aria-hidden="true"></div>
@@ -295,7 +305,7 @@
                        style="width:4rem;"
                        value="@_tfMult"
                        @onchange="OnTfMultChanged" />
-                <label for="tf-unit" class="sr-only">Timeframe unit</label>
+                <label for="tf-unit" class="visually-hidden">Timeframe unit</label>
                 <select id="tf-unit"
                         aria-label="Timeframe unit"
                         @onchange="OnTfUnitChanged"
@@ -354,22 +364,18 @@
             <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
                               Gate="ChartDataGate"
                               Tooltip="Pan left / back in time (Left arrow)"
-                              AriaLabel="Pan chart left"
                               OnClick="PanLeft" />
             <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
                               Gate="ChartDataGate"
                               Tooltip="Pan right / forward in time (Right arrow)"
-                              AriaLabel="Pan chart right"
                               OnClick="PanRight" />
             <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
                               Gate="ChartDataGate"
                               Tooltip="Zoom in (Plus)"
-                              AriaLabel="Zoom chart in"
                               OnClick="ZoomIn" />
             <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
                               Gate="ChartDataGate"
                               Tooltip="Zoom out (Minus)"
-                              AriaLabel="Zoom chart out"
                               OnClick="ZoomOut" />
         </div>
 
@@ -389,8 +395,8 @@
                                   OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
                 <ToolbarIconButton Icon="log-scale" Label="Log" Variant="data"
                                   IsToggleOn="@(Store.State.IsLogScale)"
-                                  Tooltip="Toggle logarithmic price scale"
-                                  AriaLabel="Toggle logarithmic price scale"
+                                  Tooltip="Toggle the logarithmic price scale"
+                                  AriaLabel="Toggle Log price scale"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
                 <ToolbarIconButton Icon="split-view" Label="Split" Variant="data"
                                   IsToggleOn="@IsSplitActive"

@@ -8,7 +8,7 @@ namespace AccessibleTrader.Tests.Blazor;
 /// <summary>
 /// Pins the toolbar-button help contract: every ToolbarIconButton renders its Tooltip
 /// as a hover <c>title</c> and always exposes an accessible name. The Trade button relies
-/// on this (Tooltip="Open trading dashboard (Alt+T)", AriaLabel="Trading Dashboard"), so
+/// on this (Tooltip="Open trading dashboard (Alt+T)", AriaLabel="Trade dashboard"), so
 /// these tests guard against a toolbar button shipping without an associated tooltip/help.
 /// </summary>
 public sealed class ToolbarIconButtonTests
@@ -40,7 +40,7 @@ public sealed class ToolbarIconButtonTests
         var cut = ctx.RenderComponent<Cmp.ToolbarIconButton>(p => p
             .Add(x => x.Icon, "pan-left")
             .Add(x => x.Label, "Pan left")
-            .Add(x => x.AriaLabel, "Pan chart left")
+            .Add(x => x.AriaLabel, "Pan left, back in time")
             .Add(x => x.Gate, () => "No chart is loaded yet.")
             .Add(x => x.OnClick, () => { clicks++; }));
 
@@ -78,11 +78,11 @@ public sealed class ToolbarIconButtonTests
             .Add(x => x.Icon, "trade")
             .Add(x => x.Label, "Trade")
             .Add(x => x.Tooltip, "Open trading dashboard (Alt+T)")
-            .Add(x => x.AriaLabel, "Trading Dashboard"));
+            .Add(x => x.AriaLabel, "Trade dashboard"));
 
         var btn = cut.Find("button");
         Assert.Equal("Open trading dashboard (Alt+T)", btn.GetAttribute("title"));
-        Assert.Equal("Trading Dashboard", btn.GetAttribute("aria-label"));
+        Assert.Equal("Trade dashboard", btn.GetAttribute("aria-label"));
         Assert.Contains("Trade", btn.TextContent);
     }
 

@@ -43,9 +43,11 @@
                     @{ bool firstItem = true; }
                     @foreach (var pane in panes)
                     {
-                        <details @key="pane.Key" open class="pane-node">
+                        <details @key="pane.Key" open="@IsPaneOpen(pane.Key)"
+                                 @ontoggle="() => OnPaneToggled(pane.Key)" class="pane-node">
                             <summary class="pane-header" role="treeitem" aria-level="1"
                                      tabindex="@(firstItem ? 0 : -1)"
+                                     aria-expanded="@ExpandedAttr(IsPaneOpen(pane.Key))"
                                      aria-label="@($"Pane {pane.Key}, {pane.Count()} series")">
                                 <span class="icon"></span> Pane: @pane.Key
                             </summary>
@@ -61,9 +63,18 @@
                                          aria-level="2"
                                          tabindex="-1"
                                          aria-selected="@(isFocused ? "true" : "false")"
+                                         aria-expanded="@(series.Components.Count > 0 ? ExpandedAttr(IsSeriesOpen(series.Id)) : null)"
                                          aria-label="@($"{series.FriendlyName}, {series.Components.Count} components, {(series.IsVisible ? "visible" : "hidden")}, {(series.IsMuted ? "muted" : "audible")}{(isFocused ? ", focused" : "")}")">
 
-                                        <details @onclick:stopPropagation="true" class="series-details">
+                                        @* aria-expanded above is null for a series with no components:
+                                           a treeitem that declares itself collapsed and has nothing to
+                                           reveal promises children that do not exist, and ArrowRight on it
+                                           does nothing. A drawing abandoned mid-placement is exactly this —
+                                           its calculator returns no components when a required anchor is
+                                           null. ConditionTreeEditor already renders null for its leaves. *@
+                                        <details @onclick:stopPropagation="true" class="series-details"
+                                                 open="@IsSeriesOpen(series.Id)"
+                                                 @ontoggle="() => OnSeriesToggled(series.Id)">
                                             <summary class="series-summary"
                                                      data-tree-activate="true"
                                                      @onclick="() => FocusSeries(series.Id)">
@@ -88,7 +99,7 @@
                                                     {
                                                         <button title="Remove" class="danger-btn"
                                                                 @onclick:stopPropagation="true"
-                                                                @onclick="() => RemoveSeries(series.Id)"
+                                                                @onclick="() => RemoveSeriesAsync(series.Id)"
                                                                 aria-label="@($"Delete {series.FriendlyName}")">
                                                             Delete
                                                         </button>
@@ -106,16 +117,23 @@
                                                          aria-label="@($"{compLabel}, {DisplayTypeName(comp.DisplayType)}, {(comp.IsVisible ? "visible" : "hidden")}, {(comp.IsMuted ? "muted" : "audible")}")">
                                                         <span class="comp-name">@compLabel (@DisplayTypeName(comp.DisplayType))</span>
                                                         <div class="comp-actions">
-                                                            <button title="Toggle Component Visibility" 
-                                                                    class="mini-btn"
+                                                            @* Named per component, the way the series buttons above are.
+                                                               Named by their own text they were "Hide" and "Mute" on every
+                                                               row: a five-component series put five identical "Hide"
+                                                               buttons in the screen reader's button list, and `title` does
+                                                               not become the name when the element has text content. Each
+                                                               label still OPENS with the visible word, so WCAG 2.5.3
+                                                               containment holds. *@
+                                                            <button class="mini-btn"
                                                                     @onclick:stopPropagation="true"
-                                                                    @onclick="() => ToggleCompHide(series.Id, comp.Name)">
+                                                                    @onclick="() => ToggleCompHide(series.Id, comp.Name)"
+                                                                    aria-label="@($"{(comp.IsVisible ? "Hide" : "Show")} {compLabel} in {series.FriendlyName}")">
                                                                 @(comp.IsVisible ? "Hide" : "Show")
                                                             </button>
-                                                            <button title="Toggle Component Audio"
-                                                                    class="mini-btn"
+                                                            <button class="mini-btn"
                                                                     @onclick:stopPropagation="true"
-                                                                    @onclick="() => ToggleCompMute(series.Id, comp.Name)">
+                                                                    @onclick="() => ToggleCompMute(series.Id, comp.Name)"
+                                                                    aria-label="@($"{(comp.IsMuted ? "Unmute" : "Mute")} {compLabel} in {series.FriendlyName}")">
                                                                 @(comp.IsMuted ? "Unmute" : "Mute")
                                                             </button>
                                                         </div>
@@ -133,7 +151,9 @@
 
             <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
                 <div style="font-size: 0.8rem; color: var(--text-muted); flex: 1;">
-                    Use Tab to navigate · Space/Enter to toggle groups or focus@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
+                    Up and down arrows move through the tree · Right and left arrows expand and collapse ·
+                    Home and End jump to first and last · Space or Enter toggles a group or focuses a series ·
+                    Tab reaches the Hide, Mute and Delete buttons · Escape closes@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
                 </div>
                 <button @onclick="Close" id="objtree-close" aria-label="Close object tree dialog">Close</button>
             </div>
@@ -211,6 +231,59 @@
 
 @code {
     private bool _isVisible;
+
+    // ── disclosure state ─────────────────────────────────────────────────────
+    //
+    // role="treeitem" on a <summary> REPLACES the native disclosure mapping: the browser
+    // stops exposing "expanded/collapsed" from the <details> and takes it from
+    // aria-expanded instead. So the state has to be rendered, and rendering it means
+    // knowing it in C# — which the component did not, because <details> is toggled by
+    // three parties that never call back here: the browser (a click on the summary),
+    // treeKeyboard.js (`d.open = !d.open` on Left/Right/Space), and the user's own
+    // keyboard on the summary.
+    //
+    // The `toggle` event is the one thing all three have in common — the HTML spec fires
+    // it on every open-state change however it was caused — and Blazor treats `toggle` as
+    // a non-bubbling event, attaching the handler straight to the element rather than
+    // delegating at the document (`toggle` does not bubble, so a delegated listener would
+    // never see it). The handler flips our copy, so C# and the DOM cannot drift.
+    //
+    // Sets rather than per-node bools because the node list is rebuilt on every render
+    // from the store; keying on pane name / series id survives a series being added or
+    // removed underneath the user.
+    //
+    // Note the ASYMMETRY, and it is deliberate: panes render OPEN (the tree is useless
+    // shut) and series render CLOSED (a component list under every series buries the
+    // series names the panel exists to list). So the two sets store opposite things —
+    // a pane in _closedPanes is shut, a series in _openSeries is open — and both default
+    // to the empty set.
+    private readonly HashSet<string> _closedPanes = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _openSeries = new(StringComparer.Ordinal);
+
+    private bool IsPaneOpen(string paneKey) => !_closedPanes.Contains(paneKey);
+    private bool IsSeriesOpen(string seriesId) => _openSeries.Contains(seriesId);
+
+    private void OnPaneToggled(string paneKey)
+    {
+        // The toggle event carries no state — EventArgs.Empty — so this flips rather
+        // than reads. That is exact: `toggle` fires if and only if the state changed.
+        if (!_closedPanes.Remove(paneKey)) _closedPanes.Add(paneKey);
+    }
+
+    private void OnSeriesToggled(string seriesId)
+    {
+        if (!_openSeries.Remove(seriesId)) _openSeries.Add(seriesId);
+    }
+
+    /// <summary>
+    /// aria-expanded takes the strings "true"/"false", never a bare boolean — Blazor renders a
+    /// false bool by OMITTING the attribute, which for aria-expanded means "not expandable"
+    /// rather than "collapsed". Named with the <c>…Attr</c> suffix the rest of the library uses
+    /// for string-typed ARIA values (ToolbarIconButton's <c>PressedAttr</c>), which is also what
+    /// <c>ModalContractScanTests.NoAriaStateAttributeIsBoundToABareBoolean</c> recognises.
+    /// </summary>
+    private static string ExpandedAttr(bool value) => value ? "true" : "false";
+
     private IDisposable? _eventSub;
     private IDisposable? _stateSub;
     private IDisposable? _closeSub;
@@ -237,6 +310,15 @@
     private void Close()
     {
         _isVisible = false;
+        // Both disclosure sets are dropped here, and that is deliberate rather than tidy-up.
+        // They are keyed by pane NAME and series ID, neither of which is unique over time: delete
+        // the RSI series and add another one in the same pane and the pane comes back — collapsed,
+        // if it was collapsed when it vanished, contradicting the documented default that panes
+        // open. Core series ids (`volume`, `heatmap`) are removable and re-creatable with the same
+        // id, so the series set has the same problem. Clearing on close bounds both sets to one
+        // sitting and puts every open back at the documented default.
+        _closedPanes.Clear();
+        _openSeries.Clear();
         EventBus.Publish(new ModalStateChangedEvent(false, "Object tree"));
         StateHasChanged();
     }
@@ -289,14 +371,25 @@
         _                                                            => dt.ToString()
     };
 
-    private void RemoveSeries(string id)
+    /// <summary>
+    /// Remove a series, and put focus somewhere that still exists.
+    ///
+    /// <para>The Delete button lives inside the treeitem it deletes, so the element under
+    /// the user's focus is removed by their own keystroke. Blazor does not move focus for
+    /// you: it falls to <c>&lt;body&gt;</c> — OUTSIDE a container carrying
+    /// <c>aria-modal="true"</c>, so the screen reader's buffer is still restricted to a
+    /// dialog its focus is no longer in, and the next Tab restarts at the top of the
+    /// dialog rather than near where the user was. Focus goes to the dialog heading, the
+    /// same target the dialog uses when it opens.</para>
+    /// </summary>
+    private async Task RemoveSeriesAsync(string id)
     {
         var s = Store.State.ActiveSeries.FirstOrDefault(x => x.Id == id);
-        if (s != null)
-        {
-            Store.Dispatch(new RemoveSeriesAction(id));
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.Name} removed"));
-        }
+        if (s == null) return;
+
+        Store.Dispatch(new RemoveSeriesAction(id));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.Name} removed"));
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "objtree-title"); } catch { }
     }
 
     public void Dispose()

@@ -168,31 +168,54 @@
 
                             @if (_series.IsDrawing && _series.Drawing != null)
                             {
+                                @* THE keyboard route to a drawing's geometry. Every field here is
+                                   the only way a user who cannot make a ten-pixel mouse drag can
+                                   correct a shape they have already placed.
+
+                                   Driven by DrawingAnchorSchema rather than by per-type conditions
+                                   written here: the four conditions this replaced covered nine of
+                                   the sixteen drawing types and never slot 3, so a Risk/Reward, an
+                                   Andrews Pitchfork, a Gann Fan, a Gann Box, an Angle Fib, a
+                                   Measure Tool and an Anchored VWAP had no editable coordinates at
+                                   all, and a Fib Extension's projection origin and a text label's
+                                   price were unreachable. The schema is checked against what the
+                                   calculators actually dereference, so a new drawing type gets its
+                                   editors by existing. *@
                                 <fieldset>
                                     <legend>Drawing Coordinates</legend>
-                                    @if (_drawingNeedsPrice1) {
-                                        <div class="modal-row">
-                                            <label for="drawing-price-1">@_price1Label</label>
-                                            <input id="drawing-price-1" type="number" step="any" value="@_series.Drawing.AnchorPrice1" @onchange='e => UpdateDrawingPrice(1, e.Value?.ToString())' />
-                                        </div>
-                                    }
-                                    @if (_drawingNeedsDate1) {
-                                        <div class="modal-row">
-                                            <label for="drawing-date-1">@_date1Label</label>
-                                            <input id="drawing-date-1" type="datetime-local" value='@_series.Drawing.AnchorDate1?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(1, e.Value?.ToString())' />
-                                        </div>
-                                    }
-                                    @if (_drawingNeedsPrice2) {
-                                        <div class="modal-row">
-                                            <label for="drawing-price-2">@_price2Label</label>
-                                            <input id="drawing-price-2" type="number" step="any" value="@_series.Drawing.AnchorPrice2" @onchange='e => UpdateDrawingPrice(2, e.Value?.ToString())' />
-                                        </div>
-                                    }
-                                    @if (_drawingNeedsDate2) {
-                                        <div class="modal-row">
-                                            <label for="drawing-date-2">@_date2Label</label>
-                                            <input id="drawing-date-2" type="datetime-local" value='@_series.Drawing.AnchorDate2?.ToString("yyyy-MM-ddTHH:mm")' @onchange='e => UpdateDrawingDate(2, e.Value?.ToString())' />
-                                        </div>
+                                    @foreach (var field in AccessibleTrader.Core.Services.Drawing.DrawingAnchorSchema.For(_series.Drawing.Type))
+                                    {
+                                        @* @key on (axis, slot), not on the loop index. Opening this dialog
+                                           for a second drawing while it is already up diffs one type's field
+                                           list against another's POSITIONALLY without it — a trend line's
+                                           [price, date, price, date] against a risk/reward's [price, price,
+                                           price] — which turns index 1 into a `type` swap from datetime-local
+                                           to number on a live element that still holds a value. *@
+                                        var slot = field.Slot;
+                                        var fieldId = field.Axis == AccessibleTrader.Core.Services.Drawing.DrawingAnchorAxis.Price
+                                            ? $"drawing-price-{slot}" : $"drawing-date-{slot}";
+                                        if (field.Axis == AccessibleTrader.Core.Services.Drawing.DrawingAnchorAxis.Price)
+                                        {
+                                            <div class="modal-row" @key="(field.Axis, slot)">
+                                                <label for="@fieldId">@field.Label</label>
+                                                <input id="@fieldId" type="number" step="any"
+                                                       value="@AnchorPrice(slot)"
+                                                       aria-invalid="@InvalidAttr(fieldId)"
+                                                       @onchange='e => UpdateDrawingPrice(slot, fieldId, field.Label, e.Value?.ToString())'
+                                                       @onblur='() => AnnounceCoordinate(fieldId, field.Label, slot, field.Axis)' />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="modal-row" @key="(field.Axis, slot)">
+                                                <label for="@fieldId">@field.Label</label>
+                                                <input id="@fieldId" type="datetime-local"
+                                                       value="@AnchorDateForInput(slot)"
+                                                       aria-invalid="@InvalidAttr(fieldId)"
+                                                       @onchange='e => UpdateDrawingDate(slot, fieldId, field.Label, e.Value?.ToString())'
+                                                       @onblur='() => AnnounceCoordinate(fieldId, field.Label, slot, field.Axis)' />
+                                            </div>
+                                        }
                                     }
                                 </fieldset>
                             }
@@ -1196,32 +1219,22 @@
     private void RemoveColorRule(ComponentConfig comp, int idx)
         => comp.ColorRules.RemoveAt(idx);
 
-    // Drawing parameter helpers
-    private bool _drawingNeedsPrice1 => _series?.Drawing?.Type is DrawingType.HorizontalLine or DrawingType.TrendLine or DrawingType.Channel or DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.Rectangle;
-    private bool _drawingNeedsDate1  => _series?.Drawing?.Type is DrawingType.VerticalLine or DrawingType.TrendLine or DrawingType.Channel or DrawingType.Rectangle or DrawingType.TextLabel;
-    private bool _drawingNeedsPrice2 => _series?.Drawing?.Type is DrawingType.TrendLine or DrawingType.Channel or DrawingType.FibRetracement or DrawingType.FibExtension or DrawingType.Rectangle;
-    private bool _drawingNeedsDate2  => _series?.Drawing?.Type is DrawingType.TrendLine or DrawingType.Channel or DrawingType.Rectangle;
+    // Drawing coordinate helpers. Which fields exist is DrawingAnchorSchema's answer, not this
+    // file's; these only read and write the slot the schema named.
+    private double? AnchorPrice(int slot) => slot switch
+    {
+        1 => _series?.Drawing?.AnchorPrice1,
+        2 => _series?.Drawing?.AnchorPrice2,
+        3 => _series?.Drawing?.AnchorPrice3,
+        _ => null,
+    };
 
-    private string _price1Label => _series?.Drawing?.Type switch {
-        DrawingType.HorizontalLine => "Price",
-        DrawingType.FibRetracement or DrawingType.FibExtension => "Start Price",
-        DrawingType.Rectangle => "Top Price",
-        _ => "Start Price"
-    };
-    private string _date1Label  => _series?.Drawing?.Type switch {
-        DrawingType.VerticalLine => "Date",
-        DrawingType.Rectangle    => "Start Date",
-        DrawingType.TextLabel    => "Position Date",
-        _ => "Start Date"
-    };
-    private string _price2Label => _series?.Drawing?.Type switch {
-        DrawingType.FibRetracement or DrawingType.FibExtension => "End Price",
-        DrawingType.Rectangle => "Bottom Price",
-        _ => "End Price"
-    };
-    private string _date2Label  => _series?.Drawing?.Type switch {
-        DrawingType.Rectangle => "End Date",
-        _ => "End Date"
+    private DateTime? AnchorDate(int slot) => slot switch
+    {
+        1 => _series?.Drawing?.AnchorDate1,
+        2 => _series?.Drawing?.AnchorDate2,
+        3 => _series?.Drawing?.AnchorDate3,
+        _ => null,
     };
 
     /// <summary>
@@ -1258,24 +1271,141 @@
         EventBus.Publish(new AnnouncementEvent($"Renamed to {name}.", true));
     }
 
-    private void UpdateDrawingPrice(int anchor, string? raw)
+    // Fields whose last edit was REJECTED. `aria-invalid` is the signal the 2026-09-03 error-state
+    // work established for exactly this: the value was submitted and refused. Without it a number
+    // box that would not parse keeps showing the text the user typed while the drawing still holds
+    // the old coordinate, and nothing on the screen says so.
+    private readonly HashSet<string> _rejectedCoordinates = new(StringComparer.Ordinal);
+
+    private string? InvalidAttr(string fieldId) => _rejectedCoordinates.Contains(fieldId) ? "true" : null;
+
+    /// <summary>
+    /// The date as the INPUT should show it — the user's own zone.
+    ///
+    /// <para>Anchor dates are bar stamps, and every spoken date in this app goes through
+    /// <c>SpeechTimeFormatter</c>, which resolves a stamp into the user's zone (treating an
+    /// Unspecified kind as UTC, because that is what every provider path produces). The input
+    /// rendered the raw stored value instead, so for any user not on UTC the field showed one
+    /// time and the rest of the terminal said another about the same anchor. Both ends go
+    /// through the same conversion now, and <see cref="ParseDateFromInput"/> is its inverse.</para>
+    /// </summary>
+    private string? AnchorDateForInput(int slot)
+    {
+        var stored = AnchorDate(slot);
+        return stored is null
+            ? null
+            : AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.ToDisplay(stored.Value)
+                .ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Read a <c>datetime-local</c> value back into a stored stamp.
+    ///
+    /// <para>Invariant culture and <c>AssumeLocal</c> are both load-bearing. The control always
+    /// emits ISO-8601; parsing it under the ambient culture puts a non-Gregorian default calendar
+    /// (ar-SA, th-TH) into the wrong year, and the price half of this pair already pins invariant.
+    /// The wall-clock the user typed is in THEIR zone, so it is specified as Local and stored as
+    /// UTC — which is what <c>SpeechTimeFormatter.ToDisplay</c> will convert back.</para>
+    /// </summary>
+    private static bool ParseDateFromInput(string? raw, out DateTime storedUtc)
+    {
+        storedUtc = default;
+        if (!DateTime.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeLocal, out var local)) return false;
+        storedUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
+        return true;
+    }
+
+    /// <summary>
+    /// Write one coordinate. The readback is on BLUR, not here — see
+    /// <see cref="AnnounceCoordinate"/>.
+    ///
+    /// <para>The geometry itself is recomputed by Apply, which publishes
+    /// <c>IndicatorUpdatedEvent</c>; <c>DataOrchestrationService</c> answers that with a forced
+    /// full recalculation, and <c>IndicatorOrchestrator</c>'s drawings branch runs
+    /// <c>CalculateDrawingData</c> over the new anchors before the redraw. That chain was traced
+    /// rather than assumed — a review reported this path as a silent no-op and it is not one.</para>
+    /// </summary>
+    private void UpdateDrawingPrice(int anchor, string fieldId, string label, string? raw)
     {
         if (_series?.Drawing == null) return;
         if (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out double v)) return;
+                System.Globalization.CultureInfo.InvariantCulture, out double v))
+        {
+            _rejectedCoordinates.Add(fieldId);
+            return;
+        }
+        _rejectedCoordinates.Remove(fieldId);
         var d = _series.Drawing;
         if (anchor == 1) d.AnchorPrice1 = v;
         else if (anchor == 2) d.AnchorPrice2 = v;
         else if (anchor == 3) d.AnchorPrice3 = v;
     }
 
-    private void UpdateDrawingDate(int anchor, string? raw)
+    /// <summary>
+    /// The date half. It had no <c>anchor == 3</c> branch while the price half did, so the moment
+    /// a slot-3 date editor rendered — Andrews Pitchfork is the one type that needs one — the
+    /// price would have saved and the date would have gone nowhere, with no error and nothing
+    /// spoken. The asymmetry was invisible while no such editor existed.
+    /// </summary>
+    private void UpdateDrawingDate(int anchor, string fieldId, string label, string? raw)
     {
         if (_series?.Drawing == null) return;
-        if (!DateTime.TryParse(raw, out DateTime dt)) return;
+        if (!ParseDateFromInput(raw, out DateTime dt))
+        {
+            _rejectedCoordinates.Add(fieldId);
+            return;
+        }
+        _rejectedCoordinates.Remove(fieldId);
         var d = _series.Drawing;
         if (anchor == 1) d.AnchorDate1 = dt;
         else if (anchor == 2) d.AnchorDate2 = dt;
+        else if (anchor == 3) d.AnchorDate3 = dt;
+    }
+
+    /// <summary>
+    /// Say what the field ended up holding, ONCE, when the user leaves it.
+    ///
+    /// <para>This was on <c>@onchange</c> and it flooded. Chromium fires <c>change</c> on every
+    /// arrow-key step of a number input and on every segment step of a datetime-local one, and
+    /// <c>AnnouncementEvent</c> interrupts by default — so walking an hour segment from 00 to 14
+    /// produced fourteen announcements, each cutting off the one before, and the user heard
+    /// thirteen fragments and one sentence. Same shape as the narrator's nine Speak calls per
+    /// scan, closed 2026-09-02. Blur is the commit point for both control types and happens
+    /// once.</para>
+    ///
+    /// <para>It reads the STORED value rather than what was typed, so it doubles as the report on
+    /// a rejected edit: a value that would not parse leaves the model alone and this says so,
+    /// rather than quoting the raw text back — which for a number input is the empty string,
+    /// because the browser never hands over unparseable content in the first place.</para>
+    /// </summary>
+    private void AnnounceCoordinate(
+        string fieldId, string label, int slot,
+        AccessibleTrader.Core.Services.Drawing.DrawingAnchorAxis axis)
+    {
+        if (_series?.Drawing == null) return;
+
+        if (_rejectedCoordinates.Contains(fieldId))
+        {
+            EventBus.Publish(new AnnouncementEvent(
+                $"{label} not changed. The value was not accepted.", true));
+            return;
+        }
+
+        if (axis == AccessibleTrader.Core.Services.Drawing.DrawingAnchorAxis.Price)
+        {
+            var p = AnchorPrice(slot);
+            if (p is null) return;
+            EventBus.Publish(new AnnouncementEvent(
+                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(p.Value)}.", true));
+        }
+        else
+        {
+            var d = AnchorDate(slot);
+            if (d is null) return;
+            EventBus.Publish(new AnnouncementEvent(
+                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.Format(d.Value, "MMMM dd, HH:mm")}.", true));
+        }
     }
 
     public void Dispose() { _eventSub?.Dispose(); _closeSub?.Dispose(); }

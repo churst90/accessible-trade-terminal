@@ -248,7 +248,7 @@ pressed-state toggles, so your screen reader announces whether each is currently
 on.
 
 Buttons are labelled with an abbreviation on screen and a full name for your
-screen reader, so "Watch" reads as "Watchlists and Screener" and "AI" reads as
+screen reader, so "Watch" reads as "Watch lists and screener" and "AI" reads as
 "AI Analyst". Some buttons only appear when they apply — drawing tools and the
 chart toggles are hidden on analytics charts, where they mean nothing.
 
@@ -1649,14 +1649,20 @@ rather than something you have to look up. Press Alt+H again to turn it off.
 
 Once a chart has a few indicators and drawings on it, navigating to a particular one
 just to hide or remove it becomes a chore. The object tree, opened with Alt+O and
-announced as "Object Tree", is the manager's-eye view that solves that: a single tree
-of everything on the chart, laid out as the same panes → series → components hierarchy
-you move through on the chart itself, but as one list you can Tab and arrow through
-without disturbing the chart.
+announced as "Objects: chart object tree", is the manager's-eye view that solves that:
+a single tree of everything on the chart, laid out as the same panes → series →
+components hierarchy you move through on the chart itself, but as one list you can walk
+through without disturbing the chart.
+
+It is a real tree, so it answers to the tree keys rather than to Tab: up and down arrows
+move between entries, right and left expand and collapse the entry you are on, and Home
+and End jump to the first and last. Tab is still how you reach an entry's Hide, Mute and
+Delete buttons, and Escape closes the panel. Each entry says whether it is expanded or
+collapsed as you land on it, so collapsing a pane and re-opening it sound different.
 
 Each series in the tree reads itself the way you'd want — its name, how many components
 it has, and its current state — so you hear, for example, "RSI, one component, visible,
-audible, focused" as you move onto it. From there you act on any object in place,
+audible, focused, collapsed" as you move onto it. From there you act on any object in place,
 without first navigating to it on the chart: each series and each component has a toggle
 to hide or show it (the same effect as H) and a toggle to mute or unmute it (the same as
 M), and a series carries a Remove control to take it off the chart entirely. Selecting a

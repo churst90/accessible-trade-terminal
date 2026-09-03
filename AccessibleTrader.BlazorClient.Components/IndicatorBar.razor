@@ -24,18 +24,30 @@
     @if (_focusedSeries != null)
     {
         @* Route through EventBus → ChartCommandManager so speech feedback fires. *@
+        @* The LABEL names the action, exactly as ObjectTreeModal's row buttons do, and there
+           is deliberately no aria-pressed beside it.
+
+           These two were the last of the WCAG 2.5.3 Label-in-Name failures: the caption showed
+           the STATE ("Visible", "Muted") and the accessible name gave the ACTION ("Hide SMA 20"),
+           so the words a user could see appeared nowhere in the words voice control matches, and
+           the announcement carried a third signal on top — aria-pressed — which on a muted series
+           read "Unmute SMA 20, toggle button, pressed". The two buttons were even wired with
+           opposite polarity: pressed meant hidden on the left and muted on the right.
+
+           One signal now, in the label, extended by the series name. `Highlighted` keeps the
+           visual on-state for sighted and low-vision users without re-introducing aria-pressed. *@
         <ToolbarIconButton Icon="@(_focusedSeries.IsVisible ? "visible" : "hidden")"
-                          Label="@(_focusedSeries.IsVisible ? "Visible" : "Hidden")"
+                          Label="@(_focusedSeries.IsVisible ? "Hide" : "Show")"
                           Variant="neutral"
-                          IsToggleOn="@(!_focusedSeries.IsVisible)"
+                          Highlighted="@(!_focusedSeries.IsVisible)"
                           Tooltip="Toggle visibility (H)"
                           AriaLabel="@(_focusedSeries.IsVisible ? "Hide " + _focusedSeries.FriendlyName : "Show " + _focusedSeries.FriendlyName)"
                           OnClick="() => EventBus.Publish(new ToggleHideEvent())" />
 
         <ToolbarIconButton Icon="@(_focusedSeries.IsMuted ? "audio-muted" : "audio-on")"
-                          Label="@(_focusedSeries.IsMuted ? "Muted" : "Audio")"
+                          Label="@(_focusedSeries.IsMuted ? "Unmute" : "Mute")"
                           Variant="@(_focusedSeries.IsMuted ? "warning" : "neutral")"
-                          IsToggleOn="@(_focusedSeries.IsMuted)"
+                          Highlighted="@(_focusedSeries.IsMuted)"
                           Tooltip="Toggle audio (M)"
                           AriaLabel="@(_focusedSeries.IsMuted ? "Unmute " + _focusedSeries.FriendlyName : "Mute " + _focusedSeries.FriendlyName)"
                           OnClick="() => EventBus.Publish(new ToggleMuteEvent())" />

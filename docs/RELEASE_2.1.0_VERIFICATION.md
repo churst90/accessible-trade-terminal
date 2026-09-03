@@ -195,7 +195,7 @@ will not think to include it.
 
 ## E. Accessibility, which is the actual product
 
-- [ ] Orca reads the new toolbar buttons by their full names ("Watchlists and Screener",
+- [ ] Orca reads the new toolbar buttons by their full names ("Watch lists and screener",
       not "Watch")
 - [ ] The screener results table reads cell by cell with column headers
 - [ ] The screen builder's filter rows read as a group, and each row's plain-language

@@ -107,6 +107,14 @@ public static class ModalCatalog
         get { var d = new TheoryData<string>(); foreach (var c in BareComponents) d.Add(c.Name); return d; }
     }
 
+    /// <summary>Render a bare (non-dialog) catalog component inside a fresh harness,
+    /// seeding it first. Callers own the harness.</summary>
+    public static IRenderedFragment RenderBare(BlazorTestHarness h, BareCase c)
+    {
+        c.Seed?.Invoke(h);
+        return c.Render(h.Ctx);
+    }
+
     /// <summary>Open a catalog dialog inside a fresh harness. Callers own the
     /// harness (dispose it) and get the rendered fragment back.</summary>
     public static IRenderedFragment OpenDialog(BlazorTestHarness h, ModalCase c)
