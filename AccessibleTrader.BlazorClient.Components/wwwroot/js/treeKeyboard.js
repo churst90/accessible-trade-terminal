@@ -214,6 +214,12 @@
     }
 
     window.addEventListener('keydown', function (e) {
+        // A MODIFIED arrow is somebody else's key. Shift+Arrow nudges the focused drawing's
+        // anchor (since 2026-09-03 the dispatcher allows that under the Object Tree, because
+        // the tree is where a drawing is focused); Ctrl/Alt/Meta+Arrow are OS and screen-reader
+        // chords. The tree model is plain arrows only, so a shifted press must neither move the
+        // tree focus nor be preventDefault'd here — the chart's own handler owns it.
+        if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
         const tree = findTree(e.target);
         if (!tree) return;
         const current = findTreeitem(e.target, tree);

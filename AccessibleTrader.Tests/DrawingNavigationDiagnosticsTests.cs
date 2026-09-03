@@ -367,8 +367,14 @@ public sealed class DrawingNavigationDiagnosticsTests
 
     // ── Q2c: the drawings that ARE sparse — outside the span reads "no data" ──
 
+    /// <summary>
+    /// Was Q2c, a diagnostic pinning "Top, line, no data" one bar outside a rectangle. Inverted
+    /// 2026-09-03: outside the span the sentence is a navigation instruction — the position
+    /// word and the BAR count to the drawn edge — and inside it the value leads with no
+    /// component name and no type word per bar.
+    /// </summary>
     [Fact]
-    public void Q2c_Rectangle_Outside_Its_Span_Reads_No_Data()
+    public void Rectangle_Outside_Its_Span_Says_Before_Start_And_How_Many_Bars()
     {
         var bars = Bars();
         var d = new DrawingData
@@ -384,14 +390,19 @@ public sealed class DrawingNavigationDiagnosticsTests
         nav.HandleNavigationFeedback(StateAt(bars, series, 10), true, false, "NAV_MOVE");
         foreach (var s in router.Said) _out.WriteLine("SPOKEN: " + s);
         Assert.DoesNotContain("no data", router.Said[0]);
-        Assert.Contains("no data", router.Said[1]);
+        Assert.DoesNotContain("line", router.Said[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Before start, 20 bars.", router.Said[1]);
     }
 
     // ── Q2d: a drawing whose component ARRAYS were wiped still says "1 component" ──
 
     [Fact]
-    public void Q2d_Empty_ComponentData_With_Components_Present_Reads_No_Data_Everywhere()
+    public void Empty_ComponentData_Says_Not_Yet_Calculated_Inside_The_Span_And_Before_Start_Outside_It()
     {
+        // Was Q2d, pinning "1 component" and "no data" everywhere. Inverted 2026-09-03. The
+        // two failure modes are DIFFERENT SENTENCES on purpose: inside the anchors' span with
+        // no number behind it is a fault ("Not yet calculated."), outside it is geometry
+        // ("Before start, 20 bars.") — and only the second is true of the bar the user is on.
         var bars = Bars();
         var d = new DrawingData
         {
@@ -412,8 +423,10 @@ public sealed class DrawingNavigationDiagnosticsTests
         nav.HandleNavigationFeedback(StateAt(bars, series, 51), true, false, "NAV_MOVE");
         nav.HandleNavigationFeedback(StateAt(bars, series, 10), true, false, "NAV_MOVE");
         foreach (var s in router.Said) _out.WriteLine("SPOKEN: " + s);
-        Assert.Contains("1 component", router.Said[0]);
-        Assert.All(router.Said, m => Assert.Contains("no data", m));
+        Assert.Equal("Trend line 1. Not yet calculated.", router.Said[0]);
+        Assert.DoesNotContain("component", router.Said[0]);
+        Assert.Equal("Not yet calculated.", router.Said[1]);
+        Assert.Equal("Before start, 20 bars.", router.Said[2]);
     }
 
     // ── Q2e: LIVE BARS. A drawing is skipped by the per-tick recalculation, so
@@ -603,10 +616,16 @@ public sealed class DrawingNavigationDiagnosticsTests
         };
     }
 
+    /// <summary>
+    /// Was Q6, pinning the two SILENT gates. Inverted 2026-09-03: without chart focus the chord
+    /// is refused aloud, under an editing dialog it is refused aloud naming the dialog, and
+    /// under the OBJECT TREE — the dialog a drawing is focused from — it runs. The wording and
+    /// the once-per-situation rule are in <c>NudgeGateSpeechTests</c>; this is the shape.
+    /// </summary>
     [Fact]
-    public void Q6_NudgeIsDroppedSilently_WithoutChartFocus_AndWhileAModalIsOpen()
+    public void Q6_Inverted_NudgeIsRefusedAloud_OffChart_AndUnderAnEditingDialog_ButRunsUnderTheObjectTree()
     {
-        // (a) chart never focused → the chord is swallowed with no sound at all.
+        // (a) chart never focused → boundary earcon and a sentence, no nudge.
         var bus = new SpyEventBus();
         var store = new MockWorkspaceStore();
         store.EmitState(LoadedChart());
@@ -616,10 +635,12 @@ public sealed class DrawingNavigationDiagnosticsTests
             new AccessibleTrader.Core.Services.Input.IndicatorCrossingEngine(store, bus));
 
         dispatcher.Dispatch(SystemCommand.NudgeAnchorLater);
+        var refusal = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
         _out.WriteLine($"(a) no chart focus: nudge events={bus.Log.OfType<NudgeDrawingAnchorEvent>().Count()} " +
-                       $"feedback={bus.Log.OfType<FeedbackRequestEvent>().Count()}");
+                       $"feedback={refusal.Type} '{refusal.Message}'");
         Assert.Empty(bus.Log.OfType<NudgeDrawingAnchorEvent>());
-        Assert.Empty(bus.Log.OfType<FeedbackRequestEvent>());
+        Assert.Equal(FeedbackType.Boundary, refusal.Type);
+        Assert.Contains("does not have focus", refusal.Message);
 
         // (b) chart focused → the event reaches the manager.
         dispatcher.SetChartActive(true);
@@ -627,12 +648,33 @@ public sealed class DrawingNavigationDiagnosticsTests
         _out.WriteLine($"(b) chart focused: nudge events={bus.Log.OfType<NudgeDrawingAnchorEvent>().Count()}");
         Assert.Single(bus.Log.OfType<NudgeDrawingAnchorEvent>());
 
-        // (c) a modal open (the Object Tree is one) → swallowed again.
+        // (c) the Object Tree open (and the chart therefore NOT focused), a drawing focused
+        //     from the tree → still runs.
+        dispatcher.SetChartActive(false);
+        var lineCfg = new SeriesConfig { Id = "draw-1", IndicatorCode = "TrendLine", Name = "Trend line (1)" };
+        var line = new ChartSeries(lineCfg, new SeriesDataBuffer { SeriesId = "draw-1" })
+            { Drawing = new DrawingData { Type = DrawingType.TrendLine } };
+        var withLine = store.State with
+        {
+            ActiveSeries = store.State.ActiveSeries.Add(line),
+            FocusedSeriesId = "draw-1",
+        };
+        store.EmitState(withLine);
         bus.Publish(new ModalStateChangedEvent(true, "Object tree"));
         int before = bus.Log.OfType<NudgeDrawingAnchorEvent>().Count();
         dispatcher.Dispatch(SystemCommand.NudgeAnchorLater);
         int after = bus.Log.OfType<NudgeDrawingAnchorEvent>().Count();
         _out.WriteLine($"(c) Object tree open: nudge events before={before} after={after}");
-        Assert.Equal(before, after);
+        Assert.Equal(before + 1, after);
+
+        // (d) Properties on top of the tree → refused, and the refusal names Properties.
+        bus.Publish(new ModalStateChangedEvent(true, "Properties"));
+        int feedbackBefore = bus.Log.OfType<FeedbackRequestEvent>().Count();
+        dispatcher.Dispatch(SystemCommand.NudgeAnchorLater);
+        var underProperties = bus.Log.OfType<FeedbackRequestEvent>().Last();
+        _out.WriteLine($"(d) Properties on top: '{underProperties.Message}'");
+        Assert.Equal(after, bus.Log.OfType<NudgeDrawingAnchorEvent>().Count());
+        Assert.Equal(feedbackBefore + 1, bus.Log.OfType<FeedbackRequestEvent>().Count());
+        Assert.Equal("Not while Properties is open. Escape closes it.", underProperties.Message);
     }
 }

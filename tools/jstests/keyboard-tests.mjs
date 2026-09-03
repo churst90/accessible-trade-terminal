@@ -882,6 +882,21 @@ test('an element inside the dialog that is genuinely NOT a tab stop still seeds 
   assert.equal(h.doc.activeElement, only);
 });
 
+test('a SHIFTED arrow is not a scroll key: under a dialog it still reaches the dispatcher', () => {
+  // The dispatcher answers Shift+Arrow under a dialog since 2026-09-03 — "Not while
+  // Properties is open. Escape closes it." — or runs it under the Object Tree. Released here
+  // as a scroll key, that sentence would be unreachable from a button or the heading, i.e.
+  // from most of the dialog it names.
+  const h = makeHarness();
+  h.api.setModalStack(['Properties']);
+  const button = h.node('BUTTON');
+  assert.equal(h.press('ArrowRight', button, { shift: true }), true, 'the chord was released to the browser');
+  assert.deepEqual(h.calls.filter(c => c[0] === 'OnKeyDown').map(c => c.slice(1)),
+    [['RIGHT', true, false, false]]);
+  // The unshifted arrow is still the dialog's, so it can be read.
+  assert.equal(h.press('ArrowDown', h.node('H2', { tabindex: '-1' })), false);
+});
+
 test('scroll keys are still trapped inside a dialog composite widget', () => {
   // None of the three NavigateTablistAsync callers calls preventDefault — they rely on
   // this file for it. Releasing the key here would move the tab AND scroll the dialog.

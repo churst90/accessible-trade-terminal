@@ -4,6 +4,85 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The line that finally says where you are on it, the chord that explained why it would not move, and the pattern that closed on the bar you just heard (2026-09-03)
+
+Three of the four asks from the session's opening message, plus one defect found underneath the
+third.
+
+- **Arrowing along a drawing speaks where you are on it.** A trend line used to read
+  "Line, line, 150.50" — the generic name-type-value template meeting a component whose name IS
+  its type — and a rectangle one bar outside its span read "Top, line, no data". Now each bar
+  says `{value}[, {position}][, {relation}].`: *"150.50, price below."* between the anchors,
+  *"170.50, at end anchor, price above."* on one, *"199.50, past end, price above."* where the line
+  is projected, and where the drawing has no value at all the position word leads with the
+  BAR count to the drawn edge — *"Before start, 20 bars."* — because arrow keys move bars and
+  a count is an instruction. Price is the grammatical subject ("price crossed above"), matching
+  the narrator, so two speakers never use opposite subjects for the same geometry. Two wordings
+  were changed by the screen-reader review before this shipped: a close sitting on the line is
+  *"price on it"*, not *"price at"* (a clause ending on a preposition is heard as an utterance
+  cut off before its object, on the commonest bar of a sweep), and an anchor is *"at end
+  anchor"* rather than *"end anchor"*, because mid-sentence most synthesisers make "end" and
+  "and" the same sound and the one distinction the clause exists to give was the one being
+  lost. The value goes through `SpeechPriceFormatter`, not `F2`: a drawing's series id is neither "price" nor
+  "candles", so a KAS trend line at 0.0363 had been spoken as "0.04". No name and no type word
+  per bar — the name is constant across a sweep and a constant prefix in front of the one
+  varying number is the shape this repo has already deleted twice.
+- **The span is the anchors' geometry, never the array's length.** The obvious implementation
+  — "does the component array reach this bar" — would stand a trader at the live edge and
+  announce "past end, 4 bars" about a line running through the bar they are on. So a bar inside
+  the anchors with no value behind it says *"Not yet calculated."*, deliberately odd-sounding
+  so it gets reported rather than absorbed, and a bar outside them says where the drawing is.
+  `DrawingSpeechContractTests` truncates the array so the two disagree and asserts the sentence
+  follows the anchors; the array-length sabotage reddens it.
+- **One drawing, one spoken name.** Page Down said "Trend line (1). 1 component." while the
+  nudge readback said "Trend line 1". Both now go through `DrawingSpeech.SpokenSeriesName`;
+  "1 component" is dropped for a drawing (the count is only information when Ctrl+Up/Down has
+  somewhere to go), and a multi-component drawing names the component it is about to read —
+  *"Fibonacci retracement 1. 7 components, reading 0%."* — where "0%" is the visible
+  "0.0% Level" with the tail every level shares stripped and the ".0" dropped, in SPEECH only.
+  `DisplayName` is untouched: shortening the visible label would be a fresh WCAG 2.5.3 failure
+  in the dialog where twelve were closed the same day. Ctrl+Up/Down between levels speaks the
+  level once, then the bars speak values. A hidden level is named once, by its own
+  "61.8% Level: hidden" sentence, never a second way in the same breath.
+- **The two silent nudge gates speak.** `Shift+Arrow` with focus on a toolbar button, or with a
+  dialog open, was dropped by `CommandDispatcher` with no sound — indistinguishable from an
+  unbound key, which is why the whole feature read as "the commands don't work". Both are
+  BOUNDARY tier now, never Error: the boundary earcon on every press, the sentence once per
+  situation — *"The chart does not have focus. Control Alt Shift C returns to the chart."* and
+  *"Not while Properties is open. Escape closes it."* (a CamelCase dialog name is split into
+  words for the synthesiser). Error would speak on the channel F2 cannot mute, fifteen times a
+  second under a held key. Every other chart-scoped command stays silent off-chart on purpose: an
+  arrow key on a button belongs to the button.
+- **The nudge RUNS under the Object Tree.** The tree is where a drawing is focused, so refusing
+  the nudge there — however well worded — described the app's model inside-out. It is allowed
+  while the tree is the TOP modal and refused under an editing dialog (Properties holds the very
+  same anchor coordinates in its fields, and a nudge underneath it would leave them stale). The
+  first use of the ordered modal stack to draw a distinction rather than close things in order.
+  `treeKeyboard.js` now ignores any modified arrow, so a shifted press neither moves the tree
+  focus nor is prevented by it, and `keyboard.js` no longer releases a SHIFTED arrow to a dialog
+  as a scroll key — the review found that without that, the "Not while Properties is open"
+  sentence was unreachable from a button or heading, i.e. from most of the dialog it names.
+  Under the tree with no drawing focused the dispatcher answers with a tree-true remedy —
+  *"Focus a drawing first. Enter on its row in the tree focuses it."* — because the manager's
+  own sentence names Page Up and Page Down, which the tree does not honour. Verified in the JS
+  harness; not yet in a browser with Orca attached — recorded in TODO, together with the
+  review's remaining finding that the tree's cursor row and the nudge's target can differ.
+- **A chart pattern's outcome joins the new-bar announcement.** With "announce new bars" on and
+  pattern descriptions on, a formation whose story ends on the bar that just closed — a neckline
+  closed through, or a triangle that aged out with its boundary intact — is spoken between the
+  close and the open, in the sentence the arrow keys use on that bar with one word changed —
+  *"here"* points at the cursor, and at bar close the cursor may be two hundred bars back —
+  *"Close 198.50. Double top confirmed on this close: closed below the neckline at 150.00,
+  measured target 130.00. New bar: Open 199.00"*. Capped at two, most dominant first, like the
+  navigation readout.
+- **The candle analyser was handed the closed bar as its own predecessor.** The store commits the
+  appended bar BEFORE it publishes `NewBarEvent`, so at that moment `Data[^2]` IS the bar that
+  closed — and `OnNewBar` read `prev = Data[^2]`. An engulfing test compared a bar against
+  itself, and the trend context ran one bar into the future. The closed bar is now found by its
+  date and its predecessors counted back from there. `NewBarNarrationTests` (6),
+  `NudgeGateSpeechTests` (13 + 10 theory rows), `DrawingSpeechContractTests` (14), three
+  diagnostics inverted, one tree test, one keyboard test. Nine sabotages, nine red.
+
 ### The line you drew that played silently, the anchor key that went nowhere, and the label that was read before every sentence (2026-09-03)
 
 Four things reported from real use, all four real defects.

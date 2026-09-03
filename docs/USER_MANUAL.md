@@ -1590,6 +1590,23 @@ tool, after you set its entry and stop anchors, speaks the resulting risk and th
 asks for the target, announcing the full reward-to-risk ratio once you set it — the
 same measuring workflow described in the Trading chapter.
 
+#### Arrowing along a drawing
+
+Focus a drawing with `Page Up` or `Page Down` and the bars read differently from an
+indicator's. The switch names it once — *"Trend line 2."* — and each bar then says the
+drawing's value first, where you are on it second, and which side of it price is on third,
+with the middle and last parts left out whenever there is nothing to say: *"150.50, price
+below."* between the anchors, *"170.50, at end anchor, price above."* on an anchor, *"199.50,
+past end, price above."* where the line is projected beyond the point you drew it to, and
+*"price crossed above"* on the bar where the close changed sides. Where the drawing has no
+value at all, the position leads with a bar count — *"Before start, 20 bars."* — because
+arrow keys move bars and a count tells you how far to press. A drawing with several parts (a
+Fibonacci retracement's levels, a rectangle's top and bottom) announces which one it is
+reading — *"Fibonacci retracement 1. 7 components, reading 61.8%."* — and `Ctrl+Up` and
+`Ctrl+Down` name each level once as you move between them; the bars themselves stay
+value-first. *"Not yet calculated."* means the drawing genuinely has no number at a bar it
+should — that is a fault worth reporting, not a place you are standing.
+
 #### Moving an anchor afterwards, from the keyboard
 
 Until version 2.6 an anchor you had already placed could be moved only by dragging its
@@ -1617,7 +1634,12 @@ stop — *"End: 105.20 at June 15, 2026, 09:30. Trend line 2, anchor 2 of 2."* �
 first, then which drawing and which anchor of how many, every time, because there is no
 status bar to glance at. A key that cannot act plays the boundary sound and says why once:
 the anchor is already at the first bar, a Fibonacci level has no date to move, no drawing
-is focused. A whole run of nudges is one `Ctrl+Z`. The same six actions are in the
+is focused — or the chord was pressed where it cannot reach the chart: *"The chart does not
+have focus. Control Alt Shift C returns to the chart."* with focus on a toolbar button, and
+*"Not while Properties is open. Escape closes it."* under a dialog. The Object Tree is the
+exception, on purpose: it is where you pick a drawing, so the nudge works while the tree is
+open and you can move what you just selected without closing it first. A whole run of nudges
+is one `Ctrl+Z`. The same six actions are in the
 drawing's context menu (`Shift+F10`) for voice control, switch access and single-pointer
 use, and the menu stays open so "move later" can be activated several times.
 

@@ -83,9 +83,9 @@ function makeHarness() {
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'treeKeyboard.js' });
 
-  const press = (key, target) => {
+  const press = (key, target, mods = {}) => {
     let prevented = false;
-    const ev = { key, target, preventDefault: () => { prevented = true; } };
+    const ev = { key, target, ...mods, preventDefault: () => { prevented = true; } };
     for (const fn of windowListeners.keydown ?? []) fn(ev);
     return prevented;
   };
@@ -197,6 +197,22 @@ test('the roving tabindex follows focus: exactly one treeitem is a Tab stop', ()
   assert.equal(stops.length, 1);
   assert.equal(stops[0], t.active());
   assert.equal(t.paneHeader.getAttribute('tabindex'), '-1');
+});
+
+test('a SHIFTED arrow is not the tree\'s: focus stays, nothing is prevented', () => {
+  // Shift+Arrow nudges the focused drawing's anchor, and since 2026-09-03 the dispatcher
+  // allows it under the Object Tree — the dialog a drawing is focused FROM. The tree must
+  // neither move on it nor preventDefault it; the chart's keyboard handler owns the chord.
+  const t = objectTree();
+  t.candles.item.focus();
+  for (const mods of [{ shiftKey: true }, { ctrlKey: true }, { altKey: true }, { metaKey: true }]) {
+    for (const key of ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight']) {
+      const prevented = t.press(key, t.candles.item, mods);
+      assert.equal(t.active(), t.candles.item, `${JSON.stringify(mods)} ${key} moved focus`);
+      assert.equal(prevented, false, `${JSON.stringify(mods)} ${key} was prevented`);
+    }
+  }
+  assert.equal(t.candles.details.open, true, 'a modified ArrowLeft must not collapse the series');
 });
 
 test('keys outside any role="tree" are left alone', () => {

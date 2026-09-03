@@ -120,6 +120,7 @@ namespace AccessibleTrader.Core.Services.Input
 
         private void OnModalStackChanged(ModalStackChange change)
         {
+            _spokenNudgeRefusal = null;   // a different dialog on top is a different refusal
             if (!change.IsOpen && change.Stack.Count == 0)
                 _eventBus.Publish(new RequestChartFocusEvent());
         }
@@ -137,6 +138,7 @@ namespace AccessibleTrader.Core.Services.Input
         {
             _deactivateDebounce?.Dispose();
             _deactivateDebounce = null;
+            if (_isChartActive != active) _spokenNudgeRefusal = null;
             _isChartActive = active;
         }
 
@@ -164,7 +166,28 @@ namespace AccessibleTrader.Core.Services.Input
             // CloseTopModalEvent) so every modal closes by Escape via a single dispatcher path.
             // Closes the audit gap where each modal had to re-implement its own Escape
             // handler — and HelpModal's silently failed on 2026-04-27 e18.
-            if (_modalStack.IsAnyOpen)
+            // The six anchor-nudge chords are allowed under the OBJECT TREE and nowhere else
+            // modal. The tree is where a drawing is focused, so refusing the nudge there would
+            // block the natural sequence — find it in the tree, then move it — and describe the
+            // app's model inside-out. Under an EDITING dialog (Properties holds the very same
+            // anchor coordinates in its fields) the nudge is refused, aloud, so the dialog never
+            // shows a number the chart has already moved away from. The chart-focus gate is
+            // skipped for the same command in the same situation: focus is in the tree by
+            // construction, and that is the point.
+            bool nudgeUnderObjectTree = IsAnchorNudgeCommand(command) && _modalStack.IsAnyOpen
+                && NudgeAllowedUnder(_modalStack.Top);
+
+            // Under the tree, the manager's own "no drawing focused" refusal would name Page Up
+            // and Page Down — chart keys the tree does not honour, and a remedy naming the wrong
+            // key is worse than no remedy. Arrowing in the tree moves the tree's focus, not the
+            // chart's focused series; Enter on a row is what focuses it.
+            if (nudgeUnderObjectTree && !(FocusedSeries()?.IsDrawing ?? false))
+            {
+                RefuseNudge("tree:no-drawing", "Focus a drawing first. Enter on its row in the tree focuses it.");
+                return;
+            }
+
+            if (_modalStack.IsAnyOpen && !nudgeUnderObjectTree)
             {
                 if (command == SystemCommand.CancelDrawing)
                     command = SystemCommand.CloseModal;
@@ -177,7 +200,13 @@ namespace AccessibleTrader.Core.Services.Input
                     command == SystemCommand.ToggleEarcons      ||  // Shift+F3 — same family
                     command == SystemCommand.ToggleBraille      ||  // F4 — same family
                     command == SystemCommand.OpenHelp;              // F1 — help is always reachable
-                if (!allowedWhileModalOpen) return;
+                if (!allowedWhileModalOpen)
+                {
+                    if (IsAnchorNudgeCommand(command))
+                        RefuseNudge("modal:" + _modalStack.Top,
+                            $"Not while {SpokenModalName(_modalStack.Top)} is open. Escape closes it.");
+                    return;
+                }
             }
 
             // Chart-focus gate: chart-scoped commands (navigation, viewport, playback,
@@ -185,7 +214,19 @@ namespace AccessibleTrader.Core.Services.Input
             // when the chart element actually has keyboard focus. Global commands (F-keys,
             // modal opens, accessibility toggles, volume controls, tab/workspace management)
             // bypass this gate so the user can drive the app from any focus location.
-            if (!_isChartActive && IsChartScopedCommand(command)) return;
+            //
+            // Silent for every command but the nudge, and that silence is deliberate: an arrow
+            // key with focus on a toolbar button belongs to the button. The nudge chords are
+            // different — nothing else answers to Shift+Arrow on a button or the page body, so
+            // dropping them without a sound made the whole feature read as "the commands don't
+            // work" (reported from real use). keyboard.js releases a shifted arrow to any form
+            // control before it gets here, so a text field never reaches this refusal.
+            if (!_isChartActive && IsChartScopedCommand(command) && !nudgeUnderObjectTree)
+            {
+                if (IsAnchorNudgeCommand(command))
+                    RefuseNudge("focus", "The chart does not have focus. Control Alt Shift C returns to the chart.");
+                return;
+            }
 
             // Sub-pane navigation — needs chart data; focus gate already handled above.
             if (command == SystemCommand.NavSubPaneNext || command == SystemCommand.NavSubPanePrev)
@@ -851,6 +892,54 @@ namespace AccessibleTrader.Core.Services.Input
             SystemCommand.NudgeAnchorEarlier or SystemCommand.NudgeAnchorLater or
             SystemCommand.NudgeAnchorUp or SystemCommand.NudgeAnchorDown or
             SystemCommand.CycleDrawingAnchor or SystemCommand.SnapAnchorToBar;
+
+        /// <summary>The <c>data-modal-name</c> of the one dialog the nudge works under.</summary>
+        internal const string ObjectTreeModalName = "Object tree";
+
+        /// <summary>
+        /// Whether the nudge may run with this modal on top of the stack. A decision on the top
+        /// modal's NAME, not a blanket flag — the first use of the ordered modal stack to draw a
+        /// distinction rather than to close things in order. The tree is a focus-and-inspection
+        /// dialog: nudging the chart under it changes nothing the tree shows as an editable value.
+        /// </summary>
+        internal static bool NudgeAllowedUnder(string? topModalName) =>
+            string.Equals(topModalName, ObjectTreeModalName, StringComparison.OrdinalIgnoreCase);
+
+        // Which refusal has already been SPOKEN for the current situation. A held chord
+        // arrives at ~15 accepted presses a second; the boundary earcon answers every one of
+        // them and the sentence is spoken once, then not again until the situation changes —
+        // the chart gains or loses focus, or the modal stack changes. Without this the refusal
+        // would be the narrator's eight-utterances-per-scan flood in a new place.
+        private string? _spokenNudgeRefusal;
+
+        /// <summary>
+        /// Boundary tier, never Error. The key was understood and cannot act right now, which is
+        /// the definition of a boundary; Error would speak on the channel F2 cannot mute, and a
+        /// user working in silence who leans on the chord with focus in the toolbar would get an
+        /// unmutable sentence fifteen times a second. Boundary rides Manual, which F2 silences.
+        /// </summary>
+        private void RefuseNudge(string situation, string sentence)
+        {
+            bool first = _spokenNudgeRefusal != situation;
+            _spokenNudgeRefusal = situation;
+            // A Boundary with a message speaks it and plays the earcon; with null it is the
+            // earcon alone — the viewport-edge idiom the feedback coordinator already has.
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, first ? sentence : null, true));
+        }
+
+        private ChartSeries? FocusedSeries()
+        {
+            var state = _store.State;
+            return state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
+        }
+
+        /// <summary>"LabelText" → "Label Text": a CamelCase modal name is one word to a
+        /// synthesiser. Names that already contain spaces pass through unchanged.</summary>
+        internal static string SpokenModalName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "a dialog";
+            return System.Text.RegularExpressions.Regex.Replace(name, @"(?<=[a-z])(?=[A-Z])", " ");
+        }
 
         private bool IsNavigationCommand(SystemCommand c)
         {

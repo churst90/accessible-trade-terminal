@@ -509,18 +509,35 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
 
-            // Pattern on the finalized bar (use up to 2 prior bars for context).
+            // WHICH BAR JUST CLOSED. The store commits the state and THEN publishes this event,
+            // so by the time it arrives `Data[^1]` is the bar that just OPENED and the closed
+            // bar is `Data[^2]`. This method used to read `prev = Data[^2]`, which handed the
+            // candle analyser the closed bar as its own predecessor: an engulfing pattern was
+            // tested against itself and the trend context ran one bar into the future. Locate
+            // the closed bar by its date and count back from there.
             var data = state.Data;
-            Ohlcv? prev  = (data != null && data.Count >= 2) ? data[^2] : (Ohlcv?)null;
-            Ohlcv? prev2 = (data != null && data.Count >= 3) ? data[^3] : (Ohlcv?)null;
-            var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2, data);
+            int closedIndex = ClosedBarIndex(data, e.ClosedBar);
+            Ohlcv? prev  = (data != null && closedIndex >= 1) ? data[closedIndex - 1] : (Ohlcv?)null;
+            Ohlcv? prev2 = (data != null && closedIndex >= 2) ? data[closedIndex - 2] : (Ohlcv?)null;
+            IReadOnlyList<Ohlcv>? context = data != null && closedIndex >= 0
+                ? data.Take(closedIndex + 1).ToList()
+                : null;
+            var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2, context);
 
             string patternSuffix = FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true);
             string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
             string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
 
+            // A CHART pattern whose story ends on the bar that just closed — a neckline closed
+            // through, or a triangle that aged out with its boundary intact — is the event a
+            // trader watching a formation is waiting for, and the bar close is the moment it
+            // becomes a fact. Same sentence the arrow keys speak on that bar, so the live
+            // announcement and a later re-read of the chart agree word for word. Between the
+            // close and the open: it is about the bar that closed.
+            string outcomes = ChartPatternOutcomesAt(state, data, closedIndex);
+
             _earconService.PlayNewBar();
-            _speechRouter.Speak($"{closedMsg} {openMsg}", interrupt: false, channel: SpeechChannel.Event);
+            _speechRouter.Speak($"{closedMsg} {outcomes}{openMsg}", interrupt: false, channel: SpeechChannel.Event);
 
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;
@@ -580,6 +597,40 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _lastPatternAnnouncement = DateTime.UtcNow;
                 }
             }
+        }
+
+        /// <summary>
+        /// The index of the bar that just closed: the bar carrying its date, searched from the
+        /// live edge backwards. Falls back to the last bar when the store has not appended the
+        /// new one (a caller publishing the event ahead of the commit), and to -1 with no data.
+        /// </summary>
+        internal static int ClosedBarIndex(IReadOnlyList<Ohlcv>? data, Ohlcv closed)
+        {
+            if (data == null || data.Count == 0) return -1;
+            for (int i = data.Count - 1; i >= Math.Max(0, data.Count - 3); i--)
+                if (data[i].Date == closed.Date) return i;
+            return data.Count - 1;
+        }
+
+        /// <summary>
+        /// The chart patterns that resolved on <paramref name="closedIndex"/>, as the outcome
+        /// sentences the navigation readback uses, each followed by a space; "" when there are
+        /// none or the user has pattern descriptions off. At most two, most dominant first —
+        /// the same cap the arrow keys apply, for the same reason.
+        /// </summary>
+        private string ChartPatternOutcomesAt(WorkspaceState state, IReadOnlyList<Ohlcv>? data, int closedIndex)
+        {
+            if (!state.DescribeChartPatterns || data == null || closedIndex < 0) return "";
+            var all = _patternCache.For(state.Identity, data);
+            if (all.Count == 0) return "";
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var p in ChartPatternNarrator.ByDominance(all.Where(p => p.ResolvesAt == closedIndex)).Take(2))
+            {
+                string res = ChartPatternNarrator.DescribeResolution(p, SpeechPriceFormatter.FormatPrice, place: "on this close");
+                if (!string.IsNullOrEmpty(res)) sb.Append(res).Append(' ');
+            }
+            return sb.ToString();
         }
 
         // ── Pattern Speech Helpers ─────────────────────────────────────────────

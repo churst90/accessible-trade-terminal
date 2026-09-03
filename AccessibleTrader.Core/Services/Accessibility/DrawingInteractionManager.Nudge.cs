@@ -541,20 +541,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// with the parenthesised ordinal spoken as a plain number. <c>FriendlyName</c> is
         /// "TrendLine Drawing" for every trend line and cannot tell two apart.
         /// </summary>
-        internal static string SpokenName(ChartSeries series)
-        {
-            string name = string.IsNullOrWhiteSpace(series.Name) ? series.FriendlyName : series.Name;
-            // Drawings created before 2026-09-03 were named "{DrawingType} (n)" — the enum's
-            // CamelCase, which a screen reader voices as one word ("TrendLine", "AnchoredVwap").
-            // New ones are named with the friendly vocabulary; saved ones are mapped here.
-            if (series.Drawing != null)
-            {
-                string raw = series.Drawing.Type.ToString();
-                if (name.StartsWith(raw, StringComparison.Ordinal))
-                    name = FriendlyName(series.Drawing.Type) + name[raw.Length..];
-            }
-            return System.Text.RegularExpressions.Regex.Replace(name, @"\s*\((\d+)\)\s*$", " $1");
-        }
+        internal static string SpokenName(ChartSeries series) => DrawingSpeech.SpokenSeriesName(series);
 
         private static string Capitalise(string s) =>
             s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];

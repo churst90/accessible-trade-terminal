@@ -173,6 +173,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     if (stateSuffix.Length > 0) speechPrefix = $"Text label{stateSuffix}. " + speechPrefix;
                 }
+                else if (s.IsDrawing)
+                {
+                    // A drawing is named the way the nudge readback names it — "Trend line 2",
+                    // never "Trend line (2)" — so one object has one spoken name whichever key
+                    // produced it. "1 component" is dropped: the count is only information when
+                    // it tells the user Ctrl+Up/Down has somewhere to go. And a fourteen-component
+                    // Gann box names the component it is about to READ, because "14 components"
+                    // followed by a value from an unnamed one is a count of inaccessible objects.
+                    // The per-bar readback that follows carries the position clause, so "where
+                    // is my line" is answered by the sentence, not by a prefix.
+                    string spokenName = DrawingSpeech.SpokenSeriesName(s);
+                    int n = s.Components.Count;
+                    if (n <= 1)
+                    {
+                        speechPrefix = $"{spokenName}{stateSuffix}. " + speechPrefix;
+                    }
+                    else
+                    {
+                        var reading = s.Components[s.ClampComponent(state.FocusedComponentIndex)];
+                        // A hidden component's own sentence names it ("61.8% Level: hidden"), so
+                        // naming it here as well would be the same object twice, two ways.
+                        string compName = reading.IsVisible ? DrawingSpeech.SpokenComponentName(s.Components, reading) : "";
+                        speechPrefix = compName.Length > 0
+                            ? $"{spokenName}{stateSuffix}. {n} components, reading {compName}. " + speechPrefix
+                            : $"{spokenName}{stateSuffix}. {n} components. " + speechPrefix;
+                    }
+                }
                 else
                 {
                     string countMsg;
@@ -226,6 +253,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     {
                         string paneLabel = GetPaneDisplayName(currPane, s);
                         speechPrefix = paneLabel + ". " + speechPrefix;
+                    }
+
+                    // A drawing's per-bar sentence carries no component name (it is constant
+                    // across a sweep), so the name is spoken where it CHANGES: here, on
+                    // Ctrl+Up/Down between a fib's levels or a rectangle's top and bottom.
+                    if (s.IsDrawing && s.Components.Count > 1 && s.Components[currCompIdx].IsVisible)
+                    {
+                        string compName = DrawingSpeech.SpokenComponentName(s.Components, s.Components[currCompIdx]);
+                        if (compName.Length > 0) speechPrefix = compName + ". " + speechPrefix;
                     }
                 }
             }

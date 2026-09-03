@@ -474,7 +474,15 @@ window.accessibleTrader = {
             // slider consumes arrows itself, and none of the three NavigateTablistAsync callers
             // calls preventDefault — they rely on this handler for it. Releasing the key there
             // would move the tab AND scroll the dialog behind it.
-            if (self._openModalCount > 0 && !isModified && SCROLL_KEYS.indexOf(e.key) >= 0) {
+            //
+            // A SHIFTED arrow is not a scroll key: it is the anchor nudge, and since 2026-09-03
+            // the dispatcher answers it under a dialog — aloud ("Not while Properties is open.
+            // Escape closes it."), or by running it under the Object Tree. Released here it
+            // would never reach the dispatcher from a button or a heading, and the refusal the
+            // dispatcher speaks would be unreachable from most of the dialog it names. Inside
+            // a text field the form-control release above has already claimed it.
+            if (self._openModalCount > 0 && !isModified && !(isShifted && isArrowKey)
+                && SCROLL_KEYS.indexOf(e.key) >= 0) {
                 const owner = e.target.closest ? e.target.closest(ARROW_WIDGET_SELECTOR) : null;
                 if (!owner) return;
             }

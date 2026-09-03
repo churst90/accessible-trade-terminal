@@ -117,6 +117,145 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-03, SEVENTH pass — the drawing speech contract is
+> WIRED IN, the two silent nudge gates SPEAK, the nudge RUNS under the Object Tree, and a
+> chart pattern's outcome is part of the new-bar announcement. Items 1 and 2 of the sixth
+> pass are DONE; the numbered list at the end of this block is what is LEFT, and it starts
+> at the sixth pass's item 3. Cody's opening message this session also carried three
+> feature asks and a question; each is answered or recorded below.**
+>
+> ### DONE this pass
+>
+> **1. Arrowing along a drawing.** `DrawingComponentStrategy`, registered fourth in
+> `SpeechFormatter`'s list (after Hidden, before Cloud): `{value}[, {position}][, {relation}].`
+> exactly as `scratchpad/drawing-speech-design.md` §1–§4 specified. The bars are threaded into
+> `ComponentFormatContext` (`Bars`) so the position clause resolves anchor DATES to bar
+> indices; the array's length is never consulted, and `Span_Comes_From_Anchor_Dates_Never_From_Array_Length`
+> is the guard (array cut to 60, anchors at 30/70: bar 65 says "Not yet calculated.", bar 80
+> says "Past end, 10 bars."). `NavigationFeedbackManager` drops "1 component" for a drawing,
+> names a multi-component drawing's reading component ("Fibonacci retracement 1. 7 components,
+> reading 0%."), and speaks the component name once on Ctrl+Up/Down. **One spoken name:**
+> `DrawingSpeech.SpokenSeriesName(ChartSeries)` is now what the nudge's `SpokenName` calls.
+> Three diagnostics inverted (Q2c, Q2d, Q6), `DrawingSpeechContractTests` (13).
+>
+> **2. The two silent nudge gates speak, Boundary tier.** `CommandDispatcher.RefuseNudge`:
+> earcon every press (a Boundary `FeedbackRequestEvent` with a null message is the earcon-only
+> idiom the coordinator already had), sentence once per situation, reset when `_isChartActive`
+> flips or the modal stack changes. "The chart does not have focus. Control Alt Shift C returns
+> to the chart." / "Not while Properties is open. Escape closes it." (`SpokenModalName` splits
+> CamelCase). **Allowed under the Object Tree** — `NudgeAllowedUnder(top)` on the top modal's
+> NAME, both gates skipped — and `treeKeyboard.js` ignores any modified arrow (tree test 19).
+> Every other chart-scoped command stays silent off-chart on purpose. `NudgeGateSpeechTests`.
+> **The screen-reader review (scratchpad `a11y-review.md`, 7 findings) changed four things
+> before commit:** `keyboard.js` no longer releases a SHIFTED arrow to a dialog as a scroll key
+> (the Properties refusal was unreachable from a button or heading); under the tree with no
+> drawing focused the dispatcher refuses with "Focus a drawing first. Enter on its row in the
+> tree focuses it." (the manager's own sentence names Page Up/Down, which the tree does not
+> honour); "price on it" not "price at"; "at end anchor" not "end anchor" ("and anchor" by
+> ear). **One finding is RECORDED, not fixed, and it is Cody's call:** arrowing in the tree
+> moves the tree's focus, not the chart's focused series (`SelectSeriesAction` fires only on
+> Enter/click), so a user standing on "Rectangle 1" in the tree with "Trend line 2" focused
+> nudges Trend line 2 and hears which only in the settle sentence's second-to-last clause. The
+> APG default for a single-select tree is selection-follows-focus (dispatch
+> `SelectSeriesAction` from `@onfocusin` on the series row), which would make row and target
+> agree by construction — but every arrow in the tree would then re-focus a chart series, with
+> whatever that speaks. Decide before 2.6.0.
+> **UNVERIFIED in a real browser:** Shift+Arrow with focus on a treeitem reaching the dispatcher
+> under Orca. The browser harness cannot reach the tree on a cold start (no series). The JS
+> path is: keyboard.js line ~477 releases unmodified scroll keys to a dialog unless the target
+> is inside `ARROW_WIDGET_SELECTOR` (the tree is), so the shifted arrow continues to the trap;
+> treeKeyboard.js now returns before touching it. Measure it when a chart with a drawing is
+> reachable from the harness.
+>
+> **3. The new-bar announcement carries a chart pattern's outcome** (Cody's ask: "a new bar
+> printed and a chart pattern confirms, this should be part of the narration, whether it
+> confirmed or failed"). `AccessibilityFeedbackCoordinator.ChartPatternOutcomesAt`: patterns
+> whose `ResolvesAt` is the closed bar, `DescribeResolution` — the SAME sentence the arrow keys
+> speak on that bar — between "Close X" and "New bar: Open Y", capped at two by dominance.
+> **Gated on `DescribeChartPatterns`**, whose settings label reads "describe chart patterns
+> while navigating" — it now also gates this, so **rename it to "Describe chart patterns" in
+> the settings restructure (item 3 below).**
+>
+> **4. Found underneath 3: `OnNewBar` handed the analyser the closed bar as its own
+> predecessor.** `WorkspaceStore` commits the appended bar BEFORE publishing `NewBarEvent`, so
+> `Data[^2]` at that moment IS the closed bar, and the code read `prev = Data[^2]`. An engulfing
+> pattern was tested against itself and the trend context ran one bar into the future.
+> `ClosedBarIndex` finds it by date. `NewBarNarrationTests` (6).
+>
+> ### Cody's playback question, answered
+>
+> "I'm assuming what I was hearing was the trend line crossing?" — **No. What speaks during
+> playback today is TIME.** `PlaybackNarration.LandmarkForStep` announces the new hour, day,
+> month or year each time a bar crosses a calendar boundary one unit coarser than the bar
+> spacing, paced to ≥2 s apart at the current speed. Nothing else is spoken per bar. The cross
+> EARCON (shared slots 30/31 in `RenderComponentVoices`) fires for an INDICATOR component whose
+> `CrossDirection` is set; a drawing has no `CrossDirection` yet, so a trend line is never
+> announced crossing, in sound or words. Both are recorded below.
+>
+> ### RECORDED, NOT BUILT (from this session's message) — in the order they should go
+>
+> **(a) Speak notable events during playback.** Cody: "hearing signals also… not RSI crossings
+> or anything like that. So not everything spoken, just important events." Design, so it is not
+> re-derived: extend the landmark branch of `AccessibilityFeedbackCoordinator` with a
+> `PlaybackNarration.SignalsForStep(prev, current)` that scans ACTIVE, visible, unmuted series'
+> MARKER components (`AudioConstants.MarkerDisplayTypes`, with a `SignalSpeechTemplate`) at
+> the bar just stepped onto and returns "{series}: {template}" — `ScanUtterance.TierSignal`
+> only, no `TierCross`, no `TierOscillator`, no zone lines. Non-interrupting, composed INTO the
+> same utterance as a landmark when both land on one step (one Speak per step — the
+> live-region rule), and rate-limited the way landmarks are (`MinSecondsBetweenLandmarks`
+> converted to bars at the current speed; a signal inside the window is dropped, not queued —
+> at 10 bars/s a queue is a backlog the user hears after the tones have moved on). Add the
+> chart-pattern outcome (`ResolvesAt == to`) to the same function: it is the one event Cody
+> named twice. Guard: a fixture with a marker AND a landmark on the same step asserts ONE
+> utterance containing both.
+>
+> **(b) The drawing cross earcon and `CrossDirection`.** Give a drawing's audio point a
+> `CrossDirection` computed from the same comparison `DrawingSpeech.RelationClause` makes (one
+> source of truth for "crossed"), so playback fires the existing cross earcon and arrowing
+> could too. Then §5's remaining items from the design: play the drawing WITH price (announced
+> — "Playing Trend line 2 with price, from June 3, 470 bars."), anchor clicks, one dedicated
+> factory patch per theme.
+>
+> **(c) The approach earcon** on the bar ADJACENT to an anchor (`EarconPatchPlayer.ApproachKey`),
+> design §1 WRONG OPTION 1: zero words, so the user can stop ON the anchor before nudging it.
+> Only the adjacent bar, never a band.
+>
+> ### The segfault dump — DECISION NEEDED from Cody
+>
+> The crash itself is fixed (`4c6e3f45`, deployed 2026-09-03 18:42, ~a week of silence is the
+> first real signal; §6 of `patches/HOSTED-DEPLOY-NOTES.md`). What is still broken is the
+> EVIDENCE: `PrivateTmp=true` on the demo unit destroys every dump seconds after it is written
+> (§7b), and the terminal unit has no dump drop-in at all. **This box cannot reach the host**
+> (`trade.codyhurst.com` is not in `known_hosts`; BatchMode ssh fails on host-key
+> verification), so it is Cody who applies it, or who adds the host key and says so.
+> The ready-to-apply drop-in (option 1 of §7d, keeps `PrivateTmp`), for BOTH units:
+>
+> ```ini
+> # /etc/systemd/system/accessible-trader-demo.service.d/10-crashdump.conf   (and -terminal)
+> [Service]
+> StateDirectory=accessible-trader-demo/dumps
+> Environment=DOTNET_DbgEnableMiniDump=1
+> Environment=DOTNET_DbgMiniDumpType=2
+> Environment=DOTNET_DbgMiniDumpName=/var/lib/accessible-trader-demo/dumps/awc-demo-crash.%%p.dmp
+> Environment=DOTNET_CreateDumpDiagnostics=1
+> ```
+>
+> **`%%p`, doubled:** a bare `%p` in a unit file is systemd's specifier for the unit's prefix
+> name and would expand to `accessible-trader-demo` before .NET ever saw it. `StateDirectory`
+> creates the directory owned by the service user and keeps it writable under `ProtectSystem`.
+> Then `sudo systemctl daemon-reload && sudo systemctl restart <unit>`, and prune with a
+> tmpfiles rule, `e /var/lib/accessible-trader-demo/dumps - - - 14d` — ~363 MB per crash. **The
+> check is `ls` on that directory after the next crash**, not the journal's "Dump successfully
+> written" (§7e). Recorded in `patches/HOSTED-DEPLOY-NOTES.md` §7d as well.
+>
+> ### LEFT TO DO — the rest of 2.6.0, in this order
+>
+> **1. Settings restructure** (sixth pass item 3; fifth pass item 4 has the full text) — and
+> rename the pattern toggle to "Describe chart patterns" while there.
+> **2. Modal background `inert`**, **3. Alerts consolidation**, **4. Docs and the bump to
+> 2.6.0**, **5. Object Tree follow-ups and the rest** — unchanged; see the sixth and fifth pass
+> blocks below. **6. (a), (b), (c) above** are 2.6.x or 2.7 by Cody's call.
+
 > **START HERE (current as of 2026-09-03, SIXTH pass — a second bug-report session on the same
 > day. Cody reported four more things from real use and every one was a real defect; the two
 > drawing items on the previous pass's list (2 and 3a/3b) were among them, so they are DONE and

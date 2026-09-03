@@ -422,15 +422,20 @@ What you hear: a short tick while the anchor is moving (at most five a second, h
 the key repeats), then ONE sentence when you stop — *"End: 105.20 at June 15, 09:30. Trend line 2, anchor 2 of 2."* — value
 first, then the drawing and which anchor of how many. A key that cannot act (an anchor at
 the first bar, a price-only anchor asked to move in time, no drawing focused) plays the
-boundary sound while the key is held and says why once. A run of nudges is a single `Ctrl+Z`.
+boundary sound while the key is held and says why once. So does a chord pressed where it
+cannot act: with focus on a toolbar button or the page, *"The chart does not have focus.
+Control Alt Shift C returns to the chart."*; under a dialog, *"Not while Properties is open.
+Escape closes it."* The one dialog the nudge works UNDER is the Object Tree (`Alt+O`), because
+that is where you focus a drawing — pick it in the tree, then nudge it without closing the
+tree. A run of nudges is a single `Ctrl+Z`.
 Exact values are typed in **Properties** (`P`), which has a price and date field for every
 anchor. The same six actions are in the drawing's context menu (`Shift+F10`) for voice
 control, switch access and single-pointer use.
 
 Three platform notes. `Shift+Arrow` is **select by character** in every text box and in a
 screen reader's browse mode, so the terminal deliberately leaves it alone whenever the focus is
-in an `<input>`, `<textarea>` or `<select>` — the nudge only fires when the chart itself has
-focus. (It moved here from `Alt+Shift+Arrow` on 2026-09-03: Orca claims that chord for
+in an `<input>`, `<textarea>` or `<select>` — the nudge fires when the chart itself has focus,
+or under the Object Tree, and says so anywhere else. (It moved here from `Alt+Shift+Arrow` on 2026-09-03: Orca claims that chord for
 table-cell navigation, so on Linux with a screen reader running it never reached the app.)
 On **macOS with VoiceOver**, the `Ctrl+Alt+Shift+letter` family is VoiceOver's own modifier
 (Control+Option) plus Shift when the modifier is set to Control+Option: set VoiceOver's

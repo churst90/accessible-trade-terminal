@@ -226,7 +226,13 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// the user already heard, and it is the whole reason the outcome wording had to stop being
         /// the word "completed".
         /// </summary>
-        public static string DescribeResolution(ChartPattern p, Func<double, string> formatPrice)
+        /// <param name="place">
+        /// Where "here" is. The arrow keys speak this on the bar under the cursor, so "here" is
+        /// right there; the new-bar announcement speaks it about the bar that just closed while
+        /// the cursor may be two hundred bars back, so it passes "on this close". The one word
+        /// that must differ between the two contexts, and the only one that does.
+        /// </param>
+        public static string DescribeResolution(ChartPattern p, Func<double, string> formatPrice, string place = "here")
         {
             string name = Name(p.Kind);
             string level = formatPrice(p.TriggerLevel);
@@ -237,10 +243,10 @@ namespace AccessibleTrader.Core.Services.Analysis
                 return p.State switch
                 {
                     ChartPatternState.Completed =>
-                        $"Range breaks here: closed {(p.BreaksBelow ? "below the bottom" : "above the top")} "
+                        $"Range breaks {place}: closed {(p.BreaksBelow ? "below the bottom" : "above the top")} "
                         + $"at {formatPrice(p.BreaksBelow ? bottom : p.TriggerLevel)}{Target(p, formatPrice)}.",
                     ChartPatternState.Expired =>
-                        $"Range ends here still intact — price held between {formatPrice(bottom)} and {level}.",
+                        $"Range ends {place} still intact — price held between {formatPrice(bottom)} and {level}.",
                     _ => ""
                 };
             }
@@ -248,11 +254,11 @@ namespace AccessibleTrader.Core.Services.Analysis
             return p.State switch
             {
                 ChartPatternState.Completed =>
-                    $"{Capitalize(name)} confirmed here: closed {(p.BreaksBelow ? "below" : "above")} "
+                    $"{Capitalize(name)} confirmed {place}: closed {(p.BreaksBelow ? "below" : "above")} "
                     + $"the {role} at {level}{Target(p, formatPrice)}.",
 
                 ChartPatternState.Expired =>
-                    $"{Capitalize(name)} ends here without confirming — the {role} at {level} held.",
+                    $"{Capitalize(name)} ends {place} without confirming — the {role} at {level} held.",
 
                 // Still live at the right-hand edge: there is no outcome to report yet.
                 _ => ""

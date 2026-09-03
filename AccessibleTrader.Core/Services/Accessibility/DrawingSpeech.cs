@@ -22,14 +22,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// forty bars is usually two items long.
     /// </para>
     ///
-    /// <para><b>NOT WIRED IN YET, as of the commit that adds this file.</b> These are the rules
-    /// with nothing calling them: the strategy that consults them still has to be registered
-    /// ahead of <c>StandardTemplateStrategy</c> in <see cref="SpeechFormatter"/>'s list, the
-    /// series-switch prefix in <c>NavigationFeedbackManager</c> still says "N component", and
-    /// <c>AudioSequencer.BuildVoicePlan</c> still skips drawings outright. Committed ahead of
-    /// its callers because the reasoning is the expensive part and it is recorded here rather
-    /// than in a scratch file — see docs/TODO.md for the remaining steps. Nothing in the app
-    /// behaves differently until they land.</para>
+    /// <para>Callers: <c>DrawingComponentStrategy</c> in <see cref="SpeechFormatter"/> speaks
+    /// the per-bar sentence; <c>NavigationFeedbackManager</c> builds the series-switch and
+    /// component-change prefixes from <see cref="SpokenSeriesName(ChartSeries)"/> and
+    /// <see cref="SpokenComponentName"/>; the anchor nudge names the drawing through the same
+    /// helper, so one drawing has one spoken name whichever key produced it.</para>
     /// </summary>
     internal static class DrawingSpeech
     {
@@ -136,7 +133,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>The position clause, or null when there is nothing to say about position.</summary>
         internal static string? PositionClause(Position p) => p.Kind switch
         {
-            PositionKind.OnAnchor    => $"{p.SlotName} anchor",
+            // "at end anchor", not "end anchor": mid-sentence, most synthesisers reduce "end"
+            // and "and" to the same sound before a consonant, and "170.50, and anchor, price
+            // above" is heard as a conjunction — the one distinction this clause exists to give
+            // (end, not start) is the one that gets lost. A leading preposition cannot be a
+            // conjunction. Every slot gets it, so the grammar never changes shape.
+            PositionKind.OnAnchor    => $"at {p.SlotName} anchor",
             PositionKind.BeforeStart => "before start",
             PositionKind.PastEnd     => "past end",
             _                        => null,
@@ -197,7 +199,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // "at" is decided on the SPOKEN precision, not on ==. A line at 150.4999 under a
             // close of 150.5001 is "price above" by arithmetic and indistinguishable by ear from
             // "price at" once both are read as "150.50", so the ear is what the word matches.
-            if (at) return "price at";
+            // "price on it", not "price at": a clause that ends on a preposition is heard as an
+            // utterance cut off before its object — and on a line drawn through the closes this
+            // is the COMMON case, spoken many times per sweep, not a rarity.
+            if (at) return "price on it";
             return above ? "price above" : "price below";
         }
 
@@ -283,6 +288,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             string n = (name ?? string.Empty).Trim();
             return Regex.Replace(n, @"\s*\((\d+)\)\s*$", " $1", RegexOptions.CultureInvariant).Trim();
+        }
+
+        /// <summary>
+        /// The one spoken name for a drawing series, used by the nudge readback, the series
+        /// switch and the undo label alike. <c>Name</c> ("Trend line (2)") with the ordinal
+        /// spoken as a plain number; <c>FriendlyName</c> is "TrendLine Drawing" for every trend
+        /// line and cannot tell two apart. Drawings saved before 2026-09-03 were named with the
+        /// enum's CamelCase ("TrendLine (2)", which a screen reader voices as one word) and are
+        /// mapped to the friendly vocabulary here rather than renamed in the workspace.
+        /// </summary>
+        internal static string SpokenSeriesName(ChartSeries series)
+        {
+            string name = string.IsNullOrWhiteSpace(series.Name) ? series.FriendlyName : series.Name;
+            if (series.Drawing != null)
+            {
+                string raw = series.Drawing.Type.ToString();
+                if (name.StartsWith(raw, StringComparison.Ordinal))
+                    name = DrawingInteractionManager.FriendlyName(series.Drawing.Type) + name[raw.Length..];
+            }
+            return SpokenSeriesName(name);
         }
     }
 }

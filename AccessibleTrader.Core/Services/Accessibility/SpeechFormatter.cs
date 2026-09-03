@@ -49,13 +49,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 new TextLabelStrategy(),        // 1. a pinned text label reads its own wording
                 new ProviderSpeechStrategy(),   // 2. indicator's own contextual narrative
                 new HiddenComponentStrategy(),  // 3. "hidden" state announcement
-                new CloudComponentStrategy(),   // 4. Ichimoku-style cloud narration
-                new PhaseNameStrategy(),        // 5. sentiment-phase names
-                new MarkerSignalStrategy(),     // 6. signal-marker templates
-                new CandleBodyStrategy(),       // 7. body = open→close span
-                new VolumeBarStrategy(),        // 8. signed exact volume
+                new DrawingComponentStrategy(), // 4. a drawing: value, where on it, price against it
+                new CloudComponentStrategy(),   // 5. Ichimoku-style cloud narration
+                new PhaseNameStrategy(),        // 6. sentiment-phase names
+                new MarkerSignalStrategy(),     // 7. signal-marker templates
+                new CandleBodyStrategy(),       // 8. body = open→close span
+                new VolumeBarStrategy(),        // 9. signed exact volume
             };
-            _fallback = new StandardTemplateStrategy(); // 9. {name}.{type}.{value} templates
+            _fallback = new StandardTemplateStrategy(); // 10. {name}.{type}.{value} templates
         }
 
         public void RegisterTemplate(string indicatorCode, string componentName, string template)
@@ -131,7 +132,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var values = series.Components
                     .Where(c => c.IsVisible && !c.IsMuted)
                     .Select(c => FormatTemplateValue(series, c, pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
-                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength));
+                        viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data));
 
                 msg = string.Join(". ", values);
             }
@@ -159,7 +160,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     : null;
                 msg = FormatTemplateValue(series, comp, readsRawBar ? rawPt : pt, state.CurrentDataIndex, state.ReadColumnHeaders, state.SpeechOrder,
                     isYMove: isYMove, liveClose: liveClose, provider: provider,
-                    viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength);
+                    viewportStart: state.ViewportStartIndex, viewportLength: state.ViewportLength, bars: state.Data);
             }
 
             // STRICT SPEECH POLICY: Apply settings to timestamps
@@ -307,14 +308,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private string FormatTemplateValue(ChartSeries series, ComponentConfig comp, Ohlcv pt, int dataIndex, bool readHeaders, string speechOrder,
             bool isYMove = false, double? liveClose = null, AccessibleTrader.Sdk.Interfaces.IIndicatorProvider? provider = null,
-            int viewportStart = -1, int viewportLength = -1)
+            int viewportStart = -1, int viewportLength = -1, IReadOnlyList<Ohlcv>? bars = null)
         {
             try
             {
                 double val = GetPointValue(series, pt, comp.Name, dataIndex);
                 var ctx = new ComponentFormatContext(series, comp, pt, dataIndex, readHeaders, speechOrder, val,
                     IsYMove: isYMove, LiveClose: liveClose, Provider: provider,
-                    ViewportStart: viewportStart, ViewportLength: viewportLength);
+                    ViewportStart: viewportStart, ViewportLength: viewportLength, Bars: bars);
 
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
@@ -529,7 +530,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Visible window, so sparse marker components can report "N signals in view"
         // instead of "no data" at a bar with no marker. -1 = unknown (whole-array fallback).
         int ViewportStart = -1,
-        int ViewportLength = -1);
+        int ViewportLength = -1,
+        // The loaded bars. A drawing's position clause resolves its anchor DATES to bar indices
+        // against these; null drops the clause rather than guessing (see DrawingSpeech.Locate).
+        IReadOnlyList<Ohlcv>? Bars = null);
 
     /// <summary>
     /// Strategy #1: a Text Label drawing reads the wording the user typed.
@@ -673,6 +677,85 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         public bool CanHandle(ComponentFormatContext ctx) => !ctx.Comp.IsVisible;
         public string Format(ComponentFormatContext ctx) => $"{ctx.Comp.DisplayName}: hidden";
+    }
+
+    /// <summary>
+    /// Strategy #4: a DRAWING reads <c>{value}[, {position}][, {relation}].</c>
+    ///
+    /// <para>
+    /// Until 2026-09-03 a trend line said "Line, line, 150.50" — the generic template meeting a
+    /// component whose name is its own type — and a rectangle one bar outside its span said
+    /// "Top, line, no data". Neither answered the question a trader who drew the line is asking
+    /// while arrowing along it: WHERE ON THE DRAWING AM I, and which side of it is price. The
+    /// rules are in <see cref="DrawingSpeech"/>; this class only puts them in order.
+    /// </para>
+    ///
+    /// <para>
+    /// Value first, because whatever interrupts cuts the END of a sentence. The position clause
+    /// is omitted strictly inside the span and off an anchor, the relation clause when there is
+    /// no price to compare, so sweeping forty bars is usually two items long. No name and no
+    /// type word per bar: the name is constant across the sweep — it is spoken on the series
+    /// switch and on Ctrl+Up/Down, where it changes — and a constant prefix in front of the one
+    /// varying number is the shape this repo has deleted twice already (the text label's
+    /// name-then-name, the sub-pane name before every component).
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="SpeechPriceFormatter"/>, never <c>F2</c>: a drawing lives in price space by
+    /// construction, and its series id is neither "price" nor "candles", so the fallback strategy
+    /// spoke a KAS trend line at 0.0363 as "0.04".
+    /// </para>
+    /// </summary>
+    internal sealed class DrawingComponentStrategy : IComponentSpeechStrategy
+    {
+        public bool CanHandle(ComponentFormatContext ctx) => ctx.Series.IsDrawing && ctx.Series.Drawing != null;
+
+        public string Format(ComponentFormatContext ctx)
+        {
+            var drawing = ctx.Series.Drawing!;
+            var position = DrawingSpeech.Locate(drawing, ctx.DataIndex, ctx.Bars);
+
+            // No value here. "Before start, 20 bars." is a navigation instruction; "no data" was
+            // a shrug. And the span behind that sentence is the anchors' geometry, never the
+            // array's length — DrawingSpeech.Locate says why at length.
+            if (double.IsNaN(ctx.Value))
+                return DrawingSpeech.NoValueSentence(position);
+
+            string value = SpeechPriceFormatter.FormatPrice(ctx.Value);
+            if (!ctx.ReadHeaders || ctx.SpeechOrder == "ValueOnly")
+                return value;
+
+            var parts = new List<string>(3) { value };
+
+            string? where = DrawingSpeech.PositionClause(position);
+            if (where != null) parts.Add(where);
+
+            string? relation = Relation(ctx);
+            if (relation != null) parts.Add(relation);
+
+            return string.Join(", ", parts) + ".";
+        }
+
+        /// <summary>
+        /// Price against the drawing at this bar, with the previous bar consulted so a cross
+        /// replaces the plain side. The CLOSE of the loaded bar, not <c>Pt</c>: a drawing is
+        /// compared against what traded, and <c>Pt</c> is the bar as drawn (Heikin-Ashi when
+        /// that mode is on).
+        /// </summary>
+        private static string? Relation(ComponentFormatContext ctx)
+        {
+            var bars = ctx.Bars;
+            int i = ctx.DataIndex;
+            double close = bars != null && i >= 0 && i < bars.Count ? bars[i].Close : ctx.Pt.Close;
+
+            double? prevValue = null, prevClose = null;
+            if (bars != null && i - 1 >= 0 && i - 1 < bars.Count)
+            {
+                prevValue = SpeechFormatter.GetPointValue(ctx.Series, bars[i - 1], ctx.Comp.Name, i - 1);
+                prevClose = bars[i - 1].Close;
+            }
+            return DrawingSpeech.RelationClause(ctx.Value, close, prevValue, prevClose);
+        }
     }
 
     /// <summary>

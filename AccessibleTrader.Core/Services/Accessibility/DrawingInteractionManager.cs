@@ -1197,7 +1197,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             HandleDrawingStep(pt.Date, pt.Close);
         }
 
-        private static string FriendlyName(DrawingType t) => t switch
+        internal static string FriendlyName(DrawingType t) => t switch
         {
             DrawingType.TrendLine        => "Trend line",
             DrawingType.HorizontalLine   => "Horizontal line",
