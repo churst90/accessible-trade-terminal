@@ -182,12 +182,22 @@ public class DrawingCoordinateEditorTests
     {
         cut.FindAll("button").First(b => b.TextContent.Contains("Apply")).Click();
 
-        var dispatched = h.WorkspaceStore.ReceivedCalls()
-            .Where(c => c.GetMethodInfo().Name == nameof(IWorkspaceStore.Dispatch))
-            .Select(c => c.GetArguments()[0])
-            .OfType<UpdateSeriesAction>()
-            .LastOrDefault();
-        Assert.True(dispatched is not null, "Apply dispatched no UpdateSeriesAction");
+        // WaitForAssertion, not a bare read: a DOM event's handler is queued on the renderer's
+        // dispatcher and the synchronous Click() does not always outlive it. On a 24-core box it
+        // had finished by the next statement every time; on two cores this file failed five
+        // tests in three runs of four, and it took CI's four-core runner down on 2026-09-03.
+        // Present before that date and reproducible on the commit CI called green, so it is a
+        // latent race in the test rather than a regression in the dialog.
+        UpdateSeriesAction? dispatched = null;
+        cut.WaitForAssertion(() =>
+        {
+            dispatched = h.WorkspaceStore.ReceivedCalls()
+                .Where(c => c.GetMethodInfo().Name == nameof(IWorkspaceStore.Dispatch))
+                .Select(c => c.GetArguments()[0])
+                .OfType<UpdateSeriesAction>()
+                .LastOrDefault();
+            Assert.True(dispatched is not null, "Apply dispatched no UpdateSeriesAction");
+        });
         return dispatched!.Series.Single(s => s.Id == id);
     }
 
@@ -256,6 +266,11 @@ public class DrawingCoordinateEditorTests
 
         field.Blur();
 
+        // Wait for the FIRST utterance, then assert there is exactly one. The "once" half cannot
+        // be waited for — a WaitForAssertion around it would pass on its first poll and prove
+        // nothing — so it is checked after the positive has settled, and the Assert.Empty above
+        // is what actually pins the change-versus-blur distinction this test is named for.
+        cut.WaitForAssertion(() => Assert.NotEmpty(spoken));
         var only = Assert.Single(spoken);
         Assert.Contains("Stop loss price", only, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("98.5", only, StringComparison.Ordinal);
@@ -280,7 +295,10 @@ public class DrawingCoordinateEditorTests
         field.Change("");
         field.Blur();
 
-        Assert.Equal("true", cut.Find("#drawing-price-1").GetAttribute("aria-invalid"));
+        // The mark and the sentence both arrive on the dispatcher; see AppliedSeries.
+        cut.WaitForAssertion(() =>
+            Assert.Equal("true", cut.Find("#drawing-price-1").GetAttribute("aria-invalid")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(spoken));
         var only = Assert.Single(spoken);
         Assert.Contains("Entry price", only, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("not", only, StringComparison.OrdinalIgnoreCase);
@@ -289,7 +307,7 @@ public class DrawingCoordinateEditorTests
 
         // ...and a good value clears the mark.
         field.Change("101.5");
-        Assert.Null(cut.Find("#drawing-price-1").GetAttribute("aria-invalid"));
+        cut.WaitForAssertion(() => Assert.Null(cut.Find("#drawing-price-1").GetAttribute("aria-invalid")));
     }
 
     [Fact]
@@ -314,7 +332,8 @@ public class DrawingCoordinateEditorTests
         cut.Find("#drawing-date-1").Blur();
         var shownTime = DateTime.Parse(shown!, System.Globalization.CultureInfo.InvariantCulture)
             .ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Contains(spoken, m => m.Contains(shownTime, StringComparison.Ordinal));
+        cut.WaitForAssertion(() =>
+            Assert.Contains(spoken, m => m.Contains(shownTime, StringComparison.Ordinal)));
 
         // And writing back exactly what the field shows must not move the anchor. (Apply closes
         // the dialog, so this goes last.)

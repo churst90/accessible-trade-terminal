@@ -51,6 +51,13 @@ Four things reported from real use, all four real defects.
   select-by-character, so `keyboard.js` releases *every* shifted arrow to form controls;
   `Alt+Shift+Arrow` stays released too, because it is select-by-word on macOS and no command
   answers to it any more.
+- **The seventh flake, and CI is how it surfaced.** `DrawingCoordinateEditorTests` read the
+  result of a DOM event on the statement after dispatching it, and a handler is queued on the
+  renderer's dispatcher. Five tests, red on a two-core box in three runs of four and green every
+  time on twenty-four — and **reproducible on the commit CI had already called green**, so it is
+  a latent race in the tests rather than a regression in the dialog. Waited out now; both
+  behaviours re-proved red by sabotage afterwards, since a wait is also how a test stops asserting
+  anything.
 - **The status strip announces the sentence, not a label before it.** A static "Last Feedback:"
   span sat inside the `role="status"` live region, and a live region is announced by its whole
   content on every change — so it was read before every message the application has ever spoken.
