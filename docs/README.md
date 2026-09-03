@@ -124,7 +124,10 @@ account pages `aria-required`, `aria-invalid`, focus on the field that actually 
 visible required marker, and an "Error: " title prefix. Suite **6,189** (`--list-tests`
 reports 6184, which is the number this file must match and `doc-drift.yml` checks — the two
 differ because `--list-tests` names a `[Theory]` once and a run expands its cases), plus
-**165** browser tests. Twenty-nine sabotages, all red. **0 CRITICAL and 0 HIGH items open,
+**165** browser tests. Twenty-nine sabotages, all red. Two flakes from the previous two
+commits were found by this work's own CI run and fixed (a bUnit render read before the
+dispatcher had run it, and an `NSubstitute` `Received(1)` on a fire-and-forget call), each
+re-proved red by sabotage so the added waits did not make them vacuous. **0 CRITICAL and 0 HIGH items open,
 and the accessibility audit's numbered NEXT list is now empty.**
 
 ## Earlier status (2026-08-31)

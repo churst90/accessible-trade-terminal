@@ -549,6 +549,20 @@ namespace AccessibleTrader.Tests
 
             orchestrator.StartPlayback(Playing(s));
 
+            // StartPlayback dispatches through SafeFireAndForget.Run, so the sequencer is
+            // called on a thread-pool thread and `Received(1)` immediately after is a
+            // stopwatch, not an assertion — the same shape as the fifth recorded flake
+            // ("a count of asynchronously-emitted events is a stopwatch"). Wait for the
+            // call, THEN assert what it carried. Generous: a starved runner is slow, not
+            // wrong. Cost the CI run on e2d47c6a and two local full-suite runs.
+            Assert.True(
+                SpinWait.SpinUntil(
+                    () => sequencer.ReceivedCalls().Any(c =>
+                        c.GetMethodInfo().Name == nameof(IAudioSequencer.StartMultiSeriesPlaybackAsync)),
+                    TimeSpan.FromSeconds(10)),
+                "The orchestrator never reached the sequencer at all. Calls made: "
+                + string.Join(", ", sequencer.ReceivedCalls().Select(c => c.GetMethodInfo().Name)));
+
             var plan = PlaybackPlan.Resolve(s, PlaybackScope.Chart);
             sequencer.Received(1).StartMultiSeriesPlaybackAsync(
                 Arg.Is<IReadOnlyList<ChartSeries>>(l => l.Select(x => x.Id).SequenceEqual(plan.Series.Select(x => x.Id))),

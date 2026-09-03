@@ -274,14 +274,29 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > (i) two identical "Fields marked with an asterisk are required." notes on Security, one
 > per form.
 >
-> **Two flakes observed, and they are NOT this change.** Across five full runs of the
-> 6,189-test suite: three clean, one with `PlaybackNarrationTests.Orchestrator_PlaysExactly
-> ThePlan_TheSentenceWasBuiltFrom` red, one with that plus both
-> `ThemeEditorContrastGateTests` dialog-text cases. All three pass in isolation and pass on
-> a re-run of the same filter; both classes were written in the two commits before this one
-> (`a76e343c`, `0bc68cfd`) and neither touches anything this change edits. Recorded rather
-> than smoothed over — this repo has been bitten before by reading a flake as a result.
-> **The flake count is now seven or eight, and fixing them is worth a session of its own.**
+> **Two flakes surfaced and were FIXED, and the first CI run of this work is what forced
+> the issue.** Across five local full runs: three clean, one with
+> `PlaybackNarrationTests.Orchestrator_PlaysExactlyThePlan_TheSentenceWasBuiltFrom` red,
+> one with that plus both `ThemeEditorContrastGateTests` dialog-text cases — all green in
+> isolation, which is the signature. `e2d47c6a`'s CI run then failed on the theme pair, so
+> "unrelated to this change" was true and beside the point. Both are the same class of
+> harness defect and both were written in the two commits before this one:
+>
+> - `ThemeEditorContrastGateTests` read `#te-contrast` immediately after a `Change()`,
+>   whose handler is queued on the renderer's dispatcher. Read too early the box still
+>   holds the theme's own standing advisory — **Steel Gray's falling candle at 1.48:1** —
+>   so the failure reads "Hard to read: The fal…" and looks like the contrast gate
+>   reporting the wrong pair rather than the test reading it too soon.
+> - `PlaybackOrchestrator.StartPlayback` dispatches through `SafeFireAndForget.Run`, so
+>   `sequencer.Received(1)` on the next line is **a stopwatch, not an assertion** — the
+>   fifth recorded flake's rule, hit again by a test written the day after it was written
+>   down.
+>
+> Both now wait for the thing they are about to assert on, and both were re-proved red by
+> sabotage afterwards so the wait did not turn them vacuous — **a `WaitForAssertion` around
+> a `DoesNotContain` passes on the first poll and proves nothing**, so the positive
+> assertion waits and the negative one is checked only once it holds. Three consecutive
+> clean full runs after.
 >
 > **Durable, for the list:** *`aria-invalid` means REJECTED, not blank* — a field that is
 > empty because nobody has typed in it yet is what `aria-required` is for, and binding
