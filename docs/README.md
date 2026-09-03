@@ -168,7 +168,7 @@ simulated — was outside every landmark with nothing focusable in it, and is no
 region.
 
 Suite **6,319** (`--list-tests`
-reports 6314, which is the number this file must match and `doc-drift.yml` checks — the two
+reports 6388, which is the number this file must match and `doc-drift.yml` checks — the two
 differ because `--list-tests` names a `[Theory]` once and a run expands its cases), plus
 **168** browser tests. The pass before this one ran eighteen sabotages, seventeen red — and the one that
 stayed green is the finding, not the nuisance: it was cited as evidence about the browser and
