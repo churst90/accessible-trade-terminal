@@ -117,8 +117,150 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-03, THIRD pass — THE LAST THREE ITEMS OF THE
-> 2026-09-01 AUDIT ARE CLOSED. `ObjectTreeModal` exposes `aria-expanded` and keeps it
+> **START HERE (current as of 2026-09-03, FOURTH pass — THE KEYBOARD NUDGE IS IN, and this
+> is a RELEASE session: the agreed order for the rest of it is (2) tests for
+> `treeKeyboard.js`, (3) the Object Tree follow-ups (b)–(f) below, (4) the three row buttons
+> out of `<summary>` as a treegrid, (5) Zones→Levels rename, delete `SupportsSymbolSearch`,
+> Steel Gray's falling candle (darken the top of the fade AND brighten the red until 3:1
+> holds everywhere; Cody's call), then (6) docs — WHATSNEW holds ONLY 2.6.0, CHANGES gets
+> its missing 2.5.0 heading split at the tag date, README rewritten for a curious
+> non-engineer, quickstart/manual/shortcuts/help checked — and (7) bump `<Version>` in
+> `Directory.Build.props` to 2.6.0, rc1 first, tag, publish. Decisions Cody made this
+> session: Zones becomes LEVELS (the report lists single prices with touch counts, no
+> ranges); `SupportsSymbolSearch` is DELETED now (8 of 16 providers declare it, one has a
+> search method, nothing calls it) and search-as-you-type is filed for 2.7 with the five
+> stock-provider endpoints; the Binance geo-block becomes a REACHABILITY PROBE for 2.7 —
+> each provider pinged at boot and on a "Rescan providers" command, an unreachable one
+> STAYS in the dropdown and says "not reachable from this network" when selected (disabled
+> is deletion for this user), the hosted head probes server-side, no IP autodetection.)**
+>
+> ### FIXED 2026-09-03 (fourth pass) — the keyboard nudge for drawing anchors
+>
+> **The defect.** An existing drawing's anchors could be moved only by a 10-pixel mouse drag or
+> by typing an absolute price/date into Properties. Typing an absolute value is a keyboard
+> ROUTE, not the equivalent of "a little to the right". Now: focus the drawing (Page Up/Down or
+> the Object Tree), `Alt+Shift+Left/Right` moves the selected anchor one BAR (a bar index —
+> `Data[i±1].Date` — never date arithmetic, so Friday's next bar is Monday; past the last bar it
+> projects into the right margin by `ProjectFutureDate` and stops at the margin's end),
+> `Alt+Shift+Up/Down` moves its price by 1% of the VISIBLE range floored at one unit in the last
+> decimal `SpeechPriceFormatter` speaks (a step speech cannot voice is a dead key),
+> `Ctrl+Alt+Shift+G` cycles the selected anchor through `DrawingAnchorSchema.Slots` (the first
+> press on a newly focused drawing only SAYS which is selected), `Ctrl+Alt+Shift+B` snaps the
+> price to the bar's high/low/open/close (nearest first, then that order), and Shift+F1's
+> context summary appends the selected anchor — the only read-without-move. Six matching
+> `menuitem`s in `DrawingContextMenu` (menu stays open) are the voice/switch/single-pointer
+> route (WCAG 2.5.7). Exact values stay in Properties.
+>
+> **What is heard.** Earcon per press (EarconService already throttles Info to 5/s), ONE
+> sentence on settle 300 ms after the last press, VALUE FIRST because whatever interrupts it
+> cuts the end: `"End: 105.20 at June 15, 2026, 09:30. Trend line 2, anchor 2 of 2."` The name is
+> `series.Name` with "(2)" spoken as "2" — `FriendlyName` is "TrendLine Drawing" for EVERY
+> trend line and cannot tell two apart (verified by the speech review). The stamp goes through
+> `SpeechTimeFormatter` (display time) like the bar readback; the two PLACEMENT announcements
+> used `date.ToString("t")` on the raw stamp and were fixed to the same helper on the way.
+> Refusals (first bar, price-only anchor asked to move in time, no drawing focused, placement
+> in progress) are BOUNDARY tier — boundary earcon per press, the sentence once on settle —
+> not Error, which plays the failure earcon and speaks on the channel F2 cannot mute. The
+> pending sentence is CANCELLED by the next Navigation feedback (the bar readback must not be
+> cut off 300 ms later) and settled silently on modal open; cycle and snap settle it silently
+> before they speak, so the same numbers are never heard twice. The readback rides Manual
+> (F2 mutes it, like the mouse-drag readback it replaces); both reviews agreed and the earlier
+> "explicit SpeechChannel or F2 silences it" note was written for the live-order review, where
+> F2 silencing a real-money readback WAS the defect.
+>
+> **Undo.** A settled run is one entry ("Move Trend line 2"); a further run on the SAME anchor
+> extends it while `IChartUndoStack.IsNextUndo` says it is still on top (keyed on series,
+> slot and kind); cycling, snapping or any other edit starts a new one; a walk through the four
+> snap levels is one entry. The stack holds 50 and thirty "Undone: Move" sentences would push
+> the deletions off the bottom.
+>
+> **Settle timer.** `IScheduler.Schedule(dueTime)` with the scheduler injected
+> (`Scheduler.Default` in production, `HistoricalScheduler` in tests, which System.Reactive
+> ships — no Microsoft.Reactive.Testing), so "five presses, silence, one sentence" is virtual
+> time, not a stopwatch.
+>
+> **Keys.** `Alt+Shift+Arrow` is the one arrow chord free on every host (Ctrl+Alt+Arrow is
+> VoiceOver's modifier and the Linux workspace switch; Ctrl+Shift+Arrow is select-by-word;
+> plain Alt+Up/Down is pane scrolling; the lookup keys on all three modifiers). keyboard.js
+> leaves `Alt+Shift+Arrow` to a form control (macOS Option+Shift+Arrow is select-by-word
+> there) and sends `e.code` when Alt has transformed `e.key` into a non-alphanumeric glyph
+> (Option+Shift+G is `˝` on a US Mac — the chord was dead with no announcement; the whole
+> existing three-modifier family had this). Two inherited platform facts recorded in
+> SHORTCUTS.md and Help: with VoiceOver's modifier set to Control+Option, EVERY
+> `Ctrl+Alt+Shift+letter` chord in this app is VoiceOver's (set the modifier to Caps Lock or
+> pass one through with VO+Tab — a `MacHostShortcutRemap` mirroring the WebHost one is the
+> real fix, not attempted); and on Windows a released bare `Alt+Shift` switches keyboard
+> layout.
+>
+> **The drawing context menu is a real menu now.** It is the voice/switch/single-pointer route
+> to the six commands, and it was a `role="menu"` nothing operated: keyboard.js releases arrows
+> to any `[role="menu"]` on the assumption the widget handles them, and Tab walked out into the
+> page while the dispatcher still treated the menu as an open modal. Arrows and Home/End move a
+> roving tabindex and wrap; Tab CLOSES the menu (APG: a menu is one Tab stop). Pinned by
+> `DrawingContextMenuKeyboardTests` (bUnit).
+>
+> **`treeKeyboard.js` has tests now — and the first run found THREE defects in it, all the
+> same shape.** The Object Tree's pane header is a `<summary role="treeitem">` and the series
+> sit in a SIBLING `role="group"`, not inside it. So: (1) `visibleTreeitems` started its
+> closed-`<details>` ancestor walk at the summary's own parent, which dropped the header of
+> every COLLAPSED pane out of the walk — with one pane, ArrowLeft collapsed it and every arrow
+> key was then dead (empty list returns early): **the pane could be collapsed and never
+> re-opened by arrows**; (2) `findParent` looked only for ancestor treeitems, so ArrowLeft on
+> a collapsed series went nowhere; (3) `findFirstChild` searched inside the summary, so
+> ArrowRight on an OPEN pane header never entered the pane. All three fixed in the script;
+> `tools/jstests/tree-tests.mjs` (18) is wired into `tests.yml`. The DOM double answers
+> `getClientRects` from a fixture flag, never from `open`, so the ancestor check and the rects
+> check are independent facts there — which is what made (1) visible.
+>
+> **Proof.** Full suite **6,393** (`--list-tests` 6388). `DrawingAnchorNudgeTests` (63), `DrawingContextMenuKeyboardTests` (5),
+> `Phase5KeyboardScopeTests` categorises the six, parity and conflict guards green; jstests
+> keyboard 50, tree 18, gesture 15; `AnchorNudgeChordBrowserTests` 2 in real Chromium — the
+> negative one PROBES `preventDefault` itself, because "nothing was spoken" was green with the
+> carve-out deleted (the chart-focus gate drops the command either way) and a bubble listener
+> never runs (keyboard.js stops propagation on every Alt chord). Browser suite 170. Sabotage
+> results are in the commit message; one was GREEN (the price-step floor had two guards for one
+> property — the redundant clause is deleted and the real one is red). Two design reviews
+> (keyboard-navigator, live-region-controller) BEFORE code, two diff reviews after; the design
+> reviews changed the tier of refusals, the sentence order and the drawing's spoken name and
+> added the drag-selects-anchor, placement-refusal and cancel-on-navigation rules; the diff
+> reviews found Ctrl+Z inside the settle window (the pending run was not yet filed, so undo
+> popped the PREVIOUS entry and the settle then filed the reversal as a new move a second
+> Ctrl+Z would undo FORWARD — fixed by settling on `UndoChartEditEvent`, which this manager
+> sees first because `ChartCommandManager` takes it as a constructor dependency), the cycle key
+> playing no earcon (silent under F2), the AltGr hazard in the `e.code` fallback (Windows
+> reports AltGr as Ctrl+Alt: `å` in the symbol box would have become Ctrl+Alt+W, Load Workspace
+> — gated on `getModifierState('AltGraph')`, which also fixes the pre-existing swallow of every
+> AltGr character in every field), and the drawing NAME: production names a drawing
+> `"{DrawingType} (n)"` in the enum's CamelCase, which a screen reader voices as one word, and
+> the fixture had been named the way the docs read. New drawings are named in words now
+> ("Trend line (2)"); saved ones are mapped when spoken.
+>
+> **Recorded, NOT fixed, from this pass:**
+> (n1) **`state.SpeechOrder` is only ever set at `WorkspaceState.Initial` ("HeaderValue").**
+> `AppSettings.SpeechOrder` is the setting the user edits and `SpeechFormatter` reads the
+> STATE's copy — grep found no reducer writing it. If that is right, the Speech Order setting
+> has never reached the bar readback. UNVERIFIED (grep only, not demonstrated); check before
+> the 2.6 docs claim the setting works;
+> (n2) `DrawingData.IsLocked` has no setter anywhere in production and no UI — the nudge's lock
+> branch was deleted rather than shipped pointing at a control Properties lacks. Either add
+> the toggle AND enforce it in `TryBeginEditDrag`, or delete the field;
+> (n3) `GlobalInputService.DedupeWindow` (50 ms) halves key auto-repeat to ~15 accepted
+> presses a second; the design said 30. Harmless, recorded so nobody "fixes" it;
+> (n4) a `MacHostShortcutRemap` for the three-modifier family under VoiceOver (see Keys);
+> (n5) **the settle readback is published from a thread-pool thread** (`Scheduler.Default`)
+> and no browser test observes it — every browser route is a cold start with no chart, so no
+> drawing can be placed there. Off-thread `FeedbackRequestEvent` publishers have precedent
+> (`ReplayService`), and the coordinator's speech path marshals via `InvokeAsync`, so it is
+> expected to work. UNVERIFIED in a browser; the first person to nudge on the WebHost should
+> hear a sentence 300 ms after letting go;
+> (n6) a nudge during playback IS spoken (the playback gate lives in `OnStateChanged`;
+> StateChange bypasses it) — consistent with H/M, recorded so nobody "fixes" it;
+> (n7) the undo readback says "Undone: Move Trend line 2." but not where the anchor went back
+> to; (n8) `BarIndexOf` for an anchor dated BEFORE `data[0]` answers 0, so Alt+Shift+Right
+> skips bar 0 — cosmetic; (n9) the Object Tree items (b)–(f) from the third pass are still
+> open, and the `treegrid` shape for the three row buttons is still the honest answer.
+>
+ `ObjectTreeModal` exposes `aria-expanded` and keeps it
 > in step with the DOM through the browser's own `toggle` event; twelve controls (not
 > ten — two were miscounted) that failed WCAG 2.5.3 Label in Name now announce a name
 > that contains the words a user can see; and every coordinate of every drawing type is

@@ -35,6 +35,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         bool CanUndo { get; }
         bool CanRedo { get; }
 
+        /// <summary>
+        /// True when <paramref name="edit"/> is the entry Ctrl+Z would reverse next — the same
+        /// object, not an equal one. A keyboard nudge coalesces a run of presses into one entry by
+        /// EXTENDING the entry it pushed last, and it may only do that while nothing else has been
+        /// pushed on top; otherwise an unrelated edit in between would be undone out of order.
+        /// </summary>
+        bool IsNextUndo(IUndoableEdit edit);
+
         /// <summary>Description of what <see cref="Undo"/> would reverse, or null.</summary>
         string? NextUndoDescription { get; }
 
@@ -80,6 +88,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public bool CanUndo { get { lock (_gate) return _undo.Count > 0; } }
         public bool CanRedo { get { lock (_gate) return _redo.Count > 0; } }
+
+        public bool IsNextUndo(IUndoableEdit edit)
+        {
+            lock (_gate) return _undo.Last != null && ReferenceEquals(_undo.Last.Value, edit);
+        }
 
         public string? NextUndoDescription
         {
@@ -153,7 +166,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     {
         private readonly Func<ChartSeries?> _resolve;
         private readonly DrawingData _before;
-        private readonly DrawingData _after;
+        private DrawingData _after;
         private readonly Action _afterApply;
 
         public DrawingEditUndo(
@@ -174,6 +187,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void Undo() => Apply(_before);
         public void Redo() => Apply(_after);
+
+        /// <summary>
+        /// Moves this entry's "after" state forward without touching its "before". A run of
+        /// keyboard nudges is one edit to the user — "I moved the end of the trend line" — and the
+        /// stack holds fifty, so thirty separate "Move Trend line" entries would push the deletes
+        /// undo exists for off the bottom. Only ever called on the entry that is still the next
+        /// undo (<see cref="IChartUndoStack.IsNextUndo"/>).
+        /// </summary>
+        public void ExtendAfter(DrawingData after) => _after = after.Clone();
 
         private void Apply(DrawingData snapshot)
         {

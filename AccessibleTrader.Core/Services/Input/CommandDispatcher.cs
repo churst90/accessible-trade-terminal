@@ -463,6 +463,13 @@ namespace AccessibleTrader.Core.Services.Input
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No chart loaded.", true));
                 }
+                else if (IsAnchorNudgeCommand(command))
+                {
+                    // Boundary, like every other refusal of a nudge: the key was understood
+                    // and has nowhere to go. Error would play the failure earcon and speak on
+                    // the channel F2 cannot mute, for a keypress that failed nothing.
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true));
+                }
                 return;
             }
 
@@ -558,6 +565,16 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.RemoveSelectedSeries: _eventBus.Publish(new DeleteSeriesEvent()); break;
                 case SystemCommand.UndoChartEdit: _eventBus.Publish(new UndoChartEditEvent()); break;
                 case SystemCommand.RedoChartEdit: _eventBus.Publish(new RedoChartEditEvent()); break;
+
+                // Keyboard nudge for drawing anchors. Chart-scoped, so a modal or an unfocused
+                // chart drops them here like every other chart edit; DrawingInteractionManager
+                // owns the target, the step sizes, the readback and the undo coalescing.
+                case SystemCommand.NudgeAnchorEarlier: _eventBus.Publish(new NudgeDrawingAnchorEvent(AnchorNudgeDirection.Earlier)); break;
+                case SystemCommand.NudgeAnchorLater:   _eventBus.Publish(new NudgeDrawingAnchorEvent(AnchorNudgeDirection.Later)); break;
+                case SystemCommand.NudgeAnchorUp:      _eventBus.Publish(new NudgeDrawingAnchorEvent(AnchorNudgeDirection.Up)); break;
+                case SystemCommand.NudgeAnchorDown:    _eventBus.Publish(new NudgeDrawingAnchorEvent(AnchorNudgeDirection.Down)); break;
+                case SystemCommand.CycleDrawingAnchor: _eventBus.Publish(new CycleDrawingAnchorEvent()); break;
+                case SystemCommand.SnapAnchorToBar:    _eventBus.Publish(new SnapDrawingAnchorEvent()); break;
 
                 // Escape: cancel whatever placement is in progress.
                 //
@@ -792,6 +809,12 @@ namespace AccessibleTrader.Core.Services.Input
                 // application when the chart does not have focus.
                 case SystemCommand.UndoChartEdit:
                 case SystemCommand.RedoChartEdit:
+                case SystemCommand.NudgeAnchorEarlier:
+                case SystemCommand.NudgeAnchorLater:
+                case SystemCommand.NudgeAnchorUp:
+                case SystemCommand.NudgeAnchorDown:
+                case SystemCommand.CycleDrawingAnchor:
+                case SystemCommand.SnapAnchorToBar:
                 case SystemCommand.DetailedPointSummary:
                 case SystemCommand.CancelDrawing:
                 case SystemCommand.ConfirmCoordinateEntry:
@@ -820,6 +843,14 @@ namespace AccessibleTrader.Core.Services.Input
                     return false;
             }
         }
+
+        /// <summary>The six keyboard-nudge chords. Listed so an empty chart answers them with
+        /// "No chart loaded." like a navigation key, rather than the silence every other chart
+        /// edit gets — to a speech user silence and an unbound key are the same thing.</summary>
+        private static bool IsAnchorNudgeCommand(SystemCommand c) => c is
+            SystemCommand.NudgeAnchorEarlier or SystemCommand.NudgeAnchorLater or
+            SystemCommand.NudgeAnchorUp or SystemCommand.NudgeAnchorDown or
+            SystemCommand.CycleDrawingAnchor or SystemCommand.SnapAnchorToBar;
 
         private bool IsNavigationCommand(SystemCommand c)
         {

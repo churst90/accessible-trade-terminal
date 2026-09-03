@@ -106,5 +106,33 @@ namespace AccessibleTrader.Core.Services.Drawing
         /// <summary>True when this type uses the given slot on the given axis.</summary>
         public static bool Uses(DrawingType type, int slot, DrawingAnchorAxis axis) =>
             For(type).Any(f => f.Slot == slot && f.Axis == axis);
+
+        /// <summary>The anchor slots this type has, in presentation order, each once. This is
+        /// what the keyboard nudge cycles through — a trend line has two, a risk/reward three,
+        /// a horizontal line one.</summary>
+        public static IReadOnlyList<int> Slots(DrawingType type) =>
+            For(type).Select(f => f.Slot).Distinct().ToList();
+
+        /// <summary>
+        /// What to call one anchor of a type in speech, mid-sentence: "end" for a trend line's
+        /// slot 2, "take profit" for a risk/reward's slot 3, "pivot 3" for a pitchfork's. Derived
+        /// from the field labels by dropping the axis word, so the nudge readback and the
+        /// Properties dialog's field list use the same vocabulary. Falls back to "anchor N" when
+        /// the label is only the axis word (a horizontal line's single "Price").
+        /// </summary>
+        public static string SlotName(DrawingType type, int slot)
+        {
+            var fields = For(type).Where(f => f.Slot == slot).ToList();
+            if (fields.Count == 0) return $"anchor {slot}";
+            var price = fields.FirstOrDefault(f => f.Axis == DrawingAnchorAxis.Price);
+            string label = price.Label ?? fields[0].Label;
+            foreach (var suffix in new[] { " price", " date" })
+                if (label.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                    label = label[..^suffix.Length];
+            if (label.Length == 0 || label.Equals("Price", StringComparison.OrdinalIgnoreCase)
+                || label.Equals("Date", StringComparison.OrdinalIgnoreCase))
+                return $"anchor {slot}";
+            return char.ToLowerInvariant(label[0]) + label[1..];
+        }
     }
 }

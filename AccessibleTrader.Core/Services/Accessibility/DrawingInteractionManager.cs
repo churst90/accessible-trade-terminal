@@ -17,6 +17,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// so a touch-only user can complete a trend line / channel. No-op (with a
         /// spoken hint) when no drawing is pending.</summary>
         void PlaceAnchorAtCursor(IReadOnlyList<Ohlcv> chartData);
+
+        /// <summary>One sentence describing the anchor a keyboard nudge would move right now,
+        /// for the Shift+F1 context summary, or null when the focused series is not a drawing.
+        /// The only way to hear the selection without changing it.</summary>
+        string? SelectedAnchorSummary();
     }
 
     /// <summary>
@@ -24,7 +29,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Implements a two or three click state machine for multi-point drawings.
     /// Single-point drawings complete immediately.
     /// </summary>
-    public class DrawingInteractionManager : IDrawingInteractionManager, IDisposable
+    public partial class DrawingInteractionManager : IDrawingInteractionManager, IDisposable
     {
         private readonly IEventBus _eventBus;
         private readonly IDrawingService _drawingService;
@@ -107,7 +112,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             Rendering.IPaneLayoutService? paneLayout = null,
             ISettingsManager? settings = null,
             Rendering.ISplitViewCoordinator? splitView = null,
-            IChartUndoStack? undo = null)
+            IChartUndoStack? undo = null,
+            IEarconService? earcons = null,
+            System.Reactive.Concurrency.IScheduler? nudgeScheduler = null)
         {
             _eventBus = eventBus;
             _drawingService = drawingService;
@@ -118,10 +125,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _settings = settings;
             _splitView = splitView;
             _undo = undo;
+            _earcons = earcons;
+            _nudgeScheduler = nudgeScheduler ?? System.Reactive.Concurrency.Scheduler.Default;
 
             _subs.Add(_eventBus.Subscribe<CancelDrawingEvent>(_ => CancelPendingDrawing()));
             _subs.Add(_eventBus.Subscribe<LabelTextEnteredEvent>(e => ApplyLabelText(e.SeriesId, e.Text)));
             _inputService.MouseEvent += HandleMouseEvent;
+            InitNudge();
         }
 
         /// <summary>
@@ -665,6 +675,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _editSeriesId = bestSeriesId;
             _editAnchorSlot = bestSlot;
+            // The keyboard nudge follows the hand: the anchor just grabbed is the one Alt+Shift+
+            // Arrow refines afterwards.
+            SelectAnchorForDrag(bestSeriesId, bestSlot);
 
             // Snapshot BEFORE the first UpdateEditDrag writes into the live DrawingData.
             // A Clone(), not a reference: UpdateEditDrag mutates the object in place, so a
@@ -733,11 +746,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_editSeriesId == null) return;
             UpdateEditDrag(date, price);
             var series = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == _editSeriesId);
-            string label = series?.FriendlyName ?? "Drawing";
-            _eventBus.Publish(new AnnouncementEvent(
-                $"{label} anchor {_editAnchorSlot} moved to {SpeechPriceFormatter.FormatPrice(price)}."));
 
-            RecordEditForUndo(label, series);
+            // The same sentence and the same undo entry as the keyboard nudge: the two share one
+            // selection now, so they must share one vocabulary — "End: 105.20 at …. Trend line 2,
+            // anchor 2 of 2." — and a drag followed by nudges on the same anchor is one edit.
+            if (series?.Drawing != null)
+            {
+                var slots = Drawing.DrawingAnchorSchema.Slots(series.Drawing.Type);
+                int slotIndex = Math.Max(0, slots.ToList().IndexOf(_editAnchorSlot));
+                if (slots.Count > 0)
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                        DescribeAnchor(series, slots[slotIndex], slotIndex, slots.Count), true));
+                if (_editUndoBefore != null && DrawingEditUndo.IsChange(_editUndoBefore, series.Drawing))
+                    FileUndo("Move", series, _editAnchorSlot, _editUndoBefore, series.Drawing.Clone());
+            }
 
             _editSeriesId = null;
             _editAnchorSlot = 0;
@@ -784,7 +806,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return frac * width;
         }
 
-        private static int FindNearestBarIndex(IReadOnlyList<Ohlcv> data, DateTime target)
+        internal static int FindNearestBarIndex(IReadOnlyList<Ohlcv> data, DateTime target)
         {
             int lo = 0, hi = data.Count - 1;
             while (lo < hi)
@@ -909,7 +931,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (data == null || data.Count == 0) return System.DateTime.UtcNow;
             if (offsetBars <= 0) return data[^1].Date;
+            return data[^1].Date + System.TimeSpan.FromTicks(MedianBarStep(data).Ticks * offsetBars);
+        }
 
+        /// <summary>The bar cadence the right-margin projection uses: the median of the last
+        /// eight inter-bar gaps. Shared with the keyboard nudge, which needs the INVERSE — how
+        /// many projected bars past the last real one an anchor already sits — so that stepping
+        /// a future anchor left and right lands on the same dates the projection produces.</summary>
+        internal static System.TimeSpan MedianBarStep(System.Collections.Generic.IReadOnlyList<Ohlcv> data)
+        {
             System.TimeSpan step;
             if (data.Count >= 3)
             {
@@ -929,8 +959,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 step = data[^1].Date - data[0].Date;
             }
             if (step.Ticks <= 0) step = System.TimeSpan.FromMinutes(1);
-
-            return data[^1].Date + System.TimeSpan.FromTicks(step.Ticks * offsetBars);
+            return step;
         }
 
         // Pointer↔chart coordinate mapping lives in ChartMath so the hover crosshair,
@@ -989,7 +1018,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
-                    string ts = date.ToString("t", CultureInfo.InvariantCulture);
+                    string ts = SpeakStamp(date);
                     _eventBus.Publish(new AnnouncementEvent(
                         $"{label}: anchor 1 set at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to next point and press the shortcut again."));
                 }
@@ -1020,7 +1049,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
-                    string ts = date.ToString("t", CultureInfo.InvariantCulture);
+                    string ts = SpeakStamp(date);
                     string msg = _pendingDrawingType switch {
                         DrawingType.RiskReward       => $"Risk/reward: entry at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to stop loss and press the shortcut again.",
                         DrawingType.AndrewsPitchfork => $"Pitchfork: median line at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to swing point and press the shortcut again.",
@@ -1259,7 +1288,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var config = new SeriesConfig
             {
                 Id = seriesId,
-                Name = $"{name} ({_store.State.ActiveSeries.Count(x => x.IsDrawing) + 1})",
+                // The spoken name (Page Up/Down, the nudge readback) in the friendly vocabulary —
+                // "Trend line (2)", not the enum's "TrendLine (2)", which a screen reader voices
+                // as one word. `name` itself still keys the component configs and must stay.
+                Name = $"{FriendlyName(drawing.Type)} ({_store.State.ActiveSeries.Count(x => x.IsDrawing) + 1})",
                 FriendlyName = $"{name} Drawing",
                 Pane = "Main"
             };

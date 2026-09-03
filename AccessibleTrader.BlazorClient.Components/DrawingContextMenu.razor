@@ -27,14 +27,32 @@
          @oncontextmenu:preventDefault="true"
          style="position:fixed; inset:0; z-index:9998; background:transparent;">
     </div>
+    @* A role="menu" is operated with the arrow keys (APG menu pattern): Up/Down move between
+       items and wrap, Home/End jump, Tab LEAVES the menu (closes it — a menu is one Tab stop,
+       and the dispatcher treats it as an open modal, so letting Tab walk into the page behind
+       it left the chart keyboard-locked with focus somewhere else), Escape closes it through
+       the modal stack like every dialog. Roving tabindex: the item with focus is the one Tab
+       stop. keyboard.js releases arrows to any [role="menu"] on the assumption the widget
+       handles them; until 2026-09-03 nothing did. *@
     <div role="menu"
          aria-label="@($"Drawing actions for {_series.FriendlyName}")"
          style="@_menuStyle"
          @onclick:stopPropagation="true"
+         @onkeydown="OnMenuKeyDown"
          @oncontextmenu:preventDefault="true">
-        <button id="drawing-ctx-delete" role="menuitem" class="ctx-item" @onclick="OnDelete">Delete</button>
-        <button role="menuitem" class="ctx-item" @onclick="OnDuplicate">Duplicate</button>
-        <button role="menuitem" class="ctx-item" @onclick="OnProperties">Properties</button>
+        @for (int i = 0; i < MenuItems.Length; i++)
+        {
+            int index = i;
+            var item = MenuItems[i];
+            if (item.SeparatorBefore)
+            {
+                <div role="separator" style="border-top:1px solid #333; margin:4px 0;"></div>
+            }
+            <button id="@ItemId(index)" role="menuitem" class="ctx-item @(item.Danger ? "danger" : "")"
+                    tabindex="@(index == _focusIndex ? 0 : -1)"
+                    @onfocus="() => _focusIndex = index"
+                    @onclick="() => item.Action()">@item.Label</button>
+        }
     </div>
 }
 
@@ -61,6 +79,56 @@
     private bool _isVisible;
     private ChartSeries? _series;
     private string _menuStyle = "";
+    private int _focusIndex;
+
+    private sealed record MenuItem(string Label, Action Action, bool SeparatorBefore = false, bool Danger = false);
+
+    /// <summary>
+    /// The three original actions, then the keyboard nudge as menu items: the single-pointer,
+    /// voice-control and switch-access route to the same six commands (WCAG 2.5.7 — a drag must
+    /// have a non-drag equivalent that is not a three-modifier chord). The menu STAYS OPEN after
+    /// a move so "move later" can be activated five times; the readback is spoken 300 ms after
+    /// the last activation, exactly as for the keys.
+    /// </summary>
+    private MenuItem[] MenuItems => _menuItems ??= new[]
+    {
+        new MenuItem("Delete", OnDelete, Danger: true),
+        new MenuItem("Duplicate", OnDuplicate),
+        new MenuItem("Properties", OnProperties),
+        new MenuItem("Move anchor one bar earlier", () => Nudge(AnchorNudgeDirection.Earlier), SeparatorBefore: true),
+        new MenuItem("Move anchor one bar later", () => Nudge(AnchorNudgeDirection.Later)),
+        new MenuItem("Move anchor price up", () => Nudge(AnchorNudgeDirection.Up)),
+        new MenuItem("Move anchor price down", () => Nudge(AnchorNudgeDirection.Down)),
+        new MenuItem("Select next anchor", OnNextAnchor),
+        new MenuItem("Snap anchor to bar's high, low, open or close", OnSnapAnchor),
+    };
+    private MenuItem[]? _menuItems;
+
+    private static string ItemId(int index) => index == 0 ? "drawing-ctx-delete" : $"drawing-ctx-item-{index}";
+
+    private async Task OnMenuKeyDown(KeyboardEventArgs e)
+    {
+        int count = MenuItems.Length;
+        int target;
+        switch (e.Key)
+        {
+            case "ArrowDown": target = (_focusIndex + 1) % count; break;
+            case "ArrowUp":   target = (_focusIndex - 1 + count) % count; break;
+            case "Home":      target = 0; break;
+            case "End":       target = count - 1; break;
+            case "Tab":       Close(); return;   // one Tab stop: leaving the menu closes it
+            default:          return;
+        }
+        await FocusItemAsync(target);
+    }
+
+    private async Task FocusItemAsync(int index)
+    {
+        _focusIndex = index;
+        StateHasChanged();
+        try { await Js.InvokeVoidAsync("accessibleTrader.focusElement", ItemId(index)); }
+        catch { /* the bridge may not be ready; the roving tabindex is already set */ }
+    }
     private IDisposable? _sub;
     private IDisposable? _closeSub;
 
@@ -119,6 +187,7 @@
                 "border-radius:4px; padding:4px 0; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
         }
         _isVisible = true;
+        _focusIndex = 0;
         EventBus.Publish(new ModalStateChangedEvent(true, "DrawingContextMenu"));
         await InvokeAsync(StateHasChanged);
 
@@ -139,6 +208,36 @@
         _series = null;
         EventBus.Publish(new ModalStateChangedEvent(false, "DrawingContextMenu"));
         StateHasChanged();
+    }
+
+    // The nudge acts on the FOCUSED series. A right-click opens this menu on whichever drawing
+    // was under the pointer, which need not be focused, so focus it first; the keyboard route
+    // already opened on the focused one, and re-selecting it is a no-op.
+    private void FocusThisDrawing()
+    {
+        if (_series != null && Store.State.FocusedSeriesId != _series.Id)
+            Store.Dispatch(new SelectSeriesAction(_series.Id));
+    }
+
+    private void Nudge(AnchorNudgeDirection direction)
+    {
+        if (_series == null) return;
+        FocusThisDrawing();
+        EventBus.Publish(new NudgeDrawingAnchorEvent(direction));
+    }
+
+    private void OnNextAnchor()
+    {
+        if (_series == null) return;
+        FocusThisDrawing();
+        EventBus.Publish(new CycleDrawingAnchorEvent());
+    }
+
+    private void OnSnapAnchor()
+    {
+        if (_series == null) return;
+        FocusThisDrawing();
+        EventBus.Publish(new SnapDrawingAnchorEvent());
     }
 
     private void OnDelete()

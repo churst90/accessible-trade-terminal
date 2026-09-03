@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The anchor that could only be dragged, the tree that could be collapsed and never re-opened, and the fixture that was named the way the docs read (2026-09-03)
+
+- **Drawing anchors can be nudged from the keyboard.** Focus a drawing (Page Up / Page Down or
+  the Object Tree); `Alt+Shift+Left` / `Right` move the selected anchor one BAR (a bar index,
+  never date arithmetic — Friday's next bar is Monday; past the last bar the anchor projects
+  into the right margin), `Alt+Shift+Up` / `Down` move its price by 1% of the visible range,
+  never by less than the last spoken decimal; `Ctrl+Alt+Shift+G` selects the next anchor (the
+  first press only says which is selected); `Ctrl+Alt+Shift+B` snaps to the bar's high, low,
+  open or close; `Shift+F1` names the selected anchor without moving it; the drawing's context
+  menu carries all six for voice control, switch access and single-pointer use. A tick per
+  press, ONE sentence when the presses settle, value first: "End: 105.20 at June 15, 2026,
+  09:30. Trend line 2, anchor 2 of 2." A refusal (first bar, a price-only anchor asked to move
+  in time, no drawing focused, a placement in progress) plays the boundary sound while the key
+  is held and says why once. A run of nudges is one `Ctrl+Z`; a mouse drag now shares the
+  sentence and the undo entry. `Alt+Shift+Arrow` inside a text field is left to the field.
+  Two inherited platform facts documented: with VoiceOver's modifier on Control+Option every
+  `Ctrl+Alt+Shift` chord is VoiceOver's (Caps Lock, or VO+Tab); a released bare `Alt+Shift` on
+  Windows switches keyboard layout.
+- **Ctrl+Alt+Shift+letter was dead on a Mac with no announcement.** Option transforms the
+  character (`Option+Shift+G` is `˝`) and the shortcut lookup found nothing; `keyboard.js`
+  sends the physical key instead. NOT for AltGr — Windows reports AltGr as Ctrl+Alt, and
+  `å` in the symbol box would have become Ctrl+Alt+W (Load Workspace). Gated on
+  `getModifierState('AltGraph')`, which also stops keyboard.js swallowing every AltGr
+  character in every text field, a defect that predates this release.
+- **New drawings are named in words** — "Trend line (2)", not the enum's "TrendLine (2)",
+  which a screen reader voices as one word; drawings saved under the old name are mapped when
+  spoken. The two placement announcements now format their timestamp in display time like
+  every other readback (they were speaking the raw stamp).
+- **The Object Tree could be collapsed and never re-opened by arrow keys.** `treeKeyboard.js`
+  had no tests; the first run found three defects of one shape — the pane header is a
+  `<summary>` and its series sit in a sibling group — so a collapsed pane's header fell out of
+  the arrow walk (with one pane, every arrow key went dead), ArrowLeft on a collapsed series
+  went nowhere, and ArrowRight on an open pane header never entered it. All three fixed;
+  `tools/jstests/tree-tests.mjs` runs in CI.
+- **The drawing context menu is operable as a menu.** Arrows and Home/End move between items,
+  Tab closes it; before, arrows did nothing and Tab walked into the page while the chart stayed
+  keyboard-locked.
+
 ### The narrator that said nine things and was heard saying one (2026-09-02)
 
 - **`AutoNarrationService` made up to nine `Speak` calls inside one `RedrawEvent` handler, and on

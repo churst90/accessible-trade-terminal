@@ -76,7 +76,18 @@
             // queued, so a value stale by one task turn would have dropped a VISIBLE
             // series' components out of the walk. A visibility test that can disagree with
             // the layout is worse than not having it.
+            //
+            // The walk starts ABOVE the <details> a <summary> treeitem belongs to. A closed
+            // <details> hides its content, not its summary — the summary is the one thing
+            // that stays visible, and it is the control that re-opens it. Starting the walk
+            // at the summary's own parent removed the header of every collapsed pane from the
+            // walk: with one pane, ArrowLeft on the header collapsed it and every arrow key
+            // was then dead (an empty items list returns early), so the pane could be
+            // collapsed and never re-opened by arrows; with two, the collapsed pane's header
+            // could not be arrowed back to, and Home skipped it. Found by tree-tests.mjs on
+            // the day the file got tests.
             let p = el.parentElement;
+            if (el.tagName === 'SUMMARY' && p && p.tagName === 'DETAILS') p = p.parentElement;
             while (p && p !== tree) {
                 if (p.tagName === 'DETAILS' && !p.open) return false;
                 p = p.parentElement;
@@ -153,18 +164,37 @@
     }
 
     function findParent(treeitem, tree) {
+        // An ancestor treeitem, or — for ObjectTreeModal's pane level, where the pane's
+        // treeitem is the <summary> and the series sit in a SIBLING role="group" rather
+        // than inside it — the summary of an enclosing <details>. Without the second rule
+        // ArrowLeft on a collapsed series did nothing: there was no ancestor treeitem to
+        // move to, and the pane header it should have gone to is not an ancestor.
         let p = treeitem.parentElement;
         while (p && p !== tree) {
             if (p.getAttribute && p.getAttribute('role') === 'treeitem') return p;
+            if (p.tagName === 'DETAILS') {
+                for (let i = 0; i < p.children.length; i++) {
+                    const c = p.children[i];
+                    if (c.tagName === 'SUMMARY' && c !== treeitem
+                        && c.getAttribute && c.getAttribute('role') === 'treeitem') return c;
+                }
+            }
             p = p.parentElement;
         }
         return null;
     }
 
     function findFirstChild(treeitem) {
-        // Only descendants strictly inside this treeitem count.
-        const items = treeitem.querySelectorAll('[role="treeitem"]');
-        return items.length > 0 ? items[0] : null;
+        // Descendants strictly inside this treeitem — or, for a <summary> treeitem, inside
+        // the <details> it heads, whose role="group" is the summary's SIBLING. Searching the
+        // summary alone found nothing, so ArrowRight on an open pane header never entered
+        // the pane (the third place the sibling-group shape bit; see findParent).
+        let scope = treeitem;
+        if (treeitem.tagName === 'SUMMARY' && treeitem.parentElement
+            && treeitem.parentElement.tagName === 'DETAILS') scope = treeitem.parentElement;
+        const items = scope.querySelectorAll('[role="treeitem"]');
+        for (let i = 0; i < items.length; i++) if (items[i] !== treeitem) return items[i];
+        return null;
     }
 
     function activatePrimary(treeitem) {

@@ -218,6 +218,32 @@ namespace AccessibleTrader.Core.Models
         /// by accident — the anchor tolerance is 10 px — was gone with no way back.</summary>
         UndoChartEdit,
         /// <summary>Ctrl+Y: re-apply the last undone chart edit.</summary>
-        RedoChartEdit
+        RedoChartEdit,
+
+        // ── Keyboard nudge for drawing anchors ─────────────────────────────────
+        // Before 2026-09-03 an existing drawing's anchors could be moved only by a 10-pixel
+        // mouse drag or by typing an absolute value into Properties. These four move the
+        // SELECTED anchor of the FOCUSED drawing (Page Up / Page Down focus a series) one
+        // bar or one price step at a time. Alt+Shift+Arrow, because Ctrl+Alt+Arrow is the
+        // VoiceOver modifier on macOS and the workspace switch on every Linux desktop, and
+        // Ctrl+Shift+Arrow is select-by-word in every text field.
+        /// <summary>Alt+Shift+Left: move the selected anchor one BAR earlier (a bar index,
+        /// never date arithmetic, so weekends and halts are stepped over).</summary>
+        NudgeAnchorEarlier,
+        /// <summary>Alt+Shift+Right: one bar later; past the last bar it projects into the
+        /// reserved right margin.</summary>
+        NudgeAnchorLater,
+        /// <summary>Alt+Shift+Up: raise the selected anchor's price by one step — 1% of the
+        /// visible range, never less than one unit in the last spoken decimal place.</summary>
+        NudgeAnchorUp,
+        /// <summary>Alt+Shift+Down: lower it by the same step.</summary>
+        NudgeAnchorDown,
+        /// <summary>Ctrl+Alt+Shift+G: cycle which anchor of the focused drawing is selected
+        /// for nudging; the first press on a newly focused drawing only says which is
+        /// selected.</summary>
+        CycleDrawingAnchor,
+        /// <summary>Ctrl+Alt+Shift+B: snap the selected anchor's price onto its bar's high,
+        /// low, open or close — nearest first, then cycling through the four.</summary>
+        SnapAnchorToBar
     }
 }

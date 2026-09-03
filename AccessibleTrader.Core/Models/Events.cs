@@ -132,6 +132,16 @@ namespace AccessibleTrader.Core.Models
     public record RedoChartEditEvent();
     public record AddDrawingEvent(string DrawingType);
     public record CancelDrawingEvent();
+
+    /// <summary>Which way a drawing anchor is being nudged from the keyboard.</summary>
+    public enum AnchorNudgeDirection { Earlier, Later, Up, Down }
+    /// <summary>Alt+Shift+Arrow — move the focused drawing's selected anchor one step.
+    /// Handled by <see cref="Services.Accessibility.DrawingInteractionManager"/>.</summary>
+    public record NudgeDrawingAnchorEvent(AnchorNudgeDirection Direction);
+    /// <summary>Ctrl+Alt+Shift+G — select the next anchor of the focused drawing.</summary>
+    public record CycleDrawingAnchorEvent();
+    /// <summary>Ctrl+Alt+Shift+B — snap the selected anchor's price to its bar's OHLC.</summary>
+    public record SnapDrawingAnchorEvent();
     /// <summary>Place the next anchor of the in-progress drawing at the current cursor
     /// bar — lets a touch-only user complete a multi-point drawing without a keyboard.</summary>
     public record PlaceDrawingAnchorEvent();

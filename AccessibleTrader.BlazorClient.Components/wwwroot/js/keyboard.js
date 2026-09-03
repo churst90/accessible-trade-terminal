@@ -398,7 +398,14 @@ window.accessibleTrader = {
                 'y', 'Y', 'z', 'Z', 'd', 'D'
             ];
 
-            const isModified = e.ctrlKey || e.altKey;
+            // AltGr on Windows reports ctrlKey AND altKey — it is how a US-International or
+            // German layout types å, €, @. That is not a chord; treating it as one swallowed
+            // those characters in every text field, and with the e.code fallback below it
+            // would have resolved AltGr+W (å) to Ctrl+Alt+W and opened Load Workspace over
+            // the symbol box. getModifierState('AltGraph') is the one signal that tells the
+            // two apart.
+            const isAltGr = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph') === true;
+            const isModified = (e.ctrlKey || e.altKey) && !isAltGr;
             const isShifted = e.shiftKey;
             const isTrapped = trappedKeys.includes(e.key);
 
@@ -422,6 +429,15 @@ window.accessibleTrader = {
             const isEditable = e.target.isContentEditable === true;
             const isFunctionKey = /^F\d{1,2}$/.test(e.key) && !(e.key === 'F10' && isShifted);
             if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape' && !isFunctionKey) return;
+
+            // Alt+Shift+Arrow nudges a drawing anchor. It is chart-scoped — the dispatcher drops
+            // it unless the chart has focus — so inside a text field the only thing trapping it
+            // could do is cost the user the field's own binding: on macOS Option+Shift+Arrow is
+            // select-by-word. Leave it to the field. (Ctrl+Alt+Shift+G / B are not arrows and
+            // print nothing, so they still go through.)
+            const isArrowKey = e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                               e.key === 'ArrowUp'   || e.key === 'ArrowDown';
+            if ((isFormControl || isEditable) && isArrowKey && e.altKey && isShifted && !e.ctrlKey) return;
 
             // ── Scroll keys belong to the dialog while a dialog owns the keyboard ───
             //
@@ -486,6 +502,16 @@ window.accessibleTrader = {
 
             // Normalize key names to match what ShortcutManager expects.
             let key = e.key;
+            // With Alt held, macOS (Option) reports the TRANSFORMED character: Option+Shift+G
+            // is '˝' on a US Mac, so the lookup for Ctrl+Alt+Shift+G found nothing and the
+            // chord was dead with no announcement. The physical key is in e.code ('KeyG',
+            // 'Digit1'), which NormalizeKey already maps to 'G' / '1'. Never for AltGr (see
+            // above), and not for a dead key ('Dead' is not a single character, so it falls
+            // through unchanged — no shipped chord sits on a dead key on a US Mac today).
+            if (e.altKey && !isAltGr && typeof key === 'string' && key.length === 1 && !/^[A-Za-z0-9]$/.test(key)
+                && typeof e.code === 'string' && /^(Key[A-Z]|Digit[0-9])$/.test(e.code)) {
+                key = e.code;
+            }
             if (key === 'ArrowLeft') key = 'LEFT';
             else if (key === 'ArrowRight') key = 'RIGHT';
             else if (key === 'ArrowUp') key = 'UP';

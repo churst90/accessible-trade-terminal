@@ -405,6 +405,36 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | ContextMenu / Shift+F10 | Open the context menu for the focused drawing |
 | Escape | Cancel the active in-progress drawing |
 
+### Moving an existing anchor from the keyboard (the nudge)
+
+Focus the drawing with `Page Up` / `Page Down` (or from the Object Tree, `Alt+O`). One of its
+anchors is *selected* — the first, until you change it — and these keys move it:
+
+| Key | Action |
+|-----|--------|
+| Alt+Shift+Left / Alt+Shift+Right | Move the selected anchor one **bar** earlier / later. A bar, not a day: weekends and halts are stepped over, and past the last bar the anchor projects into the chart's right margin ("June 30, 3 bars past the last bar"). |
+| Alt+Shift+Up / Alt+Shift+Down | Move the selected anchor's price by 1% of the visible price range — the step scales with your zoom, like a mouse drag — and never by less than one unit in the last spoken decimal. |
+| Ctrl+Alt+Shift+G | Select the next anchor of the focused drawing. The first press on a newly focused drawing only *says* which anchor is selected; the next moves on, and it wraps. |
+| Ctrl+Alt+Shift+B | Snap the selected anchor's price to its bar's high, low, open or close: the nearest first, then the others in that order on repeated presses. A price-only anchor (a Fibonacci level) snaps to the cursor bar. |
+| Shift+F1 | The context summary also names the selected anchor — the only way to hear it without moving it. |
+
+What you hear: a short tick while the anchor is moving (at most five a second, however fast
+the key repeats), then ONE sentence when you stop — *"End: 105.20 at June 15, 09:30. Trend line 2, anchor 2 of 2."* — value
+first, then the drawing and which anchor of how many. A key that cannot act (an anchor at
+the first bar, a price-only anchor asked to move in time, no drawing focused) plays the
+boundary sound while the key is held and says why once. A run of nudges is a single `Ctrl+Z`.
+Exact values are typed in **Properties** (`P`), which has a price and date field for every
+anchor. The same six actions are in the drawing's context menu (`Shift+F10`) for voice
+control, switch access and single-pointer use.
+
+Three platform notes. On **Windows** with more than one keyboard layout installed, `Alt+Shift`
+pressed and released *on its own* switches layout; hold `Alt+Shift` and press the arrow.
+On **macOS with VoiceOver**, the `Ctrl+Alt+Shift+letter` family is VoiceOver's own modifier
+(Control+Option) plus Shift when the modifier is set to Control+Option: set VoiceOver's
+modifier to Caps Lock, or pass a single chord through with `VO+Tab`. On the **Linux web
+host**, a missed Ctrl turns `Ctrl+Alt+Shift+G` into `Alt+Shift+G`, which is the Gann fan tool
+there; `Escape` cancels a tool armed by accident.
+
 ---
 
 ## Modals and Panels

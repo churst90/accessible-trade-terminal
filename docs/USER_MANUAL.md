@@ -1590,6 +1590,43 @@ tool, after you set its entry and stop anchors, speaks the resulting risk and th
 asks for the target, announcing the full reward-to-risk ratio once you set it — the
 same measuring workflow described in the Trading chapter.
 
+#### Moving an anchor afterwards, from the keyboard
+
+Until version 2.6 an anchor you had already placed could be moved only by dragging its
+handle with a mouse, or by typing an exact price and date into Properties. Typing an exact
+value is a route, but it is not the same thing as "a little to the right", which is what
+the drag was for. Now it has a keyboard equivalent. Focus the drawing with `Page Up` or
+`Page Down` — or pick it in the Object Tree — and:
+
+- `Alt+Shift+Left` and `Alt+Shift+Right` move the selected anchor one **bar** earlier or
+  later. A bar, not a day: on a daily chart Friday's next bar is Monday, and a halt is
+  stepped over the same way. Past the last bar the anchor projects into the chart's right
+  margin, and the readback says so: "June 30, 3 bars past the last bar."
+- `Alt+Shift+Up` and `Alt+Shift+Down` move its price by one percent of the price range you
+  can currently see, so the step follows your zoom the way a drag would, and never by less
+  than the last decimal the price is spoken with.
+- `Ctrl+Alt+Shift+G` selects the next anchor. On a drawing you have just focused, the first
+  press only tells you which anchor is selected; the next moves on, and it wraps.
+- `Ctrl+Alt+Shift+B` snaps the selected anchor's price onto its bar's high, low, open or
+  close — the nearest first, then the others in that order on repeated presses. It is the
+  quick way to put a trend line's end exactly on a wick.
+- `Shift+F1`, the context summary, names the selected anchor without moving it.
+
+Hold a key and you hear a short tick while the anchor moves; one sentence follows when you
+stop — *"End: 105.20 at June 15, 2026, 09:30. Trend line 2, anchor 2 of 2."* — the value
+first, then which drawing and which anchor of how many, every time, because there is no
+status bar to glance at. A key that cannot act plays the boundary sound and says why once:
+the anchor is already at the first bar, a Fibonacci level has no date to move, no drawing
+is focused. A whole run of nudges is one `Ctrl+Z`. The same six actions are in the
+drawing's context menu (`Shift+F10`) for voice control, switch access and single-pointer
+use, and the menu stays open so "move later" can be activated several times.
+
+Two platform notes. On Windows with more than one keyboard layout, `Alt+Shift` pressed and
+released on its own switches layout, so hold `Alt+Shift` and then press the arrow. On a Mac
+with VoiceOver's modifier set to Control+Option, every `Ctrl+Alt+Shift` chord in this
+application is a VoiceOver chord: set the modifier to Caps Lock in VoiceOver Utility, or
+pass a single key through with VO+Tab.
+
 #### Taking a drawing back
 
 `Ctrl+Z` undoes the last chart edit and `Ctrl+Y` redoes it, and both tell you *what*

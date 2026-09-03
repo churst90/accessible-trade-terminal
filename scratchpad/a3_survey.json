@@ -655,7 +655,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[02:53:08] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[06:05:39] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"

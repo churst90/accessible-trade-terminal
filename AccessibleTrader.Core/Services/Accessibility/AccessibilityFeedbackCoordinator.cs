@@ -37,6 +37,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Optional so existing construction (tests, manual composition) keeps working; DI
         // supplies it. Only consumer is the unhandled-FeedbackType arm in OnFeedbackRequest.
         private readonly ILogger<AccessibilityFeedbackCoordinator>? _logger;
+        // Optional so the many existing constructions keep working; DI supplies it. Gives the
+        // Shift+F1 summary the selected drawing anchor — the one read-without-move the nudge has.
+        private readonly IDrawingInteractionManager? _drawings;
         private readonly CompositeDisposable _subscriptions = new();
 
         private WorkspaceState _previousState;
@@ -70,9 +73,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // "clean up" the parameter: auto-narration goes silent if you do.
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
-            ILogger<AccessibilityFeedbackCoordinator>? logger = null)
+            ILogger<AccessibilityFeedbackCoordinator>? logger = null,
+            IDrawingInteractionManager? drawings = null)
         {
             _logger = logger;
+            _drawings = drawings;
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -777,6 +782,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                             if (distinctSubPanes > 0)
                                 msg += $". {focusedSeries.FriendlyName} has {distinctSubPanes + 1} panes";
                         }
+
+                        // A focused drawing: say which anchor Alt+Shift+Arrow would move, without
+                        // moving it. Nudging and cycling both change state; this is the only
+                        // way to just ask.
+                        string? anchor = _drawings?.SelectedAnchorSummary();
+                        if (anchor != null) msg += ". " + anchor;
 
                         _speechRouter.Speak(msg, interrupt: true);
                     }

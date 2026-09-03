@@ -82,6 +82,12 @@ namespace AccessibleTrader.Tests
         // Undo / redo — chart-scoped, like every other edit they reverse
         [InlineData(SystemCommand.UndoChartEdit)]
         [InlineData(SystemCommand.RedoChartEdit)]
+        [InlineData(SystemCommand.NudgeAnchorEarlier)]
+        [InlineData(SystemCommand.NudgeAnchorLater)]
+        [InlineData(SystemCommand.NudgeAnchorUp)]
+        [InlineData(SystemCommand.NudgeAnchorDown)]
+        [InlineData(SystemCommand.CycleDrawingAnchor)]
+        [InlineData(SystemCommand.SnapAnchorToBar)]
         // Detail / drawing
         [InlineData(SystemCommand.DetailedPointSummary)]
         [InlineData(SystemCommand.CancelDrawing)]
@@ -220,6 +226,9 @@ namespace AccessibleTrader.Tests
                 SystemCommand.AddReferenceLevel, SystemCommand.OpenProperties,
                 SystemCommand.RemoveSelectedSeries,
                 SystemCommand.UndoChartEdit, SystemCommand.RedoChartEdit,
+                SystemCommand.NudgeAnchorEarlier, SystemCommand.NudgeAnchorLater,
+                SystemCommand.NudgeAnchorUp, SystemCommand.NudgeAnchorDown,
+                SystemCommand.CycleDrawingAnchor, SystemCommand.SnapAnchorToBar,
                 SystemCommand.DetailedPointSummary,
                 SystemCommand.CancelDrawing, SystemCommand.ConfirmCoordinateEntry,
                 SystemCommand.DrawTrend, SystemCommand.DrawHorizontal,

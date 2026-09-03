@@ -155,7 +155,11 @@ function makeHarness() {
     let defaultPrevented = false;
     const ev = {
       key,
+      code: mods.code,
       shiftKey: !!mods.shift, ctrlKey: !!mods.ctrl, altKey: !!mods.alt,
+      // Answers false unless the test says otherwise, so a production check that never
+      // asks is visible here rather than mocked past.
+      getModifierState: (name) => name === 'AltGraph' && !!mods.altGraph,
       target: target ?? node('DIV'),
       preventDefault: () => { defaultPrevented = true; },
       stopImmediatePropagation: () => {},
@@ -174,6 +178,71 @@ function test(name, fn) {
   catch (e) { results.push([name, e]); }
 }
 const keysSent = (calls) => calls.filter(c => c[0] === 'OnKeyDown').map(c => c[1]);
+
+// ── Alt+Shift+Arrow: the anchor nudge, and the text field's own select-by-word ──
+
+test('Alt+Shift+Arrow from the chart reaches the dispatcher as a modified LEFT', () => {
+  const h = makeHarness();
+  const prevented = h.press('ArrowLeft', h.node('DIV'), { alt: true, shift: true });
+  assert.equal(prevented, true, 'a chart chord must not also scroll or select');
+  assert.deepEqual(h.calls.filter(c => c[0] === 'OnKeyDown').map(c => c.slice(1)),
+    [['LEFT', true, false, true]]);
+});
+
+test('Alt+Shift+Arrow inside a text field is left to the field (select-by-word on macOS)', () => {
+  for (const tag of ['INPUT', 'TEXTAREA', 'SELECT']) {
+    const h = makeHarness();
+    const prevented = h.press('ArrowRight', h.node(tag), { alt: true, shift: true });
+    assert.equal(prevented, false, `${tag}: preventDefault would cost the field its own binding`);
+    assert.deepEqual(keysSent(h.calls), [], `${tag}: the nudge is chart-scoped and must not fire from a field`);
+  }
+  const h = makeHarness();
+  const editable = h.node('DIV'); editable.isContentEditable = true;
+  assert.equal(h.press('ArrowUp', editable, { alt: true, shift: true }), false);
+});
+
+test('Ctrl+Alt+Shift+G and B still fire from a text field — they print nothing', () => {
+  const h = makeHarness();
+  h.press('G', h.node('INPUT'), { ctrl: true, alt: true, shift: true });
+  h.press('B', h.node('INPUT'), { ctrl: true, alt: true, shift: true });
+  assert.deepEqual(keysSent(h.calls), ['G', 'B']);
+});
+
+test('Option-transformed characters fall back to the physical key (macOS Ctrl+Option+Shift+G)', () => {
+  // A US Mac reports Option+Shift+G as '˝'. Without the fallback the bridge receives '˝',
+  // ShortcutManager finds no binding, and the chord is dead with no announcement.
+  const h = makeHarness();
+  h.press('˝', h.node('DIV'), { ctrl: true, alt: true, shift: true, code: 'KeyG' });
+  h.press('ı', h.node('DIV'), { ctrl: true, alt: true, shift: true, code: 'KeyB' });
+  h.press('¡', h.node('DIV'), { ctrl: true, alt: true, shift: true, code: 'Digit1' });
+  assert.deepEqual(keysSent(h.calls), ['KEYG', 'KEYB', 'DIGIT1']);
+  // The mock must NOT hand production its own answer: a plain letter keeps e.key.
+  const h2 = makeHarness();
+  h2.press('g', h2.node('DIV'), { ctrl: true, alt: true, shift: true, code: 'KeyG' });
+  assert.deepEqual(keysSent(h2.calls), ['G']);
+});
+
+test('AltGr characters are typed, not chorded: AltGr+W (å) in a field reaches the field', () => {
+  // Windows reports AltGr as Ctrl+Alt. Without the AltGraph check the character was
+  // swallowed in every text field, and with the e.code fallback it would have become
+  // Ctrl+Alt+W — Load Workspace — over the symbol box.
+  const h = makeHarness();
+  const prevented = h.press('å', h.node('INPUT'), { ctrl: true, alt: true, altGraph: true, code: 'KeyW' });
+  assert.equal(prevented, false);
+  assert.deepEqual(keysSent(h.calls), []);
+  // And on the chart an AltGr glyph is still not a chord.
+  const h2 = makeHarness();
+  h2.press('€', h2.node('DIV'), { ctrl: true, alt: true, altGraph: true, code: 'KeyE' });
+  assert.deepEqual(keysSent(h2.calls), []);
+});
+
+test('plain Alt+Arrow (pane scrolling) and Ctrl+Arrow (jumps) in a field are unchanged', () => {
+  // The carve-out is exactly Alt+Shift; the neighbouring chords keep their existing routing.
+  const h = makeHarness();
+  assert.equal(h.press('ArrowUp', h.node('INPUT'), { alt: true }), true);
+  assert.equal(h.press('ArrowLeft', h.node('INPUT'), { ctrl: true }), true);
+  assert.deepEqual(keysSent(h.calls), ['UP', 'LEFT']);
+});
 
 // ── The Space bug ───────────────────────────────────────────────────────────
 

@@ -74,6 +74,14 @@ jobs:
       - name: JS keyboard tests
         run: node tools/jstests/keyboard-tests.mjs
 
+      # treeKeyboard.js — the ARIA tree behind the Object Tree and the Condition Tree
+      # editor. Not reachable from the browser suite (a cold-start WebHost has no series
+      # to put in the tree), and its two load-bearing decisions — <details> outranks a
+      # stale aria-expanded, and a closed <details> hides its children whatever their
+      # boxes say — are exactly the kind a green C# suite cannot see.
+      - name: JS tree tests
+        run: node tools/jstests/tree-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
