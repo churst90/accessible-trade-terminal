@@ -191,7 +191,11 @@ namespace AccessibleTrader.Core.Services.Audio
             for (int s = 0; s < seriesList.Count && !overflow; s++)
             {
                 var series = seriesList[s];
-                if (series == null || !series.IsVisible || series.IsMuted || series.IsDrawing) continue;
+                // No IsDrawing skip. It sat here until 2026-09-03 and made PlaybackPlan a liar:
+                // the plan accepted a drawing in Series/Component scope, the narration said
+                // "Playing TrendLine Drawing from ..., N bars", and then zero voices played —
+                // the exact failure PlaybackPlan's own summary says it exists to prevent.
+                if (series == null || !series.IsVisible || series.IsMuted) continue;
 
                 for (int c = 0; c < series.Components.Count; c++)
                 {
@@ -247,6 +251,22 @@ namespace AccessibleTrader.Core.Services.Audio
                 : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
 
             var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
+
+            // A bar the component has no value for: SILENCE, not a skip.
+            //
+            // The strategy answers NaN with AudioPoint(0, 0, "sine", 0) — a Sustain envelope, so
+            // without this the voice was left running and CONTINUOUS at zero. It is inaudible
+            // where it stands, but a continuous voice glides, so the bar the values resume on
+            // swept up from 0 Hz. That was survivable while every sonified array was an
+            // indicator with a short NaN warm-up at the very start of the chart; a drawing has
+            // NaN on BOTH sides of a span that can sit anywhere, so a hundred-bar trend line on
+            // a five-hundred-bar chart would swoop into and out of existence twice per pass.
+            // Stopping the voice is what "there is nothing here" sounds like.
+            if (audioPt.Frequency <= 0 && audioPt.Volume <= 0)
+            {
+                for (int k = 0; k < slots.Length; k++) _audioDriver.StopVoice(slots[k]);
+                return;
+            }
 
             // NaN guard for Ping-envelope markers: only fire on actual signal bars.
             if (IsPing(audioPt.EnvelopeType)

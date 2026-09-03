@@ -16,7 +16,7 @@ using NSubstitute;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// The keyboard nudge for drawing anchors (Alt+Shift+Arrow, Ctrl+Alt+Shift+G, Ctrl+Alt+Shift+B).
+/// The keyboard nudge for drawing anchors (Shift+Arrow, Ctrl+Alt+Shift+G, Ctrl+Alt+Shift+B).
 ///
 /// <para>Until 2026-09-03 an existing drawing's anchors could be moved only by a ten-pixel mouse
 /// drag or by typing an absolute value into Properties. These tests pin the contract the nudge
@@ -487,6 +487,88 @@ public sealed class DrawingAnchorNudgeTests
         Assert.Equal(h.Bars[11].Date, h.Drawn().AnchorDate2);
     }
 
+    /// <summary>
+    /// Cycling MOVES THE CHART CURSOR to the anchor it selects.
+    ///
+    /// <para>Reported from real use on 2026-09-03: "Ctrl+Alt+Shift+G cycles between the
+    /// beginning and end of the trend line, but it only puts the cursor at the beginning."
+    /// It put the cursor nowhere — the key selected an anchor and spoke it while the chart's
+    /// own position never moved, so whichever anchor happened to be near where the user was
+    /// standing felt like the only one it could reach.</para>
+    ///
+    /// <para>Bar 10 is asserted, not "not bar 1": a cursor that moved to the wrong bar is the
+    /// failure this is guarding, and it passes any test phrased as a difference.</para>
+    /// </summary>
+    [Fact]
+    public void Cycling_puts_the_chart_cursor_on_the_selected_anchors_bar()
+    {
+        var h = new Harness();
+        h.AddDrawing(DrawingType.TrendLine);          // anchors on bar 1 and bar 10
+        h.Store.Dispatch(new SetCursorAction(20));
+
+        h.Cycle();                                     // names anchor 1 — and goes there
+        Assert.Equal(1, h.Store.State.CurrentDataIndex);
+
+        h.Cycle();                                     // anchor 2
+        Assert.Equal(10, h.Store.State.CurrentDataIndex);
+
+        h.Cycle();                                     // wraps back to anchor 1
+        Assert.Equal(1, h.Store.State.CurrentDataIndex);
+    }
+
+    /// <summary>
+    /// The jump scrolls the viewport when the anchor is off-screen.
+    ///
+    /// <para>This is why the manager dispatches <c>NavigateAction</c> and not
+    /// <c>SetCursorAction</c>: <c>SetCursorAction</c> runs through <c>CursorOnlyJump</c>, which
+    /// CLAMPS the target to the current viewport. An anchor scrolled off the left edge would
+    /// land the cursor on the leftmost visible bar — a plausible wrong answer, and the one the
+    /// user was already complaining about.</para>
+    /// </summary>
+    [Fact]
+    public void Cycling_scrolls_the_viewport_when_the_anchor_is_off_screen()
+    {
+        var h = new Harness();
+        h.AddDrawing(DrawingType.TrendLine);          // anchors on bar 1 and bar 10
+        // Narrow the window, then pan right so bar 1 is off the left edge.
+        h.Store.Dispatch(new ZoomAction(15));
+        h.Store.Dispatch(new PanAction(h.Bars.Count));
+        h.Store.Dispatch(new SetCursorAction(int.MaxValue));
+        Assert.True(h.Store.State.ViewportStartIndex > 1,
+            $"fixture must leave anchor 1 off-screen; start={h.Store.State.ViewportStartIndex} len={h.Store.State.ViewportLength}");
+
+        h.Cycle();
+
+        Assert.Equal(1, h.Store.State.CurrentDataIndex);
+        Assert.True(h.Store.State.ViewportStartIndex <= 1,
+            "the viewport must follow the cursor; a clamp to the visible range is the defect this replaced");
+    }
+
+    /// <summary>
+    /// An anchor with no bar to stand on leaves the cursor alone, and still speaks.
+    ///
+    /// <para><c>BarIndexOf</c> answers 0 for any date BEFORE <c>data[0]</c> — recorded defect
+    /// n8 — so an anchor dragged off the left of the loaded history would otherwise send the
+    /// cursor to bar 0 and let the sentence describe it in the grammar of "start anchor". The
+    /// sentence still carries the anchor's own date, which is the honest answer either way.</para>
+    /// </summary>
+    [Fact]
+    public void Cycling_to_an_anchor_outside_the_loaded_bars_does_not_move_the_cursor()
+    {
+        var h = new Harness();
+        h.AddDrawing(DrawingType.TrendLine, shape: d => d.AnchorDate1 = h.Bars[0].Date.AddYears(-1));
+        h.Store.Dispatch(new SetCursorAction(20));
+        int before = h.Store.State.CurrentDataIndex;
+
+        h.Cycle();                                     // anchor 1: a year before bar 0
+
+        Assert.Equal(before, h.Store.State.CurrentDataIndex);
+        Assert.Single(h.Spoken(FeedbackType.StateChange));   // it is not silent about it
+
+        h.Cycle();                                     // anchor 2 is a real bar and does move
+        Assert.Equal(10, h.Store.State.CurrentDataIndex);
+    }
+
     [Fact]
     public void A_single_anchor_drawing_says_so_instead_of_pretending_to_cycle()
     {
@@ -787,6 +869,15 @@ public sealed class DrawingAnchorNudgeTests
         public string CacheDirectory { get; }
     }
 
+    /// <summary>
+    /// The four nudges are on SHIFT+ARROW, with no Alt and no Ctrl.
+    ///
+    /// <para>They shipped on Alt+Shift+Arrow on 2026-09-03 and moved the same day: Orca takes
+    /// Alt+Shift+Arrow for table-cell navigation, so on the desktop this application is built
+    /// for the chord never reached the page at all. <c>!b.Alt</c> is asserted, not merely
+    /// omitted — the failure that matters is the old chord still being registered ALONGSIDE
+    /// the new one, and a test that only checked <c>b.Shift</c> would pass on both.</para>
+    /// </summary>
     [Fact]
     public void The_default_profile_binds_the_six_nudge_chords()
     {
@@ -795,12 +886,16 @@ public sealed class DrawingAnchorNudgeTests
         {
             var mgr = new ShortcutManager(new TempPaths(dir));
             var s = mgr.CurrentProfile.Shortcuts;
-            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorEarlier && b.Key == "LEFT"  && b.Alt && b.Shift && !b.Ctrl);
-            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorLater   && b.Key == "RIGHT" && b.Alt && b.Shift && !b.Ctrl);
-            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorUp      && b.Key == "UP"    && b.Alt && b.Shift && !b.Ctrl);
-            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorDown    && b.Key == "DOWN"  && b.Alt && b.Shift && !b.Ctrl);
+            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorEarlier && b.Key == "LEFT"  && b.Shift && !b.Alt && !b.Ctrl);
+            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorLater   && b.Key == "RIGHT" && b.Shift && !b.Alt && !b.Ctrl);
+            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorUp      && b.Key == "UP"    && b.Shift && !b.Alt && !b.Ctrl);
+            Assert.Contains(s, b => b.Command == SystemCommand.NudgeAnchorDown    && b.Key == "DOWN"  && b.Shift && !b.Alt && !b.Ctrl);
             Assert.Contains(s, b => b.Command == SystemCommand.CycleDrawingAnchor && b.Key == "G" && b.Ctrl && b.Alt && b.Shift);
             Assert.Contains(s, b => b.Command == SystemCommand.SnapAnchorToBar    && b.Key == "B" && b.Ctrl && b.Alt && b.Shift);
+
+            // The chord it moved off must be GONE, not merely superseded. Two live bindings on
+            // one command is how a "fixed" chord keeps answering to its old spelling.
+            Assert.DoesNotContain(s, b => b.Key is "LEFT" or "RIGHT" or "UP" or "DOWN" && b.Alt && b.Shift);
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch { } }
     }

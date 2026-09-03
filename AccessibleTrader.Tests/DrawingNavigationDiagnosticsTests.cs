@@ -64,10 +64,25 @@ public sealed class DrawingNavigationDiagnosticsTests
         return $"len={a.Length} nonNaN={n} firstNonNaN={first} lastNonNaN={last}";
     }
 
-    // ── Q1: what does CalculateDrawingData return for a TrendLine? ───────────
+    // ── A trend line stops where it was anchored (was Q1) ────────────────────
 
+    /// <summary>
+    /// The line's values exist only between its anchors unless a flag says otherwise.
+    ///
+    /// <para><b>The defect this replaces.</b> <c>CalculateLinearPoints</c> took
+    /// <c>extL</c>/<c>extR</c> and never read either one; it filled the whole array. This test
+    /// stood in its Q1 form asserting exactly that, with <c>ExtendLeft = false,
+    /// ExtendRight = false</c> written into the fixture and the comment "accepted and ignored".
+    /// Cody heard it from the other side: a trend line placed at bar 30 spoke a price at bar 0,
+    /// so "it sounds like the trend line extends further left than I placed the start marker".
+    /// </para>
+    ///
+    /// <para>Bar 30 and bar 70 are asserted for the anchors themselves and bars 29 and 71 for
+    /// the boundary, because an off-by-one in the loop bounds is the failure this could
+    /// plausibly regress to and it is invisible to a NaN count.</para>
+    /// </summary>
     [Fact]
-    public void Q1_TrendLine_Line_Component_Covers_EVERY_Bar_Not_Just_The_Span()
+    public void TrendLine_Line_Component_Covers_Only_The_Span_Between_Its_Anchors()
     {
         var bars = Bars();
         var svc = RealDrawingService();
@@ -76,7 +91,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
-            ExtendLeft = false, ExtendRight = false,   // explicitly OFF
+            ExtendLeft = false, ExtendRight = false,
         };
 
         var res = svc.CalculateDrawingData(d, bars);
@@ -88,9 +103,47 @@ public sealed class DrawingNavigationDiagnosticsTests
 
         Assert.Single(res);                       // ONE component, named "Line"
         Assert.Equal(bars.Count, line.Length);
-        Assert.DoesNotContain(line, double.IsNaN);  // dense over the WHOLE array
-        // ExtendLeft/ExtendRight are accepted and ignored — the line is drawn everywhere.
+
+        Assert.True(double.IsNaN(line[0]),  "bar 0 is 30 bars before the start anchor");
+        Assert.True(double.IsNaN(line[29]), "bar 29 is one bar before the start anchor");
         Assert.Equal(bars[30].Close, line[30], 6);
+        Assert.Equal(bars[70].Close, line[70], 6);
+        Assert.False(double.IsNaN(line[50]), "bar 50 is between the anchors");
+        Assert.True(double.IsNaN(line[71]), "bar 71 is one bar past the end anchor");
+        Assert.True(double.IsNaN(line[99]), "bar 99 is 29 bars past the end anchor");
+    }
+
+    /// <summary>
+    /// The flags are not merely honoured, they are honoured SEPARATELY — the fix would also
+    /// pass a single-flag test if it had collapsed both onto one condition, and every drawing
+    /// the user places is created with exactly this asymmetric pair (<c>ExtendRight</c> true,
+    /// <c>ExtendLeft</c> false), which is the trader's convention: project forward, stop dead
+    /// at the anchor you started from.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, true,  true )]   // segment: NaN both sides
+    [InlineData(false, true,  true,  false)]   // as placed: stops left, runs right
+    [InlineData(true,  false, false, true )]   // stops right, runs left
+    [InlineData(true,  true,  false, false)]   // the old, wrong, unconditional behaviour
+    public void TrendLine_Extend_Flags_Are_Read_Independently(
+        bool extendLeft, bool extendRight, bool nanBeforeStart, bool nanAfterEnd)
+    {
+        var bars = Bars();
+        var svc = RealDrawingService();
+        var d = new DrawingData
+        {
+            Type = DrawingType.TrendLine,
+            AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
+            AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendLeft = extendLeft, ExtendRight = extendRight,
+        };
+
+        var line = svc.CalculateDrawingData(d, bars)["Line"];
+        _out.WriteLine($"extL={extendLeft} extR={extendRight}: " + Shape(line));
+
+        Assert.Equal(nanBeforeStart, double.IsNaN(line[0]));
+        Assert.Equal(nanAfterEnd,    double.IsNaN(line[99]));
+        Assert.Equal(bars[30].Close, line[30], 6);   // the anchors themselves always exist
         Assert.Equal(bars[70].Close, line[70], 6);
     }
 
@@ -110,6 +163,7 @@ public sealed class DrawingNavigationDiagnosticsTests
                 Type = t,
                 AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
                 AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+                ExtendRight = true,        // as DrawingInteractionManager places one
                 AnchorDate3 = bars[85].Date, AnchorPrice3 = bars[85].Close,
                 ChannelWidth = 5, Text = "note",
             };
@@ -176,6 +230,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         _out.WriteLine("series.Name = " + series.Config.Name);
@@ -195,10 +250,24 @@ public sealed class DrawingNavigationDiagnosticsTests
         Assert.Equal(3, router.Said.Count);
     }
 
-    // ── Q3: Shift+Space / Ctrl+Shift+Space on a focused drawing ─────────────
+    // ── Shift+Space / Ctrl+Shift+Space on a focused drawing (was Q3) ────────
 
+    /// <summary>
+    /// A drawing that the plan accepts is a drawing the sequencer sounds.
+    ///
+    /// <para><b>The defect this replaces.</b> Two independent filters. <c>PlaybackPlan</c>
+    /// accepted a focused drawing in Series and Component scope, so the dispatcher did not
+    /// refuse and the coordinator announced "Playing TrendLine Drawing from ..., N bars" —
+    /// and then <c>AudioSequencer.BuildVoicePlan</c> skipped it on <c>IsDrawing</c> and built
+    /// an EMPTY voice plan. Playback ran its full length in silence. That is precisely the
+    /// disagreement between announcement and behaviour that <c>PlaybackPlan</c>'s own summary
+    /// says the type exists to prevent, and it survived because each half was read alone.</para>
+    ///
+    /// <para>So both halves are asserted here, in one test, against one series: the plan is
+    /// playable AND the voice plan is not empty. Splitting them is how this came back.</para>
+    /// </summary>
     [Fact]
-    public void Q3_PlaybackPlan_Accepts_A_Drawing_But_The_Sequencer_Renders_No_Voices()
+    public void A_drawing_the_plan_accepts_gets_voices_from_the_sequencer()
     {
         var bars = Bars();
         var d = new DrawingData
@@ -206,6 +275,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         var state = StateAt(bars, series, 50);
@@ -216,11 +286,11 @@ public sealed class DrawingNavigationDiagnosticsTests
         var planC = PlaybackPlan.Resolve(state, PlaybackScope.Component);
         _out.WriteLine($"PlaybackPlan(Component): IsPlayable={planC.IsPlayable} refusal={planC.RefusalReason ?? "<none>"}");
 
-        // The dispatcher therefore does NOT refuse; playback "starts".
+        // The dispatcher does not refuse; playback starts.
         Assert.True(plan.IsPlayable);
         Assert.True(planC.IsPlayable);
 
-        // ...and the sequencer builds an EMPTY voice plan, because BuildVoicePlan skips IsDrawing.
+        // ...and the sequencer reserves voice slots for it, so something is actually heard.
         var driver = Substitute.For<IAudioDriver>();
         var store = Substitute.For<IWorkspaceStore>();
         store.State.Returns(state);
@@ -230,7 +300,7 @@ public sealed class DrawingNavigationDiagnosticsTests
         var m = typeof(AudioSequencer).GetMethod("BuildVoicePlan", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var voicePlan = (System.Collections.ICollection)m.Invoke(seq, new object?[] { new[] { series }, -1 })!;
         _out.WriteLine($"BuildVoicePlan voices = {voicePlan.Count}");
-        Assert.Empty(voicePlan);
+        Assert.NotEmpty(voicePlan);
 
         // Control: the same call on a NON-drawing series with one component produces a voice.
         var ctrlCfg = new SeriesConfig { Id = "ema", Name = "EMA", IndicatorCode = "EMA", Pane = "Main" };
@@ -328,6 +398,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         // What a workspace restore hands over (RegisterSeriesFromConfig) and what
@@ -371,6 +442,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         series.Data.FirstBarDate = bars[0].Date;
@@ -412,6 +484,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         series.Data.FirstBarDate = bars[0].Date;
@@ -449,6 +522,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
 
@@ -479,6 +553,7 @@ public sealed class DrawingNavigationDiagnosticsTests
             Type = DrawingType.TrendLine,
             AnchorDate1 = bars[30].Date, AnchorPrice1 = bars[30].Close,
             AnchorDate2 = bars[70].Date, AnchorPrice2 = bars[70].Close,
+            ExtendRight = true,        // as DrawingInteractionManager places one
         };
         var series = BuildDrawingSeriesLikeProduction(DrawingType.TrendLine, "Trend line", d, bars);
         series.Data.FirstBarDate = bars[0].Date;
@@ -510,7 +585,7 @@ public sealed class DrawingNavigationDiagnosticsTests
         return dispatched[0].Data;
     }
 
-    // ── Q6: what must be true for Alt+Shift+Arrow to reach the manager at all ──
+    // ── Q6: what must be true for Shift+Arrow to reach the manager at all ──
 
     private static WorkspaceState LoadedChart()
     {

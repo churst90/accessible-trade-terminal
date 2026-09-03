@@ -783,7 +783,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                                 msg += $". {focusedSeries.FriendlyName} has {distinctSubPanes + 1} panes";
                         }
 
-                        // A focused drawing: say which anchor Alt+Shift+Arrow would move, without
+                        // A focused drawing: say which anchor Shift+Arrow would move, without
                         // moving it. Nudging and cycling both change state; this is the only
                         // way to just ask.
                         string? anchor = _drawings?.SelectedAnchorSummary();

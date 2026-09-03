@@ -135,7 +135,7 @@ namespace AccessibleTrader.Core.Models
 
     /// <summary>Which way a drawing anchor is being nudged from the keyboard.</summary>
     public enum AnchorNudgeDirection { Earlier, Later, Up, Down }
-    /// <summary>Alt+Shift+Arrow — move the focused drawing's selected anchor one step.
+    /// <summary>Shift+Arrow — move the focused drawing's selected anchor one step.
     /// Handled by <see cref="Services.Accessibility.DrawingInteractionManager"/>.</summary>
     public record NudgeDrawingAnchorEvent(AnchorNudgeDirection Direction);
     /// <summary>Ctrl+Alt+Shift+G — select the next anchor of the focused drawing.</summary>

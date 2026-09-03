@@ -430,14 +430,28 @@ window.accessibleTrader = {
             const isFunctionKey = /^F\d{1,2}$/.test(e.key) && !(e.key === 'F10' && isShifted);
             if ((isFormControl || isEditable) && !isModified && e.key !== 'Escape' && !isFunctionKey) return;
 
-            // Alt+Shift+Arrow nudges a drawing anchor. It is chart-scoped — the dispatcher drops
-            // it unless the chart has focus — so inside a text field the only thing trapping it
-            // could do is cost the user the field's own binding: on macOS Option+Shift+Arrow is
-            // select-by-word. Leave it to the field. (Ctrl+Alt+Shift+G / B are not arrows and
-            // print nothing, so they still go through.)
+            // A Shift-modified arrow belongs to the field it is pressed in, Alt or no Alt.
+            //
+            // Shift+Arrow nudges a drawing anchor (it was Alt+Shift+Arrow until 2026-09-03;
+            // Orca claims that chord for table-cell navigation, so it never reached the page).
+            // Shift+Arrow is SELECT-BY-CHARACTER in every text field, and Alt+Shift+Arrow is
+            // select-by-WORD on macOS. Neither may be trapped in a field: the nudge is
+            // chart-scoped, so the dispatcher would drop it anyway, and the only thing
+            // preventDefault could achieve there is taking the selection away.
+            //
+            // WHICH HALF OF THIS LINE IS LOAD-BEARING, measured rather than assumed: delete it
+            // and only the ALT+Shift case regresses. `isModified` is (ctrl || alt), so Shift on
+            // its own already returns at the generic form-control guard above, and no chord
+            // answers to Alt+Shift+Arrow any more — trapping it would cost a real macOS binding
+            // for nothing at all. The Shift-only half is written out anyway, and deliberately:
+            // it states the property the chord was accepted under rather than leaning on the
+            // spelling of one boolean twenty lines up, which is exactly the coupling that made
+            // F1-F12 dead in every text field until 2026-09-02.
+            //
+            // (Ctrl+Alt+Shift+G / B are not arrows and print nothing, so they still go through.)
             const isArrowKey = e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
                                e.key === 'ArrowUp'   || e.key === 'ArrowDown';
-            if ((isFormControl || isEditable) && isArrowKey && e.altKey && isShifted && !e.ctrlKey) return;
+            if ((isFormControl || isEditable) && isArrowKey && isShifted && !e.ctrlKey) return;
 
             // ── Scroll keys belong to the dialog while a dialog owns the keyboard ───
             //

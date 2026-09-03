@@ -117,6 +117,80 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-03, SIXTH pass — a second bug-report session on the same
+> day. Cody reported four more things from real use and every one was a real defect; the two
+> drawing items on the previous pass's list (2 and 3a/3b) were among them, so they are DONE and
+> the numbering below is what is LEFT. He also asked about the deploy patch and the segfault;
+> both answers are at the end of this block.**
+>
+> ### DONE this pass
+>
+> **1. Drawings sonify.** TWO filters, which is why fixing either alone looks like no change:
+> `PlaybackPlan.Resolve`'s chart scope and `AudioSequencer.BuildVoicePlan`. In Series/Component
+> scope the second alone made `PlaybackPlan` a liar — announcement, then no voice. Timbre is
+> pink `NoiseAmount` (0.22 floor) applied **LAST**, after the per-display-type block that gives
+> every Line a brown tinge — placed before it the type was overwritten and the guard caught it.
+> NaN bars now `StopVoice`; the voices are continuous and glide, so a drawing would otherwise
+> sweep in and out of 0 Hz twice a pass. Guards: `DrawingPlaybackVoiceTests` (3),
+> `SonificationTimbreTests` (2), `PlaybackNarrationTests` (2), the inverted Q3 diagnostic.
+> **Still open from the original item 2:** the dedicated factory patch per sound theme, playing
+> the drawing WITH price *announced*, the cross earcon and the anchor clicks.
+>
+> **2. `Shift+Arrow` is the nudge** (was `Alt+Shift+Arrow`, which Orca takes for table-cell
+> navigation). `keyboard.js` releases EVERY shifted arrow to form controls. **Measured, not
+> assumed: only the Alt+Shift half of that carve-out is load-bearing** — `isModified` is
+> `(ctrl || alt)`, so Shift alone already returns at the generic guard; the Shift-only half is
+> written out to state the property, not because it changes behaviour today. The Alt+Shift half
+> is kept on purpose (select-by-word on macOS, no command answers to it now).
+>
+> **3. `Ctrl+Alt+Shift+G` moves the cursor** to the selected anchor's bar. `NavigateAction`, not
+> `SetCursorAction` — `CursorOnlyJump` CLAMPS to the viewport, so an off-screen anchor would land
+> on the leftmost visible bar and report success. Defect n8 is guarded: a date outside the loaded
+> bars leaves the cursor alone. Nothing extra is spoken.
+>
+> **4. `CalculateLinearPoints` reads `extL`/`extR`** (was recorded as 9(f) and is what Cody heard
+> as "the trend line extends further left than I placed the start marker"). It filled the whole
+> array. Two pinned-defect tests had to be inverted, and **eight fixtures across the diagnostics
+> file needed `ExtendRight = true` to match how `DrawingInteractionManager` actually places a
+> drawing** — a fixture that does not is testing a drawing no user can make.
+>
+> **5. The status strip's `Last Feedback:` label is gone.** It sat INSIDE the `role="status"`
+> live region, which is announced by its whole content on every change, so it was read before
+> every sentence the app has ever spoken. Same mistake the paper badge made in the same element;
+> the badge had already been moved out and this survived because it never changed.
+>
+> ### Cody's two questions, answered
+>
+> - **The deploy patch is a NO-OP.** `patches/2026-09-03-hosted-deploy-notes.patch` creates
+>   `patches/HOSTED-DEPLOY-NOTES.md`, and that file is already on disk BYTE-IDENTICAL (verified by
+>   applying the patch into a scratch repo and diffing). `patches/` is gitignored, so there is
+>   nothing to commit either way. Do not apply it.
+> - **The segfault: fixed, deployed, still UNPROVEN.** `4c6e3f45` went to both heads at
+>   2026-09-03 18:42. At ~1.5 days between crashes, silence needs about a week to mean anything —
+>   the check is §6 of `patches/HOSTED-DEPLOY-NOTES.md`. Two things are still open and neither is
+>   the crash itself: **(a) the dump capture is still broken** (`PrivateTmp=true` destroyed all 16
+>   dumps and would destroy the next one — it edits systemd units, so it is Cody's call), and
+>   **(b) the real fix** is per-frame `using` locals for `_textPaint`/`_textFont` so
+>   `ChartRenderer` owns no native state, 14 sites on the render path. The empty `Dispose()` is
+>   correct, not a patch — but it leaves the type owning native handles it has no business owning.
+>
+> ### LEFT TO DO — the rest of 2.6.0, in this order
+>
+> **1. Wire up the drawing speech contract.** Unchanged from the fifth pass below — `DrawingSpeech.cs`
+> is still committed with no callers, and the design is `scratchpad/drawing-speech-design.md`.
+> **Note what changed underneath it this pass:** a trend line is now NaN outside its span, so the
+> position clause has real data to describe and 9(f) is no longer the blocker it was.
+>
+> **2. Drawing keyboard, part (c) — the two silent gates must speak** (Boundary tier, earcon per
+> press, sentence once): a modal being open, and the chart not having focus. Both are today
+> indistinguishable from an unbound key. Cody agreed: allow the nudge while the OBJECT TREE is top
+> of the stack, refuse only under editing dialogs. Parts (a) and (b) are done above.
+>
+> **3. Settings restructure**, **4. Modal background `inert`**, **5. Alerts consolidation**,
+> **6. Docs**, **7. Object Tree follow-ups and the rest** — all unchanged; see the fifth-pass
+> block immediately below for the full text of each.
+
+
 > **START HERE (current as of 2026-09-03, FIFTH pass — THE SEGFAULT IS FIXED, drawings follow
 > the live edge, and the toolbar has ONE convention. This was a bug-report session: Cody
 > reported four things from real use and every one was a real defect. What is DONE is listed

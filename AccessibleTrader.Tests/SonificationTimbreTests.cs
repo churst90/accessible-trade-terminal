@@ -289,4 +289,58 @@ public sealed class SonificationTimbreTests
 
         Assert.Equal(0f, Play(osc, Bar(50, 51, 49, 50), double.NaN).Volume);
     }
+
+    // ── A drawing is a drawing by ROUGHNESS ─────────────────────────────────────────
+
+    /// <summary>
+    /// A drawing's voice carries pink noise an indicator's does not, and carries it at the SAME
+    /// PITCH.
+    ///
+    /// <para>Drawings became audible in playback on 2026-09-03 (they had been filtered out of
+    /// both <c>PlaybackPlan</c> and <c>AudioSequencer.BuildVoicePlan</c>). Once a trend line
+    /// plays alongside price, something has to tell the two apart, and the three obvious
+    /// channels are already spoken for: pitch is the value, volume is the component's own level,
+    /// pan is the bar's position across the viewport. Changing any of them would mean a line
+    /// that lies about its own value. Roughness is the free channel.</para>
+    ///
+    /// <para>Frequency is asserted EQUAL between the two, which is the half that makes this a
+    /// rule rather than a difference: "the drawing sounds different" would also be satisfied by
+    /// detuning it, and detuning it is the defect.</para>
+    /// </summary>
+    [Fact]
+    public void A_drawing_voice_is_rougher_than_an_indicator_voice_at_the_same_pitch()
+    {
+        var comp = Component(ComponentDisplayType.Line, ComponentRole.None, "Line");
+        var bar  = Bar(100, 101, 99, 100.5);
+
+        var indicator = Play(comp, bar, 50, series: Series("ema"));
+
+        var drawn = Series("trend");
+        drawn.Drawing = new DrawingData { Type = DrawingType.TrendLine };
+        Assert.True(drawn.IsDrawing, "fixture must actually be a drawing");
+        var drawing = Play(comp, bar, 50, series: drawn);
+
+        Assert.True(drawing.NoiseAmount > indicator.NoiseAmount,
+            $"a drawing must be rougher than the same component on an indicator " +
+            $"(drawing {drawing.NoiseAmount}, indicator {indicator.NoiseAmount})");
+        Assert.Equal("pink", drawing.NoiseType);
+        Assert.Equal(indicator.Frequency, drawing.Frequency);
+        Assert.Equal(indicator.Volume, drawing.Volume);
+        Assert.Equal(indicator.Pan, drawing.Pan);
+    }
+
+    /// <summary>The roughness is a FLOOR, not an assignment: a drawing whose component already
+    /// carries more texture keeps its own, exactly as the overbought/oversold zone rule does one
+    /// line above it in the same method.</summary>
+    [Fact]
+    public void A_drawing_keeps_a_rougher_texture_of_its_own()
+    {
+        var comp = Component(ComponentDisplayType.Line, ComponentRole.None, "Line");
+        comp.NoiseAmount = 0.8f;
+
+        var drawn = Series("trend");
+        drawn.Drawing = new DrawingData { Type = DrawingType.TrendLine };
+
+        Assert.Equal(0.8f, Play(comp, Bar(100, 101, 99, 100.5), 50, series: drawn).NoiseAmount);
+    }
 }

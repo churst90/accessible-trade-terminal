@@ -412,8 +412,8 @@ anchors is *selected* — the first, until you change it — and these keys move
 
 | Key | Action |
 |-----|--------|
-| Alt+Shift+Left / Alt+Shift+Right | Move the selected anchor one **bar** earlier / later. A bar, not a day: weekends and halts are stepped over, and past the last bar the anchor projects into the chart's right margin ("June 30, 3 bars past the last bar"). |
-| Alt+Shift+Up / Alt+Shift+Down | Move the selected anchor's price by 1% of the visible price range — the step scales with your zoom, like a mouse drag — and never by less than one unit in the last spoken decimal. |
+| Shift+Left / Shift+Right | Move the selected anchor one **bar** earlier / later. A bar, not a day: weekends and halts are stepped over, and past the last bar the anchor projects into the chart's right margin ("June 30, 3 bars past the last bar"). |
+| Shift+Up / Shift+Down | Move the selected anchor's price by 1% of the visible price range — the step scales with your zoom, like a mouse drag — and never by less than one unit in the last spoken decimal. |
 | Ctrl+Alt+Shift+G | Select the next anchor of the focused drawing. The first press on a newly focused drawing only *says* which anchor is selected; the next moves on, and it wraps. |
 | Ctrl+Alt+Shift+B | Snap the selected anchor's price to its bar's high, low, open or close: the nearest first, then the others in that order on repeated presses. A price-only anchor (a Fibonacci level) snaps to the cursor bar. |
 | Shift+F1 | The context summary also names the selected anchor — the only way to hear it without moving it. |
@@ -427,8 +427,11 @@ Exact values are typed in **Properties** (`P`), which has a price and date field
 anchor. The same six actions are in the drawing's context menu (`Shift+F10`) for voice
 control, switch access and single-pointer use.
 
-Three platform notes. On **Windows** with more than one keyboard layout installed, `Alt+Shift`
-pressed and released *on its own* switches layout; hold `Alt+Shift` and press the arrow.
+Three platform notes. `Shift+Arrow` is **select by character** in every text box and in a
+screen reader's browse mode, so the terminal deliberately leaves it alone whenever the focus is
+in an `<input>`, `<textarea>` or `<select>` — the nudge only fires when the chart itself has
+focus. (It moved here from `Alt+Shift+Arrow` on 2026-09-03: Orca claims that chord for
+table-cell navigation, so on Linux with a screen reader running it never reached the app.)
 On **macOS with VoiceOver**, the `Ctrl+Alt+Shift+letter` family is VoiceOver's own modifier
 (Control+Option) plus Shift when the modifier is set to Control+Option: set VoiceOver's
 modifier to Caps Lock, or pass a single chord through with `VO+Tab`. On the **Linux web

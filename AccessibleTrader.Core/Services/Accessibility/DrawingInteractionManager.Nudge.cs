@@ -606,10 +606,50 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 slotIndex = _nudgeSlotIndex;
             }
 
+            MoveCursorToAnchor(series, slots[slotIndex]);
+
             string sentence = DescribeAnchor(series, slots[slotIndex], slotIndex, slots.Count);
             if (slots.Count == 1) sentence += " This drawing has one anchor.";
             _earcons?.PlayInfo();   // under F2 the sentence is muted; the key must still be heard
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, sentence, true));
+        }
+
+        /// <summary>
+        /// Put the chart cursor on the selected anchor's bar.
+        ///
+        /// <para>Selecting an anchor and leaving the cursor where it was is what made this key
+        /// feel like it only ever reached the FIRST anchor: the sentence named "end anchor"
+        /// while the chart's own position — and everything that reads from it, the bar
+        /// readback, the tone under the arrows, the range the price nudge steps by — still
+        /// stood wherever the user had been. Cycling now takes you there.</para>
+        ///
+        /// <para><b><see cref="NavigateAction"/>, not <c>SetCursorAction</c>.</b> SetCursor
+        /// CLAMPS the target to the current viewport, so an anchor scrolled off the left edge
+        /// would silently land the cursor on the leftmost visible bar and report success —
+        /// the same wrong answer, one step later. Navigate scrolls the viewport to bring the
+        /// bar into view, which is what every other jump in the application does.</para>
+        ///
+        /// <para><b>Only a date inside the loaded bars is jumped to.</b>
+        /// <see cref="BarIndexOf"/> answers 0 for any date BEFORE <c>data[0]</c> and
+        /// <c>Count - 1 + offset</c> for one past the last bar, so both out-of-range cases
+        /// would otherwise land somewhere plausible and wrong — and the one before
+        /// <c>data[0]</c> would land on bar 0 while the sentence described it in the grammar
+        /// of "start anchor", which is precisely the confusion this method exists to end. A
+        /// price-only anchor (a Fibonacci level) has no date and does not move the cursor.</para>
+        ///
+        /// <para>Nothing extra is spoken, in either case. The sentence the caller is about to
+        /// speak already carries the anchor's own price and date, which is the honest answer
+        /// to "where is it?" whether or not the cursor could follow — and a second utterance
+        /// 300 ms from the first is the double-readback defect this file was written to
+        /// avoid.</para>
+        /// </summary>
+        private void MoveCursorToAnchor(ChartSeries series, int slot)
+        {
+            var data = _store.State.Data;
+            if (data == null || data.Count == 0) return;
+            if (GetAnchorDate(series.Drawing!, slot) is not { } date) return;
+            if (date < data[0].Date || date > data[^1].Date) return;
+            _store.Dispatch(new NavigateAction(BarIndexOf(data, date)));
         }
 
         // ── Snap ─────────────────────────────────────────────────────────────

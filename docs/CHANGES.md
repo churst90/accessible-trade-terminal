@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The line you drew that played silently, the anchor key that went nowhere, and the label that was read before every sentence (2026-09-03)
+
+Four things reported from real use, all four real defects.
+
+- **Drawings sonify during playback.** `Space`, `Shift+Space` and `Ctrl+Shift+Space` played
+  everything on the chart except the lines you drew on it — the one place a line's shape against
+  price is worth hearing was the only place it was silent, while arrowing bar by bar (where the
+  value is also *spoken*) was the only route to it. Two independent filters were removing them,
+  which is why fixing either alone would have looked like no change: chart scope excluded
+  drawings in `PlaybackPlan.Resolve`, and `AudioSequencer.BuildVoicePlan` excluded them again. In
+  series and component scope the second filter alone made `PlaybackPlan` a liar — the plan
+  accepted the drawing, the terminal announced "Playing TrendLine Drawing from …, N bars", and
+  then no voice played at all, which is exactly the disagreement between announcement and
+  behaviour that `PlaybackPlan` exists to prevent. A drawing still has to be visible and unmuted
+  like anything else, and a chart holding nothing but a muted drawing now says "every series is
+  muted" rather than "no series is loaded".
+- **A drawing is told apart by TIMBRE.** It carries pink noise an indicator's voice does not,
+  at the same pitch, the same volume and the same pan — those three already mean something (the
+  value, the component's own level, the bar's position across the viewport), so none of them was
+  free to say "this one is a line you drew". The rule is applied last, after the per-display-type
+  colouring that gives every Line a brown tinge, because placed before it the type was overwritten
+  and the difference collapsed to "slightly rougher indicator".
+- **A bar a drawing does not reach is silent, not skipped.** The sequencer's voices are continuous
+  and glide, so a component with no value simply left its voice running — survivable for an
+  indicator with a short warm-up at the very start of the chart, and not for a drawing, which has
+  no value on *both* sides of a span that can sit anywhere. A hundred-bar trend line on a
+  five-hundred-bar chart would have swept in and out of 0 Hz twice per pass. The voice now stops.
+- **A trend line stops where you anchored it.** `CalculateLinearPoints` accepted `extL` and
+  `extR` and read neither, filling every bar of the array — so a line drawn between bar 200 and
+  bar 300 had a value at bar 0, was drawn across the whole chart, and spoke a price at every bar
+  in it. Cody heard it from the other side: "it sounds like the trend line extends further left
+  than I placed the start marker." It did. The flags are read independently now, which matters
+  because every drawing you place is created with the asymmetric pair a trader expects — project
+  forward, stop dead at the point you started from.
+- **`Ctrl+Alt+Shift+G` moves the cursor to the anchor it selects.** It named an anchor and left
+  the chart standing where it was, so whichever anchor happened to be near you felt like the only
+  one the key could reach. It dispatches a navigation, not a cursor set: a cursor set is clamped
+  to the current viewport, so an anchor scrolled off the left edge would have landed on the
+  leftmost visible bar and reported success — the same wrong answer one step later. An anchor
+  outside the loaded bars leaves the cursor alone rather than landing on bar 0, and the sentence
+  still carries its own date, which is the honest answer to "where is it?" either way.
+- **The anchor nudge is `Shift+Arrow`.** It shipped that morning on `Alt+Shift+Arrow`, which Orca
+  claims for table-cell navigation — so on the desktop this application is built for, the chord
+  never reached the page. `Shift+Arrow` is the last free arrow chord and it costs
+  select-by-character, so `keyboard.js` releases *every* shifted arrow to form controls;
+  `Alt+Shift+Arrow` stays released too, because it is select-by-word on macOS and no command
+  answers to it any more.
+- **The status strip announces the sentence, not a label before it.** A static "Last Feedback:"
+  span sat inside the `role="status"` live region, and a live region is announced by its whole
+  content on every change — so it was read before every message the application has ever spoken.
+  It is the same mistake the paper-trading badge made in the same element, and the badge had
+  already been moved out for it; this one survived because it never changed, and a string that
+  never changes looks harmless right up until it is spoken.
+
+
 ### The address that named the line, the drawings that froze at the live edge, and the empty span that deleted every tooltip (2026-09-03)
 
 - **The hosted heads stop segfaulting.** Both took roughly two SIGSEGVs a day for a month — 20 in

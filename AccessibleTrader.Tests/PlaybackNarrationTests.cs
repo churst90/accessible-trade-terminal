@@ -461,6 +461,62 @@ namespace AccessibleTrader.Tests
             Assert.Equal(-1, plan.ComponentFilter);
         }
 
+        /// <summary>
+        /// A drawing plays with the chart.
+        ///
+        /// <para>Reported from real use on 2026-09-03: "during chart playback via
+        /// space / ctrl shift space / shift space, trend lines do not sonify, only by moving
+        /// along the x manually with the arrows." Chart scope filtered drawings out here, and
+        /// <c>AudioSequencer.BuildVoicePlan</c> filtered them out again — so the one place a
+        /// line's shape against price is worth hearing was the one place it was silent, while
+        /// arrowing bar by bar (where the value is also SPOKEN) was the only route to it.</para>
+        ///
+        /// <para>Mute is asserted alongside, because "include drawings" and "ignore the
+        /// drawing's own mute" would both turn the first assertion green.</para>
+        /// </summary>
+        [Fact]
+        public void Plan_ChartScope_PlaysDrawingsToo_AndStillHonoursTheirMute()
+        {
+            var s = Loaded();
+            var line = Series("trend", "Trend line (1)", "Line");
+            line.Drawing = new DrawingData
+            {
+                Type = DrawingType.TrendLine,
+                AnchorDate1 = s.Data[10].Date, AnchorPrice1 = 100,
+                AnchorDate2 = s.Data[60].Date, AnchorPrice2 = 120,
+                ExtendRight = true,
+            };
+            Assert.True(line.IsDrawing, "fixture must actually be a drawing");
+            var withLine = s with { ActiveSeries = s.ActiveSeries.Add(line) };
+
+            var plan = PlaybackPlan.Resolve(withLine, PlaybackScope.Chart);
+            Assert.Contains("trend", plan.Series.Select(x => x.Id));
+
+            line.IsMuted = true;
+            Assert.DoesNotContain("trend", PlaybackPlan.Resolve(withLine, PlaybackScope.Chart).Series.Select(x => x.Id));
+        }
+
+        /// <summary>A chart holding nothing but a drawing is not "no series is loaded" — the
+        /// second filter in the same method counted drawings out of the refusal too, so the
+        /// wrong one of the two sentences would have been spoken.</summary>
+        [Fact]
+        public void Plan_AChartOfNothingButAMutedDrawing_SaysMuted_NotNoSeries()
+        {
+            var s = Loaded();
+            var line = Series("trend", "Trend line (1)", "Line");
+            line.Drawing = new DrawingData
+            {
+                Type = DrawingType.TrendLine,
+                AnchorDate1 = s.Data[10].Date, AnchorPrice1 = 100,
+                AnchorDate2 = s.Data[60].Date, AnchorPrice2 = 120,
+            };
+            line.IsMuted = true;
+            var onlyDrawing = s with { ActiveSeries = ImmutableList.Create(line) };
+
+            Assert.Equal(PlaybackPlan.EverySeriesMutedReason,
+                PlaybackPlan.Resolve(onlyDrawing, PlaybackScope.Chart).RefusalReason);
+        }
+
         [Fact]
         public void Plan_SeriesAndComponentScope_StartAtTheCursor_AndPinTheComponent()
         {

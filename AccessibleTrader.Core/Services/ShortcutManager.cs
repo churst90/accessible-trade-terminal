@@ -424,15 +424,20 @@ namespace AccessibleTrader.Core.Services
             // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.
             s.Add(new(SystemCommand.ToggleNarration, "N", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+N
 
-            // Keyboard nudge for drawing anchors. Alt+Shift+Arrow is the one arrow chord that is
-            // free on every host: Ctrl+Alt+Arrow is VoiceOver's modifier and the Linux workspace
-            // switch, Ctrl+Shift+Arrow is select-by-word in text fields, and plain Alt+Arrow is
-            // already pane scrolling. The two companions sit in the three-modifier family, which
-            // the WebHost remap leaves alone. G and B verified free of three-modifier bindings.
-            s.Add(new(SystemCommand.NudgeAnchorEarlier, "LEFT",  Alt: true, Shift: true));
-            s.Add(new(SystemCommand.NudgeAnchorLater,   "RIGHT", Alt: true, Shift: true));
-            s.Add(new(SystemCommand.NudgeAnchorUp,      "UP",    Alt: true, Shift: true));
-            s.Add(new(SystemCommand.NudgeAnchorDown,    "DOWN",  Alt: true, Shift: true));
+            // Keyboard nudge for drawing anchors. SHIFT+ARROW, changed from Alt+Shift+Arrow on
+            // 2026-09-03: Alt+Shift+Arrow is Orca's table-cell navigation, so on the machine this
+            // application is built for the chord never reached the page. Cody made the call
+            // knowing the two costs. (1) Shift+Arrow is select-by-character in every text field
+            // and in Orca browse mode, so keyboard.js MUST release it to form controls — the
+            // form-control guard there is what stops this repeating the F1-F12-dead-in-fields
+            // defect. (2) It is the last free arrow chord: Ctrl+Alt+Arrow is VoiceOver's modifier
+            // and the Linux workspace switch, Ctrl+Shift+Arrow is select-by-word, plain
+            // Alt+Arrow is pane scrolling and plain Ctrl+Arrow is the jump. There is no room
+            // left to grow, which is why the two companions stay in the three-modifier family.
+            s.Add(new(SystemCommand.NudgeAnchorEarlier, "LEFT",  Shift: true));
+            s.Add(new(SystemCommand.NudgeAnchorLater,   "RIGHT", Shift: true));
+            s.Add(new(SystemCommand.NudgeAnchorUp,      "UP",    Shift: true));
+            s.Add(new(SystemCommand.NudgeAnchorDown,    "DOWN",  Shift: true));
             s.Add(new(SystemCommand.CycleDrawingAnchor, "G", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.SnapAnchorToBar,    "B", Ctrl: true, Alt: true, Shift: true));
 

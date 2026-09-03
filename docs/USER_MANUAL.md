@@ -1598,11 +1598,11 @@ value is a route, but it is not the same thing as "a little to the right", which
 the drag was for. Now it has a keyboard equivalent. Focus the drawing with `Page Up` or
 `Page Down` — or pick it in the Object Tree — and:
 
-- `Alt+Shift+Left` and `Alt+Shift+Right` move the selected anchor one **bar** earlier or
+- `Shift+Left` and `Shift+Right` move the selected anchor one **bar** earlier or
   later. A bar, not a day: on a daily chart Friday's next bar is Monday, and a halt is
   stepped over the same way. Past the last bar the anchor projects into the chart's right
   margin, and the readback says so: "June 30, 3 bars past the last bar."
-- `Alt+Shift+Up` and `Alt+Shift+Down` move its price by one percent of the price range you
+- `Shift+Up` and `Shift+Down` move its price by one percent of the price range you
   can currently see, so the step follows your zoom the way a drag would, and never by less
   than the last decimal the price is spoken with.
 - `Ctrl+Alt+Shift+G` selects the next anchor. On a drawing you have just focused, the first

@@ -224,19 +224,23 @@ namespace AccessibleTrader.Core.Models
         // Before 2026-09-03 an existing drawing's anchors could be moved only by a 10-pixel
         // mouse drag or by typing an absolute value into Properties. These four move the
         // SELECTED anchor of the FOCUSED drawing (Page Up / Page Down focus a series) one
-        // bar or one price step at a time. Alt+Shift+Arrow, because Ctrl+Alt+Arrow is the
-        // VoiceOver modifier on macOS and the workspace switch on every Linux desktop, and
-        // Ctrl+Shift+Arrow is select-by-word in every text field.
-        /// <summary>Alt+Shift+Left: move the selected anchor one BAR earlier (a bar index,
+        // bar or one price step at a time. SHIFT+ARROW since 2026-09-03 — it shipped on
+        // Alt+Shift+Arrow, which Orca takes for table-cell navigation, so the chord never
+        // reached the app on the desktop this application is built for. The alternatives are
+        // all taken: Ctrl+Alt+Arrow is the VoiceOver modifier on macOS and the workspace
+        // switch on every Linux desktop, Ctrl+Shift+Arrow is select-by-word, plain Alt+Arrow
+        // is pane scrolling and plain Ctrl+Arrow is the jump. The price of Shift+Arrow is
+        // select-by-character, which keyboard.js pays by releasing the chord to form controls.
+        /// <summary>Shift+Left: move the selected anchor one BAR earlier (a bar index,
         /// never date arithmetic, so weekends and halts are stepped over).</summary>
         NudgeAnchorEarlier,
-        /// <summary>Alt+Shift+Right: one bar later; past the last bar it projects into the
+        /// <summary>Shift+Right: one bar later; past the last bar it projects into the
         /// reserved right margin.</summary>
         NudgeAnchorLater,
-        /// <summary>Alt+Shift+Up: raise the selected anchor's price by one step — 1% of the
+        /// <summary>Shift+Up: raise the selected anchor's price by one step — 1% of the
         /// visible range, never less than one unit in the last spoken decimal place.</summary>
         NudgeAnchorUp,
-        /// <summary>Alt+Shift+Down: lower it by the same step.</summary>
+        /// <summary>Shift+Down: lower it by the same step.</summary>
         NudgeAnchorDown,
         /// <summary>Ctrl+Alt+Shift+G: cycle which anchor of the focused drawing is selected
         /// for nudging; the first press on a newly focused drawing only says which is

@@ -54,18 +54,27 @@ namespace AccessibleTrader.Core.Services.Audio
 
             if (scope == PlaybackScope.Chart)
             {
-                // Chart scope: every visible, unmuted, non-drawing, non-profile series plays
-                // simultaneously, layered bar by bar. Muted series are excluded so the user's
-                // mute actually silences them.
+                // Chart scope: every visible, unmuted, non-profile series plays simultaneously,
+                // layered bar by bar. Muted series are excluded so the user's mute actually
+                // silences them.
+                //
+                // DRAWINGS ARE IN THIS LIST since 2026-09-03. They were excluded here and again
+                // in AudioSequencer.BuildVoicePlan, so a trend line was audible only under the
+                // arrow keys, one bar at a time — the one place a user does NOT need it, since
+                // arrowing already speaks the value. Playing the chart is how you hear a line
+                // converge on price, and it was the silent case. A drawing still has to be
+                // visible and unmuted like anything else, so hiding or muting one still works.
                 var playList = state.ActiveSeries
-                    .Where(s => s.IsVisible && !s.IsMuted && !s.IsDrawing && !s.IsProfile)
+                    .Where(s => s.IsVisible && !s.IsMuted && !s.IsProfile)
                     .ToList();
 
                 if (playList.Count == 0)
                 {
                     // Two different things the user can fix: nothing loaded at all, or
-                    // everything loaded is muted or hidden.
-                    bool anySeries = state.ActiveSeries.Any(s => !s.IsDrawing && !s.IsProfile);
+                    // everything loaded is muted or hidden. A drawing counts as a series here
+                    // for the same reason it counts above — a chart holding one trend line and
+                    // nothing else is not "no series is loaded".
+                    bool anySeries = state.ActiveSeries.Any(s => !s.IsProfile);
                     return new PlaybackPlan(playList, 0, -1, anySeries ? EverySeriesMutedReason : NoSeriesReason);
                 }
 

@@ -66,6 +66,12 @@ namespace AccessibleTrader.Core.Services.Audio
                 || comp.DisplayName.Contains("high", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>The roughness a drawing's voice carries so it is not mistaken for an
+        /// indicator line. Pink, not white: white noise at this level reads as a fault. Enough
+        /// to hear against a clean sine at the same pitch, not enough to blur the pitch
+        /// itself, which is the value the user is listening to.</summary>
+        internal const float DrawingNoiseAmount = 0.22f;
+
         public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null)
         {
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
@@ -410,6 +416,23 @@ namespace AccessibleTrader.Core.Services.Audio
                     squareMix = 0.18f;
                     subSawMix = (float)(0.25 * magnitudeNorm);
                 }
+            }
+
+            // ── A drawing is told apart by TIMBRE, and only by timbre ──────────────────────
+            // Pitch, volume and pan already carry meaning here — pitch is the value, volume is
+            // the component's own level, pan is the bar's position across the viewport — so
+            // none of the three is free to say "this one is a line you drew". Roughness is.
+            //
+            // LAST, deliberately. A drawing renders as a Line component, and the per-display-type
+            // colouring block above assigns Line a brown tinge outright — placed before it, this
+            // rule set pink and had it overwritten, which is a difference the ear would read as
+            // "slightly rougher indicator" rather than "not an indicator". The amount is a floor
+            // (a drawing whose component already carries more texture keeps it, exactly as the
+            // zone-noise rule does); the TYPE is not, because the type is the signal.
+            if (series.IsDrawing)
+            {
+                if (DrawingNoiseAmount > noiseAmt) noiseAmt = DrawingNoiseAmount;
+                noiseType = "pink";
             }
 
             return new AudioPoint(Frequency: freq, Volume: vol, Waveform: wave, Pan: pan,

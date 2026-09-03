@@ -16,10 +16,19 @@
    mistake role="toolbar" made on <nav>. Putting it on the content div also takes the badge OUT
    of the live region, which is right: a badge that appears when paper mode is toggled was
    re-announcing the whole strip, and SettingsModal already publishes "Paper trading enabled."
-   as its own feedback. *@
+   as its own feedback.
+
+   THE "Last Feedback:" LABEL IS GONE, for the same reason the badge was moved out and one
+   more. A live region announces its WHOLE content on every change, so the static label was
+   read before every message the app has ever spoken — Cody reported hearing "last feedback,
+   focus on chart area" where the sentence alone was the point. Moving it out of the region
+   would have fixed the announcement; deleting it is right because the label was never
+   carrying anything either. The <section> is already named "Terminal status", so a user
+   arriving here by landmark navigation is told what the strip is before reading it, and a
+   sighted user is looking at one line of text in a status bar. A label that repeats the name
+   of the thing it sits inside is a second name, not a description. *@
 <section class="status-bar" aria-label="Terminal status">
     <div class="status-content" role="status" aria-live="polite">
-        <span class="status-label">Last Feedback:</span>
         <span class="status-text">@_lastMessage</span>
     </div>
     @if (_paperMode)
@@ -47,11 +56,6 @@
         font-size: 0.85rem;
         overflow: hidden;
         white-space: nowrap;
-    }
-    .status-label {
-        color: var(--text-muted);
-        margin-right: 8px;
-        font-weight: bold;
     }
     .status-text {
         color: #4ec9b0;

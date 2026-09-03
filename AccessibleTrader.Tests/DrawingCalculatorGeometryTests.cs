@@ -41,8 +41,18 @@ namespace AccessibleTrader.Tests
             Assert.Equal(200, line[4], precision: 6);
         }
 
+        /// <summary>
+        /// Extrapolation past the anchors is what the EXTEND FLAGS buy, and the slope it
+        /// extrapolates on is the anchors'.
+        ///
+        /// <para>This test asserted the same four values with both flags left false, back when
+        /// <c>CalculateLinearPoints</c> accepted <c>extL</c>/<c>extR</c> and read neither — so
+        /// it was green on a line drawn across bars it had never been anchored near. It now
+        /// asks for the extension explicitly, which is the only condition under which those
+        /// numbers are the right answer.</para>
+        /// </summary>
         [Fact]
-        public void TrendLine_ExtrapolatesBeyondAnchorRange()
+        public void TrendLine_ExtrapolatesBeyondAnchorRange_WhenBothEndsAreExtended()
         {
             // Anchors at index 1 (price 100) and index 3 (price 200). Slope=50.
             // Indices 0 and 4 must be extrapolated: line[0]=50, line[4]=250.
@@ -52,12 +62,34 @@ namespace AccessibleTrader.Tests
                 Type = DrawingType.TrendLine,
                 AnchorDate1 = bars[1].Date, AnchorPrice1 = 100,
                 AnchorDate2 = bars[3].Date, AnchorPrice2 = 200,
+                ExtendLeft = true, ExtendRight = true,
             };
             var line = new TrendLineCalculator().Calculate(drawing, bars)["Line"];
             Assert.Equal( 50, line[0], precision: 6);
             Assert.Equal(100, line[1], precision: 6);
             Assert.Equal(200, line[3], precision: 6);
             Assert.Equal(250, line[4], precision: 6);
+        }
+
+        /// <summary>The same drawing with the flags off: the bars outside the span carry no
+        /// value at all. Paired with the test above deliberately — one alone cannot tell
+        /// "reads the flags" from "extends by default" or from "never extends".</summary>
+        [Fact]
+        public void TrendLine_DoesNotExtrapolate_WhenNeitherEndIsExtended()
+        {
+            var bars = MakeBars(5);
+            var drawing = new DrawingData
+            {
+                Type = DrawingType.TrendLine,
+                AnchorDate1 = bars[1].Date, AnchorPrice1 = 100,
+                AnchorDate2 = bars[3].Date, AnchorPrice2 = 200,
+            };
+            var line = new TrendLineCalculator().Calculate(drawing, bars)["Line"];
+            Assert.True(double.IsNaN(line[0]));
+            Assert.Equal(100, line[1], precision: 6);
+            Assert.Equal(150, line[2], precision: 6);
+            Assert.Equal(200, line[3], precision: 6);
+            Assert.True(double.IsNaN(line[4]));
         }
 
         [Fact]

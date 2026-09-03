@@ -179,26 +179,43 @@ function test(name, fn) {
 }
 const keysSent = (calls) => calls.filter(c => c[0] === 'OnKeyDown').map(c => c[1]);
 
-// ── Alt+Shift+Arrow: the anchor nudge, and the text field's own select-by-word ──
+// ── Shift+Arrow: the anchor nudge, and the text field's own select-by-character ──
+//
+// The nudge moved from Alt+Shift+Arrow to Shift+Arrow on 2026-09-03: Orca takes
+// Alt+Shift+Arrow for table-cell navigation, so on Linux with a screen reader the old chord
+// never reached the page. The price of the new one is that Shift+Arrow is select-by-character
+// in every text field, which is why the carve-out below is a condition of the chord and not a
+// nicety.
 
-test('Alt+Shift+Arrow from the chart reaches the dispatcher as a modified LEFT', () => {
+test('Shift+Arrow from the chart reaches the dispatcher as a shifted LEFT', () => {
   const h = makeHarness();
-  const prevented = h.press('ArrowLeft', h.node('DIV'), { alt: true, shift: true });
+  const prevented = h.press('ArrowLeft', h.node('DIV'), { shift: true });
   assert.equal(prevented, true, 'a chart chord must not also scroll or select');
   assert.deepEqual(h.calls.filter(c => c[0] === 'OnKeyDown').map(c => c.slice(1)),
-    [['LEFT', true, false, true]]);
+    [['LEFT', true, false, false]]);   // (key, shift, ctrl, alt)
 });
 
-test('Alt+Shift+Arrow inside a text field is left to the field (select-by-word on macOS)', () => {
+test('Shift+Arrow inside a text field is left to the field (select-by-character)', () => {
   for (const tag of ['INPUT', 'TEXTAREA', 'SELECT']) {
     const h = makeHarness();
-    const prevented = h.press('ArrowRight', h.node(tag), { alt: true, shift: true });
-    assert.equal(prevented, false, `${tag}: preventDefault would cost the field its own binding`);
+    const prevented = h.press('ArrowRight', h.node(tag), { shift: true });
+    assert.equal(prevented, false, `${tag}: preventDefault would cost the field selection`);
     assert.deepEqual(keysSent(h.calls), [], `${tag}: the nudge is chart-scoped and must not fire from a field`);
   }
   const h = makeHarness();
   const editable = h.node('DIV'); editable.isContentEditable = true;
-  assert.equal(h.press('ArrowUp', editable, { alt: true, shift: true }), false);
+  assert.equal(h.press('ArrowUp', editable, { shift: true }), false);
+});
+
+test('Alt+Shift+Arrow inside a text field is still left to the field (select-by-word on macOS)', () => {
+  // The chord the nudge moved OFF. No command answers to it now, so trapping it in a field
+  // would cost a real macOS binding for nothing — a worse trade than the one the carve-out
+  // was written for.
+  for (const tag of ['INPUT', 'TEXTAREA', 'SELECT']) {
+    const h = makeHarness();
+    assert.equal(h.press('ArrowRight', h.node(tag), { alt: true, shift: true }), false, tag);
+    assert.deepEqual(keysSent(h.calls), [], tag);
+  }
 });
 
 test('Ctrl+Alt+Shift+G and B still fire from a text field — they print nothing', () => {
