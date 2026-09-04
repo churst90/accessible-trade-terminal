@@ -54,10 +54,11 @@ public class SettingsModalTests
     // The markup sets a roving tabindex (0 on the active tab, -1 on the rest), which
     // promises the browser that arrows move within the group. Without a handler, five
     // of the then six tabs were mouse-only — including the whole keyboard-rebinding UI
-    // and the paper-account reset button. SEVEN tabs since the 2026-09-04 alerts
-    // consolidation: General, Speech, Sonification, Appearance, Keyboard, License, About.
-    // Alerts is the eighth that was — its delivery channels moved into the Alt+J dialog,
-    // next to the alerts they deliver.
+    // and the paper-account reset button. EIGHT tabs as of 2026-09-04: General, Speech,
+    // Narration, Sonification, Appearance, Keyboard, License, About. It was seven for part
+    // of that day — the Alerts tab's delivery channels moved into the Alt+J dialog next to
+    // the alerts they deliver, and Narration arrived in the same release to hold what the
+    // terminal says when the user pressed nothing.
 
     private static void ArrowOnTabList(
         IRenderedComponent<AccessibleTrader.BlazorClient.Components.SettingsModal> cut, string key)
@@ -93,11 +94,12 @@ public class SettingsModalTests
     public void SettingsModal_ArrowKeys_ReachEverySettingsTab()
     {
         // The actual user-facing claim, stated as a walk rather than as a single step:
-        // starting at General, six Right presses visit all seven tabs in order.
+        // starting at General, seven Right presses visit all eight tabs in order.
+        // Narration joined between Speech and Sonification on 2026-09-04.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        foreach (var id in new[] { "tab-speech", "tab-sonification", "tab-appearance", "tab-keyboard", "tab-license", "tab-about" })
+        foreach (var id in new[] { "tab-speech", "tab-narration", "tab-sonification", "tab-appearance", "tab-keyboard", "tab-license", "tab-about" })
         {
             ArrowOnTabList(cut, "ArrowRight");
             AssertSelected(cut, id);

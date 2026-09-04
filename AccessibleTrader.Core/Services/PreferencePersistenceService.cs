@@ -74,12 +74,12 @@ namespace AccessibleTrader.Core.Services
         private record struct Prefs(
             bool SpeakTimestamps, string TimestampReadLocation, bool ReadColumnHeaders,
             string SpeechOrder, bool AnnounceNewBars, int WasapiLatency, int PanningGranularity,
-            bool DescribeChartPatterns);
+            bool DescribeChartPatterns, bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
             s.SpeechOrder, s.AnnounceNewBars, s.WasapiLatency, s.PanningGranularity,
-            s.DescribeChartPatterns);
+            s.DescribeChartPatterns, s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback);
 
         public void Initialize()
         {
@@ -99,6 +99,8 @@ namespace AccessibleTrader.Core.Services
                     WasapiLatency = _settings.WasapiLatency,
                     PanningGranularity = _settings.PanningGranularity,
                     DescribeChartPatterns = _settings.DescribeChartPatterns,
+                    NarrateSignalsOnBarClose = _settings.NarrateSignalsOnBarClose,
+                    NarrateDuringPlayback = _settings.NarrateDuringPlayback,
                 }));
             }
             catch (Exception ex)
@@ -125,6 +127,8 @@ namespace AccessibleTrader.Core.Services
                         _settings.WasapiLatency = p.WasapiLatency;
                         _settings.PanningGranularity = p.PanningGranularity;
                         _settings.DescribeChartPatterns = p.DescribeChartPatterns;
+                        _settings.NarrateSignalsOnBarClose = p.NarrateSignalsOnBarClose;
+                        _settings.NarrateDuringPlayback = p.NarrateDuringPlayback;
                         _settings.Save();
                     }
                     catch (Exception ex)

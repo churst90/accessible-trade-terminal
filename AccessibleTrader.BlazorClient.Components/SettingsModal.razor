@@ -436,13 +436,6 @@
                                @onchange="e => _readHeaders = e.Value is bool b ? b : Store.State.ReadColumnHeaders" />
                     </div>
 
-                    <div class="modal-row">
-                        <label for="s-announce-bars">Announce new bars</label>
-                        <input id="s-announce-bars" type="checkbox"
-                               checked="@Store.State.AnnounceNewBars"
-                               @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
-                    </div>
-
                     @* Off by default. It adds narration to arrow-key navigation, which the user
                        performs constantly, so it is opted into rather than imposed — the same rule
                        the visual-accessibility additions follow. Patterns still FORMING are read
@@ -484,6 +477,75 @@
                     <p id="s-mute-orders-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         When Shift+F2 or Shift+F3 has events muted, fills, stop hits and
                         take-profits are silenced as well. Off by default so your stops still speak.
+                    </p>
+                </fieldset>
+
+            </div>
+
+            @* ── Narration tab ─────────────────────────────────────────────── *@
+            @* The rule that makes this tab coherent is the TRIGGER, not the topic. The Speech
+               tab governs how the terminal says what you ASKED for — values order, timestamps,
+               column headers, which voice talks. This tab governs what it says when you pressed
+               NOTHING: a bar closed, playback stepped onto a bar.
+
+               "Describe chart patterns" therefore STAYS in Speech even though it reads as a
+               narration setting, because it also changes what the arrow keys say — it is a
+               CONTENT switch, and content switches belong with the channel they change. It
+               carries "narration playback" in its search keywords so this tab's vocabulary
+               still finds it.
+
+               Both switches here default ON, which is the opposite of the opt-in rule the
+               visual-accessibility and pattern-description settings follow, and the reason is
+               that neither of them lets anything new through on its own: signals come only from
+               series the user flagged with Ctrl+Alt+Shift+N, and the playback switch's ON state
+               is exactly what shipped in 2.5.0. What is new is the ability to turn either OFF. *@
+            <div role="tabpanel" id="tabpanel-narration"
+                 aria-labelledby="tab-narration"
+                 hidden="@(_activeTab != "Narration")">
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Narration</legend>
+
+                    <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        What the terminal says on its own, without you pressing anything.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-announce-bars">Announce new bars</label>
+                        <input id="s-announce-bars" type="checkbox"
+                               aria-describedby="s-announce-bars-hint"
+                               checked="@Store.State.AnnounceNewBars"
+                               @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
+                    </div>
+                    <p id="s-announce-bars-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        The closing price of each bar as it finishes, with its candle pattern.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-narrate-signals">Narrate signals on bar close</label>
+                        <input id="s-narrate-signals" type="checkbox"
+                               aria-describedby="s-narrate-signals-hint"
+                               checked="@Store.State.NarrateSignalsOnBarClose"
+                               @onchange="e => _narrateSignals = e.Value is bool b ? b : Store.State.NarrateSignalsOnBarClose" />
+                    </div>
+                    <p id="s-narrate-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Control Alt Shift N chooses which series speak; this switch is the master
+                        for all of them. Off means no indicator narrates on a bar close, whatever
+                        is flagged.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-narrate-playback">Narrate during playback</label>
+                        <input id="s-narrate-playback" type="checkbox"
+                               aria-describedby="s-narrate-playback-hint"
+                               checked="@Store.State.NarrateDuringPlayback"
+                               @onchange="e => _narratePlayback = e.Value is bool b ? b : Store.State.NarrateDuringPlayback" />
+                    </div>
+                    <p id="s-narrate-playback-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        While the chart is playing: the date or hour as it crosses each boundary,
+                        the signals your narrated series print, and any chart formation that
+                        resolves. Off leaves playback as tones, with only the start, pause, speed
+                        and finish confirmations spoken.
                     </p>
                 </fieldset>
 
@@ -852,7 +914,7 @@
     // handler indexes into it. Two lists would drift, and a drifted list here means an
     // arrow key that lands on a tab that is not there.
     private static readonly string[] SettingsTabs =
-        { "General", "Speech", "Sonification", "Appearance", "Keyboard", "License", "About" };
+        { "General", "Speech", "Narration", "Sonification", "Appearance", "Keyboard", "License", "About" };
 
     private static string TabElementId(string tab) => "tab-" + tab.ToLowerInvariant();
 
@@ -880,6 +942,8 @@
     private bool _readHeaders;
     private bool _announceBars;
     private bool _describeChartPatterns;
+    private bool _narrateSignals;
+    private bool _narratePlayback;
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -906,10 +970,12 @@
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
         new("Speak values as", "Speech", "s-speech-order", "name value order header"),
         new("Read column headers", "Speech", "s-read-headers", "table grid"),
-        new("Announce new bars", "Speech", "s-announce-bars", "live candle close"),
-        new("Describe chart patterns", "Speech", "s-chart-patterns", "formation double top triangle narration new bar"),
+        new("Describe chart patterns", "Speech", "s-chart-patterns", "formation double top triangle narration new bar playback"),
         new("Speech output on this device", "Speech", "s-speech-output", "double speech screen reader browser voice orca tts"),
         new("Event mute includes order outcomes", "Speech", "s-mute-includes-orders", "silence mute stop take profit shift fills"),
+        new("Announce new bars", "Narration", "s-announce-bars", "live candle close narration"),
+        new("Narrate signals on bar close", "Narration", "s-narrate-signals", "narration indicator signal auto master switch"),
+        new("Narrate during playback", "Narration", "s-narrate-playback", "narration playback landmark signal speech space"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Sound theme", "Sonification", "s-sound-theme", "instrument voices patch orchestra"),
@@ -1373,6 +1439,8 @@
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
         _describeChartPatterns = Store.State.DescribeChartPatterns;
+        _narrateSignals = Store.State.NarrateSignalsOnBarClose;
+        _narratePlayback = Store.State.NarrateDuringPlayback;
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -1432,6 +1500,8 @@
             ReadColumnHeaders = _readHeaders,
             AnnounceNewBars  = _announceBars,
             DescribeChartPatterns = _describeChartPatterns,
+            NarrateSignalsOnBarClose = _narrateSignals,
+            NarrateDuringPlayback = _narratePlayback,
         }));
 
         App.PaperTradingMode = _paperTradingMode;

@@ -78,7 +78,7 @@ namespace AccessibleTrader.Tests
             string text = SettingsModal();
             var tabs = Regex.Match(text, @"SettingsTabs\s*=\s*\{([^}]*)\}").Groups[1].Value;
             var known = Regex.Matches(tabs, @"""([A-Za-z]+)""").Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
-            Assert.True(known.Count >= 7, "SettingsTabs was not found — the scan has lost its anchor.");
+            Assert.True(known.Count >= 8, "SettingsTabs was not found — the scan has lost its anchor.");
 
             var unknown = RegistryRow.Matches(text)
                 .Select(m => m.Groups["tab"].Value)

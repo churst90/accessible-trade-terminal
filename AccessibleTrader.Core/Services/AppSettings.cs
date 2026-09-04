@@ -58,6 +58,10 @@ namespace AccessibleTrader.Core.Services
         bool DescribeChartPatterns { get; set; }
         bool ShowChartPatternVisuals { get; set; }
 
+        // Narration (Settings → Narration) — the unprompted speech channel.
+        bool NarrateSignalsOnBarClose { get; set; }
+        bool NarrateDuringPlayback { get; set; }
+
         // Viewport
         int PanningGranularity { get; set; }
 
@@ -205,6 +209,31 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.DescribeChartPatterns, def: false);
             set => Set(SettingsKeys.DescribeChartPatterns, value);
+        }
+
+        /// <summary>
+        /// Master switch over the bar-close narrator. Default ON, and that is not the same
+        /// decision as <see cref="DescribeChartPatterns"/>'s default OFF: the narrator speaks
+        /// only about series the user has already opted in per-series with Ctrl+Alt+Shift+N, so
+        /// ON adds nothing to a chart where nothing is flagged. It exists so the whole channel
+        /// can be silenced in one place without un-flagging every series one at a time.
+        /// </summary>
+        public bool NarrateSignalsOnBarClose
+        {
+            get => GetBool(SettingsKeys.NarrateSignalsOnBarClose, def: true);
+            set => Set(SettingsKeys.NarrateSignalsOnBarClose, value);
+        }
+
+        /// <summary>
+        /// Whether playback speaks time landmarks, marker signals and chart-pattern outcomes
+        /// while it runs. Default ON because ON is what already shipped — landmarks have spoken
+        /// since 2026-09-02 — and because the signals it adds are behind the per-series narration
+        /// flag. Turning it OFF is the new capability: playback as tones and nothing else.
+        /// </summary>
+        public bool NarrateDuringPlayback
+        {
+            get => GetBool(SettingsKeys.NarrateDuringPlayback, def: true);
+            set => Set(SettingsKeys.NarrateDuringPlayback, value);
         }
 
         /// <summary>

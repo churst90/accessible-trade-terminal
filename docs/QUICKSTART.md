@@ -568,18 +568,23 @@ Press F1 at any time to open the built-in keyboard reference. This lists every s
 ### Settings (F12)
 
 Eight tabs, Left and Right arrows between them, and a search box at the top that jumps to
-any setting by name:
+any setting by name. Speech and Narration are split by trigger: **Speech is how the terminal
+says what you asked for, Narration is what it says when you pressed nothing.**
 - **General** — paper trading and quick-trade sizing, resume last session, background
   monitoring, braille display, touch toolbar, market structure on new charts, magnet snap,
   panning step, data export and settings profiles
 - **Speech** — speech on/off, timestamps and when to speak them, value order, column headers,
-  announce new bars, describe chart patterns, which voice speaks on this device
+  describe chart patterns, which voice speaks on this device
+- **Narration** — announce new bars, narrate signals on bar close (the master over
+  Ctrl+Alt+Shift+N), narrate during playback
 - **Sonification** — sonification on/off, sound under the mouse, sound theme
 - **Appearance** — the theme (New, Clone, Edit) and the visual accommodations: chart
   formations drawn, visual earcons, colour-vision-safe colours, hollow up-candles, text size
 - **Keyboard** — rebind any shortcut, plus the reference table
-- **Alerts** — email, Telegram and webhook delivery
 - **License** and **About**
+
+Alert delivery (email, Telegram, named webhooks) is no longer a Settings tab — it moved into
+the alerts dialog itself, Alt+J then **Delivery settings**, next to the alerts it delivers.
 
 ### Market watch (Alt+M)
 

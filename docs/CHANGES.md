@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Narration tab, and playback that says more than the date (2026-09-04)
+
+Two of the standing 2.6.0 items, built together because either alone is half a feature: the
+Settings restructure that gives narration a home, and the playback signal speech that gives
+it something to switch.
+
+- **Settings has a Narration tab — eight tabs, between Speech and Sonification.** The rule
+  that makes it coherent is the TRIGGER, not the topic: **Speech is how the terminal says
+  what you ASKED for** (values order, timestamps, column headers, which voice talks),
+  **Narration is what it says when you pressed NOTHING** (a bar closed, playback stepped).
+  It holds three switches:
+  - **Announce new bars**, moved from Speech, unchanged.
+  - **Narrate signals on bar close** — NEW, the master over `AutoNarrationService`.
+    `Ctrl+Alt+Shift+N` picks WHICH series speak; this decides whether any of them do. It
+    exists because the only way to silence the channel was to un-flag every series one at a
+    time and then remember which ones you had un-flagged.
+  - **Narrate during playback** — NEW, covering time landmarks, marker signals and formation
+    outcomes together.
+  - **Both default ON, and that is the opposite of the opt-in rule the pattern-description and
+    visual settings follow.** The reason is that neither lets anything new through on its own:
+    signals come only from series the user already opted into per-series with
+    `Ctrl+Alt+Shift+N`, and playback narration ON is exactly what 2.5.0 shipped. A default of
+    OFF would have silenced the time landmarks — a working feature since 2026-09-02 — to
+    prevent speech the existing opt-ins already prevent. What is new is the ability to turn
+    either of them off; that is the capability nobody had.
+  - **"Describe chart patterns" deliberately STAYS on the Speech tab.** It is a CONTENT
+    switch, not a trigger: it also changes what the arrow keys say. It carries "narration"
+    and "playback" in its search keywords so the Narration vocabulary still finds it.
+
+- **Playback speaks signals now, not only time.** Cody's ask was specific — "hearing signals
+  also… not RSI crossings or anything like that. So not everything spoken, just important
+  events" — and the answer is scoped to match: `PlaybackNarration.SignalsForStep` reports
+  marker components carrying a `SignalSpeechTemplate`, which is `ScanUtterance.TierSignal`
+  and nothing below it. No crosses, no zone lines, no oscillator commentary. Formation
+  outcomes ride along, gated on BOTH "Describe chart patterns" (content) and "Narrate during
+  playback" (trigger) — one switch per content × trigger cell grows without bound, and a user
+  who turned patterns off would be startled to hear them here.
+  - **Which series: `IsAutoNarrated`, revising the original design**, which scanned every
+    active visible series. One mental model now holds everywhere — **N picks WHAT, the tab
+    picks WHEN** — and playback does not become the one place in the terminal where a series
+    nobody asked to hear from starts talking.
+  - **ONE utterance per step.** The landmark, the signals and the formation outcome are
+    composed and spoken once, non-interrupting. This is the live-region rule the bar-close
+    narrator was rebuilt around on 2026-09-02, and it bites harder here: on the web head only
+    the last write to the region in a render batch survives, and playback writes ten times a
+    second. Landmark first — against this file's usual most-consequential-first ordering,
+    because it is not a competing claim, it is the WHEN of the clause behind it.
+  - **Rate-limited by BAR DISTANCE, and it drops rather than queues.**
+    `MinBarsBetweenSignals` converts the landmarks' two-second cadence into bars at the
+    current speed (20 at 1x, 80 at 4x). At ten bars a second a queue is a backlog: the user
+    would hear about a bar the tones passed eight seconds ago with no way to tell which. A
+    landmark is never rate-limited away — it is already sparse and it is the only thing that
+    says where in time the tones are.
+
+- **Proven by five sabotages**, each restored from a file copy, each producing named failures:
+  the master switch deleted reddens `NarrateSignalsOnBarClose_Off_SilencesTheBarCloseNarrator`;
+  the playback gate deleted reddens `NarrateDuringPlayback_Off_SilencesBothSignalsAndLandmarks`;
+  `SignalsForStep` ignoring `IsAutoNarrated` reddens
+  `ASeriesTheUserDidNotFlagWithControlAltShiftN_StaysSilent`; speaking the landmark and the
+  events as two calls reddens three, including the one-utterance guard by name; and removing
+  the rate limit reddens `ASecondSignalInsideTheWindow_IsDropped_NotQueued`. Every "stays
+  silent" case has its vacuity partner in the same file, because a fixture with no signal in
+  it passes all of them on a build where playback never speaks at all.
+
+- **Wiring, for the next person adding a preference.** A new setting is six places, and
+  nothing in the compiler makes you visit them: `SettingsKeys`, `IAppSettings` + the impl,
+  `WorkspaceState` (field and `Initial`), `PreferencePersistenceService` (the `Prefs` record,
+  `FromState`, the seed and the write-back), `WorkspaceProjection` (`Carried` or `NotCarried`
+  — these two are NOT carried, because a strategy whose signals varied with whether the
+  terminal was talking would be a defect, and it would differ between a live run and a
+  backtest that has no speech channel at all), and the Settings search registry.
+  `PreferenceRoundTripTests` and `WorkspaceProjectionTests` are the two that fail the build if
+  you skip one.
+
+- Suite **6,537**, up 17. `SettingsSearchRegistryTests`' tab-count vacuity floor goes 7 → 8;
+  `SettingsModal_ArrowKeys_ReachEverySettingsTab` walks the eight tabs including Narration.
+
 ### The background behind a dialog is switched off, and the alerts tab moved next to the alerts (2026-09-04)
 
 Two of the standing 2.6.0 items: modal background `inert`, and the alerts consolidation.

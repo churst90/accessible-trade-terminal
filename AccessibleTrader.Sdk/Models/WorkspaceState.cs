@@ -199,7 +199,27 @@ namespace AccessibleTrader.Sdk.Models
         // the replay prefix with the full series and end the exercise without warning.
         // Distinct from IsBacktesting: replay is an interactive user mode with
         // full speech and sonification, not an offline strategy loop.
-        bool IsReplaying = false
+        bool IsReplaying = false,
+        // ── Narration: what the terminal says when the user pressed NOTHING ────
+        // The Speech settings above govern how it says what you ASKED for (values order,
+        // timestamps, headers). These two govern the unprompted channel, and the split is
+        // by TRIGGER rather than by topic — which is why DescribeChartPatterns stays with
+        // Speech (it also changes what the arrow keys say) and AnnounceNewBars does not.
+        //
+        // Both default TRUE, unlike DescribeChartPatterns, and deliberately: ON reproduces
+        // exactly what shipped, and everything either of them lets through is ALREADY behind
+        // an opt-in — the per-series Ctrl+Alt+Shift+N flag for signals, DescribeChartPatterns
+        // for the pattern outcomes. A default of false would have silenced playback's time
+        // landmarks, which have spoken since 2026-09-02, to prevent speech that the existing
+        // opt-ins prevent anyway. Mirrors AppSettings.NarrateSignalsOnBarClose /
+        // AppSettings.NarrateDuringPlayback.
+        //
+        // Master switch over the bar-close narrator (AutoNarrationService). N picks WHAT
+        // speaks; this says WHETHER any of it does.
+        bool NarrateSignalsOnBarClose = true,
+        // Whether playback speaks anything beyond its own start / pause / stop / speed
+        // confirmations: time landmarks, marker signals, chart-pattern outcomes.
+        bool NarrateDuringPlayback = true
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -229,6 +249,8 @@ namespace AccessibleTrader.Sdk.Models
             SpeechOrder: "HeaderValue",
             AnnounceNewBars: true,
             DescribeChartPatterns: false,
+            NarrateSignalsOnBarClose: true,
+            NarrateDuringPlayback: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

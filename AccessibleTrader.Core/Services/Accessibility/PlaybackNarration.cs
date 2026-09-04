@@ -172,6 +172,131 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return Landmark(data[from].Date, data[to].Date, unit);
         }
 
+        // ── Signals while playing ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Ceiling on signal clauses in one playback utterance.
+        ///
+        /// <para>
+        /// Two, where the bar-close narrator's <c>ScanUtterance</c> allows five, and the
+        /// difference is the clock. A bar-close utterance has a whole bar interval to land in; a
+        /// playback utterance has 100 ms at 1x before the next bar sounds, and speech that runs
+        /// for four seconds is heard over sixty bars of tones it is not about. What gets dropped
+        /// is the later component in scan order, deterministically.
+        /// </para>
+        /// </summary>
+        private const int MaxSignalClauses = 2;
+
+        /// <summary>
+        /// The minimum number of bars between two spoken signal utterances at
+        /// <paramref name="speed"/> — <see cref="MinSecondsBetweenLandmarks"/> converted into
+        /// bars, so signals arrive at the same cadence landmarks do.
+        ///
+        /// <para>
+        /// A signal inside the window is DROPPED, not queued. At ten bars a second a queue is a
+        /// backlog: the user would hear a signal about a bar the tones passed eight seconds ago,
+        /// with no way to tell which bar it belonged to. Silence is the honest answer, and the
+        /// chart can be re-read bar by bar afterwards.
+        /// </para>
+        /// </summary>
+        public static int MinBarsBetweenSignals(float speed)
+            // Rounded before the ceiling because the speed arrives as a float: 0.1f widens to
+            // 0.100000001490116 as a double, and 2 * 10 * that ceilings to 3 rather than 2. A
+            // bar either way is immaterial to the user and very much not immaterial to a test
+            // that states the rule, so the arithmetic is made to mean what it says.
+            => Math.Max(1, (int)Math.Ceiling(Math.Round(
+                MinSecondsBetweenLandmarks * BarsPerSecondAtUnitSpeed * Math.Max(0.1, speed), 6)));
+
+        /// <summary>
+        /// What the marker components of the user's narrated series say about the bar playback
+        /// has just stepped onto, or null when they say nothing.
+        ///
+        /// <para>
+        /// <b>Which series.</b> Only those flagged <see cref="ChartSeries.IsAutoNarrated"/> —
+        /// Ctrl+Alt+Shift+N. One mental model holds everywhere then: <b>N picks WHAT speaks, the
+        /// Narration tab picks WHEN.</b> The earlier design scanned every active visible series,
+        /// which would have made playback the one place in the terminal where a series the user
+        /// never asked to hear from starts talking.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Which components.</b> Marker components carrying a <c>SignalSpeechTemplate</c> —
+        /// the discrete calls an indicator was added to make (entry triggers, divergences, breaks
+        /// of structure), which is <c>ScanUtterance.TierSignal</c> and nothing below it. No
+        /// crosses, no oscillator commentary, no zone lines: Cody's words were "not RSI crossings
+        /// or anything like that… just important events", and an oscillator changing zone is the
+        /// most frequent thing this terminal can say.
+        /// </para>
+        ///
+        /// <para>
+        /// Hidden or muted is skipped, at both levels, the same rule
+        /// <c>NavigationFeedbackManager</c>'s cross-series signal scan applies: a component
+        /// producing no tone during playback must not be the only thing that speaks.
+        /// </para>
+        /// </summary>
+        /// <param name="state">The state after the step — its <c>ActiveSeries</c> is scanned.</param>
+        /// <param name="barIndex">The bar the cursor has just landed on.</param>
+        public static string? SignalsForStep(WorkspaceState state, int barIndex)
+        {
+            if (barIndex < 0) return null;
+
+            var clauses = new List<string>(MaxSignalClauses);
+            foreach (var series in state.ActiveSeries)
+            {
+                if (!series.IsAutoNarrated || !series.IsVisible || series.IsMuted) continue;
+
+                foreach (var comp in series.Components)
+                {
+                    if (clauses.Count >= MaxSignalClauses) return string.Join(" ", clauses);
+                    if (!comp.IsVisible || comp.IsMuted) continue;
+                    if (comp.IsZoneLine || comp.UsesGradientSpeech) continue;
+                    if (!AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)) continue;
+                    if (string.IsNullOrEmpty(comp.SignalSpeechTemplate)) continue;
+
+                    var data = series.GetComponentData(comp.Name);
+                    if (data == null || barIndex >= data.Length) continue;
+                    double val = data[barIndex];
+                    if (double.IsNaN(val)) continue;
+
+                    string clause = ExpandSignalTemplate(series, comp, val, state, barIndex);
+                    if (!string.IsNullOrWhiteSpace(clause)) clauses.Add(clause);
+                }
+            }
+
+            return clauses.Count == 0 ? null : string.Join(" ", clauses);
+        }
+
+        /// <summary>
+        /// One signal clause: the component's own template, expanded, carrying the series name so
+        /// two clauses in one breath cannot be heard as belonging to one indicator. None of the
+        /// shipped templates contains <c>{series}</c>, so the prefix is added rather than
+        /// substituted — and a template that DOES name the series is left alone, exactly as
+        /// <c>ScanUtterance.Compose</c> treats it.
+        /// </summary>
+        private static string ExpandSignalTemplate(
+            ChartSeries series, ComponentConfig comp, double value, WorkspaceState state, int barIndex)
+        {
+            string seriesName = SeriesName(series);
+            string price = (state.Data != null && barIndex < state.Data.Count)
+                ? SpeechPriceFormatter.FormatPrice(state.Data[barIndex].Close)
+                : SpeechPriceFormatter.FormatPrice(value);
+
+            string text = comp.SignalSpeechTemplate!
+                .Replace("{price}", price)
+                .Replace("{value}", value.ToString("F1", CultureInfo.InvariantCulture))
+                .Replace("{name}", string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName)
+                .Replace("{series}", seriesName)
+                .Trim();
+
+            if (text.Length == 0) return "";
+            if (!text.StartsWith(seriesName + ":", StringComparison.Ordinal))
+                text = seriesName + ": " + text;
+            // 47 of the 61 shipped templates end without a full stop, which read fine alone and
+            // run into the next clause once joined — the same repair ScanUtterance makes.
+            if (!".!?".Contains(text[^1])) text += ".";
+            return text;
+        }
+
         // ── Dates ──────────────────────────────────────────────────────────────────
 
         /// <summary>

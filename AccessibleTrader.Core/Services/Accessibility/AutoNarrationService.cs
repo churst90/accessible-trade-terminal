@@ -352,6 +352,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.DataStatus == DataStatus.LoadingHistorical) return;
             if (state.InitStatus != InitializationStatus.Ready) return;
             if (!state.IsSpeechEnabled) return;
+
+            // The Narration tab's master switch. It sits ABOVE the per-series flag, not instead
+            // of it: Ctrl+Alt+Shift+N picks WHICH series speak, this says whether any of them
+            // do. Default ON, so on a chart with nothing flagged it gates nothing — what it buys
+            // is one place to silence the whole channel without un-flagging six series and
+            // having to remember which six they were.
+            //
+            // Placed exactly where the F2 speech gate is, and it inherits that gate's one known
+            // edge: the per-series seeding in OnStateChanged is a DIFFERENT subscription and
+            // keeps running while this is off (so re-enabling never replays a whole session),
+            // but the 20-bar PivotConfirmWindow means the first scan after re-enabling can still
+            // speak a signal from up to 20 bars back. That is pre-existing behaviour for F2, it
+            // is bounded, and a signal 20 bars old is arguably still worth hearing — noted here
+            // rather than special-cased.
+            if (!state.NarrateSignalsOnBarClose) return;
+
             if (!_prevNarratedIds.Any()) return;
 
             int currentCount = state.Data.Count;

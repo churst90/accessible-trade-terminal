@@ -67,6 +67,29 @@ namespace AccessibleTrader.Core.Services
         // opt-in rule the visual-accessibility additions follow.
         public const string DescribeChartPatterns = "speech.describeChartPatterns";
 
+        // ── Narration (Settings → Narration): what the terminal says when the user
+        // pressed NOTHING. The Speech tab governs how it says what you ASKED for; these
+        // two govern the unprompted channel. The split is by TRIGGER, not by topic —
+        // that is what keeps "Describe chart patterns" in Speech (it also changes what
+        // the arrow keys say) while "Announce new bars" belongs here.
+
+        /// <summary>
+        /// Master switch over the bar-close narrator (<c>AutoNarrationService</c>). Default ON,
+        /// because it changes nothing on its own: the narrator only ever scans series the user
+        /// flagged with Ctrl+Alt+Shift+N, so on a chart with none flagged this switch has nothing
+        /// to gate. Ctrl+Alt+Shift+N picks WHAT speaks; this says WHETHER any of it does.
+        /// </summary>
+        public const string NarrateSignalsOnBarClose = "narration.signalsOnBarClose";
+
+        /// <summary>
+        /// Whether playback speaks at all beyond its own start/pause/stop/speed confirmations —
+        /// time landmarks, marker signals, and chart-pattern outcomes. Default ON for the same
+        /// reason: ON preserves exactly what shipped (landmarks), and everything it ADDS is
+        /// already behind an opt-in (the per-series narration flag, and "Describe chart patterns"
+        /// for the outcomes). OFF is the thing nobody had before — playback as pure tones.
+        /// </summary>
+        public const string NarrateDuringPlayback = "narration.duringPlayback";
+
         /// <summary>
         /// Draw chart formations on the canvas. Appearance rather than speech: the audience is a
         /// low-vision or sighted viewer, since a blind user already has the whole formation by ear.

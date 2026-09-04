@@ -125,6 +125,16 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.PaneRanges),
         nameof(WorkspaceState.PaneHeightRatios),
         nameof(WorkspaceState.TabSnapshots),
+
+        // The two narration switches. AnnounceNewBars and DescribeChartPatterns ARE carried,
+        // which makes this look inconsistent, so the reason is written down: those two predate
+        // the projection and a strategy could at least argue it wants to know whether a bar
+        // close was announced. These say whether the TERMINAL is talking — a strategy whose
+        // signals differed depending on whether the user had playback narration on would be a
+        // defect, not a feature, and it would differ between a live run and a backtest where
+        // there is no speech channel at all.
+        nameof(WorkspaceState.NarrateSignalsOnBarClose),
+        nameof(WorkspaceState.NarrateDuringPlayback),
     };
 
     /// <summary>

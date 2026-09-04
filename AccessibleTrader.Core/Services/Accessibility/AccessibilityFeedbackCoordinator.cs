@@ -49,6 +49,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // produce a landmark — see PlaybackNarration.LandmarkForStep.
         private bool _awaitingFirstPlaybackStep;
 
+        // The bar index of the last SIGNAL utterance playback spoke, or -1 when none has been
+        // spoken in this run. Playback signals are rate-limited by bar distance
+        // (PlaybackNarration.MinBarsBetweenSignals) rather than by wall clock, because the bar
+        // is what the user is listening to: at 4x the tones move four times as fast and the
+        // words have to thin out with them. Reset on every playback start, so the first signal
+        // of a run is never suppressed by the last signal of the previous one.
+        private int _lastPlaybackSignalBar = -1;
+
         // Candle pattern debounce: only re-announce when pattern changes, not on every tick.
         private CandlePattern _lastAnnouncedPattern = CandlePattern.None;
         private CandleType _lastAnnouncedType = CandleType.Normal;
@@ -348,6 +356,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Series and component scope start AT the cursor, so their first NavigateAction
                 // moves nothing and the first real step must be allowed to land a landmark.
                 _awaitingFirstPlaybackStep = state.CurrentDataIndex != plan.StartIndex;
+                _lastPlaybackSignalBar = -1;
             }
             else if (playingToggled)
             {
@@ -373,10 +382,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Non-interrupting: a landmark must never clip the one before it, and it must
                 // never clip a speed or pause confirmation the user just asked for.
                 bool indexMoved = state.CurrentDataIndex != _previousState.CurrentDataIndex;
-                string? landmark = PlaybackNarration.LandmarkForStep(_previousState, state, isFirstStep: _awaitingFirstPlaybackStep);
+                bool isFirstStep = _awaitingFirstPlaybackStep;
+                string? landmark = PlaybackNarration.LandmarkForStep(_previousState, state, isFirstStep);
                 if (state.IsPlaying && indexMoved) _awaitingFirstPlaybackStep = false;
-                if (landmark != null)
-                    _speechRouter.Speak(landmark, interrupt: false);
+
+                // ONE UTTERANCE PER STEP. The landmark, the signals the narrated series printed
+                // on this bar, and any chart pattern that resolved on it are composed and spoken
+                // once — the live-region rule that the bar-close narrator was rebuilt around on
+                // 2026-09-02, and it bites harder here: on the web head only the last write to
+                // the region in a render batch survives, and playback writes ten times a second.
+                //
+                // Landmark FIRST, against this file's usual most-consequential-first ordering,
+                // and the reason is that it is not a competing claim — it is the WHEN of the
+                // clause behind it. "June 3. Cipher: buy signal." reads as one fact; reversed it
+                // reads as two, and the landmark's whole job is to timestamp the tones.
+                string? spoken = PlaybackSpeechForStep(state, landmark, indexMoved && !isFirstStep);
+                if (spoken != null)
+                    _speechRouter.Speak(spoken, interrupt: false);
             }
 
             // 1. GATING: everything below is navigation and viewport feedback for a cursor the
@@ -642,6 +664,68 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (!string.IsNullOrEmpty(res)) sb.Append(res).Append(' ');
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// The one sentence playback speaks for the step it has just taken, or null for silence.
+        ///
+        /// <para>
+        /// Three sources, composed rather than spoken separately: the time landmark, the discrete
+        /// signals the user's narrated series printed on this bar, and any chart pattern that
+        /// resolved on it. The landmark's own cadence is structural — the unit is chosen coarse
+        /// enough to space them out (<c>PlaybackNarration.UnitFor</c>) — so only the other two
+        /// need the explicit rate limit, and they share ONE window: two utterances 100 ms apart
+        /// is the thing the limit exists to prevent, whichever of them produced each.
+        /// </para>
+        ///
+        /// <para>
+        /// A landmark is never rate-limited away. It is already sparse, it is the only thing that
+        /// says WHERE IN TIME the tones are, and dropping it because a signal spoke two bars ago
+        /// would lose the one thing playback has always said.
+        /// </para>
+        ///
+        /// <para>
+        /// <paramref name="stepped"/> is false on the sequencer's FIRST NavigateAction, which
+        /// jumps the cursor to the plan's start bar rather than walking to it — the same reason
+        /// <c>PlaybackNarration.LandmarkForStep</c> refuses that step. The start sentence has
+        /// already named that bar, and a signal announced there would be heard as belonging to
+        /// wherever the cursor happened to be sitting beforehand.
+        /// </para>
+        ///
+        /// <para>
+        /// The chart-pattern outcome is gated on BOTH "Describe chart patterns" (the content
+        /// switch, which <c>ChartPatternOutcomesAt</c> reads) and "Narrate during playback" (the
+        /// trigger switch, checked by the caller). One switch per content × trigger cell grows
+        /// without bound, and a user who turned pattern descriptions off would be startled to
+        /// hear them here.
+        /// </para>
+        /// </summary>
+        private string? PlaybackSpeechForStep(WorkspaceState state, string? landmark, bool stepped)
+        {
+            if (!state.NarrateDuringPlayback) return null;
+            if (!state.IsPlaying || state.IsPaused) return landmark;
+
+            string? events = null;
+            if (stepped)
+            {
+                int bar = state.CurrentDataIndex;
+                int minGap = PlaybackNarration.MinBarsBetweenSignals(state.PlaybackSpeed);
+                if (_lastPlaybackSignalBar < 0 || bar - _lastPlaybackSignalBar >= minGap)
+                {
+                    string? signals = PlaybackNarration.SignalsForStep(state, bar);
+                    string outcomes = ChartPatternOutcomesAt(state, state.Data, bar).Trim();
+                    events = string.Join(" ", new[] { signals, outcomes }
+                        .Where(x => !string.IsNullOrWhiteSpace(x)));
+                    if (string.IsNullOrWhiteSpace(events)) events = null;
+                    else _lastPlaybackSignalBar = bar;
+                }
+            }
+
+            if (landmark == null && events == null) return null;
+            if (events == null) return landmark;
+            // The landmark carries no full stop of its own — "June 3", "14:00" — so it needs one
+            // before the clause behind it, or a screen reader runs the two together.
+            return landmark == null ? events : $"{landmark}. {events}";
         }
 
         // ── Pattern Speech Helpers ─────────────────────────────────────────────

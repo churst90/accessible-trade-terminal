@@ -1,7 +1,7 @@
 ---
 title: Feedback routing — what the user hears, and what can silence it
 ---
-%% Verified against the tree on 2026-08-28.
+%% Verified against the tree on 2026-09-04.
 %% This is the diagram to read before touching anything that speaks. In this app a
 %% swallowed error is not merely invisible, it is INAUDIBLE — there is no compensating
 %% channel for a blind user, which is why the channel tiers below are a contract and
@@ -12,7 +12,8 @@ flowchart TD
         STATE["WorkspaceStore StateStream — focus, viewport, volume"]
         ORD["Order outcomes — fills, stops, take-profits, refusals"]
         ALR["Alerts and background monitoring"]
-        NARR["AutoNarrationService — live structural commentary"]
+        NARR["AutoNarrationService — live structural commentary<br/>Ctrl+Alt+Shift+N picks WHICH series;<br/>Settings · Narration · signalsOnBarClose is the master"]
+        PLAY["Playback steps — landmarks, marker signals, formation outcomes<br/>composed ONE utterance per bar in PlaybackSpeechForStep<br/>gated by Settings · Narration · duringPlayback"]
         ERRS["GlobalErrorCoordinator — anything that failed"]
     end
 
@@ -24,6 +25,7 @@ flowchart TD
     STATE --> AFC
     ORD --> AFC
     NARR --> AFC
+    PLAY --> AFC
 
     AFC --> SFR["SpeechFeedbackRouter"]
     AFC --> AFR["AudioFeedbackRouter"]
@@ -62,6 +64,9 @@ flowchart TD
 
     JRN["JournalService — every spoken phrase, alert, setup and error<br/>kept for the session and reviewable at Ctrl+Alt+Shift+J.<br/>Speech is transient; this is how a user re-reads what went past."]
     CHAN --> JRN
+
+    NT["Settings · Narration is a THIRD kind of gate, and it sits ABOVE the channels.<br/>A channel mute is 'not to me right now' — F2 / Shift+F2, session-only, never persisted.<br/>A narration switch is 'do not say this at all' — persisted, and it decides<br/>whether the sentence is composed in the first place.<br/>The tab is split by TRIGGER, not by topic:<br/>Speech = how it says what you ASKED for · Narration = what it says when you pressed NOTHING.<br/>That is why 'Describe chart patterns' stays on Speech — it is a CONTENT switch<br/>and it also changes what the arrow keys say."]
+    NARR & PLAY --- NT
 
     RULE["Two rules this diagram exists to protect:<br/>1. One path per modality. Nothing else writes navigation voices,<br/>   and nothing else decides what a move says.<br/>2. Substituting IAppLogger in a test does NOT stub a logger —<br/>   it is the error-SPEECH channel, so doing that makes any<br/>   'nothing was announced' assertion vacuous."]
     AFC --- RULE

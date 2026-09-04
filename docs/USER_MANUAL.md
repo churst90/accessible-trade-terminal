@@ -800,6 +800,36 @@ frozen moment. Shift+Escape is the panic key that stops all playback at once, an
 Shift+= speeds playback up while Shift+- slows it down — slower to
 dwell on each bar, faster to scan a long history.
 
+**What playback says while it runs.** The tones carry the price, so the words carry
+everything the tones cannot. Three things speak, all of them without interrupting each other
+and all of them composed into a single sentence per bar so nothing gets cut off half way:
+
+- **Where you are in time.** Each time the bars cross a calendar boundary one step coarser
+  than the bar spacing — a new hour on minute bars, a new month on daily ones — the new
+  period is spoken: *"February 2024."* The unit is chosen so the announcements land at least
+  two seconds apart at whatever speed you are playing, so speeding up makes them coarser
+  rather than more frequent.
+- **Signals, on the series you asked for.** A marker signal printing on the bar the tones
+  have just reached is spoken with the series that printed it — *"Cipher B: bull signal at
+  64,900."* This is the same per-series flag as live auto-narration: **Ctrl+Alt+Shift+N picks
+  what speaks, the Narration tab picks when.** Only discrete signals, never crossings, zone
+  changes or oscillator commentary — at ten bars a second those would be a wall of speech.
+- **A formation resolving.** If you have "Describe chart patterns" on, a chart formation
+  whose story ends on the bar being played is spoken there, in the same words the arrow keys
+  would use if you stopped on it.
+
+Signals and formations are rate-limited to the same two-second cadence as the landmarks: a
+second one arriving inside the window is **dropped, not queued**, because at ten bars a
+second a queue means hearing about a bar the tones passed eight seconds ago. Landmarks are
+never dropped — they are the only thing telling you where in time you are. And all of it is
+one switch: **Settings (F12) → Narration → Narrate during playback**. Turn it off and
+playback is tones and nothing else, with the start, pause, speed and finish confirmations
+still spoken so the end of a run never sounds like a crash.
+
+If you want playback as *pure* narration rather than as sound, F3 turns the chart tones off
+and leaves everything above running: the cursor still walks the chart, the words still
+arrive, and nothing plays underneath them.
+
 ### Choosing what you hear
 
 You are always in command of the output layers, and the F-key row follows one
@@ -1813,10 +1843,17 @@ Toggling it announces the new state, "Narration on" or "Narration off", so you a
 know whether it is listening. On the Linux web host the chord is unchanged — it has three
 modifiers, which browsers do not reserve.
 
+Two switches sit above it, both on the **Narration** tab of Settings (F12). "Narrate signals
+on bar close" is the master: Ctrl+Alt+Shift+N chooses which series speak, that switch decides
+whether any of them do, and turning it off is how you get an hour of quiet without un-flagging
+every indicator and having to remember what you had flagged. "Narrate during playback" decides
+whether those same flagged series speak while the chart is playing, covered back in the
+playback section.
+
 Auto-narration is one of a small family of "let the terminal keep you posted" features
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
 you met when you first loaded a market — is the always-on heartbeat of the live candle,
-and you can turn it on or off under Settings (F12), Speech, with "Announce new bars". The
+and you can turn it on or off under Settings (F12), Narration, with "Announce new bars". The
 **detailed point analysis**, Ctrl+Shift+D (Alt+Shift+D on the web host), is the
 on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
 indicator, every signal, in one keystroke, covered back in the chart chapter. And the
@@ -2640,19 +2677,50 @@ arranging and saving your charts.
 
 ### Settings
 
-Press F12 for the settings dialog. It has seven tabs — **General, Speech,
+Press F12 for the settings dialog. It has eight tabs — **General, Speech, Narration,
 Sonification, Appearance, Keyboard, License, About** — and Left and Right arrows
-move between them. **Speech** mirrors the F2 toggle and holds the smaller choices that tune
-how much the terminal says: whether it speaks timestamps and when, whether it reads column
-headers, whether it announces each new bar as it closes (the rolling "Close … New bar …" you
-met when you first loaded a market), and **Describe chart patterns**, which adds formation
-narration to arrow-key navigation and to the new-bar announcement. **Sonification** mirrors
-F3 and holds the sound theme and the sound-under-the-mouse option. **General** is where you
-switch **paper trading mode** on and choose what the quick-trade risk percentage means, plus
-workspace, background-monitoring, braille, touch-bar, analysis, drawing and viewport
-preferences. **Appearance** is the theme — most relevant to a sighted collaborator looking
-over your shoulder — and the visual accommodations. Speech changes apply when you close the
-dialog; everything else applies as you change it.
+move between them.
+
+**Speech** and **Narration** are split by a rule worth learning, because it tells you which
+tab to go to without hunting: **Speech is how the terminal says what you asked for, and
+Narration is what it says when you pressed nothing.** So Speech holds whether it speaks
+timestamps and when, whether it reads column headers, the order it reads a value and its
+name in, and which voice talks on this device — every one of them a change to the answer you
+get back from a key you pressed. Narration holds the three things that speak on their own:
+the new-bar announcement, signal narration on a bar close, and narration during playback.
+
+One setting sits on the Speech tab that you might expect on Narration: **Describe chart
+patterns**. It stays there because it is a *content* switch rather than a trigger — it
+changes what the arrow keys say as well as what a bar close says — and it gates formation
+talk everywhere at once, playback included. It answers to "narration" in the settings search
+box, so looking for it from the Narration tab's vocabulary still finds it.
+
+**Sonification** mirrors F3 and holds the sound theme and the sound-under-the-mouse option.
+**General** is where you switch **paper trading mode** on and choose what the quick-trade
+risk percentage means, plus workspace, background-monitoring, braille, touch-bar, analysis,
+drawing and viewport preferences. **Appearance** is the theme — most relevant to a sighted
+collaborator looking over your shoulder — and the visual accommodations. Speech and narration
+changes apply when you close the dialog; everything else applies as you change it.
+
+#### The Narration tab
+
+Three switches, and the two new ones are both **on** to begin with. That is deliberate and it
+is not the terminal being chatty at you: neither switch lets anything new through on its own.
+Signal narration only ever speaks about series you flagged yourself with Ctrl+Alt+Shift+N, so
+on a chart where you have flagged nothing it has nothing to say; and playback narration is
+on because it is what the terminal already did. What is new is that you can now turn either
+of them **off**.
+
+- **Announce new bars** — the rolling "Close … New bar …" heartbeat of the live candle. It
+  moved here from the Speech tab; nothing about it changed.
+- **Narrate signals on bar close** — the master switch over auto-narration.
+  Ctrl+Alt+Shift+N chooses *which* series speak; this decides whether any of them do. Turn
+  it off for an hour of quiet without having to un-flag six indicators and then remember
+  which six they were.
+- **Narrate during playback** — while the chart is playing, whether you hear the date or
+  hour as the tones cross each boundary, the signals your narrated series print, and any
+  chart formation that resolves. Off leaves playback as pure tones, with only the start,
+  pause, speed and finish confirmations spoken. Nobody had that switch before 2.6.0.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery
@@ -2729,7 +2797,7 @@ interface text throughout the terminal — browser zoom still works on top of it
 at the top of the whole dialog there is now a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
-never need to remember which of the seven tabs holds a setting.
+never need to remember which of the eight tabs holds a setting.
 
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled

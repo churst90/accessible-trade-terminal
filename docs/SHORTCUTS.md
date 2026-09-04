@@ -256,11 +256,25 @@ Also on the toolbar's second row as **Split**, which shows its own pressed state
 | Shift+= | Increase playback speed | Spoken during playback too: "Playback speed: 1.5x" |
 | Shift+- | Decrease playback speed | Spoken during playback too |
 
-While playback runs the tones carry price and speech carries time: each time the bars cross a
-calendar boundary one step coarser than the bar spacing (a new hour on minute bars, a new day on
-hourly, a new month on daily, a new year on weekly — the finest unit that keeps the announcements
-about two seconds apart at the current speed) the new period is spoken without interrupting.
-Navigation readouts and viewport descriptions stay silent during playback; F2 mutes all of it.
+While playback runs the tones carry price and speech carries three things, composed into **one
+utterance per bar** so nothing can cut anything else off:
+
+1. **Time.** Each time the bars cross a calendar boundary one step coarser than the bar spacing
+   (a new hour on minute bars, a new day on hourly, a new month on daily, a new year on weekly —
+   the finest unit that keeps the announcements about two seconds apart at the current speed) the
+   new period is spoken without interrupting.
+2. **Signals**, from the series you flagged with `Ctrl+Alt+Shift+N` and only those: a marker
+   signal printing on the bar just reached, named with its series — *"Cipher B: bull signal at
+   64,900."* Discrete signals only; never crossings, zone changes or oscillator commentary.
+3. **A formation resolving** on that bar, if *Describe chart patterns* is on, in the same words
+   the arrow keys use.
+
+Items 2 and 3 share the landmark cadence: a second one inside the two-second window is **dropped,
+not queued** — at ten bars a second a queue is a backlog about bars the tones have long passed. A
+landmark is never dropped. All three are governed by **Settings → Narration → Narrate during
+playback** (on by default); with it off, playback is tones plus only the start, pause, speed and
+finish confirmations. Navigation readouts and viewport descriptions stay silent during playback;
+F2 mutes all of it, and F3 silences the tones while leaving the words — playback as narration.
 
 ---
 
@@ -341,7 +355,7 @@ state, last swing high and low, and where price sits between them.
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
 | Ctrl+Shift+D (web: Alt+Shift+D) | Full candle pattern + indicator analysis for the current bar, **plus every chart formation the cursor sits inside** with its trigger and measured target | Spoken summary |
-| Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off | "Narration on/off" |
+| Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off. Picks WHICH series speak; Settings → Narration decides WHEN (bar close, playback) | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 
 ---
