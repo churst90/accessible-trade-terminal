@@ -48,6 +48,7 @@ namespace AccessibleTrader.Core.Services
         private readonly IEventBus _eventBus;
         private readonly ILogger<DataOrchestrator> _logger;
         private readonly DemoPolicy _demo;
+        private readonly IDataService? _dataService;
 
         // Resilience policies scoped per provider so one flaky source doesn't
         // suspend traffic for the other 25. Built lazily on first use; stored
@@ -73,13 +74,20 @@ namespace AccessibleTrader.Core.Services
         public IObservable<DataState> StateChanged => _stateMachine.StateChanged;
 
 
-        public DataOrchestrator(HistoricalDataFetcher historicalFetcher, LiveStreamManager liveStreamManager, IEventBus eventBus, ILogger<DataOrchestrator> logger, DemoPolicy demo)
+        /// <param name="dataService">
+        /// Optional, and only ever consulted for a symbol the shape check has already rejected —
+        /// see <see cref="SymbolPassesChokepointAsync"/>. Optional so that the many test and
+        /// tooling construction sites that predate it keep compiling and keep behaving exactly as
+        /// they did: without it, an unusual symbol is rejected, which is the old behaviour.
+        /// </param>
+        public DataOrchestrator(HistoricalDataFetcher historicalFetcher, LiveStreamManager liveStreamManager, IEventBus eventBus, ILogger<DataOrchestrator> logger, DemoPolicy demo, IDataService? dataService = null)
         {
             _historicalFetcher = historicalFetcher;
             _liveStreamManager = liveStreamManager;
             _eventBus = eventBus;
             _logger = logger;
             _demo = demo;
+            _dataService = dataService;
             _stateMachine = new DataStateMachine(logger, eventBus);
 
             SafeFireAndForget.Run(ProcessLiveStreamAsync, logger, "ProcessLiveStream");
@@ -214,12 +222,42 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// The fetch chokepoint's symbol check, with the one exemption a URL-shaped charset
+        /// cannot express.
+        ///
+        /// <para>
+        /// <see cref="SymbolValidator"/> exists to stop a symbol becoming a path segment or a
+        /// query parameter it was not meant to be, which is why the charset is deliberately
+        /// narrow. But not every provider builds a URL: the "My Data" provider reads a CSV out
+        /// of the app-data directory, and its symbols are the user's own dataset names —
+        /// "My Budget", or "Budget — Spending" for a value column. Both are rejected by the
+        /// charset, so importing a file with a space in its name produced a chart that never
+        /// loaded and an error that blamed the symbol. Measured in the browser harness on
+        /// 2026-09-04; see <see cref="Sdk.Plugins.IMarketDataProvider.SymbolsAreUrlBound"/>.
+        /// </para>
+        ///
+        /// <para>
+        /// The valid case is unchanged and costs nothing: the provider is only resolved once the
+        /// shape check has ALREADY rejected the symbol, so every venue fetch takes the same path
+        /// it always did. A provider that cannot be resolved stays rejected — the exemption has
+        /// to be declared, never assumed.
+        /// </para>
+        /// </summary>
+        private async Task<bool> SymbolPassesChokepointAsync(string providerName, string symbol)
+        {
+            if (SymbolValidator.IsValid(symbol)) return true;
+            if (_dataService is null) return false;
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
+            return provider is { SymbolsAreUrlBound: false };
+        }
+
         public async Task<List<Ohlcv>> FetchOhlcvAsync(string market, string provider, string symbol, string timeframe, long? since = null, int? limit = null, long? until = null, bool silent = false, CancellationToken ct = default)
         {
             // Validate at the choke point so every provider inherits the same shape check
             // without each plugin having to reimplement it. Rejects path/query injection
             // before any URL is built or any signed request is constructed.
-            if (!SymbolValidator.IsValid(symbol))
+            if (!await SymbolPassesChokepointAsync(provider, symbol).ConfigureAwait(false))
             {
                 _logger.LogWarning("Rejected invalid symbol '{Symbol}' for provider {Provider}.", symbol, provider);
                 if (!silent)
@@ -285,7 +323,7 @@ namespace AccessibleTrader.Core.Services
 
         public async Task StartLiveStreamAsync(string market, string providerName, string symbol, string timeframe)
         {
-            if (!SymbolValidator.IsValid(symbol))
+            if (!await SymbolPassesChokepointAsync(providerName, symbol).ConfigureAwait(false))
             {
                 _logger.LogWarning("Rejected invalid symbol '{Symbol}' for live stream on {Provider}.", symbol, providerName);
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, $"Invalid symbol '{symbol}' for {providerName}."));

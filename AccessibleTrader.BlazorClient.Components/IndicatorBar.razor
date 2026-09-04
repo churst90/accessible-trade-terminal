@@ -3,6 +3,7 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject DemoPolicy Demo
+@implements IDisposable
 
 @* A <nav> landmark, not role="toolbar". Every control here is a flat Tab stop with no
    roving tabindex and no arrow-key handler, so role="toolbar" was advertising an
@@ -73,6 +74,33 @@
 @code {
     private ChartSeries? _focusedSeries =>
         Store.State.ActiveSeries.FirstOrDefault(s => s.Id == Store.State.FocusedSeriesId);
+
+    private IDisposable? _stateSub;
+
+    /// <summary>
+    /// Observe the store, the way <c>TabBar</c> and <c>Toolbar</c> already do.
+    ///
+    /// <para>
+    /// Every control in this bar is a projection of <c>Store.State</c> — the series picker's
+    /// options ARE <c>ActiveSeries</c>, and the Hide/Mute buttons name the focused one — but the
+    /// component had no subscription of any kind, so it repainted only when something else
+    /// happened to re-render it. Measured 2026-09-04 in the browser harness: on a cold circuit a
+    /// chart loaded with FOUR series in the store (probed server-side: candles, volume, price,
+    /// market structure, 200 bars) while this dropdown stayed at ZERO options; the tab bar beside
+    /// it, which has this subscription, showed the new tab correctly. Four more Load presses
+    /// changed nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// For a screen-reader user that is the worst shape the bug could take: the terminal
+    /// announces "Ready", the tab says the symbol, and the one list that names what is ON the
+    /// chart says there is nothing there.
+    /// </para>
+    /// </summary>
+    protected override void OnInitialized() =>
+        _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _stateSub?.Dispose();
 
     private void OnSeriesChanged(ChangeEventArgs e)
     {

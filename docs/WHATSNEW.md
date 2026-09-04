@@ -167,6 +167,21 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 
 ### Settings, tidied
 
+- **Save is what saves, and Escape is Cancel.** Fifteen controls in this dialog used to write
+  themselves the instant you touched them — background monitoring, the poll interval, live
+  background tabs, resume-session, the sound theme, magnet snap, market structure on new
+  charts, the touch toolbar, sound under the mouse, which voice speaks, quick-trade sizing,
+  where timestamps are spoken, value order — so pressing Cancel took none of them back. Three
+  more, including "Speech enabled", changed the running application straight from the
+  checkbox. Everything waits for Save now. Save writes them all and says **"Settings saved."**;
+  Cancel, Escape or a click on the backdrop drops them all and says **"Settings discarded."**
+  You can change your mind about anything in here.
+  - **The Appearance tab is the deliberate exception.** The theme, the text size and the
+    visual accommodations still apply the moment you pick them, because a visual setting you
+    cannot see while you decide is one you cannot judge — and Cancel now puts those back too,
+    and says so.
+  - **"Draw chart formations" never remembered its own setting.** Reopening Settings always
+    showed it unticked, whatever the chart was actually doing.
 - **Eight tabs: General, Speech, Narration, Sonification, Appearance, Keyboard, License,
   About** — and the search box at the top still finds any setting by name and jumps to it.
 - **Alert delivery moved out of Settings and into the alerts dialog** (Alt+J, then *Delivery
@@ -213,12 +228,22 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 - **The Object Tree follows your focus.** Arrowing to a row selects it, so the drawing you
   are standing on in the tree is the drawing your next command acts on. A collapsed node
   could also never be re-opened with the arrow keys; it can now.
+- **The "Focused Indicator" dropdown could be empty on a chart full of indicators.** That
+  list is how you pick which series the Hide, Mute and Properties commands act on, and it was
+  the one part of the terminal that never watched the chart — so on a freshly opened session
+  it could sit at nothing while the tab bar showed your symbol and the terminal announced the
+  chart was ready. It follows the chart now.
+- **A CSV you imported under a name with a space in it could never be charted.** "My Budget"
+  came back as *"Invalid symbol 'My Budget' for My Data. The chart is empty."* — the check
+  that stops a ticker being smuggled into a web request was being applied to files on your own
+  disk. Every column-shaped dataset was blocked outright for the same reason. Both load now.
 
 ### Under all of it
 
-Fifty-two new test files and 530 new automated tests since 2.5.0, taking the suite to 6,537
+Fifty-five new test files and 560 new automated tests since 2.5.0, taking the suite to 6,567
 — and every fix above was proved by **putting the bug back and watching a named test catch
 it**, not by reading the code and believing it. The browser harness that drives a real
-Chromium against the real application grew to 198 cases; three JavaScript suites cover the
+Chromium against the real application grew to 207 cases, and can now load an actual chart, so
+what it says about the Object Tree is about a tree with something in it; three JavaScript suites cover the
 keyboard trap, the touch gestures and the object tree; and a check fails the build if the
 documentation and the code ever disagree about a shortcut, a plugin count or a test count.

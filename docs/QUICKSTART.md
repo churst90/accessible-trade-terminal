@@ -586,6 +586,12 @@ says what you asked for, Narration is what it says when you pressed nothing.**
 Alert delivery (email, Telegram, named webhooks) is no longer a Settings tab — it moved into
 the alerts dialog itself, Alt+J then **Delivery settings**, next to the alerts it delivers.
 
+**Nothing is saved until you press Save.** Every checkbox, text field and dropdown in this
+dialog holds your change and waits: Save writes them all and says "Settings saved", and Cancel
+or Escape drops them all and says "Settings discarded". The one exception is deliberate — the
+theme and the visual accommodations on the Appearance tab change the moment you pick them, so
+you can see what you are choosing, and Cancel puts those back too.
+
 ### Market watch (Alt+M)
 
 Three tabs. **Watchlists** keeps named, ordered sets of symbols — pick them from the

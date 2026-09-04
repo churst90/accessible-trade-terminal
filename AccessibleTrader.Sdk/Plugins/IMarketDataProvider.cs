@@ -48,6 +48,30 @@ namespace AccessibleTrader.Sdk.Plugins
         ProviderDataShape GetDataShapeForSymbol(string symbol) => DataShape;
 
         /// <summary>
+        /// Whether this provider's symbols are interpolated into a URL, and therefore have to
+        /// survive <c>SymbolValidator</c>'s shape check at the fetch chokepoint.
+        ///
+        /// <para>
+        /// True for every venue: a symbol becomes a path segment or a query value in a signed
+        /// request, so the charset is a security boundary rather than a style preference. False
+        /// only for a provider whose data is already local and addressed by something other than
+        /// a URL — the "My Data" provider reads a CSV out of the app-data directory by dataset
+        /// id, and its symbols are the user's own dataset names.
+        /// </para>
+        ///
+        /// <para>
+        /// This is not cosmetic. Measured 2026-09-04 in the browser harness: a dataset named
+        /// "Harness Candles" charted to <c>"Invalid symbol 'Harness Candles' for My Data. No data
+        /// for Harness Candles from My Data. The chart is empty."</c> — the space alone is outside
+        /// the allowed charset. Every Values-shaped dataset was worse off still, because its
+        /// symbol is <c>"{dataset} — {column}"</c> and carries an em dash as well; those could
+        /// never be charted at all. A user importing "My Budget" hit a wall the app blamed on
+        /// their symbol.
+        /// </para>
+        /// </summary>
+        bool SymbolsAreUrlBound => true;
+
+        /// <summary>
         /// Returns a human-readable label for the given symbol, used as the series
         /// FriendlyName and the primary component's DisplayName when the chart loads.
         /// OHLCV providers generally don't need to override — the symbol itself

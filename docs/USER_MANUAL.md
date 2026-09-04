@@ -2684,6 +2684,18 @@ Press F12 for the settings dialog. It has eight tabs — **General, Speech, Narr
 Sonification, Appearance, Keyboard, License, About** — and Left and Right arrows
 move between them.
 
+**Save is what saves, and Escape is Cancel.** Every control in this dialog holds your change
+until you press Save; Save writes them all at once and says "Settings saved", and Cancel — or
+Escape, or a click on the backdrop — drops them all and says "Settings discarded". You can
+change your mind about anything in here without consequence, and you never have to wonder
+whether a box you ticked and then thought better of has already taken effect.
+
+There is one deliberate exception, on the **Appearance** tab. The theme, the text size and the
+visual accommodations (chart formations drawn, visual earcons, colour-vision-safe colours,
+hollow up-candles) apply the *moment* you pick them, because a visual setting you cannot see
+while you decide is a setting you cannot judge. Cancel restores them as well, and says
+"Settings discarded. Appearance restored" so you know it did.
+
 **Speech** and **Narration** are split by a rule worth learning, because it tells you which
 tab to go to without hunting: **Speech is how the terminal says what you asked for, and
 Narration is what it says when you pressed nothing.** So Speech holds whether it speaks

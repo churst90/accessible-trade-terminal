@@ -117,6 +117,243 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, FIFTEENTH pass — SETTINGS COMMITS ON SAVE AND
+> NOWHERE ELSE, THE BROWSER HARNESS CAN LOAD A CHART, AND THREE PRODUCTION DEFECTS FELL OUT
+> OF BEING ABLE TO. Two of Cody's five items were BUILD items and both landed; the other
+> three were DISCUSSION items and the answers are below, awaiting his call.**
+>
+> ### 1. SETTINGS: ONE COMMIT IDIOM — Cody's item 4, DONE
+>
+> The fourteenth pass left this open and named it honestly: "a handful of Settings controls
+> still apply the moment they change". **It was fifteen, not a handful**, plus three that
+> dispatched straight into the workspace store from the markup. Every one is staged now.
+>
+> - **Staged, written by `Save()`:** hover sonification, magnet snap, market-structure
+>   default, sound theme, touch-nav mode, background monitoring, poll interval, live
+>   background tabs, resume-session, speech output mode, quick-trade sizing, timestamp
+>   placement, speech order, the local-monitor flag — and the three store-backed ones:
+>   **Speech enabled, Sonification enabled, panning step.**
+> - **The store-backed three are dispatched only when the staged value DIFFERS**, and that
+>   is not a tidiness rule: `ToggleSpeechAction` is a TOGGLE, not a setter. Dispatching it
+>   unconditionally on Save turns speech off for a user who opened the dialog to change the
+>   sound theme. `SettingsCommitVocabularyTests` pins the guard by name.
+> - **The side effects moved with the settings.** `Monitoring.Reconcile()` and
+>   `TabFeeds.Reconcile()` used to run per keystroke — the poll-interval `<select>` restarted
+>   every monitor on each arrow press. They run once, after the write, so a new on/off state
+>   and a new interval are adopted together.
+> - **Save and Cancel both announce.** "Settings saved." / "Settings discarded." Silence
+>   after Escape is indistinguishable from a dialog that did not close, and this is the one
+>   moment where the user needs to know their edits went nowhere.
+> - **The live-preview exception is deliberate and is now honest.** Theme, UI scale and the
+>   four visual accommodations still apply on change — Cody: *"setting immediate apply
+>   controls like for theme live preview, sure"* — and `RevertPreviews()` puts them back on
+>   Cancel, announcing "Appearance restored." They still PERSIST as they are applied, because
+>   their services own the write and there is no apply-without-persist path; the revert
+>   re-applies and re-persists the opening values. **The gap that leaves is a crash with the
+>   dialog open**, which would keep a preview the user never accepted. Recorded, not fixed:
+>   forking every appearance service into preview and commit modes costs more than it buys.
+> - **Found on the way: `_showPatternVisuals` was never read back in `ResetLocal`**, so
+>   "Draw chart formations" rendered unchecked however it had been left.
+>
+> **Not done, and it is a real item:** the a11y review argues the **paper-account reset needs
+> a confirmation** (WCAG 3.3.4) — it is a one-shot destructive command and deferred commit
+> cannot help it. It stays immediate because it is a COMMAND, not an edit; the confirmation
+> is Cody's call.
+>
+> ### 2. THE BROWSER HARNESS CAN LOAD A CHART — Cody's item 3, DONE, and it paid for itself
+>
+> The fourteenth pass called this "the highest value untaken item in this file". It was.
+>
+> **The seam is the built-in "My Data" provider.** `TerminalServerFactory` writes one OHLCV
+> dataset into its own throwaway data root *before the host is built*, through the real
+> `MyDataStore.ImportAsync` rather than a hand-written manifest. My Data needs no API key,
+> declares `HistoricalOnly` so nothing opens a socket, and reads its CSV out of the app-data
+> directory the factory already owns. No network, no credentials, **no test-only branch in
+> production code**. `TerminalPage.LoadSeededChartAsync` drives the real Market → Provider →
+> Symbol → Load cascade.
+>
+> `ObjectTreeWithSeriesBrowserTests` (7 cases) now measures the tree over a chart with series
+> on it: the toggle loop that hung Alt+O, `aria-expanded` against the disclosure's real state,
+> a collapse that STAYS collapsed, exactly one tab stop, and a name on every treeitem from
+> Chromium's own AX tree. `BlazorDisclosureRenderTests`' stale "the route is empty" note is
+> replaced by the invariant that cannot be vacuous either way — **the tree shows exactly the
+> series the chart has**, zero equalling zero on a cold page and four equalling four after a
+> load.
+>
+> **THREE PRODUCTION DEFECTS, each measured before it was fixed:**
+>
+> **(a) A dataset name with a space in it could never be charted.** The first seed was called
+> "Harness Candles" and the terminal said *"Invalid symbol 'Harness Candles' for My Data. No
+> data for Harness Candles from My Data. The chart is empty."* `SymbolValidator`'s charset is
+> `[A-Za-z0-9_./\-:]` and it is a SECURITY boundary — a symbol becomes a path segment in a
+> signed request — but it was being applied to the one provider that builds no URL at all.
+> Every Values-shaped dataset was worse off still: its symbol is `"{dataset} — {column}"` and
+> carries an em dash, so **no value column of any imported CSV had ever been chartable.**
+> Providers declare `SymbolsAreUrlBound` now (default `true`, anchored as a virtual on
+> `BaseMarketDataProvider` so an override resolves through the vtable), and the chokepoint
+> consults it **only for a symbol it has already rejected** — so every venue fetch takes the
+> path it always did. A provider that cannot be resolved stays rejected: the exemption has to
+> be declared, never assumed. **The seed keeps its space on purpose**, so the browser suite
+> fails again if this is undone.
+>
+> **(b) The Indicator bar never watched the store.** `IndicatorBar.razor` had no subscription
+> of any kind — no `OnInitialized`, no `StateStream`, nothing — while every control in it is
+> a projection of `Store.State`. Measured: the chart loaded, the store held **four series and
+> 200 bars** (probed server-side), the tab bar beside it showed "Tab 1: Harness Candles 1d",
+> the browser title carried a live price, the terminal announced "Harness Candles on My Data,
+> 1d. Ready." — and the Focused Indicator dropdown held **zero options**. Four more Load
+> presses changed nothing. It subscribes now, exactly as `TabBar` and `Toolbar` already did.
+> **For a screen-reader user this is the worst shape the bug could take:** the one list that
+> names what is ON the chart says there is nothing there, while everything else says the
+> chart is fine.
+>
+> **(c) A harness lesson worth keeping: `#blazor-error-ui` is in the DOM of every Blazor page
+> and hidden by CSS.** Reading its text without checking `display` reports "An unhandled error
+> has occurred" on a perfectly healthy circuit. It did, and it cost an hour chasing a crash
+> that never happened. The failure diagnostic reports the banner's VISIBILITY now, plus the
+> series-picker contents, the toolbar's own `[role=alert]`, the last things spoken, and the
+> server's error log.
+>
+> **A hypothesis that was REFUTED and is recorded as such:** moving MainLayout's two store
+> subscriptions above its `await _startup.InitializeAsync()` did NOT fix (b). The layout was
+> re-rendering the whole time. The change was reverted rather than kept as a plausible-sounding
+> improvement nobody had demonstrated.
+>
+> ---
+>
+> ### The three discussion items — answers, awaiting Cody's call
+>
+> **(1) SPLIT VIEW — overlay instead of side by side?** Cody: *"I think if I was going to use
+> 2 charts to compare, I'd want to overlay them one over the other, not side by side, isn't
+> that what people usually do? I'll sit on this for a minute."*
+>
+> He is right about what sighted traders do — overlaying two normalised price series on one
+> axis is the standard comparison, and side-by-side panes are the rarer arrangement. **But
+> the accessibility argument points the same way and is stronger: an overlay is a thing this
+> app can already SAY, and a second pane is not.** An overlaid comparison series is just
+> another series in the Main pane — PageUp/PageDown reaches it, Up/Down walks its components,
+> it sonifies against the same viewport, and Shift+F1 can name it. It needs none of the keyed
+> pipeline that `docs/KEYED_FEEDS_DESIGN.md` gates behind an explicit trigger, because there
+> is only ever one active chart identity. Split view needs all of it just to let the keyboard
+> reach the second pane at all.
+>
+> **Recommendation: delete split view and build "compare symbol" as an overlay series.**
+> Concretely: a second symbol fetched on the active tab's timeframe, normalised to percent
+> from the first visible bar (the only honest way to put two prices on one axis), added as an
+> ordinary series with its own timbre. That is a feature everyone can use, in this app's own
+> vocabulary. The three chords `Ctrl+Alt+Shift+S / E / O` come back to the pool.
+> **Decision needed: confirm the deletion, and confirm percent-from-left as the normalisation.**
+>
+> **(2) PANES vs SERIES — the model, and the answers to Cody's questions.** Nothing built
+> this pass; this is the design he asked to discuss.
+>
+> *"a pane is just a separate y axis right?"* — **Yes, and that is exactly the differentiator.**
+> `ChartRenderer` groups `seriesList` by `ChartSeries.Pane` (a string: `"Main"`, `"Volume"`,
+> `"Pane_CIPHER_B"`, …), lays the groups out top to bottom, and gives each its own Y axis and
+> its own range. Candles and Price share the Main pane because they share a price axis. Add
+> Cipher B and you get a **second top-level pane**, because it declares
+> `DefaultPane = "Pane_CIPHER_B"`.
+>
+> *"Are you saying that series themselves can have subpanes too?"* — Sharper than that, and it
+> is the crux. A sub-pane is declared by a **component** (`ComponentConfig.SubPaneName`), but
+> the RENDERER collects sub-panes across **every series in the pane** and draws them as strips
+> at the bottom of it. **Visually a sub-pane belongs to the pane. Only the NAVIGATION code
+> scopes it to one series** — `HandleSubPaneNavigation` builds its pane list from
+> `series.Components` alone. That single mismatch is the whole bug Cody found: Ctrl+Up/Down on
+> the candle series can never reach Price, because Price is a different series.
+>
+> *(Worth knowing before designing against them: only TWO sub-panes exist in the whole tree
+> today — `"FY"` in Loukas Cycles and `"MF"` in Cipher B. This is a real structure, but a
+> thin one.)*
+>
+> **The model, and the reason it is coherent: two independent axes of traversal over ONE
+> cursor.** A flat one for reading, a structural one for orientation — never a mode.
+>
+> | Key | Moves | Scope |
+> |---|---|---|
+> | PageUp / PageDown | series | the whole chart, in visual top-to-bottom order |
+> | Up / Down | component | within the focused series |
+> | Alt+PageUp / Alt+PageDown | **pane** | the whole chart |
+> | Shift+Alt+PageUp / PageDown | **sub-pane** | within the current pane |
+> | Ctrl+Up / Ctrl+Down | component | within the current sub-pane, **across series** |
+>
+> Containment is strict — chart ⊃ pane ⊃ sub-pane ⊃ (series ×) component — and the modifier
+> grammar reads: nothing = the finest thing, Ctrl = widen the arrows' scope, Alt = structural,
+> Shift+Alt = one level in. **Ctrl+Up/Down is NOT freed by this**, revising the fourteenth
+> pass's note: once a sub-pane is pane-scoped, Ctrl+Up/Down becomes the cross-series walk that
+> finally puts candles and price on one key.
+>
+> **Three findings that change the design, from the accessibility review:**
+>
+> - **`Ctrl+PageUp/PageDown` is a browser-reserved chord.** Chrome, Brave, Edge and Firefox
+>   all bind it to previous/next tab, and today's sub-pane navigation sits on it
+>   (`ShortcutManager.cs:469-470`). Moving sub-panes to `Shift+Alt+PageUp/PageDown` removes a
+>   conflict that already exists rather than creating one, and `Ctrl+PageUp/PageDown` should
+>   then be left UNBOUND rather than reassigned. **Whether `keyboard.js`'s capture-phase
+>   `preventDefault` currently wins that race in a real Brave window is UNVERIFIED** — this
+>   file has been burned once already by assuming preventDefault works on a reserved chord.
+>   Worth one manual check by Cody before anything is built on it.
+> - **Trailing the pane name on every series move is the wrong call, and this codebase already
+>   knows why.** `NavigationFeedbackManager.cs:240-267` announces a pane transition by
+>   PREPENDING and **only on change**, and `CommandDispatcher.cs:724-734` documents the
+>   double-announcement bug that convention was written to fix. Ten PageDowns inside the Main
+>   pane would append "Main pane" ten times for no new information, and trailing buries the
+>   orientation cue at the end of the utterance. **Recommendation: keep the existing shape —
+>   prepend, on change only.** Cody asked for the trailing form explicitly, so this is his
+>   call to overrule; the counter-argument is listening cost, and it is the same argument that
+>   produced the current rule.
+> - **`NavigateSeries` does NOT walk visual order.** `NavigationEngine.cs:177-200` indexes
+>   `state.ActiveSeries` in list order and **clamps** rather than wrapping, while both pane
+>   walks wrap by modulo. So "PageUp/PageDown in visual top-to-bottom order" is a promise the
+>   current code does not keep whenever a series was added out of pane sequence, and the five
+>   keys would disagree about what happens at the ends. **This is the load-bearing item: sort
+>   `ActiveSeries` by pane order for navigation, and settle wrap-vs-clamp once for all five
+>   keys, before any of the new chords are bound.**
+>
+> **What must exist alongside the chords: a "where am I" readback.** Five traversal keys over
+> one cursor with no visible mode is only discoverable if the user can ask. The primitive
+> already exists — `SpeakChartLayout` on **Ctrl+Alt+Shift+Y** — and should be extended to
+> state, in order: pane count, current pane's ordinal and sub-pane count, current sub-pane's
+> ordinal and component count, current series and component.
+>
+> **Ordinals follow the rule this file already uses**: `NavigationFeedbackManager.cs:187-201`
+> drops "1 component" because a count is only information when it tells the user a key has
+> somewhere to go. So "2 of 3" on a pane or sub-pane move, and never "1 of 1".
+>
+> **Decisions needed: (i) prepend-on-change or Cody's trailing form; (ii) wrap or clamp, for
+> all five keys; (iii) whether sorting `ActiveSeries` into pane order for navigation is
+> acceptable given it also changes what PageUp/PageDown does today.**
+>
+> **(3) ALT+UP / ALT+DOWN — Cody: "get rid of it unless there is a defensable reason to keep
+> it."**
+>
+> **There is no defensible reason. Recommendation: delete it.** Measured rather than argued:
+> `IndicatorPaneScrollIndex` reaches exactly one line of production code —
+> `ChartRenderer.cs:139`, `allIndicatorGroups.Skip(clampedScroll)` — which omits the first N
+> indicator panes from the DRAWING. It touches navigation nowhere, speech nowhere,
+> sonification nowhere. Every series stays in `ActiveSeries` and every key still reaches it.
+> It is a scroll bar for a viewport a blind user does not have, and it says only "Scroll panes
+> up", a sentence with no information in it.
+>
+> **On the "showing X and Y, panes 2 and 3 of 5" idea from the fourteenth pass: that sentence
+> is worth having and this is the wrong key for it.** It is an answer to "what is on this
+> chart", which is `SpeakChartLayout`'s question (Ctrl+Alt+Shift+Y) — and there it is true
+> whether or not anything is scrolled. Building it onto Alt+Up/Down would tie an orientation
+> readback to a control whose only other effect is invisible.
+>
+> **One caveat, stated because it is the only argument on the other side:** with many
+> indicator panes the renderer squeezes them to a 30px floor, and a sighted collaborator
+> looking over Cody's shoulder loses the ability to bring one back into view. If that
+> scenario matters, the honest fix is a pane-height control, not a scroll chord.
+> **Decision needed: confirm deletion. Alt+Up/Down then returns to the pool** — and the
+> a11y review notes it is a chord users will otherwise try for pane navigation and get pane
+> *scrolling* instead, which is its own argument for retiring it as the new pane keys land.
+>
+> ---
+>
+> **Suite 6,567 unit (`--list-tests` 6562), 207 browser, jstests 61 + 19 + 15, doc-drift
+> green. Version still 2.6.0, still NO TAG — Cody's call.**
+
 > **START HERE (current as of 2026-09-04, FOURTEENTH pass — ALT+O NO LONGER HANGS THE
 > BROWSER, EVERY DIALOG NOW MEANS THE SAME THING BY ESCAPE, AND CANDLE PATTERNS HAVE A
 > SWITCH. Seven items from Cody; four were built, three are design questions answered below

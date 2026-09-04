@@ -38,6 +38,14 @@ namespace AccessibleTrader.Core.Services.MyData
 
         public override ProviderDataShape DataShape => ProviderDataShape.SingleValueLine;
 
+        /// <summary>
+        /// Dataset names and "dataset — column" are the symbols here, and nothing builds a URL
+        /// from them — <see cref="MyDataStore.GetParsed"/> reads a file by dataset id. The
+        /// chokepoint's charset would reject every name with a space in it and every value
+        /// column outright. See <see cref="IMarketDataProvider.SymbolsAreUrlBound"/>.
+        /// </summary>
+        public override bool SymbolsAreUrlBound => false;
+
         public override ProviderDataShape GetDataShapeForSymbol(string symbol) =>
             Resolve(symbol).Dataset?.Shape == MyDataShape.Ohlcv
                 ? ProviderDataShape.Ohlcv

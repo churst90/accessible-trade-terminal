@@ -4,6 +4,68 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### Save means Save everywhere in Settings, and the Object Tree finally has something to test (2026-09-04)
+
+A follow-up to the morning's bug-report session. Two of Cody's items built; three answered as
+design discussions in `docs/TODO.md`. Building the second one turned up three production
+defects that no audit had, because the harness that could have found them had never been able
+to put a series on the chart.
+
+- **Fifteen Settings controls wrote themselves the moment they changed, so Cancel could not
+  take them back.** Background monitoring, the poll interval, live background tabs,
+  resume-session, sound theme, magnet snap, market structure on new charts, touch-nav mode,
+  hover sonification, speech output, quick-trade sizing, timestamp placement, speech order —
+  each called `App.Save()` from its own change handler. Three more ("Speech enabled",
+  "Sonification enabled", the panning step) dispatched straight into the workspace store from
+  the markup. The dialog said Save and Cancel and meant it for about half of what was in it.
+  Everything is staged now and written by Save.
+  - **Save and Cancel both say what they did.** "Settings saved." / "Settings discarded."
+    Silence after Escape is indistinguishable from a dialog that did not close.
+  - **The side effects moved with the settings.** Restarting the background monitors and the
+    background tab feeds used to happen per keystroke; they happen once, after the write, so
+    a new on/off state and a new interval are adopted together.
+  - **The three store-backed controls are dispatched only on a real change**, because
+    `ToggleSpeechAction` is a toggle, not a setter: applying it on every Save would turn
+    speech off for someone who came in to change the sound theme.
+  - **The theme and the visual accommodations stay live, and Cancel now puts them back.**
+    A visual setting you cannot see while deciding is one you cannot judge, so the preview is
+    the point; what was missing was the other half of the bargain.
+  - **"Draw chart formations" never read its own saved value back** — reopening Settings
+    always showed it unchecked, whatever the chart was doing.
+
+- **The browser harness can put a real chart on screen now, and the Object Tree is measured
+  over one.** Every browser route had reached that dialog at cold start, where the tree renders
+  "No series active on chart" and has no rows in it — so every claim the suite made about
+  expansion state, the roving tabindex and the `<details>` toggle loop was made about an empty
+  dialog. The harness seeds an OHLCV dataset into its own throwaway data root before the host
+  boots and charts it through the built-in "My Data" provider: no network, no API key, no
+  test-only branch in production code. Seven new browser cases, and the stale "the route is
+  empty" note is replaced by the invariant that cannot be vacuous either way — the tree shows
+  exactly the series the chart has.
+
+- **A dataset name with a space in it could never be charted.** `SymbolValidator`'s charset is
+  a security boundary — a symbol becomes a path segment in a signed request — and it was being
+  applied to the one provider that builds no URL at all. Importing a CSV called "My Budget"
+  produced *"Invalid symbol 'My Budget' for My Data. No data for My Budget from My Data. The
+  chart is empty."* Every Values-shaped dataset was worse off, because its symbol is
+  `"{dataset} — {column}"` and carries an em dash as well; those could never load. Providers
+  declare `SymbolsAreUrlBound` now and the chokepoint is unchanged for every venue; the
+  exemption has to be declared, never assumed, and a provider that cannot be resolved stays
+  rejected.
+
+- **The Indicator bar never watched the store.** Its "Focused Indicator" dropdown IS the
+  chart's series list and its Hide/Mute buttons name the focused one, but the component had no
+  subscription of any kind — it repainted only when something else happened to re-render it.
+  Measured: a chart loaded with four series in the store and 200 bars, the tab bar beside it
+  showed the new symbol, the terminal announced "Ready", and that dropdown stayed at **zero
+  options**; four more Load presses changed nothing. For a screen-reader user that is the worst
+  shape the bug could take — the one list that names what is on the chart says there is nothing
+  there, while everything else says the chart is fine.
+
+- **Suite 6,567** (`--list-tests` 6562), **207** browser tests. Three sabotages against the
+  Settings guards and two against the symbol-chokepoint guards, each reddening the case that
+  names the defect and no other.
+
 ### Alt+O stopped crashing the browser, and Save started meaning Save (2026-09-04)
 
 A bug-report session from real use. Four items built, three recorded as design questions in

@@ -55,19 +55,39 @@ public sealed class BlazorDisclosureRenderTests
     }
 
     /// <summary>
-    /// The other half of the vacuity finding, kept as a standing note: every browser route that
-    /// opens the Object Tree does so with no series on the chart, so none of them renders a
-    /// single tree node. Any Object Tree claim made by this suite is about the empty state only.
+    /// The tree shows what the chart has — whatever that is.
+    ///
+    /// <para>
+    /// This case used to assert the opposite half of the vacuity finding: that every route
+    /// reached the Object Tree over an EMPTY chart, so no route rendered a single node. That was
+    /// true, and it was the problem. <see cref="ObjectTreeWithSeriesBrowserTests"/> closed it by
+    /// seeding an offline dataset the harness can chart, which means the cold-start emptiness is
+    /// no longer a fact of this suite and asserting it would now just be asserting test order.
+    /// </para>
+    ///
+    /// <para>
+    /// What replaces it is the invariant that cannot be vacuous either way: the number of series
+    /// rows in the tree equals the number of series on the chart. Zero equals zero on a cold
+    /// page; four equals four once something has loaded. A tree that renders nothing over a
+    /// loaded chart fails here, and so does one that renders rows for series that are gone.
+    /// </para>
     /// </summary>
     [BrowserFact]
-    public async Task The_object_tree_route_is_measured_over_an_empty_chart()
+    public async Task The_object_tree_shows_exactly_the_series_the_chart_has()
     {
         await using var t = await _fixture.NewPageAsync();
+
+        var expected = await t.ActiveSeriesNamesAsync();
+
         await t.PressAsync("Alt+o");
         Assert.True(await t.WaitForDialogAsync());
 
-        var panes = await t.Page.EvaluateAsync<int>(
-            "() => document.querySelectorAll('.pane-node').length");
-        Assert.Equal(0, panes);
+        var rows = await t.Page.EvaluateAsync<int>(
+            "() => document.querySelectorAll('.series-node').length");
+        Assert.Equal(expected.Count, rows);
+
+        bool emptyStateShown = await t.Page.EvaluateAsync<bool>(
+            "() => [...document.querySelectorAll('p')].some(p => p.textContent.includes('No series active on chart'))");
+        Assert.Equal(expected.Count == 0, emptyStateShown);
     }
 }

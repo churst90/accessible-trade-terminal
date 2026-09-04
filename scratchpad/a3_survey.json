@@ -33,7 +33,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "SettingsModal",
@@ -53,6 +53,7 @@
     "tabs": [
       "General",
       "Speech",
+      "Narration",
       "Sonification",
       "Appearance",
       "Keyboard",
@@ -62,6 +63,7 @@
     "unnamedByTab": {
       "General": [],
       "Speech": [],
+      "Narration": [],
       "Sonification": [],
       "Appearance": [],
       "Keyboard": [],
@@ -71,22 +73,22 @@
     "tabEscapes": [],
     "tabStops": [
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D",
+      "\u003Cbutton id=\u0027settings-save\u0027 aria-label=\u0027Save settings and close\u0027\u003E \u201CSave\u201D",
       "\u003Cinput id=\u0027s-search\u0027\u003E",
       "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D",
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D",
+      "\u003Cbutton id=\u0027settings-save\u0027 aria-label=\u0027Save settings and close\u0027\u003E \u201CSave\u201D",
       "\u003Cinput id=\u0027s-search\u0027\u003E",
       "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D",
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
-      "\u003Cinput id=\u0027s-search\u0027\u003E",
-      "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D"
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D"
     ],
-    "tabDistinctStops": 4,
+    "tabDistinctStops": 5,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "PropertiesModal",
@@ -95,7 +97,46 @@
     "expectedFocus": "props-title",
     "focusBeforeOpen": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D",
     "chartFocused": true,
-    "opened": false
+    "opened": true,
+    "dialogIds": [
+      "(unnamed dialog #0)"
+    ],
+    "dialogAccessibleName": "Properties \u2014 Candles",
+    "openModalCount": 1,
+    "focusLandedOnDeclaredTarget": true,
+    "actualFocus": "\u003Ch2 id=\u0027props-title\u0027\u003E \u201CProperties \u2014 Candles\u201D",
+    "unnamedControls": [],
+    "tabs": [
+      "General",
+      "Appearance",
+      "Sonification",
+      "Speech"
+    ],
+    "unnamedByTab": {
+      "General": [],
+      "Appearance": [],
+      "Sonification": [],
+      "Speech": []
+    },
+    "tabEscapes": [],
+    "tabStops": [
+      "\u003Ctextarea id=\u0027speech-tmpl-upper_wick\u0027 aria-label=\u0027Continuous speech template for upper_wick\u0027\u003E \u201C{name}, {type}, {value}\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Reset continuous template for upper_wick to default\u0027\u003E \u201CReset to default\u201D",
+      "\u003Ctextarea id=\u0027speech-tmpl-body\u0027 aria-label=\u0027Continuous speech template for body\u0027\u003E \u201C{name}, {type}, {value}\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Reset continuous template for body to default\u0027\u003E \u201CReset to default\u201D",
+      "\u003Ctextarea id=\u0027speech-tmpl-lower_wick\u0027 aria-label=\u0027Continuous speech template for lower_wick\u0027\u003E \u201C{name}, {type}, {value}\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Reset continuous template for lower_wick to default\u0027\u003E \u201CReset to default\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Cancel, close the properties dialog\u0027\u003E \u201CCancel\u201D",
+      "\u003Cbutton (no id)\u003E \u201CSave as Defaults\u201D",
+      "\u003Cbutton (no id)\u003E \u201CReset to Defaults\u201D",
+      "\u003Cbutton id=\u0027props-save\u0027 aria-label=\u0027Save the series properties\u0027\u003E \u201CSave\u201D",
+      "\u003Cbutton id=\u0027props-tab-general\u0027 role=\u0027tab\u0027\u003E \u201CGeneral\u201D",
+      "\u003Cbutton id=\u0027props-tab-appearance\u0027 role=\u0027tab\u0027\u003E \u201CAppearance\u201D"
+    ],
+    "tabDistinctStops": 12,
+    "escapeClosed": true,
+    "openModalCountAfterEscape": 0,
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "ObjectTreeModal",
@@ -115,23 +156,23 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D"
+      "\u003Cdiv (no id) role=\u0027treeitem\u0027 aria-label=\u0027Candles, 3 components, visible, audible\u0027\u003E \u201CCandles                                                 Hide\u2026\u201D",
+      "\u003Csummary (no id)\u003E \u201CCandles                                                 Hide\u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Candles\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Candles\u0027\u003E \u201CMute\u201D",
+      "\u003Csummary (no id)\u003E \u201CPrice                                                 Hide  \u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Price\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Price\u0027\u003E \u201CMute\u201D",
+      "\u003Csummary (no id)\u003E \u201CMarket Structure (HH/HL/LH/LL)                              \u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CMute\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Delete Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CDelete\u201D",
+      "\u003Csummary (no id)\u003E \u201CVolume                                                 Hide \u2026\u201D"
     ],
-    "tabDistinctStops": 2,
+    "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "TradingDashboardModal",
@@ -180,7 +221,7 @@
     "tabDistinctStops": 7,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "OrderBookModal",
@@ -192,10 +233,10 @@
     "dialogIds": [
       "(unnamed dialog #0)"
     ],
-    "dialogAccessibleName": "Order Book \u2014",
+    "dialogAccessibleName": "Order Book \u2014 Harness Candles",
     "openModalCount": 1,
     "focusLandedOnDeclaredTarget": true,
-    "actualFocus": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014\u201D",
+    "actualFocus": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D",
     "unnamedControls": [],
     "tabs": [],
     "tabEscapes": [],
@@ -216,7 +257,7 @@
     "tabDistinctStops": 2,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "ApiKeysModal",
@@ -252,7 +293,7 @@
     "tabDistinctStops": 9,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "DrawingToolsModal",
@@ -288,7 +329,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "ObjectTreeModal",
@@ -309,23 +350,23 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Manage Strategies (Alt\u002BS)\u0027\u003E \u201CManage Strategies\u201D",
-      "\u003Cbutton id=\u0027objtree-close\u0027 aria-label=\u0027Close object tree dialog\u0027\u003E \u201CClose\u201D"
+      "\u003Cdiv (no id) role=\u0027treeitem\u0027 aria-label=\u0027Candles, 3 components, visible, audible\u0027\u003E \u201CCandles                                                 Hide\u2026\u201D",
+      "\u003Csummary (no id)\u003E \u201CCandles                                                 Hide\u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Candles\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Candles\u0027\u003E \u201CMute\u201D",
+      "\u003Csummary (no id)\u003E \u201CPrice                                                 Hide  \u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Price\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Price\u0027\u003E \u201CMute\u201D",
+      "\u003Csummary (no id)\u003E \u201CMarket Structure (HH/HL/LH/LL)                              \u2026\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Hide Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CHide\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Mute Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CMute\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Delete Market Structure (HH/HL/LH/LL)\u0027\u003E \u201CDelete\u201D",
+      "\u003Csummary (no id)\u003E \u201CVolume                                                 Hide \u2026\u201D"
     ],
-    "tabDistinctStops": 2,
+    "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "DrawingToolsModal",
@@ -362,7 +403,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "SoundDesignerModal",
@@ -399,7 +440,7 @@
     "tabDistinctStops": 7,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "TradingDashboardModal",
@@ -449,7 +490,7 @@
     "tabDistinctStops": 7,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "OrderBookModal",
@@ -462,10 +503,10 @@
     "dialogIds": [
       "(unnamed dialog #0)"
     ],
-    "dialogAccessibleName": "Order Book \u2014",
+    "dialogAccessibleName": "Order Book \u2014 Harness Candles",
     "openModalCount": 1,
     "focusLandedOnDeclaredTarget": true,
-    "actualFocus": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014\u201D",
+    "actualFocus": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D",
     "unnamedControls": [],
     "tabs": [],
     "tabEscapes": [],
@@ -486,7 +527,7 @@
     "tabDistinctStops": 2,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "StrategyModal",
@@ -538,7 +579,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "WatchlistModal",
@@ -584,7 +625,7 @@
     "tabDistinctStops": 10,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "LevelReportModal",
@@ -597,10 +638,10 @@
     "dialogIds": [
       "(unnamed dialog #0)"
     ],
-    "dialogAccessibleName": "Respect report \u2014  1h",
+    "dialogAccessibleName": "Respect report \u2014 Harness Candles 1d",
     "openModalCount": 1,
     "focusLandedOnDeclaredTarget": true,
-    "actualFocus": "\u003Ch2 id=\u0027levelreport-title\u0027\u003E \u201CRespect report \u2014  1h\u201D",
+    "actualFocus": "\u003Ch2 id=\u0027levelreport-title\u0027\u003E \u201CRespect report \u2014 Harness Candles 1d\u201D",
     "unnamedControls": [],
     "tabs": [
       "Levels near price",
@@ -628,7 +669,7 @@
     "tabDistinctStops": 6,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "JournalModal",
@@ -649,23 +690,23 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D",
-      "\u003Cbutton (no id)\u003E \u201CSpeech (2)\u201D",
+      "\u003Cbutton (no id)\u003E \u201CAll (4)\u201D",
+      "\u003Cbutton (no id)\u003E \u201CSpeech (4)\u201D",
       "\u003Cbutton (no id)\u003E \u201CAlerts (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CSetups (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CErrors (0)\u201D",
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[07:04:12] SPEECH  TTS  My Data provides 1d data only; timef\u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[11:10:20] SPEECH  TTS  (Harness Candles) Resumed your last \u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id)\u003E \u201CAll (2)\u201D"
+      "\u003Cbutton (no id)\u003E \u201CAll (4)\u201D"
     ],
     "tabDistinctStops": 11,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "AIAnalystModal",
@@ -686,23 +727,23 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D"
     ],
-    "tabDistinctStops": 2,
+    "tabDistinctStops": 1,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "AlertsModal",
@@ -739,7 +780,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "ApiKeysModal",
@@ -776,7 +817,7 @@
     "tabDistinctStops": 9,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "WalletModal",
@@ -833,7 +874,7 @@
     "tabDistinctStops": 3,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "LoadWorkspaceModal",
@@ -870,7 +911,7 @@
     "tabDistinctStops": 1,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "SettingsModal",
@@ -891,6 +932,7 @@
     "tabs": [
       "General",
       "Speech",
+      "Narration",
       "Sonification",
       "Appearance",
       "Keyboard",
@@ -900,6 +942,7 @@
     "unnamedByTab": {
       "General": [],
       "Speech": [],
+      "Narration": [],
       "Sonification": [],
       "Appearance": [],
       "Keyboard": [],
@@ -909,22 +952,22 @@
     "tabEscapes": [],
     "tabStops": [
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D",
+      "\u003Cbutton id=\u0027settings-save\u0027 aria-label=\u0027Save settings and close\u0027\u003E \u201CSave\u201D",
       "\u003Cinput id=\u0027s-search\u0027\u003E",
       "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D",
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D",
+      "\u003Cbutton id=\u0027settings-save\u0027 aria-label=\u0027Save settings and close\u0027\u003E \u201CSave\u201D",
       "\u003Cinput id=\u0027s-search\u0027\u003E",
       "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D",
       "\u003Ca (no id)\u003E \u201CGitHub\u201D",
-      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Close settings\u0027\u003E \u201CClose\u201D",
-      "\u003Cinput id=\u0027s-search\u0027\u003E",
-      "\u003Cbutton id=\u0027tab-about\u0027 role=\u0027tab\u0027\u003E \u201CAbout\u201D"
+      "\u003Cbutton id=\u0027settings-close\u0027 aria-label=\u0027Cancel, close settings without saving\u0027\u003E \u201CCancel\u201D"
     ],
-    "tabDistinctStops": 4,
+    "tabDistinctStops": 5,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "HelpModal",
@@ -961,7 +1004,7 @@
     "tabDistinctStops": 12,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   },
   {
     "modal": "MyDataModal",
@@ -987,17 +1030,17 @@
       "\u003Ctextarea id=\u0027mydata-paste\u0027\u003E",
       "\u003Cbutton (no id) aria-label=\u0027Import the pasted or chosen CSV as a new dataset\u0027\u003E \u201CImport\u201D",
       "\u003Cbutton (no id)\u003E \u201CShow templates\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Delete dataset: Harness Candles\u0027\u003E \u201CDelete\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close my data dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cinput id=\u0027mydata-name\u0027\u003E",
       "\u003Cinput id=\u0027mydata-file\u0027\u003E",
       "\u003Ctextarea id=\u0027mydata-paste\u0027\u003E",
       "\u003Cbutton (no id) aria-label=\u0027Import the pasted or chosen CSV as a new dataset\u0027\u003E \u201CImport\u201D",
-      "\u003Cbutton (no id)\u003E \u201CShow templates\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close my data dialog\u0027\u003E \u201CClose\u201D"
+      "\u003Cbutton (no id)\u003E \u201CShow templates\u201D"
     ],
-    "tabDistinctStops": 6,
+    "tabDistinctStops": 7,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
-    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. No data loaded. Select a market and symbol, then press Load.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
+    "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"
   }
 ]

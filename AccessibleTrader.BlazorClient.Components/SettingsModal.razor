@@ -375,12 +375,11 @@
                     <div class="modal-row">
                         <label for="s-granularity">Panning step (%)</label>
                         <select id="s-granularity"
-                                value="@Store.State.PanningGranularity"
-                                @onchange="e => Store.Dispatch(new AdjustGranularityAction(
-                                    (int.TryParse(e.Value?.ToString(), out int gv) ? gv : 10) - Store.State.PanningGranularity))">
+                                value="@_panningGranularity"
+                                @onchange="e => _panningGranularity = int.TryParse(e.Value?.ToString(), out int gv) ? gv : _panningGranularity">
                             @for (int g = 5; g <= 100; g += 5)
                             {
-                                <option value="@g" selected="@(g == Store.State.PanningGranularity)">@g%</option>
+                                <option value="@g" selected="@(g == _panningGranularity)">@g%</option>
                             }
                         </select>
                         <span style="font-size:0.8rem; color:var(--text-muted);">Shift+[ / Shift+] to adjust</span>
@@ -418,8 +417,8 @@
                     <div class="modal-row">
                         <label for="s-speech-enabled">Speech enabled (F2)</label>
                         <input id="s-speech-enabled" type="checkbox"
-                               checked="@Store.State.IsSpeechEnabled"
-                               @onchange="() => Store.Dispatch(new ToggleSpeechAction())" />
+                               checked="@_speechEnabled"
+                               @onchange="e => _speechEnabled = e.Value is bool b ? b : _speechEnabled" />
                     </div>
 
                     <div class="modal-row">
@@ -579,8 +578,8 @@
                     <div class="modal-row">
                         <label for="s-sonif-enabled">Sonification enabled (F3)</label>
                         <input id="s-sonif-enabled" type="checkbox"
-                               checked="@Store.State.IsSonificationEnabled"
-                               @onchange="() => Store.Dispatch(new ToggleSonificationAction())" />
+                               checked="@_sonificationEnabled"
+                               @onchange="e => _sonificationEnabled = e.Value is bool b ? b : _sonificationEnabled" />
                     </div>
 
                     <div class="modal-row">
@@ -1185,23 +1184,25 @@
         _selectedTheme = e.Value?.ToString() ?? _selectedTheme;
 
         // "custom:{id}" selects one of the user's own; anything else is a built-in enum name.
-        if (SelectedCustomTheme is { } preset)
-        {
-            ThemeService.SetCustomTheme(preset);
-        }
-        else if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var themeType))
-        {
-            ThemeService.SetTheme(themeType);
-        }
+        ApplySelectedTheme();
         EventBus.Publish(new RedrawEvent());
     }
 
-    // ── Visual accessibility toggles (Phase D) — persist + apply immediately ──
+    // ── Visual accessibility toggles — LIVE PREVIEW, reverted by Cancel ──
+    //
+    // These, and the theme picker, are the deliberate exception to this dialog's
+    // stage-then-Save rule (Cody, 2026-09-04: "setting immediate apply controls like for theme
+    // live preview, sure"). The point of a visual setting is seeing the effect while you decide,
+    // and for a low-vision user that preview IS the information the control carries.
+    //
+    // What changed is the other half of the bargain: Cancel now puts them back. Each still
+    // persists as it is applied — their services own the write and there is no apply-without-
+    // persist path — so RevertPreviews re-applies and re-persists the values the dialog opened
+    // with. The one gap that leaves is a crash with the dialog open, which would keep a preview
+    // the user never accepted; that is worth the simplicity of not forking every appearance
+    // service into preview and commit modes.
 
-    /// <summary>
-    /// Applied immediately rather than on Save, like the other appearance toggles — the point of a
-    /// visual setting is seeing the effect while you decide whether you want it.
-    /// </summary>
+    /// <summary>Applied immediately so the effect is visible while deciding; see the note above.</summary>
     private void OnPatternVisualsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _showPatternVisuals = e.Value is bool b && b;
@@ -1260,6 +1261,22 @@
 
     private bool _paperTradingMode;
     private int _quickSizingMode;
+
+    // Staged copies of three controls that used to dispatch straight into the store the moment
+    // they changed — so "Speech enabled" in this dialog behaved differently from every checkbox
+    // beside it, and Escape could not take any of them back.
+    private bool _speechEnabled;
+    private bool _sonificationEnabled;
+    private int  _panningGranularity = 10;
+
+    // What the live-preview controls held when the dialog opened. RevertPreviews puts these
+    // back; they are the only reason Cancel can undo an appearance change at all.
+    private int    _uiScaleInitial;
+    private bool   _showPatternVisualsInitial;
+    private bool   _visualEarconsInitial;
+    private bool   _colorVisionSafeInitial;
+    private bool   _hollowUpCandlesInitial;
+    private string? _selectedThemeInitial;
     private bool _paperTradingModeInitial;
     private bool _bgMonitoring;
     private bool _liveBgTabs;
@@ -1275,21 +1292,8 @@
     private AccessibleTrader.Core.Services.IBrowserSpeechOutput? _speechOutput;
     private string _speechOutputMode = "both";
 
-    private async Task OnSpeechOutputChanged(ChangeEventArgs e)
-    {
+    private void OnSpeechOutputChanged(ChangeEventArgs e) =>
         _speechOutputMode = e.Value?.ToString() ?? "both";
-        if (_speechOutput != null)
-        {
-            _speechOutput.Mode = _speechOutputMode switch
-            {
-                "sr" => AccessibleTrader.Core.Services.SpeechOutputMode.ScreenReader,
-                "tts" => AccessibleTrader.Core.Services.SpeechOutputMode.BrowserVoice,
-                _ => AccessibleTrader.Core.Services.SpeechOutputMode.Both,
-            };
-        }
-        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setSpeechOutputMode", _speechOutputMode); }
-        catch { /* choice applies for this visit even if storage fails */ }
-    }
     private bool _hoverSonification;
     private bool _magnetSnap;
     private bool _marketStructureDefault;
@@ -1297,56 +1301,24 @@
     private string _speechOrder = "HeaderValue";
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
 
-    private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _hoverSonification = e.Value is bool b && b;
-        App.HoverSonification = _hoverSonification;
-        App.Save();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _hoverSonification ? "Hover sonification on." : "Hover sonification off.", true));
-    }
 
     private string _touchNavMode = "auto";
 
-    private void OnTouchNavModeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnTouchNavModeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _touchNavMode = e.Value?.ToString() ?? "auto";
-        App.TouchNavBarMode = _touchNavMode;
-        App.Save();
-        EventBus.Publish(new TouchNavBarModeChangedEvent(_touchNavMode));
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _touchNavMode switch
-            {
-                "show" => "Touch bar always shown.",
-                "hide" => "Touch bar never shown.",
-                _      => "Touch bar automatic: touch-screen devices only.",
-            }, true));
-    }
 
-    private void OnMagnetSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnMagnetSnapChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _magnetSnap = e.Value is bool b && b;
-        App.MagnetSnap = _magnetSnap;
-        App.Save();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
-    }
 
     // Both of these were honoured by SpeechFormatter and had no control anywhere — real
     // behaviour with no way to reach it, which the settings-wiring audit is built to catch.
-    private void OnTimestampWhereChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnTimestampWhereChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _timestampWhere = e.Value?.ToString() ?? _timestampWhere;
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Time spoken: {_timestampWhere}.", true));
-    }
 
-    private void OnSpeechOrderChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnSpeechOrderChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _speechOrder = e.Value?.ToString() ?? _speechOrder;
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Speech order updated.", true));
-    }
 
     // The picker holds built-ins by enum name and the user's own themes as "custom:{id}", so one
     // control covers both without a second dropdown appearing and disappearing.
@@ -1422,86 +1394,33 @@
         catch { /* best-effort, as everywhere else */ }
     }
 
-    private void OnMarketStructureDefaultChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    // Deliberately does NOT retrofit open charts on save. Removing an indicator the user may
+    // have configured, on a chart they were reading, is a bigger surprise than the setting
+    // taking effect on the next load.
+    private void OnMarketStructureDefaultChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _marketStructureDefault = e.Value is bool b && b;
-        App.MarketStructureOnByDefault = _marketStructureDefault;
-        App.Save();
-        // Deliberately does NOT retrofit open charts. Removing an indicator the user may have
-        // configured, on a chart they were reading, is a bigger surprise than the setting taking
-        // effect on the next load.
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _marketStructureDefault
-                ? "Market structure will be added to new charts."
-                : "Market structure will no longer be added to new charts.", true));
-    }
 
-    private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnSoundThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _soundTheme = e.Value?.ToString() ?? Core.Services.Audio.SoundThemes.ClassicId;
-        App.SoundTheme = _soundTheme;
-        App.Save();
-        var theme = Core.Services.Audio.SoundThemes.All.FirstOrDefault(t => t.Id == _soundTheme);
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Sound theme {theme?.Name ?? _soundTheme}. Applies to indicators you add from now on.", true));
-    }
 
-    // ── Background monitoring — persist + apply immediately ──
-    private void OnBgMonitoringChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    // ── Background monitoring — staged; Save reconciles the monitors ──
+    private void OnBgMonitoringChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _bgMonitoring = e.Value is bool b && b;
-        App.BackgroundMonitoring = _bgMonitoring;
-        App.Save();
-        Monitoring.Reconcile();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _bgMonitoring ? "Background monitoring on." : "Background monitoring off.", true));
-    }
 
-    private void OnResumeSessionChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnResumeSessionChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _resumeSession = e.Value is bool b && b;
-        App.ResumeLastSession = _resumeSession;
-        App.Save();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _resumeSession
-                ? "Resume last session on. Your workspace is autosaved and restored at startup."
-                : "Resume last session off. The terminal starts blank unless you load a workspace.", true));
-    }
 
-    private void OnLiveBgTabsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnLiveBgTabsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _liveBgTabs = e.Value is bool b && b;
-        App.LiveBackgroundTabs = _liveBgTabs;
-        App.Save();
-        TabFeeds.Reconcile();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _liveBgTabs
-                ? "Live background tabs on. Tabs on exchanges that support it stream continuously."
-                : "Live background tabs off.", true));
-    }
 
     private void OnBgPollChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         if (!int.TryParse(e.Value?.ToString(), out int seconds)) return;
         _bgPollSeconds = Math.Clamp(seconds, 10, 600);
-        App.MonitorPollSeconds = _bgPollSeconds;
-        App.Save();
-        // New interval applies to monitors started from now on; restart them to adopt it.
-        Monitoring.Reconcile();
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Background check interval {_bgPollSeconds} seconds.", true));
     }
 
-    /// <summary>
-    /// The hint under the select is a paragraph a forms-mode user hears on the NEXT focus; the
-    /// change itself says which meaning was just chosen, in the words the hint leads with.
-    /// </summary>
-    private void OnQuickSizingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
+    private void OnQuickSizingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _quickSizingMode = int.TryParse(e.Value?.ToString(), out int v) ? v : 0;
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _quickSizingMode == 0 ? "Position value." : "Risk at the stop.", true));
-    }
 
     private void ResetPaperAccount()
     {
@@ -1547,10 +1466,26 @@
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
         _visualEarcons   = App.VisualEarcons;
+        // Never read back before 2026-09-04: reopening Settings showed this unchecked however it
+        // had been left, so the box disagreed with the chart it controls.
+        _showPatternVisuals = App.ShowChartPatternVisuals;
         _colorVisionSafe = App.ColorVisionSafe;
         _hollowUpCandles = App.HollowUpCandles;
         _uiScale         = App.UiScale;
+        _speechEnabled        = Store.State.IsSpeechEnabled;
+        _sonificationEnabled  = Store.State.IsSonificationEnabled;
+        _panningGranularity   = Store.State.PanningGranularity;
         SyncSelectedThemeFromService();
+
+        // The preview baseline. Captured here rather than in ShowAsync because Cancel calls
+        // ResetLocal too, and a baseline that drifted with the reverted values would make a
+        // second Cancel a no-op against the wrong state.
+        _uiScaleInitial            = _uiScale;
+        _showPatternVisualsInitial = _showPatternVisuals;
+        _visualEarconsInitial      = _visualEarcons;
+        _colorVisionSafeInitial    = _colorVisionSafe;
+        _hollowUpCandlesInitial    = _hollowUpCandles;
+        _selectedThemeInitial      = _selectedTheme;
     }
 
     private async Task ShowAsync()
@@ -1567,24 +1502,121 @@
     /// Closes without writing any of the pending edits. Escape, the Cancel button and a click on
     /// the backdrop all land here.
     ///
-    /// <para>What it can discard is everything <see cref="Save"/> writes — the speech and
-    /// narration preferences, paper mode, braille, quick-trade sizing, background monitoring.
-    /// What it cannot discard is the handful of controls on this dialog that still apply the
-    /// moment they change (the theme picker, UI scale, panning step, the paper-account reset):
-    /// those persist through their own services as they are used, and bringing them onto this
-    /// commit path is filed in docs/TODO.md. Nothing here silently half-commits — a control is
-    /// either pending, and Cancel drops it, or immediate, and it already announced itself.</para>
+    /// <para>
+    /// Every control on this dialog is now either STAGED — held in a field, dropped by this
+    /// method — or a LIVE PREVIEW, which <see cref="RevertPreviews"/> puts back. There is no
+    /// third kind and nothing survives a Cancel that the user did not accept. Before 2026-09-04
+    /// fifteen controls persisted the moment they changed and Cancel could not reach them.
+    /// </para>
+    ///
+    /// <para>
+    /// The one thing Cancel deliberately does not undo is the paper-account reset, because that
+    /// is a COMMAND the user pressed, not an edit they made — the same reason Export and the
+    /// theme editor's own Save are not on this path either.
+    /// </para>
+    ///
+    /// <para>
+    /// It announces. Silence after Escape is indistinguishable from a dialog that did not close,
+    /// and this is the one moment where the user needs to know their edits went nowhere.
+    /// </para>
     /// </summary>
     private void Cancel()
     {
+        bool previewsChanged = RevertPreviews();
         ResetLocal();
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            previewsChanged
+                ? "Settings discarded. Appearance restored."
+                : "Settings discarded.", true));
         StateHasChanged();
     }
 
     /// <summary>
+    /// Puts the live-preview controls back to the values this dialog opened with, and reports
+    /// whether anything moved. Each branch is guarded on a real change so a plain Escape on an
+    /// untouched dialog does not redraw the chart or rewrite the settings file.
+    /// </summary>
+    private bool RevertPreviews()
+    {
+        bool changed = false;
+
+        if (_uiScale != _uiScaleInitial)
+        {
+            _uiScale = _uiScaleInitial;
+            App.UiScale = _uiScale;
+            SafeSetUiScale(_uiScale);
+            changed = true;
+        }
+        if (_showPatternVisuals != _showPatternVisualsInitial)
+        {
+            _showPatternVisuals = _showPatternVisualsInitial;
+            App.ShowChartPatternVisuals = _showPatternVisuals;
+            changed = true;
+        }
+        if (_visualEarcons != _visualEarconsInitial)
+        {
+            _visualEarcons = _visualEarconsInitial;
+            App.VisualEarcons = _visualEarcons;
+            changed = true;
+        }
+        if (_colorVisionSafe != _colorVisionSafeInitial)
+        {
+            _colorVisionSafe = _colorVisionSafeInitial;
+            App.ColorVisionSafe = _colorVisionSafe;
+            changed = true;
+        }
+        if (_hollowUpCandles != _hollowUpCandlesInitial)
+        {
+            _hollowUpCandles = _hollowUpCandlesInitial;
+            App.HollowUpCandles = _hollowUpCandles;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            App.Save();
+            ThemeService.RefreshAccessibilityOverrides();
+        }
+
+        // The theme last, so its own redraw is the final one.
+        if (_selectedThemeInitial != null && _selectedTheme != _selectedThemeInitial)
+        {
+            _selectedTheme = _selectedThemeInitial;
+            ApplySelectedTheme();
+            changed = true;
+        }
+
+        if (changed) EventBus.Publish(new RedrawEvent());
+        return changed;
+    }
+
+    /// <summary>The theme half of <see cref="OnThemeChanged"/>, shared with the Cancel revert.</summary>
+    private void ApplySelectedTheme()
+    {
+        if (SelectedCustomTheme is { } preset)
+            ThemeService.SetCustomTheme(preset);
+        else if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var themeType))
+            ThemeService.SetTheme(themeType);
+    }
+
+    /// <summary>UI scale goes through JS; the bridge is absent in unit tests, as everywhere else.</summary>
+    private void SafeSetUiScale(int scale) =>
+        _ = InvokeAsync(async () =>
+        {
+            try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", scale); }
+            catch { /* JS bridge may be absent in tests */ }
+        });
+
+    /// <summary>
     /// Writes every pending edit and closes. The Save button is the only thing that calls it.
+    ///
+    /// <para>
+    /// The live-preview controls (theme, UI scale, the visual accommodations) are absent from
+    /// here on purpose — they persisted as they were applied, and Save's job for them is simply
+    /// not to revert them. Everything else on the dialog lands in this method.
+    /// </para>
     /// </summary>
     private void Save()
     {
@@ -1606,14 +1638,51 @@
             NarrateDuringPlayback = _narratePlayback,
         }));
 
+        // The two master toggles and the panning step are store state, not app settings, and
+        // each has an action of its own — the same one F2, F3 and Shift+[ / Shift+] fire. They
+        // are dispatched only when the staged value actually differs, because ToggleSpeechAction
+        // is a TOGGLE: dispatching it unconditionally on every Save would flip speech off for a
+        // user who came in to change something else entirely.
+        if (_speechEnabled != Store.State.IsSpeechEnabled)
+            Store.Dispatch(new ToggleSpeechAction());
+        if (_sonificationEnabled != Store.State.IsSonificationEnabled)
+            Store.Dispatch(new ToggleSonificationAction());
+        if (_panningGranularity != Store.State.PanningGranularity)
+            Store.Dispatch(new AdjustGranularityAction(_panningGranularity - Store.State.PanningGranularity));
+
         App.PaperTradingMode = _paperTradingMode;
         Settings.SetSetting(SettingsKeys.QuickTradeSizingMode, Newtonsoft.Json.Linq.JToken.FromObject(_quickSizingMode));
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
         App.TimestampReadLocation = _timestampWhere;
         App.SpeechOrder = _speechOrder;
+
+        // ── The fifteen that used to write themselves the moment they changed ──────────
+        //
+        // Each of these called App.Save() from its own @onchange handler, so Cancel and Escape
+        // could not take any of them back and the dialog carried two commit idioms at once
+        // (Cody, 2026-09-04: "for things like text field, check boxes, radio buttons, those
+        // things should save on pressing the save button"). They are staged now; this is where
+        // they land.
+        App.HoverSonification       = _hoverSonification;
+        App.MagnetSnap              = _magnetSnap;
+        App.MarketStructureOnByDefault = _marketStructureDefault;
+        App.SoundTheme              = _soundTheme;
+        App.TouchNavBarMode         = _touchNavMode;
+        App.BackgroundMonitoring    = _bgMonitoring;
+        App.MonitorPollSeconds      = _bgPollSeconds;
+        App.LiveBackgroundTabs      = _liveBgTabs;
+        App.ResumeLastSession       = _resumeSession;
         Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
         App.Save();
+
+        // Side effects that follow the WRITE, not the keystroke. Reconcile restarts the
+        // monitors so a new interval and a new on/off state are adopted together, once.
+        EventBus.Publish(new TouchNavBarModeChangedEvent(_touchNavMode));
+        Monitoring.Reconcile();
+        TabFeeds.Reconcile();
+        ApplySpeechOutputMode();
+
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
         if (_paperTradingMode != _paperTradingModeInitial)
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1629,9 +1698,37 @@
                 _brailleEnabled ? "Braille output enabled." : "Braille output disabled.", true));
         }
 
+        // Saving is the moment the dialog's work becomes real, and for a blind user the
+        // announcement IS the evidence the button did anything — the same reason the sound
+        // designer's Save Patch and Custom Scripts' Save were given one on 2026-09-04. It is
+        // last so that any per-setting sentence above (paper mode, braille) is heard first.
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Settings saved.", true));
+
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Pushes the staged speech-output choice into the web head's speech manager and its browser
+    /// storage. Null on MAUI, where the control is not shown at all.
+    /// </summary>
+    private void ApplySpeechOutputMode()
+    {
+        if (_speechOutput != null)
+        {
+            _speechOutput.Mode = _speechOutputMode switch
+            {
+                "sr"  => AccessibleTrader.Core.Services.SpeechOutputMode.ScreenReader,
+                "tts" => AccessibleTrader.Core.Services.SpeechOutputMode.BrowserVoice,
+                _     => AccessibleTrader.Core.Services.SpeechOutputMode.Both,
+            };
+        }
+        _ = InvokeAsync(async () =>
+        {
+            try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setSpeechOutputMode", _speechOutputMode); }
+            catch { /* choice applies for this visit even if storage fails */ }
+        });
     }
 
     // ── Data Export ──────────────────────────────────────────────────────────

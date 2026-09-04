@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using AccessibleTrader.Core.Services.MyData;
+using AccessibleTrader.Sdk.Plugins;
 
 namespace AccessibleTrader.BrowserTests;
 
@@ -71,6 +73,100 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
         Environment.SetEnvironmentVariable("XDG_DATA_HOME",   Path.Combine(_dataRoot, "data"));
         Environment.SetEnvironmentVariable("XDG_CACHE_HOME",  Path.Combine(_dataRoot, "cache"));
         Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", Path.Combine(_dataRoot, "config"));
+
+        SeedMyDataDataset();
+    }
+
+    /// <summary>
+    /// The dataset name the seeded market is charted under — the value of the Symbol dropdown
+    /// in <see cref="TerminalPage.LoadSeededChartAsync"/>.
+    ///
+    /// <para>
+    /// <b>The space is deliberate and load-bearing.</b> The first version of this seed failed
+    /// here, and the failure was production's: <c>SymbolValidator</c>'s charset has no space in
+    /// it, so the fetch chokepoint rejected the user's own dataset name and the terminal said
+    /// "Invalid symbol 'Harness Candles' for My Data. No data for Harness Candles from My Data.
+    /// The chart is empty." Any name a person would actually give a CSV was unchartable. Keeping
+    /// the space means this suite fails again if that exemption is removed — see
+    /// <c>SymbolChokepointExemptionTests</c>.
+    /// </para>
+    /// </summary>
+    public const string SeededSymbol = "Harness Candles";
+
+    /// <summary>The market and provider that serve <see cref="SeededSymbol"/>.</summary>
+    public const string SeededMarket = "MyData";
+    public const string SeededProvider = MyDataProvider.ProviderName;
+
+    /// <summary>How many bars the seeded dataset holds.</summary>
+    public const int SeededBarCount = 200;
+
+    /// <summary>
+    /// Writes one OHLCV dataset into the throwaway data root BEFORE the host is built, so the
+    /// terminal boots with a market it can chart offline.
+    ///
+    /// <para>
+    /// This exists because of what the fourteenth pass measured: EVERY browser route reached the
+    /// Object Tree at cold start, where <c>ActiveSeries</c> is empty and the tree renders "No
+    /// series active on chart" with no rows in it at all. The whole tree contract — expansion
+    /// state, roving tabindex, the <c>&lt;details&gt;</c> toggle loop that hung Alt+O — was being
+    /// asserted over an empty dialog. Adding an indicator through the Add Indicator dialog does
+    /// not help: an indicator has nothing to compute against until the chart has bars.
+    /// </para>
+    ///
+    /// <para>
+    /// "My Data" is the seam that makes this offline. It is a built-in provider
+    /// (<see cref="IBuiltInDataProvider"/>), needs no API key, declares
+    /// <see cref="ProviderEnvironment.HistoricalOnly"/> so nothing opens a socket, and reads its
+    /// datasets from <c>AppDataDirectory/my-data</c> — a directory this factory already owns,
+    /// because the XDG variables above are set before anything resolves a path. No network, no
+    /// credentials, no test-only branch in production code.
+    /// </para>
+    ///
+    /// <para>
+    /// The import goes through the REAL <see cref="MyDataStore.ImportAsync"/> rather than a
+    /// hand-written manifest: a hand-written one would encode this test's belief about the
+    /// on-disk format, and would keep passing after the format changed underneath it.
+    /// </para>
+    /// </summary>
+    private void SeedMyDataDataset()
+    {
+        var paths = new WebHost.Services.WebHostPathService(
+            Path.Combine(_dataRoot, "data", "AccessibleTrader"));
+        var store = new MyDataStore(paths,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MyDataStore>.Instance);
+        store.ImportAsync(SeededSymbol, BuildOhlcvCsv(SeededBarCount)).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// A deterministic daily OHLCV series. Deterministic — a fixed seed, not
+    /// <see cref="Random.Shared"/> — because a failure in this suite has to be reproducible from
+    /// its name alone; and shaped rather than flat, because a constant close makes every
+    /// range-dependent assertion (viewport min/max, sonification pitch, "value" readback) pass
+    /// for the wrong reason.
+    /// </summary>
+    private static string BuildOhlcvCsv(int bars)
+    {
+        var rng = new Random(20260904);
+        var sb = new System.Text.StringBuilder("date,open,high,low,close,volume\n");
+        var day = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        double close = 100.0;
+        for (int i = 0; i < bars; i++)
+        {
+            double open = close;
+            double drift = Math.Sin(i / 9.0) * 1.5 + (rng.NextDouble() - 0.5) * 1.2;
+            close = Math.Round(Math.Max(1.0, open + drift), 2);
+            double high = Math.Round(Math.Max(open, close) + rng.NextDouble() * 0.9, 2);
+            double low  = Math.Round(Math.Min(open, close) - rng.NextDouble() * 0.9, 2);
+            double vol  = Math.Round(500 + rng.NextDouble() * 500, 2);
+            sb.Append(day.AddDays(i).ToString("yyyy-MM-dd"))
+              .Append(',').Append(open.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append(',').Append(high.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append(',').Append(low.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append(',').Append(close.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append(',').Append(vol.ToString(System.Globalization.CultureInfo.InvariantCulture))
+              .Append('\n');
+        }
+        return sb.ToString();
     }
 
     /// <summary>The throwaway storage root, for tests that want to inspect what was written.</summary>

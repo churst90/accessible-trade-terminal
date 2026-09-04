@@ -74,20 +74,12 @@
       {
         "Text": "Focus on trading chart area.",
         "Interrupt": true
-      },
-      {
-        "Text": "",
-        "Interrupt": true
-      },
-      {
-        "Text": "No chart loaded.",
-        "Interrupt": true
       }
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-2",
-        "text": "No chart loaded."
+        "id": "aria-speech-1",
+        "text": "Focus on trading chart area."
       },
       {
         "id": "blazor-error-ui",
@@ -142,14 +134,14 @@
         "Interrupt": true
       },
       {
-        "Text": "no symbol on Bitstamp, 1h",
+        "Text": "Harness Candles on My Data, 1d",
         "Interrupt": true
       }
     ],
     "liveRegions": [
       {
         "id": "aria-speech-2",
-        "text": "no symbol on Bitstamp, 1h"
+        "text": "Harness Candles on My Data, 1d"
       },
       {
         "id": "blazor-error-ui",

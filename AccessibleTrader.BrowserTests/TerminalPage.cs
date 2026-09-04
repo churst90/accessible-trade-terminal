@@ -493,6 +493,119 @@ internal sealed class TerminalPage : IAsyncDisposable
     public Task<int> OpenModalCountAsync() =>
         Page.EvaluateAsync<int>("() => (window.accessibleTrader && window.accessibleTrader._openModalCount) || 0");
 
+    // ── seeded chart ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Drives the toolbar's Market → Provider → Symbol → Load cascade onto the offline dataset
+    /// <see cref="TerminalServerFactory"/> seeded, and returns once the chart actually holds
+    /// series. Every route in this suite reaches the app at cold start with an empty chart;
+    /// this is the one call that changes that.
+    ///
+    /// <para>
+    /// The completion signal is the Indicator bar's own <c>#indicator-select</c>, whose options
+    /// ARE <c>Store.State.ActiveSeries</c>. It is deliberately not the Object Tree: the tree is
+    /// the thing these tests are here to measure, and waiting on it would make every assertion
+    /// about it circular. It is also not the status strip, which is a mirror of the last spoken
+    /// sentence and says "loaded" for a load that produced nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// Each <c>SelectOptionAsync</c> is followed by a wait on the NEXT dropdown's contents rather
+    /// than a delay, because the cascade is asynchronous end to end — picking a market asks the
+    /// data service for providers, picking a provider asks the provider for symbols — and a
+    /// select whose options have not arrived yet accepts the value and silently keeps the old one.
+    /// </para>
+    /// </summary>
+    public async Task LoadSeededChartAsync(int timeoutMs = 30_000)
+    {
+        await Page.SelectOptionAsync("#market-select", TerminalServerFactory.SeededMarket);
+        await Page.WaitForFunctionAsync(
+            "provider => [...document.querySelectorAll('#provider-select option')].some(o => o.value === provider)",
+            TerminalServerFactory.SeededProvider,
+            new PageWaitForFunctionOptions { Timeout = timeoutMs });
+
+        await Page.SelectOptionAsync("#provider-select", TerminalServerFactory.SeededProvider);
+        await Page.WaitForFunctionAsync(
+            "symbol => [...document.querySelectorAll('#symbol-select option')].some(o => o.value === symbol)",
+            TerminalServerFactory.SeededSymbol,
+            new PageWaitForFunctionOptions { Timeout = timeoutMs });
+
+        await Page.SelectOptionAsync("#symbol-select", TerminalServerFactory.SeededSymbol);
+
+        // Wait for the ORCHESTRATOR to have adopted the symbol, not merely for the <select> to
+        // show it. The Load button is gated on MarketOrchestrator.SelectedSymbol being non-empty,
+        // and a gate is re-read at click time — so clicking one render too early does not load a
+        // chart, it speaks "Choose a symbol first." and returns, leaving the wait below to time
+        // out 30 seconds later with nothing to say about why. The select's `title` is bound to
+        // the orchestrator's own SelectedSymbol, so it is that state made observable.
+        await Page.WaitForFunctionAsync(
+            "symbol => document.querySelector('#symbol-select')?.getAttribute('title') === symbol",
+            TerminalServerFactory.SeededSymbol,
+            new PageWaitForFunctionOptions { Timeout = timeoutMs });
+
+        await Page.ClickAsync("#toolbar-load-btn");
+
+        try
+        {
+            await Page.WaitForFunctionAsync(
+                "() => document.querySelectorAll('#indicator-select option').length > 0",
+                null, new PageWaitForFunctionOptions { Timeout = timeoutMs });
+        }
+        catch (TimeoutException)
+        {
+            // A bare "Timeout 30000ms exceeded" names nothing, and neither does the page's
+            // generic error banner — #blazor-error-ui is in the DOM of every Blazor page and
+            // hidden by CSS, so reading its text without checking `display` reports a crash on a
+            // perfectly healthy circuit (it did, on 2026-09-04, and cost an hour). Report the
+            // page's actual state: whether that banner is SHOWN, what the series picker holds,
+            // what the toolbar's own [role=alert] says, and what the terminal last spoke.
+            string state = await Page.EvaluateAsync<string>(@"() => {
+                const e = document.querySelector('#blazor-error-ui');
+                const shown = e && getComputedStyle(e).display !== 'none';
+                const sel = document.querySelector('#indicator-select');
+                const load = document.querySelector('[role=alert]:not(#blazor-error-ui)');
+                const tabs = [...document.querySelectorAll('[role=tab]')].map(t => t.getAttribute('aria-label') || t.textContent.trim());
+                return `blazor-error-ui shown=${!!shown}; indicator-select present=${!!sel}` +
+                       ` options=${sel ? sel.options.length : 'n/a'}` +
+                       `; toolbar alert=${load ? load.textContent.trim() : '(none)'}` +
+                       `; title=${document.title}` +
+                       `; tabs=${tabs.length}[${tabs.join(' / ')}]`;
+            }");
+            var spoken = await SpokenAsync();
+            var errors = _serverLog()
+                .Where(l => l.StartsWith("[Error]", StringComparison.Ordinal)
+                         || l.StartsWith("[Critical]", StringComparison.Ordinal))
+                .TakeLast(6);
+            throw new InvalidOperationException(
+                "The seeded chart never produced a series.\n  Page: "
+                + (state.Length > 0 ? state.ReplaceLineEndings(" ") : "(unreadable)")
+                + "\n  Last spoken: "
+                + (spoken.Count > 0 ? string.Join(" | ", spoken.TakeLast(8).Select(u => u.Text)) : "(nothing)")
+                + "\n  Server errors:\n    " + string.Join("\n    ", errors.DefaultIfEmpty("(none)"))
+                + "\n  Browser errors:\n    " + string.Join("\n    ", BrowserDiagnostics().DefaultIfEmpty("(none)")));
+        }
+    }
+
+    /// <summary>
+    /// Everything the browser complained about: a script that threw, a console error, a request
+    /// that never arrived. A Blazor circuit that dies takes the DOM with it and leaves the page
+    /// showing "An unhandled error has occurred" — and that banner names nothing, so a harness
+    /// that reports only the banner reports nothing.
+    /// </summary>
+    public IReadOnlyList<string> BrowserDiagnostics()
+    {
+        lock (_diagLock)
+            return _pageErrors.Select(e => "pageerror: " + e)
+                .Concat(_consoleErrors.Select(e => "console: " + e))
+                .Concat(_failedRequests.Select(e => "request: " + e))
+                .TakeLast(8).ToList();
+    }
+
+    /// <summary>The friendly names in the Indicator bar's series picker — i.e. the chart's series.</summary>
+    public async Task<IReadOnlyList<string>> ActiveSeriesNamesAsync() =>
+        await Page.EvaluateAsync<string[]>(
+            "() => [...document.querySelectorAll('#indicator-select option')].map(o => o.textContent.trim())");
+
     // ── names ────────────────────────────────────────────────────────────────
 
     /// <summary>
