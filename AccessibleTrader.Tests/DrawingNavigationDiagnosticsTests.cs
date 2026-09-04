@@ -423,7 +423,11 @@ public sealed class DrawingNavigationDiagnosticsTests
         nav.HandleNavigationFeedback(StateAt(bars, series, 51), true, false, "NAV_MOVE");
         nav.HandleNavigationFeedback(StateAt(bars, series, 10), true, false, "NAV_MOVE");
         foreach (var s in router.Said) _out.WriteLine("SPOKEN: " + s);
-        Assert.Equal("Trend line 1. Not yet calculated.", router.Said[0]);
+        // The trailing "Main pane." is the orientation clause, and it is spoken here because
+        // this is the FIRST move of the session — there is no previous pane to compare against,
+        // so the cursor has by definition just arrived somewhere. It does not repeat: the second
+        // and third utterances below carry no pane clause at all.
+        Assert.Equal("Trend line 1. Not yet calculated. Main pane.", router.Said[0]);
         Assert.DoesNotContain("component", router.Said[0]);
         Assert.Equal("Not yet calculated.", router.Said[1]);
         Assert.Equal("Before start, 20 bars.", router.Said[2]);

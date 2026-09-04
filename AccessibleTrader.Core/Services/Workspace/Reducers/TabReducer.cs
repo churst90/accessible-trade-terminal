@@ -22,10 +22,6 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
 
             // Pane layout
             ResizePaneAction a      => ResizePane(state, a.PaneName, a.Delta),
-            ScrollIndicatorPanesAction a => state with
-            {
-                IndicatorPaneScrollIndex = Math.Max(0, state.IndicatorPaneScrollIndex + a.Delta)
-            },
             SetPaneHeightRatiosAction a  => state with { PaneHeightRatios = a.Ratios },
 
             _ => state
@@ -63,7 +59,6 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             IsLogScale: s.IsLogScale,
             LastInteractionContext: s.LastInteractionContext,
             PaneHeightRatios: s.PaneHeightRatios,
-            IndicatorPaneScrollIndex: s.IndicatorPaneScrollIndex,
             InitStatus: s.InitStatus == InitializationStatus.Loading ? InitializationStatus.Ready : s.InitStatus,
             DataStatus: s.DataStatus == DataStatus.LoadingHistorical ? DataStatus.Ready : s.DataStatus,
             IsCoordinateEntryMode: false, // Always reset CE mode on tab switch
@@ -95,7 +90,6 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             IsLogScale = snap.IsLogScale,
             LastInteractionContext = snap.LastInteractionContext,
             PaneHeightRatios = snap.PaneHeightRatios,
-            IndicatorPaneScrollIndex = snap.IndicatorPaneScrollIndex,
             InitStatus = snap.InitStatus,
             DataStatus = snap.DataStatus,
             IsCoordinateEntryMode = false,
@@ -136,7 +130,6 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 IsLogScale: false,
                 LastInteractionContext: InteractionContext.Series,
                 PaneHeightRatios: null,
-                IndicatorPaneScrollIndex: 0,
                 InitStatus: InitializationStatus.Booting,
                 DataStatus: DataStatus.Idle,
                 IsCoordinateEntryMode: false,

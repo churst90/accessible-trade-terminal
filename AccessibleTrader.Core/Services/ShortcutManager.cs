@@ -107,6 +107,22 @@ namespace AccessibleTrader.Core.Services
                 if (File.Exists(_filepath))
                 {
                     string json = File.ReadAllText(_filepath!);
+
+                    // A profile written before commands were serialised by NAME stores each one
+                    // as an ORDINAL into an enum that has since had members retired. Reading it
+                    // would not fail — it would succeed and bind keys to whatever command
+                    // inherited each number, which is worse than failing. Discard it and let the
+                    // defaults stand; a rebind is cheap, a chart key that silently places an
+                    // order is not.
+                    if (LooksLikeLegacyOrdinalProfile(json))
+                    {
+                        _logger?.LogWarning(
+                            "Shortcuts at {Path} were saved by an older build that stored commands as numbers; " +
+                            "the file is ignored and the default bindings are in use. Re-apply any customisations to rewrite it.",
+                            _filepath);
+                        return;
+                    }
+
                     var profile = JsonConvert.DeserializeObject<ShortcutProfile>(json);
                     if (profile != null)
                     {
@@ -122,6 +138,30 @@ namespace AccessibleTrader.Core.Services
                 // Same defect class already fixed in ChartCommandManager.
                 _logger?.LogError(ex, "Failed to load shortcuts from {Path}; falling back to defaults", _filepath);
             }
+        }
+
+        /// <summary>
+        /// True when the file stores <c>"Command": 42</c> rather than <c>"Command": "NavPaneNext"</c>.
+        /// Deliberately a text check rather than a parse: the whole point is to decide BEFORE
+        /// deserialising, because deserialising is what does the damage.
+        /// </summary>
+        internal static bool LooksLikeLegacyOrdinalProfile(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return false;
+
+            int i = json.IndexOf("\"Command\"", StringComparison.Ordinal);
+            if (i < 0) return false;
+
+            i = json.IndexOf(':', i);
+            if (i < 0) return false;
+
+            for (i++; i < json.Length; i++)
+            {
+                char c = json[i];
+                if (char.IsWhiteSpace(c)) continue;
+                return char.IsDigit(c) || c == '-';
+            }
+            return false;
         }
 
         public void SaveToDisk()
@@ -288,10 +328,6 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.GranularityDown, "OEM4", Shift: true));
             s.Add(new(SystemCommand.GranularityUp,   "OEM6", Shift: true));
 
-            // Indicator pane scrolling: Alt+Up / Alt+Down
-            s.Add(new(SystemCommand.ScrollPanesUp,   "Up",   Alt: true));
-            s.Add(new(SystemCommand.ScrollPanesDown, "Down", Alt: true));
-
             // Explicit chart focus: Ctrl+Alt+Shift+C
             s.Add(new(SystemCommand.ChartFocus, "C", Ctrl: true, Alt: true, Shift: true));
 
@@ -412,7 +448,7 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.QuickArmRisk2, "2", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.QuickArmRisk3, "3", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.QuickDisarm,   "0", Ctrl: true, Alt: true, Shift: true));
-            // X marks the stop. S was taken by Split View — caught by ShortcutConflictTests.
+            // X marks the stop.
             s.Add(new(SystemCommand.QuickSetStop,  "X", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.QuickArmStatus,"Q", Ctrl: true, Alt: true, Shift: true));
             // Enter only ever does anything while armed — see the dispatch guard.
@@ -465,11 +501,18 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.OpenMyData, "I", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+I
             s.Add(new(SystemCommand.LoadWorkspace, "W", Ctrl: true, Alt: true));               // Ctrl+Alt+W
 
-            // Sub-pane navigation (jump between panes)
-            s.Add(new(SystemCommand.NavSubPaneNext, "PAGEDOWN", Ctrl: true)); // Ctrl+PageDown
-            s.Add(new(SystemCommand.NavSubPanePrev, "PAGEUP",   Ctrl: true)); // Ctrl+PageUp
+            // Top-level pane navigation — Alt+PageUp / Alt+PageDown, on EVERY head.
+            //
+            // These used to be Ctrl+PageUp / Ctrl+PageDown with the WebHost rewriting them to
+            // Alt, which meant the desktop and the browser disagreed about a navigation key and
+            // the Help dialog had to explain the difference. Ctrl+PageUp/PageDown is reserved by
+            // Chrome, Brave, Edge and Firefox for cycling the BROWSER's own tabs — a chord no
+            // page-level preventDefault can be trusted to win — so it is left unbound rather than
+            // reassigned, and the one chord that works everywhere is the one chord that is bound.
+            s.Add(new(SystemCommand.NavPaneNext, "PAGEDOWN", Alt: true)); // Alt+PageDown
+            s.Add(new(SystemCommand.NavPanePrev, "PAGEUP",   Alt: true)); // Alt+PageUp
 
-            // Intra-pane component navigation (cycle within the focused component's pane)
+            // Intra-pane component navigation (walk the current strip, across series)
             s.Add(new(SystemCommand.NavComponentInPaneNext, "DOWN", Ctrl: true)); // Ctrl+Down
             s.Add(new(SystemCommand.NavComponentInPanePrev, "UP",   Ctrl: true)); // Ctrl+Up
 
@@ -494,10 +537,6 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.ReplayToggle,      "F11"));                                    // F11 (desktop)
             s.Add(new(SystemCommand.ReplayToggle,      "P",  Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+P
 
-            // Split view — a second tab rendered beside the active one (reference view).
-            s.Add(new(SystemCommand.SplitViewToggle,      "S", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+S
-            s.Add(new(SystemCommand.SplitViewCycle,       "E", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+E
-            s.Add(new(SystemCommand.SplitViewOrientation, "O", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+O
             s.Add(new(SystemCommand.OpenJournal,       "J",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+J: speech / alert journal
 
             // ── Orientation and recovery ─────────────────────────────────────
@@ -516,6 +555,11 @@ namespace AccessibleTrader.Core.Services
             //   K — sho[K] all, paired with…
             //   U — [U]nmute all
             s.Add(new(SystemCommand.SpeakChartLayout,     "Y", Ctrl: true, Alt: true, Shift: true));
+            // Alt+Shift+/ — describe the pane the cursor is in. A two-modifier chord because it
+            // is asked constantly, not once: "what scale am I reading against" comes up on every
+            // move into an unfamiliar pane. Alt+Shift+letter is the WebHost's drawing-tool block,
+            // so a non-letter key is what keeps this out of it, and "/" is free on every head.
+            s.Add(new(SystemCommand.SpeakPaneInfo,        "OEM2", Alt: true, Shift: true));
             s.Add(new(SystemCommand.ShowAllComponents,    "K", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.UnmuteAllComponents,  "U", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary

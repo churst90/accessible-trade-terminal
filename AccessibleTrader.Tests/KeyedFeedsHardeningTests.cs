@@ -212,7 +212,7 @@ namespace AccessibleTrader.Tests
                         RightMarginBars: s.RightMarginBars, ViewportRange: s.ViewportRange,
                         PaneRanges: s.PaneRanges, IsHeikinAshi: false, IsLogScale: false,
                         LastInteractionContext: s.LastInteractionContext, PaneHeightRatios: s.PaneHeightRatios,
-                        IndicatorPaneScrollIndex: 0, InitStatus: InitializationStatus.Ready,
+                        InitStatus: InitializationStatus.Ready,
                         DataStatus: DataStatus.Ready, IsCoordinateEntryMode: false,
                         PendingDrawingTool: null, CoordinateEntryAnchorCount: 0,
                         CoordinateEntryAnchor1Index: -1, SymbolDisplayName: id.Symbol)).ToImmutableList(),

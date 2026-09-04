@@ -42,6 +42,14 @@ namespace AccessibleTrader.Tests
             };
         }
 
+        private static ChartSeries SeriesWithId(string id, string name, string pane, params string[] components)
+        {
+            var cfg = new SeriesConfig { Id = id, Name = name, Pane = pane };
+            foreach (var c in components)
+                cfg.Components.Add(new ComponentConfig { Name = c, DisplayName = c, IsVisible = true });
+            return new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = id });
+        }
+
         private static ChartSeries Series(string name, string pane, params string[] components)
         {
             var s = new ChartSeries();
@@ -51,6 +59,97 @@ namespace AccessibleTrader.Tests
                 s.Components.Add(new ComponentConfig { Name = c, DisplayName = c, IsVisible = true });
             return s;
         }
+
+        // ── DescribePane (Alt+Shift+/) — the PANE, not the chart ─────────
+
+        /// <summary>
+        /// Cody, 2026-09-04: <i>"can we have a shortcut … that will read out the meta data for
+        /// that pane like 'main pane. Y axis price. X axis time. Price ranges from x to y, with
+        /// an interval of z. Time ranges from x to y with an interval of z'".</i>
+        ///
+        /// <para>
+        /// The reason it is a separate key from Ctrl+Alt+Shift+Y: a spoken VALUE is meaningless
+        /// without the scale it sits against, and "what is on this chart" is asked once on
+        /// arrival while "what am I reading against" is asked on every move into a new band.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void DescribePane_namesTheAxes_theirRanges_andTheGridlineStep()
+        {
+            var state = StateWith(200, 0, 60,
+                Series("Candles", "Main", "Close"),
+                Series("RSI", "Pane_RSI", "RSI"));
+
+            string text = ChartLayoutDescriber.DescribePane(state with { FocusedSeriesId = null }, "1d");
+
+            Assert.Contains("Main pane", text);
+            Assert.Contains("Y axis, price", text);
+            Assert.Contains("X axis, time", text);
+            Assert.Contains("between gridlines", text);
+            Assert.Contains("1 day", text);   // the X axis's step, spoken not spelled
+        }
+
+        /// <summary>
+        /// It describes THE PANE THE CURSOR IS IN. Describing the Main pane wherever you stood
+        /// would be the failure mode that makes the key useless exactly when it is needed.
+        /// </summary>
+        [Fact]
+        public void DescribePane_followsTheCursorIntoAnIndicatorPane()
+        {
+            var rsi = SeriesWithId("rsi", "RSI", "Pane_RSI", "RSI");
+            var state = StateWith(200, 0, 60, Series("Candles", "Main", "Close"), rsi) with
+            {
+                FocusedSeriesId = "rsi",
+                PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty
+                    .Add("Main", (20000, 130000))
+                    .Add("Pane_RSI", (0, 100)),
+            };
+
+            string text = ChartLayoutDescriber.DescribePane(state, "1d");
+
+            Assert.Contains("RSI pane", text);
+            Assert.Contains("2 of 2", text);
+            Assert.Contains("0.00 to 100.00", text);
+            Assert.DoesNotContain("Y axis, price", text);
+        }
+
+        /// <summary>
+        /// The Y range is read from the SAME dictionary the renderer scales the pane with, so
+        /// the numbers spoken are the numbers drawn. Reading the viewport range for every pane
+        /// would confidently describe an oscillator as running from 20,000 to 130,000.
+        /// </summary>
+        [Fact]
+        public void DescribePane_readsTheRendererOwnPaneRange_notTheViewportRange()
+        {
+            var rsi = SeriesWithId("rsi", "RSI", "Pane_RSI", "RSI");
+            var state = StateWith(200, 0, 60, rsi) with
+            {
+                FocusedSeriesId = "rsi",
+                PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty
+                    .Add("Pane_RSI", (0, 100)),
+            };
+
+            string text = ChartLayoutDescriber.DescribePane(state, "1d");
+
+            Assert.DoesNotContain("130,000", text);
+            Assert.DoesNotContain("20,000", text);
+        }
+
+        /// <summary>
+        /// The ordinal follows the rule the rest of the file uses: a count is only information
+        /// when it tells the user a key has somewhere to go. Never "1 of 1".
+        /// </summary>
+        [Fact]
+        public void DescribePane_dropsTheOrdinalOnAOnePaneChart()
+        {
+            var state = StateWith(200, 0, 60, Series("Candles", "Main", "Close"));
+
+            Assert.DoesNotContain("1 of 1", ChartLayoutDescriber.DescribePane(state, "1d"));
+        }
+
+        [Fact]
+        public void DescribePane_withNoData_saysSo()
+            => Assert.Equal("No chart loaded.", ChartLayoutDescriber.DescribePane(WorkspaceState.Initial));
 
         // ── The basics ───────────────────────────────────────────────────
 

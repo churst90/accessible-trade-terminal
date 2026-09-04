@@ -218,7 +218,7 @@ public class ChartRendererDisposalTests
             paneRanges: new Dictionary<string, (double Min, double Max)> { ["Main"] = (90, 115) },
             isHeikinAshi: false, isLogScale: false, density: Density,
             paneHeightRatios: ImmutableDictionary<string, float>.Empty,
-            indicatorPaneScrollIndex: 0, rightMarginBars: 10, formations: null);
+            rightMarginBars: 10, formations: null);
 
         canvas.Flush();
         using var image = surface.Snapshot();

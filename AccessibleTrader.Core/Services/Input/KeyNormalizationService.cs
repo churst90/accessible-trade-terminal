@@ -59,6 +59,11 @@ namespace AccessibleTrader.Core.Services.Input
             { "OEM_PERIOD", "." },
             { "OEM_COMMA", "," },
             { "OEM_2", "/" },
+            // keyboard.js reports the slash as OEM2 so that Shift+/ — which a browser delivers as
+            // "?", never as "/" — still resolves to the same binding. Both spellings and the
+            // shifted character land on one key, the same fix the shifted digits needed below.
+            { "OEM2", "/" },
+            { "?", "/" },
             { "OEM_3", "`" },
             { "OEM_5", "\\" },
 

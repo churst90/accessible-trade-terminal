@@ -139,7 +139,7 @@ public class WorkspaceProjectionTests
                 PaneRanges: ImmutableDictionary<string, (double Min, double Max)>.Empty,
                 IsHeikinAshi: false, IsLogScale: false,
                 LastInteractionContext: InteractionContext.Series,
-                PaneHeightRatios: null, IndicatorPaneScrollIndex: 0,
+                PaneHeightRatios: null,
                 InitStatus: InitializationStatus.Ready, DataStatus: DataStatus.Ready,
                 IsCoordinateEntryMode: false, PendingDrawingTool: null,
                 CoordinateEntryAnchorCount: 0, CoordinateEntryAnchor1Index: -1)),

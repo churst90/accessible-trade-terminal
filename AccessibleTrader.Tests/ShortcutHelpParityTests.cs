@@ -85,6 +85,20 @@ public class ShortcutHelpParityTests
         ["Esc"] = "ESCAPE", ["Del"] = "DELETE", ["Application"] = "CONTEXTMENU",
     };
 
+    /// <summary>
+    /// Splits a documentation cell into the alternatives it lists — "Ctrl+← / Ctrl+→" is two
+    /// bindings on one row.
+    ///
+    /// <para>
+    /// The separator is a SPACED slash, and that is not a stylistic preference: <c>/</c> is
+    /// itself a key. Splitting on a bare slash tore "Alt+Shift+/" into "Alt+Shift+" and "", so
+    /// the one chord bound to the slash could not be documented in a form this harness would
+    /// accept — the guard demanded documentation and rejected every spelling of it.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<string> Alternatives(string cell) =>
+        Regex.Split(cell, @"\s+/\s+");
+
     private static Combo? Parse(string token)
     {
         token = token.Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">").Trim();
@@ -133,7 +147,7 @@ public class ShortcutHelpParityTests
     {
         var rows = new List<(string, string, string)>();
         foreach (Match m in Regex.Matches(HelpModalSource(), @"<tr><td>([^<]*)</td><td>([^<]*)</td>"))
-            foreach (var token in m.Groups[1].Value.Split('/'))
+            foreach (var token in Alternatives(m.Groups[1].Value))
                 rows.Add((m.Groups[1].Value, token, m.Groups[2].Value));
         return rows;
     }
@@ -151,7 +165,7 @@ public class ShortcutHelpParityTests
         void Harvest(string pattern)
         {
             foreach (Match m in Regex.Matches(src, pattern))
-                foreach (var token in m.Groups[1].Value.Split('/'))
+                foreach (var token in Alternatives(m.Groups[1].Value))
                     if (Parse(token) is { } c) found.Add(c);
         }
         Harvest(@"<td>([^<]*)</td>");
@@ -166,7 +180,7 @@ public class ShortcutHelpParityTests
         var found = new HashSet<Combo>();
         void Add(string cell)
         {
-            foreach (var token in cell.Split('/'))
+            foreach (var token in Alternatives(cell))
                 if (Parse(token) is { } c) found.Add(c);
         }
         foreach (Match m in Regex.Matches(src, @"`([^`]+)`")) Add(m.Groups[1].Value);

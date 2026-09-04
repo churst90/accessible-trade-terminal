@@ -174,15 +174,34 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
         }
 
+        /// <summary>
+        /// Page Up / Page Down — the next series UP or DOWN the chart.
+        ///
+        /// <para>
+        /// "Down the chart" is walked in VISUAL order, not list order. <c>ActiveSeries</c> is
+        /// append-ordered, so adding an oscillator and then a second price overlay leaves the
+        /// list saying price, oscillator, price while the picture says price, price, oscillator —
+        /// and Page Down then moved out of the Main pane and back into it. Every key that claims
+        /// a direction reads the same ordering from <see cref="ChartPaneModel"/>.
+        /// </para>
+        ///
+        /// <para>
+        /// Clamps at the ends, as pane and strip navigation do. Settled once for all of them:
+        /// wrapping silently teleports a user who cannot see the jump.
+        /// </para>
+        /// </summary>
         private void NavigateSeries(int delta)
         {
             var state = _store.State;
-            var all = state.ActiveSeries;
-            if (!all.Any()) return;
+            if (!state.ActiveSeries.Any()) return;
+
+            var all = ChartPaneModel.SeriesInVisualOrder(state.ActiveSeries);
+            if (all.Count == 0) return;
 
             var focusedId = state.FocusedSeriesId ?? "candles";
-            var currentSeries = all.FirstOrDefault(x => x.Id == focusedId);
-            int currentIndex = currentSeries != null ? all.IndexOf(currentSeries) : 0;
+            int currentIndex = 0;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i].Id == focusedId) { currentIndex = i; break; }
 
             int newIndex = Math.Clamp(currentIndex + delta, 0, all.Count - 1);
             if (newIndex != currentIndex)

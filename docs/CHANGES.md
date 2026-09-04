@@ -4,6 +4,88 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The pane is the Y axis: one pane walk, no split view, and the orientation clauses moved to the end (2026-09-04)
+
+Cody's afternoon list, and it is mostly a subtraction. Alt+PageUp announced "No subpanes in
+candles" on a chart that had three panes on it; the design discussion in `docs/TODO.md` had the
+model right but had read the desktop defaults rather than the WebHost remap, so the bug was one
+level up from where the notes put it.
+
+- **Alt+PageUp / Alt+PageDown move between PANES now, on every head.** The old command walked
+  SUB-panes, and it built its list from one series' components while the renderer groups by
+  `ChartSeries.Pane` across the whole series list — so with the cursor on the candles, which
+  declare no sub-pane, the key said "No sub-panes in Candles" and moved nothing while the chart
+  in front of the user had a volume pane and an oscillator pane below. **A pane is a Y axis**;
+  that is the whole definition and now the whole implementation, in one `ChartPaneModel` that
+  navigation, speech and the readback all read.
+  - `Ctrl+PageUp` / `Ctrl+PageDown` is left **unbound** rather than reassigned. Every browser
+    cycles its own tabs on it ahead of any page listener. It used to be the desktop binding with
+    the WebHost rewriting it to Alt, so the two heads disagreed about a navigation key for no
+    gain; they agree now, and the remap has one fewer rule.
+  - **Sub-pane navigation is gone as a key of its own.** Cody: *"if subpanes are effectively
+    components, does it make sense to have a navigation command for sub panes since that
+    basically just does the same thing ctrl up/down would do?"* It does not — and only two
+    sub-panes exist in the whole indicator tree.
+
+- **Ctrl+Up / Ctrl+Down walk the strip you are in ACROSS every series in the pane.** The other
+  half of the same mismatch: a sub-pane is declared by a component but drawn from every series
+  in the pane, so walking it per-series meant Ctrl+Down on the candles could never reach a price
+  overlay drawn on top of them, against the same axis, in the same band.
+
+- **Page Up / Page Down walk VISUAL order.** `ActiveSeries` is append-ordered, so adding an
+  oscillator and then a second price overlay left the list saying price, oscillator, price while
+  the picture said price, price, oscillator — and Page Down moved out of the Main pane and back
+  into it. **All five traversal keys clamp** at the ends with a boundary earcon; three of them
+  used to wrap. Settled once: a silent jump from the bottom of the chart back to the top is the
+  one outcome a user who cannot see the move has no way to detect.
+
+- **`Alt+Shift+/` describes the pane you are in** — what each axis measures, the range each
+  covers, the step between gridlines, what is drawn in it and what strips are inside. A spoken
+  value is meaningless without the scale it sits against, and that scale is the thing a sighted
+  trader reads off an axis without noticing they did. The Y range comes from the same
+  `PaneRanges` dictionary the renderer scales the pane with, so the numbers spoken are the
+  numbers drawn.
+
+- **The pane name and the hidden/muted state TRAIL the utterance now, and only on change.**
+  Cody: *"Speech form, trailing, not prepend. I noticed the hide/mute is prepended but I think it
+  would be best n last."* Both are facts about the MOVE rather than about the bar and neither
+  changes from bar to bar, so leading with them pushed the value late in every single utterance.
+  The series-switch sentence also stopped counting sub-panes as panes — it said "1 pane" on a
+  chart with three.
+
+- **SPLIT VIEW IS GONE, and the whole of it: the coordinator, the three chords, the toolbar
+  button, the icon, the event, the pointer-remapping path, the Shift+F1 clause and the docs.**
+  The second pane was read-only by construction — keyboard, speech, sonification and trading all
+  stayed on the active tab — so the terminal drew a chart it could say nothing about, and the
+  user who most needs to compare two markets was the one it did not serve. Cody: *"if I was going
+  to use 2 charts to compare, I'd want to overlay them one over the other."* That is also the
+  accessible answer: an overlay series is something every key already reaches. `ChartRenderer`'s
+  frame composition moved to a `ChartFrameRenderer` that draws one chart and resolves the
+  formations layer, which is the part that genuinely had to live outside the renderer.
+
+- **Alt+Up / Alt+Down pane scrolling is gone**, along with `IndicatorPaneScrollIndex` — the state
+  field, its action, its reducer branch and its slot in the script-sandbox wire format. It reached
+  exactly one line of production code, `allIndicatorGroups.Skip(...)`, which omitted panes from
+  the DRAWING only: navigation, speech and sonification never saw it. A scroll bar for a viewport
+  a blind user does not have, announcing itself as "Scroll panes up".
+
+- **Found on the way, and it would have bitten the next person to retire a command: shortcut
+  profiles stored each command as an ENUM ORDINAL.** Newtonsoft's default. Deleting five members
+  from the middle of `SystemCommand` silently renumbers everything after them, so a saved
+  `shortcuts.json` would have bound keys to whatever command inherited each number — a chart key
+  quietly becoming an order key. Commands serialise by name now, and a profile still holding
+  numbers is discarded with a log line rather than misread.
+
+- **A guard that demanded documentation and rejected every spelling of it.** `ShortcutHelpParityTests`
+  split a documentation cell on a bare `/` to separate alternatives, so "Alt+Shift+/" — the one
+  chord bound to the slash key — tore into "Alt+Shift+" and "". The separator is a spaced slash;
+  `/` is a key.
+
+- **Suite 6,560** (`--list-tests` 6555): three split-view test files deleted,
+  `PaneModelAndTrailingSpeechTests` and five `DescribePane` guards added, and
+  `PaneAndLoadFailureAnnouncementTests` rewritten over a two-pane fixture so the walk it guards
+  is the one the bug was in. jstests 61 + 19 + 15, doc-drift green.
+
 ### Save means Save everywhere in Settings, and the Object Tree finally has something to test (2026-09-04)
 
 A follow-up to the morning's bug-report session. Two of Cody's items built; three answered as

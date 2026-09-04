@@ -14,7 +14,9 @@ namespace AccessibleTrader.Tests
     /// <item>Ctrl+Shift+letter (drawing tools) → Alt+Shift+letter.</item>
     /// <item>Ctrl+T / Ctrl+W / Ctrl+Tab / Ctrl+Shift+Tab (browser tab management) → removed;
     /// AddTab still answers to Alt+Shift+N and switching goes through Ctrl+Alt+Shift+T.</item>
-    /// <item>Ctrl+PageUp / Ctrl+PageDown (browser tab cycling) → Alt+PageUp / Alt+PageDown.</item>
+    /// <item>Ctrl+PageUp / Ctrl+PageDown (browser tab cycling) → nothing to remap: pane
+    /// navigation is Alt+PageUp / Alt+PageDown on every head, and Ctrl+PageUp/Down is left
+    /// unbound rather than reassigned.</item>
     /// </list>
     /// </summary>
     public class WebHostShortcutRemapTests
@@ -49,21 +51,28 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Remap_MovesSubPaneJumps_OffReservedCtrlPageKeys()
+        public void PaneNavigation_IsAltPageKeys_OnEveryHead_AndCtrlPageKeysAreUnbound()
         {
+            // The remap used to move these; it no longer has to, because the DEFAULT profile
+            // binds them where the browser leaves them alone. That difference is worth pinning:
+            // a desktop head and a browser head disagreeing about a navigation key is a thing
+            // the Help dialog has to explain and a user has to remember, for no gain.
+            //
+            // Ctrl+PageUp/PageDown stays UNBOUND rather than being handed to something else.
+            // Chrome, Brave, Edge and Firefox all cycle their own tabs on it, ahead of any
+            // page-level listener, so a binding there is a binding that sometimes vanishes.
             var sm = FreshManager();
-            Assert.Equal(SystemCommand.NavSubPaneNext, sm.GetCommand("PAGEDOWN", shift: false, ctrl: true, alt: false));
-            Assert.Equal(SystemCommand.NavSubPanePrev, sm.GetCommand("PAGEUP", shift: false, ctrl: true, alt: false));
-
-            WebHostShortcutRemap.ApplyBrowserHostOverrides(sm, NullLogger.Instance);
-
-            // Ctrl+PageUp/Down (browser tab cycling) no longer bound…
+            Assert.Equal(SystemCommand.NavPaneNext, sm.GetCommand("PAGEDOWN", shift: false, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.NavPanePrev, sm.GetCommand("PAGEUP", shift: false, ctrl: false, alt: true));
             Assert.Equal(SystemCommand.None, sm.GetCommand("PAGEDOWN", shift: false, ctrl: true, alt: false));
             Assert.Equal(SystemCommand.None, sm.GetCommand("PAGEUP", shift: false, ctrl: true, alt: false));
 
-            // …moved to Alt+PageUp/Down, which browsers leave alone.
-            Assert.Equal(SystemCommand.NavSubPaneNext, sm.GetCommand("PAGEDOWN", shift: false, ctrl: false, alt: true));
-            Assert.Equal(SystemCommand.NavSubPanePrev, sm.GetCommand("PAGEUP", shift: false, ctrl: false, alt: true));
+            WebHostShortcutRemap.ApplyBrowserHostOverrides(sm, NullLogger.Instance);
+
+            Assert.Equal(SystemCommand.NavPaneNext, sm.GetCommand("PAGEDOWN", shift: false, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.NavPanePrev, sm.GetCommand("PAGEUP", shift: false, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.None, sm.GetCommand("PAGEDOWN", shift: false, ctrl: true, alt: false));
+            Assert.Equal(SystemCommand.None, sm.GetCommand("PAGEUP", shift: false, ctrl: true, alt: false));
         }
 
         [Fact]

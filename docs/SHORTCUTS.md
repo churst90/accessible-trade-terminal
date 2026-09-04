@@ -32,7 +32,7 @@ Some reserved chords are not just remapped letter-for-letter — they're **singl
 - `Ctrl+T` (AddTab) — opens a browser tab. On the web use **`Alt+Shift+N`** (a chord browsers leave alone) or the tab bar's always-visible `+` button. (`Ctrl+T` still works on the desktop heads.)
 - `Ctrl+W` (CloseTab) — closes the browser tab. Use a tab's `×` button, or focus the tab bar (`Ctrl+Alt+Shift+T`) and press `Delete`.
 - `Ctrl+Tab` / `Ctrl+Shift+Tab` (SwitchTabNext/Prev) — switch browser tabs. On the web, press **`Ctrl+Alt+Shift+T`** (`FocusTabBar`) to move keyboard focus onto the workspace tab switcher bar, then use the arrow keys / `Home` / `End` / the number row (`1`–`9` jump to that tab); `Delete` closes the active tab and `Insert` / `+` opens a new one.
-- `Ctrl+PageUp` / `Ctrl+PageDown` (NavSubPanePrev/Next — jump between indicator sub-panes) — also cycle browser tabs, so on the web they move to **`Alt+PageUp`** / **`Alt+PageDown`**.
+- `Ctrl+PageUp` / `Ctrl+PageDown` — cycle browser tabs, and nothing is bound to them on any head. Pane navigation is **`Alt+PageUp`** / **`Alt+PageDown`** everywhere, so the desktop and the browser agree; a reserved chord is left unbound rather than reassigned.
 
 The workspace tab switcher bar (a row of tabs just above the chart) is always visible — even with a single tab open — so the `+` new-tab button is always reachable by mouse, and the bar is always focusable via `Ctrl+Alt+Shift+T`.
 
@@ -64,12 +64,15 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 | Page Up | Move focus to pane/series above | "{Series Name}" |
 | Down Arrow | Move to next component within focused series | "{Component Name}, {value}" |
 | Up Arrow | Move to previous component within focused series | "{Component Name}, {value}" |
-| Ctrl+Down | Cycle to next component within the same pane (wraps) | "{Component Name}, {value}" |
-| Ctrl+Up | Cycle to previous component within the same pane (wraps) | "{Component Name}, {value}" |
-| Alt+Down | Scroll indicator pane list down | "Scroll panes down" |
-| Alt+Up | Scroll indicator pane list up | "Scroll panes up" |
-| Ctrl+Page Down (web: Alt+Page Down) | Jump to first component of next sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
-| Ctrl+Page Up (web: Alt+Page Up) | Jump to first component of previous sub-pane in focused series | "[Pane name]. [Component name]..." or "No sub-panes in [Series]" |
+| Ctrl+Down | Next component in the strip you are in, **across every series in the pane** (clamps) | "{Component Name}, {value}" |
+| Ctrl+Up | Previous component in the strip you are in, across every series in the pane (clamps) | "{Component Name}, {value}" |
+| Alt+Page Down | Move to the next PANE down — the next Y axis (clamps) | "{Series Name}. … {Pane} pane." |
+| Alt+Page Up | Move to the previous pane up (clamps) | "{Series Name}. … {Pane} pane." |
+| `Alt+Shift+/` | Describe THIS pane — axes, ranges, gridline step, what is in it | "Main pane, 1 of 3. Y axis, price: … X axis, time: …" |
+
+All five traversal keys **clamp** at the ends with a boundary earcon; none of them wrap. A
+silent jump from the bottom of the chart back to the top is the one outcome a user who cannot
+see the move has no way to detect.
 
 ---
 
@@ -220,27 +223,6 @@ Also on the toolbar's second row as **Replay**, which shows its own pressed stat
 
 On the WebHost, use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for fullscreen
 and page-level `preventDefault` on it is not reliable.
-
----
-
-## Split View
-
-Renders a second tab beside (or below) the active chart. The second pane is a **read-only
-reference view** — keyboard navigation, speech, sonification and trading all continue to
-address the active tab. Falls back to a single full-size chart when there is no second tab
-or the window is too narrow to divide.
-
-Mouse pointing is correct in split view: pointer coordinates are mapped into the ACTIVE pane,
-and a click over the divider or over the read-only second chart is ignored rather than applied
-to the chart you are working in.
-
-| Key | Action |
-|-----|--------|
-| Ctrl+Alt+Shift+S | Split view on / off |
-| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
-| Ctrl+Alt+Shift+O | Side-by-side / stacked |
-
-Also on the toolbar's second row as **Split**, which shows its own pressed state.
 
 ---
 
@@ -476,6 +458,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+D | Drawing tools panel |
 | Ctrl+Shift+L | Pin a text label at the cursor bar, then type what it says |
 | Ctrl+Alt+Shift+Y | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
+| Alt+Shift+/ | Describe THIS PANE — what each axis measures, its range, and the step between gridlines |
 | Ctrl+Alt+Shift+K | Show every hidden component again (announces how many) |
 | Ctrl+Alt+Shift+U | Unmute every muted component (announces how many) |
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |

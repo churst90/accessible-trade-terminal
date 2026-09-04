@@ -117,6 +117,116 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, SIXTEENTH pass — THE PANE IS THE Y AXIS AND THERE
+> IS ONE MODEL OF IT NOW; SPLIT VIEW AND PANE SCROLLING ARE GONE WITH NO REMNANT; THE
+> ORIENTATION CLAUSES TRAIL. All three of Cody's items built.**
+>
+> ### 1. THE BUG WAS ONE LEVEL UP FROM WHERE THE FIFTEENTH PASS PUT IT
+>
+> Cody: *"pressing alt pg up/down says 'no subpanes in candles'. ctrl pg up/down switches
+> browser tabs so if it is bound it's an old keybinding."* Both halves were right, and the
+> fifteenth pass's finding (1) was wrong in a way worth recording: it read the DEFAULT
+> profile and reported sub-pane navigation as sitting on `Ctrl+PageUp/PageDown`, when
+> `WebHostShortcutRemap` had been moving it to `Alt+PageUp/PageDown` on the web since it was
+> written. **Reading the default profile is not reading the bindings — there is a remap
+> between them, and the WebHost is the head Cody uses.**
+>
+> The defect itself was the one the design notes had already identified:
+> `HandleSubPaneNavigation` built its pane list from `series.Components`, so on a series that
+> declares no sub-pane it announced "No sub-panes in Candles" and moved nothing.
+>
+> ### 2. WHAT THE KEYS DO NOW
+>
+> | Key | Moves | Scope |
+> |---|---|---|
+> | Page Up / Page Down | series | whole chart, **visual** top-to-bottom order |
+> | Up / Down | component | within the focused series |
+> | **Alt+PageUp / Alt+PageDown** | **pane** | whole chart, every head |
+> | **Ctrl+Up / Ctrl+Down** | component | the current strip, **across every series in the pane** |
+> | **Alt+Shift+/** | — | describe THIS pane |
+>
+> - **Sub-pane navigation is retired as a key of its own** — Cody's call, and the right one:
+>   only two sub-panes exist in the whole indicator tree, and `Ctrl+Up/Down` already covers
+>   them now that it is pane-scoped rather than series-scoped.
+> - **`Ctrl+PageUp/PageDown` is left UNBOUND on every head**, not reassigned. The
+>   preventDefault race against a browser's own tab cycling is a race this file has already
+>   been burned assuming it wins.
+> - **Wrap vs clamp is settled: ALL FIVE CLAMP,** with a boundary earcon. Three of them used
+>   to wrap. A silent jump from the bottom of the chart back to the top is the one outcome a
+>   user who cannot see the move has no way to detect.
+> - **`ChartPaneModel` is the single structural model** — pane order, pane names, strips,
+>   visual series order. Navigation, speech and the readback all read it, so the three cannot
+>   disagree again the way navigation and the renderer did.
+>
+> ### 3. SPEECH: TRAILING, AND ONLY ON CHANGE
+>
+> Cody overruled the prepend convention explicitly (*"Speech form, trailing, not prepend. I
+> noticed the hide/mute is prepended but I think it would be best n last."*) and the
+> fifteenth pass's counter-argument does not survive the change being made properly: the
+> listening-cost objection was to a clause repeated on every move, and both clauses are
+> emitted **only when they change**. The series-switch sentence also stopped counting
+> sub-panes as panes — it said "1 pane" on a chart with three.
+>
+> **One deliberate behaviour to know about:** the pane clause fires on the FIRST utterance of
+> a session, because there is no previous pane to compare against. That is orientation on
+> arrival, not a repeat, and `DrawingNavigationDiagnosticsTests` pins that the second and
+> third utterances carry no pane clause.
+>
+> ### 4. TWO DELETIONS, AND WHAT CAME OUT WITH THEM
+>
+> **Split view**, completely: `SplitViewCoordinator`, three chords, the toolbar button, the
+> sprite icon, `SplitViewCommandEvent`, the pointer-remapping path in
+> `DrawingInteractionManager`, the Shift+F1 clause, three test files and every doc section.
+> `ChartFrameRenderer` replaces it — one chart, full size, and the formations resolution that
+> genuinely cannot live inside `ChartRenderer` because the renderer only sees the visible
+> slice. `ToolbarControlSurfaceTests` pins its ABSENCE so it does not drift back.
+>
+> **Alt+Up/Down pane scrolling**, and `IndicatorPaneScrollIndex` with it — the state field on
+> both `WorkspaceState` and `TabSnapshot`, `ScrollIndicatorPanesAction`, its reducer branch,
+> its slot in the script-sandbox wire format, and the `Skip()` in `ChartRenderer`.
+>
+> ### 5. TWO DEFECTS FOUND ON THE WAY, BOTH IN THE MACHINERY RATHER THAN THE FEATURE
+>
+> **(a) Shortcut profiles stored each command as an ENUM ORDINAL.** Newtonsoft's default, and
+> `SystemCommand` is implicitly numbered — so retiring five members from the middle of it
+> silently renumbers every command after them, and a saved `shortcuts.json` binds keys to
+> whatever inherited each number. On a chart whose keys include `QuickPlaceMarket` that is not
+> a cosmetic failure. Commands serialise **by name** now, and `LooksLikeLegacyOrdinalProfile`
+> discards a numeric file with a log line rather than misreading it. **No such file exists on
+> this box** — checked — so nothing was actually corrupted; the exposure was for anyone who
+> had ever rebound a key.
+>
+> **(b) A guard that demanded documentation and rejected every spelling of it.**
+> `ShortcutHelpParityTests` split a doc cell on a bare `/` to separate alternatives
+> ("Ctrl+← / Ctrl+→"), so "Alt+Shift+/" tore into "Alt+Shift+" and "" — the one chord bound to
+> the slash key could not be documented in any form the guard would accept, while a second
+> guard failed for it being undocumented. The separator is a SPACED slash; `/` is a key.
+>
+> ### 6. OPEN — Cody asked, and this is the honest answer
+>
+> **Multi-bar candle patterns are detected and spoken, but only by two of the four routes that
+> should say them.** `SdkCandlePatternAnalyzer` implements all twelve — the three-bar set
+> (morning/evening star, three white soldiers, three black crows), the two-bar set (engulfing,
+> harami, piercing line, dark cloud cover, tweezers) and the one-bar types — and
+> `AccessibilityFeedbackCoordinator` speaks them on **bar close** and on the **live forming
+> bar**, with `AlertEvaluator` able to fire on them.
+>
+> **They are absent from both routes that read HISTORY.** Arrow-key navigation never runs the
+> analyser at all, and `BarDetailService.ClassifyBar` (Ctrl+Shift+D, the detailed point
+> summary) is a **single-bar-only** classifier that duplicates the analyser's thresholds with
+> different numbers — so on any bar you did not happen to be present for, "three white
+> soldiers" cannot be said. **Recommended next item:** route Ctrl+Shift+D through
+> `ISdkCandlePatternAnalyzer` and delete `ClassifyBar`, then decide whether the arrow keys
+> should carry a candle-pattern clause under `DescribeCandlePatterns` (they carry the CHART
+> formation clause already).
+>
+> **Also still open from the fifteenth pass:** the paper-account reset needs a confirmation
+> (WCAG 3.3.4) — Cody's call.
+>
+> **Suite 6,560 unit (`--list-tests` 6555 — three split-view test files deleted, two new
+> guard files added), jstests 61 + 19 + 15, doc-drift green. Version still 2.6.0, still NO
+> TAG — Cody's call.**
+
 > **START HERE (current as of 2026-09-04, FIFTEENTH pass — SETTINGS COMMITS ON SAVE AND
 > NOWHERE ELSE, THE BROWSER HARNESS CAN LOAD A CHART, AND THREE PRODUCTION DEFECTS FELL OUT
 > OF BEING ABLE TO. Two of Cody's five items were BUILD items and both landed; the other

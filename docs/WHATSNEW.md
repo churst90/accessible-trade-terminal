@@ -8,6 +8,43 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 
 *This file covers the current release only. Everything before it is in `CHANGES.md`.*
 
+### Finding your way around the chart
+
+- **Alt+Page Up and Alt+Page Down move between panes.** A pane is a Y axis — that is the whole
+  definition of one. Candles and a price overlay share the Main pane because they share a price
+  scale; volume gets its own because a volume axis is not a price axis. Pressing these used to
+  announce **"No sub-panes in Candles"** on a chart that had three panes on it: the key was
+  walking the strips declared inside one series while the chart divides itself up a level
+  higher. It walks the panes now, and the pane's name is spoken at the end of the move.
+- **Ctrl+Up and Ctrl+Down reach across the pane.** They walk the strip you are standing in — but
+  now across every series in it, so from the candles they reach a price overlay drawn on top of
+  them. Two lines against the same axis, in the same band, and until now no key that got from
+  one to the other.
+- **Page Up and Page Down go down the chart in the order you see it**, not the order the series
+  happened to be added in. And all five of these keys now **stop at the ends** with a boundary
+  earcon rather than wrapping silently around to the far side of the chart.
+- **`Alt+Shift+/` tells you where you are standing.** "Main pane, 1 of 3. Y axis, price: 94,000
+  to 98,000, about 1,000 between gridlines. X axis, time: 3 June to 12 August, 60 bars at 1 day
+  each. 2 series: Candles, Price." A number means nothing without the scale it sits against, and
+  that scale is exactly what a sighted trader takes off an axis without noticing they did it.
+- **The pane name and "hidden" / "muted" come at the END of what is spoken now**, and only when
+  they change. They were leading every utterance, which pushed the thing you actually asked for —
+  the value — to the back of the queue on every single bar.
+
+### Two things that are gone
+
+- **Split view is gone.** It put a second chart beside the one you were working on, and that
+  second chart was read-only by construction: the keyboard, the speech and the sonification all
+  stayed on the first one. So the terminal drew a chart it could tell you nothing about — which
+  makes it a feature for the person looking over your shoulder. Comparing two markets is worth
+  having and it is coming back as an **overlay**: a second symbol drawn on the same axis as an
+  ordinary series, which Page Up already reaches, the arrows already walk, and the sonifier
+  already plays.
+- **Alt+Up / Alt+Down pane scrolling is gone.** It scrolled indicator panes off the top of the
+  drawing and nothing else — navigation, speech and sonification never knew it had happened, so
+  every pane stayed reachable and every key kept working. It was a scroll bar for a viewport you
+  do not have, and all it ever said was "Scroll panes up".
+
 ### The one that could cost you money
 
 - **The order you had read back to you was not necessarily the order that went to the

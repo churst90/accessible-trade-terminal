@@ -31,7 +31,7 @@ feature and understand what it is doing.
 1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
 3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, split view, point analysis
+4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, point analysis
 5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
 6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
 7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
@@ -729,22 +729,32 @@ Page Down moves your focus to the next pane below, Page Up to the pane above; as
 arrive, speech announces the newly focused series by name — "RSI", "Volume". Within
 a series, the Up and Down arrows step through its components: Down from the MACD line
 to the signal line to the histogram, Up back through them, each announced with its
-name and current value. When more panes are open than fit on screen, Alt+Up and
-Alt+Down scroll the pane list.
+name and current value.
 
-Some indicators put several things in one pane — a Cipher B pane holds a money-flow
-histogram, two wave lines, cross dots and more. Page Up and Page Down would carry you
-straight past them to the next pane, so there are two narrower moves for working
-*inside* one. Ctrl+PageUp and Ctrl+PageDown step between sub-panes, and Ctrl+Up and
-Ctrl+Down step between the components sharing the pane you are in. The plain arrows
-still walk every component of the focused series in order; the Ctrl versions keep you
-within the sub-pane you are studying, which is what you want when you are comparing
-two lines that are drawn against the same scale.
+**A pane is a Y axis.** That is the whole definition, and it is what makes the structure
+worth navigating. Candles and a price overlay share the Main pane because they share a
+price scale; volume gets a pane of its own because a volume axis is not a price axis;
+Cipher B gets a third. Alt+PageUp and Alt+PageDown move between them — the next Y axis
+up or down the chart — and the pane's name is spoken at the end of the move, so you hear
+what you landed on after you hear what it says.
 
-> **On the Linux web host**, Ctrl+PageUp and Ctrl+PageDown belong to the browser — it
-> uses them to cycle its own tabs — so sub-pane jumps move to `Alt+PageUp` and
-> `Alt+PageDown` there. Ctrl+Up and Ctrl+Down are unchanged. F1 always shows the
-> bindings actually in effect on the host you are using.
+Some panes hold several things drawn against the same axis, and some divide into strips:
+a Cipher B pane holds a money-flow histogram, two wave lines and cross dots, with the
+money-flow histogram in a strip of its own at the bottom. Ctrl+Up and Ctrl+Down walk the
+strip you are in, **across every series in the pane** — so from the candles they reach a
+price overlay drawn on top of them, which is the pair you most often want to compare and
+the one move the terminal could not previously make. The plain arrows still walk every
+component of the focused series in order.
+
+Alt+Shift+/ answers the question those moves raise: it describes the pane you are in —
+what each axis measures, the range each covers, the step between gridlines, and what is
+drawn in it. A value means nothing without the scale it sits against, and that scale is
+something a sighted trader reads off an axis without thinking about it.
+
+> Ctrl+PageUp and Ctrl+PageDown are left unbound on every head. Browsers use them to
+> cycle their own tabs, ahead of anything the page can do about it, so pane navigation
+> lives on Alt+PageUp / Alt+PageDown everywhere and the desktop and the browser agree.
+> F1 always shows the bindings actually in effect on the host you are using.
 
 Three keys re-orient you whenever you lose the thread. Shift+F1 announces the current
 symbol, provider, and timeframe. Ctrl+Alt+Shift+C focuses the chart and reads a fuller
@@ -917,40 +927,6 @@ before you started.
 
 The **Replay** toolbar button shows its own state, so you can tell at a glance — or
 by the button's announced pressed state — whether history is currently hidden.
-
-### Split view
-
-Split view puts a second chart beside the one you are working on, drawn from
-another tab. The usual reason is timeframe context: the four-hour you are trading
-in one pane, the daily you are trading *within* in the other. It also covers
-comparing two symbols, or watching a leader while you work its follower.
-
-| Key | Action |
-| --- | --- |
-| Ctrl+Alt+Shift+S | Split view on / off |
-| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
-| Ctrl+Alt+Shift+O | Switch between side-by-side and stacked |
-
-The **Split** button on the toolbar's second row toggles it too, and reports
-whether it is currently on.
-
-The second pane shows another tab exactly as that tab has it — same indicators,
-same drawings, same viewport — because it renders from the snapshot the tab
-already keeps. It cannot drift out of step with what you would see if you switched
-to that tab, and turning split view on adds nothing you have to maintain
-separately.
-
-Keyboard focus, navigation, speech and sonification all stay with the *active*
-chart; the second pane is a view, not a second place to be. Switching tabs swaps
-which chart is active, and the pane follows. If the window is too narrow to give
-both panes a usable width, split view declines to split rather than drawing two
-unreadable slivers.
-
-The mouse works normally in split view. Pointer coordinates are mapped into the
-pane you are actually working in, so a click lands on the bar you pointed at. A
-click over the divider, or over the read-only second chart, is ignored — the second
-pane is a reference view, and letting a click there draw on your active chart would
-be worse than the click doing nothing.
 
 ### Inspecting a single bar
 
@@ -3070,9 +3046,10 @@ open a new tab with `Alt+Shift+N` or the tab bar's **+** button instead of `Ctrl
 close a tab with its **×** button or by focusing the bar and pressing Delete instead of
 `Ctrl+W`; switch tabs by pressing `Ctrl+Alt+Shift+T` (a three-modifier chord browsers
 leave alone) to focus the tab switcher bar, then the arrow keys, Home/End, the number
-row, Insert (new) or Delete (close) instead of `Ctrl+Tab`; and jump between indicator
-sub-panes with `Alt+PageUp` / `Alt+PageDown` instead of `Ctrl+PageUp` / `Ctrl+PageDown`,
-which the browser uses to cycle its own tabs. You never have to memorise which is which —
+row, Insert (new) or Delete (close) instead of `Ctrl+Tab`. Pane navigation needs no such
+rule: it is `Alt+PageUp` / `Alt+PageDown` on every head, and `Ctrl+PageUp` / `Ctrl+PageDown`
+— which the browser uses to cycle its own tabs — is left unbound rather than reassigned.
+You never have to memorise which is which —
 the Help dialog (F1) always lists the bindings actually in effect on the host you are
 using, so it self-documents per platform.
 
@@ -3097,7 +3074,7 @@ using, so it self-documents per platform.
 | New chart tab | Ctrl+T (or Alt+Shift+N) | Alt+Shift+N (or the tab bar's + button) |
 | Close chart tab | Ctrl+W | Tab's × button, or focus the bar + Delete |
 | Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 |
-| Jump between sub-panes | Ctrl+PageUp / Ctrl+PageDown | Alt+PageUp / Alt+PageDown |
+| Move between panes | Alt+PageUp / Alt+PageDown | Alt+PageUp / Alt+PageDown |
 
 ---
 

@@ -58,7 +58,6 @@ namespace AccessibleTrader.Sdk.Models
         bool IsLogScale,
         InteractionContext LastInteractionContext,
         ImmutableDictionary<string, float>? PaneHeightRatios,
-        int IndicatorPaneScrollIndex,
         InitializationStatus InitStatus,
         DataStatus DataStatus,
         bool IsCoordinateEntryMode,
@@ -164,9 +163,6 @@ namespace AccessibleTrader.Sdk.Models
         // Key = pane name (e.g. "Pane_RSI"). Absent key = use auto 30%-split layout.
         // Ratios are clamped to [0.05, 0.75] during dispatch.
         ImmutableDictionary<string, float>? PaneHeightRatios = null,
-        // Number of indicator pane groups to skip from the top.
-        // Alt+Down increments (scroll down), Alt+Up decrements. Clamped to [0, paneCount-1].
-        int IndicatorPaneScrollIndex = 0,
         // ── Coordinate Entry mode ──────────────────────────────────────────────
         // True when a drawing shortcut has been pressed and the user is navigating to place anchors.
         // Arrow keys navigate normally; Enter sets each anchor; Escape cancels.
@@ -413,8 +409,6 @@ namespace AccessibleTrader.Sdk.Models
     public record WorkspaceZoomEvent(string Direction) : WorkspaceAction;
     /// <summary>Adjusts an indicator pane's height by <paramref name="Delta"/> fraction of totalPaneHeight.</summary>
     public record ResizePaneAction(string PaneName, float Delta) : WorkspaceAction;
-    /// <summary>Scrolls the indicator pane list by <paramref name="Delta"/> steps (+1 = down/reveal lower panes).</summary>
-    public record ScrollIndicatorPanesAction(int Delta) : WorkspaceAction;
     /// <summary>Bulk-sets pane height ratios (used when restoring a saved workspace).</summary>
     public record SetPaneHeightRatiosAction(ImmutableDictionary<string, float> Ratios) : WorkspaceAction;
 

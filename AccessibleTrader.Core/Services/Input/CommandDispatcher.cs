@@ -229,19 +229,19 @@ namespace AccessibleTrader.Core.Services.Input
                 return;
             }
 
-            // Sub-pane navigation — needs chart data; focus gate already handled above.
-            if (command == SystemCommand.NavSubPaneNext || command == SystemCommand.NavSubPanePrev)
+            // Pane navigation — needs chart data; focus gate already handled above.
+            if (command == SystemCommand.NavPaneNext || command == SystemCommand.NavPanePrev)
             {
                 if (_store.State.Data == null || !_store.State.Data.Any())
                 {
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No chart loaded.", true));
                     return;
                 }
-                HandleSubPaneNavigation(command == SystemCommand.NavSubPaneNext ? 1 : -1);
+                HandlePaneNavigation(command == SystemCommand.NavPaneNext ? 1 : -1);
                 return;
             }
 
-            // Intra-pane component navigation — cycles components within the focused component's pane.
+            // Intra-pane component navigation — walks the current strip across every series in the pane.
             if (command == SystemCommand.NavComponentInPaneNext || command == SystemCommand.NavComponentInPanePrev)
             {
                 if (_store.State.Data == null || !_store.State.Data.Any())
@@ -283,6 +283,15 @@ namespace AccessibleTrader.Core.Services.Input
                         ChartLayoutDescriber.Describe(_store.State, _store.State.SymbolDisplayName), true));
                     return;
 
+                // "What scale am I reading against?" — the question a sighted user answers by
+                // glancing at an axis, and the one every spoken VALUE assumes has been answered.
+                // Per pane, because each pane has its own Y axis; that is what makes it a pane.
+                case SystemCommand.SpeakPaneInfo:
+                    _eventBus.Publish(new AnnouncementEvent(
+                        ChartLayoutDescriber.DescribePane(
+                            _store.State, _store.State.Identity.Timeframe), true));
+                    return;
+
                 // The escape hatch for the single-key H and M toggles: hide a few components
                 // across a few indicators and there is otherwise no practical way to find them
                 // again, which makes those toggles a one-way door.
@@ -296,9 +305,6 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ReplayStepForward: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepForward)); return;
                 case SystemCommand.ReplayStepBack: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepBack)); return;
                 case SystemCommand.ReplayPlayPause: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.PlayPause)); return;
-                case SystemCommand.SplitViewToggle: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle)); return;
-                case SystemCommand.SplitViewCycle: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.CycleSecondary)); return;
-                case SystemCommand.SplitViewOrientation: _eventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.ToggleOrientation)); return;
 
                 // Application/Menu key + Shift+F10: open the right-click context menu on
                 // the focused drawing — keyboard parity with mouse right-click. Sentinel
@@ -457,14 +463,6 @@ namespace AccessibleTrader.Core.Services.Input
                         FeedbackType.Info,
                         "Focus on trading chart area.",
                         Interrupt: true));
-                    return;
-                case SystemCommand.ScrollPanesUp:
-                    _store.Dispatch(new ScrollIndicatorPanesAction(-1));
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "Scroll panes up", true));
-                    return;
-                case SystemCommand.ScrollPanesDown:
-                    _store.Dispatch(new ScrollIndicatorPanesAction(1));
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "Scroll panes down", true));
                     return;
                 // Series focus cycling — works regardless of chart data so the user can
                 // always navigate to a series and then use H/M/volume keys on it.
@@ -675,103 +673,134 @@ namespace AccessibleTrader.Core.Services.Input
             }
         }
 
-        private void HandleSubPaneNavigation(int direction)
+        /// <summary>
+        /// Alt+PageUp / Alt+PageDown — move to the next top-level PANE, which is to say the next
+        /// Y axis down (or up) the chart.
+        ///
+        /// <para>
+        /// This replaces a sub-pane jump that was scoped to ONE series, and the difference is the
+        /// bug it fixes: the old walk built its pane list from <c>series.Components</c>, so with
+        /// the cursor on the candles it announced "No sub-panes in Candles" and went nowhere,
+        /// while the chart in front of the user had a volume pane and an oscillator pane below.
+        /// The renderer groups by <see cref="ChartSeries.Pane"/> across the whole series list;
+        /// navigation now reads the same structure from <see cref="ChartPaneModel"/>.
+        /// </para>
+        ///
+        /// <para>
+        /// CLAMPS at the ends, with a boundary earcon — it does not wrap. The five traversal keys
+        /// disagreed about this: series navigation clamped while both pane walks wrapped, so the
+        /// same press at the bottom of the chart either stopped or teleported you to the top
+        /// depending on which key you had used to get there. Clamping is the half that is
+        /// defensible without sight: "there is nothing below this" is orientation, and a silent
+        /// jump from the bottom of the chart back to price is the opposite of it.
+        /// </para>
+        /// </summary>
+        private void HandlePaneNavigation(int direction)
         {
             var state = _store.State;
-            var seriesId = state.FocusedSeriesId ?? "candles";
-            var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
-            if (series == null) return;
+            var panes = ChartPaneModel.Panes(state.ActiveSeries);
+            if (panes.Count == 0) return;
 
-            // Collect ordered list of distinct pane names (null = main pane, then sub-panes in first-appearance order).
-            var paneOrder = new List<string?>();
-            paneOrder.Add(null); // main pane always first
-            foreach (var comp in series.Components)
+            if (panes.Count == 1)
             {
-                if (!string.IsNullOrEmpty(comp.SubPaneName) && !paneOrder.Contains(comp.SubPaneName))
-                    paneOrder.Add(comp.SubPaneName);
-            }
-
-            if (paneOrder.Count <= 1)
-            {
-                // Only main pane — no sub-panes exist.
-                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"No sub-panes in {series.FriendlyName}.", true));
+                // One pane is not a boundary the user walked into, it is a chart with nothing to
+                // move between — and the name of the only pane is the useful half of saying so.
+                _eventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.Info,
+                    $"{panes[0].DisplayName} pane only. No other panes on this chart.", true));
                 return;
             }
 
-            // Determine current pane from focused component.
-            int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
-            string? currentPane = series.Components[focusedIdx].SubPaneName;
-            int currentPaneIdx = paneOrder.IndexOf(currentPane);
-            if (currentPaneIdx < 0) currentPaneIdx = 0;
+            var focusedId = state.FocusedSeriesId ?? CoreSeriesIds.Candles;
+            var focused = state.ActiveSeries.FirstOrDefault(x => x.Id == focusedId);
+            string currentKey = focused != null ? ChartPaneModel.KeyOf(focused) : panes[0].Key;
 
-            // Advance to next/prev pane (wrapping).
-            int targetPaneIdx = (currentPaneIdx + direction + paneOrder.Count) % paneOrder.Count;
-            string? targetPane = paneOrder[targetPaneIdx];
+            int currentIdx = 0;
+            for (int i = 0; i < panes.Count; i++)
+                if (string.Equals(panes[i].Key, currentKey, StringComparison.Ordinal)) { currentIdx = i; break; }
 
-            // Find first component in the target pane.
-            int newCompIdx = -1;
-            for (int i = 0; i < series.Components.Count; i++)
+            int targetIdx = currentIdx + direction;
+            if (targetIdx < 0 || targetIdx >= panes.Count)
             {
-                bool match = targetPane == null
-                    ? string.IsNullOrEmpty(series.Components[i].SubPaneName)
-                    : series.Components[i].SubPaneName == targetPane;
-                if (match) { newCompIdx = i; break; }
+                // Same shape as NavigateY's boundary: an earcon, no words. The user pressed a key
+                // that had nowhere to go, which is a different fact from the key not working.
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, null, false));
+                return;
             }
-            if (newCompIdx < 0) return;
 
-            _store.Dispatch(new SelectComponentAction(newCompIdx));
-            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
-            // Publish IsYMove feedback so NavigationFeedbackManager speaks component name/type/value.
-            //
-            // The prefix is EMPTY, and deliberately so. This used to carry a pane label built here
-            // from the raw SubPaneName ("MF pane"), while NavigationFeedbackManager's own
-            // pane-transition block independently detected the same move and prepended ITS label,
-            // resolved from a component's friendlier DisplayName ("Money Flow pane"). Both fired,
-            // so Ctrl+PageUp on a Cipher-style indicator said the pane twice under two different
-            // names: "Money Flow pane. MF pane. Money Flow Wave. …". One announcement, one name,
-            // and it belongs to the manager — which is the only one of the two that can tell a
-            // transition from a move within a pane.
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsYMove: true));
+            var target = panes[targetIdx];
+            if (target.Series.Count == 0) return;
+
+            _store.Dispatch(new SelectSeriesAction(target.Series[0].Id));
+            _store.Dispatch(new SelectComponentAction(0));
+            _store.Dispatch(new SetInteractionContextAction(InteractionContext.Series));
+
+            // The pane's NAME is carried by NavigationFeedbackManager's trailing orientation
+            // clause, which is the only place that can tell a transition from a move inside a
+            // pane. Announcing it here as well is the double-announcement bug this file has
+            // already fixed once (see the note on the old sub-pane walk in git history).
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, null, true));
         }
 
         /// <summary>
-        /// Cycles focus through components that share the same sub-pane (or main pane) as the
-        /// currently focused component. Wraps at both ends. Fires IsYMove feedback so
-        /// NavigationFeedbackManager announces the new component's name, type, and value.
+        /// Ctrl+Up / Ctrl+Down — walk the components of the STRIP the cursor is in: the pane's
+        /// main area, or one sub-pane strip of it, ACROSS EVERY SERIES IN THE PANE.
         ///
-        /// For indicators with no sub-panes (e.g. Cipher B — all components in the main pane),
-        /// this cycles through all components, behaving identically to Up/Down but with wrapping.
-        /// For indicators with sub-panes, it restricts movement to the current pane only.
+        /// <para>
+        /// Across series is the whole point, and it is what makes the sub-pane a thing the
+        /// keyboard can reach without a key of its own. A sub-pane is declared by a component but
+        /// DRAWN from every series in the pane, so a walk scoped to one series was walking a
+        /// structure that does not exist: on the Main pane it could reach the candles' components
+        /// and never Price's, though both are drawn against the same axis, in the same band, one
+        /// on top of the other.
+        /// </para>
+        ///
+        /// <para>
+        /// Clamps at both ends with a boundary earcon, matching pane and series navigation. It
+        /// used to wrap, which meant three of the traversal keys wrapped and two clamped.
+        /// </para>
         /// </summary>
         private void HandleIntraPaneNavigation(int direction)
         {
             var state = _store.State;
-            var seriesId = state.FocusedSeriesId ?? "candles";
+            var seriesId = state.FocusedSeriesId ?? CoreSeriesIds.Candles;
             var series = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
             if (series == null || series.Components.Count == 0) return;
 
-            int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
-            string? currentPane = series.Components[focusedIdx].SubPaneName;
+            var pane = ChartPaneModel.Panes(state.ActiveSeries)
+                .FirstOrDefault(p => string.Equals(p.Key, ChartPaneModel.KeyOf(series), StringComparison.Ordinal));
+            if (pane == null) return;
 
-            // Collect indices of all components in the same pane, in order.
-            var paneIndices = new List<int>();
-            for (int i = 0; i < series.Components.Count; i++)
+            int focusedIdx = series.ClampComponent(state.FocusedComponentIndex);
+            string? strip = series.Components[focusedIdx].SubPaneName;
+
+            // (series id, component index) in visual order: series down the pane, components
+            // down each series.
+            var walk = new List<(string SeriesId, int Component)>();
+            foreach (var s in pane.Series)
             {
-                bool samePane = string.Equals(
-                    series.Components[i].SubPaneName, currentPane,
-                    StringComparison.OrdinalIgnoreCase);
-                if (samePane) paneIndices.Add(i);
+                for (int i = 0; i < s.Components.Count; i++)
+                {
+                    if (string.Equals(s.Components[i].SubPaneName, strip, StringComparison.OrdinalIgnoreCase))
+                        walk.Add((s.Id, i));
+                }
+            }
+            if (walk.Count == 0) return;
+
+            int pos = walk.IndexOf((series.Id, focusedIdx));
+            if (pos < 0) pos = 0;
+
+            int newPos = pos + direction;
+            if (newPos < 0 || newPos >= walk.Count)
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, null, false));
+                return;
             }
 
-            if (paneIndices.Count == 0) return;
-
-            // Find position of focused component within pane-filtered list and advance with wrap.
-            int posInPane = paneIndices.IndexOf(focusedIdx);
-            if (posInPane < 0) posInPane = 0;
-            int newPos = (posInPane + direction + paneIndices.Count) % paneIndices.Count;
-            int newCompIdx = paneIndices[newPos];
-
-            _store.Dispatch(new SelectComponentAction(newCompIdx));
+            var (targetSeriesId, targetComponent) = walk[newPos];
+            if (!string.Equals(targetSeriesId, series.Id, StringComparison.Ordinal))
+                _store.Dispatch(new SelectSeriesAction(targetSeriesId));
+            _store.Dispatch(new SelectComponentAction(targetComponent));
             _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "", true, IsYMove: true));
         }
@@ -822,8 +851,8 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.QuickDisarm:
                 case SystemCommand.QuickArmStatus:
                 case SystemCommand.JumpToLatest:
-                case SystemCommand.NavSubPaneNext:
-                case SystemCommand.NavSubPanePrev:
+                case SystemCommand.NavPaneNext:
+                case SystemCommand.NavPanePrev:
                 case SystemCommand.NavComponentInPaneNext:
                 case SystemCommand.NavComponentInPanePrev:
                 case SystemCommand.SelectNextSeries:
@@ -834,8 +863,6 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.PanRight:
                 case SystemCommand.GranularityUp:
                 case SystemCommand.GranularityDown:
-                case SystemCommand.ScrollPanesUp:
-                case SystemCommand.ScrollPanesDown:
                 case SystemCommand.PlayChart:
                 case SystemCommand.PlaySeries:
                 case SystemCommand.PlayComponent:

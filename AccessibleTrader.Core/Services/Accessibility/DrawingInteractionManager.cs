@@ -111,7 +111,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IInputService inputService,
             Rendering.IPaneLayoutService? paneLayout = null,
             ISettingsManager? settings = null,
-            Rendering.ISplitViewCoordinator? splitView = null,
             IChartUndoStack? undo = null,
             IEarconService? earcons = null,
             System.Reactive.Concurrency.IScheduler? nudgeScheduler = null)
@@ -123,7 +122,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _inputService = inputService;
             _paneLayout = paneLayout;
             _settings = settings;
-            _splitView = splitView;
             _undo = undo;
             _earcons = earcons;
             _nudgeScheduler = nudgeScheduler ?? System.Reactive.Concurrency.Scheduler.Default;
@@ -135,74 +133,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Optional so every existing construction site and test keeps working. A null coordinator
-        /// means "no split view", which is also the state of a chart that has never been split.
-        /// </summary>
-        private readonly Rendering.ISplitViewCoordinator? _splitView;
-
-        /// <summary>
         /// Optional for the same reason. A null stack means edits are not recorded, which is the
         /// pre-2026-08-27 behaviour — the fix must not turn every existing construction site
         /// into a compile error to be worth having.
         /// </summary>
         private readonly IChartUndoStack? _undo;
 
-        /// <summary>
-        /// Rewrites pointer coordinates into the ACTIVE chart's own space.
-        ///
-        /// <para>
-        /// The browser reports a position inside the whole canvas element, and every mapping below
-        /// — bar index, price, hit-testing, the context menu — assumes that canvas IS the chart.
-        /// While split view is on it is only half of it, so a click landed on roughly the bar
-        /// twice as far along as the cursor. That was shipped as a known limitation and stated in
-        /// the manual; this removes it instead.
-        /// </para>
-        ///
-        /// <para>
-        /// Works in FRACTIONS, not pixels. Pointer coordinates arrive in CSS pixels while the
-        /// canvas is painted in device pixels, so a pixel-valued rect would need a density this
-        /// layer has no access to. A fraction is the same number in both spaces.
-        /// </para>
-        ///
-        /// <para>
-        /// A pointer OUTSIDE the active pane — over the divider, or over the read-only second
-        /// chart — is reported as such by returning false, and the caller drops the event. The
-        /// second pane is a reference view; clicking it must not draw on the chart you are working
-        /// in, which is a far worse outcome than a click doing nothing.
-        /// </para>
-        /// </summary>
-        internal bool TryMapToActiveChart(
-            ref double x, ref double y, ref double width, ref double height)
-        {
-            var f = _splitView?.ActiveChartFraction ?? (0f, 0f, 1f, 1f);
-            if (f.Width <= 0f || f.Height <= 0f) return false;
-
-            // Nothing to do when the active chart IS the canvas.
-            if (f.Left == 0f && f.Top == 0f && f.Width == 1f && f.Height == 1f) return true;
-
-            double left = f.Left * width;
-            double top = f.Top * height;
-            double paneWidth = f.Width * width;
-            double paneHeight = f.Height * height;
-
-            double localX = x - left;
-            double localY = y - top;
-
-            if (localX < 0 || localY < 0 || localX > paneWidth || localY > paneHeight) return false;
-
-            x = localX;
-            y = localY;
-            width = paneWidth;
-            height = paneHeight;
-            return true;
-        }
-
         public void HandleMouseEvent(double x, double y, string type, double width, double height)
         {
-            // Everything below assumes the canvas is the chart. While split view is on it is not,
-            // so translate first — and drop the event entirely when the pointer is over the
-            // divider or the read-only second pane.
-            if (!TryMapToActiveChart(ref x, ref y, ref width, ref height)) return;
+            // The canvas IS the chart, so pointer coordinates need no translation. They did
+            // while split view existed, and TryMapToActiveChart rewrote them into the active
+            // pane's own space; split view is gone and so is the rewrite.
 
             // Fast-reject events that have no drawing context. MouseMove with an active
             // preview OR an active edit-drag is allowed even when _pendingDrawingType is

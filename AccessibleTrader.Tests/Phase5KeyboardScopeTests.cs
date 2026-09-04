@@ -31,8 +31,8 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.NavLeftJump)]
         [InlineData(SystemCommand.NavRightJump)]
         [InlineData(SystemCommand.JumpToLatest)]
-        [InlineData(SystemCommand.NavSubPaneNext)]
-        [InlineData(SystemCommand.NavSubPanePrev)]
+        [InlineData(SystemCommand.NavPaneNext)]
+        [InlineData(SystemCommand.NavPanePrev)]
         [InlineData(SystemCommand.NavComponentInPaneNext)]
         [InlineData(SystemCommand.NavComponentInPanePrev)]
         [InlineData(SystemCommand.SelectNextSeries)]
@@ -57,8 +57,6 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.PanRight)]
         [InlineData(SystemCommand.GranularityUp)]
         [InlineData(SystemCommand.GranularityDown)]
-        [InlineData(SystemCommand.ScrollPanesUp)]
-        [InlineData(SystemCommand.ScrollPanesDown)]
         // Playback
         [InlineData(SystemCommand.PlayChart)]
         [InlineData(SystemCommand.PlaySeries)]
@@ -141,10 +139,6 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.ReplayStepForward)]
         [InlineData(SystemCommand.ReplayStepBack)]
         [InlineData(SystemCommand.ReplayPlayPause)]
-        // Split view — global; it changes layout, not chart cursor state.
-        [InlineData(SystemCommand.SplitViewToggle)]
-        [InlineData(SystemCommand.SplitViewCycle)]
-        [InlineData(SystemCommand.SplitViewOrientation)]
         // Accessibility toggles (F2, F3)
         [InlineData(SystemCommand.ToggleSpeech)]
         [InlineData(SystemCommand.ToggleSonification)]
@@ -210,13 +204,12 @@ namespace AccessibleTrader.Tests
                 SystemCommand.QuickArmRisk1, SystemCommand.QuickArmRisk2, SystemCommand.QuickArmRisk3,
                 SystemCommand.QuickSetStop, SystemCommand.QuickPlaceLimit, SystemCommand.QuickPlaceMarket,
                 SystemCommand.QuickDisarm, SystemCommand.QuickArmStatus,
-                SystemCommand.JumpToLatest, SystemCommand.NavSubPaneNext,
-                SystemCommand.NavSubPanePrev, SystemCommand.NavComponentInPaneNext,
+                SystemCommand.JumpToLatest, SystemCommand.NavPaneNext,
+                SystemCommand.NavPanePrev, SystemCommand.NavComponentInPaneNext,
                 SystemCommand.NavComponentInPanePrev, SystemCommand.SelectNextSeries,
                 SystemCommand.SelectPrevSeries, SystemCommand.ZoomIn, SystemCommand.ZoomOut,
                 SystemCommand.PanLeft, SystemCommand.PanRight,
                 SystemCommand.GranularityUp, SystemCommand.GranularityDown,
-                SystemCommand.ScrollPanesUp, SystemCommand.ScrollPanesDown,
                 SystemCommand.PlayChart, SystemCommand.PlaySeries, SystemCommand.PlayComponent,
                 SystemCommand.PlayPause, SystemCommand.PlayStop,
                 SystemCommand.PlaySpeedUp, SystemCommand.PlaySpeedDown,
@@ -262,15 +255,13 @@ namespace AccessibleTrader.Tests
                 SystemCommand.OpenAssetDossier,
                 SystemCommand.ReplayToggle, SystemCommand.ReplayStepForward,
                 SystemCommand.ReplayStepBack, SystemCommand.ReplayPlayPause,
-                SystemCommand.SplitViewToggle, SystemCommand.SplitViewCycle,
-                SystemCommand.SplitViewOrientation,
                 SystemCommand.ToggleBraille, SystemCommand.OpenBrailleSettings,
                 SystemCommand.ChangeProvider, SystemCommand.ChangeSymbol,
                 SystemCommand.ChangeTimeframe, SystemCommand.RefreshData,
                 SystemCommand.CloseModal,
                 // Orientation and recovery — global, like the other Alt+Shift commands: you ask
                 // "what am I looking at?" and "show everything again" from wherever you are.
-                SystemCommand.SpeakChartLayout,
+                SystemCommand.SpeakChartLayout, SystemCommand.SpeakPaneInfo,
                 SystemCommand.ShowAllComponents, SystemCommand.UnmuteAllComponents,
                 SystemCommand.None,
             };

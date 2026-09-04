@@ -324,7 +324,7 @@ namespace AccessibleTrader.Tests
                         ImmutableList<ChartSeries>.Empty,
                         0, null, 0, -1, -1, 0, 100, 20, (0, 0),
                         ImmutableDictionary<string, (double, double)>.Empty,
-                        false, false, InteractionContext.Series, null, 0,
+                        false, false, InteractionContext.Series, null,
                         InitializationStatus.Booting, DataStatus.Idle,
                         false, null, 0, -1))
             };

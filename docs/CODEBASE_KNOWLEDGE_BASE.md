@@ -608,11 +608,18 @@ list must never pose as a complete one.
   of 50 bins and looks "narrow"). `volume[pocBin] < meanBin * 1.15` does.
 - **`ReplayService`** — dispatches a growing PREFIX of history via `UpdateDataAction`.
   Dispatch ORDER is load-bearing: mode flag before truncation, after restoration.
-- **`SplitViewCoordinator`** — renders the secondary pane from the frozen `TabSnapshot`
-  the store already keeps for inactive tabs, so split view adds no state and can't drift.
-  `Render` returns the ACTIVE pane's rect, which hit-testing must use or mouse
-  coordinates go wrong in split view. The renderer is nullable so the layout logic is
-  unit-testable without the six-service rendering graph.
+- **`ChartFrameRenderer`** — the one place both heads (the WebHost's offscreen surface and
+  the MAUI head's `SKCanvasView`) go through to draw a frame. It exists because a frame is
+  not just `ChartRenderer.Render`: the formations layer has to be resolved from the pattern
+  cache against the chart identity and the WHOLE series, which the renderer cannot do
+  because it only ever sees the visible slice. Replaced `SplitViewCoordinator` when split
+  view was retired 2026-09-04 — the second pane was read-only by construction, so the
+  terminal drew a chart it could say nothing about.
+- **`ChartPaneModel`** — the structural model: which panes exist, in what visual order, what
+  each is called, which series belong to which, and what strips are inside. Navigation,
+  speech and the pane readback all read it, so there is one answer rather than three
+  disagreeing ones. A PANE IS A Y AXIS; a sub-pane is a strip drawn from every series in the
+  pane, which is why walking one per-series was wrong.
 
 ### Indicator-layer changes made for these features
 

@@ -33,9 +33,6 @@ namespace AccessibleTrader.Core.Models
         ReplayStepForward,  // F9: reveal the next bar
         ReplayStepBack,     // Shift+F9: hide the last revealed bar
         ReplayPlayPause,    // F8: auto-advance on/off
-        SplitViewToggle,    // Ctrl+Alt+Shift+S: show a second tab beside this one
-        SplitViewCycle,     // Ctrl+Alt+Shift+E: move the second pane to the next tab
-        SplitViewOrientation, // Ctrl+Alt+Shift+O: side-by-side <-> stacked
         ContextSummary,
         MonitoringStatus,   // Ctrl+Alt+Shift+M: speak the background-workspace monitoring summary
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
@@ -109,8 +106,6 @@ namespace AccessibleTrader.Core.Models
         JumpToLatest,
         GranularityUp,   // Shift+[ : widen pan step
         GranularityDown, // Shift+] : narrow pan step
-        ScrollPanesUp,   // Alt+Up  : scroll indicator panes up (reveal panes above)
-        ScrollPanesDown, // Alt+Down: scroll indicator panes down (reveal panes below)
         
         // Playback (Live/Dynamic)
         PlayChart,
@@ -187,13 +182,16 @@ namespace AccessibleTrader.Core.Models
         LoadWorkspace,   // Ctrl+Alt+W: load workspace profile
         LoadChart,       // Ctrl+Alt+Shift+L: load the chart for the toolbar's selected symbol
 
-        // Sub-pane navigation
-        NavSubPaneNext,        // Ctrl+PageDown: jump to first component of next sub-pane
-        NavSubPanePrev,        // Ctrl+PageUp:   jump to first component of previous sub-pane
+        // Top-level pane navigation — a pane is a Y axis, so this is the key that moves
+        // between the chart's horizontal bands (price → volume → Cipher B → …).
+        NavPaneNext,           // Alt+PageDown: first series of the next pane down
+        NavPanePrev,           // Alt+PageUp:   first series of the previous pane up
 
-        // Intra-pane component navigation (cycles only within the focused component's pane)
-        NavComponentInPaneNext, // Ctrl+Down: next component within the same pane (wraps)
-        NavComponentInPanePrev, // Ctrl+Up:   previous component within the same pane (wraps)
+        // Intra-pane component navigation. Walks components in the CURRENT STRIP — the pane's
+        // main area, or one sub-pane of it — across every series in the pane, which is what
+        // finally puts candles and price on one key.
+        NavComponentInPaneNext, // Ctrl+Down: next component in this strip
+        NavComponentInPanePrev, // Ctrl+Up:   previous component in this strip
 
         // Orientation and recovery
         /// <summary>Ctrl+Alt+Shift+Y: describe the chart's LAYOUT — axes, scales, panes, series
@@ -207,6 +205,17 @@ namespace AccessibleTrader.Core.Models
         /// Alt+Shift+L on the WebHost is the TEXT LABEL tool, and nothing else.
         /// </para></summary>
         SpeakChartLayout,
+        /// <summary>
+        /// Alt+Shift+/ : describe THE PANE THE CURSOR IS IN — what its two axes measure, the
+        /// range each covers, and the step between gridlines.
+        /// <para>
+        /// <see cref="SpeakChartLayout"/> answers "what is on this chart"; this answers "what is
+        /// this band of it, and what scale am I reading against". They are different questions
+        /// and the second one arrives constantly: a value means nothing without the range it sits
+        /// in, and a sighted user reads that range off an axis they can see. Per pane rather than
+        /// per chart because each pane HAS its own Y axis — that is what makes it a pane.
+        /// </para></summary>
+        SpeakPaneInfo,
         /// <summary>Ctrl+Alt+Shift+K: make every hidden component visible again.</summary>
         ShowAllComponents,
         /// <summary>Ctrl+Alt+Shift+U: unmute every muted component.</summary>

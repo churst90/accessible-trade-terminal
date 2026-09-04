@@ -492,7 +492,7 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IAssetDossierService, AssetDossierService>();
             services.AddSingleton<ILevelProvenanceService, LevelProvenanceService>();
             services.AddSingleton<IReplayService, ReplayService>();
-            services.AddSingleton<ISplitViewCoordinator, SplitViewCoordinator>();
+            services.AddSingleton<IChartFrameRenderer, ChartFrameRenderer>();
 
             // Alert delivery channels — SMTP + Telegram external dispatchers. The
             // AlertDeliveryService subscribes to AlertFiredEvent and fans out to every

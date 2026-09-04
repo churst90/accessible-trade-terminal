@@ -17,7 +17,7 @@ public partial class MainPage : ContentPage
 {
     private readonly IWorkspaceStore _store;
     private readonly ChartRenderer _renderer;
-    private readonly ISplitViewCoordinator _splitView;
+    private readonly IChartFrameRenderer _chartFrame;
     private readonly IThemeService _themeService;
     private readonly IEventBus _eventBus;
     private readonly ICanvasRegionProvider _canvasRegion;
@@ -34,7 +34,7 @@ public partial class MainPage : ContentPage
     public MainPage(
         IWorkspaceStore store,
         ChartRenderer renderer,
-        ISplitViewCoordinator splitView,
+        IChartFrameRenderer chartFrame,
         IAppStartupService startupService,
         IThemeService themeService,
         IEventBus eventBus,
@@ -45,7 +45,7 @@ public partial class MainPage : ContentPage
 
         _store = store;
         _renderer = renderer;
-        _splitView = splitView;
+        _chartFrame = chartFrame;
         _themeService = themeService;
         _eventBus = eventBus;
         _canvasRegion = canvasRegion;
@@ -143,9 +143,9 @@ public partial class MainPage : ContentPage
         {
             float density = (float)DeviceDisplay.MainDisplayInfo.Density;
 
-            // SplitView owns the Render call: single full-size chart when split is off,
-            // active chart plus a read-only second tab when it is on.
-            _splitView.Render(canvas, info.Width, info.Height, state, density);
+            // ChartFrameRenderer owns the Render call: it resolves the formations layer and
+            // draws one full-size chart.
+            _chartFrame.Render(canvas, info.Width, info.Height, state, density);
         }
     }
 

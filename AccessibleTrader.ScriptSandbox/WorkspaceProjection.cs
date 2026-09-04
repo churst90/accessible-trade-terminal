@@ -88,7 +88,6 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.WasapiLatency),
         nameof(WorkspaceState.InitStatus),
         nameof(WorkspaceState.DataStatus),
-        nameof(WorkspaceState.IndicatorPaneScrollIndex),
         nameof(WorkspaceState.IsCoordinateEntryMode),
         nameof(WorkspaceState.PendingDrawingTool),
         nameof(WorkspaceState.CoordinateEntryAnchorCount),
@@ -204,7 +203,6 @@ public static class WorkspaceProjection
         Wire.WriteI32(s, state.WasapiLatency);
         Wire.WriteI32(s, (int)state.InitStatus);
         Wire.WriteI32(s, (int)state.DataStatus);
-        Wire.WriteI32(s, state.IndicatorPaneScrollIndex);
         Wire.WriteBool(s, state.IsCoordinateEntryMode);
         Wire.WriteNullableI32(s, state.PendingDrawingTool is { } tool ? (int)tool : null);
         Wire.WriteI32(s, state.CoordinateEntryAnchorCount);
@@ -260,7 +258,6 @@ public static class WorkspaceProjection
         int wasapiLatency         = r.ReadI32();
         var initStatus            = (InitializationStatus)r.ReadI32();
         var dataStatus            = (DataStatus)r.ReadI32();
-        int paneScrollIndex       = r.ReadI32();
         bool isCoordinateEntry    = r.ReadBool();
         int? pendingTool          = r.ReadNullableI32();
         int anchorCount           = r.ReadI32();
@@ -316,7 +313,6 @@ public static class WorkspaceProjection
             WasapiLatency = wasapiLatency,
             InitStatus = initStatus,
             DataStatus = dataStatus,
-            IndicatorPaneScrollIndex = paneScrollIndex,
             IsCoordinateEntryMode = isCoordinateEntry,
             PendingDrawingTool = pendingTool is { } t ? (DrawingType)t : null,
             CoordinateEntryAnchorCount = anchorCount,

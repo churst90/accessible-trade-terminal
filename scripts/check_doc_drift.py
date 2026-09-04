@@ -70,6 +70,7 @@ KEY_TO_DOC: dict[str, tuple[str, ...]] = {
     "SPACE": ("Space",),
     " ": ("Space",),
     "DELETE": ("Delete",),
+    "OEM2": ("/", "Slash"),
     "OEM4": ("[",),
     "OEM5": ("Backslash", "\\"),
     "OEM6": ("]",),

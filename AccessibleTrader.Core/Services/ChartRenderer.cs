@@ -66,7 +66,7 @@ namespace AccessibleTrader.Core.Services
             _profileLayer = new ProfileRenderLayer();
         }
 
-        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int indicatorPaneScrollIndex = 0, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)
+        public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)
         {
             try
             {
@@ -134,10 +134,16 @@ namespace AccessibleTrader.Core.Services
                     .FirstOrDefault(d => d != null && d.Length > 0);
 
                 var mainSeries = seriesList.Where(s => s.Pane == "Main" && s.IsVisible).ToList();
-                var allIndicatorGroups = seriesList.Where(s => s.Pane != "Main" && s.IsVisible).GroupBy(s => s.Pane).ToList();
-                // Apply scroll offset — skip hidden panes, clamp to valid range.
-                int clampedScroll = Math.Clamp(indicatorPaneScrollIndex, 0, Math.Max(0, allIndicatorGroups.Count - 1));
-                var indicatorSeries = allIndicatorGroups.Skip(clampedScroll).ToList();
+                // Every indicator pane is drawn. There used to be a scroll offset here —
+                // Alt+Up / Alt+Down skipped the first N pane groups — and this line was the ONLY
+                // thing in the codebase that read it. It moved nothing else: navigation, speech
+                // and sonification never saw the offset, so every series stayed reachable and
+                // every key still worked, and the only effect was that a pane the user could
+                // still hear and edit was not on the screen. That is a scroll bar for a viewport
+                // a blind user does not have, announcing itself as "Scroll panes up" — a sentence
+                // with no information in it. Retired with split view.
+                var indicatorSeries = seriesList.Where(s => s.Pane != "Main" && s.IsVisible)
+                    .GroupBy(s => s.Pane).ToList();
 
                 float totalPaneHeight = height - _axisHeight;
                 if (totalPaneHeight <= 0) return;

@@ -34,8 +34,9 @@ namespace AccessibleTrader.WebHost.Services
     /// Delete while the tab bar is focused.</item>
     /// <item>Ctrl+Tab / Ctrl+Shift+Tab (switch browser tab) → reach the tab bar
     /// with Ctrl+Alt+Shift+T, then arrows / number row.</item>
-    /// <item>Ctrl+PageUp / Ctrl+PageDown (switch browser tab) → sub-pane jumps
-    /// move to Alt+PageUp / Alt+PageDown.</item>
+    /// <item>Ctrl+PageUp / Ctrl+PageDown (switch browser tab) — nothing to do: pane
+    /// navigation is Alt+PageUp / Alt+PageDown on every head now, and Ctrl+PageUp/Down is
+    /// deliberately left unbound rather than reassigned.</item>
     /// </list>
     /// The reserved bindings are removed so the Help dialog never advertises a
     /// chord the browser eats.
@@ -73,15 +74,11 @@ namespace AccessibleTrader.WebHost.Services
             remapped += RemoveChord(profile, s => s.Ctrl && !s.Alt && !s.Shift && KeyIs(s.Key, "W"));   // Ctrl+W  (CloseTab → × / Delete in tab bar)
             remapped += RemoveChord(profile, s => s.Ctrl && !s.Alt && KeyIs(s.Key, "TAB"));             // Ctrl+Tab / Ctrl+Shift+Tab (→ Ctrl+Alt+Shift+T)
 
-            //    …and shift the sub-pane jumps off Ctrl+PageUp/Down (browser tab cycling)
-            //    onto Alt+PageUp/Down, which browsers do not reserve.
-            remapped += RebindModifier(profile,
-                s => s.Ctrl && !s.Alt && !s.Shift && KeyIs(s.Key, "PAGEUP"),
-                s => s with { Ctrl = false, Alt = true });
-            remapped += RebindModifier(profile,
-                s => s.Ctrl && !s.Alt && !s.Shift && KeyIs(s.Key, "PAGEDOWN"),
-                s => s with { Ctrl = false, Alt = true });
-
+            //    Ctrl+PageUp/Down (browser tab cycling) needs no rule any more. Pane navigation
+            //    was moved onto Alt+PageUp/Down in the DEFAULT profile, so the desktop and the
+            //    browser agree about a navigation key instead of the Help dialog having to
+            //    explain a difference. A user who rebinds something onto Ctrl+PageUp/Down is
+            //    still choosing a chord the browser eats, and ShortcutConflictTests says so.
             if (remapped > 0)
             {
                 shortcuts.LoadProfile(profile); // rebuild the lookup dictionary
@@ -96,21 +93,6 @@ namespace AccessibleTrader.WebHost.Services
         {
             var hits = profile.Shortcuts.Where(match).ToList();
             foreach (var h in hits) profile.Shortcuts.Remove(h);
-            return hits.Count;
-        }
-
-        /// <summary>Replace every binding matching <paramref name="match"/> with <paramref name="rebind"/>(it). Returns how many.</summary>
-        private static int RebindModifier(
-            ShortcutProfile profile,
-            System.Func<ShortcutDefinition, bool> match,
-            System.Func<ShortcutDefinition, ShortcutDefinition> rebind)
-        {
-            var hits = profile.Shortcuts.Where(match).ToList();
-            foreach (var h in hits)
-            {
-                profile.Shortcuts.Remove(h);
-                profile.Shortcuts.Add(rebind(h));
-            }
             return hits.Count;
         }
 

@@ -61,7 +61,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private CandlePattern _lastAnnouncedPattern = CandlePattern.None;
         private CandleType _lastAnnouncedType = CandleType.Normal;
         private DateTime _lastPatternAnnouncement = DateTime.MinValue;
-        private readonly Rendering.ISplitViewCoordinator? _splitView;
         private static readonly TimeSpan PatternDebounce = TimeSpan.FromSeconds(5);
 
         public AccessibilityFeedbackCoordinator(
@@ -83,15 +82,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
-            IDrawingInteractionManager? drawings = null,
-            // Optional, and read only by Shift+F1. Split view announces its own toggle, but the
-            // orientation key is where a user goes to ask "where am I?" — and until 2026-09-04 it
-            // answered as if the second chart on the canvas were not there (Cody).
-            Rendering.ISplitViewCoordinator? splitView = null)
+            IDrawingInteractionManager? drawings = null)
         {
             _logger = logger;
             _drawings = drawings;
-            _splitView = splitView;
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -975,20 +969,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // way to just ask.
             string? anchor = _drawings?.SelectedAnchorSummary();
             if (anchor != null) msg += ". " + anchor;
-
-            // Split view LAST, and it is about the canvas rather than the cursor: everything above
-            // describes where you are, this describes what else is on screen. Naming which chart
-            // the arrow keys are actually driving is the point — the second pane is a reference
-            // view, and a user who has forgotten that is a user about to wonder why the keys are
-            // moving the wrong chart.
-            if (_splitView is { IsEnabled: true, SecondaryTabIndex: >= 0 })
-            {
-                string other = Rendering.SplitViewCoordinator.DescribeTab(state, _splitView.SecondaryTabIndex);
-                string how = _splitView.Orientation == Rendering.SplitOrientation.SideBySide
-                    ? "side by side" : "stacked";
-                msg += $". Split view on, {how}. Second pane shows {other}, reference only — " +
-                       "the keyboard is on this chart";
-            }
 
             _speechRouter.Speak(msg, interrupt: true);
         }

@@ -219,7 +219,7 @@
             </details>
 
             <details style="margin-bottom:12px;">
-                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Bar replay &amp; split view</h3></summary>
+                <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Bar replay</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p><strong>Bar replay</strong> hides everything after the bar you are on and gives it back one bar
                        at a time, so you can practise reading a market without hindsight. Start and stop with
@@ -227,11 +227,6 @@
                        <strong>Replay</strong> toolbar button; <strong>F9</strong> reveals the next bar,
                        <strong>Shift+F9</strong> takes one back, <strong>F10</strong> auto-advances. Indicators
                        recompute on the revealed bars only, so they read what they would have read then.</p>
-                    <p><strong>Split view</strong> puts a second tab's chart beside or below the active one —
-                       <strong>Ctrl+Alt+Shift+S</strong> to toggle, <strong>Ctrl+Alt+Shift+E</strong> for the next tab
-                       in the second pane, <strong>Ctrl+Alt+Shift+O</strong> for side-by-side versus stacked, or the
-                       <strong>Split</strong> toolbar button. Keyboard focus, speech and sonification stay with the
-                       active chart. Mouse pointing is inaccurate while split view is on; keyboard operation is not.</p>
                 </div>
             </details>
 
@@ -252,9 +247,9 @@
                         <tr><td>- / =</td><td>Zoom out (more bars) / zoom in (fewer bars)</td><td>"Viewing X bars from…"</td></tr>
                         <tr><td>Shift+[ / Shift+]</td><td>Decrease / increase panning step percentage</td><td>"Panning step: N percent"</td></tr>
                         <tr><td>Ctrl+← / Ctrl+→</td><td>Jump to previous / next trendline crossing</td><td>"Trendline crossing" or "No crossing found"</td></tr>
-                        <tr><td>Alt+↑ / Alt+↓</td><td>Scroll indicator panes up or down</td><td>"Scroll panes up/down"</td></tr>
-                        <tr><td>Ctrl+Page Up / Ctrl+Page Down</td><td>Jump to the previous / next sub-pane</td><td>Pane name</td></tr>
-                        <tr><td>Ctrl+↑ / Ctrl+↓</td><td>Cycle components within the focused pane</td><td>Component value</td></tr>
+                        <tr><td>Alt+Page Up / Alt+Page Down</td><td>Move to the previous / next pane — the next Y axis up or down the chart</td><td>Series name, then the pane name at the end</td></tr>
+                        <tr><td>Ctrl+↑ / Ctrl+↓</td><td>Walk the components of the strip you are in, across every series in the pane</td><td>Component value</td></tr>
+                        <tr><td>Alt+Shift+/</td><td>Describe this pane: what each axis measures, its range, and the step between gridlines</td><td>"Main pane, 1 of 3. Y axis, price: 94,000 to 98,000…"</td></tr>
                         <tr><td>, / .</td><td>Step to the previous / next chart-formation edge</td><td>Edge name and bar data</td></tr>
                         <tr><td>;</td><td>Cycle the chosen formation under the cursor</td><td>Formation name</td></tr>
                         <tr><td>Shift+;</td><td>Clear the chosen formation</td><td>"Formation focus cleared"</td></tr>
@@ -357,6 +352,7 @@
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
                         <tr><td>Ctrl+Alt+Shift+Y</td><td>Speak the chart layout — what is on screen and where</td></tr>
+                        <tr><td>Alt+Shift+/</td><td>Speak THIS pane — what its axes measure, their ranges, and the step between gridlines</td></tr>
                         <tr><td>Ctrl+Alt+Shift+K</td><td>Show all components (undo every hide)</td></tr>
                         <tr><td>Ctrl+Alt+Shift+U</td><td>Unmute all components (undo every mute)</td></tr>
                         <tr><td>Ctrl+Alt+Shift+M</td><td>Speak the background monitoring summary</td></tr>

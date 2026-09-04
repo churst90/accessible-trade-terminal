@@ -249,7 +249,6 @@ namespace AccessibleTrader.Tests
                 IsLogScale: false,
                 LastInteractionContext: s.LastInteractionContext,
                 PaneHeightRatios: s.PaneHeightRatios,
-                IndicatorPaneScrollIndex: 0,
                 InitStatus: InitializationStatus.Ready,
                 DataStatus: DataStatus.Ready,
                 IsCoordinateEntryMode: false,

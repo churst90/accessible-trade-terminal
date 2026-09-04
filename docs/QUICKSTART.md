@@ -610,14 +610,12 @@ near price, and a moving-average ranking — each reporting hold rate, touch cou
 reaction in ATR, the support-versus-resistance split, and how long ago. Wicks through and back
 count as holds, because that is a sweep. Leave the minimum-touches filter ticked.
 
-### Bar replay and split view
+### Bar replay
 
 **Bar replay** (Ctrl+Alt+Shift+P, or F11 on the desktop) hides history after the bar you are on
 and gives it back one bar at a time with F9 — Shift+F9 steps back, F10 auto-advances — so you can
-practise reading a market forward without hindsight. **Split view** (Ctrl+Alt+Shift+S) shows a
-second tab's chart beside or below the active one; Ctrl+Alt+Shift+E moves the second pane to the
-next tab and Ctrl+Alt+Shift+O switches side-by-side versus stacked. Keyboard focus, speech and
-sonification stay with the active chart in both.
+practise reading a market forward without hindsight. Indicators recompute on the revealed bars
+only, so they read what they would have read then.
 
 ---
 
@@ -710,7 +708,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 - Works with Orca and other browser-compatible screen readers
 - **Modifier remap:** browsers (especially Firefox) reserve several `Ctrl+Shift+<letter>` chords at the browser-chrome level — `Ctrl+Shift+T` (reopen tab), `Ctrl+Shift+H` (history), `Ctrl+Shift+P` (private window), `Ctrl+Shift+J` (console), `Ctrl+Shift+R` (reload), `Ctrl+Shift+W` (close window) — and the page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is remapped to `Alt+Shift+<letter>`**. This affects all drawing tools *and* the detailed point summary (`Ctrl+Shift+D` → `Alt+Shift+D`). The letter and the command are unchanged — only the modifier differs.
 - Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are **not** remapped — browsers don't reserve them.
-- A few single-`Ctrl` browser chords are reserved at the chrome level and can't be overridden in-page, so on the web the in-app action moves to a web-safe chord (the reserved one is dropped from the Help dialog): new tab is **`Alt+Shift+N`** or the always-visible tab bar **+** button (not `Ctrl+T`); close a tab with its **×** button or by focusing the bar and pressing `Delete` (not `Ctrl+W`); switch tabs by pressing **`Ctrl+Alt+Shift+T`** to focus the tab switcher bar, then the arrow keys / `Home`/`End` / the number row (`1`–`9`) / `Insert` to add / `Delete` to close (not `Ctrl+Tab`); and jump between indicator sub-panes with **`Alt+PageUp`** / **`Alt+PageDown`** (not `Ctrl+PageUp`/`Ctrl+PageDown`, which the browser uses to cycle its own tabs).
+- A few single-`Ctrl` browser chords are reserved at the chrome level and can't be overridden in-page, so on the web the in-app action moves to a web-safe chord (the reserved one is dropped from the Help dialog): new tab is **`Alt+Shift+N`** or the always-visible tab bar **+** button (not `Ctrl+T`); close a tab with its **×** button or by focusing the bar and pressing `Delete` (not `Ctrl+W`); switch tabs by pressing **`Ctrl+Alt+Shift+T`** to focus the tab switcher bar, then the arrow keys / `Home`/`End` / the number row (`1`–`9`) / `Insert` to add / `Delete` to close (not `Ctrl+Tab`). Pane navigation needs no such rule — it is **`Alt+PageUp`** / **`Alt+PageDown`** on every head, and `Ctrl+PageUp`/`Ctrl+PageDown` is left unbound because the browser cycles its own tabs on it.
 - The Help dialog (F1) and its live shortcut table always read the bindings actually in effect on your host, so you will always see the correct modifier for the platform you are using.
 
 #### MAUI head vs. Linux web host — drawing tool modifiers
@@ -767,6 +765,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 | Ctrl+Left | Jump to previous signal/crossing in context |
 | Ctrl+Right | Jump to next signal/crossing in context |
 | Ctrl+Alt+Shift+Y | Describe the chart's layout — panes, series, scales, what is hidden or muted |
+| Alt+Shift+/ | Describe THIS pane — what its axes measure, their ranges, and the step between gridlines |
 
 ### Chart Formations
 
@@ -877,7 +876,7 @@ through why.
 Covers drawing edits and deleting a series, fifty deep. It is not an application-wide
 undo: it will not take back an order, an alert, or a settings change.
 
-### Bar Replay and Split View
+### Bar Replay
 
 | Shortcut | Action |
 |----------|--------|
@@ -885,9 +884,6 @@ undo: it will not take back an order, an alert, or a settings change.
 | F9 | Reveal the next bar |
 | Shift+F9 | Hide the last revealed bar |
 | F10 | Play / pause auto-advance |
-| Ctrl+Alt+Shift+S | Split view on / off |
-| Ctrl+Alt+Shift+E | Move the second pane to the next tab |
-| Ctrl+Alt+Shift+O | Side-by-side / stacked |
 
 On the web host use Ctrl+Alt+Shift+P rather than F11 — browsers own F11 for fullscreen.
 

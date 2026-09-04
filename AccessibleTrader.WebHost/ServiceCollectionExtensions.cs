@@ -511,7 +511,7 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<IAssetDossierService, AssetDossierService>();
             services.AddScoped<ILevelProvenanceService, LevelProvenanceService>();
             services.AddScoped<IReplayService, ReplayService>();
-            services.AddScoped<ISplitViewCoordinator, SplitViewCoordinator>();
+            services.AddScoped<IChartFrameRenderer, ChartFrameRenderer>();
 
             // Alert channels connect to USER-supplied targets (webhook URL, SMTP
             // host/port), so their HttpClient comes from AlertChannelHttpClient —

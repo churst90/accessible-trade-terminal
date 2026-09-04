@@ -149,6 +149,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 && prefixMessage != "NAV_SERIES_NEXT"
                 && prefixMessage != "NAV_SERIES_PREV") ? prefixMessage : "";
 
+            // ── THE TRAILING ORIENTATION CLAUSES ──────────────────────────────
+            //
+            // Two facts that are ABOUT the move rather than about the bar: which pane the cursor
+            // is now in, and whether this series is switched off. Both are spoken LAST, after the
+            // reading.
+            //
+            // They used to be prefixes, and the reason they moved is listening cost measured
+            // against listening ORDER. The first syllables of an utterance are the ones a user
+            // scanning with the arrow keys actually hears before deciding to move on — they
+            // belong to what is SPECIAL about this bar, then to what the bar IS. "Hidden" and
+            // "Main pane" are neither: they do not change from bar to bar, and hearing them
+            // ahead of the value pushes the value late in every single utterance. At the end
+            // they cost nothing on the bars where the user has already moved on, and are still
+            // there for the one where they wanted them.
+            //
+            // Both are ON CHANGE ONLY, which is what keeps a trailing clause from becoming the
+            // ten-times-repeated tail the prepend rule was originally written to prevent.
+            string stateClause = "";
+            string orientationClause = "";
+
             if (seriesIdChanged)
             {
                 // Count ALL components regardless of visibility — hidden data companions
@@ -156,12 +176,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int count     = s.Components.Count(c => !c.IsMuted);
                 string compWord = count == 1 ? "component" : "components";
 
-                // State suffix: callers navigating to a hidden or muted series must hear
-                // that status immediately so they know why there is no sound.
-                string stateSuffix = !s.IsVisible     ? ", hidden"
-                                   : s.IsMuted        ? ", muted"
-                                   : s.IsAutoNarrated ? ", narrating"
-                                   : "";
+                // Callers navigating to a hidden or muted series must hear that status so they
+                // know why there is no sound — at the end of the utterance, not the front.
+                stateClause = !s.IsVisible     ? "Hidden."
+                            : s.IsMuted        ? "Muted."
+                            : s.IsAutoNarrated ? "Narrating."
+                            : "";
 
                 // A text label announces nothing on the switch itself. Its NAME is its wording,
                 // and the component reading that follows in the same utterance is that wording
@@ -171,7 +191,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // still has to explain its own silence.
                 if (s.Drawing is { Type: DrawingType.TextLabel })
                 {
-                    if (stateSuffix.Length > 0) speechPrefix = $"Text label{stateSuffix}. " + speechPrefix;
+                    // Nothing leads: the label's NAME is its wording and the reading that follows
+                    // is that wording again. Its state, if any, trails like everything else's.
+                    if (stateClause.Length > 0) stateClause = "Text label. " + stateClause;
                 }
                 else if (s.IsDrawing)
                 {
@@ -187,7 +209,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     int n = s.Components.Count;
                     if (n <= 1)
                     {
-                        speechPrefix = $"{spokenName}{stateSuffix}. " + speechPrefix;
+                        speechPrefix = $"{spokenName}. " + speechPrefix;
                     }
                     else
                     {
@@ -196,8 +218,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         // naming it here as well would be the same object twice, two ways.
                         string compName = reading.IsVisible ? DrawingSpeech.SpokenComponentName(s.Components, reading) : "";
                         speechPrefix = compName.Length > 0
-                            ? $"{spokenName}{stateSuffix}. {n} components, reading {compName}. " + speechPrefix
-                            : $"{spokenName}{stateSuffix}. {n} components. " + speechPrefix;
+                            ? $"{spokenName}. {n} components, reading {compName}. " + speechPrefix
+                            : $"{spokenName}. {n} components. " + speechPrefix;
                     }
                 }
                 else
@@ -217,52 +239,84 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                     else
                     {
-                        // Count distinct sub-panes (components with a non-null/non-empty SubPaneName).
-                        int distinctSubPanes = s.Components
-                            .Select(c => c.SubPaneName)
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .Count();
-                        // Total pane count = 1 (main) + sub-pane count.
-                        int totalPanes = 1 + distinctSubPanes;
-
+                        // The sub-pane count used to be spoken here as "N panes", and it was
+                        // wrong twice over. It counted the STRIPS inside one series while calling
+                        // them panes, so a chart with a volume pane and an oscillator pane under
+                        // it said "1 pane"; and a count is only information when it tells the
+                        // user a key has somewhere to go, which stopped being true when sub-pane
+                        // navigation was retired. The pane the cursor is in is named in the
+                        // trailing clause below, where it is a fact about the chart rather than a
+                        // number about this series.
                         countMsg = $"{count} {compWord}";
-                        if (totalPanes > 1)
-                            countMsg += $", {totalPanes} panes";
                     }
                     // Use Name (base indicator name without parameter values) for speech.
                     // FriendlyName includes baked-in parameter values (e.g. "RSI 14") which are
                     // noise in navigation context — the user knows what they added.
-                    speechPrefix = $"{s.Name}{stateSuffix}. {countMsg}. " + speechPrefix;
+                    speechPrefix = $"{s.Name}. {countMsg}. " + speechPrefix;
                 }
             }
 
-            // 2b. Sub-pane boundary announcement during Up/Down component navigation.
-            // When the newly focused component is in a different sub-pane than the previous one,
-            // prepend the pane display name so the user hears "[Pane]. [Component]..." on transition only.
-            if (isYMove && !seriesIdChanged && _previousState != null)
+            // 2b. WHERE THE CURSOR NOW IS — the pane, and the strip inside it.
+            //
+            // Computed against the previous state and spoken ONLY when it changed. A pane is a Y
+            // axis, so crossing into one means the numbers that follow are being read against a
+            // different scale; that is worth a clause. Ten Page Downs inside the Main pane are
+            // not, which is why nothing is said when nothing moved.
+            //
+            // Both halves are resolved through ChartPaneModel, so a strip is named from the
+            // components of every series in the pane rather than of the focused one alone — the
+            // renderer draws the strip that way, and the two disagreeing is the defect that made
+            // Ctrl+Up/Down unable to reach Price from the candles.
             {
-                int prevCompIdx = s.ClampComponent(_previousState.FocusedComponentIndex);
-                int currCompIdx = s.ClampComponent(state.FocusedComponentIndex);
-                if (prevCompIdx >= 0 && currCompIdx >= 0 && prevCompIdx != currCompIdx)
+                string? prevPaneKey = null, prevStrip = null;
+                if (_previousState != null)
                 {
-                    string? prevPane = s.Components[prevCompIdx].SubPaneName;
-                    string? currPane = s.Components[currCompIdx].SubPaneName;
-                    bool paneChanged = !string.Equals(prevPane, currPane, StringComparison.OrdinalIgnoreCase);
-                    if (paneChanged)
+                    var prevSeries = _previousState.ActiveSeries
+                        .FirstOrDefault(x => x.Id == (_previousState.FocusedSeriesId ?? seriesId));
+                    if (prevSeries != null)
                     {
-                        string paneLabel = GetPaneDisplayName(currPane, s);
-                        speechPrefix = paneLabel + ". " + speechPrefix;
+                        prevPaneKey = ChartPaneModel.KeyOf(prevSeries);
+                        int pIdx = prevSeries.ClampComponent(_previousState.FocusedComponentIndex);
+                        if (pIdx >= 0 && pIdx < prevSeries.Components.Count)
+                            prevStrip = prevSeries.Components[pIdx].SubPaneName;
                     }
+                }
 
-                    // A drawing's per-bar sentence carries no component name (it is constant
-                    // across a sweep), so the name is spoken where it CHANGES: here, on
-                    // Ctrl+Up/Down between a fib's levels or a rectangle's top and bottom.
-                    if (s.IsDrawing && s.Components.Count > 1 && s.Components[currCompIdx].IsVisible)
-                    {
-                        string compName = DrawingSpeech.SpokenComponentName(s.Components, s.Components[currCompIdx]);
-                        if (compName.Length > 0) speechPrefix = compName + ". " + speechPrefix;
-                    }
+                string currPaneKey = ChartPaneModel.KeyOf(s);
+                int currCompIdx = s.ClampComponent(state.FocusedComponentIndex);
+                string? currStrip = currCompIdx >= 0 && currCompIdx < s.Components.Count
+                    ? s.Components[currCompIdx].SubPaneName
+                    : null;
+
+                bool paneChanged = !string.Equals(prevPaneKey, currPaneKey, StringComparison.Ordinal);
+                bool stripChanged = !string.Equals(prevStrip, currStrip, StringComparison.OrdinalIgnoreCase);
+
+                if (paneChanged || stripChanged)
+                {
+                    var pane = ChartPaneModel.Panes(state.ActiveSeries)
+                        .FirstOrDefault(x => string.Equals(x.Key, currPaneKey, StringComparison.Ordinal));
+                    var paneSeries = pane?.Series ?? new List<ChartSeries> { s };
+
+                    string paneLabel = ChartPaneModel.DisplayName(currPaneKey, paneSeries) + " pane";
+                    string? stripLabel = ChartPaneModel.SubPaneDisplayName(currStrip, paneSeries);
+
+                    orientationClause = stripLabel == null
+                        ? paneLabel + "."
+                        : $"{paneLabel}, {stripLabel} strip.";
+                }
+
+                // A drawing's per-bar sentence carries no component name (it is constant across a
+                // sweep), so the name is spoken where it CHANGES: on Ctrl+Up/Down between a fib's
+                // levels or a rectangle's top and bottom. This one still LEADS — it names the
+                // thing about to be read, not where it is.
+                if (isYMove && !seriesIdChanged && _previousState != null
+                    && s.IsDrawing && s.Components.Count > 1
+                    && currCompIdx >= 0 && currCompIdx < s.Components.Count
+                    && s.Components[currCompIdx].IsVisible
+                    && s.ClampComponent(_previousState.FocusedComponentIndex) != currCompIdx)
+                {
+                    string compName = DrawingSpeech.SpokenComponentName(s.Components, s.Components[currCompIdx]);
+                    if (compName.Length > 0) speechPrefix = compName + ". " + speechPrefix;
                 }
             }
 
@@ -408,34 +462,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 4. The bar itself.
             if (!string.IsNullOrWhiteSpace(finalSpeech)) utterance.Add(finalSpeech.Trim());
 
+            // 5. WHERE, and WHETHER IT IS ON — trailing, on change only.
+            //
+            //    Last because they are the least urgent things in the utterance and the least
+            //    likely to have changed: orientation is what you want when the reading has
+            //    already told you something surprising, and by then you are listening to the end
+            //    of the phrase rather than skipping off the front of it.
+            if (!string.IsNullOrWhiteSpace(orientationClause)) utterance.Add(orientationClause.Trim());
+            if (!string.IsNullOrWhiteSpace(stateClause)) utterance.Add(stateClause.Trim());
+
             if (utterance.Count > 0)
                 _speechRouter.Speak(string.Join(" ", utterance), interrupt: isUserInitiated);
 
             _previousState = state;
-        }
-
-        /// <summary>
-        /// Returns a human-readable display name for a sub-pane.
-        /// null/empty → "Main pane".
-        /// Otherwise, looks for a component in the series whose DisplayName contains the SubPaneName
-        /// to derive a friendlier label (e.g. "MF" components named "Money Flow..." → "Money Flow pane").
-        /// Fallback: SubPaneName + " pane".
-        /// </summary>
-        private static string GetPaneDisplayName(string? subPaneName, ChartSeries series)
-        {
-            if (string.IsNullOrEmpty(subPaneName)) return "Main pane";
-
-            // Look for a component in this pane whose DisplayName contains more descriptive text.
-            foreach (var comp in series.Components)
-            {
-                if (!string.Equals(comp.SubPaneName, subPaneName, StringComparison.OrdinalIgnoreCase)) continue;
-                string dn = comp.DisplayName ?? comp.Name;
-                // Use the display name if it's meaningfully longer/different than the raw pane key.
-                if (!string.IsNullOrEmpty(dn) && !dn.Equals(subPaneName, StringComparison.OrdinalIgnoreCase))
-                    return dn.Trim() + " pane";
-            }
-
-            return subPaneName + " pane";
         }
 
         // GetComponentTypeLabel moved to SpeechFormatter.ProviderSpeechStrategy (debt item 4) —

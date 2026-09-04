@@ -17,47 +17,87 @@ namespace AccessibleTrader.Tests
     /// </summary>
     public class PaneAndLoadFailureAnnouncementTests
     {
-        // ── Ctrl+PageUp/PageDown names the pane ONCE ───────────────────────────
+        // ── Alt+PageUp/PageDown: the PANE walk, and what it fixed ──────────────
 
         [Fact]
-        public void SubPaneNavigation_DoesNotCarryItsOwnPaneLabel()
+        public void PaneNavigation_FromCandles_ReachesTheIndicatorPane()
+        {
+            // THE BUG, as Cody hit it: "pressing alt pg up/down says 'no subpanes in candles'".
+            //
+            // The old walk built its pane list from series.Components — one series' declared
+            // sub-panes — while the RENDERER groups by ChartSeries.Pane across the whole series
+            // list. With the cursor on the candles, which declare no sub-pane, the key announced
+            // "No sub-panes in Candles" and moved nothing, while the chart in front of the user
+            // had a whole second pane on it.
+            var (dispatcher, bus, store) = Build();
+            dispatcher.SetChartActive(true);
+
+            dispatcher.Dispatch(SystemCommand.NavPaneNext);
+
+            Assert.Contains(store.DispatchedActions.OfType<SelectSeriesAction>(), a => a.SeriesId == "cipher");
+            Assert.DoesNotContain(bus.Log.OfType<FeedbackRequestEvent>(),
+                e => (e.Message ?? "").Contains("sub-pane", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void PaneNavigation_DoesNotCarryItsOwnPaneLabel()
         {
             // Two independent components each announced the pane on the same keypress:
             // CommandDispatcher built one from the raw SubPaneName ("MF pane") and shipped it as
             // the feedback prefix, while NavigationFeedbackManager detected the same transition
-            // and prepended its own, resolved from a component's friendlier DisplayName
-            // ("Money Flow pane"). On a Cipher-style indicator the user heard
-            // "Money Flow pane. MF pane. Money Flow Wave. …".
+            // and announced its own, resolved from a component's friendlier DisplayName
+            // ("Money Flow pane"). The user heard both, under two different names.
             //
             // The transition announcement belongs to the manager — it is the only one of the two
-            // that can tell a pane CHANGE from a move within a pane — so the dispatcher's prefix
-            // must be empty.
+            // that can tell a pane CHANGE from a move within a pane — so the dispatcher must ship
+            // no label of its own.
             var (dispatcher, bus, _) = Build();
             dispatcher.SetChartActive(true);
 
-            dispatcher.Dispatch(SystemCommand.NavSubPaneNext);
+            dispatcher.Dispatch(SystemCommand.NavPaneNext);
 
             var nav = bus.Log.OfType<FeedbackRequestEvent>()
-                             .Where(e => e.Type == FeedbackType.Navigation && e.IsYMove)
+                             .Where(e => e.Type == FeedbackType.Navigation)
                              .ToList();
 
             Assert.Single(nav);
             Assert.True(string.IsNullOrEmpty(nav[0].Message),
-                $"Sub-pane navigation shipped a pane label of its own (\"{nav[0].Message}\"), "
+                $"Pane navigation shipped a pane label of its own (\"{nav[0].Message}\"), "
                 + "which NavigationFeedbackManager will then say again under a different name.");
         }
 
         [Fact]
-        public void SubPaneNavigation_StillMovesTheFocusedComponent()
+        public void PaneNavigation_ClampsAtTheBottom_WithABoundaryEarcon()
         {
-            // Vacuity guard: emptying the message would be trivially satisfiable by making the
-            // command do nothing at all. The move itself still has to happen.
+            // Settled once for all the traversal keys: they clamp rather than wrap. A silent jump
+            // from the bottom of the chart back to the top is the one outcome a user who cannot
+            // see the move has no way to detect.
+            var (dispatcher, bus, store) = Build();
+            dispatcher.SetChartActive(true);
+
+            dispatcher.Dispatch(SystemCommand.NavPaneNext);   // Main → Cipher
+            store.EmitState(store.State with { FocusedSeriesId = "cipher" });
+            bus.Log.Clear();
+            dispatcher.Dispatch(SystemCommand.NavPaneNext);   // nothing below it
+
+            Assert.DoesNotContain(store.DispatchedActions.OfType<SelectSeriesAction>()
+                                       .Skip(1), a => a.SeriesId == "candles");
+            Assert.Contains(bus.Log.OfType<FeedbackRequestEvent>(), e => e.Type == FeedbackType.Boundary);
+        }
+
+        [Fact]
+        public void IntraPaneNavigation_WalksAcrossSeriesInThePane()
+        {
+            // The other half of the same mismatch. A sub-pane is DRAWN from every series in the
+            // pane but was WALKED within one, so Ctrl+Down on the candles could never reach
+            // Price — two series against the same Y axis, in the same band, one drawn on top of
+            // the other, and no key that got from one to the other.
             var (dispatcher, _, store) = Build();
             dispatcher.SetChartActive(true);
 
-            dispatcher.Dispatch(SystemCommand.NavSubPaneNext);
+            dispatcher.Dispatch(SystemCommand.NavComponentInPaneNext);
 
-            Assert.Contains(store.DispatchedActions.OfType<SelectComponentAction>(), a => a.ComponentIndex != 0);
+            Assert.Contains(store.DispatchedActions.OfType<SelectSeriesAction>(), a => a.SeriesId == "price");
         }
 
         // ── A chart that fails to load cannot be silenced by F2 ────────────────
@@ -88,26 +128,39 @@ namespace AccessibleTrader.Tests
         /// to go. The pane keys are deliberately terse ("MF") and the display names friendly
         /// ("Money Flow Wave") — the exact shape that produced the doubled announcement.
         /// </summary>
+        /// <summary>
+        /// A chart shaped like the one the bug was found on: TWO series sharing the Main pane
+        /// (candles and a price overlay — the pair Ctrl+Up/Down could not walk between), and a
+        /// Cipher-style indicator in a pane of its own carrying a sub-pane strip.
+        /// </summary>
         private static (CommandDispatcher Dispatcher, SpyEventBus Bus, MockWorkspaceStore Store) Build()
         {
-            var cfg = new SeriesConfig
+            var candlesCfg = new SeriesConfig { Id = "candles", Name = "Candles", FriendlyName = "Candles", Pane = "Main" };
+            candlesCfg.Components.Add(new ComponentConfig { Name = "Close", DisplayName = "Close", IsVisible = true });
+            var candlesBuf = new SeriesDataBuffer { SeriesId = "candles" };
+            candlesBuf.ComponentData["Close"] = new[] { 100.0, 101.0 };
+
+            var priceCfg = new SeriesConfig { Id = "price", Name = "Price", FriendlyName = "Price", Pane = "Main" };
+            priceCfg.Components.Add(new ComponentConfig { Name = "Line", DisplayName = "Line", IsVisible = true });
+            var priceBuf = new SeriesDataBuffer { SeriesId = "price" };
+            priceBuf.ComponentData["Line"] = new[] { 100.5, 101.5 };
+
+            var cipherCfg = new SeriesConfig
             {
                 Id = "cipher", Name = "CipherB", FriendlyName = "Cipher B",
-                IndicatorCode = "CIPHER_B", Pane = "Main"
+                IndicatorCode = "CIPHER_B", Pane = "Pane_CIPHER_B"
             };
-            cfg.Components.Add(new ComponentConfig
+            cipherCfg.Components.Add(new ComponentConfig
             {
                 Name = "Wave", DisplayName = "Wave", IsVisible = true, SubPaneName = null
             });
-            cfg.Components.Add(new ComponentConfig
+            cipherCfg.Components.Add(new ComponentConfig
             {
                 Name = "MFW", DisplayName = "Money Flow Wave", IsVisible = true, SubPaneName = "MF"
             });
-
-            var buf = new SeriesDataBuffer { SeriesId = "cipher" };
-            buf.ComponentData["Wave"] = new[] { 1.0, 2.0 };
-            buf.ComponentData["MFW"] = new[] { 3.0, 4.0 };
-            var series = new ChartSeries(cfg, buf);
+            var cipherBuf = new SeriesDataBuffer { SeriesId = "cipher" };
+            cipherBuf.ComponentData["Wave"] = new[] { 1.0, 2.0 };
+            cipherBuf.ComponentData["MFW"] = new[] { 3.0, 4.0 };
 
             var state = WorkspaceState.Initial with
             {
@@ -117,8 +170,11 @@ namespace AccessibleTrader.Tests
                     new(new DateTime(2026, 1, 1, 0, 1, 0, DateTimeKind.Utc), 100, 102, 99, 101, 1000),
                 }),
                 CurrentDataIndex = 1,
-                ActiveSeries = ImmutableList.Create(series),
-                FocusedSeriesId = series.Id,
+                ActiveSeries = ImmutableList.Create(
+                    new ChartSeries(candlesCfg, candlesBuf),
+                    new ChartSeries(priceCfg, priceBuf),
+                    new ChartSeries(cipherCfg, cipherBuf)),
+                FocusedSeriesId = "candles",
                 FocusedComponentIndex = 0,
             };
 

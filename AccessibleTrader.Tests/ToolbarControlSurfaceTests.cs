@@ -46,7 +46,6 @@ namespace AccessibleTrader.Tests
             new object[] { "Level respect report",   "OpenLevelReportEvent" },
             new object[] { "Journal",                "OpenJournalEvent" },
             new object[] { "AI analyst",             "OpenAIAnalystEvent" },
-            new object[] { "Split view",             "SplitViewCommandEvent" },
             new object[] { "Bar replay",             "ReplayCommandEvent" },
             new object[] { "Object tree",            "OpenObjectTreeEvent" },
             new object[] { "Drawing tools",          "OpenDrawingToolsEvent" },
@@ -74,29 +73,39 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void SplitAndReplay_sitOnTheSecondRowWithTheOtherChartToggles()
+        public void Replay_sitsOnTheSecondRowWithTheOtherChartToggles()
         {
-            // Row 1 opens panels; row 2 changes how the chart behaves. Split and replay belong to
-            // the second group, next to Heatmap / Heikin / Log — pinned so a later edit doesn't
-            // scatter them back into the panel row.
+            // Row 1 opens panels; row 2 changes how the chart behaves. Replay belongs to the
+            // second group, next to Heatmap / Heikin / Log — pinned so a later edit doesn't
+            // scatter it back into the panel row.
             string toolbar = Toolbar();
 
             int logScale = toolbar.IndexOf("Icon=\"log-scale\"", StringComparison.Ordinal);
-            int split    = toolbar.IndexOf("Icon=\"split-view\"", StringComparison.Ordinal);
             int replay   = toolbar.IndexOf("Icon=\"replay\"", StringComparison.Ordinal);
 
             Assert.True(logScale > 0, "Log scale button not found — the visual-toggle row moved.");
-            Assert.True(split > logScale, "Split view button is not in the visual-toggle row.");
             Assert.True(replay > logScale, "Replay button is not in the visual-toggle row.");
         }
 
         [Fact]
-        public void SplitAndReplay_reportTheirOwnStateSoTheButtonIsNotAWriteOnlyToggle()
+        public void Replay_reportsItsOwnStateSoTheButtonIsNotAWriteOnlyToggle()
         {
-            string toolbar = Toolbar();
+            Assert.Contains("IsToggleOn=\"@IsReplayActive\"", Toolbar());
+        }
 
-            Assert.Contains("IsToggleOn=\"@IsSplitActive\"", toolbar);
-            Assert.Contains("IsToggleOn=\"@IsReplayActive\"", toolbar);
+        /// <summary>
+        /// Split view is GONE, and its absence is pinned rather than left to drift back. The
+        /// second pane was read-only by construction — keyboard, speech, sonification and trading
+        /// all stayed on the active tab — so the terminal drew a chart it could say nothing
+        /// about, and the user who most needs to compare two markets was the one it did not
+        /// serve. The comparison is worth having as an OVERLAY series on the existing axis, which
+        /// every key already reaches.
+        /// </summary>
+        [Fact]
+        public void SplitView_isGoneFromTheToolbarAndTheSprite()
+        {
+            Assert.DoesNotContain("split-view", Toolbar(), StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("split-view", Sprite(), StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -448,7 +457,7 @@ namespace AccessibleTrader.Tests
         public void ToolbarTooltips_nameTheKeyboardShortcutForThePanelOpeners()
         {
             // The toolbar is how a feature is DISCOVERED; the tooltip is how the keyboard user
-            // learns the faster route. Pinning the six newest so the pattern isn't dropped.
+            // learns the faster route. Pinning the newest so the pattern isn't dropped.
             //
             // The expected FORM changed on 2026-09-03 with the toolbar convention: chords are
             // spelled in words, not written "(Ctrl+Alt+Shift+J)". Same property — the chord is
@@ -461,7 +470,6 @@ namespace AccessibleTrader.Tests
             Assert.Contains("Alt plus R", toolbar);                                // level respect report
             Assert.Contains("Control plus Alt plus Shift plus J", toolbar);        // journal
             Assert.Contains("Control plus Alt plus Shift plus A", toolbar);        // AI analyst
-            Assert.Contains("Control plus Alt plus Shift plus S", toolbar);        // split view
             Assert.Contains("Control plus Alt plus Shift plus P", toolbar);        // bar replay
         }
 

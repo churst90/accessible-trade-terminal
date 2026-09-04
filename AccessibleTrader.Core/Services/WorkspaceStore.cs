@@ -329,8 +329,7 @@ namespace AccessibleTrader.Core.Services
 
             // ── Tabs + pane layout ───────────────────────────────────────────
             AddTabAction or CloseTabAction or SwitchTabAction
-                or ResizePaneAction or ScrollIndicatorPanesAction
-                or SetPaneHeightRatiosAction
+                or ResizePaneAction or SetPaneHeightRatiosAction
                 => TabReducer.Reduce(state, action),
 
             // ── Drawing (coordinate entry) ───────────────────────────────────

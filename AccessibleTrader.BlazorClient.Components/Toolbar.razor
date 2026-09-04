@@ -376,10 +376,6 @@
                                   IsToggleOn="@(Store.State.IsLogScale)"
                                   Tooltip="Toggle the logarithmic price scale"
                                   OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
-                <ToolbarIconButton Icon="split-view" Label="Split view" Variant="data"
-                                  IsToggleOn="@IsSplitActive"
-                                  Tooltip="Toggle split view, a second chart beside this one, Control plus Alt plus Shift plus S"
-                                  OnClick="ToggleSplit" />
                 <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
                                   IsToggleOn="@IsReplayActive"
                                   Tooltip="Toggle bar replay, step forward one bar at a time, Control plus Alt plus Shift plus P"
@@ -443,7 +439,6 @@
     private IDisposable? _pipelineSub;
     private IDisposable? _loadChartSub;
     private IDisposable? _stateSub;
-    private IDisposable? _splitSub;
     private IDisposable? _replaySub;
     private IDisposable? _apiKeysSub;
     private IDisposable? _switchWarnSub;
@@ -459,13 +454,12 @@
         !string.IsNullOrEmpty(MarketOrchestrator.SelectedSymbol)
         && MarketOrchestrator.SelectedSymbol != AccessibleTrader.Core.Services.MarketOrchestrator.ApiKeyRequiredSentinel;
 
-    // ── Split view / bar replay toggles ──────────────────────────────────
+    // ── Bar replay toggle ────────────────────────────────────────────────
     // Resolved through the service provider rather than @inject so the toolbar still
     // renders in hosts (and unit tests) that don't stand up the chart-rendering graph;
     // a missing service leaves the button present but inert rather than throwing at
     // component-initialisation time and taking the whole toolbar with it.
-    private ISplitViewCoordinator? SplitView => Services.GetService<ISplitViewCoordinator>();
-    private IReplayService?        Replay    => Services.GetService<IReplayService>();
+    private IReplayService? Replay => Services.GetService<IReplayService>();
 
     // ── Deposit button ───────────────────────────────────────────────────
     // Whether the CURRENT provider implements IWalletProvider. Recomputed on every
@@ -501,13 +495,11 @@
         StateHasChanged();
     }
 
-    private bool IsSplitActive  => SplitView?.IsEnabled ?? false;
     private bool IsReplayActive => Replay?.IsActive ?? false;
 
     // Published as events rather than called directly so the button and the keyboard
     // shortcut go down exactly one code path — including the spoken confirmation the
     // services emit, which a direct call would bypass.
-    private void ToggleSplit()  => EventBus.Publish(new SplitViewCommandEvent(SplitViewCommand.Toggle));
     private void ToggleReplay() => EventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle));
 
     // True when the selected provider needs a key it hasn't got, so the symbol list is the
@@ -587,11 +579,10 @@
         // Keyboard "Load chart" (Ctrl+Alt+Shift+L) — same path as the Load button,
         // including the shape-change pre-flight warning. Spoken refusal instead of
         // a silent no-op when the market cascade isn't complete yet.
-        // The Split and Replay buttons show pressed state, and both are also reachable
-        // from the keyboard, so the toolbar has to repaint when the change came from
-        // somewhere else. The services flip their own state on the same events, so this
-        // deliberately re-renders AFTER them by hopping through InvokeAsync.
-        _splitSub  = EventBus.Subscribe<SplitViewCommandEvent>(_ => InvokeAsync(StateHasChanged));
+        // The Replay button shows pressed state and is also reachable from the keyboard, so
+        // the toolbar has to repaint when the change came from somewhere else. The service
+        // flips its own state on the same event, so this deliberately re-renders AFTER it by
+        // hopping through InvokeAsync.
         _replaySub = EventBus.Subscribe<ReplayCommandEvent>(_ => InvokeAsync(StateHasChanged));
 
         // Escape closes the shape-change confirmation, and Escape means CANCEL: it is the
@@ -889,7 +880,6 @@
         _pipelineSub?.Dispose();
         _loadChartSub?.Dispose();
         _stateSub?.Dispose();
-        _splitSub?.Dispose();
         _replaySub?.Dispose();
         _apiKeysSub?.Dispose();
         _switchWarnSub?.Dispose();

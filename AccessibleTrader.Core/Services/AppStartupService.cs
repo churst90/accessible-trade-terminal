@@ -114,7 +114,6 @@ namespace AccessibleTrader.Core.Services
             // constructed at startup — nothing else resolves it until the user presses a key,
             // and by then the subscription would not exist to handle that very key.
             _services.GetService<Analysis.IReplayService>();
-            _services.GetService<Rendering.ISplitViewCoordinator>();
 
             // 5. Workspace Initializer — resolve so it's available for chart load and
             //    workspace restore, but do NOT seed default series on boot.

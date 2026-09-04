@@ -597,6 +597,11 @@ window.accessibleTrader = {
             else if (key === '=') key = 'OEMPLUS';
             else if (key === '_') key = 'OEMMINUS';
             else if (key === '+') key = 'OEMPLUS';
+            // Shift+/ produces '?' — the browser reports the character a keypress PRODUCES, not
+            // the key that was pressed — so a binding on '/' with Shift held would never match.
+            // Both land on OEM2, which NormalizeKey resolves back to '/'.
+            else if (key === '/') key = 'OEM2';
+            else if (key === '?') key = 'OEM2';
             else if (key === 'Delete') key = 'DELETE';
             else if (key === 'Escape') key = 'ESCAPE';
             else if (key === 'ContextMenu') key = 'CONTEXTMENU';
