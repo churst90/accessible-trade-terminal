@@ -211,8 +211,31 @@ namespace AccessibleTrader.Core.Models
     /// <summary>Alt+R — open the respect report (ranked levels and moving averages).</summary>
     public record OpenLevelReportEvent();
 
-    /// <summary>Opens the theme editor. A null id starts a new theme from the one in use.</summary>
-    public record OpenThemeEditorEvent(string? PresetId = null);
+    /// <summary>
+    /// How the theme editor opens. Three verbs, decided by Cody for the 2026-09-03 settings
+    /// restructure, because "New theme" and "Customise…" had left it unclear whether a change
+    /// edited the theme in use or made a copy of it.
+    /// </summary>
+    public enum ThemeEditorMode
+    {
+        /// <summary>A raw theme from a safe scheme — black chart, green rising, red falling.</summary>
+        New,
+        /// <summary>A copy of the selected theme (built-in or custom) as a new, renameable user theme.</summary>
+        Clone,
+        /// <summary>The selected CUSTOM theme, in place: same id, Save replaces it.</summary>
+        Edit,
+    }
+
+    /// <summary>
+    /// Opens the theme editor. <see cref="Mode"/> says what the editor is for; <see cref="PresetId"/>
+    /// names the custom theme being edited or cloned, and <see cref="BaseTheme"/> the built-in being
+    /// cloned (null means the one in use). With no arguments — the modal catalog's cold open — it
+    /// clones the theme on screen, which is what "Customise" used to do.
+    /// </summary>
+    public record OpenThemeEditorEvent(
+        string? PresetId = null,
+        ThemeEditorMode Mode = ThemeEditorMode.Clone,
+        AccessibleTrader.Sdk.Enums.ThemeType? BaseTheme = null);
 
     /// <summary>Asks the UI to collect the text for a Text Label that has just been placed.</summary>
     public record PromptForLabelTextEvent(string SeriesId);

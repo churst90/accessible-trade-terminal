@@ -1807,7 +1807,7 @@ modifiers, which browsers do not reserve.
 Auto-narration is one of a small family of "let the terminal keep you posted" features
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
 you met when you first loaded a market — is the always-on heartbeat of the live candle,
-and you can turn it on or off under Settings (F12) with "Announce new bars". The
+and you can turn it on or off under Settings (F12), Speech, with "Announce new bars". The
 **detailed point analysis**, Ctrl+Shift+D (Alt+Shift+D on the web host), is the
 on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
 indicator, every signal, in one keystroke, covered back in the chart chapter. And the
@@ -2626,17 +2626,21 @@ arranging and saving your charts.
 
 ### Settings
 
-Press F12 for the settings dialog, organised into sections you Tab through. The
-general preferences mirror the toggles you also reach by hotkey — speech on or off,
-sonification on or off — and add the smaller choices that tune how much the terminal
-says: whether it speaks timestamps, whether it reads column headers, and whether it
-announces each new bar as it closes (the rolling "Close … New bar …" you met when you
-first loaded a market). It is also where you switch **paper trading mode** on, and
-where, on the desktop heads, you set the audio engine's latency. An appearance section
-sets the theme and chart colours — most relevant to a sighted collaborator looking
-over your shoulder — and an alerts section holds the email, Telegram, and named-webhook delivery
-details (add/remove webhook rows, each with a name and URL) that let fired alerts reach you away from the keyboard. Changes apply when you
-close the dialog.
+Press F12 for the settings dialog. It has eight tabs — **General, Speech,
+Sonification, Appearance, Keyboard, Alerts, License, About** — and Left and Right arrows
+move between them. **Speech** mirrors the F2 toggle and holds the smaller choices that tune
+how much the terminal says: whether it speaks timestamps and when, whether it reads column
+headers, whether it announces each new bar as it closes (the rolling "Close … New bar …" you
+met when you first loaded a market), and **Describe chart patterns**, which adds formation
+narration to arrow-key navigation and to the new-bar announcement. **Sonification** mirrors
+F3 and holds the sound theme and the sound-under-the-mouse option. **General** is where you
+switch **paper trading mode** on and choose what the quick-trade risk percentage means, plus
+workspace, background-monitoring, braille, touch-bar, analysis, drawing and viewport
+preferences. **Appearance** is the theme — most relevant to a sighted collaborator looking
+over your shoulder — and the visual accommodations. **Alerts** holds the email, Telegram and
+named-webhook delivery details (add/remove webhook rows, each with a name and URL) that let
+fired alerts reach you away from the keyboard. Speech changes apply when you close the
+dialog; everything else applies as you change it.
 
 #### Appearance and the theme editor
 
@@ -2644,7 +2648,7 @@ The appearance section is easy to skip if you never look at the screen, and wort
 minute if you sometimes do, or if anyone ever looks at your screen with you.
 
 A theme covers the **whole window**, chart and chrome together, so switching one never
-leaves a themed chart sitting inside a fixed grey frame. **Steel Gray** is the default.
+leaves a themed chart sitting inside a fixed grey frame. **Classic** is the default.
 **Blackout** is pure black with white text, for OLED panels and for anyone who finds any
 lit background tiring; **High-contrast dark** and **High-contrast light** are the two
 built for maximum separation. **Paper** is a real light theme — warm off-white, near-black
@@ -2654,17 +2658,29 @@ deliberately *not* the default: they are accessibility tools, and greeting every
 with black-and-white made a finished application look like a debug harness. They are one
 setting away and unchanged.
 
-Beyond picking one, **New theme** starts from whichever theme is in use and **Customise…**
-opens the editor on a theme of your own. Either way you get all 33 colours the application
-can draw, grouped into sections you can jump between with your screen reader — top bar, chart
-area, candles, overlays, bottom bar, dialogs, text. Every picker carries a description of
-what the colour actually affects, because "gridlines, minor" means nothing on its own, and
-every change is announced as you make it — *"Rising candle set to #26A69A."* — so you know
-it took without needing to see it. Where two colours you have chosen are too close to read
-against each other, the editor **says so inline and leaves them alone**; it never quietly
-corrects your choice. **Reset all** returns to the base theme, and **Save and use** keeps
-your version as a named theme of your own, which saves and loads as text you can send to
-someone else.
+Beyond picking one, three buttons open the theme editor and mean what they say. **New
+theme** starts a raw theme from a plain scheme — black chart, green rising candles, red
+falling candles. **Clone theme** copies whichever theme the picker shows, built-in or your
+own, into a new theme you can rename. **Edit theme** changes one of your own themes in place;
+on a built-in it stays where it is and tells you why ("Built-in themes can't be edited. Use
+Clone to make your own copy.") rather than vanishing. Whichever way in, you get all 33
+colours the application can draw, grouped into sections you can jump between with your
+screen reader — top bar, chart area, candles, overlays, bottom bar, dialogs, text. The chart
+background and its gradient are the **Chart top** and **Chart bottom** colours there, and a
+**Blend into one gradient** group at the top of the editor colours the toolbars, chart and
+footer as one fade from a top colour to a bottom colour, six fields at once, each of which
+you can still change or revert afterwards. Every picker carries a description of what the
+colour actually affects, because "gridlines, minor" means nothing on its own, and every change
+is announced as you make it — *"Rising candle set to #26A69A."* — so you know it took without
+needing to see it. Where two colours you have chosen are too close to read against each
+other, the editor **says so inline and leaves them alone**; it never quietly corrects your
+choice. **Reset all** returns to the base theme, and **Save and use** keeps your version as a
+named theme of your own, which saves and loads as text you can send to someone else.
+
+Before 2.6.0 the Appearance tab also held a chart background colour, a gradient, a window
+gradient switch and a bullish/bearish colour pair that were layered over *every* theme.
+Those are gone: a colour belongs to a theme now, and anything you had set there is ignored.
+To get the same look back, Clone the theme you use and set the colours in the editor.
 
 The **Analysis** group on the general tab holds one preference worth knowing about:
 **Add Market Structure (swing highs and lows) to new charts**, which is on by
@@ -2674,8 +2690,8 @@ it if you would rather add that indicator per chart. It changes what happens on 
 stripping an indicator off a chart you were reading would be a worse surprise than
 the setting waiting one load to take effect.
 
-**Visual accessibility options.** The Appearance tab also carries a group of visual
-accommodations. All of them are **off by default** — the terminal presents itself
+**Visual accessibility options.** Under the theme, the Appearance tab carries a group of
+visual accommodations. All of them are **off by default** — the terminal presents itself
 audio-first, and these exist for users who want a visual channel too. Each applies
 and saves the moment you toggle it:
 
@@ -2690,18 +2706,12 @@ and saves the moment you toggle it:
 - **Hollow up-candles** draws rising candles as outlines and falling candles filled,
   making direction readable by shape alone, with any colours.
 
-The Colors group also lets you set the chart's **background colour**, and — new — turn
-on a **Gradient background**: tick it and a second ("bottom") colour picker appears, so
-the chart pane fills top-to-bottom with a smooth blend between the two colours instead
-of a flat fill. Like everything else here it is a purely cosmetic, opt-in preference —
-off by default, and it never touches speech or sonification.
-
 The same group holds a **Text size** selector (85% to 175%) that scales the
 interface text throughout the terminal — browser zoom still works on top of it. And
 at the top of the whole dialog there is now a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
-never need to remember which of the six tabs holds a setting.
+never need to remember which of the eight tabs holds a setting.
 
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled
@@ -2765,7 +2775,7 @@ bells: flute, clarinet, pipe-organ registrations, glass, and string-ensemble
 patches (they appear as "Voice: …" in every patch dropdown). They exist for the
 sound themes below but you can assign them anywhere by hand.
 
-**Sound themes.** Settings (F12), General, "Sound theme" assigns those factory
+**Sound themes.** Settings (F12), Sonification, "Sound theme" assigns those factory
 voices automatically, one instrument per indicator *family*: with the Orchestra
 theme, price and moving-average lines are a flute, bounded oscillators like the
 RSI a clarinet, zero-cross indicators like the MACD a pipe organ, and band edges

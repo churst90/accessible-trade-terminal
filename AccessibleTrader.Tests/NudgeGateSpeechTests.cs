@@ -197,9 +197,10 @@ public class NudgeGateSpeechTests
     public void UnderTheObjectTree_WithNoDrawingFocused_TheRemedyIsATreeKey()
     {
         // The manager's own refusal says "Page Up and Page Down move between series" — chart
-        // keys the tree does not honour. Arrowing in the tree moves the tree's focus, not the
-        // chart's focused series; Enter on a row is what does. A remedy naming the wrong key is
-        // worse than no remedy, so the dispatcher answers this one itself.
+        // keys the tree does not honour. The tree is selection-follows-focus: arrowing onto a
+        // series row focuses it on the chart (ObjectTreeSelectionFollowsFocusTests), so the
+        // remedy is the arrow key. A remedy naming the wrong key is worse than no remedy, so the
+        // dispatcher answers this one itself.
         var (dispatcher, bus) = Build(focusDrawing: false);
         bus.Publish(new ModalStateChangedEvent(true, CommandDispatcher.ObjectTreeModalName));
 
@@ -209,7 +210,7 @@ public class NudgeGateSpeechTests
         var fb = Feedback(bus);
         Assert.Equal(0, Nudges(bus));
         Assert.Equal(2, fb.Count);
-        Assert.Equal("Focus a drawing first. Enter on its row in the tree focuses it.", fb[0].Message);
+        Assert.Equal("Focus a drawing first. Arrow to its row in the tree.", fb[0].Message);
         Assert.DoesNotContain("Page", fb[0].Message);
         Assert.Null(fb[1].Message);
     }

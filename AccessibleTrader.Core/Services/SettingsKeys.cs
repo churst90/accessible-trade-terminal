@@ -22,29 +22,20 @@ namespace AccessibleTrader.Core.Services
         public const string VisualEarcons      = "accessibility.visualEarcons";
 
         // ── Appearance ───────────────────────────────────────────────────────
-        public const string BackgroundColor    = "appearance.backgroundColor";
-        public const string BackgroundGradient = "appearance.backgroundGradient";   // bool: gradient vs solid
-        public const string BackgroundColor2   = "appearance.backgroundColor2";     // gradient end (bottom) color
+        // RETIRED 2026-09-03 with the settings restructure, and deliberately NOT kept as
+        // constants: appearance.backgroundColor, appearance.backgroundGradient,
+        // appearance.backgroundColor2, appearance.bullishColor, appearance.bearishColor,
+        // appearance.unifiedGradient, appearance.unifiedGradientTop and
+        // appearance.unifiedGradientBottom. Each was an app-level colour layered over EVERY
+        // theme. Colours are a property of a theme now — the same six surfaces are fields in
+        // the theme editor and the window fade is one button there — and a stale value under
+        // one of these paths in settings.json is ignored (ThemeService.WithAccessibilityOverrides).
 
-        // Up/down colours for candles and volume. These are an APP-LEVEL preference, not a
-        // per-theme one: which colour means "up" is a habit a trader carries between themes,
-        // and having it change under them when they try a new look is exactly wrong. Absent
-        // means "use the theme's own pair", which is how the accessibility themes keep their
-        // deliberate high-contrast choices.
-        public const string BullishColor       = "appearance.bullishColor";
-        public const string BearishColor       = "appearance.bearishColor";
-
-        // Treat the toolbar band, the chart and the footer band as slices of ONE top-to-bottom
-        // fade instead of three independently coloured regions. Off by default: a theme decides
-        // its own look, and this overrides all three at once.
         // Id of the user's own theme currently in use, or empty for a built-in one. Kept
         // separate from UiTheme rather than folded into it: a custom theme still records which
         // built-in it is BASED ON, so both facts have to survive a restart.
         public const string CustomThemeId        = "appearance.customThemeId";
 
-        public const string UnifiedGradient       = "appearance.unifiedGradient";
-        public const string UnifiedGradientTop    = "appearance.unifiedGradientTop";
-        public const string UnifiedGradientBottom = "appearance.unifiedGradientBottom";
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
         /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>
@@ -56,6 +47,12 @@ namespace AccessibleTrader.Core.Services
 
         // ── Audio ────────────────────────────────────────────────────────────
         public const string SoundTheme         = "audio.soundTheme";
+        /// <summary>
+        /// Persisted and mirrored into <c>WorkspaceState</c> and the audio profile, and read by
+        /// NOTHING in the audio stack — no driver on any head consults it. Its Settings control was
+        /// removed 2026-09-03; the key and the state field stay only so saved profiles and the
+        /// sandbox wire format keep their shape. See <c>SettingsWiringAuditTests.NoDirectControl</c>.
+        /// </summary>
         public const string WasapiLatency      = "audio.wasapiLatency";
 
         // ── Speech (stage b: persisted mirrors of WorkspaceState preferences) ─

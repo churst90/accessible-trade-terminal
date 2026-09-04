@@ -339,34 +339,11 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Up_and_down_colours_are_an_app_preference_that_outranks_the_theme()
-        {
-            // "Which colour means up" is a habit carried between themes. It must not change
-            // under the user when they try a new look.
-            var settings = Substitute.For<ISettingsManager>();
-            settings.GetSetting(SettingsKeys.BullishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
-                .Returns(new Newtonsoft.Json.Linq.JValue("#00A2FF"));
-            settings.GetSetting(SettingsKeys.BearishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
-                .Returns(new Newtonsoft.Json.Linq.JValue("#FF7700"));
-
-            var service = new ThemeService(settings);
-
-            foreach (var type in Enum.GetValues<ThemeType>())
-            {
-                service.SetTheme(type);
-                Assert.Equal(new SKColor(0x00, 0xA2, 0xFF), service.Current.CandleBullishBody);
-                Assert.Equal(new SKColor(0xFF, 0x77, 0x00), service.Current.CandleBearishBody);
-                // Volume follows, keeping its own alpha so it stays behind the candles.
-                Assert.Equal(0x00, service.Current.VolumeBullish.Red);
-                Assert.True(service.Current.VolumeBullish.Alpha < 255);
-            }
-        }
-
-        [Fact]
-        public void Without_that_preference_each_theme_keeps_its_own_pair()
+        public void Each_theme_keeps_its_own_up_and_down_pair()
         {
             // High Contrast Dark's white-on-red is a deliberate accessibility choice, not a
-            // default waiting to be replaced.
+            // default waiting to be replaced. The app-level up/down pair that used to outrank it
+            // was retired 2026-09-03 (VisualAccessibilityTests.Retired_colour_overrides_are_ignored).
             var service = new ThemeService(Substitute.For<ISettingsManager>());
             service.SetTheme(ThemeType.HighContrastDark);
 
@@ -664,30 +641,6 @@ namespace AccessibleTrader.Tests
             Assert.Null(Build(ThemeType.Blackout).BackgroundGradientEnd);
         }
 
-        [Fact]
-        public void A_custom_up_colour_that_collides_with_a_theme_is_a_thing_that_CAN_happen()
-        {
-            // Documenting the trap rather than pretending it away. Up/down colour survives theme
-            // switches — correct for a habit — so someone can pick near-white candles and later
-            // select a light theme and end up with an invisible chart, with neither choice wrong
-            // on its own. The presets never collide with themselves; only a custom pair can.
-            // Settings shows a live warning for exactly this, and deliberately does NOT correct
-            // it: silently overriding someone's colour is worse than letting them see and decide.
-            var settings = Substitute.For<ISettingsManager>();
-            settings.GetSetting(SettingsKeys.BullishColor, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
-                .Returns(new Newtonsoft.Json.Linq.JValue("#FFFFFF"));
-
-            var service = new ThemeService(settings);
-            service.SetTheme(ThemeType.HighContrastLight);   // white background
-
-            int d = DistanceSq(service.Current.CandleBullishBody, service.Current.Background);
-
-            Assert.True(d < 12_000,
-                "This test exists to pin that the collision is possible and therefore worth warning " +
-                "about. If it starts failing, the override behaviour changed and the warning in " +
-                "Settings may no longer be reachable.");
-        }
-
         // ── The unified-gradient option ──────────────────────────────────
 
         [Fact]
@@ -734,36 +687,6 @@ namespace AccessibleTrader.Tests
             for (int i = 1; i < stops.Length; i++)
                 Assert.True(stops[i] < stops[i - 1],
                     $"Band {i} is lighter than the band above it ({stops[i]:0.000} vs {stops[i - 1]:0.000}).");
-        }
-
-        [Fact]
-        public void UnifiedGradient_isOffUnlessAskedFor()
-        {
-            // A theme decides its own look; this overrides all three bands at once, so it cannot
-            // be something that happens by default.
-            var settings = Substitute.For<ISettingsManager>();
-            var service = new ThemeService(settings);
-
-            // Steel happens to line its own seams up, so compare against a theme that does not.
-            service.SetTheme(ThemeType.HighContrastDark);
-            Assert.NotEqual(service.Current.SurfaceRaised, service.Current.Background);
-        }
-
-        [Fact]
-        public void UnifiedGradient_withNoColoursChosenSmoothsTheThemesOwnEnds()
-        {
-            // Ticking the box alone has to do something sensible, rather than demanding two
-            // colour choices before it will work.
-            var settings = Substitute.For<ISettingsManager>();
-            settings.GetSetting(SettingsKeys.UnifiedGradient, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
-                .Returns(new Newtonsoft.Json.Linq.JValue(true));
-
-            var service = new ThemeService(settings);
-            service.SetTheme(ThemeType.HighContrastDark);
-
-            // HighContrastDark's own extremes become the ends, and the seams close up.
-            Assert.Equal(service.Current.Background, service.Current.ChromeTopEnd);
-            Assert.Equal(service.Current.BackgroundGradientEnd, service.Current.ChromeBottom);
         }
 
         [Fact]

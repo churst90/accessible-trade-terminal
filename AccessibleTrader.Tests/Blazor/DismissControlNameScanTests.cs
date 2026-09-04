@@ -298,16 +298,25 @@ public class DismissControlNameScanTests
     {
         var (controls, dynamic) = ScanButtons();
 
-        Assert.True(controls.Count >= 150,
+        // The floor has come down twice as the library shed aria-labels on purpose (the
+        // toolbar's one-convention pass, then the 2026-09-03 settings restructure, which
+        // removed the colour-override buttons): over 200 when written, 151 before that
+        // restructure, 149 after it. A vacuity floor is there to catch a COLLAPSE, not a
+        // count, so it sits well under the number rather than one below it.
+        Assert.True(controls.Count >= 120,
             $"The button scan found only {controls.Count} statically-named controls in the RCL "
-            + $"({dynamic} skipped as dynamically named). It found over 200 when written; a "
+            + $"({dynamic} skipped as dynamically named). It found 149 on 2026-09-03; a "
             + "collapse means the path or the element regex stopped matching and both assertions "
             + "in this file are passing against nothing.");
 
-        Assert.True(controls.Count(c => c.FromAriaLabel) >= 100,
+        // Same story: 193 literal aria-labels at A2/F9, ~110 after the toolbar convention
+        // deleted every AriaLabel whose text already was the name, 98 after the settings
+        // restructure removed the colour-override rows. The floor guards the regex, not the
+        // library's appetite for aria-label.
+        Assert.True(controls.Count(c => c.FromAriaLabel) >= 80,
             $"Only {controls.Count(c => c.FromAriaLabel)} controls were read via aria-label. "
-            + "A2/F9 counted 193 literal aria-label values in this library; if this number falls "
-            + "off, the attribute regex is no longer matching them.");
+            + "A2/F9 counted 193 literal aria-label values in this library and 2026-09-03 counted "
+            + "98; if this number falls off, the attribute regex is no longer matching them.");
 
         // The population the 2.5.3 assertion actually judges: an aria-label AND statically
         // readable visible text. It is narrower than the count above (a labelled icon-only button

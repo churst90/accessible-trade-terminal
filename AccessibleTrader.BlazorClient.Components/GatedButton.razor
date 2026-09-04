@@ -138,10 +138,12 @@
     /// resolves to the empty string is not "no description" — it is a description of "",
     /// and it suppresses <c>title</c>, which is where a tooltip lives. That was measured
     /// in Chromium on 2026-09-03 and it had silently deleted the spoken tooltip from every
-    /// button in <c>ToolbarIconButton</c>, which shares this contract. No GatedButton call
-    /// site passes a <c>title</c> today, so for THIS component the change is filed as
-    /// robustness — the defect is demonstrated on ToolbarIconButton, not here — but the
-    /// mechanism is identical and the next call site that adds a tooltip would hit it.
+    /// button in <c>ToolbarIconButton</c>, which shares this contract. Since the settings
+    /// restructure later that day one call site DOES pass a <c>title</c> — Settings' "Edit
+    /// theme" (<c>s-theme-edit</c>, "Change {theme} in place") — so this is no longer only
+    /// robustness: while the gate is open the attribute is omitted and the title is the
+    /// description; while blocked the reason replaces it.
+    /// <c>SettingsModal_NewCloneEdit_OpenTheEditorInTheirOwnModes</c> pins the open half.
     /// </para>
     ///
     /// <para>

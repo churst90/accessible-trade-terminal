@@ -66,6 +66,7 @@
                     {
                         var captured = r;
                         <button style="display:block; width:100%; text-align:left; padding:5px 8px; background:transparent; border:none; cursor:pointer;"
+                                data-control-id="@captured.ControlId"
                                 @onclick="() => GoToSetting(captured)">
                             @captured.Label <span style="color:var(--text-muted); font-size:0.8rem;">— @captured.Tab tab</span>
                         </button>
@@ -75,7 +76,7 @@
 
             @* The roving tabindex below (0 on the active tab, -1 on the rest) is a PROMISE:
                it tells the browser that Tab reaches this group and ARROW KEYS move within
-               it. Only half of that was implemented, so five of these six tabs — including
+               it. Only half of that was implemented, so five of the then six tabs — including
                the entire keyboard-rebinding UI and the paper-account reset — were reachable
                by mouse only. The handler is the other half of the promise. *@
             <div role="tablist" aria-label="Settings categories"
@@ -115,104 +116,9 @@
                  aria-labelledby="tab-general"
                  hidden="@(_activeTab != "General")">
 
-                @* ── Speech ─────────────────────────────────────────────────── *@
+                @* ── Trading ─────────────────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Speech</legend>
-
-                    <div class="modal-row">
-                        <label for="s-speech-enabled">Speech enabled (F2)</label>
-                        <input id="s-speech-enabled" type="checkbox"
-                               checked="@Store.State.IsSpeechEnabled"
-                               @onchange="() => Store.Dispatch(new ToggleSpeechAction())" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-speak-timestamps">Speak timestamps</label>
-                        <input id="s-speak-timestamps" type="checkbox"
-                               checked="@Store.State.SpeakTimestamps"
-                               @onchange="e => _speakTimestamps = e.Value is bool b ? b : Store.State.SpeakTimestamps" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-timestamp-where">Speak the time</label>
-                        <select id="s-timestamp-where" value="@_timestampWhere"
-                                @onchange="OnTimestampWhereChanged">
-                            <option value="Always">On every reading</option>
-                            <option value="Along X Axis">Only when moving through time</option>
-                            <option value="Along Y Axis">Only when moving between series</option>
-                            <option value="None">Never</option>
-                        </select>
-                    </div>
-                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        The timestamp is the longest part of a spoken bar. Limiting it to sideways
-                        movement keeps left/right scanning quick without losing the date.
-                    </p>
-
-                    <div class="modal-row">
-                        <label for="s-speech-order">Speak values as</label>
-                        <select id="s-speech-order" value="@_speechOrder"
-                                @onchange="OnSpeechOrderChanged">
-                            <option value="HeaderValue">Name then value — "Close, 64,900"</option>
-                            <option value="ValueOnly">Value only — "64,900"</option>
-                            <option value="HeaderValueTimeOnly">Name and value, time only</option>
-                            <option value="HeaderValueDateOnly">Name and value, date only</option>
-                        </select>
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-read-headers">Read column headers</label>
-                        <input id="s-read-headers" type="checkbox"
-                               checked="@Store.State.ReadColumnHeaders"
-                               @onchange="e => _readHeaders = e.Value is bool b ? b : Store.State.ReadColumnHeaders" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-announce-bars">Announce new bars</label>
-                        <input id="s-announce-bars" type="checkbox"
-                               checked="@Store.State.AnnounceNewBars"
-                               @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
-                    </div>
-
-                    @* Off by default. It adds narration to arrow-key navigation, which the user
-                       performs constantly, so it is opted into rather than imposed — the same rule
-                       the visual-accessibility additions follow. Patterns still FORMING are read
-                       with their trigger level so they can be acted on; completed ones close the
-                       loop. Nothing is ever called bullish or bearish. *@
-                    <div class="modal-row">
-                        <label for="s-chart-patterns">Describe chart patterns while navigating</label>
-                        <input id="s-chart-patterns" type="checkbox"
-                               checked="@Store.State.DescribeChartPatterns"
-                               @onchange="e => _describeChartPatterns = e.Value is bool b ? b : Store.State.DescribeChartPatterns" />
-                    </div>
-
-                    @if (_speechOutput is { IsBrowserTtsBackend: true })
-                    {
-                        <div class="modal-row">
-                            <label for="s-speech-output">Speech output on this device</label>
-                            <select id="s-speech-output" value="@_speechOutputMode"
-                                    @onchange="OnSpeechOutputChanged">
-                                <option value="sr">My screen reader does the talking</option>
-                                <option value="tts">Browser voice reads everything</option>
-                                <option value="both">Both together</option>
-                            </select>
-                        </div>
-                        <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                            Remembered per browser, not per account — a screen reader can't be
-                            detected, so tell the terminal which voice should talk here.
-                        </p>
-                    }
-
-                    <div class="modal-row">
-                        <label for="s-mute-includes-orders">Mute order outcomes too</label>
-                        <input id="s-mute-includes-orders" type="checkbox"
-                               checked="@_muteIncludesOrderEvents"
-                               @onchange="e => _muteIncludesOrderEvents = e.Value is bool b ? b : _muteIncludesOrderEvents" />
-                    </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        Off by default: order outcomes — fills, stop hits, take profits — speak and
-                        sound even while Shift+F2 / Shift+F3 have alerts and events muted. Turn this
-                        on only if you truly want total silence; you will not hear your stops fire.
-                    </p>
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Trading</legend>
                     @* The paper/live toggle only makes sense where real-money trading exists
                        (desktop / local). In the hosted + demo builds trading is paper-only, so
                        there is nothing to toggle — hide it (paper mode is forced on elsewhere). *@
@@ -221,10 +127,11 @@
                         <div class="modal-row">
                             <label for="s-paper-trading">Paper trading</label>
                             <input id="s-paper-trading" type="checkbox"
+                                   aria-describedby="s-paper-trading-hint"
                                    checked="@_paperTradingMode"
                                    @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. Nothing reaches a broker and no money moves.</p>
+                        <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. Nothing reaches a broker and no money moves.</p>
 
                     }
                     @* Two established, genuinely different ways to size a trade. The terminal
@@ -233,12 +140,13 @@
                        a $45,700 one. Both are correct; only one is what you meant. *@
                     <div class="modal-row">
                         <label for="s-quick-sizing">Quick trade: the risk percentage means</label>
-                        <select id="s-quick-sizing" @onchange="e => _quickSizingMode = int.TryParse(e.Value?.ToString(), out int v) ? v : 0">
+                        <select id="s-quick-sizing" aria-describedby="s-quick-sizing-hint"
+                                @onchange="OnQuickSizingChanged">
                             <option value="0" selected="@(_quickSizingMode == 0)">The position's value</option>
                             <option value="1" selected="@(_quickSizingMode == 1)">What I lose if the stop is hit</option>
                         </select>
                     </div>
-                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                    <p id="s-quick-sizing-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
                         @if (_quickSizingMode == 0)
                         {
                             <text><strong>Position value.</strong> 0.5% of a $100,000 account buys $500 worth, whatever the stop is —
@@ -255,7 +163,7 @@
                     </p>
 
                     <div class="modal-row">
-                        <label for="s-paper-reset">Paper account</label>
+                        <span style="flex:1;">Paper account</span>
                         <button id="s-paper-reset" type="button" @onclick="ResetPaperAccount">Reset paper account</button>
                     </div>
                 </fieldset>
@@ -368,52 +276,6 @@
                 </fieldset>
                 }
 
-                @* ── Sonification ────────────────────────────────────────────── *@
-                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Sonification</legend>
-
-                    <div class="modal-row">
-                        <label for="s-sonif-enabled">Sonification enabled (F3)</label>
-                        <input id="s-sonif-enabled" type="checkbox"
-                               checked="@Store.State.IsSonificationEnabled"
-                               @onchange="() => Store.Dispatch(new ToggleSonificationAction())" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-wasapi">WASAPI latency (ms)</label>
-                        <input id="s-wasapi" type="number" min="50" max="500" step="10"
-                               value="@Store.State.WasapiLatency"
-                               @onchange="e => _wasapiLatency = int.TryParse(e.Value?.ToString(), out int v) ? v : Store.State.WasapiLatency" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-hover-sonif">Sound under the mouse</label>
-                        <input id="s-hover-sonif" type="checkbox"
-                               checked="@_hoverSonification"
-                               @onchange="OnHoverSonificationChanged" />
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-sound-theme">Sound theme</label>
-                        <select id="s-sound-theme"
-                                value="@_soundTheme"
-                                @onchange="OnSoundThemeChanged"
-                                aria-label="Sound theme: which instrument family each indicator uses">
-                            @foreach (var t in Core.Services.Audio.SoundThemes.All)
-                            {
-                                <option value="@t.Id">@t.Name</option>
-                            }
-                        </select>
-                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">Which family of instrument voices the indicators use.</p>
-                    </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        A theme gives each indicator family its own instrument so you can tell
-                        the RSI from the MACD from the price line by timbre alone during playback.
-                        Applies to newly added indicators; per-component patch choices in an
-                        indicator's Properties always win.
-                    </p>
-                </fieldset>
-
                 @* ── Touch navigation bar ────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
@@ -484,40 +346,6 @@
                     </div>
                 </fieldset>
 
-                @* ── Keyboard Shortcuts (read-only reference) ────────────────── *@
-                <details style="margin-bottom:16px;">
-                    <summary style="cursor:pointer; font-weight:700; color:var(--text-on-surface); padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Keyboard Shortcuts Reference</h3></summary>
-                    <table class="shortcuts-table" style="margin-top:10px;">
-                        <thead><tr><th>Key</th><th>Action</th></tr></thead>
-                        <tbody>
-                            <tr><td>← →</td><td>Navigate bars</td></tr>
-                            <tr><td>↑ ↓</td><td>Switch component</td></tr>
-                            <tr><td>Page Up / Page Down</td><td>Switch series</td></tr>
-                            <tr><td>Home / End</td><td>Jump to viewport start/end</td></tr>
-                            <tr><td>\</td><td>Jump to live bar</td></tr>
-                            <tr><td>[ ]</td><td>Pan left / right</td></tr>
-                            <tr><td>- =</td><td>Zoom out / in</td></tr>
-                            <tr><td>Shift+[ ]</td><td>Decrease / increase pan step</td></tr>
-                            <tr><td>Shift+- =</td><td>Decrease / increase playback speed</td></tr>
-                            <tr><td>Space</td><td>Play chart</td></tr>
-                            <tr><td>Shift+Space</td><td>Play series</td></tr>
-                            <tr><td>F1</td><td>Help reference</td></tr>
-                            <tr><td>F2</td><td>Toggle speech</td></tr>
-                            <tr><td>F3</td><td>Toggle sonification</td></tr>
-                            <tr><td>F4</td><td>Context summary</td></tr>
-                            <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td></tr>
-                            <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td></tr>
-                            <tr><td>F7 / Shift+F7</td><td>Chart volume up / down</td></tr>
-                            <tr><td>F12</td><td>Settings (this dialog)</td></tr>
-                            <tr><td>Shift+F12</td><td>Properties</td></tr>
-                            <tr><td>H</td><td>Toggle indicator visibility</td></tr>
-                            <tr><td>Alt+H</td><td>Toggle liquidity heatmap</td></tr>
-                            <tr><td>M</td><td>Toggle indicator audio</td></tr>
-                            <tr><td>Ctrl+Shift+D</td><td>Deep dive detail fact</td></tr>
-                        </tbody>
-                    </table>
-                </details>
-
                 @* ── Data Export ─────────────────────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Data Export</legend>
@@ -555,116 +383,171 @@
                 </fieldset>
             </div>
 
+            @* ── Speech tab ────────────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-speech"
+                 aria-labelledby="tab-speech"
+                 hidden="@(_activeTab != "Speech")">
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Speech</legend>
+
+                    <div class="modal-row">
+                        <label for="s-speech-enabled">Speech enabled (F2)</label>
+                        <input id="s-speech-enabled" type="checkbox"
+                               checked="@Store.State.IsSpeechEnabled"
+                               @onchange="() => Store.Dispatch(new ToggleSpeechAction())" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-speak-timestamps">Speak timestamps</label>
+                        <input id="s-speak-timestamps" type="checkbox"
+                               checked="@Store.State.SpeakTimestamps"
+                               @onchange="e => _speakTimestamps = e.Value is bool b ? b : Store.State.SpeakTimestamps" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-timestamp-where">Speak the time</label>
+                        <select id="s-timestamp-where" value="@_timestampWhere"
+                                @onchange="OnTimestampWhereChanged">
+                            <option value="Always">On every reading</option>
+                            <option value="Along X Axis">Only when moving through time</option>
+                            <option value="Along Y Axis">Only when moving between series</option>
+                            <option value="None">Never</option>
+                        </select>
+                    </div>
+                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        The timestamp is the longest part of a spoken bar. Limiting it to sideways
+                        movement keeps left/right scanning quick without losing the date.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-speech-order">Speak values as</label>
+                        <select id="s-speech-order" value="@_speechOrder"
+                                @onchange="OnSpeechOrderChanged">
+                            <option value="HeaderValue">Name then value — "Close, 64,900"</option>
+                            <option value="ValueOnly">Value only — "64,900"</option>
+                            <option value="HeaderValueTimeOnly">Name and value, time only</option>
+                            <option value="HeaderValueDateOnly">Name and value, date only</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-read-headers">Read column headers</label>
+                        <input id="s-read-headers" type="checkbox"
+                               checked="@Store.State.ReadColumnHeaders"
+                               @onchange="e => _readHeaders = e.Value is bool b ? b : Store.State.ReadColumnHeaders" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-announce-bars">Announce new bars</label>
+                        <input id="s-announce-bars" type="checkbox"
+                               checked="@Store.State.AnnounceNewBars"
+                               @onchange="e => _announceBars = e.Value is bool b ? b : Store.State.AnnounceNewBars" />
+                    </div>
+
+                    @* Off by default. It adds narration to arrow-key navigation, which the user
+                       performs constantly, so it is opted into rather than imposed — the same rule
+                       the visual-accessibility additions follow. Patterns still FORMING are read
+                       with their trigger level so they can be acted on; completed ones close the
+                       loop. Nothing is ever called bullish or bearish. Since 2026-09-03 the same
+                       switch also gates the pattern outcome in the new-bar announcement, which is
+                       why the label no longer says "while navigating". *@
+                    <div class="modal-row">
+                        <label for="s-chart-patterns">Describe chart patterns</label>
+                        <input id="s-chart-patterns" type="checkbox"
+                               checked="@Store.State.DescribeChartPatterns"
+                               @onchange="e => _describeChartPatterns = e.Value is bool b ? b : Store.State.DescribeChartPatterns" />
+                    </div>
+
+                    @if (_speechOutput is { IsBrowserTtsBackend: true })
+                    {
+                        <div class="modal-row">
+                            <label for="s-speech-output">Speech output on this device</label>
+                            <select id="s-speech-output" value="@_speechOutputMode"
+                                    @onchange="OnSpeechOutputChanged">
+                                <option value="sr">My screen reader does the talking</option>
+                                <option value="tts">Browser voice reads everything</option>
+                                <option value="both">Both together</option>
+                            </select>
+                        </div>
+                        <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                            Remembered per browser, not per account — a screen reader can't be
+                            detected, so tell the terminal which voice should talk here.
+                        </p>
+                    }
+
+                    <div class="modal-row">
+                        <label for="s-mute-includes-orders">Event mute includes order outcomes</label>
+                        <input id="s-mute-includes-orders" type="checkbox"
+                               aria-describedby="s-mute-orders-hint"
+                               checked="@_muteIncludesOrderEvents"
+                               @onchange="e => _muteIncludesOrderEvents = e.Value is bool b ? b : _muteIncludesOrderEvents" />
+                    </div>
+                    <p id="s-mute-orders-hint" style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        When Shift+F2 or Shift+F3 has events muted, fills, stop hits and
+                        take-profits are silenced as well. Off by default so your stops still speak.
+                    </p>
+                </fieldset>
+
+            </div>
+
+            @* ── Sonification tab ──────────────────────────────────────────── *@
+            <div role="tabpanel" id="tabpanel-sonification"
+                 aria-labelledby="tab-sonification"
+                 hidden="@(_activeTab != "Sonification")">
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Sonification</legend>
+
+                    <div class="modal-row">
+                        <label for="s-sonif-enabled">Sonification enabled (F3)</label>
+                        <input id="s-sonif-enabled" type="checkbox"
+                               checked="@Store.State.IsSonificationEnabled"
+                               @onchange="() => Store.Dispatch(new ToggleSonificationAction())" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-hover-sonif">Sound under the mouse</label>
+                        <input id="s-hover-sonif" type="checkbox"
+                               checked="@_hoverSonification"
+                               @onchange="OnHoverSonificationChanged" />
+                    </div>
+
+                    <div class="modal-row">
+                        <label for="s-sound-theme">Sound theme</label>
+                        <select id="s-sound-theme"
+                                value="@_soundTheme"
+                                @onchange="OnSoundThemeChanged"
+                                aria-label="Sound theme: which instrument family each indicator uses">
+                            @foreach (var t in Core.Services.Audio.SoundThemes.All)
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        One instrument per indicator family, so the RSI, the MACD and the price
+                        line are told apart by timbre. Applies to indicators you add from now on.
+                    </p>
+                </fieldset>
+
+            </div>
+
             @* ── Appearance tab ────────────────────────────────────────────── *@
             <div role="tabpanel" id="tabpanel-appearance"
                  aria-labelledby="tab-appearance"
                  hidden="@(_activeTab != "Appearance")">
 
-                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Colors</legend>
-
-                    <div class="modal-row">
-                        <label for="s-bg-color">Background color@(_backgroundGradient ? " (top)" : "")</label>
-                        <input id="s-bg-color" type="color"
-                               value="@_backgroundColor"
-                               @onchange="OnBackgroundColorChanged"
-                               aria-label="Chart background color@(_backgroundGradient ? " (top of gradient)" : "")" />
-                        <button @onclick="ResetBackgroundColor"
-                                aria-label="Reset to theme default background color">
-                            Reset to theme default
-                        </button>
-                    </div>
-
-                    <div class="modal-row">
-                        <label for="s-bg-gradient">Gradient background</label>
-                        <input id="s-bg-gradient" type="checkbox"
-                               checked="@_backgroundGradient"
-                               @onchange="OnBackgroundGradientChanged"
-                               aria-label="Use a gradient background instead of a solid color" />
-                    </div>
-                    @if (_backgroundGradient)
-                    {
-                        <div class="modal-row">
-                            <label for="s-bg-color2">Background color (bottom)</label>
-                            <input id="s-bg-color2" type="color"
-                                   value="@_backgroundColor2"
-                                   @onchange="OnBackgroundColor2Changed"
-                                   aria-label="Background color (bottom) of the chart gradient" />
-                        </div>
-                    }
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        Cosmetic (audio-first users can ignore it). When gradient is on, the
-                        background fades vertically from the top color to the bottom color.
-                    </p>
-
-                </fieldset>
-
-                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Window gradient</legend>
-
-                    <div class="modal-row">
-                        <label for="s-unified-gradient">
-                            Blend the toolbars, chart and footer into one gradient
-                        </label>
-                        <input id="s-unified-gradient" type="checkbox"
-                               checked="@_unifiedGradient"
-                               @onchange="OnUnifiedGradientChanged" />
-                    </div>
-
-                    @if (_unifiedGradient)
-                    {
-                        <div class="modal-row">
-                            <label for="s-unified-top">Top of window</label>
-                            <input id="s-unified-top" type="color" value="@_unifiedTop"
-                                   @onchange="OnUnifiedTopChanged"
-                                   aria-label="Top of window color" />
-
-                            <label for="s-unified-bottom">Bottom of window</label>
-                            <input id="s-unified-bottom" type="color" value="@_unifiedBottom"
-                                   @onchange="OnUnifiedBottomChanged"
-                                   aria-label="Bottom of window color" />
-                        </div>
-                    }
-
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        Off by default — each theme colors its three regions itself. Turn this on
-                        and the toolbars, the chart and the footer each take the color the fade has
-                        reached where they sit, so the whole window reads as one surface. Leaving
-                        the two colors alone smooths whatever the current theme already had.
-                    </p>
-                </fieldset>
-
-                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Up and down colors</legend>
-
-                    <div class="modal-row">
-                        <label for="s-bull-color">Bullish (up)</label>
-                        <input id="s-bull-color" type="color" value="@_bullishColor"
-                               @onchange="OnBullishColorChanged"
-                               aria-label="Bullish (up) color for rising candles and volume" />
-
-                        <label for="s-bear-color">Bearish (down)</label>
-                        <input id="s-bear-color" type="color" value="@_bearishColor"
-                               @onchange="OnBearishColorChanged"
-                               aria-label="Bearish (down) color for falling candles and volume" />
-
-                        <button type="button" @onclick="ResetDirectionColors"
-                                aria-label="Use theme's own up and down colors">Use theme's</button>
-                    </div>
-                    @if (DirectionColorWarning is { } warning)
-                    {
-                        <p role="status" aria-live="polite"
-                           style="margin:8px 0 0; color:#ffb300; font-size:0.9em;">
-                            @warning
-                        </p>
-                    }
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        Applies to candles and volume bars, and stays put when you change theme —
-                        which color means "up" is a habit, not a decoration. Reset to let each
-                        theme use its own pair (High Contrast Dark deliberately uses white and red).
-                    </p>
-                </fieldset>
-
+                @* ── Theme ───────────────────────────────────────────────────────
+                   ONE panel, called Theme (Cody's call, 2026-09-03). The chart background,
+                   its gradient, the window fade and the up/down candle pair used to sit here
+                   as app-level colours layered over EVERY theme; they are fields of a theme
+                   now, edited in the theme editor, and the app-level keys are retired
+                   (ThemeService.WithAccessibilityOverrides). Three verbs: New starts a raw
+                   theme from a safe scheme, Clone copies the selected theme — built-in or
+                   custom — into a new renameable one, Edit changes the selected custom theme
+                   in place. A built-in cannot be edited in place, so on one the Edit button
+                   is GATED, never disabled: the user hears why and is told to Clone. *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Theme</legend>
 
@@ -672,8 +555,7 @@
                         <label for="s-theme">Theme</label>
                         <select id="s-theme"
                                 value="@_selectedTheme"
-                                @onchange="OnThemeChanged"
-                                aria-label="Application theme">
+                                @onchange="OnThemeChanged">
                             <option value="SteelGray">Steel Gray</option>
                             <option value="Blackout">Blackout — black, white text</option>
                             <option value="Classic">Classic — familiar dark navy (default)</option>
@@ -699,23 +581,22 @@
                     </div>
 
                     <div class="modal-row">
-                        <button type="button" @onclick="NewTheme"
-                                aria-label="Create a new theme starting from the one in use">New theme</button>
-                        <button type="button" @onclick="CustomizeTheme"
-                                aria-label="Customise: open the theme editor and change any colour">Customise…</button>
+                        <button type="button" id="s-theme-new" @onclick="NewTheme"
+                                title="Start a theme from a plain black, green and red scheme">New theme</button>
+                        <button type="button" id="s-theme-clone" @onclick="CloneTheme"
+                                title="Copy @SelectedThemeName into a theme of your own">Clone theme</button>
+                        <GatedButton ElementId="s-theme-edit" OnClick="EditTheme" Gate="EditThemeGate"
+                                     title="@($"Change {SelectedThemeName} in place")">Edit theme</GatedButton>
                         @if (SelectedCustomTheme is { } sel)
                         {
-                            <button type="button" @onclick="DeleteTheme"
-                                    aria-label="Delete the theme @sel.Name">Delete @sel.Name</button>
+                            <button type="button" id="s-theme-delete" @onclick="DeleteTheme"
+                                    aria-label="Delete theme @sel.Name">Delete theme</button>
                         }
                     </div>
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        A theme covers the whole window — the toolbars and dialogs as well as the
-                        chart — so the application never ends up as a themed chart inside a
-                        differently-coloured frame. The colour and gradient settings above are
-                        layered on top of whichever theme is selected.
+                        A theme colours the whole window — toolbars, chart and dialogs — and
+                        every colour in it can be changed in the editor.
                     </p>
-
                 </fieldset>
 
                 @* Visual accessibility (Phase D). ALL OFF BY DEFAULT: the terminal
@@ -733,13 +614,9 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-pattern-visuals-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Shades each detected formation's span and draws its trigger level solid,
-                            with the conventional measured target faint and dashed. For low-vision
-                            users, or a sighted person reading the same screen — the spoken
-                            description already carries all of this. Off by default: a chart holding
-                            several formations at once gets busy. The measured target is drawn faintly
-                            on purpose, because it is a convention this project has never tested and a
-                            bold line would assert more than the words do.
+                            Shades each detected formation and draws its trigger level, for
+                            low-vision users or a sighted viewer — the spoken description already
+                            carries all of it.
                         </span>
                     </div>
 
@@ -752,9 +629,8 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-visual-earcons-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Mirrors every sound cue (order fills, setups, errors, new bars) as a brief
-                            on-screen badge — for deaf and hard-of-hearing users, or noisy environments.
-                            One gentle fade per event, never flashing.
+                            Shows an on-screen badge for each sound cue, for deaf and
+                            hard-of-hearing users.
                         </span>
                     </div>
 
@@ -767,9 +643,8 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-colorvision-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Replaces red/green up-down colors with blue/orange on candles and
-                            direction-colored bars — distinguishable with deuteranopia or protanopia.
-                            Overrides per-indicator direction colors while on.
+                            Blue for up and orange for down on candles and bars, for
+                            deuteranopia or protanopia.
                         </span>
                     </div>
 
@@ -782,8 +657,8 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-hollow-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Draws rising candles as outlines and falling candles filled, so direction
-                            is readable by shape alone — works with any colors.
+                            Rising candles as outlines, falling candles filled, so direction reads
+                            by shape alone.
                         </span>
                     </div>
 
@@ -803,8 +678,7 @@
                     </div>
                     <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
                         <span id="s-ui-scale-hint" style="font-size:0.85rem;color:var(--text-muted);">
-                            Scales the interface text throughout the terminal. Browser zoom still
-                            works on top of this.
+                            Scales the interface text; browser zoom still works on top.
                         </span>
                     </div>
                 </fieldset>
@@ -858,6 +732,41 @@
                         }
                     </tbody>
                 </table>
+
+                @* ── Keyboard Shortcuts (read-only reference) ────────────────── *@
+                <details style="margin-bottom:16px;">
+                    <summary style="cursor:pointer; font-weight:700; color:var(--text-on-surface); padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Keyboard Shortcuts Reference</h3></summary>
+                    <table class="shortcuts-table" style="margin-top:10px;">
+                        <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                        <tbody>
+                            <tr><td>← →</td><td>Navigate bars</td></tr>
+                            <tr><td>↑ ↓</td><td>Switch component</td></tr>
+                            <tr><td>Page Up / Page Down</td><td>Switch series</td></tr>
+                            <tr><td>Home / End</td><td>Jump to viewport start/end</td></tr>
+                            <tr><td>\</td><td>Jump to live bar</td></tr>
+                            <tr><td>[ ]</td><td>Pan left / right</td></tr>
+                            <tr><td>- =</td><td>Zoom out / in</td></tr>
+                            <tr><td>Shift+[ ]</td><td>Decrease / increase pan step</td></tr>
+                            <tr><td>Shift+- =</td><td>Decrease / increase playback speed</td></tr>
+                            <tr><td>Space</td><td>Play chart</td></tr>
+                            <tr><td>Shift+Space</td><td>Play series</td></tr>
+                            <tr><td>F1</td><td>Help reference</td></tr>
+                            <tr><td>F2</td><td>Toggle speech</td></tr>
+                            <tr><td>F3</td><td>Toggle sonification</td></tr>
+                            <tr><td>F4</td><td>Context summary</td></tr>
+                            <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td></tr>
+                            <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td></tr>
+                            <tr><td>F7 / Shift+F7</td><td>Chart volume up / down</td></tr>
+                            <tr><td>F12</td><td>Settings (this dialog)</td></tr>
+                            <tr><td>Shift+F12</td><td>Properties</td></tr>
+                            <tr><td>H</td><td>Toggle indicator visibility</td></tr>
+                            <tr><td>Alt+H</td><td>Toggle liquidity heatmap</td></tr>
+                            <tr><td>M</td><td>Toggle indicator audio</td></tr>
+                            <tr><td>Ctrl+Shift+D</td><td>Deep dive detail fact</td></tr>
+                        </tbody>
+                    </table>
+                </details>
+
             </div>
 
             @* ── Alerts tab ─────────────────────────────────────────────────── *@
@@ -1177,7 +1086,7 @@
     // handler indexes into it. Two lists would drift, and a drifted list here means an
     // arrow key that lands on a tab that is not there.
     private static readonly string[] SettingsTabs =
-        { "General", "Appearance", "Keyboard", "Alerts", "License", "About" };
+        { "General", "Speech", "Sonification", "Appearance", "Keyboard", "Alerts", "License", "About" };
 
     private static string TabElementId(string tab) => "tab-" + tab.ToLowerInvariant();
 
@@ -1200,12 +1109,11 @@
         catch { /* best-effort, as everywhere else — the tab is selected regardless */ }
     }
 
-    // Local copies for pending changes — General tab
+    // Local copies for pending changes — Speech tab (applied on Close)
     private bool _speakTimestamps;
     private bool _readHeaders;
     private bool _announceBars;
     private bool _describeChartPatterns;
-    private int _wasapiLatency;
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -1214,30 +1122,49 @@
     // (focused after the jump) + extra match keywords.
     private static readonly List<SettingEntry> _settingRegistry = new()
     {
-        new("Speech enabled", "General", "s-speech-enabled", "voice talk announce tts"),
-        new("Speak timestamps", "General", "s-speak-timestamps", "time date spoken"),
-        new("Read column headers", "General", "s-read-headers", "table grid"),
-        new("Announce new bars", "General", "s-announce-bars", "live candle close"),
-        new("Event mutes include order fills", "General", "s-mute-includes-orders", "silence mute stop take profit shift"),
-        new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
-        new("Speech output on this device", "General", "s-speech-output", "double speech screen reader browser voice orca tts"),
-        new("Paper trading mode", "General", "s-paper-trading", "simulated practice demo"),
+        new("Paper trading", "General", "s-paper-trading", "simulated practice demo"),
         new("Quick trade sizing", "General", "s-quick-sizing", "position size risk percent notional allocation stop"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
+        new("Resume last session at startup", "General", "s-resume-session", "autosave restore workspace"),
+        new("Keep watching other tabs", "General", "s-bg-monitor", "background monitoring alerts strategies"),
+        new("Check every", "General", "s-bg-poll", "background poll seconds interval refresh"),
+        new("Live-stream other tabs", "General", "s-bg-live-tabs", "background streaming tick fresh"),
+        new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
         new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
-        new("Sonification enabled", "General", "s-sonif-enabled", "tones audio sound music"),
-        new("Audio latency (WASAPI)", "General", "s-wasapi", "buffer delay sound"),
-        new("Panning granularity", "General", "s-granularity", "step scroll viewport"),
-        new("Background color", "Appearance", "s-bg-color", "chart theme"),
-        new("Theme", "Appearance", "s-theme", "dark light contrast solarized braille colors"),
-        new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
+        new("Touch toolbar", "General", "s-touch-nav", "touchscreen buttons navigation bar"),
+        new("Add Market Structure to new charts", "General", "s-market-structure", "swing highs lows analysis indicator default"),
+        new("Magnet snap", "General", "s-magnet-snap", "drawing anchors snap open high low close"),
+        new("Panning step", "General", "s-granularity", "step scroll viewport granularity"),
+        new("Speech enabled", "Speech", "s-speech-enabled", "voice talk announce tts"),
+        new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
+        new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
+        new("Speak values as", "Speech", "s-speech-order", "name value order header"),
+        new("Read column headers", "Speech", "s-read-headers", "table grid"),
+        new("Announce new bars", "Speech", "s-announce-bars", "live candle close"),
+        new("Describe chart patterns", "Speech", "s-chart-patterns", "formation double top triangle narration new bar"),
+        new("Speech output on this device", "Speech", "s-speech-output", "double speech screen reader browser voice orca tts"),
+        new("Event mute includes order outcomes", "Speech", "s-mute-includes-orders", "silence mute stop take profit shift fills"),
+        new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
+        new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
+        new("Sound theme", "Sonification", "s-sound-theme", "instrument voices patch orchestra"),
+        new("Theme", "Appearance", "s-theme", "dark light contrast solarized braille colors background gradient new clone edit"),
         new("Draw chart formations", "Appearance", "s-pattern-visuals", "pattern shape double top triangle target trigger visual low vision"),
+        new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
         new("Color-vision-safe chart colors", "Appearance", "s-colorvision", "colorblind deuteranopia protanopia red green blue orange"),
         new("Hollow up-candles", "Appearance", "s-hollow-candles", "colorblind outline shape candle"),
         new("Text size", "Appearance", "s-ui-scale", "font zoom scale magnify low vision bigger"),
-        new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap"),
+        new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap reference"),
         new("Email alerts", "Alerts", "s-email-host", "smtp mail notification"),
+        new("Email port", "Alerts", "s-email-port", "smtp 587 465"),
+        new("Email uses TLS", "Alerts", "s-email-tls", "smtp secure starttls"),
+        new("Email username", "Alerts", "s-email-user", "smtp login"),
+        new("Email password", "Alerts", "s-email-pass", "smtp login secret"),
+        new("Email from address", "Alerts", "s-email-from", "smtp sender"),
+        new("Email to address", "Alerts", "s-email-to", "smtp recipient"),
         new("Telegram alerts", "Alerts", "s-tg-token", "bot chat notification"),
+        new("Telegram chat id", "Alerts", "s-tg-chat", "bot chat notification"),
+        new("Send strategy setups to alerts", "Alerts", "s-setup-alerts", "setup webhook strategy"),
+        new("Setup webhook target", "Alerts", "s-setup-webhook", "setup webhook strategy channel"),
         new("License", "License", "tab-license", "tier supporter key gpl donate donation support cash app paypal"),
     };
 
@@ -1250,12 +1177,31 @@
         var q = _searchQuery.Trim();
         _searchResults = string.IsNullOrEmpty(q)
             ? new List<SettingEntry>()
-            : _settingRegistry.Where(s =>
+            : _settingRegistry.Where(s => IsRendered(s.ControlId) && (
                     s.Label.Contains(q, StringComparison.OrdinalIgnoreCase)
                     || s.Keywords.Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || s.Tab.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    || s.Tab.Contains(q, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
     }
+
+    /// <summary>
+    /// Whether this build renders the control a registry row points at. Seven rows sit under an
+    /// <c>@if</c> — paper trading is desktop-only, background monitoring and the braille display
+    /// are gated per host, the speech-output picker exists only on a browser-TTS head — and a
+    /// result for a control that is not there sends the user to a tab and drops focus on the
+    /// body (<c>focusElement</c> gives up silently on a missing id). The conditions are the same
+    /// expressions the markup uses; <c>SettingsSearchRegistryTests</c> cannot see an <c>@if</c>,
+    /// so <c>SettingsModal_SearchResults_NameOnlyControlsThatRender</c> checks this in the DOM.
+    /// </summary>
+    private bool IsRendered(string controlId) => controlId switch
+    {
+        "s-paper-trading"  => Demo.AllowLiveTrading,
+        "s-bg-monitor" or "s-bg-poll" or "s-bg-live-tabs" => Demo.AllowBackgroundMonitoring,
+        "s-bg-local"       => Demo.AllowBackgroundMonitoring && Platform.IsBrowserHost && !Demo.IsDemo && !Demo.IsHosted,
+        "s-braille-enabled" => !Platform.IsBrowserHost,
+        "s-speech-output"  => _speechOutput is { IsBrowserTtsBackend: true },
+        _ => true,
+    };
 
     private async Task GoToSetting(SettingEntry entry)
     {
@@ -1274,12 +1220,7 @@
     private bool _colorVisionSafe;
     private bool _hollowUpCandles;
     private int _uiScale = 100;
-    private string _backgroundColor = "#000000";
-    private bool   _backgroundGradient;
-    private string _backgroundColor2 = "#1a1a2e";
-    private string _candleUpColor   = "#00cc44";
-    private string _candleDownColor = "#cc2200";
-    private string _selectedTheme   = "HighContrastDark";
+    private string _selectedTheme   = Core.Services.ThemeService.DefaultTheme.ToString();
 
     // Alerts tab — loaded from ISettingsManager on ShowAsync, persisted on Close.
     private string _emailHost = string.Empty;
@@ -1307,8 +1248,6 @@
     {
         if (idx >= 0 && idx < _webhooks.Count) _webhooks.RemoveAt(idx);
     }
-
-    private static string SkColorToHex(SkiaSharp.SKColor c) => $"#{c.Red:X2}{c.Green:X2}{c.Blue:X2}";
 
     // Single source of truth is the <Version> property in Directory.Build.props; it flows into the
     // assembly informational version at build time, and Directory.Build.props appends the short
@@ -1348,12 +1287,26 @@
             .ToList();
     }
 
+    /// <summary>
+    /// The picker follows the service, not the other way round: when the theme editor's "Save
+    /// and use" applies a new custom theme underneath this dialog, the dropdown must show it
+    /// and Edit must become available on it. Before 2026-09-03 this only refreshed three colour
+    /// pickers that no longer exist.
+    /// </summary>
     private void OnThemeServiceChanged(object? sender, AccessibleTrader.Sdk.Theming.ChartTheme theme)
     {
-        _candleUpColor   = SkColorToHex(theme.CandleBullishBody);
-        _candleDownColor = SkColorToHex(theme.CandleBearishBody);
-        _backgroundColor = SkColorToHex(theme.Background);
+        SyncSelectedThemeFromService();
         InvokeAsync(StateHasChanged);
+    }
+
+    // A custom theme is stored by id, so the picker has to show that rather than the base it
+    // happens to be built on — otherwise reopening Settings silently reverts the selection.
+    private void SyncSelectedThemeFromService()
+    {
+        var activeCustomId = Settings.GetSetting(Core.Services.SettingsKeys.CustomThemeId)?.ToString();
+        _selectedTheme = !string.IsNullOrWhiteSpace(activeCustomId) && Themes.GetById(activeCustomId!) != null
+            ? $"custom:{activeCustomId}"
+            : ThemeService.Current.ThemeType.ToString();
     }
 
     private void OnThemeChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1423,55 +1376,6 @@
             $"Text size {_uiScale} percent.", true));
     }
 
-    // ── Background color override — persists + applies immediately like the
-    //    other appearance settings. Stored under ThemeService.BackgroundOverrideKey
-    //    and applied by ThemeService, so the renderer, background layer, and the
-    //    loading overlay all pick it up through ThemeService.Current.Background.
-    private void OnBackgroundColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
-        _backgroundColor = e.Value?.ToString() ?? _backgroundColor;
-        Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, _backgroundColor);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Chart background color changed.", true));
-    }
-
-    private void OnBackgroundGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
-        _backgroundGradient = e.Value is bool b ? b : _backgroundGradient;
-        Settings.SetSetting(Core.Services.SettingsKeys.BackgroundGradient, _backgroundGradient);
-        // Seed a bottom color the first time so the effect is visible immediately.
-        if (_backgroundGradient && Settings.GetSetting(Core.Services.SettingsKeys.BackgroundColor2) == null)
-            Settings.SetSetting(Core.Services.SettingsKeys.BackgroundColor2, _backgroundColor2);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _backgroundGradient ? "Gradient background on." : "Gradient background off.", true));
-    }
-
-    private void OnBackgroundColor2Changed(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
-        _backgroundColor2 = e.Value?.ToString() ?? _backgroundColor2;
-        Settings.SetSetting(Core.Services.SettingsKeys.BackgroundColor2, _backgroundColor2);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        EventBus.Publish(new RedrawEvent());
-    }
-
-    private void ResetBackgroundColor()
-    {
-        Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, string.Empty);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        _backgroundColor = SkColorToHex(ThemeService.Current.Background);
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Background color reset to theme default.", true));
-    }
-
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _hollowUpCandles = e.Value is bool b && b;
@@ -1520,11 +1424,6 @@
     private bool _marketStructureDefault;
     private string _timestampWhere = "Along X Axis";
     private string _speechOrder = "HeaderValue";
-    private bool _unifiedGradient;
-    private string _unifiedTop = "#676e79";
-    private string _unifiedBottom = "#17191d";
-    private string _bullishColor = "#77ff77";
-    private string _bearishColor = "#dd0000";
     private string _soundTheme = Core.Services.Audio.SoundThemes.ClassicId;
 
     private void OnHoverSonificationChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1562,46 +1461,6 @@
             _magnetSnap ? "Magnet snap on." : "Magnet snap off.", true));
     }
 
-    /// <summary>
-    /// Warns when a chosen up/down colour has landed too close to the chart background to see.
-    ///
-    /// <para>
-    /// The trap this closes: up/down colour is an APP-level preference that survives theme
-    /// switches, which is what you want for a habit — but it means someone who picks near-white
-    /// candles and later selects a light theme ends up with an invisible chart, and neither
-    /// choice was wrong on its own. The presets never collide with themselves (a test enforces
-    /// it); only a custom pair can, so this warns rather than overriding. Silently correcting
-    /// someone's colour would be worse than letting them see the problem and decide.
-    /// </para>
-    /// </summary>
-    private string? DirectionColorWarning
-    {
-        get
-        {
-            var theme = ThemeService.Current;
-            var bg = theme.Background;
-
-            static int DistSq(SkiaSharp.SKColor a, SkiaSharp.SKColor b)
-            {
-                int dr = a.Red - b.Red, dg = a.Green - b.Green, db = a.Blue - b.Blue;
-                return dr * dr + dg * dg + db * db;
-            }
-
-            const int TooClose = 12_000;
-            bool bullBad = DistSq(theme.CandleBullishBody, bg) < TooClose;
-            bool bearBad = DistSq(theme.CandleBearishBody, bg) < TooClose;
-
-            if (bullBad && bearBad)
-                return "Both colors are very close to the chart background — candles will be hard to see. " +
-                       "Pick brighter colors, or press \"Use theme's\".";
-            if (bullBad)
-                return "The bullish color is very close to the chart background — rising candles will be hard to see.";
-            if (bearBad)
-                return "The bearish color is very close to the chart background — falling candles will be hard to see.";
-            return null;
-        }
-    }
-
     // Both of these were honoured by SpeechFormatter and had no control anywhere — real
     // behaviour with no way to reach it, which the settings-wiring audit is built to catch.
     private void OnTimestampWhereChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1625,11 +1484,57 @@
             ? Themes.GetById(_selectedTheme["custom:".Length..])
             : null;
 
-    private void NewTheme() => EventBus.Publish(new OpenThemeEditorEvent(null));
+    /// <summary>The name the Clone and Edit tooltips speak — the custom theme's own, or the built-in's.</summary>
+    private string SelectedThemeName =>
+        SelectedCustomTheme?.Name
+        ?? (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var t) ? PrettyThemeName(t) : "the selected theme");
 
-    private void CustomizeTheme() => EventBus.Publish(new OpenThemeEditorEvent(SelectedCustomTheme?.Id));
+    private static string PrettyThemeName(AccessibleTrader.Sdk.Enums.ThemeType t) => t switch
+    {
+        AccessibleTrader.Sdk.Enums.ThemeType.SteelGray         => "Steel Gray",
+        AccessibleTrader.Sdk.Enums.ThemeType.AmberCrt          => "Amber CRT",
+        AccessibleTrader.Sdk.Enums.ThemeType.MidnightBlue      => "Midnight Blue",
+        AccessibleTrader.Sdk.Enums.ThemeType.HighContrastDark  => "High Contrast Dark",
+        AccessibleTrader.Sdk.Enums.ThemeType.HighContrastLight => "High Contrast Light",
+        AccessibleTrader.Sdk.Enums.ThemeType.SoftDark          => "Soft Dark",
+        AccessibleTrader.Sdk.Enums.ThemeType.Braille           => "Braille Optimized",
+        _                                                       => t.ToString(),
+    };
 
-    private void DeleteTheme()
+    private void NewTheme() => EventBus.Publish(new OpenThemeEditorEvent(Mode: ThemeEditorMode.New));
+
+    /// <summary>A copy of whatever the picker shows: the custom theme by id, or the built-in by type.</summary>
+    private void CloneTheme()
+    {
+        if (SelectedCustomTheme is { } preset)
+            EventBus.Publish(new OpenThemeEditorEvent(preset.Id, ThemeEditorMode.Clone));
+        else if (Enum.TryParse<AccessibleTrader.Sdk.Enums.ThemeType>(_selectedTheme, out var t))
+            EventBus.Publish(new OpenThemeEditorEvent(Mode: ThemeEditorMode.Clone, BaseTheme: t));
+        else
+            EventBus.Publish(new OpenThemeEditorEvent(Mode: ThemeEditorMode.Clone));
+    }
+
+    /// <summary>
+    /// Null when the picker shows one of the user's own themes; otherwise the sentence the gated
+    /// Edit button speaks. Re-read at click time by GatedButton, so switching the picker to a
+    /// built-in after the button was drawn still refuses correctly.
+    /// </summary>
+    private string? EditThemeGate() =>
+        SelectedCustomTheme != null ? null : "Built-in themes can't be edited. Use Clone to make your own copy.";
+
+    private void EditTheme()
+    {
+        if (SelectedCustomTheme is { } preset)
+            EventBus.Publish(new OpenThemeEditorEvent(preset.Id, ThemeEditorMode.Edit));
+    }
+
+    /// <summary>
+    /// The Delete button is rendered only while a custom theme is selected, so the element under
+    /// the user's finger disappears on the render this causes and focus would fall to
+    /// <c>&lt;body&gt;</c>, outside the dialog — the ObjectTree Delete defect in a new place.
+    /// Focus goes to the picker, which now shows the theme that took over.
+    /// </summary>
+    private async Task DeleteTheme()
     {
         if (SelectedCustomTheme is not { } preset) return;
 
@@ -1640,80 +1545,10 @@
         _selectedTheme = preset.BasedOn.ToString();
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Deleted {preset.Name}. Now using {preset.BasedOn}.", true));
-    }
-
-    private void OnUnifiedGradientChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-    {
-        _unifiedGradient = e.Value is bool b && b;
-        Settings.SetSetting(Core.Services.SettingsKeys.UnifiedGradient, _unifiedGradient);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        SyncUnifiedEndsFromTheme();
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _unifiedGradient
-                ? "The window is one gradient from top to bottom."
-                : "Each region uses the theme's own color again.", true));
-    }
-
-    private void OnUnifiedTopChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientTop, e.Value?.ToString(), isTop: true);
-
-    private void OnUnifiedBottomChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => SetUnifiedEnd(Core.Services.SettingsKeys.UnifiedGradientBottom, e.Value?.ToString(), isTop: false);
-
-    private void SetUnifiedEnd(string key, string? hex, bool isTop)
-    {
-        if (string.IsNullOrWhiteSpace(hex)) return;
-        if (isTop) _unifiedTop = hex; else _unifiedBottom = hex;
-
-        Settings.SetSetting(key, hex);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        EventBus.Publish(new RedrawEvent());
-    }
-
-    // Seed the pickers from whatever the theme resolved to, so switching the toggle on shows the
-    // colors actually in use rather than a pair the user never chose.
-    private void SyncUnifiedEndsFromTheme()
-    {
-        _unifiedTop = SkColorToHex(ThemeService.Current.SurfaceRaised);
-        _unifiedBottom = SkColorToHex(
-            ThemeService.Current.ChromeBottomEnd ?? ThemeService.Current.ChromeBottom);
-    }
-
-    private void OnBullishColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => SetDirectionColor(Core.Services.SettingsKeys.BullishColor, e.Value?.ToString(), isUp: true);
-
-    private void OnBearishColorChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
-        => SetDirectionColor(Core.Services.SettingsKeys.BearishColor, e.Value?.ToString(), isUp: false);
-
-    private void SetDirectionColor(string key, string? hex, bool isUp)
-    {
-        if (string.IsNullOrWhiteSpace(hex)) return;
-        if (isUp) _bullishColor = hex; else _bearishColor = hex;
-
-        Settings.SetSetting(key, hex);
-        Settings.SaveSettings();
-        // Re-applies the appearance overrides over the active theme and repaints.
-        ThemeService.RefreshAccessibilityOverrides();
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            isUp ? "Bullish color updated." : "Bearish color updated.", true));
-    }
-
-    private void ResetDirectionColors()
-    {
-        Settings.SetSetting(Core.Services.SettingsKeys.BullishColor, string.Empty);
-        Settings.SetSetting(Core.Services.SettingsKeys.BearishColor, string.Empty);
-        Settings.SaveSettings();
-        ThemeService.RefreshAccessibilityOverrides();
-        _bullishColor = SkColorToHex(ThemeService.Current.CandleBullishBody);
-        _bearishColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
-        EventBus.Publish(new RedrawEvent());
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Up and down colors reset to the theme's own pair.", true));
+            $"Deleted {preset.Name}. Now using {PrettyThemeName(preset.BasedOn)}.", true));
+        await InvokeAsync(StateHasChanged);
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-theme"); }
+        catch { /* best-effort, as everywhere else */ }
     }
 
     private void OnMarketStructureDefaultChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1813,6 +1648,17 @@
             $"Background check interval {_bgPollSeconds} seconds.", true));
     }
 
+    /// <summary>
+    /// The hint under the select is a paragraph a forms-mode user hears on the NEXT focus; the
+    /// change itself says which meaning was just chosen, in the words the hint leads with.
+    /// </summary>
+    private void OnQuickSizingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _quickSizingMode = int.TryParse(e.Value?.ToString(), out int v) ? v : 0;
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _quickSizingMode == 0 ? "Position value." : "Risk at the stop.", true));
+    }
+
     private void ResetPaperAccount()
     {
         Paper.ResetAccount();
@@ -1851,26 +1697,13 @@
         _hoverSonification = App.HoverSonification;
         _magnetSnap = App.MagnetSnap;
         _marketStructureDefault = App.MarketStructureOnByDefault;
-        _bullishColor = SkColorToHex(ThemeService.Current.CandleBullishBody);
-        _bearishColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
         _soundTheme = App.SoundTheme;
         _touchNavMode = App.TouchNavBarMode;
-        _wasapiLatency = Store.State.WasapiLatency;
         _visualEarcons   = App.VisualEarcons;
         _colorVisionSafe = App.ColorVisionSafe;
         _hollowUpCandles = App.HollowUpCandles;
         _uiScale         = App.UiScale;
-        _backgroundColor = SkColorToHex(ThemeService.Current.Background);
-        _backgroundGradient = Settings.GetSetting(Core.Services.SettingsKeys.BackgroundGradient)?.ToObject<bool>() ?? false;
-        _backgroundColor2 = Settings.GetSetting(Core.Services.SettingsKeys.BackgroundColor2)?.ToString() ?? _backgroundColor2;
-        _candleUpColor   = SkColorToHex(ThemeService.Current.CandleBullishBody);
-        _candleDownColor = SkColorToHex(ThemeService.Current.CandleBearishBody);
-        // A custom theme is stored by id, so the picker has to show that rather than the base
-        // it happens to be built on — otherwise reopening Settings silently reverts the selection.
-        var activeCustomId = Settings.GetSetting(Core.Services.SettingsKeys.CustomThemeId)?.ToString();
-        _selectedTheme = !string.IsNullOrWhiteSpace(activeCustomId) && Themes.GetById(activeCustomId!) != null
-            ? $"custom:{activeCustomId}"
-            : ThemeService.Current.ThemeType.ToString();
+        SyncSelectedThemeFromService();
 
         // Alerts config — pull fresh from settings so another component's edits
         // (or a crash-recovery re-open) show the persisted values.
@@ -1916,8 +1749,8 @@
 
     private void Close()
     {
-        // Apply all pending settings changes (General tab) as a single state update.
-        // Theme/appearance are applied immediately via ThemeService.SetTheme when changed.
+        // Apply all pending speech changes as a single state update. Theme and the visual
+        // accommodations are applied immediately, when changed.
         Store.Dispatch(new UpdateSettingsAction(s => s with
         {
             SpeakTimestamps  = _speakTimestamps,
@@ -1929,8 +1762,6 @@
             ReadColumnHeaders = _readHeaders,
             AnnounceNewBars  = _announceBars,
             DescribeChartPatterns = _describeChartPatterns,
-            WasapiLatency    = _wasapiLatency,
-            BackgroundColor  = _backgroundColor
         }));
 
         PersistAlertSettings();
@@ -2086,17 +1917,10 @@
         {
             string json = await JSRuntime.InvokeAsync<string>("accessibleTrader.readFileAsText", ".json");
             WorkspaceLibrary.ImportVisualProfile(json, Store);
-
-            // Apply the imported background to the live theme — the store value
-            // alone only feeds re-export; rendering reads ThemeService.Current.
-            var importedBg = Store.State.BackgroundColor;
-            if (!string.IsNullOrWhiteSpace(importedBg))
-            {
-                Settings.SetSetting(Core.Services.ThemeService.BackgroundOverrideKey, importedBg);
-                Settings.SaveSettings();
-                ThemeService.RefreshAccessibilityOverrides();
-                EventBus.Publish(new RedrawEvent());
-            }
+            // The profile's background colour lands in the store for re-export only. The
+            // app-level background override it used to drive was retired 2026-09-03 — the
+            // chart background is a field of the theme now.
+            EventBus.Publish(new RedrawEvent());
 
             _profileStatus = "Visual profile imported.";
             StateHasChanged();

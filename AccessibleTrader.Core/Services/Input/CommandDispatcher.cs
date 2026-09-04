@@ -179,11 +179,12 @@ namespace AccessibleTrader.Core.Services.Input
 
             // Under the tree, the manager's own "no drawing focused" refusal would name Page Up
             // and Page Down — chart keys the tree does not honour, and a remedy naming the wrong
-            // key is worse than no remedy. Arrowing in the tree moves the tree's focus, not the
-            // chart's focused series; Enter on a row is what focuses it.
+            // key is worse than no remedy. Since 2026-09-03 the tree is selection-follows-focus
+            // (the APG default for a single-select tree): arrowing onto a series row focuses that
+            // series on the chart, so the remedy is the arrow key.
             if (nudgeUnderObjectTree && !(FocusedSeries()?.IsDrawing ?? false))
             {
-                RefuseNudge("tree:no-drawing", "Focus a drawing first. Enter on its row in the tree focuses it.");
+                RefuseNudge("tree:no-drawing", "Focus a drawing first. Arrow to its row in the tree.");
                 return;
             }
 

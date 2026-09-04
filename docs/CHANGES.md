@@ -4,6 +4,82 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The tree that follows its own focus, the settings dialog with a tab for each sense, and the theme that owns its colours (2026-09-03)
+
+Three decisions Cody made this session, built.
+
+- **The Object Tree is selection-follows-focus.** Its rows always said `aria-selected` for the
+  CHART's focused series, but arrowing in the tree moved only the tree's focus — `SelectSeriesAction`
+  fired on Enter or click — so a user standing on "Rectangle 1" with "Trend line 2" focused pressed
+  Shift+Arrow (allowed under this dialog) and nudged Trend line 2, learning which from the settle
+  sentence's second-to-last clause. Now the row that has focus IS the chart's focused series: an
+  arrow onto a series row (or one of its component rows) focuses that series on the chart, and the
+  tree's one tab stop is that row, so Tab into the tree lands on the series the chart is on — the
+  WAI-ARIA APG default for a single-select tree. Two things the design review changed before it
+  shipped: the trigger is `@onfocus` on the treeitems, NOT `@onfocusin` on the row, because focusin
+  bubbles from the summary and the Hide/Mute/Delete buttons that Tab visits on its way out, and a
+  user tabbing to Close would have walked the chart's focus to the last series in the tree; and the
+  row's label no longer ends ", focused" — `aria-selected` is the spoken signal, and a NAME change on
+  the element that has focus is re-read by NVDA and Orca, so the suffix would have made every arrow
+  two utterances. The chart-side action speaks nothing on its own, so an arrow is one utterance.
+  The nudge refusal under the tree now says *"Focus a drawing first. Arrow to its row in the
+  tree."* `ObjectTreeSelectionFollowsFocusTests` (4); sabotage (the `@onfocus` deleted) reddens two.
+- **Settings has eight tabs: General, Speech, Sonification, Appearance, Keyboard, Alerts, License,
+  About.** The 440-line General panel is split: Speech and Sonification are tabs, and paper trading
+  and quick-trade sizing — which had been living INSIDE the Speech fieldset — are a Trading fieldset
+  on General. The read-only shortcuts reference moved to the Keyboard tab. The **"WASAPI latency
+  (ms)" field is gone**: nothing in the audio stack on any head reads the value, so it was a number
+  that saved, persisted and changed nothing — the strictly-worse-than-missing case
+  `SettingsWiringAuditTests` describes, recorded there as retired. **"Describe chart patterns while
+  navigating" is "Describe chart patterns"**, because since the seventh pass it also gates the
+  pattern outcome in the new-bar announcement. The search registry, which named about half the
+  settings and still pointed at the WASAPI field, now has one row per labelled control, and
+  `SettingsSearchRegistryTests` reads the file to keep it that way — every label has a row, every
+  row's control renders, every row's tab exists. Four more things the screen-reader review
+  found in the old markup and this pass fixed: `<label for>` on the "Reset paper account" BUTTON
+  outranked its own text, so it was announced as "Paper account" (HTML-AAM; a naming route the
+  Label-in-Name guard does not see); the three money-shaped hints — what the risk percentage
+  means, paper trading, and the event-mute extension — were paragraphs a forms-mode user never
+  heard, and are `aria-describedby` now; "Mute order outcomes too" had no antecedent once it left
+  the Speech fieldset and is "Event mute includes order outcomes"; and the visual-accessibility
+  hints are one sentence each.
+- **Appearance is ONE panel, called Theme, with New theme / Clone theme / Edit theme.** New starts a
+  raw theme from a plain scheme (black chart, #00ff00 rising, #ff0000 falling, on the Blackout base
+  so every text pair already clears the contrast gate). Clone copies whatever the picker shows —
+  a built-in or one of your own — into a new renameable theme. Edit changes the selected custom
+  theme in place, and on a built-in it is a `GatedButton`, never `disabled`: still there, still
+  named, and pressing it speaks *"Built-in themes can't be edited. Use Clone to make your own
+  copy."* The editor's heading names the mode and the theme ("Edit theme: Ocean"). The picker
+  follows the service, so after "Save and use" in the editor the dropdown shows the new theme and
+  Edit becomes available on it — before this the service change only refreshed three colour
+  pickers, and the gated Edit refused the user's own theme.
+- **The app-level colour overrides are RETIRED, not relocated.** The chart background, its
+  gradient end, the unified window fade with its two ends, and the bullish/bearish pair were eight
+  settings layered over EVERY theme, which is why the theme picker appeared not to work for anyone
+  who had set them. A colour is a property of a theme now: the same six surfaces are the editor's
+  Chart top / Chart bottom, Toolbar top / bottom and Footer top / bottom, and the window fade is a
+  **Blend into one gradient** group in the editor that writes those six overrides at once
+  (`UnifiedGradient.Apply`, the same arithmetic) so the result is saved WITH the theme and can be
+  reverted a field at a time. A value still in settings.json under one of the old keys is ignored
+  — `VisualAccessibilityTests.Retired_colour_overrides_are_ignored` pins it, and the constants are
+  deleted so the wiring audit cannot be satisfied by a reader that nothing can reach. Cody's call,
+  made knowing the pair was the cross-theme override; `PropertiesModal` keeps per-component
+  bullish/bearish colours. `ThemeEditorModeTests` (5), sabotages (New cloning the theme on screen;
+  Edit publishing Clone) redden the guards.
+- **Eight residuals from the diff-stage screen-reader review, all fixed:** the blend pickers
+  got the hex text twins every other colour row has (a `type="color"` input's only UI is the
+  browser popup); Delete theme moves focus to the picker instead of letting it fall to `<body>`
+  when its own button vanishes; search results are filtered to the controls THIS build renders
+  (seven rows sit under an `@if` — a result for the browser-TTS speech picker on a desktop head
+  sent the user to a tab and dropped focus); the tree's footer says what Enter does on a
+  component row (it toggles Hide); the sizing choice speaks "Position value." / "Risk at the
+  stop." on change; and three test gaps — the collapsed-pane tab stop, Tab through a row's
+  buttons NOT selecting (a regression to `@onfocusin` reddens it), and the open gate leaving
+  `title` as the description.
+- Two vacuity floors in `DismissControlNameScanTests` came down (150→120 static names, 100→80
+  aria-labels): both were one below the count after this pass removed the colour-override rows, and
+  a floor that sits one under the number is a count, not a collapse detector.
+
 ### The line that finally says where you are on it, the chord that explained why it would not move, and the pattern that closed on the bar you just heard (2026-09-03)
 
 Three of the four asks from the session's opening message, plus one defect found underneath the

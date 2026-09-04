@@ -567,11 +567,19 @@ Press F1 at any time to open the built-in keyboard reference. This lists every s
 
 ### Settings (F12)
 
-The Settings dialog contains tabs for:
-- General preferences (default symbol, timeframe, provider)
-- Audio preferences (default waveforms, playback speed, bell patch assignments)
-- Accessibility preferences (screen reader integration mode, speech rate adjustments)
-- Connection settings (data provider configuration)
+Eight tabs, Left and Right arrows between them, and a search box at the top that jumps to
+any setting by name:
+- **General** — paper trading and quick-trade sizing, resume last session, background
+  monitoring, braille display, touch toolbar, market structure on new charts, magnet snap,
+  panning step, data export and settings profiles
+- **Speech** — speech on/off, timestamps and when to speak them, value order, column headers,
+  announce new bars, describe chart patterns, which voice speaks on this device
+- **Sonification** — sonification on/off, sound under the mouse, sound theme
+- **Appearance** — the theme (New, Clone, Edit) and the visual accommodations: chart
+  formations drawn, visual earcons, colour-vision-safe colours, hollow up-candles, text size
+- **Keyboard** — rebind any shortcut, plus the reference table
+- **Alerts** — email, Telegram and webhook delivery
+- **License** and **About**
 
 ### Market watch (Alt+M)
 

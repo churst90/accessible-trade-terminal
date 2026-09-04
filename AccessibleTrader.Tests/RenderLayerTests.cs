@@ -23,17 +23,26 @@ namespace AccessibleTrader.Tests
 
         // ── Fixtures ───────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// A gradient theme is a CUSTOM theme now — the app-level background override and
+        /// gradient keys were retired 2026-09-03 — so the fixture goes through the same path a
+        /// user's saved theme does: a preset in the library, selected by id, with Chart top
+        /// white and Chart bottom black.
+        /// </summary>
         private static ThemeService Theme(bool gradient = false)
         {
             var settings = Substitute.For<ISettingsManager>();
             settings.GetSetting(Arg.Any<string>(), Arg.Any<JToken?>()).Returns((JToken?)null);
-            if (gradient)
-            {
-                settings.GetSetting(SettingsKeys.BackgroundGradient).Returns(new JValue(true));
-                settings.GetSetting(SettingsKeys.BackgroundColor2).Returns(new JValue("#000000"));
-                settings.GetSetting(SettingsKeys.BackgroundColor).Returns(new JValue("#FFFFFF"));
-            }
-            return new ThemeService(settings);
+            if (!gradient) return new ThemeService(settings);
+
+            var preset = AccessibleTrader.Sdk.Theming.ThemePreset
+                .Create("fade", AccessibleTrader.Sdk.Enums.ThemeType.HighContrastDark)
+                .With("chartTop", SKColors.White)
+                .With("chartBottom", SKColors.Black);
+            var library = Substitute.For<AccessibleTrader.Core.Services.Theming.IThemeLibrary>();
+            library.GetById(preset.Id).Returns(preset);
+            settings.GetSetting(SettingsKeys.CustomThemeId, Arg.Any<JToken?>()).Returns(new JValue(preset.Id));
+            return new ThemeService(settings, library);
         }
 
         private static List<Ohlcv> Bars(int n)

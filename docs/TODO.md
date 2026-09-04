@@ -117,6 +117,77 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-03, EIGHTH pass — the Object Tree is SELECTION-FOLLOWS-FOCUS,
+> Settings has EIGHT tabs, Appearance is ONE Theme panel with New/Clone/Edit, and the app-level
+> colour overrides are RETIRED. Item 1 of the seventh pass's list (settings restructure + the
+> pattern-toggle rename) is DONE, and the one decision that pass recorded for Cody (the tree)
+> is decided and built. What is LEFT is the numbered list at the end of this block.**
+>
+> ### DONE this pass
+>
+> **1. The tree follows its own focus.** Cody: "use the stand that the object tree follows chart
+> focus if that makes more logical sense" — it does, and it is the APG default for a single-select
+> tree. `@onfocus` on the level-2 series row and each level-3 component row dispatches
+> `SelectSeriesAction` (guarded on "differs"); the one tab stop is the focused series' row when
+> its pane is open, that pane's header when collapsed, the first pane header when nothing is
+> focused. **Two design-review corrections worth remembering:** (a) `@onfocusin` would have made
+> TAB a selection key — it bubbles from the `<summary>` and the Hide/Mute/Delete buttons, so
+> tabbing out to Close walked the chart's focus to the last series; (b) the ", focused" label
+> suffix was deleted — `aria-selected` is the spoken signal, and a NAME change on the focused
+> element is re-read by NVDA and Orca, so the suffix made every arrow two utterances. **Still
+> UNVERIFIED with Orca attached** (harness runs `NO_AT_BRIDGE=1`): whether the `aria-selected`
+> flip alone is re-announced. If it is, the remaining option is for `treeKeyboard.js
+> focusTreeitem` to set `aria-selected` synchronously BEFORE `.focus()`. Refusal sentence under
+> the tree: "Focus a drawing first. Arrow to its row in the tree." `ObjectTreeSelectionFollowsFocusTests` (4).
+>
+> **2. Settings: General, Speech, Sonification, Appearance, Keyboard, Alerts, License, About.**
+> Trading (paper, quick-trade sizing, reset) is its own fieldset on General — it had been INSIDE
+> the Speech fieldset. Shortcuts reference → Keyboard tab. **WASAPI latency deleted**: no audio
+> driver on any head reads it (`SettingsWiringAuditTests.NoDirectControl` records the retirement;
+> the key and `WorkspaceState.WasapiLatency` stay for profile/wire shape). "Describe chart
+> patterns" (rename done). Search registry: one row per labelled control, `SettingsSearchRegistryTests`
+> (3) reads the file. Screen-reader review fixes in the old markup: `<label for>` on the Reset
+> paper account BUTTON named it "Paper account" (HTML-AAM; the Label-in-Name guard cannot see this
+> route — **a `<label for>` pointing at a `<button>` is a naming bug every time**); three money hints
+> wired with `aria-describedby`; "Event mute includes order outcomes".
+>
+> **3. Appearance = Theme + Visual accessibility.** New theme (raw: Blackout base, #000000 chart,
+> #00ff00/#ff0000 candles), Clone theme (custom → new id + " copy"; built-in → sparse copy on that
+> base), Edit theme (in place; `GatedButton` on a built-in: "Built-in themes can't be edited. Use
+> Clone to make your own copy."). `OpenThemeEditorEvent(PresetId, Mode, BaseTheme)` with
+> `ThemeEditorMode { New, Clone, Edit }`; no-arg = Clone of the theme on screen (the catalog's cold
+> open). Editor heading names mode and theme. The picker syncs from `ThemeService.ThemeChanged`
+> so "Save and use" underneath Settings updates the dropdown and un-gates Edit.
+> `ThemeEditorModeTests` (5).
+>
+> **4. RETIRED (not relocated): the eight app-level colour keys** — background, gradient on/off,
+> gradient end, unified fade + two ends, bullish, bearish. `ThemeService.WithAccessibilityOverrides`
+> applies only the custom theme and the two accessibility toggles now; constants deleted from
+> `SettingsKeys`; a stale value in settings.json is ignored
+> (`VisualAccessibilityTests.Retired_colour_overrides_are_ignored`, sabotage-proven). The window
+> fade is a "Blend into one gradient" group in the editor writing six ordinary overrides through
+> `UnifiedGradient.Apply`. **Users who had set a background/pair lose it and get the theme's own;
+> the manual says to Clone and set Chart top/bottom.** Visual-profile import no longer writes the
+> background key (the profile's colour lands in state for re-export only).
+>
+> ### Cody's playback questions, answered in the session report
+>
+> Landmarks = `PlaybackNarration.LandmarkForStep`: the new hour/day/month/year each time a bar
+> crosses a calendar boundary one unit coarser than the bar spacing, paced ≥2 s apart at the
+> current speed, non-interrupting, one per step. Nothing else is spoken per bar. The recommendation
+> given: signal speech during playback is a **separate, playback-scoped switch**, not part of
+> Ctrl+Alt+Shift+N (which is per-series, live-bar-close, and fires the narrator's full tier ladder
+> including oscillator commentary); design as seventh-pass item (a).
+>
+> ### LEFT TO DO — the rest of 2.6.0, in this order
+>
+> **1. Modal background `inert`**, **2. Alerts consolidation** (move the Settings Alerts tab into
+> the Alt+J dialog behind a settings button — then Cody's tab order without Alerts is exact),
+> **3. Docs and the bump to 2.6.0** (WHATSNEW = 2.6.0 only; CHANGES lacks `[2.5.0]`; README for
+> non-engineers), **4. Object Tree follow-ups and the rest**, **5. (a) playback signal speech,
+> (b) drawing cross earcon, (c) approach earcon** — 2.6.x or 2.7 by Cody's call. The segfault dump
+> drop-in still needs Cody (seventh pass block below).
+
 > **START HERE (current as of 2026-09-03, SEVENTH pass — the drawing speech contract is
 > WIRED IN, the two silent nudge gates SPEAK, the nudge RUNS under the Object Tree, and a
 > chart pattern's outcome is part of the new-bar announcement. Items 1 and 2 of the sixth

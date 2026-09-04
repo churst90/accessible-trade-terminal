@@ -89,6 +89,13 @@ namespace AccessibleTrader.Tests
             // ThemeService.SetTheme, which persists it. Real control, indirect write.
             ["UiTheme"]            = "written by ThemeService.SetTheme from the Appearance theme picker",
 
+            // RETIRED, not a gap. Nothing in the audio stack reads the value on any head — the
+            // "WASAPI latency (ms)" field was a number that saved, persisted and changed nothing,
+            // which is the strictly-worse-than-missing case the first test above describes. The
+            // control was removed 2026-09-03; the key and WorkspaceState.WasapiLatency stay only
+            // so saved audio profiles and the sandbox wire format keep their shape.
+            ["WasapiLatency"]      = "retired 2026-09-03: no reader in the audio stack; kept for profile and wire-format shape",
+
             // A GENUINE GAP, recorded rather than hidden. SetupAlertBridge honours a per-symbol
             // webhook routing map, and nothing can populate it — the Settings alerts tab only
             // exposes the single fallback webhook. The feature works and is unreachable.

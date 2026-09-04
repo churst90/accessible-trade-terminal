@@ -40,13 +40,40 @@
                         var panes = Store.State.ActiveSeries.GroupBy(s => s.Pane).OrderBy(p => p.Key);
                     }
 
-                    @{ bool firstItem = true; }
+                    @* Selection follows focus (the APG default for a single-select tree, and
+                       Cody's call on 2026-09-03). aria-selected on a series row has always
+                       mirrored the CHART's focused series; until this pass arrowing in the tree
+                       moved only the tree's focus, so a user standing on "Rectangle 1" could be
+                       nudging "Trend line 2". Now the row that has focus IS the chart's focused
+                       series, by construction: focus landing on a series row (or one of its
+                       component rows) dispatches SelectSeriesAction, and the one tab stop
+                       (tabindex 0) is that row, so Tab into the tree lands on the series the
+                       chart is on. @onfocus, NOT @onfocusin — focusin bubbles from the summary
+                       and the Hide/Mute/Delete buttons inside the row, all of which Tab visits,
+                       so a user tabbing out to Close would have walked the chart's focus to the
+                       last series in the tree (design review, 2026-09-03). The chart-side action
+                       speaks nothing on its own, and the label no longer says ", focused":
+                       aria-selected is the spoken signal, and a NAME change on the element that
+                       has focus is re-read by NVDA and Orca — so an arrow is one utterance.
+                       treeKeyboard.js's roving tabindex writes agree with the render: it sets 0
+                       on the row it focuses, and the render sets 0 on the row that is focused. *@
+                    @{
+                        bool firstItem = true;
+                        // Where the one tab stop goes: the focused series' row when its pane is
+                        // open; that pane's header when it is collapsed (a tabindex of 0 on a row
+                        // inside a closed <details> is a stop nothing can reach, and Tab would
+                        // skip the tree); the first pane header when nothing is focused.
+                        string? focusedPane = FocusedSeriesPane();
+                        bool stopOnFocusedRow = focusedPane != null && IsPaneOpen(focusedPane);
+                    }
                     @foreach (var pane in panes)
                     {
+                        bool headerIsStop = focusedPane == null ? firstItem
+                                          : (!stopOnFocusedRow && pane.Key == focusedPane);
                         <details @key="pane.Key" open="@IsPaneOpen(pane.Key)"
                                  @ontoggle="() => OnPaneToggled(pane.Key)" class="pane-node">
                             <summary class="pane-header" role="treeitem" aria-level="1"
-                                     tabindex="@(firstItem ? 0 : -1)"
+                                     tabindex="@(headerIsStop ? 0 : -1)"
                                      aria-expanded="@ExpandedAttr(IsPaneOpen(pane.Key))"
                                      aria-label="@($"Pane {pane.Key}, {pane.Count()} series")">
                                 <span class="icon"></span> Pane: @pane.Key
@@ -56,15 +83,16 @@
                                 @foreach (var series in pane)
                                 {
                                     bool isFocused = series.Id == Store.State.FocusedSeriesId;
-                                    bool willInitiallyFocus = firstItem;
+                                    string seriesId = series.Id;
                                     firstItem = false;
                                     <div @key="series.Id" class="series-node @(isFocused ? "focused-series" : "")"
                                          role="treeitem"
                                          aria-level="2"
-                                         tabindex="-1"
+                                         tabindex="@(isFocused && stopOnFocusedRow ? 0 : -1)"
                                          aria-selected="@(isFocused ? "true" : "false")"
+                                         @onfocus="() => OnSeriesRowFocused(seriesId)"
                                          aria-expanded="@(series.Components.Count > 0 ? ExpandedAttr(IsSeriesOpen(series.Id)) : null)"
-                                         aria-label="@($"{series.FriendlyName}, {series.Components.Count} components, {(series.IsVisible ? "visible" : "hidden")}, {(series.IsMuted ? "muted" : "audible")}{(isFocused ? ", focused" : "")}")">
+                                         aria-label="@($"{series.FriendlyName}, {series.Components.Count} components, {(series.IsVisible ? "visible" : "hidden")}, {(series.IsMuted ? "muted" : "audible")}")">
 
                                         @* aria-expanded above is null for a series with no components:
                                            a treeitem that declares itself collapsed and has nothing to
@@ -114,6 +142,7 @@
                                                     <div class="component-item" role="treeitem"
                                                          aria-level="3"
                                                          tabindex="-1"
+                                                         @onfocus="() => OnSeriesRowFocused(seriesId)"
                                                          aria-label="@($"{compLabel}, {DisplayTypeName(comp.DisplayType)}, {(comp.IsVisible ? "visible" : "hidden")}, {(comp.IsMuted ? "muted" : "audible")}")">
                                                         <span class="comp-name">@compLabel (@DisplayTypeName(comp.DisplayType))</span>
                                                         <div class="comp-actions">
@@ -151,9 +180,11 @@
 
             <div class="modal-footer" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
                 <div style="font-size: 0.8rem; color: var(--text-muted); flex: 1;">
-                    Up and down arrows move through the tree · Right and left arrows expand and collapse ·
-                    Home and End jump to first and last · Space or Enter toggles a group or focuses a series ·
-                    Tab reaches the Hide, Mute and Delete buttons · Escape closes@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
+                    Up and down arrows move through the tree and focus that series on the chart ·
+                    Right and left arrows expand and collapse · Home and End jump to first and last ·
+                    Space or Enter expands or collapses a series, and on a component row toggles Hide ·
+                    Tab reaches the Hide, Mute and Delete buttons ·
+                    Escape closes@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
                 </div>
                 <button @onclick="Close" id="objtree-close" aria-label="Close object tree dialog">Close</button>
             </div>
@@ -330,6 +361,26 @@
     }
 
     private void FocusSeries(string id) => Store.Dispatch(new SelectSeriesAction(id));
+
+    /// <summary>The pane of the chart's focused series, or null when no series is focused.</summary>
+    private string? FocusedSeriesPane()
+    {
+        var state = Store.State;
+        return state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId)?.Pane;
+    }
+
+    /// <summary>
+    /// Selection follows focus. Wired to <c>@onfocus</c> on the series row and on each of its
+    /// component rows — the treeitems the arrow keys land on — and NOT to the buttons or the
+    /// summary inside the row, which Tab visits on its way out of the dialog. Guarded so a row
+    /// that is already the chart's focused series does not re-dispatch on every focus event; a
+    /// redundant dispatch is a store update and a re-render for nothing.
+    /// </summary>
+    private void OnSeriesRowFocused(string id)
+    {
+        if (Store.State.FocusedSeriesId == id) return;
+        Store.Dispatch(new SelectSeriesAction(id));
+    }
 
     private void ToggleHide(string id)
     {

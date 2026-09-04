@@ -38,11 +38,6 @@ namespace AccessibleTrader.Core.Services
         public const string ColorVisionSafeKey = SettingsKeys.ColorVisionSafe;
         public const string HollowUpCandlesKey = SettingsKeys.HollowUpCandles;
 
-        // Optional user override of the theme's chart background ("#RRGGBB").
-        // Empty/absent means "use the theme's own background". Applies across
-        // theme switches until cleared from Settings > Appearance.
-        public const string BackgroundOverrideKey = SettingsKeys.BackgroundColor;
-
         /// <summary>
         /// Optional so the service still constructs in hosts and tests that have no theme storage.
         /// A missing library simply means no custom themes exist, which is also the state of a
@@ -101,11 +96,27 @@ namespace AccessibleTrader.Core.Services
             ThemeChanged?.Invoke(this, Current);
         }
 
+        /// <summary>
+        /// The user's own theme (if one is selected) applied over its base, then the two visual
+        /// accessibility toggles.
+        ///
+        /// <para>
+        /// Until 2026-09-03 this also layered six app-level colour preferences over whichever
+        /// theme was active — a chart background override, a background gradient end, a
+        /// "unified" window fade and an up/down candle pair. They were retired with the settings
+        /// restructure (Cody's call): a colour is a property of a THEME now, edited in the theme
+        /// editor, where the same six fields already existed as Chart top / Chart bottom, Toolbar
+        /// top / bottom and Footer top / bottom, and the window fade is one button there. Two
+        /// reasons it is a retirement and not a relocation of the reads: a preference that
+        /// survives with no control left to clear it is exactly the "live behaviour with no way
+        /// to reach it" class <c>SettingsWiringAuditTests</c> exists to catch; and the pair of
+        /// overrides quietly re-coloured every theme a user tried, so the theme picker appeared
+        /// not to work. A value still sitting in settings.json under the old keys is ignored —
+        /// <c>VisualAccessibilityTests.Retired_colour_overrides_are_ignored</c> pins that.
+        /// </para>
+        /// </summary>
         private ChartTheme WithAccessibilityOverrides(ChartTheme theme)
         {
-            // A user's own theme is applied FIRST, so everything below — the unified gradient,
-            // the background override, the up/down pair — still layers on top of it exactly as it
-            // would over a built-in. A custom theme is a starting point, not a final word.
             var customId = _settings.GetSetting(SettingsKeys.CustomThemeId)?.ToString();
             if (!string.IsNullOrWhiteSpace(customId) && _themes?.GetById(customId!) is { } preset)
                 theme = preset.ApplyTo(theme);
@@ -114,58 +125,6 @@ namespace AccessibleTrader.Core.Services
             bool hollow      = _settings.GetSetting(HollowUpCandlesKey)?.Value<bool?>() ?? false;
             if (colorVision || hollow)
                 theme = theme with { ColorVisionSafe = colorVision, HollowUpCandles = hollow };
-
-            // One fade across the whole window, if asked for. Applied BEFORE the individual
-            // background overrides below so a user who has also set a specific chart background
-            // still wins on that one band — the more specific preference beats the broader one.
-            bool unified = _settings.GetSetting(SettingsKeys.UnifiedGradient)?.Value<bool?>() ?? false;
-            if (unified)
-            {
-                var topRaw = _settings.GetSetting(SettingsKeys.UnifiedGradientTop)?.ToString();
-                var botRaw = _settings.GetSetting(SettingsKeys.UnifiedGradientBottom)?.ToString();
-
-                // Absent ends default to the theme's own extremes, so ticking the box alone
-                // smooths whatever the theme already had rather than demanding two colours first.
-                var top = !string.IsNullOrWhiteSpace(topRaw) && SKColor.TryParse(topRaw, out var t1)
-                    ? t1 : theme.SurfaceRaised;
-                var bottom = !string.IsNullOrWhiteSpace(botRaw) && SKColor.TryParse(botRaw, out var b1)
-                    ? b1 : (theme.ChromeBottomEnd ?? theme.ChromeBottom);
-
-                theme = Theming.UnifiedGradient.Apply(theme, top, bottom);
-            }
-
-            var bgOverride = _settings.GetSetting(BackgroundOverrideKey)?.ToString();
-            if (!string.IsNullOrWhiteSpace(bgOverride) && SKColor.TryParse(bgOverride, out var bg))
-                theme = theme with { Background = bg };
-
-            // Optional gradient: Background (top) → BackgroundColor2 (bottom). Opt-in.
-            bool gradient = _settings.GetSetting(SettingsKeys.BackgroundGradient)?.Value<bool?>() ?? false;
-            var bg2Override = _settings.GetSetting(SettingsKeys.BackgroundColor2)?.ToString();
-            if (gradient && !string.IsNullOrWhiteSpace(bg2Override) && SKColor.TryParse(bg2Override, out var bg2))
-                theme = theme with { BackgroundGradientEnd = bg2 };
-
-            // Up/down colours are an app-level preference layered over the theme, for the same
-            // reason the background override is: which colour means "up" is a habit a trader
-            // carries between themes, and it should not change under them when they try a new
-            // look. Absent leaves the theme's own pair — which is how High Contrast Dark keeps
-            // its deliberate white-on-red scheme.
-            var bull = _settings.GetSetting(SettingsKeys.BullishColor)?.ToString();
-            if (!string.IsNullOrWhiteSpace(bull) && SKColor.TryParse(bull, out var bullColor))
-                theme = theme with
-                {
-                    CandleBullishBody = bullColor,
-                    CandleBullishWick = bullColor,
-                    VolumeBullish = bullColor.WithAlpha(theme.VolumeBullish.Alpha),
-                };
-
-            var bear = _settings.GetSetting(SettingsKeys.BearishColor)?.ToString();
-            if (!string.IsNullOrWhiteSpace(bear) && SKColor.TryParse(bear, out var bearColor))
-                theme = theme with
-                {
-                    CandleBearishBody = bearColor,
-                    CandleBearishWick = bearColor,
-                    VolumeBearish = bearColor.WithAlpha(theme.VolumeBearish.Alpha),
-                };
 
             return theme;
         }

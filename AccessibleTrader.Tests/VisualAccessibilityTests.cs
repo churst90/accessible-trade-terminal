@@ -88,58 +88,48 @@ public class VisualAccessibilityTests
 
     // ── Theme accessibility overrides ────────────────────────────────────────
 
-    private static ISettingsManager SettingsWith(bool colorVision = false, bool hollow = false,
-        string? background = null, bool gradient = false, string? backgroundEnd = null)
+    private static ISettingsManager SettingsWith(bool colorVision = false, bool hollow = false)
     {
         var settings = Substitute.For<ISettingsManager>();
         settings.GetSetting(ThemeService.ColorVisionSafeKey, Arg.Any<JToken?>())
             .Returns(colorVision ? new JValue(true) : null);
         settings.GetSetting(ThemeService.HollowUpCandlesKey, Arg.Any<JToken?>())
             .Returns(hollow ? new JValue(true) : null);
-        settings.GetSetting(ThemeService.BackgroundOverrideKey, Arg.Any<JToken?>())
-            .Returns(background != null ? new JValue(background) : null);
-        settings.GetSetting(SettingsKeys.BackgroundGradient, Arg.Any<JToken?>())
-            .Returns(gradient ? new JValue(true) : null);
-        settings.GetSetting(SettingsKeys.BackgroundColor2, Arg.Any<JToken?>())
-            .Returns(backgroundEnd != null ? new JValue(backgroundEnd) : null);
         return settings;
     }
 
     [Fact]
-    public void Background_gradient_setting_is_off_by_default()
+    public void Retired_colour_overrides_are_ignored()
     {
-        // Tested on a theme that ships FLAT. SteelGray, the default, carries a gradient as part
-        // of its own design — so asserting "no gradient by default" against it would conflate a
-        // theme's look with the user's opt-in setting, which are two different things.
-        var svc = new ThemeService(SettingsWith());
-        svc.SetTheme(ThemeType.HighContrastDark);
+        // Until 2026-09-03 eight app-level colours were layered over EVERY theme: a chart
+        // background, a gradient end, a unified window fade with two ends, and an up/down candle
+        // pair. They were retired with the settings restructure — a colour is a property of a
+        // theme now, edited in the theme editor — and a value still sitting in settings.json
+        // under one of the old paths must change nothing, or a user would carry an override they
+        // have no control left to clear. The paths are literals on purpose: the constants are gone.
+        var settings = Substitute.For<ISettingsManager>();
+        settings.GetSetting(Arg.Any<string>(), Arg.Any<JToken?>()).Returns((JToken?)null);
+        settings.GetSetting("appearance.backgroundColor", Arg.Any<JToken?>()).Returns(new JValue("#123456"));
+        settings.GetSetting("appearance.backgroundGradient", Arg.Any<JToken?>()).Returns(new JValue(true));
+        settings.GetSetting("appearance.backgroundColor2", Arg.Any<JToken?>()).Returns(new JValue("#654321"));
+        settings.GetSetting("appearance.bullishColor", Arg.Any<JToken?>()).Returns(new JValue("#00A2FF"));
+        settings.GetSetting("appearance.bearishColor", Arg.Any<JToken?>()).Returns(new JValue("#FF7700"));
+        settings.GetSetting("appearance.unifiedGradient", Arg.Any<JToken?>()).Returns(new JValue(true));
+        settings.GetSetting("appearance.unifiedGradientTop", Arg.Any<JToken?>()).Returns(new JValue("#909090"));
+        settings.GetSetting("appearance.unifiedGradientBottom", Arg.Any<JToken?>()).Returns(new JValue("#101010"));
 
-        Assert.Null(svc.Current.BackgroundGradientEnd);
-    }
+        var svc = new ThemeService(settings);
+        svc.SetTheme(ThemeType.HighContrastDark);   // flat black; its own white/red candle pair
 
-    [Fact]
-    public void Background_gradient_end_applies_only_when_enabled()
-    {
-        // Color set but gradient toggle off → the flat theme stays flat.
-        var off = new ThemeService(SettingsWith(gradient: false, backgroundEnd: "#112233"));
-        off.SetTheme(ThemeType.HighContrastDark);
-        Assert.Null(off.Current.BackgroundGradientEnd);
+        var own = new ThemeService(SettingsWith());
+        own.SetTheme(ThemeType.HighContrastDark);
 
-        // Toggle on + a color → the user's gradient overrides whatever the theme had.
-        var on = new ThemeService(SettingsWith(gradient: true, backgroundEnd: "#112233"));
-        on.SetTheme(ThemeType.HighContrastDark);
-        Assert.Equal(SKColor.Parse("#112233"), on.Current.BackgroundGradientEnd);
-    }
-
-    [Fact]
-    public void A_user_gradient_overrides_a_themes_own_gradient()
-    {
-        // SteelGray ships with one. Setting your own has to win, or the preference silently
-        // does nothing on the theme most people are actually using.
-        var svc = new ThemeService(SettingsWith(gradient: true, backgroundEnd: "#112233"));
-        svc.SetTheme(ThemeType.SteelGray);
-
-        Assert.Equal(SKColor.Parse("#112233"), svc.Current.BackgroundGradientEnd);
+        Assert.Equal(own.Current.Background,            svc.Current.Background);
+        Assert.Equal(own.Current.BackgroundGradientEnd, svc.Current.BackgroundGradientEnd);
+        Assert.Equal(own.Current.CandleBullishBody,     svc.Current.CandleBullishBody);
+        Assert.Equal(own.Current.CandleBearishBody,     svc.Current.CandleBearishBody);
+        Assert.Equal(own.Current.SurfaceRaised,         svc.Current.SurfaceRaised);
+        Assert.Equal(own.Current.ChromeBottomEnd,       svc.Current.ChromeBottomEnd);
     }
 
     [Fact]
@@ -181,35 +171,6 @@ public class VisualAccessibilityTests
 
         Assert.True(fired);
         Assert.True(svc.Current.ColorVisionSafe);
-    }
-
-    // ── Background color override ────────────────────────────────────────────
-
-    [Fact]
-    public void Theme_BackgroundOverride_Applies_AndSurvivesThemeSwitches()
-    {
-        var svc = new ThemeService(SettingsWith(background: "#123456"));
-        Assert.Equal(new SKColor(0x12, 0x34, 0x56), svc.Current.Background);
-
-        // Like the other appearance overrides, a custom background is a user
-        // preference layered over whichever theme is active.
-        svc.SetTheme(ThemeType.Solarized);
-        Assert.Equal(new SKColor(0x12, 0x34, 0x56), svc.Current.Background);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("not-a-color")]
-    public void Theme_BackgroundOverride_AbsentOrInvalid_UsesThemeDefault(string? stored)
-    {
-        // Pinned to a named theme rather than the default: this is about the OVERRIDE falling
-        // back cleanly, and it should not start failing the day the default theme changes.
-        var svc = new ThemeService(SettingsWith(background: stored));
-        svc.SetTheme(ThemeType.HighContrastDark);
-
-        Assert.Equal(SKColors.Black, svc.Current.Background);
     }
 
     // ── Renderer color-vision override ───────────────────────────────────────

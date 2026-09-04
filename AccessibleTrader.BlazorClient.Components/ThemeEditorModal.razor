@@ -34,7 +34,7 @@
              aria-labelledby="theme-editor-title" @onclick:stopPropagation="true"
              style="max-width: 820px;">
 
-            <h2 id="theme-editor-title" tabindex="-1">Customise theme</h2>
+            <h2 id="theme-editor-title" tabindex="-1">@_title</h2>
 
             @if (!string.IsNullOrEmpty(_status))
             {
@@ -64,6 +64,39 @@
                         <text> You've changed @p.Overrides.Count of @ThemeFields.All.Count colours.</text>
                     }
                 </p>
+
+                @* The window blend. Until 2026-09-03 this was an app-level switch in Settings that
+                   re-coloured every theme; it is a tool here now, writing six ordinary field
+                   overrides — toolbar top and bottom, chart top and bottom, footer top and
+                   bottom — as slices of one fade, so the result is saved WITH the theme and can
+                   be reverted a field at a time like any other colour. *@
+                <fieldset style="border:1px solid var(--border-color); padding:8px 12px; margin-top:10px;">
+                    <legend style="padding:0 6px;">Blend into one gradient</legend>
+                    <div class="modal-row" style="flex-wrap:wrap;">
+                        @* A colour input's only UI is the browser's native popup, so — as on every
+                           other row of this dialog — each picker has a text twin a screen-reader
+                           user can simply type a hex value into. *@
+                        <label for="te-blend-top">Top of window</label>
+                        <input id="te-blend-top" type="color" value="@_blendTop"
+                               @onchange="e => _blendTop = e.Value?.ToString() ?? _blendTop" />
+                        <input type="text" value="@_blendTop" style="width:9em;"
+                               aria-label="Top of window hex value" aria-describedby="te-blend-hint"
+                               @onchange="e => _blendTop = e.Value?.ToString() ?? _blendTop" />
+                        <label for="te-blend-bottom">Bottom of window</label>
+                        <input id="te-blend-bottom" type="color" value="@_blendBottom"
+                               @onchange="e => _blendBottom = e.Value?.ToString() ?? _blendBottom" />
+                        <input type="text" value="@_blendBottom" style="width:9em;"
+                               aria-label="Bottom of window hex value" aria-describedby="te-blend-hint"
+                               @onchange="e => _blendBottom = e.Value?.ToString() ?? _blendBottom" />
+                        <button type="button" @onclick="ApplyBlend" aria-describedby="te-blend-hint">
+                            Apply blend
+                        </button>
+                    </div>
+                    <p id="te-blend-hint" style="margin:2px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        Replaces the toolbar, chart and footer top and bottom colours with slices of
+                        one fade. Each can still be changed or reverted below.
+                    </p>
+                </fieldset>
             </fieldset>
 
             @{ var problems = ContrastProblems; bool anyProblem = problems is { Count: > 0 }; }
@@ -171,34 +204,109 @@
     private ThemeType _basedOn = ThemeType.SteelGray;
     private string? _status;
     private string? _shareText;
+    private string _title = "Theme editor";
+    private string _blendTop = "#676e79";
+    private string _blendBottom = "#17191d";
+
+    /// <summary>
+    /// The safe scheme a NEW theme starts from (Cody's spec: 000000 / ff0000 / 00ff00). Black
+    /// chart, pure green rising, pure red falling, on the Blackout base so every text pair the
+    /// contrast gate blocks on is already readable — the built-in itself is tested against
+    /// <see cref="ThemeContrastChecks"/>.
+    /// </summary>
+    internal static ThemePreset RawTheme() =>
+        ThemePreset.Create("New theme", ThemeType.Blackout)
+            .With("chartTop",  new SKColor(0x00, 0x00, 0x00))
+            .With("bullBody",  new SKColor(0x00, 0xFF, 0x00))
+            .With("bullWick",  new SKColor(0x00, 0xFF, 0x00))
+            .With("bearBody",  new SKColor(0xFF, 0x00, 0x00))
+            .With("bearWick",  new SKColor(0xFF, 0x00, 0x00));
+
+    /// <summary>The six field keys the window blend writes, top of the window to the bottom.</summary>
+    internal static readonly string[] BlendKeys =
+        { "topBar", "topBarEnd", "chartTop", "chartBottom", "bottomBar", "bottomBarEnd" };
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        _eventSub = EventBus.Subscribe<OpenThemeEditorEvent>(e => InvokeAsync(() => ShowAsync(e.PresetId)));
+        _eventSub = EventBus.Subscribe<OpenThemeEditorEvent>(e => InvokeAsync(() => ShowAsync(e)));
     }
 
-    private async Task ShowAsync(string? presetId)
+    /// <summary>
+    /// Three ways in, one editor. <b>New</b> is a raw theme from the safe scheme. <b>Clone</b> is
+    /// a copy — of a custom theme (same overrides, new id, name suffixed "copy") or of a built-in
+    /// (a sparse copy on that base, which is a copy in every way that matters, since anything not
+    /// overridden IS the base). <b>Edit</b> is the custom theme itself: same id, so Save replaces
+    /// it. An Edit whose id no longer exists falls back to a clone of the theme on screen rather
+    /// than opening on nothing.
+    /// </summary>
+    private async Task ShowAsync(OpenThemeEditorEvent e)
     {
         _status = null;
         _shareText = null;
 
-        // Editing an existing theme, or starting one from whatever is on screen now — which is
-        // the common case, since people customise the thing they are already looking at.
-        _preset = string.IsNullOrEmpty(presetId) ? null : Themes.GetById(presetId!);
-        if (_preset == null)
+        var existing = string.IsNullOrEmpty(e.PresetId) ? null : Themes.GetById(e.PresetId!);
+        switch (e.Mode)
         {
-            _basedOn = ThemeService.Current.ThemeType;
-            _preset = ThemePreset.Create($"My {Pretty(_basedOn)}", _basedOn);
-        }
-        else
-        {
-            _basedOn = _preset.BasedOn;
+            case ThemeEditorMode.New:
+                _preset = RawTheme();
+                _title = "New theme";
+                break;
+            case ThemeEditorMode.Edit when existing != null:
+                _preset = existing;
+                _title = $"Edit theme: {existing.Name}";
+                break;
+            default:
+                if (existing != null)
+                {
+                    _preset = existing with { Id = Guid.NewGuid().ToString("N"), Name = $"{existing.Name} copy" };
+                    _title = $"Clone theme: {existing.Name}";
+                }
+                else
+                {
+                    var baseType = e.BaseTheme ?? ThemeService.Current.ThemeType;
+                    _preset = ThemePreset.Create($"{Pretty(baseType)} copy", baseType);
+                    _title = $"Clone theme: {Pretty(baseType)}";
+                }
+                break;
         }
 
+        _basedOn = _preset.BasedOn;
         _name = _preset.Name;
         Recompute();
+        SeedBlendFromPreview();
         await ShowModalAsync("theme-editor-title");
+    }
+
+    /// <summary>The blend pickers start from what the theme already has at its two extremes.</summary>
+    private void SeedBlendFromPreview()
+    {
+        _blendTop = Hex(_preview.SurfaceRaised);
+        _blendBottom = Hex(_preview.ChromeBottomEnd ?? _preview.ChromeBottom);
+    }
+
+    /// <summary>
+    /// Writes the six band colours as slices of one fade. Goes through
+    /// <see cref="UnifiedGradient.Apply"/> — the same arithmetic the retired app-level switch
+    /// used — and then reads each field back through its own <see cref="ThemeField.Get"/>, so the
+    /// overrides written here are exactly what the editor's pickers will show.
+    /// </summary>
+    private void ApplyBlend()
+    {
+        if (!ThemePreset.TryParseColor(_blendTop, out var top) || !ThemePreset.TryParseColor(_blendBottom, out var bottom))
+        {
+            Announce("That isn't a colour. Use a hex value like #3A4048.");
+            return;
+        }
+
+        var blended = UnifiedGradient.Apply(_preview, top, bottom);
+        foreach (var key in BlendKeys)
+        {
+            var field = ThemeFields.ByKey(key)!;
+            _preset = _preset!.With(key, field.Get(blended));
+        }
+        Recompute();
+        Announce($"Blended: the toolbars, chart and footer are one fade from {ThemePreset.ToHex(top)} to {ThemePreset.ToHex(bottom)}.");
     }
 
     /// <summary>Rebuilds the previewed theme from the base plus the current overrides.</summary>
