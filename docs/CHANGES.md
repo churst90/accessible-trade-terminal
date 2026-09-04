@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The StrategyLab re-run was already done, and the flagship reproduces cell for cell (2026-09-04)
+
+Asked to run the top research item, and the honest answer turned out to be that it had already
+been run — on **2026-08-27, in `9bf8276d`**. All five findings docs that carried a
+SUPERSEDED-STATISTICS banner now carry a RE-RUN banner; none carries SUPERSEDED. The
+`variantsTried` backfill is present on exactly the six edges that re-run touched, and the other
+39 are the deliberately grandfathered set the gate was written to allow.
+
+**`docs/TODO.md` had said otherwise for a week**, the claim copied forward through four session
+blocks each restating "still the top research item" from the one above it. That is the finding
+worth keeping: **a NEXT item repeated from the previous block is a claim, not a record.** Two
+`grep -l` invocations settled it.
+
+**What was actually done: the flagship was REPRODUCED.** `xsmom --universe equity` matches
+`docs/XSMOMENTUM_FINDINGS.md` to the last printed digit — 1/4, 2/4, 4/4, 4/4 by lookback; mean
+excess −9.3%, −3.0%, +53.5%, +150.2%; per-period spread +0.37% at sd 3.62% with 124 of 215
+periods positive; grid max |z| = 3.52; **p = 0.0069** max-statistic and 0.0047
+fixed-configuration; 11 of 16 cells beating random and 11 of 16 beating the basket.
+
+**The match is itself the evidence the sample did not move.** The permutation routine is seeded
+`Random(555)` and deterministic, so a p cannot move unless the data moves — which is precisely
+how the lab caught a silent data change on 2026-08-01, where a "reproduced exactly" run came back
+0.0044 against a recorded 0.0045 and the drift was mistaken for permutation noise. Here nothing
+moved at all, across sixteen cells and every robustness table.
+
+**The archived snapshots predate `barsSha256`** (fetched 2026-04-09 → 2026-07-27; the field is
+written from 2026-08-27 onward), so this run is pinned instead by a fingerprint over the files the
+loader actually selects, recorded in the findings doc. QQQ and SPY each carry two provider
+snapshots; `Load` keeps the longest history per symbol, so neither is ranked twice — the
+double-counting trap the lab warns about is handled, and that was checked rather than assumed.
+
+**One result deserves surfacing rather than filing.** In the survivorship table, the row at a
+**0.5%/year delisting rate with total loss and delistings drawn at RANDOM** — the mildest hazard
+in the table — turns the excess **negative** (−13.7%, −7% of clean). The stress can fail now, and
+on one plausible setting it does. Recorded as the first open research item rather than smoothed
+over; it may be an artefact of removing names from a universe of only 39.
+
 ### Twelve more candle patterns, and the ordering rule that makes them reachable (2026-09-04)
 
 Cody: *"add the missing candle patterns"*. The three-bar set was four of the ten-odd in common

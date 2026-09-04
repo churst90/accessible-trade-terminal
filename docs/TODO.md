@@ -266,6 +266,48 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   **`MaxPatternBars` moved 3 → 5** and that is load-bearing quietly: left at 3 nothing fails
 >   loudly, the first two bars of a five-bar pattern just go silent again.
 >
+> ### 8. THE STRATEGYLAB STATISTICS RE-RUN WAS ALREADY DONE, AND THIS FILE HAS SAID OTHERWISE FOR A WEEK
+>
+> Cody asked for "the strategy item on the todo" to be run. **It had already been run — on
+> 2026-08-27, in `9bf8276d`.** All five findings docs that carried a SUPERSEDED-STATISTICS banner
+> now carry a RE-RUN banner instead; none carries SUPERSEDED. The `variantsTried` backfill is
+> present on exactly the six edges that re-run touched, and the other 39 are the deliberately
+> grandfathered set (`lastMeasured < 2026-08-27`), which is what the gate was written to allow.
+>
+> **The claim that it had not happened was copied forward through four session blocks** dated
+> 2026-08-29 to 2026-08-31, each restating "still the top research item" from the block above it.
+> The stale line is now the finding: **a NEXT item repeated from the previous block is a claim, not
+> a record, and it has to be re-checked against the artefact it is about.** The artefact here was
+> two `grep -l` invocations away the whole time.
+>
+> **What WAS done this session: the flagship was REPRODUCED, and that closes the reproducibility
+> concern for it.** `xsmom --universe equity` matches `docs/XSMOMENTUM_FINDINGS.md` to the last
+> printed digit across all sixteen grid cells and every robustness table — p = 0.0069
+> max-statistic, +0.37% per 30d, 124/215, 8/8 long-lookback cells. On a seeded deterministic
+> permutation routine an identical p IS the evidence the sample did not move; that is the same
+> argument the lab used in reverse to catch a silent data change on 2026-08-01.
+>
+> The snapshots on disk predate `barsSha256`, so the run is pinned by a fingerprint over the files
+> the loader actually selects — recorded in the findings doc. QQQ and SPY each have two provider
+> snapshots and `Load` keeps the longest per symbol, so neither is ranked twice; checked, not
+> assumed.
+>
+> **OPEN, and it is the honest remainder of the research queue:**
+>
+> 1. **One survivorship row reverses the sign.** At 0.5%/yr delisting with total loss and
+>    delistings drawn at RANDOM (not from the bottom half), the excess is −13.7%. That is the
+>    MILDEST hazard rate in the table. Worth understanding before the edge is called tradeable —
+>    it may be an artefact of removing names from a 39-name universe, which is small.
+> 2. **The 39 grandfathered `variantsTried` backfills.** Each needs its own command re-run to read
+>    the count off honestly; estimating from source would put a guessed number into a research
+>    archive, which is worse than the gap.
+> 3. **`strategy-lab-data/` is still gitignored**, so no archived finding is reproducible from a
+>    clean clone — and `events_*.json` is derived from `fred_raw_*.json` by an uncommitted manual
+>    step, so `MacroEventCommand` and `FomcCommand` cannot be reproduced at all. Repository-policy
+>    decision, Cody's.
+> 4. **A fresh mutation campaign.** The 2026-08-29 honest catch rate was 67.9%; a fresh,
+>    independently-chosen mutant set is the only way to know whether that moved.
+>
 > ### 7. PLAYBACK SAID NOTHING ABOUT A SIGNAL INDICATOR YOU HAD JUST ADDED — Cody's report, FIXED
 >
 > *"when I added cipher sr or b to the chart I don't hear signals being spoken during playback"*.

@@ -26,6 +26,37 @@
 > Sample caveat that has not gone away: `strategy-lab-data/` is gitignored, so this is a
 > re-measurement on possibly different data, not a reproduction. Snapshots now carry a `barsSha256`.
 
+> **REPRODUCED 2026-09-04 — cell for cell, and the sample is now pinned.**
+>
+> `dotnet run --project AccessibleTrader.StrategyLab -- xsmom --universe equity --snapshots
+> ./strategy-lab-data`. Every printed statistic matches this document exactly: 1/4, 2/4, 4/4, 4/4
+> by lookback; mean excess −9.3%, −3.0%, +53.5%, +150.2%; per-period spread +0.37% with sd 3.62%
+> and 124 of 215 periods positive; grid max |z| = 3.52 at look=30; **p = 0.0069** max-statistic and
+> 0.0047 fixed-configuration. 11 of 16 cells beat random, 11 of 16 beat the basket.
+>
+> **That match is itself the evidence the sample did not move**, and the argument is the one this
+> lab used in the other direction on 2026-08-01. The permutation routine is seeded `Random(555)`
+> and deterministic, so a p CANNOT move unless the data moves — which is how the earlier
+> "reproduced exactly … 0.0044 vs 0.0045" was caught as a different sample rather than noise. Here
+> nothing moved at all, to the last printed digit, across sixteen cells and every robustness table.
+>
+> **The snapshots on disk predate `barsSha256` and do not carry one** (they were fetched
+> 2026-04-09 through 2026-07-27; the field is written by `SnapshotCommand` from 2026-08-27
+> onward). So this run is pinned by a fingerprint computed over the files the loader actually
+> selects — `sha256` of `symbol|barCount|sha256(file)` for each of the 39, in symbol order, after
+> the loader's own dedupe:
+>
+> **`1c280cbd45719727fd330b4d80e55b658af61e75419fc3074eb2184e92593ea3`**
+>
+> Two symbols have snapshots from two providers (QQQ and SPY, yahoo and twelvedata). `Load` keeps
+> the longest history per symbol, so both resolve to the yahoo file and neither is ranked twice —
+> the double-counting trap is handled, and this was checked rather than assumed.
+>
+> **One row of the survivorship table deserves reading on its own.** At a 0.5%/year delisting rate
+> with total loss and delistings drawn at RANDOM rather than from the bottom half, the excess goes
+> **negative** (−13.7%, or −7% of clean). That is the mildest hazard rate in the table, and it is
+> the row that reverses the sign. The stress can fail now, and on one plausible setting it does.
+
 
 Run 2026-07-31, **re-run 2026-08-27**. `dotnet run -- xsmom --universe equity`. 39
 equities/ETFs/metals/bonds, common window 2007-11 → 2026-07 (18.7 years), 215 monthly rebalances.
