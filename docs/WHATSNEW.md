@@ -254,6 +254,29 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   view only. Whether it stays that way or becomes something you can navigate into is an open
   question in `docs/TODO.md`, and the answer may be to remove it.)
 
+- **The arrow keys name candle patterns now — including the multi-bar ones.** Engulfing,
+  harami, piercing line, dark cloud cover, tweezers, morning and evening star, three white
+  soldiers, three black crows. The terminal had detected all twelve for months, and would say
+  them on the bar that closed and on the live bar as it formed — but neither route that reads
+  the PAST ran the detector, so on any bar you were not present for, "three white soldiers"
+  could not be said. Reading a chart by ear is almost entirely reading the past.
+- **Ctrl+Shift+D (Alt+Shift+D on the web) names them too, with the span and the lean.**
+  *"Three white soldiers, 3-bar continuation. Body 58%, upper wick 25%, lower wick 17%."*
+  Hearing "morning star" on one bar gives you no clue that the two bars behind the cursor are
+  part of it, so the detail key says how many.
+- **The same bar cannot be described two ways any more.** There were three candle classifiers
+  with three sets of numbers: a 92% body was a marubozu when you scanned onto it and an
+  ordinary candle when it closed. Worse, only one of the three looked at the trend — and a
+  hammer and a hanging man are the SAME candle, told apart only by the trend they interrupt,
+  so the other two called every one of them a hammer. That is not a shade of difference: it
+  announces the opposite direction to someone who cannot see the chart. One classifier now.
+- **A pattern forming on the live bar is no longer compared against itself.** The live bar is
+  replaced in place as it ticks, and the terminal was handing the pattern detector the
+  previous version of the same bar as its predecessor — which a growing body "engulfs" by
+  construction. It reads the bar before it now.
+- **"Describe candle patterns" reaches the arrow keys**, which is what its description in
+  Settings always said. Off leaves "Bullish" or "Bearish" and the prices. Ctrl+Shift+D always
+  names the pattern: that key is you asking.
 - **Hidden and muted are two different things, and both are reported.** Hide a component and
   mute it, then unhide it, and the terminal used to tell you it was "visible" — about
   something that is still silent, which sends you to press H again and hide it. Every

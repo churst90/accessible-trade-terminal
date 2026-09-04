@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Analysis;
+using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
 
@@ -21,10 +22,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly IChartPatternCache? _patterns;
 
-        public BarDetailService(IEventBus eventBus, IChartPatternCache? patterns = null)
+        /// <summary>
+        /// The ONE candle classifier. Optional for the same reason as <see cref="_patterns"/> —
+        /// the existing two-argument constructions keep working — but a default instance is
+        /// substituted rather than the block being skipped, because a detail key that stops
+        /// naming the candle is a silent regression rather than a visible one.
+        /// </summary>
+        private readonly ISdkCandlePatternAnalyzer _analyzer;
+
+        public BarDetailService(
+            IEventBus eventBus,
+            IChartPatternCache? patterns = null,
+            ISdkCandlePatternAnalyzer? analyzer = null)
         {
             _eventBus = eventBus;
             _patterns = patterns;
+            _analyzer = analyzer ?? new SdkCandlePatternAnalyzer();
         }
 
         /// <inheritdoc />
@@ -54,11 +67,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int idx = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
             var bar = BarAsDrawn(state, idx);
 
-            // Build a lookback slice (up to 50 bars before the current index) so GetDetailFact
-            // can perform pattern/context analysis on real price data.
-            int sliceStart = Math.Max(0, idx - 50);
-            var dataSlice  = state.Data.Skip(sliceStart).Take(idx - sliceStart + 1).ToArray();
-            string detail  = GetBarDetailFact(series, bar, idx, dataSlice);
+            // The trailing context the candle analyser needs is assembled by CandlePatternSpeech
+            // from `state` itself. There used to be a 50-bar slice built here and handed down as
+            // `recentData`; nothing in the method ever read it — it was allocated on every press
+            // of the detail key and discarded, and it also predated the analyser knowing how to
+            // find the classified bar inside a window.
+            string detail = GetBarDetailFact(state, series, bar, idx);
 
             string formations = ChartFormationDetail(state, idx);
             if (!string.IsNullOrEmpty(formations))
@@ -159,7 +173,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static Ohlcv BarAsDrawn(WorkspaceState state, int idx)
             => ChartMath.BarAsDrawn(state.Data!, idx, state.IsHeikinAshi);
 
-        private string GetBarDetailFact(ChartSeries series, Ohlcv bar, int index, Ohlcv[] recentData)
+        private string GetBarDetailFact(WorkspaceState state, ChartSeries series, Ohlcv bar, int index)
         {
             var sb = new StringBuilder();
             sb.Append($"{SpeechTimeFormatter.FormatTime(bar.Date)}: ");
@@ -170,8 +184,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // point has no wicks, body, or multi-bar pattern to describe.
             if (series.Id == CoreSeriesIds.Candles || series.IndicatorCode == "CANDLES")
             {
-                string trend = bar.Close >= bar.Open ? "Bullish" : "Bearish";
-                string type  = ClassifyBar(bar);
+                // THE SAME CLASSIFIER THE LIVE ANNOUNCEMENT USES, over the same trailing window.
+                //
+                // This block used to call a private ClassifyBar that knew five single-bar shapes
+                // and nothing else, so "tell me everything about this bar" could not say
+                // "morning star", "three white soldiers" or "bullish engulfing" on any bar the
+                // user was not present for — which is every bar the detail key exists to read.
+                // Its thresholds also disagreed with the analyser's (a 90% body was a marubozu
+                // here, 95% there), so the same bar was named differently depending on whether
+                // you asked about it or heard it close.
+                //
+                // Deliberately NOT gated on DescribeCandlePatterns, exactly as the chart-formation
+                // clause below is not gated on DescribeChartPatterns: those settings govern
+                // unsolicited narration, and this key is the user asking a direct question.
+                var analysis = CandlePatternSpeech.AnalyzeAt(
+                    _analyzer, state.Data, index, state.IsHeikinAshi, current: bar);
+                string shape = CandlePatternSpeech.DescribeShape(analysis);
+                string bias  = CandlePatternSpeech.Bias(analysis);
                 double range = bar.High - bar.Low;
                 double body  = Math.Abs(bar.Close - bar.Open);
                 double bodyPct = range > 0 ? (body / range) * 100.0 : 0;
@@ -180,7 +209,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                sb.Append($"{trend} {type}. Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%. ");
+                string leadIn = bias.Length > 0 ? $"{shape}, {bias}." : $"{shape}.";
+                sb.Append($"{leadIn} Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%. ");
                 return sb.ToString().TrimEnd();
             }
 
@@ -293,30 +323,5 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return string.Empty;
         }
 
-        private static string ClassifyBar(Ohlcv bar)
-        {
-            double range = bar.High - bar.Low;
-            if (range <= 0) return "Flat";
-
-            double body       = Math.Abs(bar.Close - bar.Open);
-            double bodyPct    = body / range;
-            double upperWick  = bar.High - Math.Max(bar.Open, bar.Close);
-            double lowerWick  = Math.Min(bar.Open, bar.Close) - bar.Low;
-            double upperPct   = upperWick / range;
-            double lowerPct   = lowerWick / range;
-
-            if (bodyPct < 0.05)
-            {
-                if (lowerPct > 0.6 && upperPct < 0.1) return "Dragonfly Doji";
-                if (upperPct > 0.6 && lowerPct < 0.1) return "Gravestone Doji";
-                return "Doji";
-            }
-            if (bodyPct > 0.90) return "Marubozu";
-            if (bodyPct < 0.30 && lowerPct > 0.60 && upperPct < 0.10) return "Hammer";
-            if (bodyPct < 0.30 && upperPct > 0.60 && lowerPct < 0.10) return "Shooting Star";
-            if (bodyPct < 0.30 && upperPct > 0.25 && lowerPct > 0.25) return "Spinning Top";
-
-            return "Standard Candle";
-        }
     }
 }

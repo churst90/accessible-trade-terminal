@@ -548,14 +548,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // candle analyser the closed bar as its own predecessor: an engulfing pattern was
             // tested against itself and the trend context ran one bar into the future. Locate
             // the closed bar by its date and count back from there.
+            //
+            // The context assembly itself now lives in CandlePatternSpeech, which is what makes
+            // this route and the three that read history agree bar for bar. It also picks up the
+            // Heikin-Ashi transform: with HA on, the candle that just closed on screen is the HA
+            // candle, and naming the raw one would describe a shape nobody is looking at.
             var data = state.Data;
             int closedIndex = ClosedBarIndex(data, e.ClosedBar);
-            Ohlcv? prev  = (data != null && closedIndex >= 1) ? data[closedIndex - 1] : (Ohlcv?)null;
-            Ohlcv? prev2 = (data != null && closedIndex >= 2) ? data[closedIndex - 2] : (Ohlcv?)null;
-            IReadOnlyList<Ohlcv>? context = data != null && closedIndex >= 0
-                ? data.Take(closedIndex + 1).ToList()
-                : null;
-            var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2, context);
+            var analysis = CandlePatternSpeech.AnalyzeAt(
+                _patternAnalyzer, data, closedIndex, state.IsHeikinAshi,
+                current: closedIndex >= 0 ? null : e.ClosedBar);
 
             // Gated since 2026-09-04. The Narration tab has always described this announcement as
             // "the closing price of each bar as it finishes, WITH ITS CANDLE PATTERN", and there
@@ -563,7 +565,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // A promise in help text is a contract; either the text drops the clause or the clause
             // gets a switch, and Cody chose the switch.
             string patternSuffix = state.DescribeCandlePatterns
-                ? FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true)
+                ? CandlePatternSpeech.Suffix(analysis.Type, analysis.Pattern, finalized: true)
                 : "";
             string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
             string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
@@ -613,12 +615,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // The forming bar is not in state.Data yet, so the trend context is the stored history
             // with the live bar appended — otherwise hammer-vs-hanging-man on the bar being watched
             // in real time is the one place that still guesses.
-            var history = state.Data;
-            IReadOnlyList<Ohlcv>? context = history == null || history.Count == 0
-                ? null
-                : history.Append(e.CurrentBar).ToList();
-
-            var analysis = _patternAnalyzer.Analyze(e.CurrentBar, e.PreviousBar, e.TwoBarsAgo, context);
+            //
+            // e.PreviousBar and e.TwoBarsAgo are deliberately NOT passed any more, and this is a
+            // fix rather than a tidy-up. The store replaces the live bar in place, so on an
+            // intra-bar tick `PreviousBar` is the PREVIOUS SNAPSHOT OF THE FORMING BAR — same
+            // date, smaller body — and `TwoBarsAgo` is the bar that actually precedes it. The
+            // analyser was therefore testing an engulfing pattern against an earlier version of
+            // the very bar it was classifying, which the growing body engulfs by construction.
+            // AnalyzeForming reads the stored series, which is what every other route reads.
+            var analysis = CandlePatternSpeech.AnalyzeForming(
+                _patternAnalyzer, state.Data, e.CurrentBar, state.IsHeikinAshi);
 
             bool patternChanged = analysis.Pattern != _lastAnnouncedPattern
                                || analysis.Type    != _lastAnnouncedType;
@@ -629,7 +635,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (patternChanged && isInteresting)
             {
-                string msg = FormatFormingPattern(analysis.Type, analysis.Pattern);
+                string msg = CandlePatternSpeech.Forming(analysis.Type, analysis.Pattern);
                 if (!string.IsNullOrEmpty(msg))
                 {
                     _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
@@ -737,56 +743,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         // ── Pattern Speech Helpers ─────────────────────────────────────────────
-
-        private static string FormatPatternSuffix(CandleType type, CandlePattern pattern, bool finalized)
-        {
-            string verb = finalized ? "" : " forming";
-            if (pattern != CandlePattern.None)
-                return $", {FormatPatternName(pattern)}{verb}";
-            if (type != CandleType.Normal)
-                return $", {FormatTypeName(type)}{verb}";
-            return "";
-        }
-
-        private static string FormatFormingPattern(CandleType type, CandlePattern pattern)
-        {
-            if (pattern != CandlePattern.None) return $"{FormatPatternName(pattern)} forming";
-            if (type != CandleType.Normal)     return $"{FormatTypeName(type)} forming";
-            return "";
-        }
-
-        private static string FormatPatternName(CandlePattern p) => p switch
-        {
-            CandlePattern.BullishEngulfing    => "Bullish engulfing",
-            CandlePattern.BearishEngulfing    => "Bearish engulfing",
-            CandlePattern.BullishHarami       => "Bullish harami",
-            CandlePattern.BearishHarami       => "Bearish harami",
-            CandlePattern.PiercingLine        => "Piercing line",
-            CandlePattern.DarkCloudCover      => "Dark cloud cover",
-            CandlePattern.TweezerBottom       => "Tweezer bottom",
-            CandlePattern.TweezerTop          => "Tweezer top",
-            CandlePattern.MorningStar         => "Morning star",
-            CandlePattern.EveningStar         => "Evening star",
-            CandlePattern.ThreeWhiteSoldiers  => "Three white soldiers",
-            CandlePattern.ThreeBlackCrows     => "Three black crows",
-            _                                  => ""
-        };
-
-        private static string FormatTypeName(CandleType t) => t switch
-        {
-            CandleType.Doji             => "Doji",
-            CandleType.DragonflyDoji    => "Dragonfly doji",
-            CandleType.GravestoneDoji   => "Gravestone doji",
-            CandleType.LongLeggedDoji   => "Long-legged doji",
-            CandleType.Hammer           => "Hammer",
-            CandleType.HangingMan       => "Hanging man",
-            CandleType.InvertedHammer   => "Inverted hammer",
-            CandleType.ShootingStar     => "Shooting star",
-            CandleType.MarubozuBullish  => "Bullish marubozu",
-            CandleType.MarubozuBearish  => "Bearish marubozu",
-            CandleType.SpinningTop      => "Spinning top",
-            _                            => ""
-        };
+        //
+        // The vocabulary and the classification both live in CandlePatternSpeech now. They used
+        // to live HERE, which is exactly why the two routes that read history could not name a
+        // multi-bar pattern: the names were private to the coordinator, so the only way for the
+        // detail key or the arrow keys to say "morning star" was to grow a classifier of their
+        // own — and both did, with different thresholds. Anything that needs a candle named goes
+        // through the shared helper; nothing re-spells a name locally.
 
         private void OnFeedbackRequest(FeedbackRequestEvent e)
         {

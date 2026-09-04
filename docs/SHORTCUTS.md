@@ -174,7 +174,9 @@ There is no equivalent for **candle** patterns, deliberately. Dojis, spinning to
 bars occur on a large share of every chart, so "jump to the next candle pattern" would usually mean
 "move one bar right" — a key that does nothing you could not do with the right arrow, while
 consuming a binding. Candle patterns are already read on the bar you are standing on, which is the
-right place for something that common.
+right place for something that common — and since 2026-09-04 that includes the multi-bar ones. The
+arrow keys, the detail key, the bar close and the live forming bar all run the same classifier over
+the same trailing window, so the four of them cannot name the same bar differently.
 
 ### What you hear
 
@@ -336,7 +338,7 @@ state, last swing high and low, and where price sits between them.
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| Ctrl+Shift+D (web: Alt+Shift+D) | Full candle pattern + indicator analysis for the current bar, **plus every chart formation the cursor sits inside** with its trigger and measured target | Spoken summary |
+| Ctrl+Shift+D (web: Alt+Shift+D) | Full candle analysis for the current bar — **including the multi-bar patterns** (engulfing, harami, piercing line, morning and evening star, three white soldiers, three black crows) with how many bars they span and whether they read as reversal or continuation — plus indicator values, **plus every chart formation the cursor sits inside** with its trigger and measured target. Never silenced by *Describe candle patterns*: this key is you asking | Spoken summary |
 | Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off. Picks WHICH series speak; Settings → Narration decides WHEN (bar close, playback) | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 

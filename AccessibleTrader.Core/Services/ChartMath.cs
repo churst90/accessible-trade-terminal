@@ -195,6 +195,48 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The last <paramref name="count"/> bars AS DRAWN, ending at and including
+        /// <paramref name="endIndex"/>, oldest first.
+        ///
+        /// <para>
+        /// <see cref="BarAsDrawn"/> answers for ONE bar and rebuilds the whole Heikin-Ashi series
+        /// to do it, because HA is recursive from bar zero. A caller that needs a short trailing
+        /// window — the candle-pattern analyser needs three bars plus a trend lookback — would
+        /// otherwise pay that O(n) rebuild once per bar in the window. This pays it once for the
+        /// whole window and slices the tail off.
+        /// </para>
+        ///
+        /// <para>
+        /// Returns fewer than <paramref name="count"/> bars near the start of the series, and an
+        /// empty list when there is no data or the index is out of range. Callers must cope with
+        /// a short window rather than assuming a fixed length.
+        /// </para>
+        /// </summary>
+        public static IReadOnlyList<Ohlcv> BarsAsDrawn(
+            IReadOnlyList<Ohlcv>? data, int endIndex, int count, bool isHeikinAshi)
+        {
+            if (data == null || data.Count == 0 || count <= 0) return Array.Empty<Ohlcv>();
+            if (endIndex < 0 || endIndex >= data.Count) return Array.Empty<Ohlcv>();
+
+            int start = Math.Max(0, endIndex - count + 1);
+
+            if (!isHeikinAshi || data.Count <= 1)
+            {
+                var raws = new List<Ohlcv>(endIndex - start + 1);
+                for (int i = start; i <= endIndex; i++) raws.Add(data[i]);
+                return raws;
+            }
+
+            var prefix = new List<Ohlcv>(endIndex + 1);
+            for (int i = 0; i <= endIndex; i++) prefix.Add(data[i]);
+            var ha = CalculateHeikinAshi(prefix);
+            if (ha.Count == 0) return Array.Empty<Ohlcv>();
+
+            int haStart = Math.Max(0, ha.Count - (endIndex - start + 1));
+            return ha.GetRange(haStart, ha.Count - haStart);
+        }
+
+        /// <summary>
         /// Maps a cursor X pixel position to an absolute bar index in the loaded data.
         /// Inverse of the renderer's bar layout: 0 px = ViewportStartIndex, full width =
         /// start + length - 1. The result is NOT clamped to the data range — callers

@@ -1083,8 +1083,10 @@ reason this terminal exists, so the terminal describes them; it never tells you 
 they mean. Turn it on in **Settings → General → Describe chart patterns**. It is off by
 default, because it is extra narration on an action you perform constantly. The separate
 **Describe candle patterns** switch beside it covers the one-to-three-bar shapes and is
-**on** by default — it rides on the new-bar announcement you already asked for rather than
-adding an occasion to speak.
+**on** by default — it rides on announcements you already asked for rather than adding an
+occasion to speak. Since 2026-09-04 it governs the arrow keys as well: turning it off leaves
+the candle reading as "Bullish" or "Bearish" and the prices, which is what it said before
+the multi-bar patterns arrived.
 
 Twelve shapes are recognised: **double top** and **double bottom**, **head and shoulders**
 and **inverse head and shoulders**, **ascending / descending / symmetrical triangle**,
@@ -2683,7 +2685,9 @@ the new-bar announcement, signal narration on a bar close, and narration during 
 Two settings you might expect on Speech or Narration are on **General**, under *Analysis*:
 **Describe candle patterns** and **Describe chart patterns**. Neither belongs to a single
 trigger — each changes what the arrow keys say *and* what a bar close says *and* what
-playback says — so filing either by trigger would put it on a tab whose rule it breaks. They
+playback says — so filing either by trigger would put it on a tab whose rule it breaks.
+(That sentence was aspirational for the candle switch until 2026-09-04, when the arrow keys
+started naming candle patterns at all; it is now simply true.) They
 are filed by what they are, an analysis the terminal either performs or does not, and they
 sit next to each other because that adjacency is what makes the difference between them
 legible: a **candle** pattern is one to three bars (engulfing, harami, doji, hammer), a

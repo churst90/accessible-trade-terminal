@@ -62,9 +62,14 @@ namespace AccessibleTrader.Tests
             // The caller prefixes the trend word, and ClassifyCandleType ALSO returned the
             // asymmetric label "Bearish Marubozu" on the down side, so the concatenation spoke
             // "Bearish Bearish Marubozu."
+            //
+            // Still guarded, now against the shared vocabulary: CandlePatternSpeech.DescribeShape
+            // is the ONE place that decides who says the direction, and it declines to prefix a
+            // name that already carries one. The lowercase 'm' is that vocabulary's spelling —
+            // identical to the ear, and identical to what the live bar-close announcement says.
             string msg = CandleSummary(volume: 1000, open: 110, close: 100, high: 110.2, low: 99.8);
 
-            Assert.Contains("Bearish Marubozu", msg);
+            Assert.Contains("Bearish marubozu", msg);
             Assert.DoesNotContain("Bearish Bearish", msg);
         }
 
@@ -74,7 +79,7 @@ namespace AccessibleTrader.Tests
             // Vacuity guard: deleting the Marubozu label entirely would satisfy the test above.
             string msg = CandleSummary(volume: 1000, open: 100, close: 110, high: 110.2, low: 99.8);
 
-            Assert.Contains("Bullish Marubozu", msg);
+            Assert.Contains("Bullish marubozu", msg);
         }
 
         // ── The heatmap does not pass off another bar's book as this one's ─────

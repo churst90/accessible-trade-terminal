@@ -62,8 +62,13 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void BarDetail_BullishMarubozu_AnnouncesPatternAndWickPercents()
         {
-            // O=100, H=110, L=100, C=110 → range=10, body=10 → bodyPct=100% → Marubozu.
+            // O=100, H=110, L=100, C=110 → range=10, body=10 → bodyPct=100% → marubozu.
             // Bullish (Close >= Open), upper wick 0%, lower wick 0%.
+            //
+            // The spelling is the shared vocabulary's, not this route's own: CandlePatternSpeech
+            // names it "Bullish marubozu" and the live bar-close announcement says exactly the
+            // same words about exactly the same bar. It used to be "Bullish Marubozu" here and
+            // "Bullish marubozu" there, from two classifiers with two thresholds.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
             var bars = MakeBars(new[] { (100d, 110d, 100d, 110d) });
@@ -72,43 +77,135 @@ namespace AccessibleTrader.Tests
             svc.AnnounceDetails(state);
 
             var msg = LastAnnouncement(bus);
-            Assert.Contains("Bullish", msg);
-            Assert.Contains("Marubozu", msg);
+            Assert.Contains("Bullish marubozu", msg);
             Assert.Contains("Body 100%", msg);
             Assert.Contains("Upper wick 0%", msg);
             Assert.Contains("Lower wick 0%", msg);
         }
 
         [Fact]
-        public void BarDetail_BearishHammer_AnnouncesHammer()
+        public void BarDetail_HammerInADowntrend_IsAHammer()
         {
-            // Hammer: bodyPct < 0.30, lowerPct > 0.60, upperPct < 0.10.
-            // O=101, H=101, L=90, C=100 → range=11, body=1, bodyPct=9%
-            //   upperWick=101-max(101,100)=0, lowerWick=min(101,100)-90=10 → 91% → Hammer.
-            //   Close(100) < Open(101) → Bearish.
+            // Hammer and hanging man are the SAME SHAPE; only the trend into them decides which.
+            // The detail key could not make that distinction at all until it started using the
+            // shared analyser — its private classifier saw one bar, so every one of these was
+            // announced as a hammer, including the ones that mean the opposite.
+            //
+            // The shape: O=101, H=101, L=90, C=100 → body 9%, lower wick 91%, upper wick 0%.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
-            var bars = MakeBars(new[] { (101d, 101d, 90d, 100d) });
-            var state = CandleState(bars, idx: 0);
+            var bars = MakeBars(new[]
+            {
+                (120d, 121d, 119d, 119d),
+                (118d, 119d, 112d, 112d),
+                (111d, 112d, 105d, 105d),
+                (104d, 105d, 101d, 101d),
+                (101d, 101d,  90d, 100d),   // the shape, at the end of a decline
+            });
+            var state = CandleState(bars, idx: 4);
 
             svc.AnnounceDetails(state);
 
             var msg = LastAnnouncement(bus);
-            Assert.Contains("Bearish", msg);
             Assert.Contains("Hammer", msg);
+            Assert.DoesNotContain("Hanging man", msg);
         }
 
         [Fact]
-        public void BarDetail_FlatRange_ClassifiesAsFlat()
+        public void BarDetail_TheSameShapeInAnUptrend_IsAHangingMan()
         {
-            // O=H=L=C=100 → range=0 → "Flat".
+            // The other half, and the reason the first one is not vacuous: identical candle,
+            // opposite trend, opposite meaning. Announcing "hammer" here would tell a blind
+            // trader a decline is ending when an advance is.
+            var bus = new SpyEventBus();
+            var svc = new BarDetailService(bus);
+            var bars = MakeBars(new[]
+            {
+                (90d,  92d,  89d,  91d),
+                (91d,  97d,  91d,  96d),
+                (96d, 103d,  96d, 102d),
+                (102d, 108d, 102d, 107d),
+                (101d, 101d,  90d, 100d),   // the same shape, at the end of an advance
+            });
+            var state = CandleState(bars, idx: 4);
+
+            svc.AnnounceDetails(state);
+
+            var msg = LastAnnouncement(bus);
+            Assert.Contains("Hanging man", msg);
+            Assert.DoesNotContain("Hammer", msg);
+        }
+
+        [Fact]
+        public void BarDetail_AMultiBarPattern_IsNamedWithItsSpanAndLean()
+        {
+            // THE POINT OF THIS PASS. Ctrl+Shift+D on a bar the user was not present for could
+            // not name any of the twelve multi-bar patterns, because its classifier looked at one
+            // bar. Three white soldiers is three; hearing "Bullish" on the last of them told the
+            // user nothing about the two behind the cursor, which is the whole shape.
+            //
+            // Three white soldiers: each bar large-bodied and green, each opening INSIDE the
+            // previous body and closing above its close.
+            var bus = new SpyEventBus();
+            var svc = new BarDetailService(bus);
+            var bars = MakeBars(new[]
+            {
+                (100d, 101d,  99d, 100d),
+                (100d, 110d,  99d, 109d),   // soldier 1
+                (103d, 118d, 102d, 117d),   // soldier 2: opens inside 1's body, closes above it
+                (110d, 126d, 109d, 125d),   // soldier 3
+            });
+            var state = CandleState(bars, idx: 3);
+
+            svc.AnnounceDetails(state);
+
+            var msg = LastAnnouncement(bus);
+            Assert.Contains("Three white soldiers", msg);
+            // The span is stated because a reader of history cannot otherwise recover it, and the
+            // lean because "continuation" and "reversal" are opposite trades.
+            Assert.Contains("3-bar continuation", msg);
+        }
+
+        [Fact]
+        public void BarDetail_AnOrdinaryBar_CarriesNoBiasClause()
+        {
+            // Vacuity guard for the clause above: appending "reversal" to every bar would satisfy
+            // the multi-bar test and destroy the signal. An unremarkable candle gets a direction
+            // and the measurements, nothing else.
+            var bus = new SpyEventBus();
+            var svc = new BarDetailService(bus);
+            // Not "three ordinary green bars" — that is three white soldiers, and the first
+            // draft of this guard named one.
+            var bars = MakeBars(new[]
+            {
+                (100d, 110d,  98d, 107d),
+                (107d, 112d, 100d, 102d),
+                (103d, 112d, 101d, 108d),
+            });
+            var state = CandleState(bars, idx: 2);
+
+            svc.AnnounceDetails(state);
+
+            var msg = LastAnnouncement(bus);
+            Assert.DoesNotContain("reversal", msg);
+            Assert.DoesNotContain("continuation", msg);
+            Assert.Contains("Bullish.", msg);
+        }
+
+        [Fact]
+        public void BarDetail_FlatRange_ClassifiesAsADoji()
+        {
+            // O=H=L=C=100. The old private classifier called this "Flat"; the shared analyser
+            // calls a zero body a doji, and the direction is Neutral so no trend word leads it.
+            // Both are defensible readings of a bar that did not move — what is NOT defensible is
+            // the terminal using a word here that no other route in the app would use.
             var bus = new SpyEventBus();
             var svc = new BarDetailService(bus);
             var bars = MakeBars(new[] { (100d, 100d, 100d, 100d) });
             var state = CandleState(bars, idx: 0);
 
             svc.AnnounceDetails(state);
-            Assert.Contains("Flat", LastAnnouncement(bus));
+            Assert.Contains("Doji", LastAnnouncement(bus));
         }
 
         [Fact]

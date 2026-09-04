@@ -117,6 +117,100 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, SEVENTEENTH pass — ONE PATH FOR CANDLE PATTERNS.
+> THE ARROW KEYS AND THE DETAIL KEY NAME THE TWELVE MULTI-BAR PATTERNS NOW, THREE CLASSIFIERS
+> BECAME ONE, AND AN INTRA-BAR ENGULFING WAS BEING TESTED AGAINST ITSELF.**
+>
+> ### 1. THE ITEM THE SIXTEENTH PASS LEFT OPEN IS CLOSED
+>
+> The sixteenth pass named it and recommended the fix; this is that fix, plus the arrow-key
+> half Cody asked for in the same breath. **`SdkCandlePatternAnalyzer` is now the only thing
+> in the app that decides what a candle is**, and `CandlePatternSpeech` (Core, Accessibility)
+> is the only thing that decides what it is CALLED.
+>
+> **Four routes, one classifier, one vocabulary:** the bar that just closed, the live bar as
+> it forms, the arrow keys reading history, and the detail key (Ctrl+Shift+D / Alt+Shift+D).
+> The last two each carried a private single-bar classifier — `BarDetailService.ClassifyBar`
+> and `SpeechFormatter.ClassifyCandleType` — both now deleted.
+>
+> **What that was actually costing, and it is worse than the missing feature:**
+>
+> - **The twelve multi-bar patterns were inaudible on history.** Engulfing, harami, piercing
+>   line, dark cloud cover, tweezers, morning and evening star, three white soldiers, three
+>   black crows. The detector had known them for months and the alert engine could fire on
+>   them; no route that reads the PAST would say one. Reading a chart by ear is almost
+>   entirely reading the past.
+> - **The three classifiers disagreed about the shapes they DID share.** A marubozu needed a
+>   90% body by the arrow keys and 95% by the analyser, so a 92% body was a marubozu when
+>   scanned and an ordinary candle when it closed — the same bar, two answers, depending on
+>   which key you pressed.
+> - **Hammer and hanging man were not distinguished at all by the two copies.** They are the
+>   same candle; only the trend into them decides which, and only the analyser looked at the
+>   trend. Both copies called every one of them a hammer. That does not mislabel by a shade,
+>   it announces the opposite direction to someone who cannot see the chart.
+>
+> ### 2. A SECOND DEFECT FELL OUT OF THE JOIN: THE FORMING BAR WAS ITS OWN PREDECESSOR
+>
+> `WorkspaceStore` replaces the live bar IN PLACE, so on an intra-bar tick
+> `IntraBarUpdateEvent.PreviousBar` is **an earlier snapshot of the bar now forming** — same
+> timestamp, smaller body — and `TwoBarsAgo` is the bar that actually precedes it. The
+> coordinator passed those fields straight to the analyser, so a bullish engulfing on the
+> live bar was tested against a younger version of itself, which a growing body engulfs by
+> construction.
+>
+> **This is the same defect the fourteenth pass fixed on the BAR-CLOSE route, surviving one
+> method below it.** It survived because the event carries a field with exactly the right
+> name. **The durable lesson: an event field called `PreviousBar` is not the previous bar
+> until you have read the code that populates it** — here it is populated from the previous
+> STATE, and on an in-place update the previous state's last bar is this one.
+>
+> ### 3. WHAT CHANGED IN WHAT YOU HEAR
+>
+> - **Arrow keys, candles in series context.** Was `"Bullish Doji. Close … Open …"`. Now
+>   `"Long-legged doji. Close … Open …"`, `"Three white soldiers. Close …"`,
+>   `"Bullish engulfing. Close …"`, and on an unremarkable bar `"Bullish. Close …"` exactly
+>   as before.
+> - **A NAMED SHAPE IS NEVER PREFIXED WITH A DIRECTION WORD.** Every one of the twelve
+>   patterns carries its side in its name or its definition, and so do hammer and hanging
+>   man — hearing which of the pair it is IS hearing the direction. "Bullish three white
+>   soldiers" is three redundant syllables on a phrase heard on every bar of a scan, and
+>   "Bearish Bearish Marubozu" is what happens when a second place also adds one (it was a
+>   real reported reading). The direction word appears only when there is no shape to name.
+> - **Detail key adds the span and the lean:** `"Three white soldiers, 3-bar continuation.
+>   Body 58%, …"`. The span is stated only for multi-bar shapes, because it is the fact a
+>   reader of history cannot recover by ear — hearing "morning star" on one bar gives no clue
+>   that the two bars behind the cursor are part of it.
+> - **The `Describe candle patterns` switch now governs the arrow keys too**, which is what
+>   the Settings hint and the manual had claimed since it was added. Off leaves "Bullish" /
+>   "Bearish" and the prices. **The detail key is deliberately NOT gated** — same rule the
+>   chart-formation clause follows there: those settings govern unsolicited narration, and
+>   that key is the user asking a direct question.
+> - **`"Flat"` is gone.** A zero-range bar is a doji in the shared vocabulary. Both readings
+>   are defensible; what was not defensible was one route using a word no other route knew.
+> - **Candle classification follows the DISPLAY.** With Heikin-Ashi on, the shape is judged on
+>   the HA candles, transformed as a whole window (HA is recursive from bar zero, so a bar
+>   transformed in isolation is not the candle on screen). This is the OPPOSITE of the rule
+>   for CHART formations, and the difference is the price: a formation answers with a trigger
+>   and a measured target that a user might type into an order ticket, and an HA close is an
+>   average of four prices that never traded. A candle pattern answers with a name. Written
+>   up in `docs/CHART_PATTERN_NARRATION.md`.
+>
+> ### 4. WHAT IS OPEN
+>
+> - **The paper-account reset needs a confirmation (WCAG 3.3.4)** — Cody's call, carried over
+>   from the fifteenth pass.
+> - **Version is 2.6.0 and there is still NO TAG** — Cody's call.
+> - **Playback does not carry a candle-pattern clause.** It speaks time landmarks, discrete
+>   signals and chart-formation resolutions. Whether it should name candles too is a
+>   judgement about rate, not a defect: playback speaks per bar, and dojis and spinning tops
+>   are common enough that it could become the loudest thing in the stream. Left alone
+>   deliberately; raise it if it is wanted.
+>
+> **Suite green. `CandlePatternOnePathTests` (15 cases) proven by four sabotages — removing
+> the forming-bar de-duplication, cutting the arrow keys back to a single-bar view, making
+> the trailing window raw under Heikin-Ashi, and dropping the settings gate — each turned
+> exactly the intended guard red.**
+
 > **START HERE (current as of 2026-09-04, SIXTEENTH pass — THE PANE IS THE Y AXIS AND THERE
 > IS ONE MODEL OF IT NOW; SPLIT VIEW AND PANE SCROLLING ARE GONE WITH NO REMNANT; THE
 > ORIENTATION CLAUSES TRAIL. All three of Cody's items built.**

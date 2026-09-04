@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Sdk.Analysis;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Services.Audio;
 using Microsoft.Extensions.Logging;
@@ -32,12 +33,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // (null in minimal tests → the provider strategy simply never matches).
         private readonly Indicators.IIndicatorEngine? _indicatorEngine;
 
+        /// <summary>
+        /// The ONE candle classifier — the same one the bar-close and live-bar announcements use.
+        /// Injected so the configured thresholds reach the arrow keys, defaulted so the many
+        /// existing zero- and one-argument constructions keep working.
+        /// </summary>
+        private readonly ISdkCandlePatternAnalyzer _candles;
+
         public SpeechFormatter() : this(NullLogger<SpeechFormatter>.Instance) { }
 
-        public SpeechFormatter(ILogger<SpeechFormatter> logger, Indicators.IIndicatorEngine? indicatorEngine = null)
+        public SpeechFormatter(ILogger<SpeechFormatter> logger,
+                               Indicators.IIndicatorEngine? indicatorEngine = null,
+                               ISdkCandlePatternAnalyzer? candleAnalyzer = null)
         {
             _logger = logger;
             _indicatorEngine = indicatorEngine;
+            _candles = candleAnalyzer ?? new SdkCandlePatternAnalyzer();
             // ── THE utterance precedence list (debt item 4) ────────────────────
             // Component-context speech resolves top-down; first non-null wins.
             // This array + the fallback IS the whole precedence — there is no
@@ -102,9 +113,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (summary && seriesId == "candles")
             {
-                string trend = pt.Close >= pt.Open ? "Bullish" : "Bearish";
-                string candleType = ClassifyCandleType(pt);
-                string typeStr = string.IsNullOrEmpty(candleType) ? "" : $" {candleType}";
+                // ── THE ARROW KEYS NAME MULTI-BAR PATTERNS NOW ──────────────────────────────
+                //
+                // This used to call a private ClassifyCandleType that saw ONE bar and knew five
+                // shapes, so scanning history could never surface an engulfing, a harami, a
+                // morning star or three white soldiers — the twelve patterns the terminal already
+                // detects were audible only if you happened to be listening when the bar closed.
+                // Reading a chart by ear is mostly reading the PAST, so the route that reads the
+                // past was the one route that could not say them.
+                //
+                // It is the same analyser, over the same trailing window, that the live
+                // announcement uses (CandlePatternSpeech). `pt` is passed as the current bar
+                // because it is already the bar AS DRAWN — Heikin-Ashi when that mode is on — and
+                // the window behind it is drawn the same way, so a pattern is judged on the
+                // candles actually on screen rather than the raw bars underneath them.
+                var analysis = CandlePatternSpeech.AnalyzeAt(
+                    _candles, state.Data, state.CurrentDataIndex, state.IsHeikinAshi, current: pt);
+
+                // Gated the same way the bar-close clause is. The DIRECTION is not: "Bullish" is
+                // a fact about the bar rather than a pattern claim, it has always led this
+                // sentence, and dropping it would leave the reading starting on a price.
+                string shape = state.DescribeCandlePatterns
+                    ? CandlePatternSpeech.DescribeShape(analysis)
+                    : CandlePatternSpeech.DirectionOnly(pt);
 
                 double range = pt.High - pt.Low;
                 double body = Math.Abs(pt.Close - pt.Open);
@@ -114,7 +145,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                msg = $"{trend}{typeStr}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
+                msg = $"{shape}. Close {SpeechPriceFormatter.FormatPrice(pt.Close)}. Open {SpeechPriceFormatter.FormatPrice(pt.Open)}. " +
                       $"High {SpeechPriceFormatter.FormatPrice(pt.High)}. Low {SpeechPriceFormatter.FormatPrice(pt.Low)}. Volume {FormatVolume(pt.Volume)}. " +
                       $"Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%.";
             }
@@ -443,33 +474,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 IsPOC          = Math.Abs(b.TotalVolume - barMax) < 1e-9,
                 IsValueArea    = false,
             }).ToList();
-        }
-
-        private static string ClassifyCandleType(Ohlcv bar)
-        {
-            double range = bar.High - bar.Low;
-            if (range <= 0) return "";
-            double body     = Math.Abs(bar.Close - bar.Open);
-            double bodyPct  = body / range;
-            double upper    = bar.High - Math.Max(bar.Open, bar.Close);
-            double lower    = Math.Min(bar.Open, bar.Close) - bar.Low;
-            double upperPct = upper / range;
-            double lowerPct = lower / range;
-            if (bodyPct < 0.05)
-            {
-                if (lowerPct > 0.6 && upperPct < 0.1) return "Dragonfly Doji";
-                if (upperPct > 0.6 && lowerPct < 0.1) return "Gravestone Doji";
-                return "Doji";
-            }
-            // Symmetric on purpose. The ONE call site prefixes the trend word already
-            // ("{trend}{typeStr}."), so the asymmetric "Bearish Marubozu" it used to return on
-            // the down side was spoken as "Bearish Bearish Marubozu." Direction belongs to the
-            // trend prefix; this method names the SHAPE, and the shape is the same either way.
-            if (bodyPct > 0.90) return "Marubozu";
-            if (bodyPct < 0.30 && lowerPct > 0.60 && upperPct < 0.10) return "Hammer";
-            if (bodyPct < 0.30 && upperPct > 0.60 && lowerPct < 0.10) return "Shooting Star";
-            if (bodyPct < 0.30 && upperPct > 0.25 && lowerPct > 0.25) return "Spinning Top";
-            return "";
         }
 
         internal static double GetPointValue(ChartSeries s, Ohlcv p, string c, int i)

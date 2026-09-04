@@ -267,7 +267,8 @@ pattern on every bar, which nothing in the product does.
 - **No candle-pattern jump key.** Dojis and spinning tops occur on a large share of every chart, so
   "jump to the next candle pattern" would usually mean "move one bar right" — a key that does
   nothing the right arrow does not, while consuming a binding. Candle patterns are read on the bar
-  you are standing on, which is the right place for something that common.
+  you are standing on, which is the right place for something that common — and that now includes
+  the multi-bar ones (see below).
 
 ---
 
@@ -291,6 +292,14 @@ The alternative — detecting on whatever is displayed — is what charting plat
 indicators, and it is exactly why those platforms warn against backtesting strategies on Heikin-Ashi:
 the fills are not real. Disclosure is the honest resolution here; recomputing on HA would produce
 levels that read as prices and are not.
+
+**CANDLE patterns go the other way, and the difference is the price.** A candle pattern produces no
+trigger and no measured target — nothing you would type into an order ticket — so the objection
+above does not apply to it. What it describes is a SHAPE, and with Heikin-Ashi on the shape on the
+screen is the Heikin-Ashi one: an HA candle is routinely shaved of a shadow the raw bar has, which
+is precisely what a hammer or a marubozu is defined by. So candle classification runs on the bars
+as drawn, exactly as the spoken open/high/low/close already do. Chart formations answer with a
+price and stay on standard candles; candle patterns answer with a name and follow the display.
 
 ---
 

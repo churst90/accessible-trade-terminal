@@ -333,10 +333,12 @@
                                @onchange="e => _describeCandlePatterns = e.Value is bool b ? b : Store.State.DescribeCandlePatterns" />
                     </div>
                     <p id="s-candle-patterns-hint" style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        On by default. One- to three-bar shapes — engulfing, harami, doji, hammer —
-                        named on the bar that closes and on the live bar as it forms. Off removes
-                        the pattern clause from the new-bar announcement and silences the forming
-                        one; the closing price is still spoken.
+                        On by default. One- to three-bar shapes — engulfing, harami, doji, hammer,
+                        morning star, three white soldiers — named on the bar that closes, on the
+                        live bar as it forms, and on every bar you arrow onto. Off removes the
+                        pattern clause from the new-bar announcement, silences the forming one, and
+                        leaves the arrow keys reading "Bullish" or "Bearish" and the prices. The
+                        detail key (Alt+Shift+D) always names the pattern: it is you asking.
                     </p>
 
                     <div class="modal-row">

@@ -115,7 +115,12 @@ public sealed class NewBarNarrationTests
         Assert.Equal(Bars[98], call.Current);
         Assert.Equal(Bars[97], call.Prev);         // was Bars[98]: the closed bar as its own predecessor
         Assert.Equal(Bars[96], call.Prev2);
-        Assert.Equal(99, call.Recent!.Count);      // trailing context ends AT the closed bar
+        // The window is BOUNDED now (CandlePatternSpeech.ContextBars) rather than the whole
+        // loaded series. It used to be all 99 bars, which cost an O(n) copy on every bar close
+        // and on every arrow keypress once the other routes started using the same helper. What
+        // the analyser actually reads is three bars plus the trend lookback; the cap is far above
+        // both. What matters is unchanged and asserted on the next line: it ends AT the closed bar.
+        Assert.Equal(CandlePatternSpeech.ContextBars, call.Recent!.Count);
         Assert.Equal(Bars[98], call.Recent[^1]);
     }
 
