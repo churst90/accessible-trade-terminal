@@ -116,9 +116,13 @@ namespace AccessibleTrader.Core.Services
             if (parameters != null)
             {
                 foreach (var p in parameters) config.Parameters[p.Key] = p.Value;
-                // Update friendly name with parameters
-                string pStr = string.Join(" ", parameters.Values.Select(v => v.ToString("G")));
-                config.FriendlyName = $"{n} {pStr}";
+
+                // The metadata-free path: no declared defaults to compare against, so the only
+                // safe reduction is a length cap. Blunter than the metadata path above by
+                // necessity, not by choice — without knowing which values are the indicator's own,
+                // dropping one could drop the only thing distinguishing two instances.
+                config.FriendlyName = IndicatorInstanceName.ForValues(
+                    n, parameters.Values.Select(v => v.ToString("G", System.Globalization.CultureInfo.InvariantCulture)));
             }
 
             // Ensure components are populated. Uses the new snake_case machine names
@@ -220,11 +224,12 @@ namespace AccessibleTrader.Core.Services
             var paramList = parameters?.Select(kvp => (kvp.Key, FormatParam(kvp.Value))).ToList()
                             ?? new List<(string, string)>();
 
-            // Build instance name (include parameter values when present). For string-typed
-            // parameters this gives a readable instance name like "Funding Rate BTC-USDT-SWAP".
-            string instanceName = parameters?.Any() == true
-                ? $"{meta.Name} {string.Join(" ", parameters.Values.Select(FormatParam))}"
-                : meta.Name;
+            // Build the instance name. It used to join EVERY parameter value onto the indicator
+            // name, which reads correctly on "EMA 20" and turns Cipher B into eight bare numbers
+            // on the name a user hears most often. IndicatorInstanceName keeps only what DIFFERS
+            // from the indicator's declared defaults — the part that actually tells two instances
+            // apart — and caps even that. See its summary for the rule and the report behind it.
+            string instanceName = IndicatorInstanceName.For(meta, parameters);
 
             string pane = meta.DefaultPane ?? _stylingService.GetPane(indicatorCode);
 

@@ -282,6 +282,18 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   and down, morning and evening doji star, the abandoned baby, the three line strike, and the
   rising and falling three methods — the last of which is a five-bar shape the terminal
   previously had no way to even express.
+- **Indicator names stopped reciting their settings.** Arrowing onto Cipher B read
+  "Cipher B 9 12 60 50 14 …" — every parameter, unlabelled, every time. It reads "Cipher B" now.
+  Change one and you hear what you changed, which is the only part that tells two copies of the
+  same indicator apart.
+- **Playback reads the signal, not the indicator's name in front of it.** "Bull signal at 141.00"
+  rather than "Cipher B: Bull signal at 141.00", every few seconds, for the whole run. The name
+  comes back the moment it is doing work — when two different indicators fire on the same bar,
+  each is named, because that is the case it was there for.
+- **"Speak time landmarks during playback" is its own switch** on the Narration tab. The date or
+  hour as playback crosses a boundary is the only thing that says where in time the tones are —
+  and it is also a calendar read to you every few seconds. On by default; turning it off keeps
+  the signals and the formation outcomes.
 - **Playback tells you when it is about to say nothing.** Add Cipher B or Cipher SR, press play,
   and you heard tones and no signals — because narration is switched on per series and nothing
   said so. It now tells you once, when you press play: *"No series is set to narrate, so signals

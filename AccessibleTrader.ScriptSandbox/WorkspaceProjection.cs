@@ -135,6 +135,10 @@ public static class WorkspaceProjection
         // there is no speech channel at all.
         nameof(WorkspaceState.NarrateSignalsOnBarClose),
         nameof(WorkspaceState.NarrateDuringPlayback),
+        // Same reasoning, one level down: this one says whether the terminal reads the CALENDAR
+        // aloud while playing. A strategy that behaved differently because of it would be a
+        // defect, and in a backtest there is no speech channel for it to be true of.
+        nameof(WorkspaceState.SpeakPlaybackLandmarks),
     };
 
     /// <summary>

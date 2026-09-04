@@ -266,6 +266,25 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   **`MaxPatternBars` moved 3 → 5** and that is load-bearing quietly: left at 3 nothing fails
 >   loudly, the first two bars of a five-bar pattern just go silent again.
 >
+> ### 9. THREE SPEECH REPETITIONS FROM CODY — all three closed
+>
+> **(a) The instance name recited every parameter.** "Cipher B 9 12 60 50 14 …", unlabelled, in
+> dictionary order, on the name a user hears most often. `IndicatorInstanceName` keeps only what
+> DIFFERS from the indicator's declared defaults, plus a cap (past 3 → "N custom parameters").
+> **Two traps that would have reintroduced it silently:** a default declared `int 20` versus a
+> value arriving as `"20"` or `20.0` must be compared as NUMBERS or every parameter reads as
+> changed; and an UNDECLARED parameter is always spoken, because the metadata cannot call it a
+> default when it does not know it exists.
+>
+> **(b) Playback prefixed every signal with the series name.** The prefix's reason was real — two
+> clauses in one breath with no names is one indicator saying two things — so the rule became the
+> reason rather than the habit: **said only when it is doing work.** One clause reads as itself;
+> two from DIFFERENT series each carry their name; two from the SAME series name it once.
+>
+> **(c) `Speak time landmarks during playback` is a switch now**, Narration tab, on by default,
+> subordinate to `Narrate during playback` (whose hint text now says it is the master). Excluded
+> from the sandbox projection alongside its two siblings, same recorded reason.
+>
 > ### 8. THE STRATEGYLAB STATISTICS RE-RUN WAS ALREADY DONE, AND THIS FILE HAS SAID OTHERWISE FOR A WEEK
 >
 > Cody asked for "the strategy item on the todo" to be run. **It had already been run — on

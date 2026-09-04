@@ -211,6 +211,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public static string? LandmarkForStep(WorkspaceState previous, WorkspaceState current, bool isFirstStep)
         {
             if (!current.IsPlaying || current.IsPaused || !previous.IsPlaying || isFirstStep) return null;
+            // The landmark's own switch, subordinate to NarrateDuringPlayback (checked by the
+            // caller). Split out on 2026-09-04: the landmark answers WHERE IN TIME the tones are
+            // and the signals answer WHAT the indicators printed, and wanting one is not wanting
+            // the other — a user scanning for signals does not necessarily want the calendar read
+            // to them every few seconds for the length of a run.
+            if (!current.SpeakPlaybackLandmarks) return null;
             var data = current.Data;
             if (data == null || data.Count == 0) return null;
             int from = previous.CurrentDataIndex, to = current.CurrentDataIndex;
@@ -288,14 +294,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             if (barIndex < 0) return null;
 
-            var clauses = new List<string>(MaxSignalClauses);
+            var clauses = new List<(string Series, string Clause)>(MaxSignalClauses);
             foreach (var series in state.ActiveSeries)
             {
                 if (!series.IsAutoNarrated || !series.IsVisible || series.IsMuted) continue;
 
                 foreach (var comp in series.Components)
                 {
-                    if (clauses.Count >= MaxSignalClauses) return string.Join(" ", clauses);
+                    if (clauses.Count >= MaxSignalClauses) break;
                     if (!comp.IsVisible || comp.IsMuted) continue;
                     if (comp.IsZoneLine || comp.UsesGradientSpeech) continue;
                     if (!AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)) continue;
@@ -307,18 +313,45 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (double.IsNaN(val)) continue;
 
                     string clause = ExpandSignalTemplate(series, comp, val, state, barIndex);
-                    if (!string.IsNullOrWhiteSpace(clause)) clauses.Add(clause);
+                    if (!string.IsNullOrWhiteSpace(clause)) clauses.Add((SeriesName(series), clause));
                 }
+
+                if (clauses.Count >= MaxSignalClauses) break;
             }
 
-            return clauses.Count == 0 ? null : string.Join(" ", clauses);
+            if (clauses.Count == 0) return null;
+
+            // ── THE SERIES NAME IS SAID ONLY WHEN IT IS DOING WORK ──────────────────────────
+            //
+            // Cody, 2026-09-04: "during playback only the signal itself should be read, not
+            // prefixed with everything". He is right about the common case and the prefix was
+            // still worth having, so the rule is now the reason rather than the habit: the name
+            // exists to stop two clauses in one breath being heard as one indicator's. With ONE
+            // clause there is nothing to confuse it with, and the name is a fixed phrase repeated
+            // ahead of every signal for the length of a playback run — which at ten bars a second
+            // is the loudest thing in the stream and carries no information at all.
+            //
+            // Two clauses from DIFFERENT series still get their names, because that is the case
+            // the prefix was written for. Two from the SAME series do not: the series is named
+            // once, at the front, and the second clause follows it.
+            var names = clauses.Select(c => c.Series).Distinct(StringComparer.Ordinal).ToList();
+
+            if (names.Count == 1)
+            {
+                // One source. Name it once and only when there is more than one thing to say
+                // about it — a lone signal reads as itself.
+                string body = string.Join(" ", clauses.Select(c => c.Clause));
+                return clauses.Count == 1 ? body : $"{names[0]}: {body}";
+            }
+
+            return string.Join(" ", clauses.Select(c => $"{c.Series}: {c.Clause}"));
         }
 
         /// <summary>
-        /// One signal clause: the component's own template, expanded, carrying the series name so
-        /// two clauses in one breath cannot be heard as belonging to one indicator. None of the
-        /// shipped templates contains <c>{series}</c>, so the prefix is added rather than
-        /// substituted — and a template that DOES name the series is left alone, exactly as
+        /// One signal clause: the component's own template, expanded. The series NAME is no longer
+        /// added here — <see cref="SignalsForStep"/> decides that, because whether the name is
+        /// needed is a fact about the whole utterance and not about one clause. A template that
+        /// names the series itself via <c>{series}</c> still does, exactly as
         /// <c>ScanUtterance.Compose</c> treats it.
         /// </summary>
         private static string ExpandSignalTemplate(
@@ -337,8 +370,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Trim();
 
             if (text.Length == 0) return "";
-            if (!text.StartsWith(seriesName + ":", StringComparison.Ordinal))
-                text = seriesName + ": " + text;
             // 47 of the 61 shipped templates end without a full stop, which read fine alone and
             // run into the next clause once joined — the same repair ScanUtterance makes.
             if (!".!?".Contains(text[^1])) text += ".";

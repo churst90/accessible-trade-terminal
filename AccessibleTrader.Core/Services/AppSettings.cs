@@ -62,6 +62,7 @@ namespace AccessibleTrader.Core.Services
         // Narration (Settings → Narration) — the unprompted speech channel.
         bool NarrateSignalsOnBarClose { get; set; }
         bool NarrateDuringPlayback { get; set; }
+        bool SpeakPlaybackLandmarks { get; set; }
 
         // Viewport
         int PanningGranularity { get; set; }
@@ -269,6 +270,16 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.ShowChartPatternVisuals, def: false);
             set => Set(SettingsKeys.ShowChartPatternVisuals, value);
+        }
+
+        /// <summary>
+        /// The date or hour spoken as playback crosses a boundary. Default ON — it has spoken
+        /// since 2026-09-02 and is the only thing that says WHERE IN TIME the tones are.
+        /// </summary>
+        public bool SpeakPlaybackLandmarks
+        {
+            get => GetBool(SettingsKeys.SpeakPlaybackLandmarks, def: true);
+            set => Set(SettingsKeys.SpeakPlaybackLandmarks, value);
         }
 
         public int PanningGranularity

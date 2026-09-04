@@ -75,13 +75,15 @@ namespace AccessibleTrader.Core.Services
             bool SpeakTimestamps, string TimestampReadLocation, bool ReadColumnHeaders,
             string SpeechOrder, bool AnnounceNewBars, int WasapiLatency, int PanningGranularity,
             bool DescribeChartPatterns, bool DescribeCandlePatterns,
-            bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback);
+            bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback,
+            bool SpeakPlaybackLandmarks = true);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
             s.SpeechOrder, s.AnnounceNewBars, s.WasapiLatency, s.PanningGranularity,
             s.DescribeChartPatterns, s.DescribeCandlePatterns,
-            s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback);
+            s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback,
+            s.SpeakPlaybackLandmarks);
 
         public void Initialize()
         {
@@ -104,6 +106,7 @@ namespace AccessibleTrader.Core.Services
                     DescribeCandlePatterns = _settings.DescribeCandlePatterns,
                     NarrateSignalsOnBarClose = _settings.NarrateSignalsOnBarClose,
                     NarrateDuringPlayback = _settings.NarrateDuringPlayback,
+                    SpeakPlaybackLandmarks = _settings.SpeakPlaybackLandmarks,
                 }));
             }
             catch (Exception ex)
@@ -133,6 +136,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.DescribeCandlePatterns = p.DescribeCandlePatterns;
                         _settings.NarrateSignalsOnBarClose = p.NarrateSignalsOnBarClose;
                         _settings.NarrateDuringPlayback = p.NarrateDuringPlayback;
+                        _settings.SpeakPlaybackLandmarks = p.SpeakPlaybackLandmarks;
                         _settings.Save();
                     }
                     catch (Exception ex)

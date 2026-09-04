@@ -638,10 +638,10 @@
     "dialogIds": [
       "(unnamed dialog #0)"
     ],
-    "dialogAccessibleName": "Respect report \u2014 Harness Candles 1d",
+    "dialogAccessibleName": "Respect report \u2014",
     "openModalCount": 1,
     "focusLandedOnDeclaredTarget": true,
-    "actualFocus": "\u003Ch2 id=\u0027levelreport-title\u0027\u003E \u201CRespect report \u2014 Harness Candles 1d\u201D",
+    "actualFocus": "\u003Ch2 id=\u0027levelreport-title\u0027\u003E \u201CRespect report \u2014\u201D",
     "unnamedControls": [],
     "tabs": [
       "Levels near price",
@@ -698,7 +698,7 @@
       "\u003Cbutton (no id)\u003E \u201CBacktests (0)\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Copy visible journal entries to the clipboard\u0027\u003E \u201CCopy visible\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Clear the entire journal\u0027\u003E \u201CClear\u201D",
-      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[14:54:12] SPEECH  TTS  (Harness Candles) Resumed your last \u2026\u201D",
+      "\u003Ctextarea id=\u0027journal-text\u0027 aria-label=\u0027Journal entries\u0027\u003E \u201C[15:42:35] SPEECH  TTS  (Harness Candles) Resumed your last \u2026\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Reset the audio drop counters to zero\u0027\u003E \u201CReset\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close journal dialog\u0027\u003E \u201CClose\u201D",
       "\u003Cbutton (no id)\u003E \u201CAll (4)\u201D"
@@ -727,20 +727,20 @@
     "tabs": [],
     "tabEscapes": [],
     "tabStops": [
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
-      "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D",
+      "\u003Cbutton (no id) aria-label=\u0027Review setups today by reading the journal and asking the AI\u0027\u003E \u201CReview setups today\u201D",
       "\u003Cbutton (no id) aria-label=\u0027Close AI Analyst dialog\u0027\u003E \u201CClose\u201D"
     ],
-    "tabDistinctStops": 1,
+    "tabDistinctStops": 2,
     "escapeClosed": true,
     "openModalCountAfterEscape": 0,
     "focusAfterEscape": "\u003Cdiv id=\u0027chart-interact-zone\u0027 role=\u0027application\u0027 aria-label=\u0027Trading chart. Harness Candles 1d on My Data. Press arrow keys to navigate bars.\u0027\u003E \u201CWelcome to AccessibleTrader                  Select a market\u2026\u201D"

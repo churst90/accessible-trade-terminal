@@ -226,7 +226,14 @@ namespace AccessibleTrader.Sdk.Models
         bool NarrateSignalsOnBarClose = true,
         // Whether playback speaks anything beyond its own start / pause / stop / speed
         // confirmations: time landmarks, marker signals, chart-pattern outcomes.
-        bool NarrateDuringPlayback = true
+        bool NarrateDuringPlayback = true,
+        // The TIME LANDMARK alone — "June 3", "14:00" — spoken as playback crosses a boundary.
+        // Split out of NarrateDuringPlayback on Cody's ask, 2026-09-04: the landmark and the
+        // signals answer different questions (WHERE IN TIME the tones are, versus WHAT the
+        // indicators printed), and someone who wants the signals may not want the calendar read
+        // to them every few seconds. Default TRUE — it has spoken since 2026-09-02, and it is
+        // subordinate to NarrateDuringPlayback, which remains the master switch.
+        bool SpeakPlaybackLandmarks = true
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -259,6 +266,7 @@ namespace AccessibleTrader.Sdk.Models
             DescribeCandlePatterns: true,
             NarrateSignalsOnBarClose: true,
             NarrateDuringPlayback: true,
+            SpeakPlaybackLandmarks: true,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,

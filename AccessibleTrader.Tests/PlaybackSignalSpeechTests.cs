@@ -170,13 +170,81 @@ namespace AccessibleTrader.Tests
         // ── Content: which components speak ─────────────────────────────────────
 
         [Fact]
-        public void ASignalOnTheBarSteppedOnto_IsSpoken_WithTheSeriesName()
+        public void ASignalOnTheBarSteppedOnto_IsSpoken_AsItself()
         {
             var h = Running(MarkerSeries(120, new[] { 41 }), cursor: 40);
 
             var spoken = Assert.Single(h.Step(41));
 
-            Assert.Equal("Cipher B: Bull signal at 141.00.", spoken);
+            // NO SERIES PREFIX with one clause. Cody, 2026-09-04: "during playback only the
+            // signal itself should be read, not prefixed with everything". The prefix exists to
+            // stop two clauses in one breath being heard as one indicator's; with one clause
+            // there is nothing to confuse it with, and at ten bars a second a fixed phrase ahead
+            // of every signal is the loudest thing in the stream carrying the least information.
+            // The disambiguating case is still guarded — see the two-series tests below.
+            Assert.Equal("Bull signal at 141.00.", spoken);
+        }
+
+        [Fact]
+        public void TwoSeriesFiringOnOneBar_EACH_CarryTheirName()
+        {
+            // THE CASE THE PREFIX WAS WRITTEN FOR, and the reason dropping it outright would have
+            // been the wrong fix. Two clauses in one breath with no names is one indicator saying
+            // two things — which is a different fact from two indicators agreeing, and agreement
+            // is the whole reason a trader runs two.
+            var state = Playing(MarkerSeries(120, new[] { 41 }), cursor: 40);
+
+            var cfg = new SeriesConfig
+            {
+                Id = "cipher_sr", IndicatorCode = "CIPHER_SR",
+                Name = "CipherSR", FriendlyName = "Cipher SR",
+                IsAutoNarrated = true, IsVisible = true, IsMuted = false,
+            };
+            cfg.Components.Add(new ComponentConfig
+            {
+                Name = "Signal", DisplayName = "Support test",
+                DisplayType = ComponentDisplayType.Dot, IsVisible = true,
+                SignalSpeechTemplate = "{name} at {price}",
+            });
+            var arr2 = new double[120];
+            Array.Fill(arr2, double.NaN);
+            arr2[41] = 1.0;
+            var buf2 = new SeriesDataBuffer { SeriesId = cfg.Id };
+            buf2.ComponentData["Signal"] = arr2;
+            var second = new ChartSeries(cfg, buf2);
+
+            state = state with { ActiveSeries = state.ActiveSeries.Add(second) };
+
+            var h = new Harness(state with { IsPlaying = false });
+            h.Settle(state);
+
+            string spoken = Assert.Single(h.Step(41));
+            Assert.Equal("Cipher B: Bull signal at 141.00. Cipher SR: Support test at 141.00.", spoken);
+        }
+
+        [Fact]
+        public void TwoCOMPONENTSOfOneSeries_NameTheSeriesOnce()
+        {
+            // One source, two things to say about it. Repeating the name is the stutter the
+            // single-clause rule removes; dropping it entirely would leave two clauses with no
+            // owner. Once, at the front.
+            var series = MarkerSeries(120, new[] { 41 });
+            var extra = new ComponentConfig
+            {
+                Name = "Second", DisplayName = "Bear signal",
+                DisplayType = ComponentDisplayType.Dot, IsVisible = true,
+                SignalSpeechTemplate = "{name} at {price}",
+            };
+            series.Config.Components.Add(extra);
+            var arr = new double[120];
+            Array.Fill(arr, double.NaN);
+            arr[41] = 1.0;
+            series.Data.ComponentData["Second"] = arr;
+
+            var h = Running(series, cursor: 40);
+
+            string spoken = Assert.Single(h.Step(41));
+            Assert.Equal("Cipher B: Bull signal at 141.00. Bear signal at 141.00.", spoken);
         }
 
         [Fact]
@@ -252,7 +320,7 @@ namespace AccessibleTrader.Tests
 
             var call = Assert.Single(StepCalls(h, 31));
 
-            Assert.Equal("February 2024. Cipher B: Bull signal at 131.00.", call.Text);
+            Assert.Equal("February 2024. Bull signal at 131.00.", call.Text);
             Assert.False(call.Interrupt, "playback narration must never clip the utterance before it");
         }
 
@@ -299,7 +367,7 @@ namespace AccessibleTrader.Tests
             Assert.Single(h.Step(41));
             for (int i = 42; i < 61; i++) h.Step(i);
 
-            Assert.Equal("Cipher B: Bull signal at 161.00.", Assert.Single(h.Step(61)));
+            Assert.Equal("Bull signal at 161.00.", Assert.Single(h.Step(61)));
         }
 
         [Fact]
@@ -328,6 +396,50 @@ namespace AccessibleTrader.Tests
             var h = Running(MarkerSeries(120, new[] { 31 }), cursor: 30, narratePlayback: false);
 
             Assert.Empty(h.Step(31));
+        }
+
+        [Fact]
+        public void TurningTimeLandmarksOff_KeepsTheSignalsAndStopsTheCalendar()
+        {
+            // Cody's ask, 2026-09-04: a switch of its own on the Narration tab. The landmark and
+            // the signals answer different questions — WHERE IN TIME the tones are, versus WHAT
+            // the indicators printed — and wanting the second is not wanting the first read out
+            // every few seconds for the length of a run.
+            var series = MarkerSeries(120, new[] { 41 });
+            var state = Playing(series, cursor: 40) with { SpeakPlaybackLandmarks = false };
+            var h = new Harness(state with { IsPlaying = false });
+            h.Settle(state);
+
+            Assert.Equal("Bull signal at 141.00.", Assert.Single(h.Step(41)));
+        }
+
+        [Fact]
+        public void WithTimeLandmarksOff_ABareBoundaryCrossingSaysNothing()
+        {
+            // The other half. A step that crosses a month boundary with no signal on it is
+            // exactly the utterance the switch exists to remove; without this the test above
+            // passes on a chart where the landmark never fired anyway.
+            var series = MarkerSeries(120, Array.Empty<int>());
+            var state = Playing(series, cursor: 59) with { SpeakPlaybackLandmarks = false };
+            var h = new Harness(state with { IsPlaying = false });
+            h.Settle(state);
+
+            Assert.Empty(h.Step(60));
+        }
+
+        [Fact]
+        public void TheLandmarkSwitchIsSubordinateToTheMasterOne()
+        {
+            // Leaving landmarks ON while narration is off must not resurrect them. The master
+            // switch is checked first by the caller; this pins that the two compose the way the
+            // hint text in Settings claims.
+            var series = MarkerSeries(120, Array.Empty<int>());
+            var state = Playing(series, cursor: 59, narratePlayback: false)
+                with { SpeakPlaybackLandmarks = true };
+            var h = new Harness(state with { IsPlaying = false });
+            h.Settle(state);
+
+            Assert.Empty(h.Step(60));
         }
 
         [Fact]

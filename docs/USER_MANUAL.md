@@ -831,10 +831,18 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
 Signals and formations are rate-limited to the same two-second cadence as the landmarks: a
 second one arriving inside the window is **dropped, not queued**, because at ten bars a
 second a queue means hearing about a bar the tones passed eight seconds ago. Landmarks are
-never dropped — they are the only thing telling you where in time you are. And all of it is
-one switch: **Settings (F12) → Narration → Narrate during playback**. Turn it off and
+never dropped by that limit — they are the only thing telling you where in time you are. The
+master switch is **Settings (F12) → Narration → Narrate during playback**: turn it off and
 playback is tones and nothing else, with the start, pause, speed and finish confirmations
-still spoken so the end of a run never sounds like a crash.
+still spoken so the end of a run never sounds like a crash. The landmarks have a switch of
+their own beneath it — **Speak time landmarks during playback**, on by default — because the
+date and the signals answer different questions, and wanting to hear what your indicators
+printed is not the same as wanting the calendar read to you every few seconds.
+
+**A signal is spoken as itself.** "Bull signal at 141.00", not the indicator's name in front
+of it every time. The name comes back when it is carrying information: two different
+indicators firing on the same bar are each named, because two clauses in one breath with no
+names is one indicator saying two things — a different fact from two indicators agreeing.
 
 If you want playback as *pure* narration rather than as sound, F3 turns the chart tones off
 and leaves everything above running: the cursor still walks the chart, the words still
@@ -2729,10 +2737,14 @@ of them **off**.
   Ctrl+Alt+Shift+N chooses *which* series speak; this decides whether any of them do. Turn
   it off for an hour of quiet without having to un-flag six indicators and then remember
   which six they were.
-- **Narrate during playback** — while the chart is playing, whether you hear the date or
-  hour as the tones cross each boundary, the signals your narrated series print, and any
-  chart formation that resolves. Off leaves playback as pure tones, with only the start,
-  pause, speed and finish confirmations spoken. Nobody had that switch before 2.6.0.
+- **Narrate during playback** — the master switch for everything playback says beyond its
+  own start, pause, speed and finish confirmations: the date or hour as the tones cross each
+  boundary, the signals your narrated series print, and any chart formation that resolves.
+  Off leaves playback as pure tones. Nobody had that switch before 2.6.0.
+- **Speak time landmarks during playback** — the date or hour alone, on by default and
+  subordinate to the switch above. It is the only thing that says where in time the tones
+  are, and it is also a calendar read to you every few seconds; turning it off keeps the
+  signals and the formation outcomes and stops the dates.
 
 There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
 delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery

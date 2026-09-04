@@ -597,10 +597,27 @@
                                @onchange="e => _narratePlayback = e.Value is bool b ? b : Store.State.NarrateDuringPlayback" />
                     </div>
                     <p id="s-narrate-playback-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        While the chart is playing: the date or hour as it crosses each boundary,
-                        the signals your narrated series print, and any chart formation that
-                        resolves. Off leaves playback as tones, with only the start, pause, speed
-                        and finish confirmations spoken.
+                        The master switch for everything playback says beyond its own start,
+                        pause, speed and finish confirmations. Off leaves playback as tones.
+                    </p>
+
+                    @* Split out of the switch above on Cody's ask (2026-09-04). The landmark and
+                       the signals answer different questions — WHERE IN TIME the tones are, versus
+                       WHAT the indicators printed — and wanting the second is not wanting the
+                       first read to you every few seconds for the length of a run. Subordinate:
+                       with "Narrate during playback" off, nothing here speaks either. *@
+                    <div class="modal-row">
+                        <label for="s-playback-landmarks">Speak time landmarks during playback</label>
+                        <input id="s-playback-landmarks" type="checkbox"
+                               aria-describedby="s-playback-landmarks-hint"
+                               checked="@Store.State.SpeakPlaybackLandmarks"
+                               @onchange="e => _playbackLandmarks = e.Value is bool b ? b : Store.State.SpeakPlaybackLandmarks" />
+                    </div>
+                    <p id="s-playback-landmarks-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        On by default. The date or hour spoken as playback crosses a boundary —
+                        "June 3", "14:00" — which is the only thing that says where in time the
+                        tones are. Off keeps the signals and the chart-formation outcomes and
+                        stops the calendar. Needs "Narrate during playback" on.
                     </p>
                 </fieldset>
 
@@ -1057,6 +1074,7 @@
     private bool _describeCandlePatterns;
     private bool _narrateSignals;
     private bool _narratePlayback;
+    private bool _playbackLandmarks;
 
     // ── Settings search (Phase D second pass) ────────────────────────────────
     private sealed record SettingEntry(string Label, string Tab, string ControlId, string Keywords);
@@ -1090,7 +1108,8 @@
         new("Event mute includes order outcomes", "Speech", "s-mute-includes-orders", "silence mute stop take profit shift fills"),
         new("Announce new bars", "Narration", "s-announce-bars", "live candle close narration"),
         new("Narrate signals on bar close", "Narration", "s-narrate-signals", "narration indicator signal auto master switch"),
-        new("Narrate during playback", "Narration", "s-narrate-playback", "narration playback landmark signal speech space"),
+        new("Narrate during playback", "Narration", "s-narrate-playback", "narration playback signal speech space master"),
+        new("Speak time landmarks during playback", "Narration", "s-playback-landmarks", "narration playback landmark date hour time calendar boundary"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Sound theme", "Sonification", "s-sound-theme", "instrument voices patch orchestra"),
@@ -1545,6 +1564,7 @@
         _describeCandlePatterns = Store.State.DescribeCandlePatterns;
         _narrateSignals = Store.State.NarrateSignalsOnBarClose;
         _narratePlayback = Store.State.NarrateDuringPlayback;
+        _playbackLandmarks = Store.State.SpeakPlaybackLandmarks;
         _paperTradingMode = App.PaperTradingMode;
         _quickSizingMode = Settings.GetSetting(SettingsKeys.QuickTradeSizingMode)?.ToObject<int>() ?? 0;
         _bgMonitoring  = App.BackgroundMonitoring;
@@ -1752,6 +1772,7 @@
             DescribeCandlePatterns = _describeCandlePatterns,
             NarrateSignalsOnBarClose = _narrateSignals,
             NarrateDuringPlayback = _narratePlayback,
+            SpeakPlaybackLandmarks = _playbackLandmarks,
         }));
 
         // The two master toggles and the panning step are store state, not app settings, and

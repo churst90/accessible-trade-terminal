@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The name that recited its parameters, the prefix on every playback signal, and a switch for the calendar (2026-09-04)
+
+Three from Cody, all of them about the same thing: speech that repeats what the listener already
+knows.
+
+**"Cipher B 9 12 60 50 14 …" is just "Cipher B" now.** The instance name was built by joining
+EVERY parameter value onto the indicator's name, unlabelled, in dictionary order. On a
+one-parameter indicator that gives "EMA 20" — exactly right, and why it was written. On an
+eight-parameter one it gives eight bare numbers a listener cannot map back to anything, on the
+name they hear most often in the app.
+
+The name's job is to tell two INSTANCES apart, so `IndicatorInstanceName` keeps only what DIFFERS
+from the indicator's declared defaults. At defaults it is silent; add a second EMA at 50 and the
+difference is the thing you hear. A parameter left alone says nothing about this instance — it is
+a property of the indicator, and the indicator is already named. Plus a cap, because "only what
+differs" is not a bound: past three, the suffix becomes a count ("Cipher B, 4 custom parameters"),
+which is short, honest, and still says the two instances differ.
+
+Two details that would have quietly reintroduced the defect. A default declared as `int 20` and a
+value that came back from a form as `"20"` or `20.0` are the same setting — compared as strings,
+every one of them reads as a change and the whole list comes back, so they are compared as
+NUMBERS. And an UNDECLARED parameter is always spoken: the metadata cannot say a parameter is at
+its default when it does not know it exists, and silently dropping the only difference between two
+instances is worse than reciting one too many. The metadata-free path (custom indicators, the
+legacy registration call) gets the length cap alone and says why.
+
+**Playback speaks the signal, not the series name in front of it.** Cody: *"during playback only
+the signal itself should be read, not prefixed with everything"*. The prefix was unconditional and
+its reason was real — two clauses in one breath with no names is one indicator saying two things,
+which is a different fact from two indicators agreeing. So the rule is now that reason rather than
+the habit: **the name is said only when it is doing work.** One clause reads as itself. Two
+clauses from DIFFERENT series each carry their name — the case the prefix was written for. Two
+from the SAME series name it once, at the front. At ten bars a second a fixed phrase ahead of
+every signal was the loudest thing in the stream and carried no information at all.
+
+**A switch for the time landmarks, on the Narration tab.** `Speak time landmarks during playback`,
+on by default, subordinate to `Narrate during playback`. The landmark and the signals answer
+different questions — WHERE IN TIME the tones are, versus WHAT the indicators printed — and
+wanting the second is not wanting the calendar read to you every few seconds for the length of a
+run. `NarrateDuringPlayback`'s own hint text is now honest about being the master switch. The new
+field is EXCLUDED from the sandbox projection alongside its two siblings and for the same recorded
+reason: a strategy whose signals differed because the terminal was reading dates aloud would be a
+defect, and in a backtest there is no speech channel for it to be true of.
+
+Guards proven by two sabotages — restoring the unconditional prefix turns four red, and appending
+every parameter regardless of default turns six red.
+
 ### The StrategyLab re-run was already done, and the flagship reproduces cell for cell (2026-09-04)
 
 Asked to run the top research item, and the honest answer turned out to be that it had already

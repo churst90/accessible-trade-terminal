@@ -90,6 +90,7 @@ namespace AccessibleTrader.Core.Services
         /// for the outcomes). OFF is the thing nobody had before — playback as pure tones.
         /// </summary>
         public const string NarrateDuringPlayback = "narration.duringPlayback";
+        public const string SpeakPlaybackLandmarks = "narration.playbackLandmarks";
 
         /// <summary>
         /// Draw chart formations on the canvas. Appearance rather than speech: the audience is a
