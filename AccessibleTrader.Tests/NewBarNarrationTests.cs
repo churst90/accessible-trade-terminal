@@ -37,12 +37,14 @@ public sealed class NewBarNarrationTests
     private sealed class RecordingAnalyzer : ISdkCandlePatternAnalyzer
     {
         public (Ohlcv Current, Ohlcv? Prev, Ohlcv? Prev2, IReadOnlyList<Ohlcv>? Recent)? Call;
+        /// <summary>What it claims to have found. None — "nothing special" — unless a test says otherwise.</summary>
+        public CandlePattern Finds = CandlePattern.None;
         public CandleAnalysis Analyze(Ohlcv current, Ohlcv? previous = null, Ohlcv? twoBarsAgo = null, IReadOnlyList<Ohlcv>? recent = null)
         {
             Call = (current, previous, twoBarsAgo, recent);
             return new CandleAnalysis
             {
-                Direction = CandleDirection.Bullish, Type = CandleType.Normal, Pattern = CandlePattern.None,
+                Direction = CandleDirection.Bullish, Type = CandleType.Normal, Pattern = Finds,
                 PatternBarCount = 1, BodyPercent = 50, UpperWickPercent = 25, LowerWickPercent = 25,
                 ChangePercent = 0, IsReversal = false, IsContinuation = false,
             };
@@ -50,7 +52,11 @@ public sealed class NewBarNarrationTests
     }
 
     private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
-        bool describePatterns, params ChartPattern[] patterns)
+        bool describePatterns, params ChartPattern[] patterns) =>
+        Build(describePatterns, describeCandlePatterns: true, patterns);
+
+    private static (SpyEventBus Bus, List<string> Spoken, RecordingAnalyzer Analyzer) Build(
+        bool describePatterns, bool describeCandlePatterns, params ChartPattern[] patterns)
     {
         var store = new MockWorkspaceStore();
         var bus = new SpyEventBus();
@@ -82,6 +88,7 @@ public sealed class NewBarNarrationTests
             CurrentDataIndex = Bars.Count - 1,
             AnnounceNewBars = true,
             DescribeChartPatterns = describePatterns,
+            DescribeCandlePatterns = describeCandlePatterns,
         });
         return (bus, spoken, analyzer);
     }
@@ -110,6 +117,30 @@ public sealed class NewBarNarrationTests
         Assert.Equal(Bars[96], call.Prev2);
         Assert.Equal(99, call.Recent!.Count);      // trailing context ends AT the closed bar
         Assert.Equal(Bars[98], call.Recent[^1]);
+    }
+
+    [Fact]
+    public void TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn()
+    {
+        var (bus, spoken, analyzer) = Build(describePatterns: false, describeCandlePatterns: true);
+        analyzer.Finds = CandlePattern.BullishEngulfing;
+        CloseBar(bus);
+
+        Assert.Equal("Close 198.50, Bullish engulfing. New bar: Open 199.00", Assert.Single(spoken));
+    }
+
+    [Fact]
+    public void TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose()
+    {
+        // Cody, 2026-09-04: the Narration tab promised "the closing price of each bar as it
+        // finishes, with its candle pattern" and there was no switch that could make the second
+        // half untrue. The clause is the ONLY thing that goes — the price a user opted in for is
+        // still spoken, which is why this asserts the whole sentence rather than a DoesNotContain.
+        var (bus, spoken, analyzer) = Build(describePatterns: false, describeCandlePatterns: false);
+        analyzer.Finds = CandlePattern.BullishEngulfing;
+        CloseBar(bus);
+
+        Assert.Equal("Close 198.50. New bar: Open 199.00", Assert.Single(spoken));
     }
 
     [Fact]

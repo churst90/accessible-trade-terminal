@@ -66,6 +66,7 @@ namespace AccessibleTrader.Core.Services
         // already knows the shape of, so it has to be asked for rather than imposed — the same
         // opt-in rule the visual-accessibility additions follow.
         public const string DescribeChartPatterns = "speech.describeChartPatterns";
+        public const string DescribeCandlePatterns = "speech.describeCandlePatterns";
 
         // ── Narration (Settings → Narration): what the terminal says when the user
         // pressed NOTHING. The Speech tab governs how it says what you ASKED for; these

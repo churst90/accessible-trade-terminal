@@ -72,6 +72,13 @@
         else if (e.Key == "Escape") Cancel();
     }
 
+    // Escape from ANYWHERE in the dialog, not just from inside the field. OnKeyDown above only
+    // fires while focus is in the input, so Escape pressed on the Cancel button used to reach
+    // ModalBase.CloseModal() directly and publish nothing — the label stayed on the chart and
+    // the terminal never said "Label left empty". Same key, two outcomes, decided by where focus
+    // happened to be.
+    protected override void OnCloseRequested() => Cancel();
+
     private void Commit()
     {
         EventBus.Publish(new LabelTextEnteredEvent(_seriesId, _text));

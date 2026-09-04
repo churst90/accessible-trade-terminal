@@ -12,6 +12,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Enums;
+using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Theming;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -162,7 +163,7 @@ public class SettingsModalTests
         var cut = OpenSettings(h);
 
         Assert.NotNull(cut.Find("#tabpanel-speech #s-speech-enabled"));
-        Assert.NotNull(cut.Find("#tabpanel-speech #s-chart-patterns"));
+        Assert.NotNull(cut.Find("#tabpanel-speech #s-read-headers"));
         Assert.NotNull(cut.Find("#tabpanel-sonification #s-sonif-enabled"));
         Assert.NotNull(cut.Find("#tabpanel-sonification #s-sound-theme"));
         Assert.NotNull(cut.Find("#tabpanel-general #s-quick-sizing"));
@@ -171,14 +172,39 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_ThePatternToggle_IsCalledDescribeChartPatterns()
+    public void SettingsModal_BothPatternToggles_AreOnGeneral_AndNameWhichPatternsTheyMean()
     {
-        // It gates the new-bar announcement's pattern outcome as well as arrow-key narration
-        // now, so "while navigating" had become a false claim about its scope.
+        // Two different analyses, and until 2026-09-04 only one of them had a switch: candle
+        // patterns (one to three bars) were spoken unconditionally while the Narration tab's
+        // help text promised them in a sentence nothing could make false. They sit next to
+        // each other, on General under Analysis, because that adjacency is what makes the
+        // distinction legible — and because neither belongs to a single trigger: each changes
+        // the arrow keys AND the bar close AND playback.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
+        Assert.NotNull(cut.Find("#tabpanel-general #s-chart-patterns"));
+        Assert.NotNull(cut.Find("#tabpanel-general #s-candle-patterns"));
         Assert.Equal("Describe chart patterns", cut.Find("label[for='s-chart-patterns']").TextContent.Trim());
+        Assert.Equal("Describe candle patterns", cut.Find("label[for='s-candle-patterns']").TextContent.Trim());
+
+        // Neither may be left behind on Speech or Narration: two controls writing one
+        // preference is the shape that produced the alerts-tab duplicate in the twelfth pass.
+        Assert.Empty(cut.FindAll("#tabpanel-speech #s-chart-patterns"));
+        Assert.Empty(cut.FindAll("#tabpanel-narration #s-candle-patterns"));
+    }
+
+    [Fact]
+    public void SettingsModal_TheNewBarHint_DoesNotPromiseAPatternUnconditionally()
+    {
+        // The defect Cody reported: "on new bar announcements the candle pattern is announced,
+        // but this isn't always true". Help text that states an outcome a setting can withdraw
+        // has to name the setting.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        var hint = cut.Find("#s-announce-bars-hint").TextContent;
+        Assert.Contains("Describe candle patterns", hint);
     }
 
     [Fact]
@@ -369,4 +395,74 @@ public class SettingsModalTests
         var generalTab = cut.Find("button#tab-general");
         Assert.Equal("true", generalTab.GetAttribute("aria-selected"));
     }
+    // ── Save and Cancel ──────────────────────────────────────────────────
+    //
+    // Until 2026-09-04 the footer held one button reading "Close", and closing is what
+    // COMMITTED: the button saved, Escape saved, the backdrop saved. Two keystrokes away,
+    // PropertiesModal has the identical wiring and DISCARDS on Escape. Cody's rule, and now the
+    // app's: Escape closes and discards; a dialog that can save says so on a button.
+
+    /// <summary>
+    /// Escape must not write. Asserted through the store dispatch, which is where every pending
+    /// speech and narration preference goes, because that is the thing the old code did on the
+    /// way out — a "the dialog closed" assertion passes identically either way.
+    /// </summary>
+    [Fact]
+    public void SettingsModal_Escape_ClosesWithoutWritingAnything()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+        h.WorkspaceStore.ClearReceivedCalls();
+
+        h.EventBus.Publish(new CloseTopModalEvent("Settings"));
+
+        cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
+        h.WorkspaceStore.DidNotReceive().Dispatch(Arg.Any<UpdateSettingsAction>());
+    }
+
+    /// <summary>
+    /// The positive half, and it has to be here: a Cancel that writes nothing is trivially
+    /// satisfied by a dialog that writes nothing at all.
+    /// </summary>
+    [Fact]
+    public void SettingsModal_Save_WritesThePendingPreferences_AndCloses()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+        h.WorkspaceStore.ClearReceivedCalls();
+
+        cut.InvokeAsync(() => cut.Find("#settings-save").Click()).GetAwaiter().GetResult();
+
+        cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
+        h.WorkspaceStore.Received().Dispatch(Arg.Any<UpdateSettingsAction>());
+    }
+
+    [Fact]
+    public void SettingsModal_TheFooterOffersSaveAndCancel_NotAnImpliedSaveCalledClose()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        var footer = cut.Find("div.modal-footer");
+        var labels = footer.QuerySelectorAll("button")
+            .Select(b => b.TextContent.Trim()).ToList();
+        Assert.Equal(new[] { "Cancel", "Save" }, labels);
+    }
+
+    [Fact]
+    public void SettingsModal_TheProfileButtons_SitOnTheTabWhoseSettingsTheyWrite()
+    {
+        // They were in a "Settings Profiles" box on General, exporting settings that belong to
+        // two other tabs (Cody, 2026-09-04).
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        Assert.NotNull(cut.Find("#tabpanel-appearance #s-visual-profile-export"));
+        Assert.NotNull(cut.Find("#tabpanel-appearance #s-visual-profile-import"));
+        Assert.NotNull(cut.Find("#tabpanel-sonification #s-audio-profile-export"));
+        Assert.NotNull(cut.Find("#tabpanel-sonification #s-audio-profile-import"));
+        Assert.Empty(cut.FindAll("#tabpanel-general #s-visual-profile-export"));
+        Assert.Empty(cut.FindAll("#tabpanel-general #s-audio-profile-export"));
+    }
+
 }

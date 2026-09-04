@@ -66,7 +66,7 @@ namespace AccessibleTrader.BlazorClient.Components
             _closeRequestSub ??= EventBus.Subscribe<CloseTopModalEvent>(e =>
             {
                 if (_isVisible && e.ModalName == ModalName)
-                    InvokeAsync(CloseModal);
+                    InvokeAsync(OnCloseRequested);
             });
         }
 
@@ -137,6 +137,24 @@ namespace AccessibleTrader.BlazorClient.Components
         /// Closes the modal: clears _isVisible, publishes ModalStateChangedEvent(false),
         /// and triggers a re-render.
         /// </summary>
+        /// <summary>
+        /// What Escape does. Override it when closing this dialog is more than clearing
+        /// <c>_isVisible</c> — a cancel that has to tell something it was cancelled.
+        ///
+        /// <para>Before 2026-09-04 Escape went straight to <see cref="CloseModal"/>, which
+        /// BYPASSED whatever the concrete dialog had written as its own close path. That is a
+        /// bug class rather than one bug: it produced the alerts panel's lost edits, and it left
+        /// <c>LabelTextModal</c> with an Escape that published nothing while its own Cancel
+        /// button published the event that makes the terminal say "Label left empty" — the same
+        /// key, two outcomes, depending on where focus happened to be. A dialog now states its
+        /// close path once, here, and Escape and the Cancel button are the same code.</para>
+        ///
+        /// <para>The contract that override must keep, and it is Cody's rule for the whole app:
+        /// <b>Escape closes and DISCARDS.</b> An override that commits is the thing this hook
+        /// exists to prevent, not to enable.</para>
+        /// </summary>
+        protected virtual void OnCloseRequested() => CloseModal();
+
         protected void CloseModal()
         {
             _isVisible = false;

@@ -119,6 +119,17 @@ namespace AccessibleTrader.Sdk.Models
         // the standing convention here is that continuous speech is opted into rather than
         // imposed. Mirrors AppSettings.DescribeChartPatterns.
         bool DescribeChartPatterns,
+        // Speak the CANDLE pattern of a bar that has just closed, and the one forming on the
+        // live bar — engulfing, harami, doji, hammer and the rest. Distinct from the setting
+        // above, which is about multi-bar chart FORMATIONS; these two were one undifferentiated
+        // "patterns" idea until Cody separated them on 2026-09-04, and only one of them had a
+        // switch. Mirrors AppSettings.DescribeCandlePatterns.
+        //
+        // Default TRUE, unlike DescribeChartPatterns, by the same rule the narration switches
+        // follow: ON is what shipped, and what is new here is the ability to turn it OFF. The
+        // clause it controls rides on an announcement the user already opted into
+        // (AnnounceNewBars) rather than adding a new occasion for speech.
+        bool DescribeCandlePatterns,
         // Number of empty future-space slots reserved on the right of the viewport.
         // The last real bar always lands at slot (ViewportLength - RightMarginBars - 1).
         // Allows trendlines and drawings to project into future space. Default: 10 bars
@@ -249,6 +260,7 @@ namespace AccessibleTrader.Sdk.Models
             SpeechOrder: "HeaderValue",
             AnnounceNewBars: true,
             DescribeChartPatterns: false,
+            DescribeCandlePatterns: true,
             NarrateSignalsOnBarClose: true,
             NarrateDuringPlayback: true,
             IsSpeechEnabled: true,

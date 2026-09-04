@@ -63,4 +63,34 @@ public class ModalEscapeCloseTests
 
         Assert.NotEmpty(cut.FindAll("[role='dialog']"));
     }
+    /// <summary>
+    /// Escape must take the dialog's OWN close path, not <c>ModalBase.CloseModal()</c> behind
+    /// its back.
+    ///
+    /// <para>LabelTextModal is where that bypass was visible. Its Cancel button publishes
+    /// <c>LabelTextEnteredEvent(id, "")</c> — the event that leaves the label placed and makes
+    /// the terminal say "Label left empty" — and its own key handler does the same, but only
+    /// while focus is in the text field. Escape pressed on the Cancel button went straight to
+    /// the base close and published nothing: same key, two outcomes, decided by where focus
+    /// happened to be. <c>ModalBase.OnCloseRequested</c> is the hook that makes them one path.</para>
+    /// </summary>
+    [Fact]
+    public void LabelTextModal_Escape_TakesTheCancelPath_NotTheBaseClose()
+    {
+        using var h = new BlazorTestHarness();
+        var published = new List<LabelTextEnteredEvent>();
+        using var sub = h.EventBus.Subscribe<LabelTextEnteredEvent>(published.Add);
+
+        var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.LabelTextModal>(
+            bus => bus.Publish(new PromptForLabelTextEvent("candles")));
+        Assert.NotEmpty(cut.FindAll("[role='dialog']"));
+
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("LabelText")));
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role='dialog']")));
+        var e = Assert.Single(published);
+        Assert.Equal("candles", e.SeriesId);
+        Assert.Equal(string.Empty, e.Text);
+    }
+
 }

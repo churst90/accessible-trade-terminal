@@ -710,7 +710,10 @@
                     <button title="Discard all customisations and reload fresh metadata defaults for this indicator"
                             @onclick="ResetToDefaults">Reset to Defaults</button>
                 }
-                <button class="primary" @onclick="Apply">Apply Changes</button>
+                @* "Save", not "Apply Changes": one vocabulary across every dialog that can
+                   commit — Save writes and closes, Cancel and Escape discard. *@
+                <button class="primary" id="props-save" @onclick="Apply"
+                        aria-label="Save the series properties">Save</button>
             </div>
 
             @if (!string.IsNullOrEmpty(_error))

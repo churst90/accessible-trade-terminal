@@ -190,8 +190,10 @@ public class PropertiesModalTests
 
         var cut = OpenProperties(h);
 
-        var apply = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Apply Changes"));
-        Assert.NotNull(apply);
+        // Found by id, not by its wording: this dialog's commit button was "Apply Changes"
+        // until 2026-09-04 and is "Save" now, because every dialog that can commit says Save.
+        var save = cut.Find("button#props-save");
+        Assert.Equal("Save", save.TextContent.Trim());
     }
 
     [Fact]

@@ -23,6 +23,32 @@ browser), `--demo` (read-only demo mode).
 
 The **MAUI** heads are the native Windows / macOS apps.
 
+## Documentation is part of the change, not part of the release
+
+**Update the docs with every set of fixes, not once at tag time.** Standing rule, Cody,
+2026-09-04 — and the reason it is written down is that this repo broke it: `CHANGES.md` had
+never been given a `## [2.5.0]` header and **eighteen behaviour-changing commits carried no
+changelog entry at all**, because each session had written itself up in `docs/TODO.md`'s
+START HERE block instead. **A START HERE block is not a changelog entry, and writing the
+first one makes it feel as though the second has been written.**
+
+Four files, four different jobs:
+
+| File | Holds | Written for |
+|------|-------|-------------|
+| `docs/TODO.md` | What is still to do, and the open design questions | The next session |
+| `docs/CHANGES.md` | What was done, with its caveats — one entry per set of changes | Anyone tracing a behaviour to a release |
+| `docs/WHATSNEW.md` | The CURRENT release only, in plain language | A user who just updated |
+| `README.md` | What the terminal is and how to get started | Someone who has never seen it |
+
+An item moves TODO → CHANGES when it lands, carrying any caveat with it. `WHATSNEW.md` is
+the current release's story, drawn from the CHANGES entries since the last tag; history stays
+in CHANGES. The technical reference is `docs/README.md`, and the root `README.md` is the
+GitHub front page — general reader, no build numbers in it that can drift.
+
+Run `python3 scripts/check_doc_drift.py` before committing. It checks the shortcut table, the
+plugin count and the test count against the code, and it is the same script CI runs.
+
 ## Cutting a release
 
 ```bash

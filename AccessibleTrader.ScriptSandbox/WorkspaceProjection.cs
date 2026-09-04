@@ -73,6 +73,7 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.SpeechOrder),
         nameof(WorkspaceState.AnnounceNewBars),
         nameof(WorkspaceState.DescribeChartPatterns),
+        nameof(WorkspaceState.DescribeCandlePatterns),
         nameof(WorkspaceState.RightMarginBars),
         nameof(WorkspaceState.IsSpeechEnabled),
         nameof(WorkspaceState.IsSonificationEnabled),
@@ -188,6 +189,7 @@ public static class WorkspaceProjection
         Wire.WriteString(s, state.SpeechOrder);
         Wire.WriteBool(s, state.AnnounceNewBars);
         Wire.WriteBool(s, state.DescribeChartPatterns);
+        Wire.WriteBool(s, state.DescribeCandlePatterns);
         Wire.WriteI32(s, state.RightMarginBars);
         Wire.WriteBool(s, state.IsSpeechEnabled);
         Wire.WriteBool(s, state.IsSonificationEnabled);
@@ -243,6 +245,7 @@ public static class WorkspaceProjection
         string speechOrder        = r.ReadString();
         bool announceNewBars      = r.ReadBool();
         bool describePatterns     = r.ReadBool();
+        bool describeCandlePatterns = r.ReadBool();
         int rightMarginBars       = r.ReadI32();
         bool isSpeechEnabled      = r.ReadBool();
         bool isSonifyEnabled      = r.ReadBool();
@@ -298,6 +301,7 @@ public static class WorkspaceProjection
             SpeechOrder = speechOrder,
             AnnounceNewBars = announceNewBars,
             DescribeChartPatterns = describePatterns,
+            DescribeCandlePatterns = describeCandlePatterns,
             RightMarginBars = rightMarginBars,
             IsSpeechEnabled = isSpeechEnabled,
             IsSonificationEnabled = isSonifyEnabled,

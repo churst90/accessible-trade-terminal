@@ -61,6 +61,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private CandlePattern _lastAnnouncedPattern = CandlePattern.None;
         private CandleType _lastAnnouncedType = CandleType.Normal;
         private DateTime _lastPatternAnnouncement = DateTime.MinValue;
+        private readonly Rendering.ISplitViewCoordinator? _splitView;
         private static readonly TimeSpan PatternDebounce = TimeSpan.FromSeconds(5);
 
         public AccessibilityFeedbackCoordinator(
@@ -82,10 +83,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
-            IDrawingInteractionManager? drawings = null)
+            IDrawingInteractionManager? drawings = null,
+            // Optional, and read only by Shift+F1. Split view announces its own toggle, but the
+            // orientation key is where a user goes to ask "where am I?" — and until 2026-09-04 it
+            // answered as if the second chart on the canvas were not there (Cody).
+            Rendering.ISplitViewCoordinator? splitView = null)
         {
             _logger = logger;
             _drawings = drawings;
+            _splitView = splitView;
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -557,7 +563,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 : null;
             var analysis = _patternAnalyzer.Analyze(e.ClosedBar, prev, prev2, context);
 
-            string patternSuffix = FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true);
+            // Gated since 2026-09-04. The Narration tab has always described this announcement as
+            // "the closing price of each bar as it finishes, WITH ITS CANDLE PATTERN", and there
+            // was no switch that could make the second half untrue — the clause was unconditional.
+            // A promise in help text is a contract; either the text drops the clause or the clause
+            // gets a switch, and Cody chose the switch.
+            string patternSuffix = state.DescribeCandlePatterns
+                ? FormatPatternSuffix(analysis.Type, analysis.Pattern, finalized: true)
+                : "";
             string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
             string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
 
@@ -586,6 +599,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         {
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
+            if (!state.DescribeCandlePatterns) return; // this method speaks nothing else
             if (state.IsPlaying) return;
 
             // Per-user feedback (2026-04-09): intra-bar pattern updates were firing in
@@ -961,6 +975,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // way to just ask.
             string? anchor = _drawings?.SelectedAnchorSummary();
             if (anchor != null) msg += ". " + anchor;
+
+            // Split view LAST, and it is about the canvas rather than the cursor: everything above
+            // describes where you are, this describes what else is on screen. Naming which chart
+            // the arrow keys are actually driving is the point — the second pane is a reference
+            // view, and a user who has forgotten that is a user about to wonder why the keys are
+            // moving the wrong chart.
+            if (_splitView is { IsEnabled: true, SecondaryTabIndex: >= 0 })
+            {
+                string other = Rendering.SplitViewCoordinator.DescribeTab(state, _splitView.SecondaryTabIndex);
+                string how = _splitView.Orientation == Rendering.SplitOrientation.SideBySide
+                    ? "side by side" : "stacked";
+                msg += $". Split view on, {how}. Second pane shows {other}, reference only — " +
+                       "the keyboard is on this chart";
+            }
 
             _speechRouter.Speak(msg, interrupt: true);
         }

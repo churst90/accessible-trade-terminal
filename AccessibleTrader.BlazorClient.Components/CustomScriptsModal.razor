@@ -12,6 +12,7 @@
 @inject ISeriesManagementService SeriesManager
 @inject IWorkspaceStore Store
 @inject IRuntimePlatform RuntimePlatform
+@inject ISettingsManager Settings
 @implements IDisposable
 
 @if (_isVisible)
@@ -229,8 +230,55 @@
         "//     public double[][] Calculate(ReadOnlySpan<Ohlcv> data, Dictionary<string,double> p) { ... }\n" +
         "// }";
 
+    /// <summary>
+    /// Where the scripts live between sessions.
+    ///
+    /// <para>They did not, until 2026-09-04. <c>_scripts</c> was a plain field, the file
+    /// referenced no service at all, and the only thing that could have persisted them —
+    /// <c>ICustomScriptService</c>, which declares <c>SaveScripts()</c> — has no implementation
+    /// and no DI registration anywhere in the tree. The Save button compiled, reported success,
+    /// and dropped everything on exit. A button that says Save and does not is the same defect
+    /// as a Close button that silently saves, pointing the other way (Cody, 2026-09-04).</para>
+    ///
+    /// <para>Through <c>ISettingsManager</c> rather than a new service: the settings file is
+    /// already the app's per-user store, already written atomically, and already backed up. A
+    /// script is a name and a string of code; it does not need a store of its own.</para>
+    /// </summary>
+    private const string ScriptsKey = "scripts.custom";
+
+    private void LoadScripts()
+    {
+        try
+        {
+            var token = Settings.GetSetting(ScriptsKey);
+            _scripts = token?.ToObject<List<CustomScript>>() ?? new List<CustomScript>();
+        }
+        catch
+        {
+            // A settings file hand-edited into something that will not deserialise must not take
+            // the dialog with it; an empty list is recoverable, an exception on open is not.
+            _scripts = new List<CustomScript>();
+        }
+    }
+
+    private void PersistScripts()
+    {
+        try
+        {
+            Settings.SetSetting(ScriptsKey, Newtonsoft.Json.Linq.JToken.FromObject(_scripts));
+            Settings.SaveSettings();
+        }
+        catch (Exception ex)
+        {
+            // Spoken, not swallowed: this is the one moment the user believes their work is safe.
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"Could not save scripts: {ex.Message}", true));
+        }
+    }
+
     protected override void OnInitialized()
     {
+        LoadScripts();
         _eventSub = EventBus.Subscribe<OpenCustomScriptsEvent>(_ => InvokeAsync(ShowAsync));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
@@ -268,6 +316,7 @@
     {
         var s = new CustomScript(Guid.NewGuid().ToString(), "New Script", "", false);
         _scripts.Add(s);
+        PersistScripts();
         SelectScript(s.Id);
     }
 
@@ -275,6 +324,7 @@
     {
         if (_selectedId == null) return;
         _scripts.RemoveAll(s => s.Id == _selectedId);
+        PersistScripts();
         _selectedId = null;
         _selectedScript = null;
         _compiledIndicator = null;
@@ -291,6 +341,12 @@
         var updated = new CustomScript(_selectedScript.Id, _editName.Trim(), _editCode, _selectedScript.IsEnabled);
         _scripts[idx] = updated;
         _selectedScript = updated;
+        PersistScripts();
+        // Spoken. Save was silent here and in the sound designer, while the theme editor, save
+        // workspace, properties, API keys and watchlists all announce — and for a blind user the
+        // announcement IS the evidence that the button did anything.
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"{updated.Name} saved.", true));
     }
 
     private async Task CompileScript()
@@ -336,6 +392,7 @@
         {
             _scripts[idx] = _scripts[idx] with { IsEnabled = true };
             _selectedScript = _scripts[idx];
+            PersistScripts();
         }
     }
 
@@ -439,6 +496,7 @@
 
             var s = new CustomScript(Guid.NewGuid().ToString(), name ?? "Imported Script", code, false);
             _scripts.Add(s);
+            PersistScripts();
             SelectScript(s.Id);
             _importFeedback = $"Imported: {s.Name} (review source before compiling)";
             _importSuccess = true;
@@ -470,6 +528,7 @@
         if (string.IsNullOrEmpty(scriptName)) scriptName = "Pine Script";
         var s = new CustomScript(Guid.NewGuid().ToString(), scriptName, result.CSharpCode, false);
         _scripts.Add(s);
+        PersistScripts();
         SelectScript(s.Id);
         _pineCode = "";
         _transpileFeedback = $"Transpiled to C# — review and compile.";
@@ -505,6 +564,7 @@
 
             var s = new CustomScript(Guid.NewGuid().ToString(), pkg.Name ?? "Imported Script", pkg.Code, false);
             _scripts.Add(s);
+            PersistScripts();
             SelectScript(s.Id);
             _importJson = "";
             _importFeedback = $"Imported: {s.Name} (review source before compiling)";

@@ -767,7 +767,7 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 Shapes the terminal recognises for you — double tops, head and shoulders, triangles,
 wedges, flags. These are unmodified keys because you press them repeatedly while reading;
 they only act when the chart has focus, so they stay typable everywhere else. They need
-**Describe chart patterns** on in Settings, and if it is off they say so rather than moving
+**Describe chart patterns** on in Settings → General, and if it is off they say so rather than moving
 you somewhere without explaining why.
 
 | Shortcut | Action |

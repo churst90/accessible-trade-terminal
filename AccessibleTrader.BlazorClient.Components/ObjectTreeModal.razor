@@ -4,7 +4,6 @@
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject IJSRuntime JSRuntime
-@inject DemoPolicy Demo
 @implements IDisposable
 
 @if (_isVisible)
@@ -17,16 +16,12 @@
              style="max-width:600px; min-height: 400px;"
              @onclick:stopPropagation="true">
 
+            @* No "Manage Strategies" button here. Strategies have their own toolbar control and
+               their own shortcut (Alt+S); a second entry point inside an unrelated dialog put a
+               button in this dialog's button list that does not act on anything in this dialog,
+               and closed it out from under the user (Cody, 2026-09-04). *@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 id="objtree-title" tabindex="-1" style="margin: 0;">Object Tree</h2>
-                @* Strategies are a local/desktop power feature — gated off in the demo and
-                   hosted (online) builds, so don't offer the button there either. *@
-                @if (Demo.AllowStrategies)
-                {
-                    <button class="primary" @onclick="OpenStrategies" aria-label="Manage Strategies (Alt+S)">
-                        Manage Strategies
-                    </button>
-                }
             </div>
 
             @if (!Store.State.ActiveSeries.Any())
@@ -71,7 +66,8 @@
                         bool headerIsStop = focusedPane == null ? firstItem
                                           : (!stopOnFocusedRow && pane.Key == focusedPane);
                         <details @key="pane.Key" open="@IsPaneOpen(pane.Key)"
-                                 @ontoggle="() => OnPaneToggled(pane.Key)" class="pane-node">
+                                 @ref="_paneRefs[pane.Key]"
+                                 @ontoggle="() => OnPaneToggledAsync(pane.Key)" class="pane-node">
                             <summary class="pane-header" role="treeitem" aria-level="1"
                                      tabindex="@(headerIsStop ? 0 : -1)"
                                      aria-expanded="@ExpandedAttr(IsPaneOpen(pane.Key))"
@@ -102,7 +98,8 @@
                                            null. ConditionTreeEditor already renders null for its leaves. *@
                                         <details @onclick:stopPropagation="true" class="series-details"
                                                  open="@IsSeriesOpen(series.Id)"
-                                                 @ontoggle="() => OnSeriesToggled(series.Id)">
+                                                 @ref="_seriesRefs[seriesId]"
+                                                 @ontoggle="() => OnSeriesToggledAsync(seriesId)">
                                             <summary class="series-summary"
                                                      data-tree-activate="true"
                                                      @onclick="() => FocusSeries(series.Id)">
@@ -184,7 +181,7 @@
                     Right and left arrows expand and collapse · Home and End jump to first and last ·
                     Space or Enter expands or collapses a series, and on a component row toggles Hide ·
                     Tab reaches the Hide, Mute and Delete buttons ·
-                    Escape closes@(Demo.AllowStrategies ? " · Alt+S for Strategies" : "")
+                    Escape closes
                 </div>
                 <button @onclick="Close" id="objtree-close" aria-label="Close object tree dialog">Close</button>
             </div>
@@ -294,16 +291,56 @@
     private bool IsPaneOpen(string paneKey) => !_closedPanes.Contains(paneKey);
     private bool IsSeriesOpen(string seriesId) => _openSeries.Contains(seriesId);
 
-    private void OnPaneToggled(string paneKey)
+    // The element behind each disclosure, so the toggle handler can ask the DOM what
+    // actually happened. Keyed the same way the two sets above are, and cleared with them.
+    private readonly Dictionary<string, ElementReference> _paneRefs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ElementReference> _seriesRefs = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Reads a disclosure's real <c>open</c> state out of the DOM.
+    ///
+    /// <para>This USED to flip a bool, on the reasoning that "`toggle` fires if and only if
+    /// the state changed". The reasoning is true and the conclusion is still wrong, because
+    /// not every state change is the user's: <b>Blazor inserts an element and applies its
+    /// attributes afterwards</b>, so rendering <c>&lt;details open&gt;</c> is itself a
+    /// closed→open transition and fires one `toggle` that nobody asked for. Measured in the
+    /// harness's own Chromium on 2026-09-04 — <c>ObjectTreeToggleStormProbe</c> opens Help,
+    /// whose one <c>&lt;details open&gt;</c> has no handler at all, and counts exactly one
+    /// event.</para>
+    ///
+    /// <para>Against a flip that echo was fatal, and this dialog was the only place it could
+    /// bite: the echo flipped the pane to "closed", the re-render removed <c>open</c>, THAT
+    /// fired another toggle, which flipped it back, which re-rendered… Alt+O over a chart
+    /// with any series on it locked the tab up. Neither harness could see it — bUnit has no
+    /// browser to fire `toggle`, and the browser suite opens this dialog at cold start where
+    /// <c>ActiveSeries</c> is empty and no pane is rendered at all.</para>
+    ///
+    /// <para>Reading rather than flipping is self-correcting: an echo reports the state we
+    /// already hold, the render tree does not change, and nothing further is written. A real
+    /// toggle reports the opposite, we adopt it, and the re-render writes a value the DOM is
+    /// already at. The failure mode of a refused interop call is inertness — the fallback is
+    /// the value we hold — never a storm.</para>
+    /// </summary>
+    private async Task<bool> ReadDisclosureAsync(
+        Dictionary<string, ElementReference> refs, string key, bool fallback)
     {
-        // The toggle event carries no state — EventArgs.Empty — so this flips rather
-        // than reads. That is exact: `toggle` fires if and only if the state changed.
-        if (!_closedPanes.Remove(paneKey)) _closedPanes.Add(paneKey);
+        if (!refs.TryGetValue(key, out var element)) return fallback;
+        try { return await JSRuntime.InvokeAsync<bool>("accessibleTrader.isDisclosureOpen", element); }
+        catch { return fallback; }
     }
 
-    private void OnSeriesToggled(string seriesId)
+    private async Task OnPaneToggledAsync(string paneKey)
     {
-        if (!_openSeries.Remove(seriesId)) _openSeries.Add(seriesId);
+        bool open = await ReadDisclosureAsync(_paneRefs, paneKey, IsPaneOpen(paneKey));
+        if (open) _closedPanes.Remove(paneKey);
+        else _closedPanes.Add(paneKey);
+    }
+
+    private async Task OnSeriesToggledAsync(string seriesId)
+    {
+        bool open = await ReadDisclosureAsync(_seriesRefs, seriesId, IsSeriesOpen(seriesId));
+        if (open) _openSeries.Add(seriesId);
+        else _openSeries.Remove(seriesId);
     }
 
     /// <summary>
@@ -350,14 +387,10 @@
         // sitting and puts every open back at the documented default.
         _closedPanes.Clear();
         _openSeries.Clear();
+        _paneRefs.Clear();
+        _seriesRefs.Clear();
         EventBus.Publish(new ModalStateChangedEvent(false, "Object tree"));
         StateHasChanged();
-    }
-
-    private void OpenStrategies()
-    {
-        Close();
-        EventBus.Publish(new OpenStrategiesEvent());
     }
 
     private void FocusSeries(string id) => Store.Dispatch(new SelectSeriesAction(id));

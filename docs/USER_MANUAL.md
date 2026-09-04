@@ -1104,8 +1104,11 @@ can turn it off for good in Settings if you would rather add it per chart.
 **Chart formations** are the multi-bar shapes a sighted trader names in one glance — double
 tops, head and shoulders, triangles, wedges, flags, ranges. Delivering that by ear is the
 reason this terminal exists, so the terminal describes them; it never tells you what
-they mean. Turn it on in **Settings → Describe chart patterns**. It is off by default,
-because it is extra narration on an action you perform constantly.
+they mean. Turn it on in **Settings → General → Describe chart patterns**. It is off by
+default, because it is extra narration on an action you perform constantly. The separate
+**Describe candle patterns** switch beside it covers the one-to-three-bar shapes and is
+**on** by default — it rides on the new-bar announcement you already asked for rather than
+adding an occasion to speak.
 
 Twelve shapes are recognised: **double top** and **double bottom**, **head and shoulders**
 and **inverse head and shoulders**, **ascending / descending / symmetrical triangle**,
@@ -2689,18 +2692,30 @@ name in, and which voice talks on this device — every one of them a change to 
 get back from a key you pressed. Narration holds the three things that speak on their own:
 the new-bar announcement, signal narration on a bar close, and narration during playback.
 
-One setting sits on the Speech tab that you might expect on Narration: **Describe chart
-patterns**. It stays there because it is a *content* switch rather than a trigger — it
-changes what the arrow keys say as well as what a bar close says — and it gates formation
-talk everywhere at once, playback included. It answers to "narration" in the settings search
-box, so looking for it from the Narration tab's vocabulary still finds it.
+Two settings you might expect on Speech or Narration are on **General**, under *Analysis*:
+**Describe candle patterns** and **Describe chart patterns**. Neither belongs to a single
+trigger — each changes what the arrow keys say *and* what a bar close says *and* what
+playback says — so filing either by trigger would put it on a tab whose rule it breaks. They
+are filed by what they are, an analysis the terminal either performs or does not, and they
+sit next to each other because that adjacency is what makes the difference between them
+legible: a **candle** pattern is one to three bars (engulfing, harami, doji, hammer), a
+**chart** formation is tens of them (double top, head and shoulders, triangle). Both answer
+to "narration" and "speech" in the settings search box.
 
 **Sonification** mirrors F3 and holds the sound theme and the sound-under-the-mouse option.
 **General** is where you switch **paper trading mode** on and choose what the quick-trade
 risk percentage means, plus workspace, background-monitoring, braille, touch-bar, analysis,
 drawing and viewport preferences. **Appearance** is the theme — most relevant to a sighted
-collaborator looking over your shoulder — and the visual accommodations. Speech and narration
-changes apply when you close the dialog; everything else applies as you change it.
+collaborator looking over your shoulder — and the visual accommodations, plus the
+**visual profile** export/import. The **audio profile** export/import is on Sonification;
+each sits on the tab whose settings it writes.
+
+**Save and Cancel.** The dialog commits when you press **Save**, and only then. **Escape,
+the Cancel button and a click outside the dialog all discard** — that is the rule everywhere
+in the terminal now, and it was not always true here: until 2.6.0 this dialog had a single
+button reading *Close*, and closing is what saved. A few controls still take effect the
+moment you change them, and each of them says so as you do: the theme picker, interface
+scale, panning step, the paper-account reset, and the visual accommodations.
 
 #### The Narration tab
 

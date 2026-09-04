@@ -97,6 +97,11 @@ public class ObjectTreeSelectionFollowsFocusTests
         Seed(h, focusedId: "rsi");
         var cut = Open(h);
 
+        // The user collapsed it: the component reads the disclosure's real state on `toggle`
+        // rather than flipping (see BlazorTestHarness.DisclosuresReportOpen), so the case has
+        // to be stated. Set before the trigger, not before Open, so the render's own echo is
+        // not what this stages.
+        h.DisclosuresReportOpen(false);
         cut.Find("details.pane-node").TriggerEvent("ontoggle", EventArgs.Empty);
 
         cut.WaitForAssertion(() =>

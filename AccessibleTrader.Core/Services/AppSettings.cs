@@ -56,6 +56,7 @@ namespace AccessibleTrader.Core.Services
         string SpeechOrder { get; set; }
         bool AnnounceNewBars { get; set; }
         bool DescribeChartPatterns { get; set; }
+        bool DescribeCandlePatterns { get; set; }
         bool ShowChartPatternVisuals { get; set; }
 
         // Narration (Settings → Narration) — the unprompted speech channel.
@@ -209,6 +210,30 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.DescribeChartPatterns, def: false);
             set => Set(SettingsKeys.DescribeChartPatterns, value);
+        }
+
+        /// <summary>
+        /// Whether a bar's CANDLE pattern is spoken — the closed bar's on a new-bar
+        /// announcement, and the live bar's while it is still forming.
+        ///
+        /// <para>
+        /// Not the same thing as <see cref="DescribeChartPatterns"/>, which is about multi-bar
+        /// formations (double tops, triangles, head and shoulders). The two were a single
+        /// undifferentiated idea until 2026-09-04, when only one of them had a switch and the
+        /// Narration tab's own help text promised the other unconditionally.
+        /// </para>
+        ///
+        /// <para>
+        /// Default ON, the opposite of <see cref="DescribeChartPatterns"/> and for the reason the
+        /// narration switches give: ON is what already shipped, and the clause rides on an
+        /// announcement the user opted into (<see cref="AnnounceNewBars"/>) rather than creating
+        /// a new occasion to speak. Turning it OFF is the new capability.
+        /// </para>
+        /// </summary>
+        public bool DescribeCandlePatterns
+        {
+            get => GetBool(SettingsKeys.DescribeCandlePatterns, def: true);
+            set => Set(SettingsKeys.DescribeCandlePatterns, value);
         }
 
         /// <summary>

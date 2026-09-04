@@ -509,6 +509,11 @@
         PatchLibrary.UpdatePatch(updated);
         _patches = PatchLibrary.GetPatches().ToList();
         _selectedPatch = updated;
+        // Spoken. "Save Patch" was silent, while the theme editor, save workspace, properties,
+        // API keys and watchlists all announce — and in a dialog whose whole subject is sound,
+        // the one thing that made no sound was the confirmation that the button worked.
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"{updated.Name} saved.", true));
     }
 
     private void PreviewPatch()

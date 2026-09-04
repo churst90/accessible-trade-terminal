@@ -974,6 +974,18 @@ window.accessibleTrader = {
      * element, and the very next frame (inert now gone) lands it. Containment, not
      * equality, because a container may delegate focus to a descendant.
      */
+    /**
+     * The real `open` state of a <details>, for the one caller that must not guess it.
+     *
+     * ObjectTreeModal renders `open` from C# AND listens for `toggle`, which makes the two
+     * a feedback loop unless the handler reads the DOM instead of flipping a bool: Blazor
+     * applies attributes AFTER inserting the element, so rendering <details open> fires a
+     * `toggle` that no user caused. See ReadDisclosureAsync in that component.
+     */
+    isDisclosureOpen: function (element) {
+        return !!(element && element.open);
+    },
+
     focusElement: function (elementId) {
         const startedOn = document.activeElement;
         let framesLeft = 10;

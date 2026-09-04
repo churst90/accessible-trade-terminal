@@ -147,8 +147,16 @@ public class ObjectTreeDisclosureStateTests
         Assert.All(series, s => Assert.Equal("false", s.GetAttribute("aria-expanded")));
     }
 
+    /// <summary>
+    /// Fires <c>toggle</c> on the first pane, found and triggered ON THE DISPATCHER: a re-render
+    /// between the Find and the trigger retires the handler id, and the storm this file guards
+    /// against IS a re-render.
+    /// </summary>
+    private static void Toggle(IRenderedFragment cut) =>
+        cut.InvokeAsync(() => cut.FindAll("details.pane-node")[0].TriggerEvent("ontoggle", EventArgs.Empty)).GetAwaiter().GetResult();
+
     [Fact]
-    public void TogglingASeriesDisclosure_FlipsItsAriaExpanded()
+    public void TogglingASeriesDisclosureOpen_MakesItsAriaExpandedTrue()
     {
         // <details> is toggled by the browser itself (a click on the summary) and
         // directly by treeKeyboard.js (`d.open = !d.open`), neither of which runs C#.
@@ -158,6 +166,7 @@ public class ObjectTreeDisclosureStateTests
         // the attribute is a snapshot of the first render and goes stale on the first
         // keystroke, which is worse than not having it.
         using var h = new BlazorTestHarness();
+        h.DisclosuresReportOpen(true);
         var cut = Open(h);
 
         var first = cut.FindAll("div.series-node[role='treeitem']")[0];
@@ -165,23 +174,17 @@ public class ObjectTreeDisclosureStateTests
 
         // WaitForAssertion, not a bare read: TriggerEvent queues the handler on the
         // renderer's dispatcher and returns, so under a full-suite load the re-render has
-        // not happened yet when the next line runs. Both assertions here are POSITIVE —
-        // "it became true", "it became false again" — which is the only shape a wait can
-        // strengthen; a wait around a DoesNotContain passes on the first poll and proves
-        // nothing.
+        // not happened yet when the next line runs.
         cut.FindAll("details.series-details")[0].TriggerEvent("ontoggle", EventArgs.Empty);
         cut.WaitForAssertion(() => Assert.Equal("true",
-            cut.FindAll("div.series-node[role='treeitem']")[0].GetAttribute("aria-expanded")));
-
-        cut.FindAll("details.series-details")[0].TriggerEvent("ontoggle", EventArgs.Empty);
-        cut.WaitForAssertion(() => Assert.Equal("false",
             cut.FindAll("div.series-node[role='treeitem']")[0].GetAttribute("aria-expanded")));
     }
 
     [Fact]
-    public void TogglingAPaneDisclosure_FlipsItsAriaExpanded()
+    public void TogglingAPaneDisclosureClosed_MakesItsAriaExpandedFalse()
     {
         using var h = new BlazorTestHarness();
+        h.DisclosuresReportOpen(false);
         var cut = Open(h);
 
         Assert.Equal("true", cut.FindAll("summary.pane-header")[0].GetAttribute("aria-expanded"));
@@ -189,6 +192,42 @@ public class ObjectTreeDisclosureStateTests
         cut.FindAll("details.pane-node")[0].TriggerEvent("ontoggle", EventArgs.Empty);
         cut.WaitForAssertion(() => Assert.Equal(
             "false", cut.FindAll("summary.pane-header")[0].GetAttribute("aria-expanded")));
+    }
+
+    /// <summary>
+    /// THE CRASH GUARD, and the reason the two tests above stopped flipping a bool.
+    ///
+    /// <para>Blazor inserts an element and applies its attributes afterwards, so rendering
+    /// <c>&lt;details open&gt;</c> is itself a closed→open transition: the browser fires one
+    /// `toggle` that no user caused. Measured at one event per open disclosure in the
+    /// harness's own Chromium (<c>ObjectTreeToggleStormProbe</c>).</para>
+    ///
+    /// <para>A handler that flips on every `toggle` turns that echo into a loop — echo says
+    /// "closed", the re-render removes <c>open</c>, that fires another toggle, which says
+    /// "open"… Alt+O over a chart with any series on it locked the browser tab up
+    /// (Cody, 2026-09-04). This asserts the property that stops it: a toggle reporting the
+    /// state the component already holds must change nothing, however many arrive.</para>
+    /// </summary>
+    [Fact]
+    public void AnEchoToggle_ThatReportsTheStateAlreadyHeld_ChangesNothing()
+    {
+        using var h = new BlazorTestHarness();
+        h.DisclosuresReportOpen(true);   // still open — this is the render's own echo
+        var cut = Open(h);
+
+        Assert.Equal("true", cut.FindAll("summary.pane-header")[0].GetAttribute("aria-expanded"));
+
+        // Re-found and triggered inside InvokeAsync each time: a re-render between the Find and
+        // the trigger retires the handler id, and the storm this guards against IS a re-render.
+        for (int i = 0; i < 5; i++)
+            Toggle(cut);
+
+        cut.WaitForAssertion(() => Assert.Equal(
+            "true", cut.FindAll("summary.pane-header")[0].GetAttribute("aria-expanded")));
+        Assert.True(cut.FindAll("details.pane-node")[0].HasAttribute("open"),
+            "the render dropped `open` in response to a toggle that reported the pane OPEN — " +
+            "that write is what fires the next toggle, and the two of them are the loop that " +
+            "hung the browser on Alt+O.");
     }
 
     [Fact]

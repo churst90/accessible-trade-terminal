@@ -117,6 +117,137 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, FOURTEENTH pass — ALT+O NO LONGER HANGS THE
+> BROWSER, EVERY DIALOG NOW MEANS THE SAME THING BY ESCAPE, AND CANDLE PATTERNS HAVE A
+> SWITCH. Seven items from Cody; four were built, three are design questions answered below
+> and waiting on his call.**
+>
+> **1. THE ALT+O CRASH — FIXED, and the mechanism is worth knowing.** `ObjectTreeModal`
+> rendered `<details open="@IsPaneOpen(...)">` and flipped a bool on every `toggle`. Blazor
+> INSERTS an element and applies its attributes AFTERWARDS, so rendering an open `<details>`
+> is itself a closed→open transition and the browser fires one `toggle` that no user caused.
+> Against a flip that echo is a loop: echo says closed → re-render removes `open` → that
+> fires another toggle → flips back → re-renders, forever. The tab locks up.
+> **Measured, not reasoned:** `BlazorDisclosureRenderTests` opens Help (whose one
+> `<details open>` has no handler at all) in the harness's Chromium and counts exactly one
+> event. The fix is to READ the disclosure's real state (`accessibleTrader.isDisclosureOpen`
+> over an `ElementReference`) instead of flipping — self-correcting, because an echo reports
+> the state we already hold and changes nothing.
+>
+> **Why neither harness saw it, and this is the durable part: EVERY browser route opens the
+> Object Tree at cold start, where `ActiveSeries` is empty and the tree body renders "No
+> series active on chart" with no `<details>` in it at all.** The whole Object Tree browser
+> contract has been measured over an empty dialog. `BlazorDisclosureRenderTests` pins that
+> fact so it is not rediscovered. **Getting a series into the browser harness is the highest
+> value untaken item in this file** — it un-vacuums the Object Tree route and every future
+> claim about the tree. Adding an indicator through the Add Indicator dialog does NOT do it
+> (tried: the Add succeeds and no series appears, presumably because there is no chart data).
+>
+> **2. "Manage Strategies" is gone from the Object Tree.** Strategies have a toolbar control
+> and Alt+S; a second entry point inside an unrelated dialog put a button in that dialog's
+> button list that acted on nothing in it, and closed it out from under the user.
+>
+> **3. ONE COMMIT VOCABULARY — Escape closes and DISCARDS, everywhere.**
+> - `SettingsModal` had ONE footer button reading "Close", and closing is what committed:
+>   the button saved, Escape saved, the backdrop saved. It is **Save + Cancel** now, and
+>   Escape is Cancel. `PropertiesModal`'s "Apply Changes" is **"Save"**, same vocabulary.
+> - **`ModalBase.OnCloseRequested` is the new hook.** Escape used to go straight to
+>   `CloseModal()`, BYPASSING whatever concrete close path the dialog had written — the bug
+>   class that bit the alerts panel. `LabelTextModal` was the live instance: its Cancel button
+>   publishes the event that makes the terminal say "Label left empty", its key handler only
+>   fires while focus is in the field, so Escape on the Cancel button published nothing.
+> - **`CustomScriptsModal`'s Save now saves.** `ICustomScriptService` has no implementation
+>   and no DI registration anywhere in the tree; scripts died with the process. They persist
+>   through `ISettingsManager` under `scripts.custom`, and Save speaks.
+> - **Sound designer's "Save Patch" speaks.** It and Custom Scripts were the only two silent
+>   saves; for a blind user the announcement IS the evidence the button did anything.
+> - **Export/import moved to the tab whose settings they write** — visual profile to
+>   Appearance, audio profile to Sonification, out of a "Settings Profiles" box on General.
+>
+> **STILL OPEN on this item, and it is the honest limit of what landed:** a handful of
+> Settings controls still apply the moment they change — the theme picker, UI scale, panning
+> step, the paper-account reset, market-structure default, magnet snap, the visual
+> accommodations. Cancel cannot take those back because their own services have already
+> persisted them. They are not half-committed (each announces itself), but the dialog
+> currently has two idioms in it. **Bringing them onto the Save/Cancel path is the follow-up**,
+> and it needs a decision: live theme preview is genuinely useful, so "everything deferred"
+> may be the wrong answer for that one control.
+>
+> **4. DESCRIBE CANDLE PATTERNS is a real setting now, and both pattern switches are on
+> GENERAL under Analysis.** Candle patterns (one to three bars — engulfing, harami, doji,
+> hammer) were spoken unconditionally while the Narration tab's help text promised them in a
+> sentence nothing could make false. Default ON: what is new is the OFF. "Describe chart
+> patterns" moved off Speech to sit beside it — the trigger rule cannot place either of them
+> (each changes the arrow keys AND the bar close AND playback), and the adjacency is what
+> makes the distinction legible. The thirteenth pass's note that it "STAYS in Speech" is
+> superseded.
+>
+> **5. Shift+F1 names split view now** — that it is on, which chart is in the other pane, and
+> that the keyboard is on THIS one. See the discussion below.
+>
+> ---
+>
+> ### The three design questions Cody raised, answered, awaiting his call
+>
+> **(a) SPLIT VIEW — is a read-only reference pane worth having?** Cody: "if the feature
+> isn't accessible or can't be used by everyone especially screen reader users, it should not
+> exist."
+>
+> How it works today, stated plainly because it is not discoverable: `Ctrl+Alt+Shift+S`
+> toggles it and picks the first other TAB; `Ctrl+Alt+Shift+E` cycles which tab is in the
+> second pane; `Ctrl+Alt+Shift+O` flips side-by-side/stacked. Each of those speaks. **You
+> cannot change what the reference chart shows from here — it is a frozen snapshot of another
+> tab, so you change it by going to that tab and changing it there.** With only one tab open
+> it says "Split view needs a second tab. Open one first.", which is the most likely reason
+> it looked like it did nothing.
+>
+> **The proposal on the table is Cody's and it is the right one:** `Shift+Alt+PageUp/PageDown`
+> moves the keyboard between the two charts, and while you are on the second one every
+> ordinary chart command — arrows, panes, series, Shift+F1 — addresses it. That is exactly the
+> keyed-pipeline work `docs/KEYED_FEEDS_DESIGN.md` gates behind an explicit trigger: routing
+> navigation, speech and sonification at a non-active chart identity. It is not small.
+> **Decision needed: build the keyed pipeline for it, or delete split view.** There is no
+> defensible third option — a visual-only feature in this app is a feature for other people.
+>
+> **(b) ALT+UP / ALT+DOWN.** Cody's read is correct: it is **purely visual**. It scrolls which
+> indicator panes are DRAWN (`IndicatorPaneScrollIndex`) and says only "Scroll panes up" /
+> "Scroll panes down" — a sentence with no information in it for someone who cannot see the
+> canvas. **On split view it affects the ACTIVE chart only**; the reference pane renders from
+> a frozen snapshot carrying its own scroll index.
+>
+> Two options, and they are not exclusive:
+>   - *Make it say something.* "Showing volume and RSI, panes 2 and 3 of 5." Cheap, honest,
+>     and it turns a null sentence into an orientation aid. Do this regardless.
+>   - *Give the keys away.* If the pane-navigation rework in (c) lands, Alt+Up/Down is a
+>     viewport control for a viewport a blind user does not have, and the chord is better
+>     spent. **Decision needed.**
+>
+> **(c) PANES vs SERIES — Cody has found a real modelling bug, and the chords are not what he
+> remembered.** Today: PageUp/PageDown switches SERIES; **Ctrl**+PageUp/PageDown (not Alt)
+> jumps between SUB-PANES; Ctrl+Up/Down cycles components within the focused component's
+> sub-pane; plain Up/Down walks the components of the focused series.
+>
+> **The bug: "sub-pane" is scoped to the focused SERIES, not to the chart.** `SubPaneName` is
+> a property of a `ComponentConfig` inside one series, while the chart-level pane is
+> `ChartSeries.Pane`. So on the default chart — candles and price sharing the main pane,
+> volume on its own — Ctrl+Up/Down on the candle series cycles the candle series' components
+> and can never reach Price, exactly as Cody describes. The pane keys navigate a structure
+> that belongs to one indicator while the user is thinking about the structure on the screen.
+>
+> **Cody's proposal, recorded as the design:** make the pane keys navigate CHART panes. Land
+> in a pane, hear "main pane" and the component focus lands on; plain Up/Down then walks
+> every component of every series in that pane, candles and price together. Ctrl+Up/Down
+> becomes redundant and its chord is freed. **This is the right model** — a series IS
+> effectively a sub-pane, and the user should not have to know which of the two structures a
+> key belongs to. **Decision needed before building:** whether the freed chord goes back to
+> the pool or is reused, and what happens to a series whose components genuinely do declare
+> their own sub-panes (they exist; the proposal flattens them into the chart pane, which is
+> probably right but changes what those indicators sound like).
+>
+> ---
+>
+> **Suite 6,551 unit + browser. Version still 2.6.0, still NO TAG — Cody's call.**
+
 > **START HERE (current as of 2026-09-04, THIRTEENTH pass — THE NARRATION TAB IS BUILT,
 > PLAYBACK SPEAKS SIGNALS, AND THE VERSION IS 2.6.0. Ranked items 1 and 2 of the twelfth
 > pass are DONE. What is left is the Object Tree follow-ups (b) and (c), the drawing cross

@@ -105,7 +105,7 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 | `;` | Choose which overlapping formation leads the readout (press again for the next) |
 | `Shift+;` | Stop choosing; go back to largest-first |
 
-They require formation description to be on (Settings → *Describe chart patterns*). With it off they
+They require formation description to be on (Settings → General → *Describe chart patterns*). With it off they
 say so rather than moving you across the chart without explaining why — the announcement that would
 explain the jump is exactly what the setting disables.
 
@@ -175,7 +175,7 @@ right place for something that common.
 
 ### What you hear
 
-Formation narration is opt-in (Settings → *Describe chart patterns*) and is **edge-triggered**: a
+Formation narration is opt-in (Settings → General → *Describe chart patterns*) and is **edge-triggered**: a
 formation speaks twice over its whole life, not once per bar.
 
 | When | Example |

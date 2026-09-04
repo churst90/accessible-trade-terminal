@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### Alt+O stopped crashing the browser, and Save started meaning Save (2026-09-04)
+
+A bug-report session from real use. Four items built, three recorded as design questions in
+`docs/TODO.md`.
+
+- **Alt+O locked the browser tab up.** The Object Tree renders each chart pane as an open
+  `<details>` and listened for `toggle` to keep `aria-expanded` truthful. Blazor inserts an
+  element and applies its attributes afterwards, so rendering `<details open>` is itself a
+  state change and the browser fires one `toggle` nobody caused — and a handler that FLIPS on
+  every toggle turns that echo into an infinite render loop. It reads the disclosure's real
+  state now instead of flipping, which cannot loop in either direction. Measured in the
+  harness's own Chromium rather than reasoned about; the measurement is kept as a test.
+  - **Both test harnesses were blind to it for the same reason:** every browser route opens
+    this dialog at cold start with no series on the chart, where the tree body renders "No
+    series active on chart" and no `<details>` exists to storm. That is now pinned as a
+    standing note rather than left to be rediscovered.
+- **The "Manage Strategies" button is gone from the Object Tree.** Strategies have a toolbar
+  control and Alt+S; a second entry point inside an unrelated dialog put a button in that
+  dialog's button list that acted on nothing in it, and closed it out from under the user.
+
+- **Every dialog now means the same thing by Escape: close and discard.**
+  - **Settings had one footer button reading "Close", and closing is what saved** — the
+    button, Escape and a click on the backdrop all committed. It is Save and Cancel now, and
+    Escape is Cancel. Two keystrokes away, Properties has identical wiring and has always
+    discarded on Escape; nothing in either dialog told you which one you were in.
+  - Properties' "Apply Changes" is "Save", so there is one word for one action.
+  - **Escape no longer bypasses a dialog's own close path.** It went straight to the base
+    class, skipping whatever the dialog had written for Cancel — which is why Escape pressed
+    on the label dialog's Cancel *button* did something different from Escape pressed in its
+    text field. One code path now.
+  - **Custom Scripts' Save button did not save.** The service that would have persisted them
+    has no implementation anywhere in the codebase, so scripts died with the process. They
+    are stored with the rest of your settings now, and Save says so.
+  - **Sound designer's "Save Patch" was silent.** In a dialog about sound, the one thing that
+    made no sound was the confirmation that the button had worked.
+  - **Export and import moved to the tab whose settings they write** — visual profile to
+    Appearance, audio profile to Sonification.
+
+- **"Describe candle patterns" exists, and both pattern switches are on General.** The
+  Narration tab promised "the closing price of each bar as it finishes, with its candle
+  pattern" and there was no setting that could make the second half untrue: candle patterns
+  were unconditional, while only the multi-bar chart formations had a switch. They are
+  different analyses — one to three bars versus tens — and they now sit next to each other
+  under Analysis, which is what makes the difference legible. Default ON; what is new is the
+  ability to turn it off.
+
+- **Shift+F1 names split view.** The orientation key is what you press to ask "where am I?",
+  and with two charts on the canvas it answered as if the second one were not there. It now
+  says the split is on, which chart is in the other pane, and that the keyboard is on this one.
+
+
 ### The Narration tab, and playback that says more than the date (2026-09-04)
 
 Two of the standing 2.6.0 items, built together because either alone is half a feature: the

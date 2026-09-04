@@ -180,7 +180,7 @@ public class DrawingCoordinateEditorTests
     /// </summary>
     private static ChartSeries AppliedSeries(BlazorTestHarness h, IRenderedFragment cut, string id)
     {
-        cut.FindAll("button").First(b => b.TextContent.Contains("Apply")).Click();
+        cut.Find("button#props-save").Click();
 
         // WaitForAssertion, not a bare read: a DOM event's handler is queued on the renderer's
         // dispatcher and the synchronous Click() does not always outlive it. On a 24-core box it

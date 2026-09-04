@@ -63,6 +63,19 @@ public sealed class BlazorTestHarness : IDisposable
     public IMarketOrchestrator MarketOrchestrator { get; }
     public IJournalService JournalService { get; }
 
+    /// <summary>
+    /// What <c>accessibleTrader.isDisclosureOpen</c> answers for the rest of this test.
+    ///
+    /// <para>ObjectTreeModal reads the DOM on `toggle` rather than flipping a bool, because
+    /// Blazor's insert-then-apply-attributes order makes rendering <c>&lt;details open&gt;</c>
+    /// fire a `toggle` nobody caused — flipping on that echo is the loop that hung the browser
+    /// on Alt+O. bUnit fires the event but cannot move the disclosure, so a test that triggers
+    /// `toggle` must state which case it is staging: <c>true</c> is the render's own echo,
+    /// <c>false</c> is a user who just collapsed it.</para>
+    /// </summary>
+    public void DisclosuresReportOpen(bool open) =>
+        Ctx.JSInterop.Setup<bool>("accessibleTrader.isDisclosureOpen", _ => true).SetResult(open);
+
     private readonly List<IAlertChannel> _alertChannels = new();
 
     public BlazorTestHarness()
@@ -237,6 +250,11 @@ public sealed class BlazorTestHarness : IDisposable
         // (TradingDashboardModalTests, TradingDashboardDecouplingTests); doing it here makes the
         // await behave the way it does in a browser for every test at once.
         Ctx.JSInterop.SetupVoid("accessibleTrader.focusElement", _ => true).SetVoidResult();
+        // `accessibleTrader.isDisclosureOpen` is deliberately NOT stubbed here. ObjectTreeModal
+        // asks it what a <details> really holds after a `toggle`, and bUnit has no browser to
+        // move that state — so a blanket default would be this harness inventing an answer.
+        // A test that fires `toggle` says which of the two things it means with
+        // DisclosuresReportOpen; one that never fires it never asks.
     }
 
     /// <summary>Element ids passed to accessibleTrader.focusElement, in call

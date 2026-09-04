@@ -300,7 +300,13 @@ namespace AccessibleTrader.Core.Services.Rendering
             return others.Count > 0 ? others[0] : -1;
         }
 
-        private static string DescribeTab(WorkspaceState state, int tabIndex)
+        /// <summary>
+        /// How a tab is named when it is the one in the second pane. Internal rather than private
+        /// because Shift+F1 names it too (AccessibilityFeedbackCoordinator.SpeakContextSummary):
+        /// two spellings of "which chart is that" would drift, and the one a user hears on toggle
+        /// has to be the one they hear when they ask again.
+        /// </summary>
+        internal static string DescribeTab(WorkspaceState state, int tabIndex)
         {
             var snapshot = state.TabSnapshots?.FirstOrDefault(t => t.TabIndex == tabIndex);
             if (snapshot == null) return $"tab {tabIndex + 1}";

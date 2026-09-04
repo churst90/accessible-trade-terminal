@@ -36,6 +36,13 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   They are created and thrown away per frame now. The chart is the thing you are here for;
   it should not take the tab with it.
 
+- **Alt+O — the object tree — locked the tab up.** The moment there was anything on the
+  chart to list, opening it started a loop between the dialog and the browser that never
+  ended. The dialog and the browser were each answering the other's question about whether a
+  section was open. Fixed, and the reason both test suites had been green through it is
+  worth saying: every automated check opened that dialog on an empty chart, where there is
+  nothing to list and nothing to loop.
+
 ### Speech that actually arrives
 
 - **The terminal would do the thing and not say it.** Mute a component, hide one, cycle a
@@ -138,6 +145,26 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   toolbar now follows one rule: the label you see is the name you hear, with the chord
   spelled out in words rather than as "+".
 
+- **Escape now means the same thing in every dialog: close, and throw the changes away.**
+  Settings had one button on it reading *Close*, and closing is what saved — the button
+  saved, Escape saved, clicking the background saved. Two keystrokes away, the properties
+  dialog has the same shape and has always discarded on Escape, and nothing told you which
+  one you were in. **Settings has Save and Cancel now**, and every dialog that can commit
+  uses that one word, *Save*.
+- **Escape stopped taking a shortcut past a dialog's own Cancel.** On the label dialog that
+  was visible: Escape in the text box left the label placed and said "Label left empty";
+  Escape on the Cancel button did neither. Same key, two outcomes, decided by where your
+  cursor happened to be.
+- **The custom scripts dialog had a Save button that did not save.** Nothing in the app could
+  have written those scripts to disk — the piece that was supposed to had never been built —
+  so every script you wrote died when you closed the terminal. They are kept with the rest of
+  your settings now, and Save tells you it worked.
+- **Save Patch in the sound designer was silent.** In a dialog about sound, the one thing
+  that made no sound was the confirmation that it had done anything.
+- **The object tree offered a "Manage Strategies" button** that had nothing to do with the
+  object tree and closed it out from under you on the way. Strategies are on the toolbar and
+  on Alt+S.
+
 ### Settings, tidied
 
 - **Eight tabs: General, Speech, Narration, Sonification, Appearance, Keyboard, License,
@@ -156,8 +183,24 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   than quietly correcting it.
 - **Twenty-four controls in the indicator properties dialog had no name at all** — the whole
   sonification section read as unlabelled edit boxes. Named.
+- **"Describe candle patterns" is a switch now, and sits next to "Describe chart patterns"
+  on General, under Analysis.** They are different things — a candle pattern is one to three
+  bars (engulfing, harami, doji, hammer), a chart formation is tens of them (double top,
+  head and shoulders, triangle) — and until now only the second had a switch while the first
+  was spoken whether you wanted it or not. The Narration tab even promised it in a sentence
+  nothing could make untrue. Candle patterns stay on by default; what is new is being able
+  to turn them off.
+- **Export and import moved to the tab whose settings they write** — the visual profile is on
+  Appearance, the audio profile on Sonification, instead of both sitting in a box on General.
 
 ### Reading the chart
+
+- **Shift+F1 tells you when there are two charts on screen.** The orientation key is what you
+  press to ask where you are, and with split view on it answered as though the second chart
+  were not there. It now names the split, says which chart is in the other half, and — the
+  part that matters — says the keyboard is on this one. (The second pane is still a reference
+  view only. Whether it stays that way or becomes something you can navigate into is an open
+  question in `docs/TODO.md`, and the answer may be to remove it.)
 
 - **Hidden and muted are two different things, and both are reported.** Hide a component and
   mute it, then unhide it, and the terminal used to tell you it was "visible" — about
