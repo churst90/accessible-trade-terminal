@@ -272,7 +272,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | Shift+F3 | Toggle earcons. Order-outcome and error earcons break through | "Earcons on/muted" |
 | F4 | Toggle braille / tactile display output ("Braille not available on this platform" where unsupported) | "Braille on/off" |
 | Shift+F4 | Open braille display settings (Settings dialog) | — |
-| Shift+F1 | Announce context summary (moved from F4 in 1.10) | "{Symbol} on {Provider}, {Timeframe}" |
+| Shift+F1 | Announce context summary (moved from F4 in 1.10). Names the focused series, the PANE it is in and where that pane sits in the stack, the strip inside it when you are standing in a component, and the drawing anchor a nudge would move. The pane comes from the same model the navigation keys read, so it cannot disagree with where Alt+Page Up / Alt+Page Down just put you | "{Symbol} on {Provider}, {Timeframe}. Focused on Volume, Volume pane, 2 of 3" |
 | Ctrl+Alt+Shift+C | Focus chart area + announce context summary | "{Symbol} context summary" |
 
 ---

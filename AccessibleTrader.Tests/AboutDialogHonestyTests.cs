@@ -135,5 +135,57 @@ namespace AccessibleTrader.Tests
 
             Assert.Contains("https://github.com/churst90/accessible-trade-terminal", text, StringComparison.Ordinal);
         }
+
+        /// <summary>
+        /// The Version and Build rows must be COMPUTED, never typed.
+        ///
+        /// <para>
+        /// A literal version in the About dialog is the worst kind of stale: it looks
+        /// authoritative, it is the one field a bug report is expected to quote, and nothing about
+        /// running the app reveals that it stopped tracking the build. The venue row already went
+        /// two releases stale for exactly that reason. `Directory.Build.props` is the single
+        /// source (`Version` plus the short sha as SemVer build metadata) and the dialog reads it
+        /// back off the assembly at runtime, so it cannot disagree with the binary it is part of.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheAboutDialogComputesTheVersionAndBuildRatherThanQuotingThem()
+        {
+            string root = RepoRoot();
+            var razor = Path.Combine(root, "AccessibleTrader.BlazorClient.Components", "SettingsModal.razor");
+            string text = File.ReadAllText(razor);
+
+            Assert.Contains("<tr><td>Version</td><td>@AppVersionNumber</td></tr>", text, StringComparison.Ordinal);
+            Assert.Contains("<tr><td>Build</td><td>@AppBuildId</td></tr>", text, StringComparison.Ordinal);
+            Assert.Contains("AssemblyInformationalVersionAttribute", text, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// `Directory.Build.props` is the version, and the release docs have to agree with it.
+        ///
+        /// <para>
+        /// Three files name the release in prose — CHANGES.md's top heading, WHATSNEW.md's, and
+        /// README.md's status line — and each has drifted at least once from the number actually
+        /// compiled in. A user reading "2.5.0" in What's New while the About dialog says 2.6.0
+        /// has no way to tell which is the lie.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheReleaseDocsNameTheVersionThatIsActuallyBuilt()
+        {
+            string root = RepoRoot();
+            var props = File.ReadAllText(Path.Combine(root, "Directory.Build.props"));
+            var m = Regex.Match(props, @"<Version>(?<v>[0-9]+\.[0-9]+\.[0-9]+)</Version>");
+            Assert.True(m.Success, "No <Version> in Directory.Build.props.");
+            string version = m.Groups["v"].Value;
+
+            string changes  = File.ReadAllText(Path.Combine(root, "docs", "CHANGES.md"));
+            string whatsnew = File.ReadAllText(Path.Combine(root, "docs", "WHATSNEW.md"));
+
+            Assert.True(changes.Contains($"## [{version}]", StringComparison.Ordinal),
+                $"docs/CHANGES.md has no '## [{version}]' heading; Directory.Build.props says {version}.");
+            Assert.True(whatsnew.Contains($"## {version}", StringComparison.Ordinal),
+                $"docs/WHATSNEW.md has no '## {version}' heading; Directory.Build.props says {version}.");
+        }
     }
 }

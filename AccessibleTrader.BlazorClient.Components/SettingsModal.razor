@@ -160,10 +160,47 @@
                         }
                     </p>
 
+                    @* Two-step reset, in place. WCAG 3.3.4 Error Prevention: this destroys the
+                       cash balance, every open position, every working order and the whole trade
+                       history in one click, with no undo — and it used to do it on the FIRST
+                       click, with the button sitting a Tab away from ordinary checkboxes on the
+                       busiest tab in the app. A paper account is where a strategy is proved
+                       before real money touches it; losing weeks of it to a mis-hit key is not
+                       a small thing to a user who cannot see which button their focus is on.
+
+                       In place rather than a nested dialog, and for the reason ApiKeysModal
+                       records for the identical pattern: the Settings dialog puts the rest of
+                       the document under `inert`, and a second modal on top of it is a stack
+                       that Escape, the Tab trap and the MAUI canvas hide would all have to
+                       learn. The confirmation is also NOT staged for Save — this is an action,
+                       not a preference, and a reset that waited for Save would be a fourth
+                       commit idiom in a dialog that just got down to one. *@
                     <div class="modal-row">
                         <span style="flex:1;">Paper account</span>
-                        <button id="s-paper-reset" type="button" @onclick="ResetPaperAccount">Reset paper account</button>
+                        @if (_pendingPaperReset)
+                        {
+                            <button id="s-paper-reset-confirm" type="button"
+                                    style="color:#c00; font-weight:700;"
+                                    aria-label="Confirm reset. Erases the paper balance, all open positions and the whole trade history immediately. This cannot be undone."
+                                    title="Permanently reset the paper account"
+                                    @onclick="ConfirmPaperReset">Confirm reset</button>
+                            <button id="s-paper-reset-cancel" type="button"
+                                    aria-label="Cancel, keep the paper account as it is"
+                                    title="Keep the paper account"
+                                    @onclick="CancelPaperReset">Cancel</button>
+                        }
+                        else
+                        {
+                            <button id="s-paper-reset" type="button"
+                                    aria-label="Reset paper account. Asks for confirmation first."
+                                    @onclick="ArmPaperReset">Reset paper account</button>
+                        }
                     </div>
+                    <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        Erases the balance, every open position and working order, and the whole
+                        trade history, returning the account to @Paper.StartingBalance.ToString("N0").
+                        There is no undo. You are asked to confirm before anything is erased.
+                    </p>
                 </fieldset>
 
                 @* ── Workspace ────────────────────────────────────────────── *@
@@ -1149,7 +1186,15 @@
         _eventSub = EventBus.Subscribe<OpenSettingsEvent>(_ => InvokeAsync(ShowAsync));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
-            if (_isVisible && e.ModalName == "Settings") InvokeAsync(Cancel);
+            if (!_isVisible || e.ModalName != "Settings") return;
+
+            // Escape with the paper reset armed backs out of the QUESTION, not the dialog.
+            // Closing would leave the user outside Settings with no word on what happened to
+            // the account they were just asked about — and "no" is the answer they were
+            // reaching for. One more Escape closes the dialog as usual. Same rule as
+            // ApiKeysModal's armed removal.
+            if (_pendingPaperReset) InvokeAsync(CancelPaperReset);
+            else InvokeAsync(Cancel);
         });
         ThemeService.ThemeChanged += OnThemeServiceChanged;
         ResetLocal();
@@ -1424,11 +1469,71 @@
     private void OnQuickSizingChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e) =>
         _quickSizingMode = int.TryParse(e.Value?.ToString(), out int v) ? v : 0;
 
-    private void ResetPaperAccount()
+    /// <summary>
+    /// True while the reset has been armed and is waiting for Confirm or Cancel. Cleared on
+    /// open and on close, so a question left hanging cannot be answered by the next visit to
+    /// this dialog — the same rule <c>ApiKeysModal._pendingRemoval</c> follows.
+    /// </summary>
+    private bool _pendingPaperReset;
+
+    /// <summary>
+    /// Asks the question. Nothing is destroyed here.
+    ///
+    /// <para>
+    /// The announcement says WHAT IS AT STAKE before it says which keys answer it, because a
+    /// screen-reader user reaching this from the keyboard has no other signal that the button
+    /// under their finger changed. It also names the balance being returned to: "reset" is a
+    /// word that could equally mean "clear the history and keep the money".
+    /// </para>
+    /// </summary>
+    private async Task ArmPaperReset()
     {
-        Paper.ResetAccount();
+        _pendingPaperReset = true;
+        StateHasChanged();
+        await Task.Yield();
+
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Paper account reset to {Paper.StartingBalance:N0}.", true));
+            $"Reset the paper account? This erases the balance, every open position and the "
+          + $"whole trade history, back to {Paper.StartingBalance:N0}. It cannot be undone. "
+          + $"Confirm reset, or cancel."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-paper-reset-confirm"); }
+        catch { /* focus is best-effort; both buttons are still one Tab away */ }
+    }
+
+    /// <summary>
+    /// Answers "no". Focus returns to the button the user pressed, so they are where they
+    /// started rather than wherever the removed markup left them. Reached from the Cancel
+    /// button and from Escape, which behave identically by construction.
+    /// </summary>
+    private async Task CancelPaperReset()
+    {
+        _pendingPaperReset = false;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Cancelled. The paper account was not reset."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-paper-reset"); }
+        catch { }
+    }
+
+    private async Task ConfirmPaperReset()
+    {
+        _pendingPaperReset = false;
+        Paper.ResetAccount();
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Paper account reset to {Paper.StartingBalance:N0}. All positions and history cleared.", true));
+
+        // The button that took the click no longer exists — the row re-rendered back to its
+        // single-button form. Without this, focus falls to <body> and the user is returned to
+        // the top of the document by a control they pressed in the middle of it.
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-paper-reset"); }
+        catch { }
     }
 
     private void ResetLocal()
@@ -1493,6 +1598,10 @@
     private async Task ShowAsync()
     {
         ResetLocal();
+        // A confirmation left hanging when the dialog closed must not still be armed when it
+        // reopens: the next visitor would find "Confirm reset" under the cursor where "Reset
+        // paper account" belongs, and one keypress would answer a question they never heard.
+        _pendingPaperReset = false;
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "Settings"));
         StateHasChanged();
@@ -1526,6 +1635,11 @@
     {
         bool previewsChanged = RevertPreviews();
         ResetLocal();
+        // Disarm on the way out. Escape backs out of the armed question first, so reaching here
+        // with it set means the dialog was closed some other way (Cancel button, backdrop) —
+        // and leaving it armed would put "Confirm reset" under the cursor the next time the
+        // dialog opened, one keypress from erasing an account nobody asked about.
+        _pendingPaperReset = false;
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1706,6 +1820,7 @@
         // last so that any per-setting sentence above (paper mode, braille) is heard first.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Settings saved.", true));
 
+        _pendingPaperReset = false;   // see Cancel: an armed question must never outlive the dialog
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         StateHasChanged();

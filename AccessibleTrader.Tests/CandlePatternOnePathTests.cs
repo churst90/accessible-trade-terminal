@@ -60,7 +60,10 @@ public sealed class CandlePatternOnePathTests
         // the past, which is nearly all of the reading anyone does.
         string msg = ArrowKeyReading(ThreeSoldiers, idx: 3);
 
-        Assert.StartsWith("Three white soldiers.", msg);
+        // The position clause rides with the name (see the membership tests below): the pattern
+        // leads, and "bar 3 of 3" is what tells the listener the two candles behind the cursor
+        // are the rest of it.
+        Assert.StartsWith("Three white soldiers, bar 3 of 3.", msg);
         Assert.Contains("Close 125.00", msg);
     }
 
@@ -125,6 +128,102 @@ public sealed class CandlePatternOnePathTests
 
         string shape = arrows[..arrows.IndexOf('.')];
         Assert.Contains(shape, detail);
+    }
+
+    // ── Which candles are part of it ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void EveryBarOfAThreeBarPattern_SaysWhereInItThisBarIs()
+    {
+        // Cody, 2026-09-04: "when alt shift d says 3 white soldiers, how do i know which candles
+        // are part of that formation because that's the only candle that reports that formation".
+        // The analyser answers about ONE bar and a pattern is only recognisable on its LAST, so a
+        // three-bar shape was named on one bar in three — a name with nothing to attach it to for
+        // a listener who cannot see the chart.
+        Assert.Contains("bar 1 of 3, Three white soldiers", DetailKeyReading(ThreeSoldiers, idx: 1));
+        Assert.Contains("bar 2 of 3, Three white soldiers", DetailKeyReading(ThreeSoldiers, idx: 2));
+
+        // On the LAST bar the reading already opens with the pattern's name, so the clause says
+        // only the position — repeating the name would be the doubling the direction-prefix rule
+        // exists to prevent.
+        string last = DetailKeyReading(ThreeSoldiers, idx: 3);
+        Assert.Contains("Three white soldiers, bar 3 of 3", last);
+        Assert.DoesNotContain("Three white soldiers, bar 3 of 3, Three white soldiers", last);
+    }
+
+    [Fact]
+    public void TheArrowKeysCarryTheSameClause()
+    {
+        // The two history routes have to agree here as much as on the name: a user who scans onto
+        // bar 1 and then asks for detail must not be told two different things about the same bar.
+        Assert.Contains("bar 1 of 3, Three white soldiers", ArrowKeyReading(ThreeSoldiers, idx: 1));
+        Assert.Contains("Three white soldiers, bar 3 of 3", ArrowKeyReading(ThreeSoldiers, idx: 3));
+    }
+
+    [Fact]
+    public void ABarInNoPatternCarriesNoPositionClause()
+    {
+        // Vacuity guard. "bar 1 of 1" on every ordinary candle would satisfy the tests above and
+        // make the clause worthless — the point of it is that hearing it means something.
+        string msg = ArrowKeyReading(Ordinary, idx: 2);
+
+        Assert.DoesNotContain(" of 3", msg);
+        Assert.DoesNotContain("bar 1 of", msg);
+    }
+
+    [Fact]
+    public void TheLookaheadStopsAtTheLastLoadedBar()
+    {
+        // The forward look is only legitimate because it describes bars that already exist. At
+        // the live edge there is nothing ahead, so there is no forward claim to make — and a bar
+        // that WOULD become the first soldier cannot be announced as one before the other two
+        // have happened.
+        var justTheFirstTwo = ThreeSoldiers.Take(3).ToArray();
+        var analyzer = new SdkCandlePatternAnalyzer();
+
+        Assert.Null(CandlePatternSpeech.MembershipAt(
+            analyzer, Buffer(justTheFirstTwo), index: 2, heikinAshi: false));
+
+        // And with the third bar loaded, the same bar reports its place. Same fixture, one more
+        // bar: the difference is the data, not the rule.
+        Assert.NotNull(CandlePatternSpeech.MembershipAt(
+            analyzer, Buffer(ThreeSoldiers), index: 2, heikinAshi: false));
+    }
+
+    [Fact]
+    public void TheNearestCompletionWins()
+    {
+        // A bar can be the last soldier of one advance and the first of the next. The pattern
+        // that ENDS here is the one being described now, so the search stops at the first hit
+        // rather than running to the furthest.
+        var m = CandlePatternSpeech.MembershipAt(
+            new SdkCandlePatternAnalyzer(), Buffer(ThreeSoldiers), index: 3, heikinAshi: false);
+
+        Assert.NotNull(m);
+        Assert.Equal(CandlePattern.ThreeWhiteSoldiers, m!.Pattern);
+        Assert.Equal(3, m.Position);
+        Assert.Equal(3, m.BarCount);
+    }
+
+    [Fact]
+    public void EveryThreeBarThresholdIsReachableFromTheThresholdsRecord()
+    {
+        // Cody asked whether "the values by which each are defined" are universal. They are not —
+        // candlestick definitions have no standards body — which is exactly why the ones this app
+        // picks must all be visible in one place. Three of them (large body, small body, the
+        // star's overlap tolerance) were hard-coded literals inside the analyser while every other
+        // number lived in CandlePatternThresholds, so a caller could retune a doji and could not
+        // touch a morning star. This asserts they are wired, not merely declared.
+        var loose = new CandlePatternThresholds { LargeBodyMinPercent = 99.0 };
+        var analyzer = new SdkCandlePatternAnalyzer(loose);
+        var bars = Buffer(ThreeSoldiers);
+
+        // Soldiers need three LARGE bodies; demanding 99% of range refuses the fixture that the
+        // default 50% accepts.
+        Assert.Equal(CandlePattern.ThreeWhiteSoldiers,
+            CandlePatternSpeech.AnalyzeAt(new SdkCandlePatternAnalyzer(), bars, 3, false).Pattern);
+        Assert.NotEqual(CandlePattern.ThreeWhiteSoldiers,
+            CandlePatternSpeech.AnalyzeAt(analyzer, bars, 3, false).Pattern);
     }
 
     // ── The live forming bar ────────────────────────────────────────────────────────────────

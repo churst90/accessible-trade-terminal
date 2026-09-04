@@ -117,9 +117,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-04, SEVENTEENTH pass — ONE PATH FOR CANDLE PATTERNS.
-> THE ARROW KEYS AND THE DETAIL KEY NAME THE TWELVE MULTI-BAR PATTERNS NOW, THREE CLASSIFIERS
-> BECAME ONE, AND AN INTRA-BAR ENGULFING WAS BEING TESTED AGAINST ITSELF.**
+> **START HERE (current as of 2026-09-04, SEVENTEENTH pass — ONE PATH FOR CANDLE PATTERNS;
+> THE PAPER RESET ASKS FIRST; **2.6.0 IS TAGGED AND PUBLISHED**. The arrow keys and the detail
+> key name the twelve multi-bar patterns, three classifiers became one, and an intra-bar
+> engulfing was being tested against itself.**
 >
 > ### 1. THE ITEM THE SIXTEENTH PASS LEFT OPEN IS CLOSED
 >
@@ -195,16 +196,104 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   average of four prices that never traded. A candle pattern answers with a name. Written
 >   up in `docs/CHART_PATTERN_NARRATION.md`.
 >
-> ### 4. WHAT IS OPEN
+> ### 4. THE PAPER-ACCOUNT RESET ASKS FIRST (WCAG 3.3.4) — Cody's item, DONE
 >
-> - **The paper-account reset needs a confirmation (WCAG 3.3.4)** — Cody's call, carried over
->   from the fifteenth pass.
-> - **Version is 2.6.0 and there is still NO TAG** — Cody's call.
-> - **Playback does not carry a candle-pattern clause.** It speaks time landmarks, discrete
->   signals and chart-formation resolutions. Whether it should name candles too is a
->   judgement about rate, not a defect: playback speaks per bar, and dojis and spinning tops
->   are common enough that it could become the loudest thing in the stream. Left alone
->   deliberately; raise it if it is wanted.
+> Carried since the fifteenth pass. **Reset paper account** destroyed the cash balance, every
+> open position, every working order and the whole trade history on the FIRST click, with no
+> undo, from a button sitting a Tab away from ordinary checkboxes on the busiest tab in the
+> app. A paper account is where a strategy is proved before real money touches it.
+>
+> **Two-step in place, following `ApiKeysModal`'s armed removal exactly.** The first click
+> arms and speaks the stakes before it speaks the keys: *"Reset the paper account? This erases
+> the balance, every open position and the whole trade history, back to 100,000. It cannot be
+> undone. Confirm reset, or cancel."* Focus moves to Confirm; Cancel and Confirm both return
+> it to the button the user pressed, because the markup that took the click no longer exists
+> and focus would otherwise fall to `<body>`.
+>
+> **Not a nested dialog, and the reason is recorded:** the Settings dialog puts the rest of the
+> document under `inert`, so a second modal on top of it is a stack that Escape, the Tab trap
+> and the MAUI canvas hide would all have to learn. **Not staged for Save either** — this is an
+> action, not a preference, and a reset that waited for Save would be a fourth commit idiom in
+> a dialog that just got down to one.
+>
+> **Escape with the reset armed backs out of the QUESTION, not the dialog**; one more Escape
+> closes as usual. And an armed question never outlives the dialog: `ShowAsync`, `Cancel` and
+> `Save` all disarm, or the next visitor would find "Confirm reset" where "Reset paper account"
+> belongs, one keypress from erasing an account nobody asked them about.
+>
+> ### 5. WHICH CANDLES ARE PART OF IT — Cody's report, FIXED, plus the answer to his second question
+>
+> *"when alt shift d says 3 white soldiers, how do i know which candles are part of that
+> formation because that's the only candle that reports that formation. shouldn't I hear
+> something like 3 white soldier 1 of 3, 2 of 3?"* — right, and it is the defect that arrives
+> with the feature. The analyser answers about ONE bar and a multi-bar pattern is only
+> recognisable on its LAST, so a three-bar shape spoke on one bar in three.
+>
+> **Every bar of a pattern says its place now.** *"Bullish, bar 1 of 3, Three white soldiers."*
+> / *"Three white soldiers, bar 3 of 3, 3-bar continuation."* Both history routes, under the
+> same `DescribeCandlePatterns` switch as the name.
+>
+> **`MembershipAt` LOOKS FORWARD up to two bars, and the causality contract is not being bent.**
+> The contract is about a SIGNAL never using data that had not arrived when it fired; this is a
+> readout of HISTORY, where the bars after the cursor already happened and the user can arrow to
+> them. Bounded by the data that exists — the lookahead stops at the last loaded bar, so at the
+> live edge there is no forward claim — and deliberately NOT wired into the bar-close or
+> forming-bar routes. Pinned by `TheLookaheadStopsAtTheLastLoadedBar` with the same fixture at
+> two lengths.
+>
+> **Cody's second question, "are all 3 candle patterns covered and the values by which each are
+> defined universal?" — two honest answers, one of which is an OPEN ITEM.**
+>
+> - **The values are all in `CandlePatternThresholds` now, and three of them were not.**
+>   `LargeBodyMinPercent` (50), `SmallBodyMaxPercent` (30) and `StarBodyOverlapAllowed` (0.10)
+>   were hard-coded literals in the analyser while every other number lived in the record, so a
+>   caller could retune a doji and could not touch a morning star. Moved and guarded by WIRING
+>   (raise the large-body floor to 99 and the soldiers fixture stops matching), not by
+>   declaration.
+> - **They are NOT universal and cannot be** — candlestick definitions have no standards body.
+>   Two of this app's choices are deliberate deviations, documented in the analyser: the star's
+>   "gap" is a body-overlap tolerance because 24/7 crypto never gaps, and engulfing tests BODY
+>   containment rather than high/low.
+> - **OPEN: the three-bar set is FOUR patterns, not all of them.** Morning star, evening star,
+>   three white soldiers, three black crows. **Not implemented:** three inside up/down, three
+>   outside up/down, abandoned baby, morning/evening doji star, rising/falling three methods,
+>   three line strike. The two-bar set (8) and the one-bar types (11) are reasonably complete.
+>   Adding a pattern is now a small job — one clause in the analyser, one arm in
+>   `CandlePatternSpeech.PatternName`, and `EveryPatternAndTypeHasASpokenName` fails until the
+>   name exists. **This is the next candle-pattern item if one is wanted.**
+>
+> ### 5. SHIFT+F1 SAID "MAIN PANE" FROM EVERY PANE THAT WAS NOT MAIN — Cody's report, FIXED
+>
+> *"when I alt pg down to volume pane and do shift f1 it says main pane, not volume pane"*.
+> Two defects behind one sentence.
+>
+> **(a) The pane name came from the focused COMPONENT's `SubPaneName`**, empty rendered as
+> "main pane". `SpeakContextSummary` was **the last reader of the sub-pane model the sixteenth
+> pass retired everywhere else** — navigation and `ChartLayoutDescriber` had both moved to
+> `ChartPaneModel` and this one was missed. A pane is a Y axis declared by `ChartSeries.Pane`;
+> the volume series' components declare no sub-pane, so everything outside Main said "main".
+>
+> **THE LESSON: when a model is replaced, grep for its FIELD, not for the feature.** The
+> sixteenth pass swept every call site it could name; the one it missed was in a method about
+> something else (the drawing-anchor summary) that happened to build a pane label on the way.
+>
+> **(b) The clause was gated on `LastInteractionContext == Component`**, and Alt+PageUp/Down
+> dispatches `SetInteractionContextAction(Series)` — so straight after a PANE MOVE the
+> orientation key said the symbol and the timeframe and stopped. The gate survives on the
+> STRIP half only, where its original reason still holds.
+>
+> **It now also says where the pane sits** ("Volume pane, 2 of 3"), and names a sub-pane as a
+> **strip** rather than a pane. No index on a one-pane chart. `ContextSummaryPaneTests`, 8
+> cases, two sabotages.
+>
+> ### 5. TWO THINGS CLOSED BY DECISION RATHER THAN BY CODE
+>
+> - **Spoken candle patterns during PLAYBACK: not wanted (Cody, 2026-09-04).** Playback speaks
+>   time landmarks, discrete signals and chart-formation resolutions, and it will keep doing
+>   only that. The judgement is about rate — playback speaks per bar, and dojis and spinning
+>   tops are common enough to become the loudest thing in the stream. **This is settled; do
+>   not re-open it as a gap.**
+> - **2.6.0 is TAGGED AND PUBLISHED.** No longer an open question.
 >
 > **Suite green. `CandlePatternOnePathTests` (15 cases) proven by four sabotages — removing
 > the forming-bar de-duplication, cutting the arrow keys back to a single-bar view, making
@@ -312,10 +401,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > soldiers" cannot be said. **Recommended next item:** route Ctrl+Shift+D through
 > `ISdkCandlePatternAnalyzer` and delete `ClassifyBar`, then decide whether the arrow keys
 > should carry a candle-pattern clause under `DescribeCandlePatterns` (they carry the CHART
-> formation clause already).
+> formation clause already). **[CLOSED in the SEVENTEENTH pass — both routes go through
+> `CandlePatternSpeech`, and the arrow keys are gated on `DescribeCandlePatterns`.]**
 >
 > **Also still open from the fifteenth pass:** the paper-account reset needs a confirmation
-> (WCAG 3.3.4) — Cody's call.
+> (WCAG 3.3.4) — Cody's call. **[CLOSED in the SEVENTEENTH pass — see the top block.]**
 >
 > **Suite 6,560 unit (`--list-tests` 6555 — three split-view test files deleted, two new
 > guard files added), jstests 61 + 19 + 15, doc-drift green. Version still 2.6.0, still NO
@@ -362,7 +452,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > **Not done, and it is a real item:** the a11y review argues the **paper-account reset needs
 > a confirmation** (WCAG 3.3.4) — it is a one-shot destructive command and deferred commit
 > cannot help it. It stays immediate because it is a COMMAND, not an edit; the confirmation
-> is Cody's call.
+> is Cody's call. **[CLOSED in the SEVENTEENTH pass — a two-step in-place confirmation; still
+> immediate, still not staged for Save, for exactly the reason recorded here.]**
 >
 > ### 2. THE BROWSER HARNESS CAN LOAD A CHART — Cody's item 3, DONE, and it paid for itself
 >

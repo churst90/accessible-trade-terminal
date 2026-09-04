@@ -134,14 +134,14 @@
         "Interrupt": true
       },
       {
-        "Text": "Harness Candles on My Data, 1d",
+        "Text": "Harness Candles on My Data, 1d. Focused on Candles, Main pane, 1 of 2",
         "Interrupt": true
       }
     ],
     "liveRegions": [
       {
         "id": "aria-speech-2",
-        "text": "Harness Candles on My Data, 1d"
+        "text": "Harness Candles on My Data, 1d. Focused on Candles, Main pane, 1 of 2"
       },
       {
         "id": "blazor-error-ui",

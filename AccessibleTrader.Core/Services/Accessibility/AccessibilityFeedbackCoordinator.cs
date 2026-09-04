@@ -901,30 +901,70 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string provider = string.IsNullOrEmpty(id.Provider) ? "" : $" on {id.Provider}";
             string msg = $"{symbol}{provider}, {timeframe}";
 
-            // Append focused series/pane info if a component is focused.
+            // WHERE YOU ARE IS NOT CONDITIONAL ON HOW YOU GOT THERE.
+            //
+            // This clause used to be gated on `LastInteractionContext == Component`, which meant
+            // Shift+F1 said nothing at all about the pane in the one situation where it is most
+            // needed: Alt+PageUp/PageDown dispatches `SetInteractionContextAction(Series)`, so
+            // immediately after a PANE MOVE — the move whose whole purpose is to change which
+            // pane you are in — the orientation key answered with the symbol and the timeframe
+            // and stopped. The gate was inherited from when this clause described a component;
+            // it now describes a series and a pane, and both exist in either context.
             var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
-            if (focusedSeries != null && state.LastInteractionContext == InteractionContext.Component)
+            if (focusedSeries != null)
             {
                 // The Count > 0 guard on the next line was written for exactly this
                 // case and arrived one line too late — the clamp above it had already
                 // thrown, taking the subscription that runs this code down with it.
                 // Shift+F1 is the orientation key a disoriented user reaches for, so
                 // this was the keystroke that silenced the terminal.
-                int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
-                string? subPane = compIdx >= 0
-                    ? focusedSeries.Components[compIdx].SubPaneName
-                    : null;
-                string paneLabel = string.IsNullOrEmpty(subPane) ? "main pane" : subPane + " pane";
-                msg += $". Focused on {focusedSeries.FriendlyName}, {paneLabel}";
+                // THE PANE IS THE SERIES' PANE, NOT ITS COMPONENT'S SUB-PANE.
+                //
+                // Reported by Cody, 2026-09-04: Alt+PageDown onto the volume pane and then
+                // Shift+F1 answered "main pane". This block was the LAST reader of the sub-pane
+                // model the sixteenth pass retired everywhere else. It asked the focused
+                // COMPONENT for its `SubPaneName` and called an empty answer "main pane" — but a
+                // pane is a Y axis, declared by `ChartSeries.Pane` across the whole series list,
+                // and the volume series' components declare no sub-pane at all. So every series
+                // outside Main answered "main pane", and the orientation key — the one a
+                // disoriented user reaches for — was the key that lied about where they were.
+                //
+                // `ChartPaneModel` is the single structural model; navigation and
+                // `ChartLayoutDescriber` already read it, and this now does too, so the pane
+                // Alt+PageUp/Down moved you to and the pane Shift+F1 names cannot disagree.
+                string paneKey = ChartPaneModel.KeyOf(focusedSeries);
+                var panes = ChartPaneModel.Panes(state.ActiveSeries);
+                var pane = panes.FirstOrDefault(p => string.Equals(p.Key, paneKey, StringComparison.Ordinal));
+                var paneSeries = pane?.Series ?? new List<ChartSeries> { focusedSeries };
 
-                // If series has multiple panes, append total pane count.
-                int distinctSubPanes = focusedSeries.Components
-                    .Select(c => c.SubPaneName)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Count();
-                if (distinctSubPanes > 0)
-                    msg += $". {focusedSeries.FriendlyName} has {distinctSubPanes + 1} panes";
+                msg += $". Focused on {focusedSeries.FriendlyName}, "
+                     + ChartPaneModel.DisplayName(paneKey, paneSeries) + " pane";
+
+                // WHERE that pane is in the stack, which is the other half of "where am I?" and
+                // was never said. The old clause here counted the focused series' own sub-panes
+                // and reported them as "panes" — a number about one series, spoken as though it
+                // described the chart, and zero for every series that declares none.
+                int paneIndex = panes.ToList().FindIndex(p => string.Equals(p.Key, paneKey, StringComparison.Ordinal));
+                if (paneIndex >= 0 && panes.Count > 1)
+                    msg += $", {paneIndex + 1} of {panes.Count}";
+
+                // The strip inside the pane, when the cursor is standing IN a component. Named as
+                // a STRIP rather than a pane, the same word the arrow keys use, because calling
+                // both things "pane" is how the two models got confused in the first place.
+                //
+                // This half keeps the Component gate that the pane clause above lost, and for the
+                // reason the gate was written: in Series context the focused component index is
+                // whatever it happened to be left at (pane navigation sets it to 0), so naming
+                // that component's strip would report a place the user is not standing.
+                if (state.LastInteractionContext == InteractionContext.Component)
+                {
+                    int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
+                    string? strip = compIdx >= 0 && compIdx < focusedSeries.Components.Count
+                        ? focusedSeries.Components[compIdx].SubPaneName
+                        : null;
+                    string? stripLabel = ChartPaneModel.SubPaneDisplayName(strip, paneSeries);
+                    if (stripLabel != null) msg += $", {stripLabel} strip";
+                }
             }
 
             // A focused drawing: say which anchor Shift+Arrow would move, without

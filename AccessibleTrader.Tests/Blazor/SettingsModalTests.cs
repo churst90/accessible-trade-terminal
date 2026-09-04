@@ -465,4 +465,146 @@ public class SettingsModalTests
         Assert.Empty(cut.FindAll("#tabpanel-general #s-audio-profile-export"));
     }
 
+    // ── The paper-account reset asks first (WCAG 3.3.4) ───────────────────
+    //
+    // It destroys the cash balance, every open position, every working order and the whole
+    // trade history, with no undo — and it used to do it on the FIRST click, from a button
+    // sitting a Tab away from ordinary checkboxes on the busiest tab in the app. A paper
+    // account is where a strategy is proved before real money touches it.
+    //
+    // Two-step in place rather than a nested dialog, following ApiKeysModal's armed removal:
+    // the Settings dialog puts the rest of the document under `inert`, and a modal on top of
+    // it is a stack that Escape, the Tab trap and the MAUI canvas hide would all have to learn.
+
+    [Fact]
+    public void SettingsModal_TheFirstClickOnResetPaperAccount_DestroysNothing()
+    {
+        using var h = new BlazorTestHarness();
+        var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+
+        paper.DidNotReceive().ResetAccount();
+        // And the question is on screen, in place of the button that asked it.
+        //
+        // WaitForAssertion, not a bare Find: ArmPaperReset is async — it renders, yields, then
+        // publishes — and bUnit's Click() does not await that continuation. Asserting straight
+        // after the click passed on its own and failed inside the full Blazor collection, which
+        // is a flake rather than a finding, and the kind that gets blamed on the fix later.
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotNull(cut.Find("#s-paper-reset-confirm"));
+            Assert.NotNull(cut.Find("#s-paper-reset-cancel"));
+            Assert.Empty(cut.FindAll("#s-paper-reset"));
+        });
+    }
+
+    [Fact]
+    public void SettingsModal_ArmingTheReset_SpeaksWhatIsAtStakeBeforeWhichKeysAnswerIt()
+    {
+        // The markup changed under a sighted user's eyes. For everyone else the announcement IS
+        // that change, and a confirmation that only says "are you sure?" is not error prevention
+        // — it has to name what is destroyed and that it cannot be undone.
+        using var h = new BlazorTestHarness();
+        var spoken = new List<FeedbackRequestEvent>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+
+        // By CONTENT and behind a wait. ArmPaperReset renders, yields, and only then publishes,
+        // and bUnit's Click() does not await that continuation — so both "which message" and
+        // "has it been said yet" were wrong here. Asserting on Last() straight after the click
+        // passed alone and failed in the full collection.
+        string msg = "";
+        cut.WaitForAssertion(() =>
+            msg = Assert.Single(spoken.Where(f =>
+                f.Message?.StartsWith("Reset the paper account?", StringComparison.Ordinal) == true)).Message!);
+        Assert.Contains("cannot be undone", msg, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("position", msg, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("history", msg, StringComparison.OrdinalIgnoreCase);
+        // The keys that answer it come last, after the stakes.
+        Assert.EndsWith("Confirm reset, or cancel.", msg);
+    }
+
+    [Fact]
+    public void SettingsModal_ConfirmingTheReset_ActuallyResets()
+    {
+        // Vacuity guard for the two above: a button that never resets anything would satisfy
+        // both, and would be a worse defect than the one being fixed.
+        using var h = new BlazorTestHarness();
+        var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset-confirm").Click()).GetAwaiter().GetResult();
+
+        paper.Received(1).ResetAccount();
+        // The row is back to its single-button form, which is where focus is sent.
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
+    }
+
+    [Fact]
+    public void SettingsModal_CancellingTheReset_KeepsTheAccountAndSaysSo()
+    {
+        using var h = new BlazorTestHarness();
+        var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
+        var spoken = new List<FeedbackRequestEvent>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-cancel")));
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset-cancel").Click()).GetAwaiter().GetResult();
+
+        paper.DidNotReceive().ResetAccount();
+        // Behind a wait for the same reason as the arming test: CancelPaperReset renders, yields,
+        // and only then publishes, so "the last thing said" straight after the click is still the
+        // question rather than the answer to it.
+        cut.WaitForAssertion(() => Assert.Contains(spoken,
+            f => f.Message?.Contains("not reset", StringComparison.OrdinalIgnoreCase) == true));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
+    }
+
+    [Fact]
+    public void SettingsModal_EscapeWithTheResetArmed_BacksOutOfTheQuestionNotTheDialog()
+    {
+        // Closing on that Escape would leave the user outside Settings with no word on what
+        // happened to the account they were just asked about — and "no" is the answer they were
+        // reaching for. Same rule as ApiKeysModal's armed removal. One more Escape closes.
+        using var h = new BlazorTestHarness();
+        var paper = h.Ctx.Services.GetRequiredService<IPaperTradingProvider>();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+
+        paper.DidNotReceive().ResetAccount();
+        cut.WaitForAssertion(() => Assert.NotEqual(string.Empty, cut.Markup.Trim()));
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
+
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Markup.Trim()));
+    }
+
+    [Fact]
+    public void SettingsModal_AnArmedQuestionDoesNotSurviveTheDialogClosing()
+    {
+        // Otherwise the next visitor finds "Confirm reset" where "Reset paper account" belongs,
+        // one keypress from erasing an account nobody asked them about.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-paper-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset-confirm")));
+        cut.InvokeAsync(() => cut.Find("#settings-close").Click()).GetAwaiter().GetResult();
+        cut.InvokeAsync(() => h.EventBus.Publish(new OpenSettingsEvent())).GetAwaiter().GetResult();
+
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-paper-reset")));
+        Assert.Empty(cut.FindAll("#s-paper-reset-confirm"));
+    }
+
 }

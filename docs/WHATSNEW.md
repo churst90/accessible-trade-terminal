@@ -23,6 +23,13 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 - **Page Up and Page Down go down the chart in the order you see it**, not the order the series
   happened to be added in. And all five of these keys now **stop at the ends** with a boundary
   earcon rather than wrapping silently around to the far side of the chart.
+- **Shift+F1 names the pane you are actually in.** Alt+Page Down to the volume pane, press
+  Shift+F1, and it answered "main pane" — from every pane that was not Main, because it was
+  asking the focused component for a sub-pane name and calling an empty answer "main". It reads
+  the same pane model the navigation keys read now, so the pane you moved to and the pane it
+  names cannot differ, and it says where that pane sits: "Volume pane, 2 of 3". It also answers
+  at all straight after a pane move — it used to go quiet in exactly that case, which is the one
+  moment you are asking because the answer just changed.
 - **`Alt+Shift+/` tells you where you are standing.** "Main pane, 1 of 3. Y axis, price: 94,000
   to 98,000, about 1,000 between gridlines. X axis, time: 3 June to 12 August, 60 bars at 1 day
   each. 2 series: Candles, Price." A number means nothing without the scale it sits against, and
@@ -44,6 +51,17 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   drawing and nothing else — navigation, speech and sonification never knew it had happened, so
   every pane stayed reachable and every key kept working. It was a scroll bar for a viewport you
   do not have, and all it ever said was "Scroll panes up".
+
+### Asked before it is done
+
+- **"Reset paper account" asks you first.** One click used to erase the balance, every open
+  position, every working order and the whole trade history — no undo, from a button a Tab
+  away from ordinary checkboxes on the busiest tab in Settings. It now arms a confirmation
+  and tells you exactly what is at stake before it tells you which keys answer: *"Reset the
+  paper account? This erases the balance, every open position and the whole trade history,
+  back to 100,000. It cannot be undone. Confirm reset, or cancel."* Focus lands on Confirm,
+  and whichever way you answer it comes back to where you started. Escape backs out of the
+  question rather than closing Settings; one more Escape closes as usual.
 
 ### The one that could cost you money
 
@@ -260,6 +278,12 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   them on the bar that closed and on the live bar as it formed — but neither route that reads
   the PAST ran the detector, so on any bar you were not present for, "three white soldiers"
   could not be said. Reading a chart by ear is almost entirely reading the past.
+- **Every bar of a multi-bar pattern tells you where in it you are.** A three-bar shape can
+  only be recognised on its last bar, so hearing "three white soldiers" once told you a pattern
+  was there and nothing about which candles it meant. Now the first soldier reads *"Bullish, bar
+  1 of 3, Three white soldiers"* and the last reads *"Three white soldiers, bar 3 of 3"* — so you
+  can find the whole thing by ear. (Only when reading history. The live bar never claims to be
+  part of a pattern that has not finished forming.)
 - **Ctrl+Shift+D (Alt+Shift+D on the web) names them too, with the span and the lean.**
   *"Three white soldiers, 3-bar continuation. Body 58%, upper wick 25%, lower wick 17%."*
   Hearing "morning star" on one bar gives you no clue that the two bars behind the cursor are

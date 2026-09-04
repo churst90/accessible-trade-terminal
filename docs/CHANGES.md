@@ -4,6 +4,142 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### Which candles are part of the pattern: every bar of a multi-bar shape says where in it it sits (2026-09-04)
+
+Cody, the moment the multi-bar patterns started being spoken: *"when alt shift d says 3 white
+soldiers, how do i know which candles are part of that formation because that's the only candle
+that reports that formation. shouldn't I hear something like 3 white soldier 1 of 3, 2 of 3?"*
+
+He was right, and it is the defect that arrives with the feature. The analyser answers about ONE
+bar, and a multi-bar pattern is only recognisable on its LAST bar — so a three-bar shape was
+announced on one bar in three, and the other two said nothing. For a listener who cannot see the
+chart that is a name with nothing to attach it to.
+
+**Every bar of a pattern now says its place in it.** Standing on the first soldier: *"Bullish, bar
+1 of 3, Three white soldiers."* On the last: *"Three white soldiers, bar 3 of 3, 3-bar
+continuation."* The pattern is named again only when the shape did not already name it — on the
+completing bar the reading opens with it, and repeating it would be the same doubling the
+direction-prefix rule exists to prevent. Both history routes carry it, under the same
+`Describe candle patterns` switch as the name itself, because it is the same claim.
+
+**THE FORWARD LOOK, AND WHY IT IS LEGITIMATE HERE.** `MembershipAt` looks up to two bars ahead —
+the longest pattern the analyser knows is three bars, so a bar can be at most two bars from the
+one that completes the pattern containing it. This repo has a standing causality contract and it
+is not being bent: the contract is about a SIGNAL never using data that had not arrived when it
+fired. This is a readout of HISTORY. Standing on a bar in the past, the bars after it have already
+happened and the user can arrow to them; saying "bar 1 of 3" describes the chart rather than
+predicting it. It is bounded by the data that exists — the lookahead stops at the last loaded bar,
+so at the live edge there is no forward claim to make — and it is deliberately **not** wired into
+the bar-close or forming-bar announcements, which speak in real time and may only ever say what
+was knowable then. `TheLookaheadStopsAtTheLastLoadedBar` pins that with the same fixture at two
+lengths: with two bars loaded the answer is null, with three it is "bar 3 of 3".
+
+**Also, from Cody's second question — "are all 3 candle patterns covered and the values by which
+each are defined universal?" Two honest answers.**
+
+**The values are now all in one place, and they were not.** `LargeBodyMinPercent` (50),
+`SmallBodyMaxPercent` (30) and `StarBodyOverlapAllowed` (0.10) were hard-coded literals inside
+`SdkCandlePatternAnalyzer` while every other number it uses lived in `CandlePatternThresholds` — so
+a caller could retune a doji and a marubozu and could not touch a morning star or three white
+soldiers. They are properties of the record now, wired and guarded (raising `LargeBodyMinPercent`
+to 99 refuses a fixture the default accepts, which is a test of the wiring rather than of the
+declaration).
+
+**"Universal" they are not, and cannot be.** Candlestick definitions have no standards body; every
+platform picks its own cut-offs. Two of this app's choices are deliberate deviations and are
+documented as such in the analyser: the star's "gap" is a body-overlap tolerance because 24/7
+crypto never gaps, and engulfing tests BODY containment rather than high/low. Making the numbers
+visible in one record is the honest version of the answer — not a claim that they are canonical.
+
+**And the three-bar set is FOUR patterns, not all of them.** Morning star, evening star, three
+white soldiers, three black crows. Not implemented: three inside up/down, three outside up/down,
+abandoned baby, morning/evening doji star, rising/falling three methods, three line strike. That is
+recorded as an open item in `docs/TODO.md` rather than left to be discovered by absence.
+
+### Shift+F1 said "main pane" from every pane that was not Main (2026-09-04)
+
+Cody, reporting it: *"when I alt pg down to volume pane and do shift f1 it says main pane, not
+volume pane"*. Two defects behind one sentence, and the orientation key is the worst place in the
+app for either — it is what a disoriented user reaches for, so a wrong answer is worse than none.
+
+- **The pane name came from the focused COMPONENT's `SubPaneName`**, with an empty answer rendered
+  as "main pane". But a pane is a Y axis, declared by `ChartSeries.Pane` across the whole series
+  list — the volume series' components declare no sub-pane at all, so **every series outside Main
+  answered "main pane"**. This block was the last reader of the sub-pane model the sixteenth pass
+  retired everywhere else: navigation and `ChartLayoutDescriber` had both moved to
+  `ChartPaneModel` and this one was missed, which is exactly how the two models could disagree
+  about the same chart. It reads `ChartPaneModel` now, so the pane Alt+PageUp/PageDown moves you
+  to and the pane Shift+F1 names cannot differ.
+- **The whole clause was gated on `LastInteractionContext == Component`.** Alt+PageUp/PageDown
+  dispatches `SetInteractionContextAction(Series)`, so immediately after a pane move — the move
+  whose entire purpose is to change which pane you are in — Shift+F1 said the symbol and the
+  timeframe and stopped. The gate was inherited from when the clause described a component; it
+  describes a series and a pane, and both exist in either context. The gate survives on the STRIP
+  half only, and for its original reason: in Series context the focused component index is
+  whatever it was left at (pane navigation sets it to 0), so naming that component's strip would
+  report a place the user is not standing.
+
+**Two things it now says that it never did.** Where the pane sits in the stack — "Volume pane, 2
+of 3" — because a pane name alone does not say whether there is anything below it, and the old
+clause's "has N panes" counted the focused series' own sub-panes and reported them as though they
+described the chart (zero for every series that declares none). And the strip inside the pane,
+named as a **strip** rather than a pane, the same word the arrow keys use: calling both things
+"pane" is how the two models got confused in the first place. No index is recited on a one-pane
+chart, where "1 of 1" is noise on every utterance.
+
+`ContextSummaryPaneTests`, 8 cases, proven by two sabotages: putting the pane name back on the
+component's `SubPaneName` turns 7 of 8 red, and restoring the interaction-context gate turns 6 red.
+
+### The paper-account reset asks first — WCAG 3.3.4 (2026-09-04)
+
+Carried open since the fifteenth pass, and Cody's call to make. **Reset paper account** destroyed
+the cash balance, every open position, every working order and the whole trade history on the
+FIRST click, with no undo, from a button sitting a Tab away from ordinary checkboxes on the busiest
+tab in the app. A paper account is where a strategy is proved before real money touches it; losing
+weeks of it to a mis-hit key is not a small thing for a user who cannot see which button their
+focus is on.
+
+Two-step in place, following `ApiKeysModal`'s armed removal exactly:
+
+- The first click **arms** and speaks the stakes before it speaks the keys — *"Reset the paper
+  account? This erases the balance, every open position and the whole trade history, back to
+  100,000. It cannot be undone. Confirm reset, or cancel."* The markup changed under a sighted
+  user's eyes; the announcement is what makes that true for everyone else, and a confirmation that
+  only asks "are you sure?" is not error prevention. It also names the balance being returned to,
+  because "reset" could equally mean "clear the history and keep the money".
+- Focus moves to **Confirm reset**. Cancel and Confirm both return focus to the button the user
+  pressed: the markup that took the click no longer exists, and without this focus falls to
+  `<body>` — a control pressed in the middle of a dialog returning the user to the top of the
+  document.
+- **Escape with the reset armed backs out of the QUESTION, not the dialog.** Closing would leave
+  the user outside Settings with no word on what happened to the account they were just asked
+  about, and "no" is the answer they were reaching for. One more Escape closes as usual.
+- **An armed question never outlives the dialog.** `ShowAsync`, `Cancel` and `Save` all disarm, or
+  the next visitor finds "Confirm reset" where "Reset paper account" belongs — one keypress from
+  erasing an account nobody asked them about.
+
+**Not a nested dialog, and not staged for Save**, both deliberately. The Settings dialog puts the
+rest of the document under `inert`, so a modal on top of it is a stack that Escape, the Tab trap
+and the MAUI canvas hide would all have to learn. And a reset that waited for Save would be a
+fourth commit idiom in a dialog that had just got down to one: this is an action, not a preference.
+
+Six guards in `SettingsModalTests`, proven by three sabotages — resetting on the first click,
+making Escape close the dialog instead of backing out, and leaving the question armed across a
+close and reopen. Each turned exactly the intended guard red.
+
+**Also:** two new guards in `AboutDialogHonestyTests`. The About tab's Version and Build rows must
+be COMPUTED (assembly informational version, which `Directory.Build.props` stamps with the short
+commit sha) rather than typed — a literal version there looks authoritative, is the one field a bug
+report quotes, and nothing about running the app reveals it has stopped tracking the build; the
+venue row on the same table went two releases stale for exactly that reason. And the release
+headings in `CHANGES.md` and `WHATSNEW.md` must name the version actually compiled in, because a
+user reading "2.5.0" in What's New while About says 2.6.0 has no way to tell which is the lie.
+
+**Decision, recorded so it is not re-opened as a gap:** playback will NOT speak candle patterns
+(Cody, 2026-09-04). It speaks time landmarks, discrete signals and chart-formation resolutions, and
+that is the whole list. The judgement is about rate — playback speaks per bar, and dojis and
+spinning tops are common enough to become the loudest thing in the stream.
+
 ### One path for candle patterns: the arrow keys and the detail key name the multi-bar shapes, and three classifiers became one (2026-09-04)
 
 Cody: *"address the candle pattern readout path where ctrl/alt shift d incorporates those multi

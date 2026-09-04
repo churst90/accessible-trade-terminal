@@ -1888,7 +1888,12 @@ prices**: a market order fills at the current price, and a stop, target, or trai
 order fills the moment live price action actually crosses it. You start with a
 virtual balance, the account persists between sessions, and a "Reset paper account"
 button on the same settings tab wipes it back to the starting balance whenever you
-want a clean slate. While paper mode is on the dashboard shows the environment as
+want a clean slate. **It asks you first.** The first press arms a confirmation and
+says what is at stake — the balance, every open position and working order, and the
+whole trade history, with no undo — then offers "Confirm reset" and "Cancel", with
+focus on Confirm. Escape at that point backs out of the question rather than closing
+Settings; press it again to close. Whichever way you answer, focus returns to the
+button you pressed. While paper mode is on the dashboard shows the environment as
 "Paper (simulated)" with a paper banner, and the red live-funds banner is
 suppressed. Everything described in the rest of this chapter behaves identically in
 paper and live — so practise here until the spoken feedback is second nature, then

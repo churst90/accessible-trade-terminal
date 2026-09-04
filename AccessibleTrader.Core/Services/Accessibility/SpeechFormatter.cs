@@ -137,6 +137,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     ? CandlePatternSpeech.DescribeShape(analysis)
                     : CandlePatternSpeech.DirectionOnly(pt);
 
+                // WHICH CANDLES. Scanning across a three-bar pattern, only the last bar could name
+                // it and the two before it said nothing, so the name arrived with no way to find
+                // what it referred to — "bar 1 of 3, three white soldiers" is what makes it
+                // findable by ear. Under the same switch as the name itself: it is the same claim.
+                if (state.DescribeCandlePatterns)
+                {
+                    string member = CandlePatternSpeech.MembershipClause(analysis,
+                        CandlePatternSpeech.MembershipAt(
+                            _candles, state.Data, state.CurrentDataIndex, state.IsHeikinAshi));
+                    if (member.Length > 0) shape += ", " + member;
+                }
+
                 double range = pt.High - pt.Low;
                 double body = Math.Abs(pt.Close - pt.Open);
                 double bodyPct = range > 0 ? (body / range) * 100.0 : 0;

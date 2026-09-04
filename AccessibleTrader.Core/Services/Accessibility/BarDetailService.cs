@@ -201,6 +201,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _analyzer, state.Data, index, state.IsHeikinAshi, current: bar);
                 string shape = CandlePatternSpeech.DescribeShape(analysis);
                 string bias  = CandlePatternSpeech.Bias(analysis);
+
+                // WHICH CANDLES. A three-bar pattern is only recognisable on its LAST bar, so
+                // "three white soldiers" was announced on one bar in three and the other two said
+                // nothing — a name with no way to find the candles it refers to, for a listener
+                // who cannot see the chart. This clause says where in the pattern this bar sits,
+                // on every bar of it. See CandlePatternSpeech.MembershipAt for why looking forward
+                // is legitimate here and is not wired into the live routes.
+                string member = CandlePatternSpeech.MembershipClause(analysis,
+                    CandlePatternSpeech.MembershipAt(_analyzer, state.Data, index, state.IsHeikinAshi));
                 double range = bar.High - bar.Low;
                 double body  = Math.Abs(bar.Close - bar.Open);
                 double bodyPct = range > 0 ? (body / range) * 100.0 : 0;
@@ -209,7 +218,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 double upperPct = range > 0 ? (upperWick / range) * 100.0 : 0;
                 double lowerPct = range > 0 ? (lowerWick / range) * 100.0 : 0;
 
-                string leadIn = bias.Length > 0 ? $"{shape}, {bias}." : $"{shape}.";
+                // Shape, then WHERE in the pattern, then which way it leans: what it is, which
+                // candles, what it means.
+                var parts = new List<string> { shape };
+                if (member.Length > 0) parts.Add(member);
+                if (bias.Length > 0)   parts.Add(bias);
+                string leadIn = string.Join(", ", parts) + ".";
                 sb.Append($"{leadIn} Body {bodyPct.ToString("F0", CultureInfo.InvariantCulture)}%, Upper wick {upperPct.ToString("F0", CultureInfo.InvariantCulture)}%, Lower wick {lowerPct.ToString("F0", CultureInfo.InvariantCulture)}%. ");
                 return sb.ToString().TrimEnd();
             }

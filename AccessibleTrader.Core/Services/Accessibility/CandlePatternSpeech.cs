@@ -159,6 +159,92 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
+        /// A bar's place inside a multi-bar pattern: which pattern, which bar of it this is, how
+        /// many bars it spans, and the bar it completes on.
+        /// </summary>
+        public sealed record Membership(CandlePattern Pattern, int Position, int BarCount, DateTime CompletesAt);
+
+        /// <summary>
+        /// Which multi-bar pattern, if any, the bar at <paramref name="index"/> is PART OF —
+        /// including when it is the first or second bar and the pattern only becomes visible
+        /// later.
+        ///
+        /// <para>
+        /// Cody, 2026-09-04: <i>"when alt shift d says 3 white soldiers, how do i know which
+        /// candles are part of that formation because that's the only candle that reports that
+        /// formation"</i>. He was exactly right. The analyser answers about ONE bar and a pattern
+        /// is only recognisable on its LAST bar, so a three-bar shape was announced on one bar in
+        /// three and the other two said nothing — leaving a listener who cannot see the chart with
+        /// a name and no way to find the candles it refers to.
+        /// </para>
+        ///
+        /// <para>
+        /// THIS LOOKS FORWARD, AND THAT IS ONLY LEGITIMATE BECAUSE IT IS A READOUT OF HISTORY.
+        /// Standing on a bar in the past, the bars after it have already happened and the user can
+        /// arrow to them; saying "bar 1 of 3" is describing the chart, not predicting it. It is
+        /// bounded by the data that exists — a lookahead past the last loaded bar returns nothing,
+        /// so at the live edge there is no forward claim to make — and it is deliberately NOT
+        /// wired into the bar-close or forming-bar announcements, which speak in real time and
+        /// must only ever say what was knowable then. The repo's causality contract is about
+        /// exactly that distinction; see <c>docs/CHART_PATTERN_NARRATION.md</c>.
+        /// </para>
+        ///
+        /// <para>
+        /// Returns the NEAREST completion. A bar can be the third soldier of one advance and the
+        /// first of the next; the pattern that ends here is the one being described now.
+        /// </para>
+        /// </summary>
+        public static Membership? MembershipAt(
+            ISdkCandlePatternAnalyzer analyzer,
+            IReadOnlyList<Ohlcv>? data,
+            int index,
+            bool heikinAshi)
+        {
+            if (data == null || data.Count == 0) return null;
+            if (index < 0 || index >= data.Count) return null;
+
+            // MaxPatternBars - 1: a three-bar pattern is the longest the analyser knows, so a bar
+            // can be at most two bars ahead of the one that completes the pattern containing it.
+            for (int ahead = 0; ahead <= MaxPatternBars - 1; ahead++)
+            {
+                int completeAt = index + ahead;
+                if (completeAt >= data.Count) break;
+
+                var a = AnalyzeAt(analyzer, data, completeAt, heikinAshi);
+                if (a.Pattern == CandlePattern.None || a.PatternBarCount <= 1) continue;
+
+                int start = completeAt - a.PatternBarCount + 1;
+                if (index < start) continue;          // the pattern does not reach back this far
+
+                return new Membership(a.Pattern, index - start + 1, a.PatternBarCount, data[completeAt].Date);
+            }
+
+            return null;
+        }
+
+        /// <summary>The longest pattern the analyser recognises. Three-bar is the whole set.</summary>
+        public const int MaxPatternBars = 3;
+
+        /// <summary>
+        /// The clause that says WHICH CANDLES: "bar 3 of 3" on the bar whose own name already gave
+        /// the pattern, "bar 1 of 3, three white soldiers" on a bar that is part of one without
+        /// looking like one. Empty when the bar is not in a multi-bar pattern, which is most bars.
+        ///
+        /// <para>
+        /// The pattern is named again only when the shape did NOT name it. On the completing bar
+        /// the reading already opens with "Three white soldiers", so repeating it would be the
+        /// same doubling the direction-prefix rule exists to prevent.
+        /// </para>
+        /// </summary>
+        public static string MembershipClause(CandleAnalysis here, Membership? m)
+        {
+            if (m == null) return "";
+            bool shapeAlreadyNamedIt = here.Pattern == m.Pattern;
+            string where = $"bar {m.Position} of {m.BarCount}";
+            return shapeAlreadyNamedIt ? where : $"{where}, {PatternName(m.Pattern)}";
+        }
+
+        /// <summary>
         /// What this candle IS, in one phrase: the multi-bar pattern when there is one, otherwise
         /// the single-bar type, otherwise just the direction. Never empty.
         ///

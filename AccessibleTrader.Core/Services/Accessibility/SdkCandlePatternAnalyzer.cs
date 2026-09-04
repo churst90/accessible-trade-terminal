@@ -62,14 +62,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // on [long red, small body, green closing above the midpoint] no matter where the
                 // middle bar sits — including above the first bar's open, which is not the pattern.
                 if (IsLargeBody(pa2, false) && IsSmallBody(pa1) && isBullish
-                    && BodyHigh(pa1) < BodyLow(pa2) + BodySize(pa2) * StarBodyOverlapAllowed
+                    && BodyHigh(pa1) < BodyLow(pa2) + BodySize(pa2) * _t.StarBodyOverlapAllowed
                     && c.Close > (pa2.Open + pa2.Close) / 2.0)
                     return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.MorningStar,
                         3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
 
                 // Evening Star — the mirror.
                 if (IsLargeBody(pa2, true) && IsSmallBody(pa1) && !isBullish
-                    && BodyLow(pa1) > BodyHigh(pa2) - BodySize(pa2) * StarBodyOverlapAllowed
+                    && BodyLow(pa1) > BodyHigh(pa2) - BodySize(pa2) * _t.StarBodyOverlapAllowed
                     && c.Close < (pa2.Open + pa2.Close) / 2.0)
                     return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.EveningStar,
                         3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
@@ -254,13 +254,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static bool IsContinuationPattern(SdkCP p) => p is
             SdkCP.ThreeWhiteSoldiers or SdkCP.ThreeBlackCrows;
 
-        /// <summary>
-        /// How much of the first bar's body the star is allowed to overlap. A true gap is 0, but
-        /// 24/7 markets do not gap, so a small tolerance keeps the pattern findable on crypto while
-        /// still requiring the star to sit clearly outside the body it is reversing.
-        /// </summary>
-        private const double StarBodyOverlapAllowed = 0.10;
-
         private static double BodyHigh(Ohlcv b) => Math.Max(b.Open, b.Close);
         private static double BodyLow(Ohlcv b) => Math.Min(b.Open, b.Close);
         private static double BodySize(Ohlcv b) => Math.Abs(b.Close - b.Open);
@@ -321,14 +314,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double r = bar.High - bar.Low;
             if (r <= 0) return false;
             double bodyPct = Math.Abs(bar.Close - bar.Open) / r * 100.0;
-            return bodyPct >= 50.0 && (bar.Close >= bar.Open) == bullish;
+            return bodyPct >= _t.LargeBodyMinPercent && (bar.Close >= bar.Open) == bullish;
         }
 
-        private static bool IsSmallBody(Ohlcv bar)
+        private bool IsSmallBody(Ohlcv bar)
         {
             double r = bar.High - bar.Low;
             if (r <= 0) return true;
-            return Math.Abs(bar.Close - bar.Open) / r * 100.0 < 30.0;
+            return Math.Abs(bar.Close - bar.Open) / r * 100.0 < _t.SmallBodyMaxPercent;
         }
     }
 }
