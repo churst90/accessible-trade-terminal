@@ -4,6 +4,72 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The background behind a dialog is switched off, and the alerts tab moved next to the alerts (2026-09-04)
+
+Two of the standing 2.6.0 items: modal background `inert`, and the alerts consolidation.
+
+- **`inert` on the app chrome while any dialog is open.** Every dialog in this app already
+  declared `aria-modal="true"`, and that attribute is ADVISORY — it asks the screen reader not to
+  describe anything outside the dialog and does nothing at all about focus. The 2026-09-04
+  measurement is what forced the issue: with the AT-SPI bridge attached and Orca running, **6 of
+  14 modals lost focus to somewhere outside themselves** — `<body>`, a heading behind the dialog,
+  background toolbar buttons — and every one of those moves carried an **empty JavaScript stack**,
+  i.e. it was dispatched by the embedder and not by page script. An application cannot out-focus a
+  mover it never sees; `inert` removes the destinations instead. Eight region roots carry
+  `data-background-region` (header, toolbar, tab bar, chart `<main>`, indicator bar, touch nav bar,
+  status bar, footer) and `keyboard.js` sets and clears the attribute from `setModalStack`, the one
+  ordered stack that already feeds the Tab trap and Escape.
+  - It is an opt-IN list rather than "everything except the dialog" for a reason worth keeping:
+    **the two ARIA speech buffers are siblings of `<main>`, not children of it**, and `inert`
+    strips a subtree out of the accessibility tree outright. Inerting a wrapper would not have
+    muted the background — it would have **silenced the terminal** for as long as any dialog was
+    open. `ModalBackgroundInertBrowserTests` asserts that directly, in a real browser.
+  - **`focusElement` now retries a REFUSED focus, not just a missing element.** `el.focus()` is a
+    silent no-op inside an inert subtree, and the last dialog's close is a race: `CommandDispatcher`
+    publishes `RequestChartFocusEvent` from its own `ModalStack.Changed` handler, and the call that
+    clears inert is a different subscriber to the same event. Ordering them is possible and
+    fragile — one added subscription reverses it — so "found it" stopped being the success
+    condition and "it took focus" became it. The ~10-frame budget is unchanged.
+  - Proven by three sabotages against `tools/jstests/keyboard-tests.mjs` (61 tests): the inert call
+    deleted reddens five; moving it AHEAD of the stack diff reddens exactly the one test that says
+    the return target is captured first; reverting `focusElement` reddens two. Plus five browser
+    cases, including the one that matters — a background button **refuses** focus while a dialog is
+    open — and `ModalBackgroundRegionScanTests`, which is the join between the tagged roots and the
+    JavaScript selector.
+  - `ModalFocusPersistenceProbe` re-ran with the bridge ON and Orca attached, and now records
+    for every sample whether the focused element is inside an inert subtree — "wandered to a
+    toolbar button" and "wandered into the second open dialog" look identical otherwise, and
+    only one of them is something `inert` can prevent. **6 of 7 modals held their own heading
+    through +4000 ms** (baseline: 6 of 14 wandering), the single wander landing in the first-run
+    speech prompt, which is a dialog and correctly not inert. Two limits stated rather than
+    assumed away: the probe is intermittent, and there is a one-round-trip window on the web
+    host between a dialog opening and the interop call that inerts the background.
+  - One existing browser assertion was **re-aimed rather than deleted**:
+    `LandmarkAndHeadingBrowserTests` asserted the app's `h1` was in Chromium's accessibility
+    tree *while the Help dialog was open*. It no longer is — the header is one of the inerted
+    roots, and that is the treatment working, not a heading gone missing. The claim it was
+    making (the dialog's `h2` continues ONE page outline) is still pinned: none while open,
+    exactly one once Escape closes the dialog.
+- **The Settings dialog's Alerts tab is now the alerts dialog's Delivery settings panel.** Settings
+  has **seven** tabs (General, Speech, Sonification, Appearance, Keyboard, License, About). The
+  email, Telegram, webhook and browser-notification channels, and the strategy-setup bridge that
+  rides them, moved to `AlertDeliverySettings.razor`, reached from a "Delivery settings" button at
+  the bottom of Alt+J. The webhook NAMES defined there are the entries in an alert's Webhook
+  dropdown; they were two dialogs apart while being two halves of one decision.
+  - A view swap inside the one dialog, not a dialog on top of a dialog: one `aria-modal`, one
+    Escape, one thing to close. Focus moves to the panel's heading on the way in and back to the
+    button that opened it on the way out. Alt+J always opens on the alert list, whatever view it
+    was left on. Coming back re-reads the webhook list, so a webhook defined in the panel is in the
+    dropdown you came back to use it in.
+  - **Persistence changed deliberately: write-on-commit, not save-on-close.** The Settings dialog
+    wrote these fields on Close — and Escape, which is how a keyboard user leaves a dialog and how
+    `ModalBase` closes one, never called Close. A typed SMTP password was discarded with nothing
+    said about it.
+  - Control ids are unchanged (`s-email-host`, `s-tg-token`, `s-webhook-name-0` …). The test cases
+    were MOVED rather than rewritten — what they assert is a claim about the panel, not about the
+    dialog holding it — and `SettingsSearchRegistryTests`' vacuity floor came down from 8 to 7 with
+    the tab.
+
 ### The tree that follows its own focus, the settings dialog with a tab for each sense, and the theme that owns its colours (2026-09-03)
 
 Three decisions Cody made this session, built.

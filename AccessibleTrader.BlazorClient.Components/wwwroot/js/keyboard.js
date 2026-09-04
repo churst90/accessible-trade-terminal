@@ -149,7 +149,56 @@ window.accessibleTrader = {
         this._modalStack = next;
         this._openModalCount = next.length;
 
+        // AFTER the diff above, never before: the push branch records `returnTo` as
+        // document.activeElement, and inerting the background first would have already
+        // moved focus off it onto <body>. The background is what the user was in.
+        this._applyBackgroundInert();
+
         if (removed && next.length > 0) this._returnFocusAfterClose(removed);
+    },
+
+    /**
+     * The app chrome behind a modal, tagged at the source in the components that own each
+     * root element: header, toolbar, tab bar, chart <main>, indicator bar, touch nav bar,
+     * status bar, footer.
+     *
+     * It is an opt-IN list rather than "everything except the dialog" on purpose. The two
+     * ARIA speech buffers are siblings of <main>, not inside it, and they are THE announcing
+     * channel of a screen-reader-first app — `inert` strips a subtree out of the
+     * accessibility tree entirely, so inerting a common wrapper would not merely mute the
+     * background, it would silence the application while any dialog was open. Nothing that
+     * a modal-open state should hide is reachable without a tag, and nothing that must keep
+     * speaking can acquire one by accident.
+     */
+    _backgroundRegionSelector: '[data-background-region]',
+
+    /**
+     * Marks the background chrome `inert` while any modal is open, and clears it when the
+     * last one closes.
+     *
+     * <p>`aria-modal="true"` is ADVISORY: it asks the screen reader not to describe anything
+     * outside the dialog, and does nothing about focus, clicks, or an AT that walks the tree
+     * anyway. Measured on 2026-09-04: with the AT-SPI bridge attached and Orca running, 6 of
+     * 14 modals lost focus to somewhere outside themselves — background toolbar buttons, the
+     * body, a heading behind the dialog — with an EMPTY JavaScript stack, i.e. moved by the
+     * embedder rather than by page script. No amount of app-side re-focusing wins that race;
+     * `inert` removes the destinations instead.</p>
+     *
+     * <p>Re-applied on every stack change rather than toggled on the edges, so a background
+     * element that Blazor added while a modal was open (a tab bar rendering its first tab, a
+     * touch nav bar appearing) is caught by the next change instead of staying live
+     * underneath the dialog.</p>
+     */
+    _applyBackgroundInert: function () {
+        const open = this._modalStack.length > 0;
+        const regions = document.querySelectorAll(this._backgroundRegionSelector);
+        for (let i = 0; i < regions.length; i++) {
+            // The attribute, not the IDL property: the attribute is what the CSS
+            // `[inert]` rules and the browser harness both read, and setting it is what
+            // older engines that shipped the attribute before the property understand.
+            if (open) regions[i].setAttribute('inert', '');
+            else regions[i].removeAttribute('inert');
+        }
     },
 
     /**
@@ -914,6 +963,16 @@ window.accessibleTrader = {
      * has already moved it. Guarded by remembering what was focused when the call
      * started and abandoning the retry if anything else changes it, so a late frame
      * can never yank the user back out of wherever they went.
+     *
+     * "Found it" is NOT the success condition — "it took focus" is. `el.focus()` is a
+     * silent no-op on an element inside an `inert` subtree, and the app inerts its whole
+     * background while a modal is open (see _applyBackgroundInert). The last modal's close
+     * therefore races: CommandDispatcher publishes RequestChartFocusEvent from its own
+     * ModalStack.Changed handler, and the call that CLEARS inert is a different subscriber
+     * to the same event. Ordering them is possible but fragile — one added subscription
+     * reverses it — so the retry treats a refused focus exactly as it treats a missing
+     * element, and the very next frame (inert now gone) lands it. Containment, not
+     * equality, because a container may delegate focus to a descendant.
      */
     focusElement: function (elementId) {
         const startedOn = document.activeElement;
@@ -921,7 +980,10 @@ window.accessibleTrader = {
 
         const attempt = function () {
             const el = document.getElementById(elementId);
-            if (el) { el.focus(); return; }
+            if (el) {
+                el.focus();
+                if (document.activeElement === el || el.contains(document.activeElement)) return;
+            }
             if (--framesLeft <= 0) return;
             // Something else claimed focus while we were waiting — that is the user or
             // a later render, and either outranks this request.

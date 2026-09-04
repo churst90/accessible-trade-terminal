@@ -17,6 +17,32 @@
 
             <h2 id="alerts-title" tabindex="-1">Alerts</h2>
 
+            @* ── Delivery settings — the Settings dialog's old Alerts tab, moved here ──
+               Two views in one dialog rather than a second dialog on top of this one. A
+               nested modal would put a second aria-modal="true" over a dialog the user is
+               mid-task in, and Escape would then close the panel they are reading rather
+               than the alert form they came for. A view swap keeps ONE dialog, one Escape,
+               and one thing to close. Focus moves to the panel's heading on the way in and
+               back to the button that opened it on the way out — the same contract every
+               modal in this app keeps. *@
+            @if (_view == View.Delivery)
+            {
+                <h3 id="alerts-delivery-title" tabindex="-1" style="margin-top:16px;">Delivery settings</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+                    Where fired alerts are sent besides this terminal. Each channel activates only
+                    when its required fields are filled; unconfigured channels are skipped. The
+                    webhook names you define here are the choices in an alert's Webhook list.
+                </p>
+
+                <AlertDeliverySettings />
+
+                <div style="margin-top: 24px; display: flex; gap: 8px; justify-content: flex-end;">
+                    <button id="alerts-delivery-back" @onclick="ShowAlertsAsync">Back to alerts</button>
+                    <button @onclick="Close" aria-label="Close alerts dialog">Close</button>
+                </div>
+            }
+            else
+            {
             <div style="margin-top: 16px;">
                 <h3>Active Alerts</h3>
                 @if (!_activeAlerts.Any())
@@ -188,14 +214,55 @@
                 </div>
             </div>
 
-            <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+            <div style="margin-top: 24px; display: flex; gap: 8px; justify-content: flex-end;">
+                @* Last in the dialog on purpose: the alert list and the add form are what
+                   Alt+J is for, and a Tab order that reaches configuration before the thing
+                   being configured is the wrong way round. *@
+                <button id="alerts-delivery-open" @onclick="ShowDeliveryAsync">Delivery settings</button>
                 <button @onclick="Close" aria-label="Close alerts dialog">Close</button>
             </div>
+            }
         </div>
     </div>
 }
 
 @code {
+    /// <summary>Which of the dialog's two views is showing.</summary>
+    private enum View { Alerts, Delivery }
+    private View _view = View.Alerts;
+
+    /// <summary>
+    /// Into the delivery panel. Focus goes to its heading, which is what names the view to a
+    /// screen reader — the dialog's own h2 still says "Alerts" and would not report the move.
+    /// </summary>
+    private async Task ShowDeliveryAsync()
+    {
+        _view = View.Delivery;
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "alerts-delivery-title"); }
+        catch { /* focus is best-effort, exactly as in ShowModalAsync */ }
+    }
+
+    /// <summary>
+    /// Back to the alert list, with focus returned to the button that left it.
+    ///
+    /// <para>
+    /// The webhook list is re-read on the way back. Defining a webhook is the reason most
+    /// people open the delivery panel from here at all, and without this the dropdown they
+    /// came back to add it to would still be showing the list from before they defined it.
+    /// </para>
+    /// </summary>
+    private async Task ShowAlertsAsync()
+    {
+        RefreshChartContext();
+        _view = View.Alerts;
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "alerts-delivery-open"); }
+        catch { /* focus is best-effort, exactly as in ShowModalAsync */ }
+    }
+
     /// <summary>Null when the alert can be added; otherwise why it cannot.</summary>
     private string? AddAlertGate() =>
           string.IsNullOrWhiteSpace(_newAlertName) ? "Enter a name for this alert first."
@@ -253,6 +320,9 @@
 
     private async Task ShowAsync()
     {
+        // Alt+J is "show me my alerts", every time. A dialog that reopens on whatever panel
+        // it was left on makes the shortcut's destination depend on history.
+        _view = View.Alerts;
         RefreshAlerts();
         RefreshChartContext();
         await ShowModalAsync("alerts-title");

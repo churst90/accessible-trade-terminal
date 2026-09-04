@@ -79,7 +79,7 @@
        painting it a second time inside the WebView wasted a 40-pixel strip.
        Keeping the <h1> as a `visually-hidden` landmark preserves the primary
        heading for screen readers without the visual duplication. *@
-    <header role="banner" class="visually-hidden">
+    <header role="banner" data-background-region class="visually-hidden">
         <h1 id="main-heading">@GetTitle()</h1>
     </header>
 
@@ -87,7 +87,7 @@
 
     <TabBar />
 
-    <main role="main" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: transparent; position: relative;">
+    <main role="main" data-background-region style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: transparent; position: relative;">
         <ChartArea />
     </main>
 
@@ -179,7 +179,7 @@
        "am I on paper or live?" is a question you want answered without hunting. *@
     <StatusBar />
 
-    <footer role="contentinfo" class="app-footer">
+    <footer role="contentinfo" data-background-region class="app-footer">
         <span>Accessible Trade Terminal &copy; 2026.</span>
     </footer>
 

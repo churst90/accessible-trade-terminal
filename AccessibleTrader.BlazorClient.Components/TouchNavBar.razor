@@ -29,7 +29,7 @@
 {
     @* A <nav> landmark, not role="toolbar": these are flat Tab stops with no roving
        tabindex and no arrow handler, so the role promised a model that is not here. *@
-    <nav class="touch-nav" aria-label="Touch navigation">
+    <nav class="touch-nav" data-background-region aria-label="Touch navigation">
         <button class="touch-nav-btn" aria-label="Previous bar"
                 @onclick="@(() => Nav.ProcessNavigation("NAV_LEFT"))">
             <span aria-hidden="true">◀</span>

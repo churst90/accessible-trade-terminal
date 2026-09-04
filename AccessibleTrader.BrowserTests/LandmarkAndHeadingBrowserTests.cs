@@ -127,9 +127,22 @@ public sealed class LandmarkAndHeadingBrowserTests
         Assert.DoesNotContain("", levelThree.Select(h => h.Name.Trim()));
         Assert.Equal(levelThree.Count, levelThree.Select(h => h.Name.Trim()).Distinct().Count());
 
-        // The app's own h1 is still there and still the only one, so the dialog's h2 continues the
-        // page outline rather than starting a second one.
-        Assert.Equal(1, headings.Count(h => h.Level == 1 && !h.Ignored));
+        // The app's own h1 is NOT in the tree while a dialog is open, and that is the modal
+        // background treatment working rather than a heading that went missing: the header is
+        // one of the eight `data-background-region` roots, and `inert` removes a subtree from
+        // the accessibility tree outright (see ModalBackgroundInertBrowserTests).
+        //
+        // This assertion used to read `Equal(1, …)` and it was correct when it was written —
+        // before 2026-09-04 the page outline behind a dialog was still exposed, which is the
+        // thing `aria-modal` asks a screen reader to ignore and cannot enforce. It is re-aimed
+        // rather than deleted, because the claim it was making — that the dialog's h2 continues
+        // ONE page outline and does not start a second — is still worth pinning; it is just
+        // only observable with the dialog closed. So: none while open, exactly one once closed.
+        Assert.Equal(0, headings.Count(h => h.Level == 1 && !h.Ignored));
+
+        await t.PressAsync("Escape");
+        Assert.True(await t.WaitForNoDialogAsync(), "Escape did not close Help.");
+        Assert.Equal(1, (await AxHeadingsAsync(t)).Count(h => h.Level == 1 && !h.Ignored));
     }
 
     /// <summary>

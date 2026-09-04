@@ -81,7 +81,26 @@ function makeHarness() {
       focused: false,
       getAttribute: (k) => (k in attrs ? attrs[k] : null),
       hasAttribute: (k) => k in attrs,
-      focus() { sandbox.document.activeElement = this; this.focused = true; },
+      setAttribute: (k, v) => {
+        attrs[k] = v;
+        // The browser blurs whatever is inside a subtree that has just become inert. Model
+        // it: without this, a harness node keeps focus after being inerted and every
+        // assertion about the ORDER of "capture the return target" and "inert the
+        // background" is answered by the double instead of by the code.
+        if (k === 'inert' && sandbox.document.activeElement === n) sandbox.document.activeElement = null;
+      },
+      removeAttribute: (k) => { delete attrs[k]; },
+      // `refusesFocus` models an element the browser will not focus — which is what an
+      // element inside an `inert` subtree is. focus() is a silent no-op there: no throw,
+      // no event, activeElement unchanged. Without a node that can say no, every test of
+      // "did focus actually land" is answered by the harness rather than by the code.
+      focus() {
+        if (opts.refusesFocus) return;
+        sandbox.document.activeElement = this;
+        this.focused = true;
+      },
+      // Leaf by default. `dialog()` replaces this with a real containment check.
+      contains: (el) => el === n,
     };
     // Minimal closest(): matches this node or an ancestor against a comma-separated
     // list of [role="x"] selectors, which is all ARROW_WIDGET_SELECTOR contains.
@@ -142,11 +161,30 @@ function makeHarness() {
   // Put dialogs in the document so the trap's querySelectorAll finds them, and push the
   // modal stack in MOUNT order — which is both DOM order and open order here, so a test
   // that wants the two to disagree calls api.setModalStack itself afterwards.
+  //
+  // The document answers two different queries now — the dialog family and the background
+  // regions the modal treatment inerts — so both live in one dispatcher rather than in
+  // whichever mount helper ran last. mountDialogs used to REPLACE querySelectorAll outright,
+  // which would have made a region list silently disappear the moment a dialog mounted.
+  let mountedDialogs = [];
+  let mountedRegions = [];
+  sandbox.document.querySelectorAll = (sel) => {
+    if (sel.includes('data-background-region')) return mountedRegions;
+    if (sel.includes('role=')) {
+      return mountedDialogs.filter(d => sel.includes(`[role="${d.getAttribute('role')}"]`));
+    }
+    return [];
+  };
+
   const mountDialogs = (...ds) => {
-    sandbox.document.querySelectorAll = (sel) =>
-      sel.includes('role=') ? ds.filter(d => sel.includes(`[role="${d.getAttribute('role')}"]`)) : [];
+    mountedDialogs = ds;
     sandbox.window.accessibleTrader.setModalStack(ds.map(d => d.getAttribute('data-modal-name')));
   };
+
+  // The app chrome behind a dialog: header, toolbar, tab bar, chart, status bar, footer.
+  // Tagged in the components that own each root element; found here by the same attribute
+  // selector production uses.
+  const mountBackground = (...ns) => { mountedRegions = ns; return ns; };
 
   const setActive = (el) => { sandbox.document.activeElement = el; };
 
@@ -168,7 +206,7 @@ function makeHarness() {
     return defaultPrevented;
   };
 
-  return { calls, press, node, dialog, mountDialogs, setActive,
+  return { calls, press, node, dialog, mountDialogs, mountBackground, setActive,
            doc: sandbox.document, api: sandbox.window.accessibleTrader };
 }
 
@@ -914,6 +952,136 @@ test('scroll keys still drive the chart when no modal is open', () => {
   h.api.setChartFocused(true);
   assert.equal(h.press('ArrowRight', h.node('DIV')), true);
   assert.deepEqual(keysSent(h.calls), ['RIGHT'], 'chart navigation must be untouched');
+});
+
+// ── The modal background is inert ───────────────────────────────────────────
+//
+// `aria-modal="true"` is advisory. It asks the screen reader not to describe anything
+// outside the dialog and does nothing at all about focus. Measured on 2026-09-04: with the
+// AT-SPI bridge attached and Orca running, 6 of 14 modals lost focus to somewhere outside
+// themselves, every one of those moves carrying an EMPTY JavaScript stack — dispatched by
+// the embedder, not by page script. `inert` is the standard treatment and the only one that
+// works against a mover the page cannot intercept: it removes the destinations.
+
+const REGIONS = ['HEADER', 'NAV', 'MAIN', 'SECTION', 'FOOTER'];
+
+function background(h) {
+  return h.mountBackground(...REGIONS.map(tag => h.node(tag, { 'data-background-region': '' })));
+}
+
+test('the background is NOT inert with no modal open', () => {
+  // The vacuity floor for every assertion below. Without it, a build that inerted the
+  // chrome unconditionally — i.e. one that silenced and unfocusable-d the whole terminal
+  // for the entire session — passes the "inert while open" test perfectly.
+  const h = makeHarness();
+  const regions = background(h);
+  h.api.setModalStack([]);
+  assert.deepEqual(regions.map(r => r.hasAttribute('inert')), [false, false, false, false, false]);
+});
+
+test('every background region goes inert when a modal opens', () => {
+  const h = makeHarness();
+  const regions = background(h);
+  h.api.setModalStack(['Settings']);
+  assert.deepEqual(regions.map(r => r.hasAttribute('inert')), [true, true, true, true, true]);
+});
+
+test('the background stays inert while a SECOND modal is open on top', () => {
+  const h = makeHarness();
+  const regions = background(h);
+  h.api.setModalStack(['Settings']);
+  h.api.setModalStack(['Settings', 'Help']);
+  assert.ok(regions.every(r => r.hasAttribute('inert')), 'two open dialogs is still "a modal is open"');
+});
+
+test('closing one of two modals leaves the background inert', () => {
+  // The bug this rules out is an edge-triggered toggle: "a modal closed, so clear inert".
+  // Escape out of Help while Settings is still open and the toolbar behind BOTH dialogs
+  // would come back to life.
+  const h = makeHarness();
+  const regions = background(h);
+  h.api.setModalStack(['Settings', 'Help']);
+  h.api.setModalStack(['Settings']);
+  assert.ok(regions.every(r => r.hasAttribute('inert')), 'one dialog is still open');
+});
+
+test('the background comes back when the LAST modal closes', () => {
+  const h = makeHarness();
+  const regions = background(h);
+  h.api.setModalStack(['Settings']);
+  h.api.setModalStack([]);
+  assert.deepEqual(regions.map(r => r.hasAttribute('inert')), [false, false, false, false, false]);
+});
+
+test('a region rendered while a modal was already open is caught by the next change', () => {
+  // Re-applied on every stack change rather than toggled on the edges. The touch nav bar
+  // and the tab bar can both appear mid-session; one that arrived during a modal and was
+  // never told would sit live and focusable underneath the dialog.
+  const h = makeHarness();
+  background(h);
+  h.api.setModalStack(['Settings']);
+  const late = h.node('NAV', { 'data-background-region': '' });
+  h.mountBackground(late);
+  assert.equal(late.hasAttribute('inert'), false, 'nothing has re-scanned yet');
+  h.api.setModalStack(['Settings', 'Help']);
+  assert.equal(late.hasAttribute('inert'), true);
+});
+
+test('the return target is captured BEFORE the background goes inert', () => {
+  // Why _applyBackgroundInert is called at the END of setModalStack and not at the top.
+  // The push branch records document.activeElement as the element to give focus back to,
+  // and at push time that element is still in the BACKGROUND — the push arrives before the
+  // render that shows the dialog. Inerting first blurs it, and the entry is created holding
+  // whatever the browser dropped focus onto instead of the control the user pressed.
+  //
+  // The tab bar is the region used here because it is the one that is really focusable:
+  // .tab-bar carries tabindex="0" and is a genuine tab stop behind every dialog.
+  const h = makeHarness();
+  const tabBar = h.node('DIV', { 'data-background-region': '', tabindex: '0' });
+  h.mountBackground(tabBar);
+  h.setActive(tabBar);
+
+  h.api.setModalStack(['Settings']);
+
+  assert.equal(h.api._modalStack[0].returnTo, tabBar,
+    'the entry recorded the background control, not what inert blurred it to');
+  assert.equal(tabBar.hasAttribute('inert'), true, 'and the background did go inert');
+});
+
+test('focusElement retries an element that refuses focus, and takes it once it stops', () => {
+  // An element inside an inert subtree accepts focus() and does nothing with it. The last
+  // modal's close races: CommandDispatcher publishes RequestChartFocusEvent from its own
+  // ModalStack.Changed handler, and the call that CLEARS inert is a different subscriber to
+  // the same event. So "found the element" is not success — "it took focus" is.
+  const h = makeHarness();
+  let inert = true;
+  const chart = h.node('DIV', { id: 'chart-interact-zone' });
+  // requestAnimationFrame is synchronous in this harness, so the retry runs immediately;
+  // lifting the refusal on the first retry frame models inert being cleared a beat later.
+  chart.focus = function () {
+    if (inert) { inert = false; return; }   // silently refused, exactly as inert refuses
+    h.setActive(chart);
+    chart.focused = true;
+  };
+  h.doc.getElementById = (id) => (id === 'chart-interact-zone' ? chart : null);
+
+  h.api.focusElement('chart-interact-zone');
+
+  assert.equal(chart.focused, true, 'the retry landed the focus the first attempt was refused');
+});
+
+test('focusElement gives up on an element that never accepts focus', () => {
+  // The retry is bounded. A permanently unfocusable id must cost ten frames and stop, not
+  // spin — and must not leave the harness (or a browser) in a loop.
+  const h = makeHarness();
+  let attempts = 0;
+  const el = h.node('DIV', { id: 'never' }, { refusesFocus: true });
+  el.focus = () => { attempts++; };
+  h.doc.getElementById = (id) => (id === 'never' ? el : null);
+
+  h.api.focusElement('never');
+
+  assert.equal(attempts, 10, 'the ~10-frame budget, spent and then abandoned');
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────

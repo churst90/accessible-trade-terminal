@@ -241,6 +241,15 @@ and finally settings and help. Every one of these opens a dialog, and every one
 has a keyboard shortcut named in its tooltip, so the toolbar is how you *find* a
 feature and the shortcut is how you reach it once you know it is there.
 
+While a dialog is open, the rest of the terminal is switched off — not merely covered
+over. The toolbar, the tab bar, the chart, the indicator bar, the status bar and the
+footer stop taking focus and disappear from your screen reader's view of the page
+entirely, so Tab cannot walk out of the dialog and a stray review command cannot land
+you on a toolbar button behind it. Escape brings all of it back, and focus with it: the
+chart if that was the last dialog, or the dialog underneath if you had two open. The
+one thing that keeps speaking is the terminal's own announcements — those live outside
+the switched-off region on purpose.
+
 The **second row builds and changes the chart**: the market cascade described
 below, then import and load, then pan and zoom, then the display toggles —
 heatmap, Heikin Ashi, log scale, **Split** view and **Replay**. The last five are
@@ -2257,15 +2266,19 @@ enters a zone, exits a zone, or changes direction — a **Price Level** to test
 against, and a **Delivery** choice of Speech, Earcon, or Both. Fill it in and activate
 "Add Alert"; the alert joins the "Active Alerts" list above, where each shows its
 name, target, condition, and level with a Delete button. There is no separate edit
-step — to change an alert, delete it and add a new one.
+step — to change an alert, delete it and add a new one. At the bottom of the dialog,
+beside Close, is **Delivery settings** — the email, Telegram, webhook and browser-
+notification channels that carry alerts to you when you are away from the terminal.
+It opens as a second view of the same dialog, so Escape still closes one thing; "Back
+to alerts" returns you to the list, and to the button you left from.
 
 When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
 {value}." — and/or plays an alert earcon, and the event is written to the Journal so
 you can read it back. Alerts are never gated by your speech or sonification toggles —
 a condition you asked to be told about will always tell you. If you have set up email,
-Telegram, or webhooks in Settings (under the alerts options), fired alerts are sent
-there too, so you can be notified away from the keyboard. Webhooks are a **named
+Telegram, or webhooks under **Delivery settings** in this same dialog, fired alerts are
+sent there too, so you can be notified away from the keyboard. Webhooks are a **named
 list**: add as many as you like — "BTC channel", "Gold channel" — each pointing at a
 Discord webhook URL, a Slack incoming webhook, or any custom HTTPS endpoint, and
 each alert chooses which one it posts to from a dropdown when you create it. That is
@@ -2282,8 +2295,8 @@ itself — indicator values, the volume-profile POC, trend and zone conditions,
 and advanced condition trees — only run while their chart is open, because the
 indicators they read exist only there; the terminal tells you so the moment you
 create one, so you always know which alerts are watching while you're away and
-which are not. You can also enable **browser notifications** (Settings > Alerts >
-Browser notifications): your alerts then arrive as system notifications on that
+which are not. You can also enable **browser notifications** (Alt+J, Delivery
+settings, Browser notifications): your alerts then arrive as system notifications on that
 device — spoken by your screen reader like any other notification — even with
 the terminal tab closed, as long as the browser is running. Turn server-side
 evaluation off with the "alerts.serverSide" setting if you'd rather alerts only
@@ -2297,7 +2310,8 @@ watched by the server once you sign out, and by nobody while you are signed in
 with other charts open. Until that is fixed, the reliable pattern is to keep a
 tab open for anything you are actively waiting on, or to sign out and let the
 server carry the watch.
-And if you enable "send setups to alerts" in Settings, confirmed and armed strategy
+And if you enable "send setups to alerts" in the alerts dialog's Delivery settings,
+confirmed and armed strategy
 setups flow through the same delivery — your Discord channel hears "Long setup —
 gold" with the trade plan, even when you're away from the terminal.
 
@@ -2626,8 +2640,8 @@ arranging and saving your charts.
 
 ### Settings
 
-Press F12 for the settings dialog. It has eight tabs — **General, Speech,
-Sonification, Appearance, Keyboard, Alerts, License, About** — and Left and Right arrows
+Press F12 for the settings dialog. It has seven tabs — **General, Speech,
+Sonification, Appearance, Keyboard, License, About** — and Left and Right arrows
 move between them. **Speech** mirrors the F2 toggle and holds the smaller choices that tune
 how much the terminal says: whether it speaks timestamps and when, whether it reads column
 headers, whether it announces each new bar as it closes (the rolling "Close … New bar …" you
@@ -2637,10 +2651,14 @@ F3 and holds the sound theme and the sound-under-the-mouse option. **General** i
 switch **paper trading mode** on and choose what the quick-trade risk percentage means, plus
 workspace, background-monitoring, braille, touch-bar, analysis, drawing and viewport
 preferences. **Appearance** is the theme — most relevant to a sighted collaborator looking
-over your shoulder — and the visual accommodations. **Alerts** holds the email, Telegram and
-named-webhook delivery details (add/remove webhook rows, each with a name and URL) that let
-fired alerts reach you away from the keyboard. Speech changes apply when you close the
+over your shoulder — and the visual accommodations. Speech changes apply when you close the
 dialog; everything else applies as you change it.
+
+There used to be an eighth tab, **Alerts**, holding the email, Telegram and named-webhook
+delivery details. Those moved into the alerts dialog itself (Alt+J, then **Delivery
+settings**), next to the alerts they deliver — the webhook names you define there are the
+choices in an alert's Webhook list, and having the two a dialog apart meant closing the
+alert you were writing to go and define its destination.
 
 #### Appearance and the theme editor
 
@@ -2711,7 +2729,7 @@ interface text throughout the terminal — browser zoom still works on top of it
 at the top of the whole dialog there is now a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
-never need to remember which of the eight tabs holds a setting.
+never need to remember which of the seven tabs holds a setting.
 
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled

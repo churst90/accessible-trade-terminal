@@ -184,6 +184,29 @@ public sealed class ModalFocusPersistenceProbe
         }
     }
 
+    /// <summary>
+    /// Where the focused element sits relative to the modal background treatment:
+    /// <c>"inert-background"</c> when it is inside a subtree the app has marked <c>inert</c>
+    /// while a dialog is open, <c>"live"</c> when it is not, <c>"body"</c> when focus has
+    /// fallen off everything.
+    ///
+    /// <para>
+    /// Added 2026-09-04 with the <c>inert</c> treatment, and it is the question the earlier runs
+    /// of this probe could not answer. A wander to <c>&lt;body&gt;</c>, or into a SECOND open
+    /// dialog (the first-run speech prompt is open on a cold start, so most rows here have two),
+    /// is not something <c>inert</c> can prevent — neither destination is background. A wander
+    /// onto a toolbar button IS, and telling those two apart by eye from an element description
+    /// is guesswork. Recorded rather than asserted: this file is a probe.
+    /// </para>
+    /// </summary>
+    private static Task<string> FocusInertnessAsync(TerminalPage t) =>
+        t.Page.EvaluateAsync<string>(@"() => {
+            const el = document.activeElement;
+            if (!el) return 'none';
+            if (el === document.body) return 'body';
+            return el.closest && el.closest('[inert]') ? 'inert-background' : 'live';
+        }");
+
     [BrowserFact]
     public async Task Where_is_focus_250ms_1s_2_5s_and_4s_after_a_modal_opens()
     {
@@ -233,7 +256,8 @@ public sealed class ModalFocusPersistenceProbe
                 {
                     await t.Page.WaitForTimeoutAsync(offset - previous);
                     previous = offset;
-                    samples["+" + offset + "ms"] = (await t.ActiveElementAsync()).Describe();
+                    samples["+" + offset + "ms"] =
+                        (await t.ActiveElementAsync()).Describe() + "  [" + await FocusInertnessAsync(t) + "]";
                     if (offset == 2500)
                     {
                         var (node, allFocused) = await AxFocusedAsync(t);
@@ -390,7 +414,8 @@ public sealed class ModalFocusPersistenceProbe
                 {
                     await t.Page.WaitForTimeoutAsync(offset - previous);
                     previous = offset;
-                    samples["+" + offset + "ms"] = (await t.ActiveElementAsync()).Describe();
+                    samples["+" + offset + "ms"] =
+                        (await t.ActiveElementAsync()).Describe() + "  [" + await FocusInertnessAsync(t) + "]";
                     if (offset == 2500)
                     {
                         var (node, allFocused) = await AxFocusedAsync(t);

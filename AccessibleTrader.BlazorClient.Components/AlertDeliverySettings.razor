@@ -1,0 +1,457 @@
+@using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Models
+@using AccessibleTrader.Sdk.Alerts
+@inject ISettingsManager Settings
+@inject IAppSettings App
+@inject IEventBus EventBus
+@inject IJSRuntime JSRuntime
+@inject IEnumerable<IAlertChannel> AlertChannels
+@inject DemoPolicy Demo
+
+@*
+    WHERE FIRED ALERTS GO — the email, Telegram, webhook and browser-notification channels,
+    plus the strategy-setup bridge that rides the same routes.
+
+    This was the Settings dialog's eighth tab until 2026-09-04. It moved because of where a
+    user stands when they need it: every one of these fields exists to answer a question that
+    is asked while looking at an alert — "which of my Discord channels does this one go to?",
+    "why did that alert never reach my phone?" — and answering it meant closing Alt+J, pressing
+    F12, arrowing across a tab strip to Alerts, and then coming back and starting the alert
+    again. The webhook NAMES defined here are the entries in the alert form's Webhook dropdown
+    next door; they were two dialogs apart while being two halves of one decision.
+
+    It is a component rather than markup inside AlertsModal so the dialog file stays a dialog:
+    the alert list and the add form are what Alt+J is for, and this is a room off it.
+
+    CONTROL IDS ARE UNCHANGED (s-email-host, s-tg-token, s-webhook-name-0 …). They are what
+    the browser tests, the user manual and four years of muscle memory refer to; the `s-`
+    prefix now reads as "a stored setting" rather than "the Settings dialog", which is what it
+    always meant.
+
+    PERSISTENCE CHANGED, DELIBERATELY. The Settings dialog wrote these on Close, so Escape —
+    the way a keyboard user leaves a dialog, and the way ModalBase closes one — discarded
+    them. Here every committed edit is written through immediately (Commit below): @onchange
+    fires on blur or Enter, not per keystroke, so this is a handful of writes and not a storm,
+    and there is no way to leave the panel holding an unsaved SMTP password.
+*@
+
+<div class="alert-delivery-settings">
+
+    @if (Demo.IsHosted)
+    {
+        @* ── Browser notifications (hosted Web Push) ─────────────── *@
+        <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+            <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Browser notifications</legend>
+            <div class="modal-row">
+                <span style="flex:1;">
+                    Push your alerts to this browser as system notifications —
+                    they arrive even with the terminal tab closed, as long as
+                    the browser itself is running.
+                </span>
+            </div>
+            <div class="modal-row">
+                <button type="button" @onclick="EnableWebPush">Enable on this browser</button>
+                <button type="button" @onclick="DisableWebPush">Disable on this browser</button>
+            </div>
+        </fieldset>
+    }
+
+    @* ── SMTP / Email ─────────────────────────────────────────────── *@
+    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Email (SMTP)</legend>
+
+        <div class="modal-row">
+            <label for="s-email-host">SMTP host</label>
+            <input id="s-email-host" type="text"
+                   value="@_emailHost"
+                   placeholder="smtp.gmail.com"
+                   @onchange="e => Commit(() => _emailHost = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-port">Port</label>
+            <input id="s-email-port" type="number" min="1" max="65535"
+                   value="@_emailPort"
+                   @onchange="e => Commit(() => _emailPort = int.TryParse(e.Value?.ToString(), out var p) ? p : _emailPort)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-tls">Use TLS</label>
+            <input id="s-email-tls" type="checkbox"
+                   checked="@_emailUseTls"
+                   @onchange="e => Commit(() => _emailUseTls = e.Value is bool b ? b : _emailUseTls)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-user">Username</label>
+            <input id="s-email-user" type="text"
+                   value="@_emailUsername"
+                   autocomplete="off"
+                   @onchange="e => Commit(() => _emailUsername = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-pass">Password</label>
+            <input id="s-email-pass" type="password"
+                   value="@_emailPassword"
+                   autocomplete="new-password"
+                   @onchange="e => Commit(() => _emailPassword = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-from">From address</label>
+            <input id="s-email-from" type="email"
+                   value="@_emailFrom"
+                   placeholder="alerts@example.com"
+                   @onchange="e => Commit(() => _emailFrom = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-email-to">To address</label>
+            <input id="s-email-to" type="email"
+                   value="@_emailTo"
+                   placeholder="me@example.com"
+                   @onchange="e => Commit(() => _emailTo = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
+                Sends a sample alert using current values (saved on Close).
+            </span>
+            <button @onclick="TestEmailAsync"
+                    aria-label="Send test email alert">Send test</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_emailStatus))
+        {
+            <p role="status"
+               style="color:@(_emailStatusIsError ? "#c33" : "#4c8"); font-size:0.85rem; margin-top:6px;">
+                @_emailStatus
+            </p>
+        }
+    </fieldset>
+
+    @* ── Telegram ─────────────────────────────────────────────────── *@
+    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Telegram</legend>
+
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+            Create a bot via <strong>@@BotFather</strong>, send it a message, then paste the bot
+            token and the numeric chat id returned by <code>getUpdates</code>.
+        </p>
+
+        <div class="modal-row">
+            <label for="s-tg-token">Bot token</label>
+            <input id="s-tg-token" type="password"
+                   value="@_tgBotToken"
+                   autocomplete="new-password"
+                   placeholder="123456:ABC-DEF…"
+                   @onchange="e => Commit(() => _tgBotToken = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-tg-chat">Chat id</label>
+            <input id="s-tg-chat" type="text"
+                   value="@_tgChatId"
+                   placeholder="-100123456789"
+                   @onchange="e => Commit(() => _tgChatId = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="modal-row">
+            <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
+                Sends a sample alert using current values (saved on Close).
+            </span>
+            <button @onclick="TestTelegramAsync"
+                    aria-label="Send test Telegram alert">Send test</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_telegramStatus))
+        {
+            <p role="status"
+               style="color:@(_telegramStatusIsError ? "#c33" : "#4c8"); font-size:0.85rem; margin-top:6px;">
+                @_telegramStatus
+            </p>
+        }
+    </fieldset>
+
+    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Webhook (Discord / Slack / custom)</legend>
+
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+            Sends alerts as a JSON POST to any HTTPS endpoint. Add one or more named
+            webhooks — a Discord webhook URL (Server Settings, Integrations, Webhooks) or a
+            Slack incoming-webhook URL — and give each a Name (e.g. "BTC channel"). Each
+            alert then routes to the webhook whose name you pick in the Alerts dialog, so
+            BTC alerts land in your BTC channel and KAS alerts in your KAS channel.
+        </p>
+
+        @for (int i = 0; i < _webhooks.Count; i++)
+        {
+            var row = _webhooks[i];
+            int idx = i;
+            <div class="modal-row" style="align-items:flex-end; gap:8px;">
+                <div style="flex:1;">
+                    <label for="s-webhook-name-@idx">Name</label>
+                    <input id="s-webhook-name-@idx" type="text"
+                           value="@row.Name"
+                           placeholder="e.g. BTC channel"
+                           @onchange="e => Commit(() => row.Name = e.Value?.ToString() ?? string.Empty)" />
+                </div>
+                <div style="flex:2;">
+                    <label for="s-webhook-url-@idx">Webhook URL (HTTPS)</label>
+                    <input id="s-webhook-url-@idx" type="url"
+                           value="@row.Url"
+                           placeholder="https://discord.com/api/webhooks/…"
+                           @onchange="e => Commit(() => row.Url = e.Value?.ToString() ?? string.Empty)" />
+                </div>
+                <div style="flex:1;">
+                    <label for="s-webhook-auth-@idx">Auth header (optional)</label>
+                    <input id="s-webhook-auth-@idx" type="password"
+                           value="@row.Auth"
+                           autocomplete="new-password"
+                           placeholder="Bearer token"
+                           @onchange="e => Commit(() => row.Auth = e.Value?.ToString() ?? string.Empty)" />
+                </div>
+                <button @onclick="() => RemoveWebhook(idx)"
+                        aria-label="@($"Remove webhook {row.Name}")">Remove</button>
+            </div>
+        }
+        <div class="modal-row">
+            <button @onclick="AddWebhook" aria-label="Add webhook endpoint">Add webhook</button>
+            <span style="flex:1;"></span>
+            <button @onclick="TestWebhookAsync"
+                    aria-label="Send test webhook alert to the first webhook">Send test</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_webhookStatus))
+        {
+            <p role="status"
+               style="color:@(_webhookStatusIsError ? "#c33" : "#4c8"); font-size:0.85rem; margin-top:6px;">
+                @_webhookStatus
+            </p>
+        }
+    </fieldset>
+
+    @* ── Strategy setup alerts ─────────────────────────────────────
+       The SetupAlertBridge (confirmed/armed/dropped setups → email /
+       Telegram / webhook) existed and was documented in the manual, but
+       its settings had no UI — the feature was unreachable. *@
+    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Strategy setup alerts</legend>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
+            When on, confirmed and armed strategy setups are delivered through the
+            same channels as alerts — email, Telegram, and (optionally) a webhook —
+            so your Discord channel hears "Long setup — gold" with the trade plan
+            even when you're away from the terminal.
+        </p>
+        <div class="modal-row">
+            <label for="s-setup-alerts">Send setups to alerts</label>
+            <input id="s-setup-alerts" type="checkbox"
+                   checked="@_setupAlertsEnabled"
+                   @onchange="e => Commit(() => _setupAlertsEnabled = e.Value is bool b && b)" />
+        </div>
+        <div class="modal-row">
+            <label for="s-setup-webhook">Setup webhook</label>
+            <select id="s-setup-webhook"
+                    value="@_setupWebhookTarget"
+                    @onchange="e => Commit(() => _setupWebhookTarget = e.Value?.ToString() ?? string.Empty)"
+                    aria-label="Setup webhook that receives strategy setups">
+                <option value="">(none — email and Telegram only)</option>
+                @foreach (var w in _webhooks)
+                {
+                    if (!string.IsNullOrWhiteSpace(w.Name))
+                    {
+                        <option value="@w.Name" selected="@(w.Name == _setupWebhookTarget)">@w.Name</option>
+                    }
+                }
+            </select>
+        <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">Where strategy setups are sent when a symbol has no route of its own.</p>
+        </div>
+    </fieldset>
+
+</div>
+
+
+@code {
+    // ── Local edit state ─────────────────────────────────────────────────────
+    // Loaded from IAppSettings on first render and written back on every committed edit.
+    private string _emailHost = string.Empty;
+    private int    _emailPort = 587;
+    private bool   _emailUseTls = true;
+    private string _emailUsername = string.Empty;
+    private string _emailPassword = string.Empty;
+    private string _emailFrom = string.Empty;
+    private string _emailTo = string.Empty;
+    private string _emailStatus = string.Empty;
+    private bool   _emailStatusIsError;
+    private string _tgBotToken = string.Empty;
+    private string _tgChatId = string.Empty;
+    private string _telegramStatus = string.Empty;
+    private bool   _telegramStatusIsError;
+
+    // Named multi-webhook list. Mutable rows for editing; serialized to the
+    // "alerts.webhooks" settings key.
+    private sealed class WebhookRow { public string Name = ""; public string Url = ""; public string Auth = ""; }
+    private List<WebhookRow> _webhooks = new();
+    private string _webhookStatus = string.Empty;
+    private bool   _webhookStatusIsError;
+
+    private bool _setupAlertsEnabled;
+    private string _setupWebhookTarget = string.Empty;
+
+    protected override void OnInitialized() => Load();
+
+    /// <summary>
+    /// Pulls every channel's configuration fresh from settings. Called on construction, which
+    /// for this component means each time the alerts dialog opens its delivery panel — the
+    /// values may have been changed by the background service, a settings-profile import, or
+    /// another circuit since the last look.
+    /// </summary>
+    private void Load()
+    {
+        _emailHost     = App.EmailHost;
+        _emailPort     = App.EmailPort;
+        _emailUseTls   = App.EmailUseTls;
+        _emailUsername = App.EmailUsername;
+        _emailPassword = App.EmailPassword;
+        _emailFrom     = App.EmailFromAddress;
+        _emailTo       = App.EmailToAddress;
+        _emailStatus = string.Empty; _emailStatusIsError = false;
+
+        _tgBotToken = App.TelegramBotToken;
+        _tgChatId   = App.TelegramChatId;
+        _telegramStatus = string.Empty; _telegramStatusIsError = false;
+
+        // The named webhook list, migrating a legacy single URL if one is present.
+        _webhooks = AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ParseWebhooks(
+                Settings.GetSetting(SettingsKeys.Webhooks),
+                Settings.GetSetting(SettingsKeys.LegacyWebhookUrl)?.ToString(),
+                Settings.GetSetting(SettingsKeys.LegacyWebhookAuth)?.ToString())
+            .Select(w => new WebhookRow { Name = w.Name, Url = w.Url, Auth = w.AuthHeader ?? string.Empty })
+            .ToList();
+        _webhookStatus = string.Empty; _webhookStatusIsError = false;
+
+        _setupAlertsEnabled = App.SetupAlertsEnabled;
+        _setupWebhookTarget = App.SetupWebhookTarget;
+    }
+
+    /// <summary>
+    /// Applies one edit and writes the whole configuration through in the same breath.
+    ///
+    /// <para>
+    /// One method rather than a Persist() call appended to fourteen lambdas: the fourteenth
+    /// is the one that gets forgotten, and a forgotten one here is an SMTP password the user
+    /// typed, saw echoed back, and lost on Escape with nothing said about it.
+    /// </para>
+    /// </summary>
+    private void Commit(Action edit)
+    {
+        edit();
+        Persist();
+    }
+
+    /// <summary>Writes every channel's fields to settings and saves. Idempotent.</summary>
+    private void Persist()
+    {
+        App.EmailHost = _emailHost;
+        App.EmailPort = _emailPort;
+        App.EmailUseTls = _emailUseTls;
+        App.EmailUsername = _emailUsername;
+        App.EmailPassword = _emailPassword;
+        App.EmailFromAddress = _emailFrom;
+        App.EmailToAddress = _emailTo;
+        App.TelegramBotToken = _tgBotToken;
+        App.TelegramChatId = _tgChatId;
+
+        // Only rows with both a Name and a URL are kept: a half-typed row is not a route, and
+        // an alert pointed at one would report delivery it never attempted.
+        var named = _webhooks
+            .Where(w => !string.IsNullOrWhiteSpace(w.Name) && !string.IsNullOrWhiteSpace(w.Url))
+            .Select(w => new AccessibleTrader.Core.Services.Alerts.NamedWebhook
+            {
+                Name = w.Name.Trim(),
+                Url = w.Url.Trim(),
+                AuthHeader = string.IsNullOrWhiteSpace(w.Auth) ? null : w.Auth,
+            });
+        Settings.SetSetting(SettingsKeys.Webhooks,
+            AccessibleTrader.Core.Services.Alerts.WebhookAlertConfigLoader.ToJson(named));
+
+        App.SetupAlertsEnabled = _setupAlertsEnabled;
+        App.SetupWebhookTarget = _setupWebhookTarget;
+        App.Save();
+    }
+
+    private void AddWebhook()
+    {
+        _webhooks.Add(new WebhookRow());
+        // Not persisted: an empty row is not a webhook, and Persist() would drop it anyway.
+        // It becomes real when its Name and URL are committed.
+    }
+
+    private void RemoveWebhook(int idx)
+    {
+        if (idx < 0 || idx >= _webhooks.Count) return;
+        _webhooks.RemoveAt(idx);
+        Persist();
+    }
+
+    // ── Test sends ───────────────────────────────────────────────────────────
+
+    private async Task TestWebhookAsync()
+    {
+        Persist();
+        // Route the test to the first fully configured webhook so it actually posts.
+        var target = _webhooks.FirstOrDefault(w =>
+            !string.IsNullOrWhiteSpace(w.Name) && !string.IsNullOrWhiteSpace(w.Url))?.Name;
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            _webhookStatus = "Add a webhook (Name + HTTPS URL) first.";
+            _webhookStatusIsError = true;
+            StateHasChanged();
+            return;
+        }
+        await SendTestAlertAsync("webhook",
+            s => { _webhookStatus = s.Message; _webhookStatusIsError = s.IsError; },
+            webhookTarget: target);
+    }
+
+    private async Task TestEmailAsync()
+    {
+        Persist();
+        await SendTestAlertAsync("email", s => { _emailStatus = s.Message; _emailStatusIsError = s.IsError; });
+    }
+
+    private async Task TestTelegramAsync()
+    {
+        Persist();
+        await SendTestAlertAsync("telegram", s => { _telegramStatus = s.Message; _telegramStatusIsError = s.IsError; });
+    }
+
+    // Thin UI wrapper — the actual test-send logic (and its user-facing status strings)
+    // lives in AlertTestSender (Core), unit-tested without bUnit.
+    private async Task SendTestAlertAsync(string channelId, Action<(string Message, bool IsError)> report,
+        string? webhookTarget = null)
+    {
+        var result = await AccessibleTrader.Core.Services.Alerts.AlertTestSender.SendTestAsync(
+            AlertChannels, channelId, webhookTarget,
+            progress: msg => { report((msg, false)); StateHasChanged(); });
+        report(result);
+        StateHasChanged();
+    }
+
+    // ── Hosted browser notifications (Web Push) ──────────────────────────────
+
+    private async Task EnableWebPush()
+    {
+        string result;
+        try { result = await JSRuntime.InvokeAsync<string>("accessibleTraderPush.enable"); }
+        catch { result = "error"; }
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, result switch
+        {
+            "enabled"     => "Browser notifications on. Alerts will arrive even with this tab closed.",
+            "denied"      => "The browser refused notification permission. Allow notifications for this site and try again.",
+            "unsupported" => "This browser does not support push notifications.",
+            _             => "Could not enable browser notifications. Try again.",
+        }, true));
+    }
+
+    private async Task DisableWebPush()
+    {
+        string result;
+        try { result = await JSRuntime.InvokeAsync<string>("accessibleTraderPush.disable"); }
+        catch { result = "error"; }
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, result switch
+        {
+            "disabled" => "Browser notifications off for this browser.",
+            _          => "Could not disable browser notifications here. You can also revoke the permission in browser settings.",
+        }, true));
+    }
+}
