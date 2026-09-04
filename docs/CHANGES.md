@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.6.0] — 2026-09-04
 
 ### The Narration tab, and playback that says more than the date (2026-09-04)
 
@@ -565,6 +565,145 @@ Four things reported from real use, all four real defects.
   Escape, so F1 (help), F2 (mute) and F12 (settings) do nothing from the symbol picker or a search
   box, and the browser's own F1/F12 fire instead. Verified in Chromium (F1 in Settings' search
   box opened nothing). WCAG 2.1.1, serious. Filed at the top of the NEXT list.
+
+### Backfill: the 2.6.0 work that shipped without a changelog entry (2026-09-01 → 2026-09-04)
+
+Eighteen commits between `v2.5.0` and here changed behaviour and never got a section of
+their own — the sessions wrote them up in `TODO.md`'s START HERE blocks instead, which is
+where the reasoning lives but is not where a reader looks for "what changed". Recorded here
+in date order rather than invented as nine separate retroactive sections, and each names its
+commit so the full account is one `git show` away.
+
+- **The Shift+Tab that walked out of all 25 dialogs** (`bc52e652`, 2026-09-01). The Tab trap
+  tested identity against the first and last focusable element; `ModalBase` focuses the
+  `<h2 tabindex="-1">`, which the focusable selector deliberately excludes, so on open the
+  heading was neither, no branch fired, `preventDefault` never ran, and Shift+Tab left every
+  dialog onto a background control while `aria-modal="true"` told the screen reader not to
+  describe it. Now containment plus index position. The selector also queried
+  `[role="dialog"]` only, so the destructive "strip your indicators and drawings"
+  `alertdialog` was never trapped at all — **a guard written in C# does not protect the
+  JavaScript it describes**, and `ModalContractScanTests` had been widened to the whole role
+  family two days earlier without the JS following. Scroll keys are released while a modal is
+  open, because `HelpModal` has ~400 lines of reference between its two focusable elements
+  and the keyboard reference could not be read by keyboard. Plus the chart's focus ring: an
+  inline `outline:none` on `ChartArea` beat `app.css`'s own `:focus-visible` rule, so "my
+  chart keys stopped working" had no visible answer.
+- **The live-order review could go stale without saying so** (`bec67072`, 2026-09-01). The
+  headline defect of the 272-finding accessibility audit, and a financial one. Arm the review
+  at 1 BTC, Tab back, type 5, Confirm — and `PlaceOrderAsync` received 5. For a blind trader
+  **the spoken review IS the ticket**, the only rendering of the order before it reaches the
+  venue, which makes it a WCAG 3.3.4 mechanism with the one flaw that turns such a mechanism
+  into a hazard. Five routes: editing a field, the BUY/SELL pair (plain `@onclick`, no
+  binding hook reaches them), `SizeFromRisk` (writes the quantity in C# where no input hook
+  can see it), the chart moving to another symbol underneath an armed review, and — found by
+  review, missed by the audit — the armed state **surviving close and reopen**, so Escape on
+  a BTC review then Alt+T on an ETH chart reopened with Confirm already rendered and nothing
+  spoken. Fixed in two layers: `VoidReviewIfArmed` on all 20 controls plus both side buttons
+  and the Size button, and underneath it a backstop comparing the whole built `TradeSignal`
+  at confirm time (`BuildSignal()` extracted so the review and the submit build the same
+  order). **Two copies of a safety reset masked each other** — the flag was cleared in both
+  `Close()` and `ShowAsync()`, so the first sabotage campaign scored 7 of 8 with the reopen
+  guard GREEN; collapsed into one `ResetLiveReview()` with five callers, re-run 8 of 8.
+  Separately, the review was riding the channel F2 mutes, so with speech off the terminal
+  spoke every rejection and no confirmation while the order stayed sendable; it now rides
+  `SpeechChannel.OrderEvent`. `role="status"` on the result div was **refused**, not
+  implemented: it would have been a third live region for the same string.
+- **The `summary` elements the Tab trap could not see, and a harness that could not fail**
+  (`553960f7`, 2026-09-01). `focusableSelector` lacked `summary`, so a `<details>` disclosure
+  was skipped by the trap — and the JavaScript tests mocked past the very selector that was
+  wrong, handing the code its own answer. The durable question, now in the fixture: *if
+  production got this wrong, would my double still return the right answer?*
+- **Function keys were dead in every text field** (`63565aed`, 2026-09-02). F1–F12 did nothing
+  while focus was in an `<input>`, `<textarea>` or `contenteditable`. All of them work now
+  except `Shift+F10`, which stays native — the one F-key whose browser behaviour in a field
+  (the context menu) beats its command.
+- **The 24 controls the sonification config never named** (`626bb274`, 2026-09-02).
+  `PropertiesModal`'s whole sonification section read as unlabelled edit boxes.
+  `FormControlNameSweepTests` now sweeps every catalog dialog. Trap recorded: **a sabotage
+  that strips an id from a control that ALSO has an `aria-label` proves nothing** — the
+  original defect has to be reproduced, not a cousin of it.
+- **The contrast ratio the app never computed** (`0bc68cfd`, 2026-09-02). `WcagContrast` plus
+  `ThemeContrastChecks`; the theme editor now names every blocking pair with its number and
+  **leaves the colours alone** rather than correcting them. The audit's "89" turned out to
+  live in hard-coded literals, not in any palette. Sabotage note: pure primaries measure the
+  same with or without the gamma curve, so the curve has to be sabotaged against #767676 /
+  #777777 to be tested at all.
+- **Eight minutes of tones that never had a sentence** (`a76e343c`, 2026-09-02). Playback
+  spoke nothing: no start, no pause, no resume, no stop, no finish, and the speed keys
+  announced only while nothing was playing. The gate's comment credited the
+  `PlaybackOrchestrator` with "its own sonification/speech" and the orchestrator has no
+  speech router — two comments each crediting the other side of the room. `PlaybackNarration`
+  holds the sentences; "finished" and "stopped" are different words because one of them means
+  the whole range sounded. `PlaybackFinished` is deliberately left unsubscribed: it fires on
+  every ending, off-thread.
+- **The alertdialog the widened selector found and the next line threw away** (`a601aab9`,
+  2026-09-02). `Toolbar.razor` puts `position:fixed` on the alertdialog itself, so an
+  `offsetParent` visibility test discarded it — **`offsetParent` is not a visibility test**,
+  and a filter one line below a widened selector is invisible to a presence scan. Four gates
+  were green for four different wrong reasons, one of them a browser probe returning `true`
+  on zero dialogs.
+- **The 34 buttons that vanished instead of refusing** (`e2d47c6a` + `1d664106`, 2026-09-03).
+  `disabled` is not "greyed out" to a screen-reader user, it is **deletion** — the control
+  leaves the tab order and the accessibility tree with no explanation anywhere. `GatedButton`
+  keeps all 34 reachable and makes them **refuse out loud** ("No chart is loaded. Load a
+  symbol first."), with the gate a `Func<string?>` re-read at CLICK time rather than at
+  render time. Sign-in fields now carry `aria-invalid` only once actually rejected —
+  `aria-invalid` means REJECTED, not blank — so a pristine form no longer announces three
+  errors. In the same commit: `IndicatorOrchestrator` skipped every drawing on every tick, so
+  a trend line said "no data" from the bar after placement onward.
+- **The eighteen sections that were bold text** (`39ce866e`, 2026-09-03). The Help dialog's
+  sections were `<strong>`, invisible to every jump-by-heading command. Real headings and
+  landmarks now. Two things learned the hard way and recorded: **Playwright's `GetByRole` is
+  not the accessibility tree** (use CDP `getFullAXTree`), and `<summary><h3>`, never
+  `<h3><summary>`.
+- **The tree that never said it was open, and the guard that was green on the defect it was
+  written for** (`dc9c9f61`, 2026-09-03). Object Tree rows had no `aria-expanded`; twelve
+  (not the reported ten) Label-in-Name gaps; 27 mouse-only drawing coordinates. Also
+  `class="sr-only"` was defined nowhere the toolbar could see it, and **a Razor attribute
+  value cannot be regexed** — `[^"]*` stops at the first inner quote, which is how a scan
+  guard came back green on the thing it existed to catch.
+- **The status bar said the same sentence as the speech region, and the screen reader
+  therefore said neither** (`84808e83` + `442d0cd9`, 2026-09-04). Measured on the AT-SPI bus,
+  not inferred: the polite copy reached the bus first on 6 of 16 presses, and Orca 51's live
+  region presenter purges queued polite messages when an assertive one arrives and then drops
+  the assertive one as a duplicate of what it just purged — so nothing was spoken. The status
+  strip is no longer a live region; it still shows the last spoken sentence as visible text,
+  which is the half that must not be mistaken for the fix. The two invisible speech buffers
+  are also cleared ~2 s after announcing, so the bottom of the page reads as one line instead
+  of three. Recorded: **a component that mirrors spoken text is part of the speech pipeline
+  whether or not it is filed under one.**
+- **The machine sentinel the terminal read aloud** (`1d632642`, 2026-09-04). A placeholder
+  string was being passed in `FeedbackRequestEvent.Message` as a sentinel; a second subscriber
+  read it as text and spoke it. **A sentinel in a shared event field is safe only while
+  exactly one subscriber exists.** Three green guards were asserting the old shape and had to
+  be re-aimed. The proof had been sitting unread in a committed probe artefact —
+  **a probe artefact is only evidence once someone reads every field in it.**
+- **A property setter that cancelled the playback it was watching** (`8f014c0a`, 2026-09-04).
+  `SonificationManager.IsEnabled`'s setter called `Stop()`, and the store assigned that
+  property on every state change while the sequencer dispatched a navigate action per bar —
+  so with F3 off, each bar cancelled the playback producing it. Measured before touching
+  anything: **2 bars of 200 with F3 off, 200 of 200 with it on.** The setter is a plain flag
+  again and `AudioSequencer` renders silence per bar instead, which is what `SHORTCUTS.md` had
+  always promised and what makes playback usable as a narration mode. **A property setter that
+  stops a background job is a trap whatever guards it** — an assignment reads as free at every
+  call site, and this one had a caller firing ten times a second. Same commit: hidden and muted
+  were an if/else over two INDEPENDENT flags, so a component that was both never said "muted";
+  the qualifier moved out of ten individual speech strategies and into one chokepoint, and it
+  leads rather than trails because whatever interrupts cuts the END of a sentence.
+- **Test-only, recorded because the lessons are not** (`82f5891f`, `106d5ad4`, `a3514cd2`,
+  `1d664106`, `c860b81a`, `a66e16fa`). The seventh and eighth flakes were both bUnit reading a
+  DOM event's result before the renderer dispatcher had run it; **reproduce with
+  `taskset -c 0,1` — core COUNT is the variable, not CPU load** — and wrap find-and-trigger in
+  `cut.InvokeAsync`. Also: build the parent commit in a worktree before owning a red CI, and
+  the README carries the test count in prose as well as in the status line, so both have to
+  move together.
+
+## [2.5.0] — 2026-08-31
+
+<!-- Stamped retroactively on 2026-09-04. The 2.5.0 release commit (a3a3c7fe) bumped
+     Directory.Build.props and the README's counts and never stamped this file, so
+     everything from here to the 2.4.0 heading sat under [Unreleased] through a whole
+     release cycle. Entries below are 2.5.0's; entries above are 2.6.0's. -->
 
 ### One owner for the dead-feed rule, and a monitor that can finally be tested (2026-08-29)
 

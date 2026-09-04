@@ -117,6 +117,108 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, THIRTEENTH pass — THE NARRATION TAB IS BUILT,
+> PLAYBACK SPEAKS SIGNALS, AND THE VERSION IS 2.6.0. Ranked items 1 and 2 of the twelfth
+> pass are DONE. What is left is the Object Tree follow-ups (b) and (c), the drawing cross
+> earcon (b) and approach earcon (c) from the seventh pass, and — Cody's calls — the tag and
+> the segfault dump drop-in.**
+>
+> ### 1. THE NARRATION TAB — split by TRIGGER, not by topic
+>
+> Settings has EIGHT tabs; Narration sits between Speech and Sonification and holds
+> **Announce new bars** (moved off Speech, unchanged), **Narrate signals on bar close** (NEW,
+> the master over `AutoNarrationService`) and **Narrate during playback** (NEW, covering time
+> landmarks, marker signals and formation outcomes together).
+>
+> **The rule:** Speech = how the terminal says what you ASKED for. Narration = what it says
+> when you pressed NOTHING. That is why **"Describe chart patterns" deliberately STAYS on
+> Speech** — it is a CONTENT switch and it also changes what the arrow keys say — with
+> "narration" and "playback" added to its search keywords so the Narration vocabulary still
+> finds it.
+>
+> **BOTH NEW SWITCHES DEFAULT ON, and this REVISES the ninth pass's recorded recommendation
+> of [off].** The reason the recommendation changed is worth keeping: at the time it was
+> written, decision 3 (does the per-series flag select playback speech) was still open. Once
+> it is YES, OFF as a default costs the user a shipped feature — the time landmarks, working
+> since 2026-09-02 — to prevent speech that the per-series opt-in already prevents. On a
+> default install with nothing flagged, ON adds literally nothing over 2.5.0. What is new is
+> the ability to turn either OFF, and OFF is the capability nobody had: playback as pure
+> tones. **Cody's three ninth-pass decisions are therefore settled as: playback default ON
+> (revised), the playback switch DOES cover time landmarks (as recommended), the per-series
+> flag DOES select playback speech (as recommended).**
+>
+> ### 2. PLAYBACK SIGNAL SPEECH — seventh-pass design (a), built
+>
+> `PlaybackNarration.SignalsForStep` scans the bar just stepped onto for marker components
+> carrying a `SignalSpeechTemplate` — `ScanUtterance.TierSignal` and nothing below it. No
+> crosses, no zone lines, no oscillator commentary. **Series selection is `IsAutoNarrated`,
+> revising design (a)'s "every active, visible, unmuted series"**, so one mental model holds
+> everywhere: **N picks WHAT, the tab picks WHEN.**
+>
+> **ONE UTTERANCE PER STEP** — landmark, signals and `ChartPatternOutcomesAt` composed and
+> spoken once, non-interrupting, in `PlaybackSpeechForStep`. **Landmark FIRST**, against this
+> file's usual most-consequential-first ordering, because it is not a competing claim: it is
+> the WHEN of the clause behind it. **Rate-limited by BAR DISTANCE** —
+> `MinBarsBetweenSignals` converts the landmark cadence into bars at the current speed (20 at
+> 1x, 80 at 4x) — and it **drops rather than queues**, because at ten bars a second a queue is
+> a backlog about bars the tones have long passed. **A landmark is never rate-limited away.**
+> The pattern outcome is gated on BOTH `DescribeChartPatterns` (content) AND
+> `NarrateDuringPlayback` (trigger); one switch per content × trigger cell grows without bound.
+>
+> **Five sabotages, each restored from a file copy, each naming its failure:** the master
+> switch deleted, the playback gate deleted, `SignalsForStep` ignoring `IsAutoNarrated`, the
+> landmark and events spoken as two calls (reddens three, including the one-utterance guard by
+> name), and the rate limit removed. Every "stays silent" case has its vacuity partner in the
+> same file.
+>
+> **A trap for the next preference:** a new setting is SIX places and nothing in the compiler
+> makes you visit them — `SettingsKeys`, `IAppSettings` + impl, `WorkspaceState` (field AND
+> `Initial`), `PreferencePersistenceService` (the `Prefs` record, `FromState`, the seed, the
+> write-back), `WorkspaceProjection` (`Carried` or `NotCarried`) and the search registry.
+> `PreferenceRoundTripTests` and `WorkspaceProjectionTests` are the two that fail the build.
+> These two are NOT carried into the sandbox: a strategy whose signals varied with whether the
+> terminal was talking would be a defect, and it would differ between a live run and a
+> backtest that has no speech channel at all.
+>
+> ### 3. DOCS AND THE BUMP TO 2.6.0 — twelfth-pass ranked item 1
+>
+> `Directory.Build.props` is 2.6.0. `docs/WHATSNEW.md` is **rewritten to hold 2.6.0 ONLY** at
+> Cody's instruction — the history belongs in `CHANGES.md` and the file had been carrying
+> 2.4.0 downward. `USER_MANUAL.md`, `SHORTCUTS.md` and `QUICKSTART.md` carry the tab, the
+> trigger rule and what playback says while it runs (QUICKSTART was still naming the Alerts
+> tab that left this morning). `Diagrams/feedback_routing.mmd` gains both narration sources
+> and a note that **a narration switch is a different kind of gate from a channel mute** —
+> persisted, and it decides whether the sentence is composed at all — re-rendered to validate.
+>
+> **Two changelog defects found and fixed while there.** (a) `docs/CHANGES.md` **never got a
+> `## [2.5.0]` header**: the 2.5.0 release commit (`a3a3c7fe`) bumped the version and the
+> README's counts and left three entries sitting under `[Unreleased]` through an entire
+> release cycle. Stamped retroactively, with a comment saying so. (b) **Eighteen commits
+> between `v2.5.0` and here changed behaviour and never got a changelog section** — the
+> sessions wrote them up in this file's START HERE blocks instead, which is where the
+> reasoning lives and is not where a reader looks for "what changed". Backfilled as one dated
+> section naming each commit, rather than as nine invented retroactive sections.
+> **The durable lesson: a START HERE block is not a changelog entry, and writing the first one
+> makes it feel as though the second has been written.**
+>
+> ### NOT DONE, and deliberately: the tag
+>
+> The version is bumped and the docs are written, but **no tag and no GitHub release**.
+> `docs/RELEASING.md` has a process, a release is outward-facing and hard to reverse, and it
+> is Cody's call. `v2.6.0-rc1` then `v2.6.0` when he says.
+>
+> ### Numbers
+>
+> Suite **6,537** (`--list-tests` 6532), browser **198**, jstests 61 + 19 + 15, doc-drift
+> green.
+>
+> ### What is left, in order
+>
+> **1. Object Tree follow-ups (b), (c)** (eighth pass). **2. The drawing cross earcon and
+> `CrossDirection`, and the approach earcon** — seventh pass (b) and (c). **3. The tag.**
+> The segfault dump drop-in still needs Cody, and so does A4 (the `orca --debug-file`
+> measurement).
+
 > **START HERE (current as of 2026-09-04, TWELFTH pass — THE MODAL BACKGROUND IS `inert` AND
 > THE ALERTS TAB IS GONE FROM SETTINGS. Ranked items 4 and 5 of the eleventh pass are DONE.
 > Continue at ranked item 6, docs and the bump to 2.6.0.**

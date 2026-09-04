@@ -103,7 +103,60 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status (2026-09-03)
+## Current Status — 2.6.0 (2026-09-04)
+
+**2.6.0 is the accessibility release.** 2.4.0 and 2.5.0 were both fixing releases with no
+features in them; this one has features, and all of them are in the same place — what the
+terminal *says*, and whether the dialog you are in is the only thing on the page.
+
+**Speech that arrives.** The measured headline: the status strip at the bottom of the page
+had become a SECOND live region carrying the SAME sentence as the speech buffer, and Orca 51
+purges queued polite messages when an assertive one arrives and then drops the assertive one
+as a duplicate of what it just purged — so an `m` or an `h` did the thing and said nothing.
+Measured on the AT-SPI bus with `tools/atspi-listener.py`, not inferred: the polite copy
+reached the bus first on **6 of 16** presses. The strip is no longer a live region; it still
+holds the last spoken sentence as visible text, and
+`LiveRegionInventoryBrowserTests` asserts BOTH halves precisely so "we deleted the mirror"
+cannot pass as "we stopped it announcing". The two invisible speech buffers are also cleared
+~2 s after announcing, so the bottom of the page reads as one line rather than three.
+
+**`inert` on the background.** `aria-modal="true"` is advisory — it asks the screen reader
+not to describe the background and does nothing about focus. With the AT-SPI bridge attached
+and Orca running, **6 of 14 modals lost focus to somewhere outside themselves**, every move
+carrying an EMPTY JavaScript stack: dispatched by the embedder, not by page script. An app
+cannot out-focus a mover it never sees. Eight region roots carry `data-background-region` and
+`keyboard.js` sets and clears `inert` from `setModalStack`. It is opt-IN because the two ARIA
+speech buffers are SIBLINGS of `<main>` — inerting a wrapper would have silenced the terminal,
+not muted the background. Re-measured with the bridge on: **6 of 7 modals held their own
+heading through +4000 ms**, and no sample in any instrumented run landed inside an inert
+subtree. Two limits recorded rather than assumed away: the probe is intermittent by nature,
+and `ModalBase` publishes the open event before the render, so on the web host the background
+is live for one interop round trip after a dialog opens.
+
+**F3 was killing playback, and a property setter was why.** `SonificationManager.IsEnabled`'s
+setter called `Stop()`; the store assigned that property on every state change and the
+sequencer dispatched a navigate action per bar, so with F3 off each bar cancelled the playback
+producing it. Measured before touching anything: **2 bars of 200 with F3 off, 200 of 200 with
+it on.** A property setter that stops a background job is a trap whatever guards it. Playback
+now renders silence per bar instead, which makes it the terminal's narration mode — and as of
+the same day it has something to narrate: **playback speaks marker signals and formation
+outcomes**, composed with the time landmark into ONE utterance per bar, rate-limited by bar
+distance and dropping rather than queueing.
+
+**Settings has eight tabs, and the eighth is Narration** — split from Speech by TRIGGER
+rather than topic: Speech is how the terminal says what you asked for, Narration is what it
+says when you pressed nothing. Alert delivery left Settings entirely for the alerts dialog
+(Alt+J → Delivery settings), next to the alerts it delivers, and now writes on commit instead
+of on close, because Escape is how a keyboard user leaves a dialog and Escape was discarding a
+typed SMTP password with nothing said about it.
+
+Suite **6,537** (`--list-tests`
+reports 6532, which is the number this file must match and `doc-drift.yml` checks — the two
+differ because `--list-tests` names a `[Theory]` once and a run expands its cases), plus
+**198** browser tests and three JavaScript suites (61 + 19 + 15). **0 CRITICAL and 0 HIGH
+items open, and the accessibility audit's numbered NEXT list is now empty.**
+
+## Earlier in 2.6.0 (2026-09-03)
 
 **The Object Tree never said whether a node was open or shut, twelve controls announced
 words that were not on the screen, and nine of the sixteen drawing types could not be
@@ -187,11 +240,6 @@ is not "no description", it is a description of "", and it suppresses `title`), 
 toolbar now has one convention: the visible label is the accessible name, and the chord is spelled
 out in words because "+" is handed to a speech synthesiser.
 
-Suite **6,537** (`--list-tests`
-reports 6532, which is the number this file must match and `doc-drift.yml` checks — the two
-differ because `--list-tests` names a `[Theory]` once and a run expands its cases), plus
-**198** browser tests. **0 CRITICAL and 0 HIGH items open,
-and the accessibility audit's numbered NEXT list is now empty.**
 
 ## Earlier status (2026-08-31)
 
