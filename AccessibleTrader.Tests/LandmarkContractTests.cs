@@ -121,7 +121,9 @@ public class LandmarkContractTests
             $"{file}: <{name} class=\"{className}\"> carries role=\"{role.Groups["r"].Value}\". An " +
             "explicit role OVERRIDES the element's implicit one, so this element is no longer a " +
             "landmark — exactly what <nav role=\"toolbar\"> did. If this surface needs a widget or " +
-            "live-region role, put it on a child element, the way StatusBar does with role=\"status\".");
+            "live-region role, put it on a child element — and think hard before adding one at "
+            + "all: StatusBar's inner div carried role=\"status\" for exactly this reason and it "
+            + "made a second announcer for a sentence the speech buffers were already saying.");
 
         var label = Regex.Match(attrs, "\\baria-label\\s*=\\s*\"(?<l>[^\"]*)\"");
         Assert.True(label.Success && !string.IsNullOrWhiteSpace(label.Groups["l"].Value),

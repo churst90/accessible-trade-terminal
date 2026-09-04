@@ -117,6 +117,114 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, TENTH pass — THE PLACEHOLDER IS GONE AND THE STATUS
+> BAR IS NO LONGER AN ANNOUNCER. Ranked items 1(a), 1(b) and 2 of the ninth pass are DONE and
+> proven; a defect the ninth pass had not found — Shift+F1 speaking a machine sentinel — is the
+> one Cody actually reported and is fixed at its source. Continue at ranked item 3.**
+>
+> ### Cody's report
+>
+> "Sometimes I'll hear messages like Shift+F1 will say 'feedback. context summary'. I figured
+> the only reason why this particular text was spoken was because it was sent to the ARIA live
+> region; only what should be spoken should be spoken, no system or placeholder message like
+> 'current feedback. blah'. I was seeing this text also in the status bar and didn't know if it
+> was the cause of the speech issue." Plus the standing constraint: **this is not an Orca
+> product.** NVDA, JAWS, VoiceOver and TalkBack users read the same ARIA, so a fix that reasons
+> only from Orca's source is half a fix.
+>
+> ### 1. THE PLACEHOLDER — found, and it was in the repo's own committed evidence
+>
+> `CommandDispatcher` published Shift+F1 as
+> `FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY")` — **a machine token in the field
+> every other publisher fills with a sentence meant for a human.**
+> `AccessibilityFeedbackCoordinator` recognised the token and spoke the real summary instead, so
+> from the coordinator's side it looked contained. It was not, because the coordinator is not the
+> only subscriber: `StatusBar` mirrors `ev.Message` into the visible strip. So Shift+F1 PRINTED
+> "CONTEXT_SUMMARY" and, while that strip was still a live region, a screen reader SPOKE it.
+>
+> **It was already measured and committed, in `scratchpad/a3_speech.json` from the A3 harness
+> run, and nobody had read that field:**
+>
+> ```
+> "scenario": "Shift+F1 context summary",
+> "liveRegions": [
+>   { "id": "aria-speech-1", "text": "no symbol on Bitstamp, 1h" },
+>   { "id": "",              "text": "Last Feedback:\n        CONTEXT_SUMMARY" },
+> ```
+>
+> That second row IS Cody's sentence, verbatim: "Last Feedback, CONTEXT_SUMMARY" → **"feedback,
+> context summary"**. After `2a1b84af` deleted the label it became bare "context summary", which
+> is the form he reported. **The durable lesson: a probe artefact is only evidence once someone
+> reads every field in it.** The ninth pass ran this harness and read the `spoken` array.
+>
+> **Fixed at the source, not at the mirror.** Shift+F1 is now `ContextSummaryRequestEvent`, its
+> own record, and the coordinator's `SpeakContextSummary()` composes the sentence off it. The
+> reason it is not a filter in `StatusBar` is the general rule this establishes:
+> **`FeedbackRequestEvent.Message` is always prose that may be spoken and displayed verbatim.** A
+> sentinel in a shared field is safe only while exactly one subscriber exists, and a bus is the
+> wrong place to assume that — the next subscriber written will not know the token either.
+> Guards: `ContextSummaryDispatchTests` asserts Shift+F1 publishes NO `FeedbackRequestEvent` at
+> all (not merely a different message — that shape cannot leak again), with a vacuity check that
+> the same subscription DOES see one from `ChartFocus`; `SpokenFeedbackChannelTests` scans every
+> literal feedback message for SCREAMING_SNAKE, pinning the SHAPE rather than the one word.
+>
+> ### 2. THE STATUS BAR IS NO LONGER A LIVE REGION (ninth pass, ranked 1a) — DONE
+>
+> `role="status" aria-live="polite"` is gone from `.status-content`. Written up for every AT, not
+> just Orca: two live regions holding the same sentence is a duplicate-suppression trap in NVDA,
+> JAWS and VoiceOver as well, and which copy wins is decided by the order Chromium serialises two
+> DOM updates into one accessibility batch — that is the intermittency. The strip keeps its
+> `<section aria-label="Terminal status">` landmark, so it is still reachable by landmark and
+> browse-mode navigation, which is what makes dropping `aria-live` cost a screen-reader user
+> nothing. **`LandmarkAndHeadingBrowserTests` had asserted the OPPOSITE** — that the strip
+> contained a `role="status"` — and the assertion is now inverted with the reason recorded in
+> place. Its premise ("an element cannot be both a landmark and a live region") was right; its
+> conclusion (that it should be a live region at all) was wrong.
+>
+> ### 3. THE BUFFERS EMPTY, SO THE BOTTOM OF THE PAGE IS ONE LINE (ranked 1b) — DONE
+>
+> `MainLayout` clears both speech buffers three seconds after the last phrase. Announce-safe for
+> every AT, not by assumption: a live region announces on text being ADDED, and every screen
+> reader captures the text into its own speech queue when the event is delivered — Orca goes
+> further and presents only `object:text-changed:insert`, so a pure deletion is never spoken.
+> Three seconds is an order of magnitude past any AT's event-to-queue latency. Browse mode now
+> finds ONE line at the bottom: the visible strip. Guard:
+> `LiveRegionInventoryBrowserTests.The_speech_buffers_empty_after_announcing`, which asserts the
+> sentence WAS in a buffer first — a clear that ran too early shows up there as silence, not as a
+> tidy page.
+>
+> ### 4. THE BUFFER FLIP (ranked 2) — DONE, and it is now a testable object
+>
+> `SpeechLiveRegionBuffer` (BlazorClient.Components/Services). `Push` flips only for non-empty
+> text; `Clear` never flips. The defect: interrupting speech is `Silence()` then `Speak()`, and
+> `Silence` invokes the callback with `""`, so `MainLayout`'s inline flip ran twice and the phrase
+> landed back on the region the previous one used — measured, seven consecutive utterances all in
+> `aria-speech-1`. The double buffer did not double-buffer for the speech that needed it most.
+> The extraction is what makes the property testable at all: `MainLayout` injects ~25 services
+> and bUnit cannot reach it. `SpeechLiveRegionBufferTests` (5).
+> `AutoNarrationUtteranceTests.TheWebHeadsLiveRegionIsFedFromOneStringField` re-aimed at the new
+> sink — the property it guards (ONE string behind both regions, so N assignments in one render
+> batch deliver the Nth) did not move.
+>
+> ### Proven, not asserted
+>
+> Six sabotages, each reverted from a file copy: the sentinel restored (3 named failures), the
+> status bar's `aria-live` restored (2 unit + 3 browser), flip-on-every-callback (1), a flipping
+> `Clear` (1), and the linger clear removed (1). Suite **6,491**, browser **193**, both green;
+> `scripts/check_doc_drift.py` green.
+>
+> ### What is left, in order
+>
+> **3. A2: await the cancel in `SpeakViaOrca`** (`WebHostSpeechManager.cs:258`, one line, mirrors
+> line 294), and run A4 before deciding whether the app should cancel under Orca at all.
+> **4. Modal background `inert`. 5. Alerts consolidation. 6. Docs and the bump to 2.6.0.**
+> **7. Narration tab (B below) built TOGETHER with playback signal speech.**
+> **8. Object Tree follow-ups (b), (c).** The segfault dump drop-in still needs Cody.
+>
+> **Still to ask Cody:** locally (Orca D-Bus path) the strip was never the announcer, so the
+> silence he reported there — if he saw it locally as well as hosted — is a different fault and
+> item 3 is the candidate. Worth one A/B now that the hosted path is fixed.
+
 > **START HERE (current as of 2026-09-04, NINTH pass — ANALYSIS ONLY, no code changed. Cody
 > reported speech going intermittently silent after chart commands (m, h, Ctrl+Alt+Shift+G,
 > Shift+Arrow: the action happens, the sentence often does not), and asked for a Narration tab

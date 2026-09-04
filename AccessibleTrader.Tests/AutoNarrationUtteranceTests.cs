@@ -637,10 +637,19 @@ public class AutoNarrationUtteranceTests
         Assert.True(File.Exists(path), $"MainLayout.razor not found at {path}");
         string layout = File.ReadAllText(path);
 
-        Assert.Contains("private string _latestSpeech", layout);
-        Assert.Contains("_latestSpeech = text;", layout);
-        Assert.Contains("_activeBuffer == 1 ? _latestSpeech : \"\"", layout);
-        Assert.Contains("_activeBuffer == 2 ? _latestSpeech : \"\"", layout);
+        // The sink moved into SpeechLiveRegionBuffer on 2026-09-04 (so the alternation rule
+        // could be tested — it was flipping on the empty callback that Silence() produces, and
+        // interrupting speech never reached the second region at all). What this guard is about
+        // did not move: it is still ONE string behind both regions, so N assignments inside one
+        // render batch deliver the Nth and discard the rest.
+        Assert.Contains("SpeechLiveRegionBuffer _speechRegions", layout);
+        Assert.Contains("_speechRegions.Push(text)", layout);
+        Assert.Contains("_speechRegions.TextFor(1)", layout);
+        Assert.Contains("_speechRegions.TextFor(2)", layout);
+
+        string buffer = File.ReadAllText(Path.Combine(RepoRoot(),
+            "AccessibleTrader.BlazorClient.Components", "Services", "SpeechLiveRegionBuffer.cs"));
+        Assert.Contains("public string Text { get; private set; }", buffer);
     }
 
     private static string RepoRoot()

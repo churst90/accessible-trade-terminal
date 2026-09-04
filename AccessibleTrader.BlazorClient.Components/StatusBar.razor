@@ -11,12 +11,14 @@
    unreachable by BOTH of a screen-reader user's structural routes: D/landmark navigation and
    Tab. A named <section> is a region landmark and costs one element.
 
-   role="status" moved INWARD onto .status-content deliberately. An element cannot be both a
-   landmark and a live region — an explicit role overrides the implicit one, which is the same
-   mistake role="toolbar" made on <nav>. Putting it on the content div also takes the badge OUT
-   of the live region, which is right: a badge that appears when paper mode is toggled was
-   re-announcing the whole strip, and SettingsModal already publishes "Paper trading enabled."
-   as its own feedback.
+   Two earlier fixes, kept as history because the shape they left behind is still here. (1)
+   role="status" was moved INWARD onto .status-content rather than onto the <section>: an element
+   cannot be both a landmark and a live region, because an explicit role overrides the implicit
+   one — the same mistake role="toolbar" made on <nav>. (2) That move also took the PAPER badge
+   out of the announced content, which was right on its own: a badge appearing when paper mode is
+   toggled re-announced the whole strip, and SettingsModal already publishes "Paper trading
+   enabled." as its own feedback. The badge stays outside .status-content today for the same
+   reason it reads better — one sentence per line, not a line plus a badge.
 
    THE "Last Feedback:" LABEL IS GONE, for the same reason the badge was moved out and one
    more. A live region announces its WHOLE content on every change, so the static label was
@@ -26,9 +28,27 @@
    carrying anything either. The <section> is already named "Terminal status", so a user
    arriving here by landmark navigation is told what the strip is before reading it, and a
    sighted user is looking at one line of text in a status bar. A label that repeats the name
-   of the thing it sits inside is a second name, not a description. *@
+   of the thing it sits inside is a second name, not a description.
+
+   AND THE STRIP IS NO LONGER A LIVE REGION AT ALL — role="status" aria-live="polite" is gone
+   from .status-content, and that is the whole point of this component now. It was a SECOND
+   live region carrying the SAME sentence as the speech double-buffer in MainLayout, which is
+   not redundancy but a duplicate-suppression trap: every screen reader coalesces or drops
+   near-simultaneous duplicate live-region text, and which copy wins depends on the order the
+   browser happens to serialise two DOM updates into one accessibility batch. Measured on the
+   AT-SPI bus (tools/atspi-listener.py, 16 presses): the polite copy reached the bus FIRST on 6
+   of them, and on those Orca purged the queued polite copy for the assertive one and then
+   dropped the assertive one as a duplicate of what it had just purged — the sentence was spoken
+   NEITHER time. Every AT has some version of that rule (NVDA, JAWS and VoiceOver all suppress a
+   repeat of the text they just announced), so this was never an Orca bug; it was two announcers
+   for one sentence. The strip is a VISUAL mirror of what was just said. The speech buffers are
+   the announcing channel, and a blind user reaches this text by landmark or browse-mode
+   navigation, which do not need aria-live. Deleting the "Last Feedback:" label (2a1b84af) is
+   what made the two texts identical and turned a latent trap into the silence Cody reported;
+   putting a differing label back would "fix" it by re-introducing the older bug. Guarded by
+   StatusBarLiveRegionTests. *@
 <section class="status-bar" aria-label="Terminal status">
-    <div class="status-content" role="status" aria-live="polite">
+    <div class="status-content">
         <span class="status-text">@_lastMessage</span>
     </div>
     @if (_paperMode)

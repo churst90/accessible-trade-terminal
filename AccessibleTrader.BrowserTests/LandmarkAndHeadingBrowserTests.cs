@@ -73,13 +73,25 @@ public sealed class LandmarkAndHeadingBrowserTests
         //
         // The badge itself is NOT asserted, and that is a measured limit rather than an oversight:
         // this harness boots the WebHost in HostMode.Full, so DemoPolicy.AllowLiveTrading is TRUE
-        // and `trading.paperTradingMode` defaults off — the badge does not render here at all. An
-        // Assert on it passed for nobody; what is asserted instead is that the live region is
-        // nested INSIDE the landmark, which is the structural property the fix turned on (an
-        // element cannot be both, so role="status" had to move to a child).
+        // and `trading.paperTradingMode` defaults off — the badge does not render here at all.
         var status = t.Page.GetByRole(AriaRole.Region, new() { Name = "Terminal status" });
         Assert.Equal(1, await status.CountAsync());
-        Assert.Equal(1, await status.GetByRole(AriaRole.Status).CountAsync());
+
+        // INVERTED on 2026-09-04, and the inversion is the point. This used to assert that the
+        // strip contained a role="status" live region, on the reasoning that an element cannot be
+        // both a landmark and a live region so the role had to move to a child. The premise was
+        // right; the conclusion — that it should be a live region at ALL — was wrong, and it cost
+        // the user sentences. The strip mirrors what the speech buffers in MainLayout are already
+        // announcing, so it was a second announcer for one sentence, and every screen reader
+        // suppresses a live-region message that duplicates the one it just queued: whichever copy
+        // arrived second was dropped, and when the strip's polite copy arrived FIRST the assertive
+        // copy purged it and was then dropped as a duplicate of what it had purged, so the
+        // sentence was spoken neither time. Measured on the AT-SPI bus: polite-first on 6 of 16
+        // presses. The strip stays a NAMED LANDMARK — that is what makes it reachable, and it is
+        // why removing aria-live costs a screen-reader user nothing.
+        // See LiveRegionInventoryBrowserTests for the full inventory.
+        Assert.Equal(0, await status.GetByRole(AriaRole.Status).CountAsync());
+        Assert.Equal(0, await status.Locator("[aria-live]").CountAsync());
 
         // And the role that started all this is gone from the live document, not just from source.
         Assert.Equal(0, await t.Page.Locator("[role='toolbar']").CountAsync());

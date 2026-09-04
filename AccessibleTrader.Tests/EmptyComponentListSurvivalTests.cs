@@ -105,12 +105,12 @@ namespace AccessibleTrader.Tests
                 new ChartPatternFocus(), new MockAutoNarrationService());
             Assert.NotNull(coordinator);
 
-            bus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY"));
+            bus.Publish(new ContextSummaryRequestEvent());
             int afterSummary = speech.SpeakCallCount;
 
             // The orientation key itself must have answered…
             Assert.True(afterSummary > 0,
-                "CONTEXT_SUMMARY produced no speech on a zero-component series.");
+                "The Shift+F1 context summary produced no speech on a zero-component series.");
 
             // …and, the part that actually mattered, the terminal must still be listening.
             bus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "Still here."));

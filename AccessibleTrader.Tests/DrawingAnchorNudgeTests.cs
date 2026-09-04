@@ -704,7 +704,7 @@ public sealed class DrawingAnchorNudgeTests
             new ChartPatternFocus(), new MockAutoNarrationService(), drawings: drawings);
         Assert.NotNull(coordinator);
 
-        bus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY"));
+        bus.Publish(new ContextSummaryRequestEvent());
 
         var said = Assert.Single(speech.SpokenTexts);
         Assert.EndsWith(". Selected anchor, End: 105.20. TrendLine 1, anchor 2 of 2.", said);

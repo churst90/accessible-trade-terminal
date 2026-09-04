@@ -438,7 +438,13 @@ namespace AccessibleTrader.Core.Services.Input
                     // always actionable — e.g. press Insert to open a second tab.
                     _eventBus.Publish(new FocusTabBarEvent());
                     return;
-                case SystemCommand.ContextSummary: _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY", true)); return;
+                case SystemCommand.ContextSummary:
+                    // Its own event, not FeedbackRequestEvent with a "CONTEXT_SUMMARY" token in
+                    // the message field. The coordinator understood the token; the status bar,
+                    // which mirrors every feedback message, did not — so Shift+F1 displayed and
+                    // (while that strip was live) spoke the sentinel. See ContextSummaryRequestEvent.
+                    _eventBus.Publish(new ContextSummaryRequestEvent());
+                    return;
                 case SystemCommand.MonitoringStatus: _eventBus.Publish(new AnnounceMonitoringStatusEvent()); return;
                 case SystemCommand.ChartFocus:
                     // Ask ChartArea to programmatically focus the chart element. The

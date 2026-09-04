@@ -53,6 +53,26 @@ namespace AccessibleTrader.Core.Models
         // Null keeps the Type's own default, so nothing that does not opt in changes.
         Services.Accessibility.SpeechChannel? Channel = null);
 
+    /// <summary>
+    /// Shift+F1 — "where am I?". Published by <see cref="Services.Input.CommandDispatcher"/>;
+    /// <c>AccessibilityFeedbackCoordinator</c> composes the sentence and speaks it.
+    ///
+    /// <para><b>Why this is its own event.</b> It used to be
+    /// <c>FeedbackRequestEvent(FeedbackType.Info, "CONTEXT_SUMMARY")</c> — a machine sentinel
+    /// travelling in the field every other publisher fills with a sentence meant for a human.
+    /// The coordinator recognised the token and swapped it for the real summary, but it was not
+    /// the only subscriber: <c>StatusBar</c> mirrors <c>ev.Message</c> into the visible strip,
+    /// so Shift+F1 PRINTED "CONTEXT_SUMMARY" and — while that strip was still a live region —
+    /// a screen reader SPOKE it, which is what Cody heard as "feedback, context summary".
+    ///
+    /// A sentinel in a message field is only safe while exactly one subscriber exists, and a
+    /// bus does not work that way. The rule this record exists to enforce:
+    /// <b><see cref="FeedbackRequestEvent.Message"/> is always prose that may be spoken and
+    /// displayed verbatim</b> — anything else is a different event.
+    /// <c>FeedbackMessageIsProseTests</c> scans for regressions.</para>
+    /// </summary>
+    public record ContextSummaryRequestEvent();
+
     public record ChartFocusEvent();
 
     /// <summary>

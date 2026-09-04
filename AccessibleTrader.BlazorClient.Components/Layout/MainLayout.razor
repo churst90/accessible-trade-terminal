@@ -149,17 +149,27 @@
     <ThemeEditorModal />
     <LabelTextModal />
 
-    @* ARIA LIVE DOUBLE BUFFER:
-       Two assertive regions swap on each speech call so that identical strings are
+    @* ARIA LIVE DOUBLE BUFFER — the app's ONE announcing channel.
+       Two assertive regions swap on each spoken phrase so that identical strings are
        re-announced. Only one region has content at any time; the other is empty.
        Screen readers re-read a region when its content changes, so alternating
-       between the two guarantees every message triggers an announcement. *@
+       between the two guarantees every message triggers an announcement.
+
+       Nothing else in the document may be a live region carrying these same sentences.
+       StatusBar mirrors them VISUALLY and used to do it with role="status" aria-live,
+       which made two announcers for one sentence and cost the user the sentence whenever
+       the AT's duplicate-suppression fired between them. LiveRegionInventoryTests pins
+       this down to these two elements.
+
+       Both are emptied three seconds after the last phrase (ScheduleSpeechBufferClear), so
+       browse mode finds one line at the bottom of the page — the visible status strip —
+       rather than a buffer still holding the last thing said. *@
     <div class="visually-hidden" aria-hidden="false">
         <div id="aria-speech-1" role="status" aria-live="assertive" aria-atomic="true">
-            @(_activeBuffer == 1 ? _latestSpeech : "")
+            @_speechRegions.TextFor(1)
         </div>
         <div id="aria-speech-2" role="status" aria-live="assertive" aria-atomic="true">
-            @(_activeBuffer == 2 ? _latestSpeech : "")
+            @_speechRegions.TextFor(2)
         </div>
     </div>
 
@@ -184,8 +194,33 @@
     private bool WithdrawalsReleased =>
         AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.From(Services).Released;
 
-    private string _latestSpeech = "";
-    private int _activeBuffer = 1;
+    /// <summary>The two ARIA live regions and the alternation rule — see the type.</summary>
+    private readonly SpeechLiveRegionBuffer _speechRegions = new();
+
+    /// <summary>
+    /// Empties whichever speech buffer is holding text, a short while after it announced.
+    ///
+    /// <para><b>Why.</b> The two buffers keep their last sentence in the DOM forever, so the
+    /// bottom of the page read as three lines in browse mode — one blank buffer, one buffer
+    /// still holding the last sentence, and the visible status bar holding the same sentence
+    /// again. Cody read exactly that and it is how the duplicate live region was found.
+    /// Clearing them leaves one line: the status strip a sighted user is looking at.</para>
+    ///
+    /// <para><b>Why clearing cannot swallow the announcement.</b> A live region is announced on
+    /// text being ADDED, and every screen reader captures the text into its own speech queue at
+    /// the moment the event is delivered — Orca's live-region presenter goes further and
+    /// presents ONLY <c>object:text-changed:insert</c>, so a pure deletion is never spoken at
+    /// all. The delay is generous on purpose: three seconds is an order of magnitude past any
+    /// AT's event-to-queue latency and far outside Orca's 0.25 s duplicate window, so it can
+    /// only ever remove text that has already been read.</para>
+    ///
+    /// <para>It does NOT flip <c>_activeBuffer</c>. The flip is what makes a repeated identical
+    /// phrase land on a different node and therefore re-announce; a clear that also flipped
+    /// would put the next utterance back on the node the previous one used.</para>
+    /// </summary>
+    private static readonly TimeSpan SpeechBufferLinger = TimeSpan.FromSeconds(3);
+    private CancellationTokenSource? _speechClearCts;
+
     private IDisposable? _stateSub;
     private IDisposable? _modalSub;
     private IDisposable? _dataSub;
@@ -197,8 +232,7 @@
         SpeechManager.OnSpeak = text =>
             InvokeAsync(() =>
             {
-                _latestSpeech = text;
-                _activeBuffer = _activeBuffer == 1 ? 2 : 1;
+                if (_speechRegions.Push(text)) ScheduleSpeechBufferClear();
                 StateHasChanged();
             });
 
@@ -427,5 +461,46 @@
         _dataSub?.Dispose();
         _themeService.ThemeChanged -= OnThemeChangedForCss;
         SpeechManager.OnSpeak = null;
+        _speechClearCts?.Cancel();
+        _speechClearCts?.Dispose();
+        _speechClearCts = null;
+    }
+
+    /// <summary>
+    /// Restarts the linger timer. Each new utterance cancels the pending clear, so a burst of
+    /// speech empties once, three seconds after the LAST sentence — not three seconds after the
+    /// first, which would blank a region mid-burst for no reason.
+    /// </summary>
+    private void ScheduleSpeechBufferClear()
+    {
+        var previous = _speechClearCts;
+        _speechClearCts = new CancellationTokenSource();
+        previous?.Cancel();
+        previous?.Dispose();
+
+        _ = ClearSpeechBuffersAfterLingerAsync(_speechClearCts.Token);
+    }
+
+    /// <summary>
+    /// The delay half of <see cref="ScheduleSpeechBufferClear"/>. Deliberately NOT wrapped in
+    /// Task.Run: there is no computation to offload — it is a timer and one render — and a
+    /// Task.Run body that touches StateHasChanged is the shape DispatcherAffinityScanTests
+    /// exists to reject, because off the Blazor dispatcher it throws and an unhandled exception
+    /// from an async handler kills the whole circuit.
+    /// </summary>
+    private async Task ClearSpeechBuffersAfterLingerAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SpeechBufferLinger, token);
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                _speechRegions.Clear();
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException) { /* superseded by a newer utterance, or disposed */ }
+        catch (ObjectDisposedException) { /* the circuit went away mid-delay */ }
     }
 }

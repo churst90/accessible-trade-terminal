@@ -97,6 +97,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Legacy support for specific manual events
             _subscriptions.Add(_eventBus.Subscribe<FeedbackRequestEvent>(OnFeedbackRequest));
             _subscriptions.Add(_eventBus.Subscribe<AnnouncementEvent>(e => _speechRouter.Speak(e.Message, e.Interrupt)));
+            // Shift+F1. Its own event so that no subscriber has to recognise a sentinel to
+            // avoid speaking one — see ContextSummaryRequestEvent.
+            _subscriptions.Add(_eventBus.Subscribe<ContextSummaryRequestEvent>(_ => SpeakContextSummary()));
 
             _subscriptions.Add(_eventBus.Subscribe<AlertFiredEvent>(ev => {
                 var alert = ev.Alert;
@@ -799,53 +802,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     break;
 
                 case FeedbackType.Info:
-                    if (e.Message == "CONTEXT_SUMMARY")
-                    {
-                        var state = _store.State;
-                        var id = state.Identity;
-                        string timeframe = string.IsNullOrEmpty(id.Timeframe) ? "unknown timeframe" : id.Timeframe;
-                        string symbol = string.IsNullOrEmpty(id.Symbol) ? "no symbol" : id.Symbol;
-                        string provider = string.IsNullOrEmpty(id.Provider) ? "" : $" on {id.Provider}";
-                        string msg = $"{symbol}{provider}, {timeframe}";
-
-                        // Append focused series/pane info if a component is focused.
-                        var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
-                        if (focusedSeries != null && state.LastInteractionContext == InteractionContext.Component)
-                        {
-                            // The Count > 0 guard on the next line was written for exactly this
-                            // case and arrived one line too late — the clamp above it had already
-                            // thrown, taking down the FeedbackRequestEvent subscription with it.
-                            // Shift+F1 is the orientation key a disoriented user reaches for, so
-                            // this was the keystroke that silenced the terminal.
-                            int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
-                            string? subPane = compIdx >= 0
-                                ? focusedSeries.Components[compIdx].SubPaneName
-                                : null;
-                            string paneLabel = string.IsNullOrEmpty(subPane) ? "main pane" : subPane + " pane";
-                            msg += $". Focused on {focusedSeries.FriendlyName}, {paneLabel}";
-
-                            // If series has multiple panes, append total pane count.
-                            int distinctSubPanes = focusedSeries.Components
-                                .Select(c => c.SubPaneName)
-                                .Where(n => !string.IsNullOrEmpty(n))
-                                .Distinct(StringComparer.OrdinalIgnoreCase)
-                                .Count();
-                            if (distinctSubPanes > 0)
-                                msg += $". {focusedSeries.FriendlyName} has {distinctSubPanes + 1} panes";
-                        }
-
-                        // A focused drawing: say which anchor Shift+Arrow would move, without
-                        // moving it. Nudging and cycling both change state; this is the only
-                        // way to just ask.
-                        string? anchor = _drawings?.SelectedAnchorSummary();
-                        if (anchor != null) msg += ". " + anchor;
-
-                        _speechRouter.Speak(msg, interrupt: true);
-                    }
-                    else if (!string.IsNullOrEmpty(e.Message))
-                    {
+                    if (!string.IsNullOrEmpty(e.Message))
                         _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
-                    }
                     break;
 
                 // Every member of FeedbackType is handled above, and FeedbackTypeCoverageTests
@@ -860,6 +818,59 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Manual));
                     break;
             }
+        }
+
+        /// <summary>
+        /// The Shift+F1 "where am I?" sentence: symbol, provider, timeframe, then the focused
+        /// series and pane, then the drawing anchor a nudge would move.
+        ///
+        /// <para>Reached by <see cref="ContextSummaryRequestEvent"/>. It used to be reached by a
+        /// <c>"CONTEXT_SUMMARY"</c> sentinel in a <see cref="FeedbackRequestEvent"/>'s message
+        /// field, which every OTHER subscriber of that event took at face value — the status bar
+        /// printed it, and spoke it. See the record's own note.</para>
+        /// </summary>
+        private void SpeakContextSummary()
+        {
+            var state = _store.State;
+            var id = state.Identity;
+            string timeframe = string.IsNullOrEmpty(id.Timeframe) ? "unknown timeframe" : id.Timeframe;
+            string symbol = string.IsNullOrEmpty(id.Symbol) ? "no symbol" : id.Symbol;
+            string provider = string.IsNullOrEmpty(id.Provider) ? "" : $" on {id.Provider}";
+            string msg = $"{symbol}{provider}, {timeframe}";
+
+            // Append focused series/pane info if a component is focused.
+            var focusedSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == state.FocusedSeriesId);
+            if (focusedSeries != null && state.LastInteractionContext == InteractionContext.Component)
+            {
+                // The Count > 0 guard on the next line was written for exactly this
+                // case and arrived one line too late — the clamp above it had already
+                // thrown, taking the subscription that runs this code down with it.
+                // Shift+F1 is the orientation key a disoriented user reaches for, so
+                // this was the keystroke that silenced the terminal.
+                int compIdx = focusedSeries.ClampComponent(state.FocusedComponentIndex);
+                string? subPane = compIdx >= 0
+                    ? focusedSeries.Components[compIdx].SubPaneName
+                    : null;
+                string paneLabel = string.IsNullOrEmpty(subPane) ? "main pane" : subPane + " pane";
+                msg += $". Focused on {focusedSeries.FriendlyName}, {paneLabel}";
+
+                // If series has multiple panes, append total pane count.
+                int distinctSubPanes = focusedSeries.Components
+                    .Select(c => c.SubPaneName)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+                if (distinctSubPanes > 0)
+                    msg += $". {focusedSeries.FriendlyName} has {distinctSubPanes + 1} panes";
+            }
+
+            // A focused drawing: say which anchor Shift+Arrow would move, without
+            // moving it. Nudging and cycling both change state; this is the only
+            // way to just ask.
+            string? anchor = _drawings?.SelectedAnchorSummary();
+            if (anchor != null) msg += ". " + anchor;
+
+            _speechRouter.Speak(msg, interrupt: true);
         }
 
         // ── Chart-pattern description (opt-in) ─────────────────────────────────

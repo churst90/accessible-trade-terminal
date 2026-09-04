@@ -9,12 +9,8 @@
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-2",
+        "id": "aria-speech-1",
         "text": "Object tree dialog opened"
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        Ready"
       },
       {
         "id": "blazor-error-ui",
@@ -36,12 +32,8 @@
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-1",
+        "id": "aria-speech-2",
         "text": "Object tree dialog closed"
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        Ready"
       },
       {
         "id": "blazor-error-ui",
@@ -65,10 +57,6 @@
       {
         "id": "aria-speech-1",
         "text": "Focus on trading chart area."
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        Focus on trading chart area."
       },
       {
         "id": "blazor-error-ui",
@@ -98,12 +86,8 @@
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-1",
+        "id": "aria-speech-2",
         "text": "No chart loaded."
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        No chart loaded."
       },
       {
         "id": "blazor-error-ui",
@@ -133,12 +117,8 @@
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-1",
+        "id": "aria-speech-2",
         "text": "Speech on"
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        Ready"
       },
       {
         "id": "blazor-error-ui",
@@ -168,12 +148,8 @@
     ],
     "liveRegions": [
       {
-        "id": "aria-speech-1",
+        "id": "aria-speech-2",
         "text": "no symbol on Bitstamp, 1h"
-      },
-      {
-        "id": "",
-        "text": "Last Feedback:\n        CONTEXT_SUMMARY"
       },
       {
         "id": "blazor-error-ui",
