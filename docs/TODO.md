@@ -132,9 +132,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > box without Orca) it is the browser + live region. On this box Orca answers
 > (`gdbus … GetVersion` → `51.alpha`), and `~/.local/share/AccessibleTrader/dotpad.log`
 > shows the app ran locally at 02:39 today — so Cody's local sessions are on the D-Bus path
-> and his hosted sessions are on the live-region path. Findings A1 and A3(i) are the
-> live-region path; A2 and A3(ii) are the D-Bus path. **Ask Cody which one he was on when he
-> noticed it, and whether `m` merely went quiet or the series did not mute** (A5).
+> and his hosted sessions are on the live-region path. Findings A0, A0b, A1 and A3(i) are the
+> live-region path; A2 and A3(ii) are the D-Bus path. **One of the two questions this block
+> opened with is ANSWERED:** Cody confirms "m does mute, h does hide, it's just the speech
+> doesn't always report it" — so the command reaches the dispatcher every time and the loss is
+> purely in the announcement channel. That rules out the JS single-letter focus gate (A5)
+> and every app-side drop, and it is what makes A0 the whole explanation on this path. Still
+> open: which head he was on when he noticed it (see A0's last sentence).
 >
 > **A0. THE HEADLINE, MEASURED DOWN TO THE ACCESSIBILITY BUS: the status bar is a SECOND
 > live region carrying the SAME sentence, and Orca drops both copies whenever the status
@@ -180,6 +184,31 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > mirror should make every feedback sentence speak TWICE** — once from `PresentMessage`, once
 > from the polite region 100 ms later — ask Cody whether he hears doubles; if not, that is
 > the next thing to measure.
+>
+> **A0b. Why it reads as THREE lines, and what makes it one — MEASURED via CDP
+> `Accessibility.getFullAXTree` (probe run and deleted).** It is not three status bars. The
+> tree carries three `role=status` nodes in document order, and after one Ctrl+Alt+Shift+N:
+> `aria-speech-1` holds the sentence (1 child), `aria-speech-2` is empty (0 children),
+> `.status-content` holds the SAME sentence (1 child) — **exactly Cody's "first one blank,
+> second says candles body unmuted, third says the same thing"**, with the blank one being
+> whichever speech buffer is idle. Browse mode walks all three because
+> `.visually-hidden` hides them from SIGHT, not from the accessibility tree — that is the
+> point of the class, and it is applied correctly (measured on the wrapper: `position:
+> absolute; width/height 1px; clip: rect(0,0,0,0)`; a suspicion that the class was not
+> reaching them was REFUTED — computed style read on the CHILD div reports `clip: auto`,
+> because the class sits on the parent, and that misread cost one measurement).
+> **The consequence for the fix in A0: removing `aria-live` from the status bar stops the
+> silence but does NOT reduce the line count**, because the speech buffers keep their last
+> sentence in the DOM forever. To get Cody's "one line", the buffers must also be CLEARED a
+> short time after announcing (~2 s). **Clearing is announce-safe, and that is read from
+> Orca's source, not assumed:** `live_region_presenter.is_presentable_live_region_event`
+> returns False for anything that is not `object:text-changed:insert`, so a pure deletion is
+> never presented; and the queued message carries its own captured `text`, so a later DOM
+> clear cannot truncate what is already queued. Measured: after clearing both buffers, only
+> `.status-content` still carries text — one line. Two constraints on the timer: it must sit
+> well outside Orca's 0.25 s duplicate window (2 s does), and it must land with the A1 fix,
+> since a clear that flips `_activeBuffer` would re-introduce the alternation bug from the
+> other side.
 >
 > **A1. MEASURED in the browser harness (probe written, run, and deleted — not committed):
 > the two-region live-region alternation never operates for interrupting speech — a real
@@ -269,13 +298,18 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > drop: `m`/`h` publish a StateChange sentence on every press (`ChartCommandManager.cs:146-187`);
 > Ctrl+Alt+Shift+G speaks at once (`HandleCycleAnchor`); Shift+Arrow speaks ONE sentence
 > 300 ms after the last press by design, silenced only by a Navigation feedback, an undo, a
-> modal opening, or a tab switch — all user-driven, nothing on the data path. Nothing in the
-> speech pipeline changed since 08-27; the 09-03 commits changed what is SAID. The JS
-> single-letter gate (`keyboard.js:518`, `_chartFocused`, set by a JS-interop round trip from
-> `ChartArea`'s focus/blur) drops `m`/`h` SILENTLY when the chart area has blurred — but
-> chords are not gated and Cody reports the chords acting, so focus wander would present as
-> `m` doing nothing at all, not as silence after the action. Hence the question in the
-> first paragraph.
+> modal opening, or a tab switch — all user-driven, nothing on the data path. **CORRECTED
+> after A0:** this section first said "nothing in the speech pipeline changed since 08-27;
+> the 09-03 commits changed what is SAID." That is wrong in the one way that matters.
+> `2a1b84af` (09-03) deleted the "Last Feedback:" label from the status bar, and the status
+> bar is a live region — so a 09-03 commit changed the announcement CHANNEL, not just its
+> content. **Cody's own reasoning was the correct one** ("this can't be an Orca issue because
+> this wasn't happening before we changed the status bar"): the regression is dated by the
+> commit that made the two regions' texts identical. The lesson is durable — a component that
+> mirrors spoken text is part of the speech pipeline whether or not it is filed under one.
+> The JS single-letter gate (`keyboard.js:518`, `_chartFocused`, set by a JS-interop round
+> trip from `ChartArea`'s focus/blur) drops `m`/`h` SILENTLY when the chart area has blurred,
+> and was a candidate until Cody confirmed the toggles DO act; it is now ruled out.
 >
 > ### B. A Narration tab in Settings — analysis and recommendation
 >
@@ -321,11 +355,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### RANKED — the order to build, superseding the eighth pass's list
 >
-> **1. A0: take the live region OFF the status bar** (`StatusBar.razor`: drop `role="status"
-> aria-live="polite"` from `.status-content`), with the DOM-scan guard, and re-run
-> `tools/atspi-listener.py` against the harness to show one insert per press. This is the
-> measured cause of the intermittent silence on the live-region path, it is one attribute,
-> and it is the primary channel for a blind user on the hosted site.
+> **1. A0 + A0b, one change with two halves, because Cody reported one symptom with two
+> causes.** (a) Take the live region OFF the status bar (`StatusBar.razor`: drop
+> `role="status" aria-live="polite"` from `.status-content`) — the measured cause of the
+> intermittent silence, one attribute, on the primary channel for a blind user on the hosted
+> site. (b) Clear the speech buffers ~2 s after announcing, so the bottom of the page reads
+> as ONE line instead of three. Guards: a DOM scan asserting exactly the two speech regions
+> carry `aria-live` and the status bar carries none; an AX-tree assertion that at most one
+> `role=status` node holds text once the clear has run; and `tools/atspi-listener.py`
+> re-run against the harness showing one insert per press. Land (b) with item 2, not before.
 > **2. A1: make `Silence()` stop flipping the live-region buffer**, with the probe turned
 > into a browser guard. Latent, small, same file family.
 > **3. A2: await the cancel in `SpeakViaOrca`** (one line, mirrors line 294), and run A4
