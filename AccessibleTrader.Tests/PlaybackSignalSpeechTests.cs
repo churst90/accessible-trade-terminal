@@ -192,7 +192,12 @@ namespace AccessibleTrader.Tests
             // been the wrong fix. Two clauses in one breath with no names is one indicator saying
             // two things — which is a different fact from two indicators agreeing, and agreement
             // is the whole reason a trader runs two.
-            var state = Playing(MarkerSeries(120, new[] { 41 }), cursor: 40);
+            // CHART scope, not series scope: since 2026-09-04 narration is scoped exactly the
+            // way the tones are, so a SERIES-scoped playback of Cipher B cannot say anything
+            // about Cipher SR — and the prefix rule this test states is about the case where it
+            // legitimately can. The scoping itself is pinned by PlaybackNarrationScopeTests.
+            var state = Playing(MarkerSeries(120, new[] { 41 }), cursor: 40)
+                        with { PlaybackScope = PlaybackScope.Chart };
 
             var cfg = new SeriesConfig
             {

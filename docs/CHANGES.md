@@ -4,6 +4,89 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### Five from Cody: two earcon families, a factory reset, narration that follows what you played, names that only appear when there are two of something, and N (2026-09-04)
+
+**Earcons split into two families, and Shift+F3 still mutes both.** Settings → Sonification →
+Earcons now carries **Market earcons** (an alert firing, a new bar opening, a strategy setup
+arming or reaching its entry) and **Interface earcons** (the edge of the chart or of a series, a
+mode toggled with F2 or F3, an action that succeeded or is being retried, the connection changing
+state). Both default ON, so an install that never opens the tab sounds exactly as it did.
+
+The split is by WHAT THE SOUND IS ABOUT rather than by where in the code it is raised, and the
+reason they are separable is rate against value: the boundary tone sounds on every further arrow
+press at the edge of a chart, a setup bell fires twice in a session, and one switch governed both.
+Every interface earcon is also SPOKEN, so turning that family off loses no information.
+
+**Errors and order outcomes are in NEITHER family** and neither switch reaches them. There is no
+compensating channel for a blind user — an error that makes no sound and no sentence did not
+happen, as far as they are concerned — and money moving is not a market observation or an
+interface confirmation, so a user who quietened the terminal must not thereby lose the sound of a
+stop being hit.
+
+**Settings → General → Factory reset.** Two-step, in place, the same shape as the paper-account
+reset a few rows above it (WCAG 3.3.4). It returns every preference, every keyboard rebinding,
+your own themes, your sound patches and earcon assignments, and the colours and sounds you gave
+individual indicators to what the terminal shipped with.
+
+**It names what SURVIVES as well as what goes, and that is the part worth reading.** Your API
+keys, your paper trading account and its history, and your saved workspaces are all kept. "All
+personalization will be lost" is the sentence a user is most likely to read as "including my API
+keys", and being wrong about that in the frightening direction stops people using a button they
+need. The keys are credentials rather than preferences and cannot be reconstructed from anything
+on the machine; the paper account is a trading record with its own two-step reset already; saved
+workspaces are documents the user named and can delete by name.
+
+Every subsystem is attempted even if an earlier one fails, and the count of failures is announced
+— a half-reset that stops at the first exception leaves a keyboard from one era and preferences
+from another, with no way to tell which.
+
+**Playback narration is scoped the way the tones are.** Space, Shift+Space and the component play
+all three used to narrate the WHOLE CHART, because the signal scan walked every active series with
+nothing telling it what was playing. Play one series and you now hear that series; play one
+component and you hear that component. The disclosure that explains a silence ("no series is set
+to narrate") is scoped the same way, which fixes it in exactly the case it was written for: an
+unflagged series played while some other series on the chart happened to be flagged.
+
+**The instance name appears only when there is something to tell it apart from.** Yesterday's fix
+named the parameters that differed from the indicator's DEFAULTS, which turned "Cipher B 9 12 60
+50 14 …" into "Cipher B 11" — better, and still not the rule. One Cipher B with a retuned RSI
+length is THE Cipher B on the chart, and "11" tells a listener nothing they can act on.
+
+Alone on the chart, an indicator is called what it is called. With siblings, the suffix is the
+parameters the COHORT disagrees on — in declared order, bare, the way traders write them ("EMA
+20", "MACD 12 26 9") — whether or not either instance sits at a default, because that is when the
+period is the thing you need. **Adding a second EMA renames the first one too**: a distinguishing
+suffix on one of a pair distinguishes it from nothing. Past three differing values the suffix
+becomes an ordinal ("Cipher B 2"), which is a name rather than a recitation and is still unique.
+
+**Four indicators stopped reading a parenthetical aloud.** "Market Structure (HH/HL/LH/LL)" is
+"Market Structure"; "Regime Filter (200 MA)", "Value Deviation (support / resistance zones)" and
+"Volatility Regime (fast/slow ratio)" likewise. Those glosses were written for a visual picker
+list and lived on the field a screen reader reads on every navigation — eight letters and four
+slashes, dozens of times a session. They are in each indicator's Description now, which is where
+the picker reads them from and where nothing says them out loud.
+
+**N is the third switch, beside H and M.** Hide, mute and narrate are the three switches on a
+chart object; two were a single letter and the third was `Ctrl+Alt+Shift+N`, which is why nobody
+remembered it existed. Worse, it resolved its target differently — always the SERIES, never the
+component under the cursor — so "M muted the component but N narrated the whole series" was the
+shipped behaviour. `Ctrl+Alt+Shift+N` is kept: it is the one that works with focus outside the
+chart.
+
+**And narration is per component now.** A Cipher B with eleven components was all-or-nothing:
+switch it on for the divergence you care about and you also got every cross, dot and band it
+prints. The component flags are a SELECTION under the series flag, and **an empty selection means
+ALL, not NONE** — otherwise every narrating series on every existing chart would have gone silent
+on upgrade, which is a feature deleting itself in a release nobody would connect to the change.
+So N on the series turns it on, N on a component narrows to it, and N on that component again
+widens back out. The confirmation says which of those three just happened, including the case
+where the component flag is set on a series that is not narrating and therefore nothing is spoken
+yet.
+
+`H`, `M` and `N` all **say "No chart loaded."** now instead of falling silently through the
+dispatcher's data gate. A single letter that does nothing and says nothing is indistinguishable
+from a key that stopped working.
+
 ### The name that recited its parameters, the prefix on every playback signal, and a switch for the calendar (2026-09-04)
 
 Three from Cody, all of them about the same thing: speech that repeats what the listener already

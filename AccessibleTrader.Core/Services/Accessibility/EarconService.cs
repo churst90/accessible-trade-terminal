@@ -98,15 +98,48 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _appSettings = appSettings;
         }
 
-        // ── Shift+F3 earcon mute tier ───────────────────────────────────────
-        // Ambient earcons gate on IsEarconsEnabled. Error earcons NEVER gate
+        // ── Shift+F3 earcon mute tier, and the two families under it ────────
+        //
+        // Shift+F3 (IsEarconsEnabled) is the MASTER: off silences every ambient
+        // earcon regardless of the two switches below. Error earcons NEVER gate
         // (silent-failure rule), and order-outcome earcons break through unless
         // the user opted them into the mute (speech.muteIncludesOrderEvents) —
         // mirroring the speech router's channel rules exactly.
-        private bool AmbientEarconsAudible() => _store?.State.IsEarconsEnabled ?? true;
+        //
+        // Under the master, an ambient earcon belongs to one of two families, and
+        // the split is by WHAT THE SOUND IS ABOUT rather than by where in the code
+        // it is raised:
+        //
+        //   CHART — the market did something. An alert fired, a bar opened, a
+        //   strategy setup armed or reached its entry. These carry information the
+        //   user came here for and cannot get any other way while their hands are
+        //   somewhere else.
+        //
+        //   INTERFACE — the terminal did something. The cursor hit the edge of the
+        //   data, a mode was toggled, an action succeeded or is being retried, the
+        //   connection changed state. These are confirmations of something the user
+        //   just did, and every one of them is also SPOKEN.
+        //
+        // They are separable because they fire at wildly different rates against
+        // wildly different value. Arrowing to the end of a chart rings the boundary
+        // tone on every further press; a setup bell might fire twice in a session.
+        // A user who wants the second has no way, today, to stop the first.
+        private bool MasterEarconsAudible() => _store?.State.IsEarconsEnabled ?? true;
 
+        /// <summary>Market earcons: alerts, new bars, setup bells. See the family note above.</summary>
+        private bool ChartEarconsAudible() =>
+            MasterEarconsAudible() && (_appSettings?.ChartEarconsEnabled ?? true);
+
+        /// <summary>Terminal earcons: boundaries, info, success, retry, connection state.</summary>
+        private bool InterfaceEarconsAudible() =>
+            MasterEarconsAudible() && (_appSettings?.InterfaceEarconsEnabled ?? true);
+
+        // Order-outcome earcons answer to the master and the opt-in ONLY. They are
+        // deliberately in NEITHER family: money moving is not a market observation
+        // and not an interface confirmation, and a user who muted one family to
+        // quieten the terminal must not thereby lose the sound of a stop being hit.
         private bool OrderEarconsAudible() =>
-            AmbientEarconsAudible() || !(_appSettings?.MuteIncludesOrderEvents ?? false);
+            MasterEarconsAudible() || !(_appSettings?.MuteIncludesOrderEvents ?? false);
 
         /// <summary>
         /// Mirrors a just-played earcon onto the visual channel (Phase D,
@@ -161,7 +194,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayAlert(bool breakThroughMutes = false)
         {
-            if (!breakThroughMutes && !AmbientEarconsAudible()) return;
+            if (!breakThroughMutes && !ChartEarconsAudible()) return;
             if (!CanPlay("alert")) return;
             SignalVisual("Alert", "warning");
             // Rising urgent pair; patch-overridable via the "Alert" earcon key.
@@ -171,7 +204,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayInfo()
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!InterfaceEarconsAudible()) return;
             if (!CanPlay("info")) return;
             SignalVisual("Info", "neutral");
             PlayWithPatchFallback("Info", 660, 0.1, "sine", 0.1f);
@@ -221,7 +254,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlaySuccess()
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!InterfaceEarconsAudible()) return;
             if (!CanPlay("success")) return;
             SignalVisual("Success", "positive");
             if (TryPlayPatch("Success")) return;
@@ -231,7 +264,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayRetry()
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!InterfaceEarconsAudible()) return;
             if (!CanPlay("retry")) return;
             SignalVisual("Retrying", "neutral");
             if (TryPlayPatch("Retry")) return;
@@ -241,7 +274,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayBoundary()
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!InterfaceEarconsAudible()) return;
             if (!CanPlay("boundary")) return;
             SignalVisual("Boundary", "neutral");
             PlayWithPatchFallback("Boundary", 150, 0.1, "square", 0.1f);
@@ -249,7 +282,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayNewBar()
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!ChartEarconsAudible()) return;
             if (!CanPlay("newbar")) return;
             SignalVisual("New bar", "neutral");
             if (_patchLibrary.EarconOverrides.EarconPatchIds.TryGetValue("NewBar", out var patchId))
@@ -276,7 +309,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         public void PlaySetupBell(OrderSide side, bool reconfirmation)
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!ChartEarconsAudible()) return;
             string key = $"setup_{(side == OrderSide.Buy ? "long" : "short")}_{(reconfirmation ? "rc" : "new")}";
             if (!CanPlay(key)) return;
             SignalVisual(side == OrderSide.Buy
@@ -305,7 +338,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlaySetupArmed(OrderSide side)
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!ChartEarconsAudible()) return;
             string key = $"setup_armed_{(side == OrderSide.Buy ? "long" : "short")}";
             if (!CanPlay(key)) return;
             SignalVisual(side == OrderSide.Buy ? "Long setup armed" : "Short setup armed",
@@ -327,7 +360,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlaySetupEntryReached(OrderSide side)
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!ChartEarconsAudible()) return;
             string key = $"setup_entry_{(side == OrderSide.Buy ? "long" : "short")}";
             if (!CanPlay(key)) return;
             SignalVisual(side == OrderSide.Buy ? "Long entry reached" : "Short entry reached",
@@ -396,7 +429,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void PlayConnectionState(ConnectionState state)
         {
-            if (!AmbientEarconsAudible()) return;
+            if (!InterfaceEarconsAudible()) return;
             if (!CanPlay($"conn_{state}")) return;
             SignalVisual($"Connection: {state}",
                 state == ConnectionState.Error || state == ConnectionState.Disconnected ? "alert" : "neutral");

@@ -24,6 +24,7 @@
 @inject IRuntimePlatform Platform
 @inject AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService Monitoring
 @inject AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService TabFeeds
+@inject ITerminalResetService TerminalReset
 @implements IDisposable
 
 @if (_isVisible)
@@ -214,6 +215,53 @@
                     </div>
                     <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Autosaves every 30 seconds and when you close the app, then reopens the same charts, tabs and indicators.</p>
 
+                </fieldset>
+
+                @* ── Factory reset (Cody, 2026-09-04) ──────────────────────────
+                   Same two-step shape as the paper reset above and for the same WCAG 3.3.4
+                   reason, with one addition: the confirmation names what SURVIVES as well as
+                   what goes. "All personalization will be lost" is the sentence a user is
+                   most likely to read as "including my API keys", and being wrong about that
+                   in the frightening direction stops people using a button they need.
+
+                   Not staged for Save, like the paper reset and for the same reason: this is
+                   an action, not a preference. It also CLOSES the dialog, because every
+                   control in it is now showing a value that no longer exists. *@
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Factory reset</legend>
+                    <div class="modal-row">
+                        <span style="flex:1;">All terminal settings</span>
+                        @if (_pendingFactoryReset)
+                        {
+                            <button id="s-factory-reset-confirm" type="button"
+                                    style="color:#c00; font-weight:700;"
+                                    aria-label="@($"Confirm factory reset. Erases {ResetErasedText} immediately. This cannot be undone. Your API keys, your paper account and your saved workspaces are kept.")"
+                                    title="Reset every setting to factory defaults"
+                                    @onclick="ConfirmFactoryReset">Confirm reset</button>
+                            <button id="s-factory-reset-cancel" type="button"
+                                    aria-label="Cancel, keep my settings as they are"
+                                    title="Keep my settings"
+                                    @onclick="CancelFactoryReset">Cancel</button>
+                        }
+                        else
+                        {
+                            @* WCAG 2.5.3 Label in Name: the announced name must CONTAIN the visible
+                               text, so the extra words go AFTER it — "all terminal settings" broke
+                               containment on the word "terminal". *@
+                            <button id="s-factory-reset" type="button"
+                                    aria-label="Reset all settings to defaults. Every preference, rebinding, theme and sound goes back to how the terminal shipped. Asks for confirmation first."
+                                    @onclick="ArmFactoryReset">Reset all settings to defaults</button>
+                        }
+                    </div>
+                    <p style="margin:-8px 0 4px; color:var(--text-muted); font-size:0.9em;">
+                        <strong>Warning:</strong> all personalization and settings will be lost and
+                        the terminal will be reset to factory defaults. This erases
+                        @ResetErasedText. There is no undo.
+                    </p>
+                    <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        Kept: @ResetSurvivesText. Restart the terminal afterwards so every part of
+                        it re-reads the defaults.
+                    </p>
                 </fieldset>
 
                 @if (Demo.AllowBackgroundMonitoring)
@@ -584,9 +632,10 @@
                                @onchange="e => _narrateSignals = e.Value is bool b ? b : Store.State.NarrateSignalsOnBarClose" />
                     </div>
                     <p id="s-narrate-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        Control Alt Shift N chooses which series speak; this switch is the master
-                        for all of them. Off means no indicator narrates on a bar close, whatever
-                        is flagged.
+                        N on a series (or Control Alt Shift N from anywhere) chooses which speak,
+                        and N on a component narrows it to the components you picked; this switch
+                        is the master for all of them. Off means no indicator narrates on a bar
+                        close, whatever is flagged.
                     </p>
 
                     <div class="modal-row">
@@ -660,6 +709,47 @@
                     <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                         One instrument per indicator family, so the RSI, the MACD and the price
                         line are told apart by timbre. Applies to indicators you add from now on.
+                    </p>
+                </fieldset>
+
+                @* ── The two earcon families (Cody, 2026-09-04) ────────────────────
+                   Shift+F3 stays the master mute over both. These decide which family it
+                   is muting when it is off. Split by WHAT THE SOUND IS ABOUT, because
+                   that is what the appetites differ over: the boundary tone fires on
+                   every further arrow press at the edge of a chart, the setup bell fires
+                   twice a session, and until now one switch governed both. *@
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Earcons</legend>
+                    <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
+                        Short tones that stand in for a sentence. Shift+F3 mutes all of them at
+                        once; these two choose what that mute is switching off. Error tones and
+                        order outcomes are never silenced by either.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-earcons-chart">Market earcons</label>
+                        <input id="s-earcons-chart" type="checkbox"
+                               aria-describedby="s-earcons-chart-hint"
+                               checked="@_chartEarcons"
+                               @onchange="e => _chartEarcons = e.Value is bool b ? b : _chartEarcons" />
+                    </div>
+                    <p id="s-earcons-chart-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Sounds about the market: an alert firing, a new bar opening, a strategy
+                        setup arming or reaching its entry.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-earcons-interface">Interface earcons</label>
+                        <input id="s-earcons-interface" type="checkbox"
+                               aria-describedby="s-earcons-interface-hint"
+                               checked="@_interfaceEarcons"
+                               @onchange="e => _interfaceEarcons = e.Value is bool b ? b : _interfaceEarcons" />
+                    </div>
+                    <p id="s-earcons-interface-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Sounds about the terminal: the edge of the chart or of a series, a mode
+                        toggled with F2 or F3, an action that succeeded or is being retried, the
+                        connection changing state. Every one of these is also spoken, so turning
+                        them off loses no information.
                     </p>
                 </fieldset>
 
@@ -1086,6 +1176,7 @@
         new("Paper trading", "General", "s-paper-trading", "simulated practice demo"),
         new("Quick trade sizing", "General", "s-quick-sizing", "position size risk percent notional allocation stop"),
         new("Reset paper account", "General", "s-paper-reset", "balance restart"),
+        new("Reset all settings to defaults", "General", "s-factory-reset", "factory reset defaults erase wipe personalization start over clean"),
         new("Resume last session at startup", "General", "s-resume-session", "autosave restore workspace"),
         new("Keep watching other tabs", "General", "s-bg-monitor", "background monitoring alerts strategies"),
         new("Check every", "General", "s-bg-poll", "background poll seconds interval refresh"),
@@ -1113,6 +1204,8 @@
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
         new("Sound under the mouse", "Sonification", "s-hover-sonif", "hover pointer sonification"),
         new("Sound theme", "Sonification", "s-sound-theme", "instrument voices patch orchestra"),
+        new("Market earcons", "Sonification", "s-earcons-chart", "earcon alert new bar setup bell signal indicator tone beep chart"),
+        new("Interface earcons", "Sonification", "s-earcons-interface", "earcon boundary edge beep success retry info connection modal toggle terminal application tone"),
         new("Theme", "Appearance", "s-theme", "dark light contrast solarized braille colors background gradient new clone edit"),
         new("Draw chart formations", "Appearance", "s-pattern-visuals", "pattern shape double top triangle target trigger visual low vision"),
         new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
@@ -1213,6 +1306,7 @@
             // reaching for. One more Escape closes the dialog as usual. Same rule as
             // ApiKeysModal's armed removal.
             if (_pendingPaperReset) InvokeAsync(CancelPaperReset);
+            else if (_pendingFactoryReset) InvokeAsync(CancelFactoryReset);
             else InvokeAsync(Cancel);
         });
         ThemeService.ThemeChanged += OnThemeServiceChanged;
@@ -1351,6 +1445,10 @@
     private bool _brailleEnabled;
     private bool _brailleEnabledInitial;
     private bool _muteIncludesOrderEvents;
+
+    /// <summary>The two earcon families under the Shift+F3 master. Both default on.</summary>
+    private bool _chartEarcons;
+    private bool _interfaceEarcons;
     private bool _bgLocalMonitor;
 
     // Web-head-only speech-output control (double-speech fix). Null on MAUI —
@@ -1555,6 +1653,85 @@
         catch { }
     }
 
+    // ── Factory reset ────────────────────────────────────────────────────────────
+    //
+    // The wording comes from ITerminalResetService rather than being written here, so the
+    // sentence a user is asked to agree to cannot drift from the calls that carry it out.
+
+    /// <summary>Armed and waiting for Confirm or Cancel. Cleared on open and close, like
+    /// <see cref="_pendingPaperReset"/>.</summary>
+    private bool _pendingFactoryReset;
+
+    private string ResetErasedText   => JoinPhrases(TerminalReset.WhatIsErased);
+    private string ResetSurvivesText => JoinPhrases(TerminalReset.WhatSurvives);
+
+    /// <summary>"a, b and c" — spoken lists need the conjunction; a comma before the last item
+    /// is heard as another item.</summary>
+    private static string JoinPhrases(IReadOnlyList<string> parts)
+        => parts.Count switch
+        {
+            0 => "",
+            1 => parts[0],
+            _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
+        };
+
+    private async Task ArmFactoryReset()
+    {
+        _pendingFactoryReset = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Warning: all personalization and settings will be lost and the terminal will be "
+          + $"reset to factory defaults. This erases {ResetErasedText}. Kept: {ResetSurvivesText}. "
+          + "It cannot be undone. Are you sure? Confirm reset, or cancel."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-factory-reset-confirm"); }
+        catch { }
+    }
+
+    private async Task CancelFactoryReset()
+    {
+        _pendingFactoryReset = false;
+        StateHasChanged();
+        await Task.Yield();
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            "Cancelled. Nothing was reset."));
+
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-factory-reset"); }
+        catch { }
+    }
+
+    private async Task ConfirmFactoryReset()
+    {
+        _pendingFactoryReset = false;
+        int failures = TerminalReset.ResetEverything();
+
+        // Re-read every staged field from the defaults that now answer, THEN close. Without
+        // this the dialog's own Save on a later visit would write the pre-reset values back
+        // out of the fields still holding them — the reset undone by the next Save, which is
+        // the failure mode a staged-commit dialog invites and the reason this is not just a
+        // call and a close.
+        ResetLocal();
+
+        EventBus.Publish(new FeedbackRequestEvent(
+            failures == 0 ? FeedbackType.StateChange : FeedbackType.Error,
+            failures == 0
+                ? "Terminal reset to factory defaults. Restart the terminal so every part of it "
+                + "re-reads them. Your API keys, paper account and saved workspaces were kept."
+                : $"Reset finished with {failures} problem{(failures == 1 ? "" : "s")}. Some settings "
+                + "may not have been cleared — see the log. Restart the terminal.",
+            true));
+
+        // Close, without going through Cancel: Cancel reverts the live-preview controls to the
+        // values the dialog OPENED with, which are the pre-reset ones — it would hand back the
+        // theme and text size the reset just cleared.
+        _isVisible = false;
+        EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
+        StateHasChanged();
+    }
+
     private void ResetLocal()
     {
         _speakTimestamps = Store.State.SpeakTimestamps;
@@ -1575,6 +1752,8 @@
         _brailleEnabled = App.BrailleEnabled;
         _brailleEnabledInitial = _brailleEnabled;
         _muteIncludesOrderEvents = App.MuteIncludesOrderEvents;
+        _chartEarcons     = App.ChartEarconsEnabled;
+        _interfaceEarcons = App.InterfaceEarconsEnabled;
         _bgLocalMonitor = Settings.GetSetting("monitoring.backgroundLocal")?.ToObject<bool>() ?? false;
 
         // Optional web-head capability (null on MAUI). Seed the dropdown from the
@@ -1660,6 +1839,7 @@
         // and leaving it armed would put "Confirm reset" under the cursor the next time the
         // dialog opened, one keypress from erasing an account nobody asked about.
         _pendingPaperReset = false;
+        _pendingFactoryReset = false;
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
@@ -1791,6 +1971,8 @@
         Settings.SetSetting(SettingsKeys.QuickTradeSizingMode, Newtonsoft.Json.Linq.JToken.FromObject(_quickSizingMode));
         App.BrailleEnabled = _brailleEnabled;
         App.MuteIncludesOrderEvents = _muteIncludesOrderEvents;
+        App.ChartEarconsEnabled     = _chartEarcons;
+        App.InterfaceEarconsEnabled = _interfaceEarcons;
         App.TimestampReadLocation = _timestampWhere;
         App.SpeechOrder = _speechOrder;
 
@@ -1842,6 +2024,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Settings saved.", true));
 
         _pendingPaperReset = false;   // see Cancel: an armed question must never outlive the dialog
+        _pendingFactoryReset = false;
         _isVisible = false;
         EventBus.Publish(new ModalStateChangedEvent(false, "Settings"));
         StateHasChanged();

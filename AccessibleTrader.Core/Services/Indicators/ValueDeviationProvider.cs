@@ -78,7 +78,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code = Code,
                 Causality = ComponentCausality.Causal,
-                Name = "Value Deviation (support / resistance zones)",
+                // Parenthetical dropped from the spoken name — see SwingStructureProvider.
+                Name = "Value Deviation",
                 Category = "Overlays",
                 DefaultPane = "Main",
                 RequiresFullRecalcOnTick = true,

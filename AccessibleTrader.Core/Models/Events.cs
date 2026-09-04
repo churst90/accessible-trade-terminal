@@ -15,6 +15,15 @@ namespace AccessibleTrader.Core.Models
     public record ToggleMuteEvent(string Scope = "AUTO", string? SeriesId = null);
     public record ToggleHideEvent(string Scope = "AUTO", string? SeriesId = null);
 
+    /// <summary>
+    /// N — narrate this, where "this" is the focused component or the focused series depending
+    /// on which the user last moved through. Same shape and the same resolution rule as
+    /// <see cref="ToggleMuteEvent"/> and <see cref="ToggleHideEvent"/>, which is the point:
+    /// hide, mute and narrate are the three switches on a chart object, and before 2026-09-04
+    /// two of them were a letter and the third was Ctrl+Alt+Shift+N and series-only.
+    /// </summary>
+    public record ToggleNarrationEvent(string Scope = "AUTO", string? SeriesId = null);
+
     // ── Tools ─────────────────────────────────────────────────────────────────
     public enum ToolType { Heatmap, VolumeProfile, MarketProfile }
     public record ToggleToolEvent(ToolType Tool);

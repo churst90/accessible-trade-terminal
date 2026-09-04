@@ -24,6 +24,7 @@ namespace AccessibleTrader.Tests
             public void SetSetting(string keyPath, JToken value) => Store[keyPath] = value;
             public JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() => SaveCount++;
+            public void ResetToDefaults() { SaveCount++; }
         }
 
         private static (PreferencePersistenceService svc, IWorkspaceStore store, FakeSettings fake,

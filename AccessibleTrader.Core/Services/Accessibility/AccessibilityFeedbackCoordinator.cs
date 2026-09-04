@@ -57,6 +57,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // of a run is never suppressed by the last signal of the previous one.
         private int _lastPlaybackSignalBar = -1;
 
+        /// <summary>
+        /// The plan the current run is playing, captured at the moment playback started.
+        ///
+        /// <para>
+        /// Held rather than re-resolved per step so the words and the tones cannot describe
+        /// different series. <c>PlaybackPlan.Resolve</c> reads <c>FocusedSeriesId</c> and
+        /// <c>FocusedComponentIndex</c>, and both can move under the user's hands mid-run;
+        /// the sequencer is playing what those fields said when Space was pressed, and speech
+        /// has to be about the same thing.
+        /// </para>
+        /// </summary>
+        private Audio.PlaybackPlan? _playbackPlan;
+
         // Candle pattern debounce: only re-announce when pattern changes, not on every tick.
         private CandlePattern _lastAnnouncedPattern = CandlePattern.None;
         private CandleType _lastAnnouncedType = CandleType.Normal;
@@ -357,6 +370,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // moves nothing and the first real step must be allowed to land a landmark.
                 _awaitingFirstPlaybackStep = state.CurrentDataIndex != plan.StartIndex;
                 _lastPlaybackSignalBar = -1;
+                _playbackPlan = plan.IsPlayable ? plan : null;
             }
             else if (playingToggled)
             {
@@ -726,7 +740,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int minGap = PlaybackNarration.MinBarsBetweenSignals(state.PlaybackSpeed);
                 if (_lastPlaybackSignalBar < 0 || bar - _lastPlaybackSignalBar >= minGap)
                 {
-                    string? signals = PlaybackNarration.SignalsForStep(state, bar);
+                    string? signals = PlaybackNarration.SignalsForStep(state, bar, _playbackPlan);
                     string outcomes = ChartPatternOutcomesAt(state, state.Data, bar).Trim();
                     events = string.Join(" ", new[] { signals, outcomes }
                         .Where(x => !string.IsNullOrWhiteSpace(x)));

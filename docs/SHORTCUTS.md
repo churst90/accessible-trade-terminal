@@ -247,7 +247,8 @@ utterance per bar** so nothing can cut anything else off:
    (a new hour on minute bars, a new day on hourly, a new month on daily, a new year on weekly —
    the finest unit that keeps the announcements about two seconds apart at the current speed) the
    new period is spoken without interrupting.
-2. **Signals**, from the series you flagged with `Ctrl+Alt+Shift+N` and only those: a marker
+2. **Signals**, from the series you flagged with `N` and only those — and, when you played one
+   series or one component rather than the whole chart, only the ones inside what you played: a marker
    signal printing on the bar just reached, named with its series — *"Cipher B: bull signal at
    64,900."* Discrete signals only; never crossings, zone changes or oscillator commentary.
 3. **A formation resolving** on that bar, if *Describe chart patterns* is on, in the same words
@@ -298,6 +299,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|-----------------|
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
+| N | Narrate the focused series or component — speak its signals unprompted | "{Series} narrating" / "{Series}: {Component}, narrating" |
 | 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane a new line goes at zero; on the **price** pane there is no meaningful zero, so it goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Level removed." / "No price under the cursor to place a level at." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 | Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |
@@ -339,7 +341,7 @@ state, last swing high and low, and where price sits between them.
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
 | Ctrl+Shift+D (web: Alt+Shift+D) | Full candle analysis for the current bar — **including the multi-bar patterns** (engulfing, harami, piercing line, morning and evening star, three white soldiers, three black crows) with how many bars they span and whether they read as reversal or continuation — plus indicator values, **plus every chart formation the cursor sits inside** with its trigger and measured target. Never silenced by *Describe candle patterns*: this key is you asking | Spoken summary |
-| Ctrl+Alt+Shift+N | Toggle auto-narration for the focused series on/off. Picks WHICH series speak; Settings → Narration decides WHEN (bar close, playback) | "Narration on/off" |
+| Ctrl+Alt+Shift+N | The same as `N`, but works with focus outside the chart. Picks WHAT speaks; Settings → Narration decides WHEN (bar close, playback); the scope you played decides WHICH of them | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 
 ---

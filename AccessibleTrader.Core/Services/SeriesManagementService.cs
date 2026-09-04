@@ -117,12 +117,16 @@ namespace AccessibleTrader.Core.Services
             {
                 foreach (var p in parameters) config.Parameters[p.Key] = p.Value;
 
-                // The metadata-free path: no declared defaults to compare against, so the only
-                // safe reduction is a length cap. Blunter than the metadata path above by
-                // necessity, not by choice — without knowing which values are the indicator's own,
-                // dropping one could drop the only thing distinguishing two instances.
-                config.FriendlyName = IndicatorInstanceName.ForValues(
-                    n, parameters.Values.Select(v => v.ToString("G", System.Globalization.CultureInfo.InvariantCulture)));
+                // The metadata-free path: no declared parameters, so no order to name them in and
+                // no defaults to fall back to. It gets the one reduction that needs neither —
+                // values only when there IS a sibling to be told apart from — and then a length
+                // cap, because without knowing which values are the indicator's own, dropping one
+                // could drop the only thing distinguishing two instances.
+                if (SiblingParameterSets(indicatorCode, exceptSeriesId: null).Count > 0)
+                {
+                    config.FriendlyName = IndicatorInstanceName.ForValues(
+                        n, parameters.Values.Select(v => v.ToString("G", System.Globalization.CultureInfo.InvariantCulture)));
+                }
             }
 
             // Ensure components are populated. Uses the new snake_case machine names
@@ -224,12 +228,12 @@ namespace AccessibleTrader.Core.Services
             var paramList = parameters?.Select(kvp => (kvp.Key, FormatParam(kvp.Value))).ToList()
                             ?? new List<(string, string)>();
 
-            // Build the instance name. It used to join EVERY parameter value onto the indicator
-            // name, which reads correctly on "EMA 20" and turns Cipher B into eight bare numbers
-            // on the name a user hears most often. IndicatorInstanceName keeps only what DIFFERS
-            // from the indicator's declared defaults — the part that actually tells two instances
-            // apart — and caps even that. See its summary for the rule and the report behind it.
-            string instanceName = IndicatorInstanceName.For(meta, parameters);
+            // Build the instance name from what ELSE of this indicator is already on the chart.
+            // Alone it is called what it is called; with siblings the suffix is the parameters
+            // the cohort disagrees on. See IndicatorInstanceName for the rule and the two reports
+            // behind it.
+            var siblings = SiblingParameterSets(indicatorCode, exceptSeriesId: restoreId);
+            string instanceName = IndicatorInstanceName.For(meta, parameters, siblings);
 
             string pane = meta.DefaultPane ?? _stylingService.GetPane(indicatorCode);
 
@@ -249,6 +253,12 @@ namespace AccessibleTrader.Core.Services
 
             _store.Dispatch(new AddSeriesAction(series));
 
+            // A distinguishing suffix on ONE of a pair does not distinguish. The first EMA was
+            // named "EMA" while it was alone and has to become "EMA 20" the moment a second
+            // arrives, so the whole cohort is re-named together after the add — including the
+            // one just added, whose siblings list did not yet contain the others' final names.
+            RenameCohort(indicatorCode, meta);
+
             // Clear any stale saved ratio for a newly-added non-main pane so it starts at
             // equal-weight height rather than inheriting a previous drag value.
             if (series.Config.Pane != "Main")
@@ -260,6 +270,92 @@ namespace AccessibleTrader.Core.Services
 
             if (codeUp != "CANDLES" && codeUp != "PRICE" && codeUp != "VOLUME")
                 _eventBus.Publish(new IndicatorUpdatedEvent(series.Config.Id));
+        }
+
+        // ── COHORT NAMING ────────────────────────────────────────────────────────────────
+        //
+        // "Cohort" is every series on the chart running the same indicator. A name only has to
+        // distinguish within one, so the cohort is what the name is computed against and the
+        // cohort is what gets renamed when it changes size.
+
+        /// <summary>
+        /// The parameter sets of the other instances of <paramref name="indicatorCode"/> already
+        /// on the chart. <paramref name="exceptSeriesId"/> excludes a series being RESTORED into
+        /// its own id — without it a workspace reload would see each series as its own sibling.
+        /// </summary>
+        private IReadOnlyList<IReadOnlyDictionary<string, object>> SiblingParameterSets(
+            string indicatorCode, string? exceptSeriesId)
+            => _store.State.ActiveSeries
+                .Where(s => !s.IsDrawing
+                         && string.Equals(s.Config.IndicatorCode, indicatorCode, StringComparison.OrdinalIgnoreCase)
+                         && (exceptSeriesId == null || !string.Equals(s.Id, exceptSeriesId, StringComparison.OrdinalIgnoreCase)))
+                .Select(s => ParameterSetOf(s.Config))
+                .ToList();
+
+        /// <summary>
+        /// One series' parameters as the <c>object</c> dictionary the namer compares.
+        ///
+        /// <para>
+        /// BOTH halves, and that is the whole reason this is a method. A SeriesConfig splits its
+        /// parameters into a numeric <c>Parameters</c> and a <c>StringParameters</c> beside it —
+        /// the same split that once reset every string parameter to its default on a workspace
+        /// reload, because a caller took the numeric half for the whole set. Two Moving Averages
+        /// that differ only in MA type differ in the STRING half; reading the numeric half alone
+        /// would find nothing to disagree about and name them both by ordinal.
+        /// </para>
+        /// </summary>
+        private static IReadOnlyDictionary<string, object> ParameterSetOf(SeriesConfig config)
+        {
+            var merged = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in config.Parameters) merged[kv.Key] = kv.Value;
+            foreach (var kv in config.StringParameters) merged[kv.Key] = kv.Value;
+            return merged;
+        }
+
+        /// <summary>
+        /// Re-derives the name of every instance of one indicator, each against the others.
+        ///
+        /// <para>
+        /// Run after an ADD, which is the direction that creates ambiguity: adding a second EMA
+        /// has to turn the first from "EMA" into "EMA 20", or the suffix distinguishes one of a
+        /// pair from nothing.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Deliberately NOT run after a remove.</b> Deleting the second EMA leaves the first
+        /// called "EMA 20" — one word longer than it needs to be, but still correct, still
+        /// unique, and still the name the user has been hearing for that object all session.
+        /// The alternative costs more than it saves: removal has eight call sites, several of
+        /// them bulk (workspace load clears the chart series by series), and a rename firing per
+        /// removal during a load would rename a cohort repeatedly against a shrinking set. The
+        /// name is re-derived the next time the cohort grows.
+        /// </para>
+        ///
+        /// <para>
+        /// Mutates the configs in place and dispatches one <c>UpdateSeriesAction</c>, the pattern
+        /// <c>WorkspaceInitializer</c> already uses to push a config edit through the store.
+        /// </para>
+        /// </summary>
+        private void RenameCohort(string indicatorCode, IndicatorMetadata meta)
+        {
+            var cohort = _store.State.ActiveSeries
+                .Where(s => !s.IsDrawing
+                         && string.Equals(s.Config.IndicatorCode, indicatorCode, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (cohort.Count == 0) return;
+
+            bool changed = false;
+            foreach (var s in cohort)
+            {
+                var siblings = cohort.Where(o => o != s).Select(o => ParameterSetOf(o.Config)).ToList();
+
+                string name = IndicatorInstanceName.For(meta, ParameterSetOf(s.Config), siblings);
+                if (string.Equals(s.Config.FriendlyName, name, StringComparison.Ordinal)) continue;
+                s.Config.FriendlyName = name;
+                changed = true;
+            }
+
+            if (changed) _store.Dispatch(new UpdateSeriesAction(_store.State.ActiveSeries));
         }
 
         public void RegisterSeriesFromConfig(SeriesConfig config)

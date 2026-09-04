@@ -44,7 +44,7 @@ namespace AccessibleTrader.Core.Models
         ToggleEarcons,       // Shift+F3: earcons (order-outcome + error earcons break through)
         ToggleBraille,       // F4: braille / tactile display output on/off
         OpenBrailleSettings, // Shift+F4: braille display settings (Settings dialog)
-        ToggleNarration,    // Ctrl+Alt+Shift+N: toggle auto-narration for the focused series
+        ToggleNarration,    // N (chart) / Ctrl+Alt+Shift+N (global): narrate the focused component or series
         // Navigation (Historical/Static)
         NavLeft,
         NavRight,

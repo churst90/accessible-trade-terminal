@@ -211,6 +211,43 @@ namespace AccessibleTrader.Core.Services
                 }
             }));
 
+            // ── NARRATE ──────────────────────────────────────────────────────────────
+            // The third switch on a chart object, resolved by the same rule as the two above
+            // it. The reducer owns the confirmation sentence because the three outcomes a
+            // component toggle can have are facts about the state AFTER the toggle — see
+            // SeriesReducer.ToggleNarration.
+            _subscriptions.Add(_eventBus.Subscribe<ToggleNarrationEvent>(ev => {
+                try
+                {
+                    var state = _store.State;
+                    var seriesId = ev.SeriesId ?? state.FocusedSeriesId ?? state.PrimarySeriesId;
+                    var s = state.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
+                    if (s == null)
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            FeedbackType.Error, "No series to narrate.", true));
+                        return;
+                    }
+
+                    bool isComponentScope = ev.Scope == "COMPONENT"
+                        || (ev.Scope == null && state.LastInteractionContext == InteractionContext.Component);
+
+                    if (isComponentScope && s.Components.Count > 0)
+                    {
+                        var c = s.Components[s.ClampComponent(state.FocusedComponentIndex)];
+                        _store.Dispatch(new ToggleNarrationAction(seriesId, c.Name));
+                    }
+                    else
+                    {
+                        _store.Dispatch(new ToggleNarrationAction(seriesId));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "[ChartCommandManager] ToggleNarrationEvent error");
+                }
+            }));
+
             // ── DELETE ───────────────────────────────────────────────────────────────
             _subscriptions.Add(_eventBus.Subscribe<DeleteSeriesEvent>(ev => {
                 try

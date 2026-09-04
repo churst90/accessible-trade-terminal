@@ -93,7 +93,8 @@ namespace AccessibleTrader.Tests
         // ── Earcon tiers ─────────────────────────────────────────────────────
 
         private static (EarconService svc, ISonificationManager sonify)
-            BuildEarcons(bool earconsOn, bool muteIncludesOrders = false)
+            BuildEarcons(bool earconsOn, bool muteIncludesOrders = false,
+                bool chartEarcons = true, bool interfaceEarcons = true)
         {
             var sonify = Substitute.For<ISonificationManager>();
             var lib = Substitute.For<ISoundPatchLibrary>();
@@ -102,6 +103,12 @@ namespace AccessibleTrader.Tests
             store.State.Returns(WorkspaceState.Initial with { IsEarconsEnabled = earconsOn });
             var settings = Substitute.For<IAppSettings>();
             settings.MuteIncludesOrderEvents.Returns(muteIncludesOrders);
+            // The two earcon families are opt-OUT — a real install has both on. A bare
+            // substitute returns false for a bool, so without these two lines every test below
+            // would be asserting against a terminal with the earcons switched off in Settings,
+            // and the ones expecting silence would pass for the wrong reason.
+            settings.ChartEarconsEnabled.Returns(chartEarcons);
+            settings.InterfaceEarconsEnabled.Returns(interfaceEarcons);
             return (new EarconService(sonify, lib, null, store, settings), sonify);
         }
 

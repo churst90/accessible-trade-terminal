@@ -12,6 +12,20 @@ namespace AccessibleTrader.Core.Services
         void SetSetting(string keyPath, JToken value);
         JObject GetEffectiveSettingsForSeries(string seriesId);
         void SaveSettings();
+
+        /// <summary>
+        /// Empties the settings document and writes it, so every <see cref="IAppSettings"/>
+        /// property falls back to its declared default.
+        ///
+        /// <para>
+        /// It clears the IN-MEMORY document as well as the file, and that is the whole reason it
+        /// lives here rather than being a file delete in the caller. This class caches the JObject
+        /// for the life of the process: deleting settings.json from underneath it would leave the
+        /// old values answering every read, and the next <see cref="SaveSettings"/> — one triggered
+        /// by any unrelated preference change — would write them straight back.
+        /// </para>
+        /// </summary>
+        void ResetToDefaults();
     }
 
     public class SettingsManager : ISettingsManager
@@ -118,6 +132,19 @@ namespace AccessibleTrader.Core.Services
             }
 
             current[keys.Last()] = value;
+        }
+
+        public void ResetToDefaults()
+        {
+            lock (_initLock)
+            {
+                // Touch Settings first so _filepath is resolved — on the WebHost that path is
+                // per-user and is only computed on first access. Resetting before it resolves
+                // would write the empty document to whatever directory happened to be current.
+                _ = Settings;
+                _settings = new JObject();
+            }
+            SaveSettings();
         }
 
         public JObject GetEffectiveSettingsForSeries(string seriesId)

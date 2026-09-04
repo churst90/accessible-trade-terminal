@@ -411,6 +411,7 @@ namespace AccessibleTrader.BlazorClient
             // lets the screener and the respect analyzer run against unloaded symbols.
             services.AddSingleton<IOfflineWorkspaceBuilder, OfflineWorkspaceBuilder>();
             services.AddSingleton<AccessibleTrader.Core.Services.Theming.IThemeLibrary, AccessibleTrader.Core.Services.Theming.JsonThemeLibrary>();  // user-made themes
+            services.AddSingleton<ITerminalResetService, TerminalResetService>();  // Settings → General → factory reset
             services.AddSingleton<IWatchlistLibrary, JsonWatchlistLibrary>();
             services.AddSingleton<IScreenerLibrary, JsonScreenerLibrary>();
             services.AddSingleton<IScreenerService, ScreenerService>();

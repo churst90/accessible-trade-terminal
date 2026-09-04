@@ -71,15 +71,22 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code = Code,
                 Causality = ComponentCausality.Causal,
-                Name = "Market Structure (HH/HL/LH/LL)",
+                // The parenthetical left this name on 2026-09-04. It was a picker-list gloss on a
+                // field that is SPOKEN — the instance name is what the arrow keys, Page Up/Down and
+                // the Object Tree read, dozens of times a session — and a screen reader renders
+                // "(HH/HL/LH/LL)" as eight letters and four slashes. The gloss belongs in
+                // Description, which is where the picker reads it from and where nothing reads it
+                // aloud on every navigation.
+                Name = "Market Structure",
                 Category = "Overlays",
                 DefaultPane = "Main",
                 // Pivots are written to historical indices, so a tick must trigger a full recompute
                 // exactly as Cipher SR does.
                 RequiresFullRecalcOnTick = true,
                 Description =
-                    "Labels swing highs and lows as higher/lower and reports the trend state they imply, " +
-                    "plus breaks of structure and changes of character. Descriptive, not predictive.",
+                    "Labels swing highs and lows as higher high, higher low, lower high or lower low " +
+                    "(HH/HL/LH/LL) and reports the trend state they imply, plus breaks of structure and " +
+                    "changes of character. Descriptive, not predictive.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
                     new() { Name = "Span", DisplayName = "Pivot span (bars each side)",

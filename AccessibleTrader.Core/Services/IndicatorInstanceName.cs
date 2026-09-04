@@ -17,18 +17,37 @@ namespace AccessibleTrader.Core.Services
     /// </para>
     ///
     /// <para>
-    /// THE NAME'S JOB IS TO TELL TWO INSTANCES APART, and that is the whole of it. So the suffix
-    /// carries only the parameters that DIFFER FROM THE INDICATOR'S OWN DEFAULTS: at defaults it
-    /// is silent, and the moment you add a second EMA at 50 the difference is the thing you hear.
-    /// A parameter left alone carries no information about this instance — it is a property of the
-    /// indicator, and the indicator is already named.
+    /// THE NAME'S JOB IS TO TELL TWO INSTANCES APART, and that is the whole of it. Which means
+    /// the question the suffix answers is not "did the user change anything" but <b>"is there
+    /// anything else on this chart it could be confused with"</b>.
     /// </para>
     ///
     /// <para>
-    /// And a cap, because "only what differs" is not a bound: someone who retunes an eight-
-    /// parameter indicator wholesale would be back where they started. Past
-    /// <see cref="MaxNamedParameters"/> the suffix becomes a count, which is short, honest, and
-    /// tells the user the two instances differ without reciting how.
+    /// <b>Differ from the DEFAULTS, or differ from the SIBLINGS?</b> The first version of this
+    /// compared against the indicator's declared defaults, which is a large improvement on
+    /// reciting everything and still not the rule. Cody, 2026-09-04: <i>"I don't like how it says
+    /// cipher b 11 … the reason I wanted those parameters listed was so I could identify things
+    /// like EMAs and SMAs on the chart so I could hear them with the period"</i>. One Cipher B
+    /// with a retuned RSI length is still THE Cipher B on the chart; "11" tells the listener
+    /// nothing they can act on, because there is nothing to tell it apart FROM. Two EMAs are the
+    /// case the period is needed for, and there the period is needed whether or not either of
+    /// them sits at the default.
+    /// </para>
+    ///
+    /// <para>
+    /// So the rule is <see cref="For(IndicatorMetadata, IReadOnlyDictionary{string, object}, IReadOnlyList{IReadOnlyDictionary{string, object}})"/>:
+    /// alone on the chart, an indicator is called what it is called. With siblings, the suffix is
+    /// the parameters on which the COHORT disagrees — in declared order, bare, which is how
+    /// traders write them anyway ("EMA 20", "MACD 12 26 9") — and nothing else. Add a second EMA
+    /// and the first one is renamed in the same breath, because a distinguishing suffix on one of
+    /// a pair is not distinguishing.
+    /// </para>
+    ///
+    /// <para>
+    /// And a cap, because "only what the cohort disagrees on" is not a bound: two instances of an
+    /// eight-parameter indicator retuned wholesale would be back where they started. Past
+    /// <see cref="MaxNamedParameters"/> the suffix becomes an ordinal — "Cipher B 2" — which is
+    /// short, is a name rather than a recitation, and is still unique, which is the entire job.
     /// </para>
     /// </summary>
     public static class IndicatorInstanceName
@@ -41,31 +60,66 @@ namespace AccessibleTrader.Core.Services
         public const int MaxNamedParameters = 3;
 
         /// <summary>
-        /// The instance name for a series being created from indicator metadata: the indicator's
-        /// name, plus the values of any parameters the user changed.
+        /// The instance name for a series being created from indicator metadata, given what else
+        /// of the same indicator is already on the chart.
         /// </summary>
-        public static string For(IndicatorMetadata meta, IReadOnlyDictionary<string, object>? parameters)
+        /// <param name="meta">The indicator's metadata — supplies the name, the declared parameter
+        /// ORDER (which is the order a trader writes the values in) and the defaults a sibling
+        /// that never stored a value falls back to.</param>
+        /// <param name="parameters">This instance's parameters.</param>
+        /// <param name="siblingParameters">The parameter sets of the OTHER instances of the same
+        /// indicator already on the chart. Empty or null means this one is alone, and an
+        /// indicator alone on the chart is called what it is called.</param>
+        public static string For(
+            IndicatorMetadata meta,
+            IReadOnlyDictionary<string, object>? parameters,
+            IReadOnlyList<IReadOnlyDictionary<string, object>>? siblingParameters = null)
         {
-            if (parameters == null || parameters.Count == 0) return meta.Name;
+            if (siblingParameters == null || siblingParameters.Count == 0) return meta.Name;
 
-            var changed = new List<string>();
-            foreach (var p in parameters)
+            var mine = parameters ?? new Dictionary<string, object>();
+
+            // Declared order first, then any undeclared keys alphabetically so the result is
+            // stable. Undeclared keys are INCLUDED as candidates: the metadata not knowing about
+            // a parameter is no reason to let two instances share a name because of it.
+            var declaredOrder = meta.Parameters?.Select(p => p.Name).ToList() ?? new List<string>();
+            var extraKeys = mine.Keys
+                .Concat(siblingParameters.SelectMany(d => d.Keys))
+                .Where(k => !declaredOrder.Any(d => string.Equals(d, k, StringComparison.OrdinalIgnoreCase)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+
+            var discriminating = new List<string>();
+            foreach (var key in declaredOrder.Concat(extraKeys))
             {
-                var declared = meta.Parameters?.FirstOrDefault(m =>
-                    string.Equals(m.Name, p.Key, StringComparison.OrdinalIgnoreCase));
-
-                // An UNDECLARED parameter is always spoken. The metadata cannot tell us it is at
-                // its default because it does not know it exists, and silently dropping a value
-                // that might be the only difference between two instances is the one outcome
-                // worse than reciting one too many.
-                if (declared == null) { changed.Add(Format(p.Value)); continue; }
-
-                if (!SameValue(declared.DefaultValue, p.Value)) changed.Add(Format(p.Value));
+                object? mineVal = Lookup(mine, key, meta);
+                bool anyDisagrees = siblingParameters.Any(sib => !SameValue(mineVal, Lookup(sib, key, meta)));
+                if (anyDisagrees) discriminating.Add(Format(mineVal));
             }
 
-            if (changed.Count == 0) return meta.Name;
-            if (changed.Count <= MaxNamedParameters) return $"{meta.Name} {string.Join(" ", changed)}";
-            return $"{meta.Name}, {changed.Count} custom parameters";
+            // Nothing disagrees: the chart holds two instances configured identically. Rare, and
+            // usually blocked upstream, but a name is still owed and "EMA" twice is not one.
+            // The ordinal is the honest answer — they really are the same indicator twice.
+            if (discriminating.Count == 0 || discriminating.Count > MaxNamedParameters)
+                return $"{meta.Name} {siblingParameters.Count + 1}";
+
+            return $"{meta.Name} {string.Join(" ", discriminating)}";
+        }
+
+        /// <summary>
+        /// A parameter's value for one instance: what it stored, or — when it stored nothing —
+        /// the indicator's declared default, which is the value that instance is running on.
+        /// Falling back to the default is what makes "one EMA at 20 that never wrote a Period,
+        /// one at 50 that did" come out as 20 against 50 rather than as blank against 50.
+        /// </summary>
+        private static object? Lookup(IReadOnlyDictionary<string, object> values, string key, IndicatorMetadata meta)
+        {
+            foreach (var kv in values)
+                if (string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase)) return kv.Value;
+
+            return meta.Parameters?
+                .FirstOrDefault(p => string.Equals(p.Name, key, StringComparison.OrdinalIgnoreCase))?
+                .DefaultValue;
         }
 
         /// <summary>
@@ -90,6 +144,9 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private static bool SameValue(object? declaredDefault, object? supplied)
         {
+            // Two absent values agree — otherwise a parameter neither instance has ever heard of
+            // would "disagree" for every pair and land in every name.
+            if (declaredDefault == null && supplied == null) return true;
             if (declaredDefault == null || supplied == null) return false;
 
             if (TryNumber(declaredDefault, out double a) && TryNumber(supplied, out double b))

@@ -356,7 +356,10 @@ namespace AccessibleTrader.Sdk.Models
     /// </summary>
     /// <param name="Unhide">True to show all; false to unmute all.</param>
     public record RestoreAllComponentsAction(bool Unhide) : WorkspaceAction;
-    public record ToggleNarrationAction(string? SeriesId = null) : WorkspaceAction;
+    /// <param name="ComponentName">Null toggles the SERIES flag (the master). A name toggles
+    /// that component's place in the series' narration selection — see
+    /// <c>SeriesNarrationScope</c> for how the two combine.</param>
+    public record ToggleNarrationAction(string? SeriesId = null, string? ComponentName = null) : WorkspaceAction;
     public record SetPlaybackAction(bool IsPlaying, PlaybackScope Scope = PlaybackScope.Chart) : WorkspaceAction;
     public record TogglePauseAction() : WorkspaceAction;
     public record ToggleHeikinAshiAction() : WorkspaceAction;

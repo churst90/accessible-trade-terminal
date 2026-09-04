@@ -190,7 +190,8 @@ public class SonificationStrategyPatchTests
         public void SavePatches() { }
         public EarconSettings EarconOverrides { get; } = new();
         public void SaveEarconOverrides() { }
-        public string ExportPatchJson(SoundPatch patch) => "";
+        public void ResetToDefaults() { }
+            public string ExportPatchJson(SoundPatch patch) => "";
         public SoundPatch? ImportPatchJson(string json) => null;
     }
 }

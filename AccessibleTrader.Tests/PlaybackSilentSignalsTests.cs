@@ -34,8 +34,11 @@ public class PlaybackSilentSignalsTests
         string caveat = PlaybackNarration.SilentSignalsCaveat(state);
 
         Assert.Contains("No series is set to narrate", caveat);
-        // Actionable, not merely apologetic: the remedy is one chord and the sentence names it.
-        Assert.Contains("Control Alt Shift N", caveat);
+        // Actionable, not merely apologetic: the remedy is one key and the sentence names it.
+        // It says "N" since 2026-09-04, when narration joined hide and mute as a single letter
+        // on the chart — naming the four-key chord instead would be telling a user the long way
+        // round to a thing their hands are already on.
+        Assert.Contains("Press N on a series", caveat);
     }
 
     [Fact]

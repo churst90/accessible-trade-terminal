@@ -30,6 +30,18 @@ namespace AccessibleTrader.Core.Services
         bool HoverSonification { get; set; }
         bool VisualEarcons { get; set; }
 
+        /// <summary>
+        /// Earcons about the MARKET — an alert firing, a new bar opening, a strategy setup
+        /// arming or reaching its entry. Default true.
+        /// </summary>
+        bool ChartEarconsEnabled { get; set; }
+
+        /// <summary>
+        /// Earcons about the TERMINAL — the edge of the data, a mode toggled, an action that
+        /// succeeded, a connection state. Default true.
+        /// </summary>
+        bool InterfaceEarconsEnabled { get; set; }
+
         // Appearance
         bool ColorVisionSafe { get; set; }
         bool HollowUpCandles { get; set; }
@@ -134,6 +146,19 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.VisualEarcons);
             set => Set(SettingsKeys.VisualEarcons, value);
+        }
+
+        // Both opt-OUT: an install that has never opened Settings must sound exactly as it
+        // did before the split, so the default has to be the pre-split behaviour.
+        public bool ChartEarconsEnabled
+        {
+            get => GetBool(SettingsKeys.ChartEarconsEnabled, def: true);
+            set => Set(SettingsKeys.ChartEarconsEnabled, value);
+        }
+        public bool InterfaceEarconsEnabled
+        {
+            get => GetBool(SettingsKeys.InterfaceEarconsEnabled, def: true);
+            set => Set(SettingsKeys.InterfaceEarconsEnabled, value);
         }
 
         public bool ColorVisionSafe

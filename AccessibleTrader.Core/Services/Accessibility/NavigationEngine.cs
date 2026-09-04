@@ -101,6 +101,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                     case "TOGGLE_MUTE": _eventBus.Publish(new ToggleMuteEvent()); break;
                     case "TOGGLE_HIDE": _eventBus.Publish(new ToggleHideEvent()); break;
+                    case "TOGGLE_NARRATE": _eventBus.Publish(new ToggleNarrationEvent()); break;
                     case "REMOVE_FOCUSED_SERIES":
                         string? id = state.FocusedSeriesId;
                         if (!string.IsNullOrEmpty(id) && id != "candles")

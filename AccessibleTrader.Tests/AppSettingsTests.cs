@@ -22,6 +22,7 @@ namespace AccessibleTrader.Tests
             public void SetSetting(string keyPath, JToken value) => Store[keyPath] = value;
             public JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() => SaveCount++;
+            public void ResetToDefaults() { Store.Clear(); SaveCount++; }
         }
 
         [Fact]

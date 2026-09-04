@@ -382,14 +382,36 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     ? VisibilityStateSpeech.Prefix(comp.IsVisible, comp.IsMuted)
                     : "";
 
+                // ── "NARRATING" ON A COMPONENT, AND WHY IT TRAILS RATHER THAN LEADS ──────
+                //
+                // Hidden and muted lead because they explain a SILENCE — there is no value
+                // coming, and losing that half to an interruption is what the prefix rule was
+                // written for. Narrating explains nothing of the kind: it is an addition, the
+                // value is coming as normal, and putting it in front would push every reading
+                // late on every Y-move for a fact that does not change between bars. It trails,
+                // like the series-level clause NavigationFeedbackManager already appends.
+                //
+                // Said ONLY when the series has a component selection. With no selection the
+                // whole series narrates, the series clause has already said so, and repeating
+                // it on all eleven components of a Cipher B is the noise this is meant to
+                // replace. With a selection it is the one thing the user cannot otherwise
+                // discover: WHICH of them is in it.
+                string narrationSuffix =
+                    isYMove
+                    && SeriesNarrationScope.SeriesNarrates(series)
+                    && SeriesNarrationScope.HasComponentSelection(series)
+                    && comp.IsAutoNarrated
+                        ? " Narrating."
+                        : "";
+
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
                     {
                         var result = strategy.Format(ctx);
-                        if (result != null) return statePrefix + result;
+                        if (result != null) return statePrefix + result + narrationSuffix;
                     }
 
-                return statePrefix + (_fallback.Format(ctx) ?? "");
+                return statePrefix + (_fallback.Format(ctx) ?? "") + narrationSuffix;
             }
             catch (Exception ex)
             {

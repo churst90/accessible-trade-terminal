@@ -820,10 +820,12 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   two seconds apart at whatever speed you are playing, so speeding up makes them coarser
   rather than more frequent.
 - **Signals, on the series you asked for.** A marker signal printing on the bar the tones
-  have just reached is spoken with the series that printed it — *"Cipher B: bull signal at
-  64,900."* This is the same per-series flag as live auto-narration: **Ctrl+Alt+Shift+N picks
-  what speaks, the Narration tab picks when.** Only discrete signals, never crossings, zone
-  changes or oscillator commentary — at ten bars a second those would be a wall of speech.
+  have just reached is spoken — *"Cipher B: bull signal at 64,900."* This is the same flag as
+  live auto-narration, and there are three questions behind what you hear: **N picks what MAY
+  speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
+  Space and the whole chart may speak; Shift+Space on one series and only that series does.
+  Only discrete signals, never crossings, zone changes or oscillator commentary — at ten bars a
+  second those would be a wall of speech.
 - **A formation resolving.** If you have "Describe chart patterns" on, a chart formation
   whose story ends on the bar being played is spoken there, in the same words the arrow keys
   would use if you stopped on it.
@@ -1039,7 +1041,7 @@ where price has moved by large percentages.
 
 ### Market structure
 
-**Market Structure (HH/HL/LH/LL)** is on your chart by default, and it is the
+**Market Structure** is on your chart by default, and it is the
 answer to "where am I?" before any indicator answers "what should I do?". It
 finds the swing highs and lows, labels each one against the one before it —
 higher high, higher low, lower high, lower low — and reports the trend state
@@ -1344,7 +1346,7 @@ why the readout ranks by size and describes the biggest live one first.
 
 ### Value zones
 
-**Value Deviation (support / resistance zones)** answers a different question:
+**Value Deviation** answers a different question:
 not where the swings are, but where *value* is, and where price has historically
 refused to go far from it.
 
@@ -1819,8 +1821,8 @@ action, not something to lean on every bar.
 ### Auto-narration and live announcements
 
 Where the AI Analyst is something you ask, auto-narration is something you switch on and
-forget. Press Ctrl+Alt+Shift+N to toggle it on for the series you have focused, and from
-then on the terminal watches that one indicator and **speaks new events as they occur on
+forget. Press **N** — the third switch on a chart object, beside H for hide and M for mute —
+and from then on the terminal watches that indicator and **speaks new events as they occur on
 live bar closes** — a fresh signal firing, or the oscillator entering or leaving an
 overbought or oversold zone. You will hear short, plain announcements as they happen:
 "RSI overbought", "MACD bullish crossover", "Stochastic leaving oversold". It announces
@@ -1828,16 +1830,27 @@ only what happens *after* you switch it on; it does not replay the history you a
 navigated. And because it is per-series, you can leave it running on the one indicator
 you care about and not be interrupted by the rest of the chart — set it on your RSI, say,
 and get on with reading price while the terminal keeps half an ear on momentum for you.
-Toggling it announces the new state, "Narration on" or "Narration off", so you always
-know whether it is listening. On the Linux web host the chord is unchanged — it has three
-modifiers, which browsers do not reserve.
+Toggling it announces the new state, "Narrating" or "Narration off", so you always
+know whether it is listening. `Ctrl+Alt+Shift+N` does the same thing and is the one to reach
+for when focus is somewhere other than the chart — it has three modifiers, which browsers do
+not reserve, so it works unchanged on the Linux web host.
 
-Two switches sit above it, both on the **Narration** tab of Settings (F12). "Narrate signals
-on bar close" is the master: Ctrl+Alt+Shift+N chooses which series speak, that switch decides
-whether any of them do, and turning it off is how you get an hour of quiet without un-flagging
-every indicator and having to remember what you had flagged. "Narrate during playback" decides
-whether those same flagged series speak while the chart is playing, covered back in the
-playback section.
+**N follows your cursor, exactly like H and M.** With the cursor on a series it switches the
+whole series; with the cursor on a *component* — Ctrl+Up and Ctrl+Down move between them — it
+picks out that one component. That matters on an indicator like Cipher B, which prints eleven
+components: switching the series on and leaving it there gives you all of them, and pressing N
+on the divergence line narrows narration to just that. Press N on it again and you are back to
+the whole series. So the rule is: **no component picked out means all of them**, and the series
+switch is always the master — a component flagged on a series that is not narrating says
+nothing yet, and the confirmation tells you so rather than leaving you waiting.
+
+Two switches sit above all of it, both on the **Narration** tab of Settings (F12). "Narrate
+signals on bar close" is the master: N chooses which series and components speak, that switch
+decides whether any of them do, and turning it off is how you get an hour of quiet without
+un-flagging every indicator and having to remember what you had flagged. "Narrate during
+playback" decides whether those same flagged series speak while the chart is playing, covered
+back in the playback section — and what you hear there is scoped to what you *played*, so
+Shift+Space on one series narrates that series and nothing else on the chart.
 
 Auto-narration is one of a small family of "let the terminal keep you posted" features
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
@@ -2707,10 +2720,11 @@ legible: a **candle** pattern is one to three bars (engulfing, harami, doji, ham
 **chart** formation is tens of them (double top, head and shoulders, triangle). Both answer
 to "narration" and "speech" in the settings search box.
 
-**Sonification** mirrors F3 and holds the sound theme and the sound-under-the-mouse option.
+**Sonification** mirrors F3 and holds the sound theme, the sound-under-the-mouse option and
+the two **earcon families** described below.
 **General** is where you switch **paper trading mode** on and choose what the quick-trade
 risk percentage means, plus workspace, background-monitoring, braille, touch-bar, analysis,
-drawing and viewport preferences. **Appearance** is the theme — most relevant to a sighted
+drawing and viewport preferences — and the **factory reset**, also below. **Appearance** is the theme — most relevant to a sighted
 collaborator looking over your shoulder — and the visual accommodations, plus the
 **visual profile** export/import. The **audio profile** export/import is on Sonification;
 each sits on the tab whose settings it writes.
@@ -2722,21 +2736,63 @@ button reading *Close*, and closing is what saved. A few controls still take eff
 moment you change them, and each of them says so as you do: the theme picker, interface
 scale, panning step, the paper-account reset, and the visual accommodations.
 
+#### The two earcon families (Sonification tab)
+
+Earcons — the short tones that stand in for a sentence — come in two families, and each has
+its own checkbox under **Shift+F3**, which remains the single mute over both.
+
+- **Market earcons** are the ones about the market: an alert firing, a new bar opening, a
+  strategy setup arming or reaching its entry.
+- **Interface earcons** are the ones about the terminal: the edge of the chart or of a series,
+  a mode toggled with F2 or F3, an action that succeeded or is being retried, the connection
+  changing state.
+
+Both start on, so an install that never opens this tab sounds exactly as it always did. They
+are worth separating because they fire at wildly different rates for wildly different reasons:
+the boundary tone sounds on *every further arrow press* at the edge of a chart, and a setup
+bell might fire twice in a session. One switch used to govern both, so quietening the first
+meant losing the second. Every interface earcon is also **spoken**, so turning that family off
+costs you the beep and nothing else.
+
+**Neither switch reaches error tones or order outcomes** — a fill, a stop, a take-profit, and
+every error. Those sound with both families off *and* with Shift+F3 muted. There is no
+compensating channel for an error you cannot see, and money moving is neither a market
+observation nor an interface confirmation.
+
+#### Factory reset (General tab)
+
+"Reset all settings to defaults" arms a confirmation the same way the paper-account reset
+does, and for the same WCAG 3.3.4 reason. It puts back to shipped defaults: every setting in
+this dialog, every keyboard rebinding, your own themes, your sound patches and earcon
+assignments, and the colours and sounds you gave individual indicators.
+
+**It keeps your API keys, your paper trading account and its history, and your saved
+workspaces**, and the confirmation says so — because "all personalization will be lost" is a
+sentence most people will read as "including my broker logins", and being wrong about that in
+the frightening direction is what stops someone using a button they need. Your keys are
+credentials rather than preferences and nothing on this machine could rebuild them; the paper
+account is a trading record with its own reset a few rows above; your workspaces are documents
+you named and can delete by name.
+
+Every part of the reset is attempted even if one of them fails, and you are told how many
+failed rather than simply "done" — a reset that stopped at the first problem would leave you
+with a keyboard from one era and preferences from another and no way to tell which. Restart
+the terminal afterwards so every part of it re-reads the defaults.
+
 #### The Narration tab
 
 Three switches, and the two new ones are both **on** to begin with. That is deliberate and it
 is not the terminal being chatty at you: neither switch lets anything new through on its own.
-Signal narration only ever speaks about series you flagged yourself with Ctrl+Alt+Shift+N, so
+Signal narration only ever speaks about series and components you flagged yourself with N, so
 on a chart where you have flagged nothing it has nothing to say; and playback narration is
 on because it is what the terminal already did. What is new is that you can now turn either
 of them **off**.
 
 - **Announce new bars** — the rolling "Close … New bar …" heartbeat of the live candle. It
   moved here from the Speech tab; nothing about it changed.
-- **Narrate signals on bar close** — the master switch over auto-narration.
-  Ctrl+Alt+Shift+N chooses *which* series speak; this decides whether any of them do. Turn
-  it off for an hour of quiet without having to un-flag six indicators and then remember
-  which six they were.
+- **Narrate signals on bar close** — the master switch over auto-narration. N chooses *which*
+  series and components speak; this decides whether any of them do. Turn it off for an hour of
+  quiet without having to un-flag six indicators and then remember which six they were.
 - **Narrate during playback** — the master switch for everything playback says beyond its
   own start, pause, speed and finish confirmations: the date or hour as the tones cross each
   boundary, the signals your narrated series print, and any chart formation that resolves.

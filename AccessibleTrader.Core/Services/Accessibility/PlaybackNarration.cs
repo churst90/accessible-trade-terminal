@@ -61,7 +61,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int count = state.Data!.Count - plan.StartIndex;
             string from = DateText(state.Data[plan.StartIndex].Date, barSeconds);
             return $"Playing {what} from {from}, {count} bar{(count == 1 ? "" : "s")}."
-                 + SilentSignalsCaveat(state);
+                 + SilentSignalsCaveat(state, plan);
         }
 
         /// <summary>
@@ -94,20 +94,30 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// to avoid.
         /// </para>
         /// </summary>
-        internal static string SilentSignalsCaveat(WorkspaceState state)
+        /// <param name="plan">Scoped exactly like <see cref="SignalsForStep"/>, and it has to be:
+        /// with a plan pinning one un-narrated series, "no series is set to narrate" was FALSE
+        /// whenever some other series on the chart was flagged — so the one disclosure that
+        /// explains the silence went missing in precisely the case it was written for.</param>
+        internal static string SilentSignalsCaveat(WorkspaceState state, PlaybackPlan? plan = null)
         {
             if (!state.NarrateDuringPlayback) return "";
-            if (state.ActiveSeries.Any(s => s.IsAutoNarrated && s.IsVisible && !s.IsMuted)) return "";
 
-            bool anySignalsToMiss = state.ActiveSeries.Any(s =>
-                s.IsVisible && !s.IsMuted && s.Components.Any(c =>
+            var inScope = plan?.Series is { Count: > 0 } scoped
+                ? state.ActiveSeries.Where(s => scoped.Any(p => p.Id == s.Id)).ToList()
+                : state.ActiveSeries.ToList();
+
+            if (inScope.Any(s => s.IsAutoNarrated && s.IsVisible && !s.IsMuted)) return "";
+
+            int componentFilter = plan?.ComponentFilter ?? -1;
+            bool anySignalsToMiss = inScope.Any(s =>
+                s.IsVisible && !s.IsMuted && s.Components.Where((c, i) => componentFilter < 0 || i == componentFilter).Any(c =>
                     c.IsVisible && !c.IsMuted && !c.IsZoneLine && !c.UsesGradientSpeech
                     && AudioConstants.MarkerDisplayTypes.Contains(c.DisplayType)
                     && !string.IsNullOrEmpty(c.SignalSpeechTemplate)));
 
             return anySignalsToMiss
                 ? " No series is set to narrate, so signals will not be spoken."
-                  + " Press Control Alt Shift N on a series to turn its narration on."
+                  + " Press N on a series to turn its narration on."
                 : "";
         }
 
@@ -266,11 +276,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// has just stepped onto, or null when they say nothing.
         ///
         /// <para>
-        /// <b>Which series.</b> Only those flagged <see cref="ChartSeries.IsAutoNarrated"/> —
-        /// Ctrl+Alt+Shift+N. One mental model holds everywhere then: <b>N picks WHAT speaks, the
-        /// Narration tab picks WHEN.</b> The earlier design scanned every active visible series,
-        /// which would have made playback the one place in the terminal where a series the user
-        /// never asked to hear from starts talking.
+        /// <b>Which series.</b> Those flagged <see cref="ChartSeries.IsAutoNarrated"/> — N, or
+        /// Ctrl+Alt+Shift+N — AND inside the plan that is currently sounding. One mental model
+        /// holds everywhere then: <b>N picks WHAT may speak, the Narration tab picks WHEN, and
+        /// the scope you played picks WHICH OF THEM.</b> The earlier design scanned every active
+        /// visible series, which would have made playback the one place in the terminal where a
+        /// series the user never asked to hear from starts talking.
         /// </para>
         ///
         /// <para>
@@ -290,19 +301,46 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         /// <param name="state">The state after the step — its <c>ActiveSeries</c> is scanned.</param>
         /// <param name="barIndex">The bar the cursor has just landed on.</param>
-        public static string? SignalsForStep(WorkspaceState state, int barIndex)
+        /// <param name="plan">What is actually SOUNDING. Null scans the whole chart, which is
+        /// what chart scope means anyway; see the scope note above.</param>
+        public static string? SignalsForStep(WorkspaceState state, int barIndex, PlaybackPlan? plan = null)
         {
             if (barIndex < 0) return null;
+
+            // ── SPEECH IS SCOPED THE WAY THE TONES ARE ──────────────────────────────────────
+            //
+            // Cody, 2026-09-04: "just like sonification per chart/series/component, speech
+            // should do the same — if I play back only a series I should hear that narrated".
+            //
+            // He is describing a bug as a feature request. Space, Shift+Space and the component
+            // play all three narrated the WHOLE CHART, because this scan walked ActiveSeries and
+            // nothing told it what was playing. Playing one series and hearing another series'
+            // signals is not a narrower feature missing — it is the narration describing
+            // something the user is not listening to, and on a component play it is the loudest
+            // possible contradiction of what the key was for.
+            //
+            // The plan is the authority, not PlaybackScope, for the same reason the start
+            // sentence reads from it: it is what the sequencer was handed. Series scope pins one
+            // series; component scope pins one component of it (ComponentFilter, -1 = all).
+            var scopedSeries = plan?.Series;
+            int componentFilter = plan?.ComponentFilter ?? -1;
 
             var clauses = new List<(string Series, string Clause)>(MaxSignalClauses);
             foreach (var series in state.ActiveSeries)
             {
                 if (!series.IsAutoNarrated || !series.IsVisible || series.IsMuted) continue;
 
-                foreach (var comp in series.Components)
+                // Matched by ID: the plan holds the ChartSeries objects from the state that
+                // RESOLVED it, and a later reduction replaces those instances.
+                if (scopedSeries != null && !scopedSeries.Any(p => p.Id == series.Id)) continue;
+
+                for (int ci = 0; ci < series.Components.Count; ci++)
                 {
+                    var comp = series.Components[ci];
                     if (clauses.Count >= MaxSignalClauses) break;
+                    if (componentFilter >= 0 && ci != componentFilter) continue;
                     if (!comp.IsVisible || comp.IsMuted) continue;
+                    if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
                     if (comp.IsZoneLine || comp.UsesGradientSpeech) continue;
                     if (!AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)) continue;
                     if (string.IsNullOrEmpty(comp.SignalSpeechTemplate)) continue;

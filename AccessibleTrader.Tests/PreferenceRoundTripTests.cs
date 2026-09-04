@@ -133,5 +133,6 @@ public class PreferenceRoundTripTests
         public void SetSetting(string keyPath, JToken value) => Store[keyPath] = value;
         public JObject GetEffectiveSettingsForSeries(string seriesId) => new();
         public void SaveSettings() { }
+        public void ResetToDefaults() { }
     }
 }

@@ -366,6 +366,7 @@ Component volume adjusts just the one component you have focused (for example, j
 |-----|--------|
 | M | Mute or unmute the focused series (or focused component if you last used Up/Down) |
 | H | Hide or show the focused series (or component) |
+| N | Narration on or off for the focused series (or component) |
 
 Muting silences the audio for that series without removing it from the chart. Hiding removes it from visual display and silences it. Both are toggles — pressing the same key again restores it.
 
@@ -524,9 +525,12 @@ To use it you must first add an API key for at least one AI provider in the **AP
 
 | Key | Action |
 |-----|--------|
-| Ctrl+Alt+Shift+N | Toggle auto-narration on/off for the focused series |
+| N | Narration on/off for the focused series or component |
+| Ctrl+Alt+Shift+N | The same, from anywhere — works with focus outside the chart |
 
-Auto-narration watches the focused indicator series and **speaks new signals and zone transitions as they occur on live bar closes** — for example, a fresh marker firing, or an oscillator entering or leaving an overbought/oversold zone. Only signals that appear *after* you enable narration are announced; pre-existing historical signals are not replayed. Toggle it per series, so you can leave narration running on the one indicator you care about without being interrupted by the rest of the chart.
+Auto-narration watches the focused indicator and **speaks new signals and zone transitions as they occur on live bar closes** — for example, a fresh marker firing, or an oscillator entering or leaving an overbought/oversold zone. Only signals that appear *after* you enable narration are announced; pre-existing historical signals are not replayed.
+
+`N` is the third switch on a chart object beside `H` (hide) and `M` (mute), and like them it follows your cursor: on a series it switches the whole series, on a component it picks out that one component. No component picked out means all of them, so `N` on a series then `N` on one of its components narrows narration to that component, and `N` on it again widens back out.
 
 ### The Journal
 
@@ -575,9 +579,10 @@ says what you asked for, Narration is what it says when you pressed nothing.**
   panning step, data export and settings profiles
 - **Speech** — speech on/off, timestamps and when to speak them, value order, column headers,
   describe chart patterns, which voice speaks on this device
-- **Narration** — announce new bars, narrate signals on bar close (the master over
-  Ctrl+Alt+Shift+N), narrate during playback
-- **Sonification** — sonification on/off, sound under the mouse, sound theme
+- **Narration** — announce new bars, narrate signals on bar close (the master over `N`),
+  narrate during playback, speak time landmarks during playback
+- **Sonification** — sonification on/off, sound under the mouse, sound theme, and the two
+  earcon families (market and interface) under the Shift+F3 mute
 - **Appearance** — the theme (New, Clone, Edit) and the visual accommodations: chart
   formations drawn, visual earcons, colour-vision-safe colours, hollow up-candles, text size
 - **Keyboard** — rebind any shortcut, plus the reference table
@@ -818,6 +823,7 @@ controls what happens to you.**
 | Shift+F7 | Master chart volume down |
 | H | Toggle visibility of focused series or component |
 | M | Toggle mute of focused series or component |
+| N | Narration on or off for focused series or component |
 | Ctrl+Alt+Shift+K | Show everything you have hidden with H (says how many) |
 | Ctrl+Alt+Shift+U | Unmute everything you have muted with M (says how many) |
 
@@ -842,7 +848,7 @@ terminal always starts with everything audible.
 |----------|--------|
 | Ctrl+Shift+D | Full point analysis of current bar |
 | Ctrl+Alt+Shift+C | Focus chart and announce context summary |
-| Ctrl+Alt+Shift+N | Toggle auto-narration for focused series |
+| Ctrl+Alt+Shift+N | Narration on/off for the focused series or component (`N` on the chart) |
 | Ctrl+Alt+Shift+A | Open AI Analyst modal |
 | Alt+R | Respect report — which levels this market actually holds |
 | Alt+I | Asset dossier — what this instrument is, in plain language |

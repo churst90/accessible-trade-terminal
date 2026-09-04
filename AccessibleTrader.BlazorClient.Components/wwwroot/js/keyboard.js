@@ -433,11 +433,11 @@ window.accessibleTrader = {
                 // without a modifier, and gated on chart focus below exactly like the single
                 // letters — they are ordinary printable characters and must stay typable.
                 ',', '.',
-                // Single-letter chart commands: H (hide), M (mute), P (properties).
+                // Single-letter chart commands: H (hide), M (mute), N (narrate), P (properties).
                 // These are also trapped so they reach .NET even without a modifier.
                 // The form-control guard below (isFormControl && !isModified) still
-                // allows the user to type h/m/p freely in <input>, <select>, <textarea>.
-                'h', 'H', 'm', 'M', 'p', 'P',
+                // allows the user to type h/m/n/p freely in <input>, <select>, <textarea>.
+                'h', 'H', 'm', 'M', 'n', 'N', 'p', 'P',
                 'r', 'R', 'e', 'E', 'g', 'G',
                 'w', 'W', 'b', 'B', 'k', 'K', 'j', 'J',
                 'a', 'A', 'i', 'I', 's', 'S',

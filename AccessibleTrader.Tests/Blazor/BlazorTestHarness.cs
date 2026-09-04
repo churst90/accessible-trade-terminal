@@ -58,6 +58,10 @@ public sealed class BlazorTestHarness : IDisposable
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
     public AccessibleTrader.Core.Services.ISoundPatchLibrary SoundPatchLibrary { get; }
+
+    /// <summary>The factory reset behind Settings → General. Substituted, so a test can assert
+    /// that Confirm actually called it and that the first click did not.</summary>
+    public AccessibleTrader.Core.Services.ITerminalResetService TerminalReset { get; }
     public IApiKeyService ApiKeyService { get; }
     public IDataService DataService { get; }
     public IMarketOrchestrator MarketOrchestrator { get; }
@@ -161,6 +165,23 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(OrderService);
         // SettingsModal injects IPaperTradingProvider (paper-trading reset button).
         Ctx.Services.AddSingleton(Substitute.For<IPaperTradingProvider>());
+
+        // ...and ITerminalResetService (the factory reset). A substitute returns an empty array
+        // for the two phrase lists, so the dialog's warning text collapses to "This erases ."
+        // and any test asserting on the wording would be asserting on nothing. Give it the real
+        // sentences — they are constants on the real service, not behaviour.
+        TerminalReset = Substitute.For<ITerminalResetService>();
+        TerminalReset.WhatIsErased.Returns(new[]
+        {
+            "every setting in this dialog", "every keyboard rebinding", "your own themes",
+            "your sound patches and earcon assignments",
+            "the colours and sounds you gave individual indicators",
+        });
+        TerminalReset.WhatSurvives.Returns(new[]
+        {
+            "your API keys", "your paper trading account and its history", "your saved workspaces",
+        });
+        Ctx.Services.AddSingleton(TerminalReset);
         // SettingsModal injects IBackgroundMonitoringService (background-monitoring fieldset).
         Ctx.Services.AddSingleton(Substitute.For<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>());
         // ...and IBackgroundTabFeedService (live background tabs toggle, keyed feeds Phase C).

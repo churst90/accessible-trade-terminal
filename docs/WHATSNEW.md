@@ -62,6 +62,19 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   back to 100,000. It cannot be undone. Confirm reset, or cancel."* Focus lands on Confirm,
   and whichever way you answer it comes back to where you started. Escape backs out of the
   question rather than closing Settings; one more Escape closes as usual.
+- **"Reset all settings to defaults" is on the General tab, and it asks the same way.** It puts
+  every preference, every keyboard rebinding, your own themes, your sound patches and earcon
+  assignments, and the colours and sounds you gave individual indicators back to what the
+  terminal shipped with.
+
+  **It also tells you what it is KEEPING**, and that is the half worth hearing: your API keys,
+  your paper trading account and its history, and your saved workspaces all survive. "All
+  personalization will be lost" is a sentence most people will read as "including my broker
+  logins", and being wrong about that in the frightening direction is what stops someone using
+  a button they need. Your keys are credentials, not preferences, and nothing on this machine
+  could rebuild them; the paper account is a trading record with its own reset a few rows up;
+  your workspaces are documents you named. Restart the terminal afterwards so every part of it
+  re-reads the defaults.
 
 ### The one that could cost you money
 
@@ -219,6 +232,64 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 - **The object tree offered a "Manage Strategies" button** that had nothing to do with the
   object tree and closed it out from under you on the way. Strategies are on the toolbar and
   on Alt+S.
+
+### Earcons you can tell apart
+
+- **Two families, on the Sonification tab.** **Market earcons** are the ones about the market —
+  an alert firing, a new bar opening, a strategy setup arming or reaching its entry.
+  **Interface earcons** are the ones about the terminal — the edge of the chart or of a series,
+  a mode toggled with F2 or F3, an action that succeeded or is being retried, the connection
+  changing state. Both start on, and Shift+F3 still mutes everything at once; these two decide
+  what that mute is switching off.
+
+  They are worth separating because they fire at completely different rates for completely
+  different reasons. The boundary tone sounds on *every further arrow press* at the edge of a
+  chart; a setup bell might fire twice in a session. Until now one switch governed both, so
+  quietening the first meant losing the second. And every interface earcon is also **spoken**,
+  so turning that family off costs you nothing but the beep.
+- **Neither switch reaches error tones or order outcomes.** A fill, a stop, a take-profit and
+  every error still sound with both families off and with Shift+F3 muted. An error that makes
+  no sound and no sentence did not happen as far as you are concerned, and money moving is
+  neither a market observation nor an interface confirmation.
+
+### Narration: N, per component, and only what you played
+
+- **N is the third switch, beside H and M.** Hide, mute, narrate — three switches on a chart
+  object, and two of them were a single letter while the third was `Ctrl+Alt+Shift+N`. It also
+  used to act on the *series* even when your cursor was on a component, so "M muted the
+  component but N narrated the whole series" was the actual behaviour. N now resolves its
+  target exactly the way H and M do. `Ctrl+Alt+Shift+N` still works and is still the one to
+  use when focus is outside the chart.
+- **Narration is per component.** A Cipher B has eleven of them; switching it on for the
+  divergence you care about used to hand you every cross, dot and band as well. Press N on a
+  series to turn it on, then N on a component to narrow to just that one, and N on it again to
+  widen back out to the whole series. Nothing lands in a state where narration is "on" and
+  silent — and if you flag a component on a series that is not narrating, the confirmation
+  says so rather than letting you wait for speech that will not come.
+- **Playing one series narrates one series.** Space, Shift+Space and the component play used to
+  narrate the whole chart whatever you had asked to hear, so playing one component of one
+  indicator could speak another indicator's signals over it. Speech is scoped the way the tones
+  are now.
+- **`H`, `M` and `N` say "No chart loaded."** instead of doing nothing quietly.
+
+### Names that only appear when there are two of something
+
+- **One EMA is called "EMA". Two are called "EMA 20" and "EMA 50".** The parameters appear in
+  an indicator's name when — and only when — there is another instance of the same indicator on
+  the chart to be told apart from, and then only the ones the two disagree about. Add the second
+  EMA and the first one is renamed in the same breath, because a period on one of a pair tells
+  you nothing about which is which.
+
+  This replaces the rule from earlier in the release, which named whatever differed from the
+  indicator's *defaults* and so turned "Cipher B 9 12 60 50 14 …" into "Cipher B 11". Better,
+  but still a number with nothing to compare it to: one Cipher B on a chart is *the* Cipher B.
+  Past three differing values the name becomes an ordinal — "Cipher B 2" — rather than a wall
+  of digits.
+- **Four indicators stopped spelling a parenthetical at you.** "Market Structure (HH/HL/LH/LL)"
+  is now just **Market Structure**; the same for **Regime Filter**, **Value Deviation** and
+  **Volatility Regime**. Those glosses were written for a picker list you look at, and they were
+  sitting on the field a screen reader reads every single time you arrow onto the indicator.
+  They still appear in each indicator's description in the Add Indicator dialog.
 
 ### Settings, tidied
 

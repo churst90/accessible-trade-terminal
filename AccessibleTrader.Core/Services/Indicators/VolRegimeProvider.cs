@@ -44,7 +44,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code = Code,
                 Causality = ComponentCausality.Causal,
-                Name = "Volatility Regime (fast/slow ratio)",
+                // Parenthetical dropped from the spoken name — see SwingStructureProvider.
+                Name = "Volatility Regime",
                 Category = "Volatility",
                 DefaultPane = "Pane_VOL_REGIME",
                 Description = "Fast/slow realized-volatility ratio. >1.25 = expansion regime " +

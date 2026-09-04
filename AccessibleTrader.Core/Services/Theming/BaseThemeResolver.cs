@@ -49,6 +49,7 @@ namespace AccessibleTrader.Core.Services.Theming
             public void SetSetting(string keyPath, Newtonsoft.Json.Linq.JToken value) { }
             public Newtonsoft.Json.Linq.JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() { }
+            public void ResetToDefaults() { }   // nothing is remembered, so nothing to forget
         }
     }
 }

@@ -41,7 +41,8 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 Code = Code,
                 Causality = ComponentCausality.Causal,
-                Name = "Regime Filter (200 MA)",
+                // Parenthetical dropped from the spoken name — see SwingStructureProvider.
+                Name = "Regime Filter",
                 Category = "Overlays",
                 DefaultPane = "Main",
                 Description = "Mebane Faber 200-period MA regime — Close − SMA/EMA. >0 means bull regime.",

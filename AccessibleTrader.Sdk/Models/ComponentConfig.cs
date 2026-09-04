@@ -67,6 +67,21 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private bool _isEnabled = true;
         [ObservableProperty] private bool _isMuted;
         [ObservableProperty] private bool _isVisible = true;
+
+        /// <summary>
+        /// Whether THIS component's signals are spoken unprompted — the component-level half of
+        /// <see cref="SeriesConfig.IsAutoNarrated"/>, toggled by N with the cursor on a component.
+        ///
+        /// <para>
+        /// Default FALSE, and it is NOT the gate on its own: a component narrates when its series
+        /// is narrating and this is either false-for-every-component (narrate the whole series,
+        /// which is what the series flag has always meant) or true for this one. See
+        /// <c>SeriesNarrationScope</c>, which is the single place that rule is written down —
+        /// putting it anywhere else means two readers of two flags disagreeing about a series
+        /// whose components are half-selected.
+        /// </para>
+        /// </summary>
+        [ObservableProperty] private bool _isAutoNarrated;
         
         [ObservableProperty] private string _dataMapping = "";
         
@@ -200,7 +215,7 @@ namespace AccessibleTrader.Sdk.Models
                 EnvelopeType = EnvelopeType,
                 Volume = Volume, BaseFrequency = BaseFrequency, BullishFrequency = BullishFrequency, BearishFrequency = BearishFrequency,
                 SpeechTemplate = SpeechTemplate, Thickness = Thickness, DashStyle = DashStyle, IsEnabled = IsEnabled,
-                IsMuted = IsMuted, IsVisible = IsVisible, DataMapping = DataMapping,
+                IsMuted = IsMuted, IsVisible = IsVisible, IsAutoNarrated = IsAutoNarrated, DataMapping = DataMapping,
                 ReferenceLevel = ReferenceLevel,
                 IsAreaFill = IsAreaFill, UsePolarityColoring = UsePolarityColoring,
                 UpperComponentName = UpperComponentName, LowerComponentName = LowerComponentName,

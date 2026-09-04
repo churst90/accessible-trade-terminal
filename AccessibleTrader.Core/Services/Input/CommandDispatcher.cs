@@ -401,21 +401,6 @@ namespace AccessibleTrader.Core.Services.Input
                 // Interim: braille device settings live in the Settings dialog; a
                 // dedicated picker modal is TODO (needs multi-device enumeration).
                 case SystemCommand.OpenBrailleSettings: _eventBus.Publish(new OpenSettingsEvent()); return;
-                case SystemCommand.ToggleNarration: // Ctrl+Alt+Shift+N — global, no focus gate
-                {
-                    var seriesId = _store.State.FocusedSeriesId;
-                    if (string.IsNullOrEmpty(seriesId))
-                    {
-                        // Fall back to the first non-drawing series if nothing is focused
-                        var first = _store.State.ActiveSeries.FirstOrDefault(s => !s.IsDrawing);
-                        seriesId = first?.Id;
-                    }
-                    if (!string.IsNullOrEmpty(seriesId))
-                        _store.Dispatch(new ToggleNarrationAction(seriesId));
-                    else
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, "No series to toggle narration.", true));
-                    return;
-                }
 
                 // Multi-tab — always available regardless of chart focus
                 case SystemCommand.AddTab:
@@ -516,6 +501,19 @@ namespace AccessibleTrader.Core.Services.Input
                     // the channel F2 cannot mute, for a keypress that failed nothing.
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true));
                 }
+                else if (command is SystemCommand.ToggleIndicatorVisibility
+                                 or SystemCommand.ToggleIndicatorAudio
+                                 or SystemCommand.ToggleNarration)
+                {
+                    // The three switches on a chart object — H, M, N — all fell silently through
+                    // this gate. A single letter that does nothing and says nothing is
+                    // indistinguishable, to this user, from a key that stopped working; the
+                    // earlier Ctrl+Alt+Shift+N handler answered ("No series to toggle
+                    // narration") precisely because it ran before this gate, and moving N here
+                    // to sit beside its siblings would otherwise have taken that away.
+                    // Boundary, not Error: the key was understood, there is simply no chart.
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true));
+                }
                 return;
             }
 
@@ -606,6 +604,15 @@ namespace AccessibleTrader.Core.Services.Input
                     break;
                 case SystemCommand.ToggleIndicatorAudio: // M
                     _eventBus.Publish(new ToggleMuteEvent(_store.State.LastInteractionContext == InteractionContext.Component ? "COMPONENT" : "SERIES"));
+                    break;
+                // N — the third switch on a chart object, beside its two siblings and resolved by
+                // the same rule. It used to sit above the no-data gate with a comment calling it
+                // "global, no focus gate", which contradicted IsChartScopedCommand — where it has
+                // been listed as chart-scoped all along — and gave it a resolution rule of its own:
+                // always the SERIES, never the component under the cursor. So "M muted the
+                // component but N narrated the whole series" was the shipped behaviour.
+                case SystemCommand.ToggleNarration: // N
+                    _eventBus.Publish(new ToggleNarrationEvent(_store.State.LastInteractionContext == InteractionContext.Component ? "COMPONENT" : "SERIES"));
                     break;
                 // Delete key: remove focused indicator series (ChartCommandManager guards against "candles").
                 case SystemCommand.RemoveSelectedSeries: _eventBus.Publish(new DeleteSeriesEvent()); break;

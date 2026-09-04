@@ -22,6 +22,13 @@ namespace AccessibleTrader.Core.Services
         List<LevelPreference> GetLevelPreferences(string indicatorCode);
         /// <summary>Saves or updates a single level preference (matched by Name).</summary>
         void SaveLevelPreference(string indicatorCode, LevelPreference pref);
+
+        /// <summary>
+        /// Deletes every saved indicator preference, so each indicator is styled and voiced by
+        /// its metadata again. Nothing is cached here — each read hits the file — so this one
+        /// genuinely is just a delete.
+        /// </summary>
+        void ClearAllPreferences();
     }
 
     /// <summary>
@@ -160,6 +167,23 @@ namespace AccessibleTrader.Core.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "IndicatorPrefs: failed to clear {IndicatorCode}.", indicatorCode);
+            }
+        }
+
+        public void ClearAllPreferences()
+        {
+            try
+            {
+                if (!Directory.Exists(_prefsDir)) return;
+                // File-by-file rather than a directory delete: the directory is created once in
+                // the constructor and every writer assumes it is there, so removing it would
+                // turn the next SavePreferences into a caught-and-logged failure instead of a
+                // save. Only *.json goes, which is everything this service writes.
+                foreach (var f in Directory.GetFiles(_prefsDir, "*.json")) File.Delete(f);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "IndicatorPrefs: failed to clear all preferences.");
             }
         }
 

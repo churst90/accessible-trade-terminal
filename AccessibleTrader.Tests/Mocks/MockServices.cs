@@ -289,6 +289,7 @@ namespace AccessibleTrader.Tests.Mocks
         public void ClearPreferences(string indicatorCode) { }
         public List<LevelPreference> GetLevelPreferences(string indicatorCode) => new();
         public void SaveLevelPreference(string indicatorCode, LevelPreference pref) { }
+        public void ClearAllPreferences() { }
     }
 
     public class MockAutoNarrationService : IAutoNarrationService { }

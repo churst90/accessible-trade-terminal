@@ -29,7 +29,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             ToggleMuteAction a      => ToggleMute(state, a.SeriesId, GetEffectiveComponentName(state, a.SeriesId, a.ComponentName), eventBus),
             ToggleHideAction a      => ToggleHide(state, a.SeriesId, GetEffectiveComponentName(state, a.SeriesId, a.ComponentName), eventBus),
             RestoreAllComponentsAction a => RestoreAll(state, a.Unhide, eventBus),
-            ToggleNarrationAction a => ToggleNarration(state, a.SeriesId, eventBus),
+            ToggleNarrationAction a => ToggleNarration(state, a.SeriesId, a.ComponentName, eventBus),
 
             // Series management
             AddSeriesAction a                => AddSeries(state, a.Series),
@@ -282,32 +282,66 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             return state with { ActiveSeries = newList };
         }
 
-        private static WorkspaceState ToggleNarration(WorkspaceState state, string? seriesId, IEventBus eventBus)
+        private static WorkspaceState ToggleNarration(
+            WorkspaceState state, string? seriesId, string? compName, IEventBus eventBus)
         {
             var targetId = seriesId ?? state.FocusedSeriesId;
-            string? changedName = null;
-            bool? newNarrationState = null;
+            string? msg = null;
 
             var newList = state.ActiveSeries.Select(s =>
             {
-                if (s.Id == targetId)
+                if (s.Id != targetId) return s;
+
+                var updated = s.Clone();
+
+                if (string.IsNullOrEmpty(compName))
                 {
-                    var updated = s.Clone();
                     updated.IsAutoNarrated = !updated.IsAutoNarrated;
-                    changedName = updated.FriendlyName;
-                    newNarrationState = updated.IsAutoNarrated;
+                    msg = updated.IsAutoNarrated
+                        ? $"{updated.FriendlyName}, narrating"
+                        : $"{updated.FriendlyName}, narration off";
                     return updated;
                 }
-                return s;
+
+                var comp = updated.Components.FirstOrDefault(c => c.Name == compName);
+                if (comp == null) return updated;
+
+                comp.IsAutoNarrated = !comp.IsAutoNarrated;
+                string label = string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName;
+
+                // ── WHAT A COMPONENT TOGGLE ACTUALLY DID, SAID OUT LOUD ─────────────────
+                //
+                // Three different outcomes hide behind one keypress here, and a confirmation
+                // that said only "narrating" would be wrong in two of them:
+                //
+                //  - The series is not narrating at all. The component flag is now set and
+                //    STILL NOTHING SPEAKS, because the series flag is the master. Saying
+                //    "narrating" there sends the user off to wait for speech that will never
+                //    come. Same failure the mute/hide pair was fixed for on 2026-09-04.
+                //  - This was the FIRST component selected. The series just went from
+                //    narrating everything to narrating one thing — a much bigger change than
+                //    "on", and the one most likely to be heard as a mistake later.
+                //  - This was the LAST component deselected. Narration widens back out to the
+                //    whole series rather than going quiet, which is the opposite of what "off"
+                //    implies.
+                bool anySelected = updated.Components.Any(c => c.IsAutoNarrated);
+
+                if (!updated.IsAutoNarrated)
+                    msg = $"{updated.FriendlyName}: {label}, narrating. "
+                        + "The series is not narrating, so nothing is spoken yet. Press N on the series to start it.";
+                else if (comp.IsAutoNarrated)
+                    msg = anySelected && updated.Components.Count(c => c.IsAutoNarrated) == 1
+                        ? $"{updated.FriendlyName}: {label} only, narrating"
+                        : $"{updated.FriendlyName}: {label}, narrating";
+                else
+                    msg = anySelected
+                        ? $"{updated.FriendlyName}: {label}, narration off"
+                        : $"{updated.FriendlyName}: {label}, narration off. Back to the whole series.";
+
+                return updated;
             }).ToImmutableList();
 
-            if (changedName != null && newNarrationState.HasValue)
-            {
-                string msg = newNarrationState.Value
-                    ? $"{changedName}, narrating"
-                    : $"{changedName}, narration off";
-                eventBus.Publish(new AnnouncementEvent(msg, true));
-            }
+            if (msg != null) eventBus.Publish(new AnnouncementEvent(msg, true));
 
             return state with { ActiveSeries = newList };
         }

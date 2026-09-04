@@ -13,6 +13,13 @@ namespace AccessibleTrader.Core.Services
         void LoadProfile(ShortcutProfile profile);
         void SaveToDisk();
         void LoadFromDisk();
+
+        /// <summary>
+        /// Throws away every rebind and returns to the shipped keyboard, then writes it.
+        /// In memory as well as on disk, for the reason <c>ISettingsManager.ResetToDefaults</c>
+        /// records: the profile is cached for the life of the process.
+        /// </summary>
+        void ResetToDefaults();
         IReadOnlyList<ShortcutDisplayBinding> GetAllBindings();
 
         /// <summary>
@@ -277,6 +284,13 @@ namespace AccessibleTrader.Core.Services
                 .ToList();
         }
 
+        public void ResetToDefaults()
+        {
+            EnsureLoaded();          // resolves _filepath; see SaveToDisk
+            InitializeDefaultProfile();
+            SaveToDisk();
+        }
+
         private void InitializeDefaultProfile()
         {
             var p = new ShortcutProfile { Name = "Default" };
@@ -339,6 +353,11 @@ namespace AccessibleTrader.Core.Services
             // Visibility & State
             s.Add(new(SystemCommand.ToggleIndicatorVisibility, "H"));
             s.Add(new(SystemCommand.ToggleIndicatorAudio, "M"));
+            // N joins H and M (Cody, 2026-09-04). Hide, mute and narrate are the three switches
+            // on a chart object; two of them were a single letter and the third was a four-key
+            // chord, which is why nobody could remember it was there. Ctrl+Alt+Shift+N is KEPT
+            // below — it is the one that works with focus outside the chart.
+            s.Add(new(SystemCommand.ToggleNarration, "N"));
             s.Add(new(SystemCommand.AddReferenceLevel, "0"));
             s.Add(new(SystemCommand.OpenProperties, "P"));
             // Delete removes the focused indicator series (guards against deleting "candles").

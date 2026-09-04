@@ -21,6 +21,20 @@ namespace AccessibleTrader.Core.Services
         public const string HoverSonification  = "accessibility.hoverSonification";
         public const string VisualEarcons      = "accessibility.visualEarcons";
 
+        // ── The two earcon families ──────────────────────────────────────────
+        // Shift+F3 (WorkspaceState.IsEarconsEnabled) is the master mute over both.
+        // These two decide which family it is muting when it is OFF, and both
+        // default TRUE so an untouched install sounds exactly as it did before.
+        //
+        // CHART earcons are about the market: an alert firing, a bar opening, a
+        // strategy setup arming. INTERFACE earcons are about the terminal: the
+        // edge of the data, a mode toggled, an action that succeeded. They are
+        // separable because they answer to different appetites — a user who wants
+        // every setup bell may not want a beep for each end-of-chart, and the one
+        // that fires most often is not the one carrying the most information.
+        public const string ChartEarconsEnabled     = "accessibility.earcons.chart";
+        public const string InterfaceEarconsEnabled = "accessibility.earcons.interface";
+
         // ── Appearance ───────────────────────────────────────────────────────
         // RETIRED 2026-09-03 with the settings restructure, and deliberately NOT kept as
         // constants: appearance.backgroundColor, appearance.backgroundGradient,

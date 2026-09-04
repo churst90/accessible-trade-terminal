@@ -411,6 +411,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (var comp in series.Components)
             {
                 if (!comp.IsVisible || comp.IsMuted) continue;
+                // The per-component narration selection (N with the cursor on a component).
+                // Applied at all four scan sites rather than once at the top, because "this
+                // component narrates" is a fact about the component and each site reaches its
+                // components differently — the oscillator path does not even iterate them.
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
                 if (!IsMarkerDisplayType(comp.DisplayType)) continue;
                 if (comp.UsesGradientSpeech) continue;
 
@@ -462,7 +467,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 string oscKey = $"{series.Id}:{oscContext.ComponentName}";
 
-                if (_lastOscState.TryGetValue(oscKey, out var prev))
+                // The analyser names its component; find it back so the selection applies here
+                // too. A context whose component no longer exists still updates _lastOscState
+                // below — dropping the tracking as well would make the NEXT bar look like a
+                // fresh transition.
+                var oscComp = series.Components.FirstOrDefault(c => c.Name == oscContext.ComponentName);
+                bool oscNarrates = oscComp == null || SeriesNarrationScope.ComponentNarrates(series, oscComp);
+
+                if (oscNarrates && _lastOscState.TryGetValue(oscKey, out var prev))
                 {
                     // Zone entered
                     if (prev.Zone != oscContext.Zone)
@@ -585,6 +597,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             foreach (var comp in series.Components)
             {
                 if (!comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
                 if (!comp.IsZoneLine) continue;
 
                 var data = series.GetComponentData(comp.Name);
@@ -714,6 +727,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 if (comp.DisplayType != ComponentDisplayType.Cloud) continue;
                 if (!comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
                 if (string.IsNullOrEmpty(comp.UpperComponentName) || string.IsNullOrEmpty(comp.LowerComponentName)) continue;
 
                 var upperData = series.GetComponentData(comp.UpperComponentName);

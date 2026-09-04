@@ -607,4 +607,108 @@ public class SettingsModalTests
         Assert.Empty(cut.FindAll("#s-paper-reset-confirm"));
     }
 
+    // ── The FACTORY reset (Cody, 2026-09-04) ─────────────────────────────────────────
+    //
+    // Same two-step shape as the paper reset above and tested the same way, with one addition
+    // that is specific to this one: the confirmation has to name what SURVIVES.
+
+    [Fact]
+    public void SettingsModal_TheFirstClickOnFactoryReset_DestroysNothing()
+    {
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+
+        h.TerminalReset.DidNotReceive().ResetEverything();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotNull(cut.Find("#s-factory-reset-confirm"));
+            Assert.NotNull(cut.Find("#s-factory-reset-cancel"));
+            Assert.Empty(cut.FindAll("#s-factory-reset"));
+        });
+    }
+
+    [Fact]
+    public void SettingsModal_ArmingTheFactoryReset_SpeaksTheWarning_AndWhatIsKept()
+    {
+        // "All personalization will be lost" is the sentence a user is most likely to read as
+        // "including my API keys". Being wrong about that in the frightening direction stops
+        // people using a button they need, so the survivors are part of the question.
+        using var h = new BlazorTestHarness();
+        var spoken = new List<FeedbackRequestEvent>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+
+        string msg = "";
+        cut.WaitForAssertion(() =>
+            msg = Assert.Single(spoken.Where(f =>
+                f.Message?.StartsWith("Warning:", StringComparison.Ordinal) == true)).Message!);
+
+        Assert.Contains("factory defaults", msg, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cannot be undone", msg, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("API keys", msg, StringComparison.OrdinalIgnoreCase);
+        // The keys that answer it come last, after the stakes.
+        Assert.EndsWith("Confirm reset, or cancel.", msg);
+    }
+
+    [Fact]
+    public void SettingsModal_ConfirmingTheFactoryReset_ActuallyResets_AndCloses()
+    {
+        // Vacuity guard for the two above, plus the close: every control in the dialog is now
+        // showing a value that no longer exists, and leaving them on screen invites a Save that
+        // writes the pre-reset state straight back.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-confirm")));
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset-confirm").Click()).GetAwaiter().GetResult();
+
+        h.TerminalReset.Received(1).ResetEverything();
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#settings-save")));
+    }
+
+    [Fact]
+    public void SettingsModal_CancellingTheFactoryReset_ResetsNothingAndSaysSo()
+    {
+        using var h = new BlazorTestHarness();
+        var spoken = new List<FeedbackRequestEvent>();
+        h.EventBus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-cancel")));
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset-cancel").Click()).GetAwaiter().GetResult();
+
+        h.TerminalReset.DidNotReceive().ResetEverything();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotNull(cut.Find("#s-factory-reset"));
+            Assert.Contains(spoken, f => f.Message == "Cancelled. Nothing was reset.");
+        });
+    }
+
+    [Fact]
+    public void SettingsModal_EscapeWithTheFactoryResetArmed_BacksOutOfTheQuestionNotTheDialog()
+    {
+        // The same rule the paper reset follows: "no" is the answer the user is reaching for,
+        // and closing the dialog would leave them outside it with no word on what happened.
+        using var h = new BlazorTestHarness();
+        var cut = OpenSettings(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-factory-reset").Click()).GetAwaiter().GetResult();
+        cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#s-factory-reset-confirm")));
+        cut.InvokeAsync(() => h.EventBus.Publish(new CloseTopModalEvent("Settings"))).GetAwaiter().GetResult();
+
+        h.TerminalReset.DidNotReceive().ResetEverything();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.NotNull(cut.Find("#s-factory-reset"));       // question backed out of
+            Assert.NotNull(cut.Find("#settings-save"));         // dialog still open
+        });
+    }
+
 }

@@ -28,6 +28,12 @@ namespace AccessibleTrader.Core.Services
 
         string ExportPatchJson(SoundPatch patch);
         SoundPatch? ImportPatchJson(string json);
+
+        /// <summary>
+        /// Drops every user patch and every earcon override, then writes both files. In memory
+        /// as well as on disk, for the reason <c>ISettingsManager.ResetToDefaults</c> records.
+        /// </summary>
+        void ResetToDefaults();
     }
 
     public class SoundPatchLibrary : ISoundPatchLibrary
@@ -133,6 +139,14 @@ namespace AccessibleTrader.Core.Services
             {
                 _logger.LogWarning(ex, "Failed to load earcon settings; using defaults");
             }
+        }
+
+        public void ResetToDefaults()
+        {
+            _patches.Clear();
+            EarconOverrides = new EarconSettings();
+            SavePatches();
+            SaveEarconOverrides();
         }
 
         public string ExportPatchJson(SoundPatch patch) =>
