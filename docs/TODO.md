@@ -117,6 +117,114 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, ELEVENTH pass — THREE THINGS CODY REPORTED FROM REAL
+> USE, all three fixed, plus ranked item 3 (`SpeakViaOrca`'s un-awaited cancel). Continue at
+> ranked item 4, modal background `inert`.**
+>
+> ### 1. F3 WAS KILLING PLAYBACK — the worst of the three, and it was a PROPERTY SETTER
+>
+> Cody: "pressing F3 mutes sonification; if I press Home and then Space to play the chart, I hear
+> a second of audio then it says playback stopped. Does F3 gate the ability to play back the chart
+> even if sonification is disabled? Because the chart should still play, especially if we're going
+> to have speech narration during playback."
+>
+> **MEASURED before touching anything** (a throwaway integration probe wiring the real
+> `WorkspaceStore`, `SonificationManager`, `PlaybackOrchestrator` and `AudioSequencer`, since the
+> defect lives in the loop BETWEEN them and any test that substitutes either half is blind to it):
+> **2 bars of 200 with F3 off, 200 of 200 with it on.**
+>
+> **The cause.** `SonificationManager.IsEnabled` was
+> `set { _isEnabled = value; if (!value) Stop(); }` — and `Stop()` is `_playback.Stop()`, which
+> cancels the sequencer's CancellationTokenSource. The store subscription assigns that property on
+> EVERY state change, unconditionally, and the sequencer dispatches a `NavigateAction` for every
+> bar it plays. So with sonification off, **each bar re-assigned `false` and cancelled the
+> playback that was producing it**; the two bars are how far the loop got before the first cancel
+> landed, and they are the "second of audio". **The durable lesson: a property setter that stops a
+> background job is a trap whatever guards it, because an assignment reads as free at every call
+> site — and this one had a caller that fires ten times a second.**
+>
+> **Fixed in two places, deliberately.** (a) The setter is a plain flag again. (b) `AudioSequencer`
+> gained the check F3 actually deserves: it renders silence per bar while the cursor keeps walking.
+> That is what `docs/SHORTCUTS.md` has always promised — "F3 — Toggle chart sonification
+> (navigation tones, playback)" — and it makes playback usable as the terminal's NARRATION mode,
+> which is the point of the Narration tab (ranked 7). The OFF transition also stops the continuous
+> navigation voice, which is the only part of the old `Stop()` that was doing anything useful.
+> Guards: `PlaybackSurvivesSonificationMuteTests` (3) — the whole chart plays muted, the whole
+> chart plays unmuted, and **muted playback writes no voices**, so the fix cannot be read as "F3
+> stopped affecting playback".
+>
+> ### 2. HIDDEN AND MUTED ARE TWO FLAGS — a lattice of four reported as a chain of two
+>
+> Cody: "if I hide and mute both at once, if I unhide it should say muted but it doesn't. If both
+> hidden and muted, then both hidden and muted should be reported when I up/down over the
+> components, and when one is unmuted or unhidden, only that qualifier should be removed."
+>
+> Four places were wrong in the same way. `ProviderSpeechStrategy` built its label as
+> `!IsVisible ? "Hidden. " : IsMuted ? "Muted. " : ""` — an **if/else over two INDEPENDENT
+> flags**, so hidden always won and a component that was both never said "muted";
+> `HiddenComponentStrategy` hard-coded the word and could not mention mute at all; the other
+> **eight** strategies said nothing about either, so a muted candle body announced itself as
+> though it were audible; and the toggle confirmations named only the flag they had just flipped,
+> so unhiding a muted component said "visible" about something that stays silent.
+>
+> **Why it matters more than it sounds:** the two flags fail identically from the user's side (no
+> sound) and are cleared by DIFFERENT keys. Being told "visible" by a silent component sends the
+> user to press `h` again — hiding it, which is further from what they wanted than where they
+> started.
+>
+> **Fixed with a chokepoint.** `VisibilityStateSpeech` holds all four cells ("hidden and muted" /
+> "hidden" / "muted" / ""), and the qualifier moved OUT of the individual strategies and INTO
+> `SpeechFormatter`'s dispatcher, in front of whichever strategy answered — so all ten carry it
+> instead of one. Leading, not trailing, because whatever interrupts cuts the END of a sentence
+> and "this one is silent" is the half a user must not lose. Y-move only, except that a HIDDEN
+> component says so on every move (it has no value to read, so the state is the message). The four
+> toggle confirmations append the flag they did not clear: "Close visible, muted",
+> "Close unmuted, hidden". **Wording changed: "RSI: hidden" → "Hidden. RSI"**, and three tests
+> that pinned the old shape were updated with the reason recorded in place.
+> `HiddenAndMutedAreBothSpokenTests` (10), including a vacuity floor (a plain component carries
+> NO qualifier — without it every assertion passes on a build that prefixes everything).
+>
+> ### 3. THE STATUS BAR IS CORRECT AS SHIPPED
+>
+> Cody: "everything seems to work now, no text is written in the status bar. Speech works and
+> that's the important part. I assume this is the correct behavior." — Confirmed, with one
+> correction: the strip is NOT blank. It still holds the last spoken sentence as visible text;
+> what it no longer does is ANNOUNCE it, which is the fix. `LiveRegionInventoryBrowserTests`
+> asserts both halves in a real browser — non-empty text AND no live-region attribute — precisely
+> so "we deleted the mirror" cannot pass as "we stopped it announcing".
+>
+> ### 4. RANKED ITEM 3 — `SpeakViaOrca` now AWAITS its cancel
+>
+> One line. It was `StartSpdSay("-S")` (Process.Start, no wait) immediately before `gdbus
+> PresentMessage`, so the cancel could land AFTER the message it was meant to clear the way for
+> and clip the very utterance it preceded. `SpeakViaSpdSay` has awaited the identical cancel since
+> it was written and its comment names this race; the Orca branch was added later (`04b49f1f`,
+> 2026-05-16) with the older shape and kept it for four months. `SpeechCancelIsAwaitedTests`
+> pins BOTH backends, and says in its own summary why it is a source guard: observing the outcome
+> needs a running speech-dispatcher, an Orca on the session bus, and a race that is by definition
+> intermittent. **A4 (the `orca --debug-file` measurement) is still Cody's to run** and still
+> decides the larger question — whether the app should cancel at all under Orca, given that Orca
+> has already interrupted its own speech by the time the key reaches the app.
+>
+> ### Proven, not asserted
+>
+> Four sabotages, each reverted from a file copy, each producing named failures: the cancelling
+> setter restored, the sequencer ignoring F3, the hidden-beats-muted if/else, and the un-awaited
+> Orca cancel. Suite **6,506**, browser **193**, doc-drift green.
+>
+> ### What is left, in order
+>
+> **4. Modal background `inert`. 5. Alerts consolidation. 6. Docs and the bump to 2.6.0.**
+> **7. Narration tab built TOGETHER with playback signal speech** — now materially more valuable,
+> because playing the chart with F3 off is a working narration mode as of this pass.
+> **8. Object Tree follow-ups (b), (c).** The segfault dump drop-in still needs Cody.
+>
+> **Noted, not fixed (no defect demonstrated):** a series-scope mute/hide toggle is announced
+> TWICE — once by `ChartCommandManager`'s `FeedbackRequestEvent` and once by
+> `AccessibilityFeedbackCoordinator`'s section 3. Both now compose the same sentence and both
+> interrupt, so the second replaces the first and the user hears one. Worth collapsing when
+> someone is next in that file; not worth a change on its own.
+
 > **START HERE (current as of 2026-09-04, TENTH pass — THE PLACEHOLDER IS GONE AND THE STATUS
 > BAR IS NO LONGER AN ANNOUNCER. Ranked items 1(a), 1(b) and 2 of the ninth pass are DONE and
 > proven; a defect the ninth pass had not found — Shift+F1 speaking a machine sentinel — is the

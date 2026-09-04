@@ -218,8 +218,11 @@ public sealed class DrawingSpeechContractTests
     [Fact]
     public void A_Hidden_Level_Is_Named_Once_By_Its_Own_Sentence()
     {
-        // HiddenComponentStrategy runs first and says "61.8% Level: hidden"; the drawing
-        // prefixes must not name the same object a second way in the same breath.
+        // HiddenComponentStrategy runs first and names the level, with the dispatcher's state
+        // word in front of it ("Hidden. 61.8% Level"); the drawing prefixes must not name the
+        // same object a second way in the same breath. Case-insensitive since 2026-09-04: the
+        // qualifier moved to the front of the sentence, so it is capitalised now — what is
+        // pinned is that the hidden state is CONVEYED, not where the word sits.
         var bars = Bars();
         var d = new DrawingData { Type = DrawingType.FibRetracement, AnchorPrice1 = 100, AnchorPrice2 = 200 };
         var series = BuildLikeProduction(DrawingType.FibRetracement, "Fibonacci retracement", d, bars);
@@ -231,7 +234,7 @@ public sealed class DrawingSpeechContractTests
         nav.HandleNavigationFeedback(StateAt(bars, series, 50, component: 1), false, true, "NAV_MOVE");
         foreach (var s in router.Said) _out.WriteLine(s);
         Assert.StartsWith($"Fibonacci retracement 1. {series.Components.Count} components. ", router.Said[0]);
-        Assert.Contains("hidden", router.Said[0]);
+        Assert.Contains("hidden", router.Said[0], StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, Regex.Matches(router.Said[2], "23.6").Count);   // once, in its own sentence
     }
 

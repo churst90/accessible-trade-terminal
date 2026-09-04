@@ -19,10 +19,34 @@ namespace AccessibleTrader.Core.Services
         private WorkspaceState _currentState;
         private bool _isEnabled = true;
 
-        public bool IsEnabled 
-        { 
-            get => _isEnabled; 
-            set { _isEnabled = value; if (!value) Stop(); } 
+        /// <summary>
+        /// Whether sonification is producing sound (F3). A PLAIN flag — assigning it must not
+        /// have side effects.
+        ///
+        /// <para><b>The defect, reported from real use on 2026-09-04:</b> "pressing F3 mutes
+        /// sonification; if I press Home and then Space to play the chart, I hear a second of
+        /// audio then it says playback stopped." The setter used to read
+        /// <c>set { _isEnabled = value; if (!value) Stop(); }</c>, and <c>Stop()</c> is
+        /// <c>_playback.Stop()</c> — it cancels the sequencer. The store subscription below
+        /// assigns this property on EVERY state change, unconditionally; the sequencer dispatches
+        /// a <c>NavigateAction</c> for every bar it plays; so with sonification off each bar
+        /// re-assigned <c>false</c> and cancelled the playback that was producing it. Measured:
+        /// 2 bars of 200 with F3 off, 200 of 200 with it on — the two bars being how far the loop
+        /// got before the first cancel landed.</para>
+        ///
+        /// <para>A setter that stops a background job is a trap whatever guards it, because a
+        /// property assignment reads as free at every call site. What F3 means for playback is
+        /// enforced where the sound is actually made — <c>AudioSequencer</c> checks
+        /// <c>IsSonificationEnabled</c> per bar and renders silence — so the cursor keeps walking
+        /// and playback keeps narrating, which is what <c>docs/SHORTCUTS.md</c> has always
+        /// promised ("toggle chart sonification (navigation tones, playback)") and what Cody
+        /// asked for: "the chart should still play, especially if we're going to have speech
+        /// narration during playback."</para>
+        /// </summary>
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set => _isEnabled = value;
         }
 
         public bool IsPlaying => _playback.IsPlaying;
@@ -65,6 +89,10 @@ namespace AccessibleTrader.Core.Services
             };
 
             _subscriptions.Add(_store.StateStream.Subscribe(state => {
+                // The TRANSITION, not the assignment, is what silences: a navigation voice is
+                // continuous and would otherwise drone on after F3 turned sound off. Playback is
+                // deliberately untouched — see the IsEnabled note.
+                if (IsEnabled && !state.IsSonificationEnabled) _navigation.StopNavigationVoice();
                 IsEnabled = state.IsSonificationEnabled;
 
                 bool playingToggled = state.IsPlaying != _currentState.IsPlaying;

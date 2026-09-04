@@ -317,14 +317,36 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     IsYMove: isYMove, LiveClose: liveClose, Provider: provider,
                     ViewportStart: viewportStart, ViewportLength: viewportLength, Bars: bars);
 
+                // THE HIDDEN/MUTED QUALIFIER, for every strategy, in one place.
+                //
+                // Reported from real use on 2026-09-04: "if I hide and mute both at once, if I
+                // unhide it should say muted but it doesn't." Two independent flags were being
+                // reported as a chain of two — ProviderSpeechStrategy tested them with an
+                // if/else so hidden always won, HiddenComponentStrategy hard-coded the word
+                // "hidden", and the other EIGHT strategies said nothing about either. So a muted
+                // candle body announced itself as though it were audible, and a component that
+                // was both told the user to press one key when it needed two.
+                //
+                // Leading, not trailing: whatever interrupts cuts the END of a sentence, and
+                // "this one is silent" is the half a user must not lose. Y-move only — a
+                // qualifier in front of every bar of a left/right sweep is the repeated prefix
+                // this repo has deleted twice already.
+                // A HIDDEN component says so on every move, not only Y: it has no value to read,
+                // so the state IS the message — that is what HiddenComponentStrategy was for, and
+                // dropping the word on an X-scan would leave a bare name repeating.
+                bool sayState = isYMove || !comp.IsVisible;
+                string statePrefix = sayState
+                    ? VisibilityStateSpeech.Prefix(comp.IsVisible, comp.IsMuted)
+                    : "";
+
                 foreach (var strategy in _strategies)
                     if (strategy.CanHandle(ctx))
                     {
                         var result = strategy.Format(ctx);
-                        if (result != null) return result;
+                        if (result != null) return statePrefix + result;
                     }
 
-                return _fallback.Format(ctx) ?? "";
+                return statePrefix + (_fallback.Format(ctx) ?? "");
             }
             catch (Exception ex)
             {
@@ -622,13 +644,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 ctx.Comp.Name, ctx.Value, ctx.Pt, compDataDict, ctx.DataIndex);
             if (speech == null) return null; // decline → template chain below
 
-            // On UP/DOWN (component switch) prepend "[Name]. [Type]. [Hidden./Muted.]"
-            // so the user hears what they landed on; LEFT/RIGHT scans speak value only.
+            // On UP/DOWN (component switch) prepend "[Name]. [Type]." so the user hears what they
+            // landed on; LEFT/RIGHT scans speak value only. The hidden/muted qualifier used to be
+            // built here too, as `!IsVisible ? "Hidden. " : IsMuted ? "Muted. " : ""` — an
+            // if/else over two INDEPENDENT flags, so hidden won and a component that was both
+            // never said "muted". It now comes from the dispatcher, in front of whichever
+            // strategy answered, so all ten of them carry it instead of one.
             if (!ctx.IsYMove) return speech;
 
-            string stateLabel = !ctx.Comp.IsVisible ? "Hidden. "
-                              : ctx.Comp.IsMuted    ? "Muted. "
-                              : "";
+            string stateLabel = "";
             string namePart = ctx.Comp.DisplayName ?? ctx.Comp.Name;
 
             // Sparse signal-marker (Cipher dots etc.): on landing, lead with the name
@@ -672,11 +696,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
     }
 
-    /// <summary>Announces hidden components so the user still knows where Y-navigation landed.</summary>
+    /// <summary>
+    /// Announces hidden components so the user still knows where Y-navigation landed. It used to
+    /// spell the state itself ("{name}: hidden") and could therefore never mention mute; the word
+    /// now comes from the dispatcher's <see cref="VisibilityStateSpeech"/> prefix, which knows
+    /// about both flags, so a component that is hidden AND muted says so.
+    /// </summary>
     internal sealed class HiddenComponentStrategy : IComponentSpeechStrategy
     {
         public bool CanHandle(ComponentFormatContext ctx) => !ctx.Comp.IsVisible;
-        public string Format(ComponentFormatContext ctx) => $"{ctx.Comp.DisplayName}: hidden";
+        public string Format(ComponentFormatContext ctx) => ctx.Comp.DisplayName ?? ctx.Comp.Name;
     }
 
     /// <summary>

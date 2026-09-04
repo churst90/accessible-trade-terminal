@@ -255,7 +255,17 @@ namespace AccessibleTrader.WebHost.Services
                 // interrupting behaviour for navigation we cancel current
                 // SpeechDispatcher output first; Orca's voice still flows
                 // through the dispatcher, so -S clips it cleanly.
-                if (interrupt && _spdSayPath != null) StartSpdSay("-S");
+                //
+                // AWAITED, since 2026-09-04. This was StartSpdSay("-S") — Process.Start with no
+                // wait — and then gdbus was started immediately after, so the cancel could land
+                // AFTER the message it was meant to clear the way for and clip the very utterance
+                // it preceded: the interrupt eating its own words. SpeakViaSpdSay has awaited the
+                // identical cancel since it was written and its comment names this exact race;
+                // the Orca branch was simply left with the older shape when it was added
+                // (04b49f1f, 2026-05-16), which is why the two paths disagreed for four months.
+                // Bounded at one second by RunSpdSayToCompletion, so a hung spd-say delays a
+                // phrase instead of silencing the terminal.
+                if (interrupt && _spdSayPath != null) RunSpdSayToCompletion("-S");
 
                 var psi = new ProcessStartInfo
                 {

@@ -453,13 +453,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (currentFocusedSeries != null && prevFocusedSeries != null && currentFocusedSeries.Id == prevFocusedSeries.Id)
             {
+                // The OTHER flag rides along, because the two fail the same way from the user's
+                // side — the series makes no sound — and are cleared by different keys. Saying
+                // "active" about a series that is still hidden is the terminal reporting a state
+                // it is not in. See VisibilityStateSpeech.
                 if (currentFocusedSeries.IsMuted != prevFocusedSeries.IsMuted)
                 {
-                    _speechRouter.Speak($"{currentFocusedSeries.FriendlyName} {(currentFocusedSeries.IsMuted ? "muted" : "active")}");
+                    _speechRouter.Speak($"{currentFocusedSeries.FriendlyName} "
+                        + $"{(currentFocusedSeries.IsMuted ? "muted" : "active")}"
+                        + VisibilityStateSpeech.OtherFlagClause(!currentFocusedSeries.IsVisible, "hidden"));
                 }
                 if (currentFocusedSeries.IsVisible != prevFocusedSeries.IsVisible)
                 {
-                    _speechRouter.Speak($"{currentFocusedSeries.FriendlyName} {(currentFocusedSeries.IsVisible ? "visible" : "hidden")}");
+                    _speechRouter.Speak($"{currentFocusedSeries.FriendlyName} "
+                        + $"{(currentFocusedSeries.IsVisible ? "visible" : "hidden")}"
+                        + VisibilityStateSpeech.OtherFlagClause(currentFocusedSeries.IsMuted, "muted"));
                 }
             }
 

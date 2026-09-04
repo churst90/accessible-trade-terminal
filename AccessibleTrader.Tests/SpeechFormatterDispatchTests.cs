@@ -26,9 +26,13 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Dispatch_HiddenComponent_ReturnsHiddenMessage()
         {
-            // IsVisible=false → strategy returns "{DisplayName}: hidden" and short-circuits
-            // every subsequent strategy. Matters because Y-navigation still lands on hidden
-            // components and the user needs to hear where they are.
+            // IsVisible=false → HiddenComponentStrategy answers with the NAME and short-circuits
+            // every subsequent strategy; the dispatcher puts the state word in front of it.
+            // Matters because Y-navigation still lands on hidden components and the user needs to
+            // hear where they are. The wording moved on 2026-09-04 ("RSI: hidden" → "Hidden. RSI")
+            // when the qualifier became the dispatcher's job: it is the only place that knows
+            // about BOTH flags, and the old per-strategy version could never say "hidden and
+            // muted". State first because whatever interrupts cuts the end of a sentence.
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "rsi";
@@ -38,15 +42,15 @@ namespace AccessibleTrader.Tests
             }, values: new[] { 64.0 });
 
             var msg = Format(series, focusedCompIndex: 0);
-            Assert.Equal("RSI: hidden", msg);
+            Assert.Equal("Hidden. RSI", msg);
         }
 
         [Fact]
         public void Dispatch_HiddenBeatsCloud_WhenBothMatch()
         {
             // Priority check: Cloud display + IsVisible=false → Hidden still wins because
-            // it's first in the strategy list. A regression that reorders strategies would
-            // fail here with "{name}. bullish, width ..." speech for a hidden cloud.
+            // it's ahead of Cloud in the strategy list. A regression that reorders strategies
+            // would fail here with "{name}. bullish, width ..." speech for a hidden cloud.
             var series = SingleComponent(out var comp, c =>
             {
                 c.Name = "kumo";
@@ -56,7 +60,7 @@ namespace AccessibleTrader.Tests
             }, values: new[] { 3.5 });
 
             var msg = Format(series, focusedCompIndex: 0);
-            Assert.Equal("Kumo: hidden", msg);
+            Assert.Equal("Hidden. Kumo", msg);
         }
 
         // ── Strategy 2: CloudComponentStrategy ────────────────────────────────

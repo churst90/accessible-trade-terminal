@@ -144,13 +144,21 @@ namespace AccessibleTrader.Core.Services
                         _store.Dispatch(new ToggleMuteAction(seriesId, c.Name));
                         var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(s.ClampComponent(state.FocusedComponentIndex));
                         bool nowMuted = newC?.IsMuted ?? false;
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowMuted ? "muted" : "unmuted")}"));
+                        // ", hidden" when it still is. Unmuting something that is also hidden
+                        // leaves it silent, and a confirmation that says only "unmuted" sends
+                        // the user back to press m again — see VisibilityStateSpeech.
+                        string stillHidden = Accessibility.VisibilityStateSpeech.OtherFlagClause(
+                            !(newC?.IsVisible ?? true), "hidden");
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowMuted ? "muted" : "unmuted")}{stillHidden}"));
                     }
                     else
                     {
                         _store.Dispatch(new ToggleMuteAction(seriesId));
-                        bool nowMuted = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.IsMuted ?? false;
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowMuted ? "muted" : "unmuted")}"));
+                        var newS = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
+                        bool nowMuted = newS?.IsMuted ?? false;
+                        string stillHiddenS = Accessibility.VisibilityStateSpeech.OtherFlagClause(
+                            !(newS?.IsVisible ?? true), "hidden");
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowMuted ? "muted" : "unmuted")}{stillHiddenS}"));
                     }
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());
@@ -178,13 +186,21 @@ namespace AccessibleTrader.Core.Services
                         _store.Dispatch(new ToggleHideAction(seriesId, c.Name));
                         var newC = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.Components.ElementAtOrDefault(s.ClampComponent(state.FocusedComponentIndex));
                         bool nowHidden = !(newC?.IsVisible ?? true);
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowHidden ? "hidden" : "visible")}"));
+                        // Cody, 2026-09-04: "if I hide and mute both at once, if I unhide it
+                        // should say muted but it doesn't." Unhiding a muted component made the
+                        // terminal announce "visible" for something that stays silent.
+                        string stillMuted = Accessibility.VisibilityStateSpeech.OtherFlagClause(
+                            newC?.IsMuted ?? false, "muted");
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowHidden ? "hidden" : "visible")}{stillMuted}"));
                     }
                     else
                     {
                         _store.Dispatch(new ToggleHideAction(seriesId));
-                        bool nowHidden = !(_store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId)?.IsVisible ?? true);
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowHidden ? "hidden" : "visible")}"));
+                        var newS = _store.State.ActiveSeries.FirstOrDefault(x => x.Id == seriesId);
+                        bool nowHidden = !(newS?.IsVisible ?? true);
+                        string stillMutedS = Accessibility.VisibilityStateSpeech.OtherFlagClause(
+                            newS?.IsMuted ?? false, "muted");
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowHidden ? "hidden" : "visible")}{stillMutedS}"));
                     }
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());

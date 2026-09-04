@@ -98,7 +98,7 @@ namespace AccessibleTrader.Tests
             string result = formatter.FormatPointFeedback(State(s, InteractionContext.Component),
                 isXMove: false, isYMove: true, s, Bar(), "");
 
-            Assert.Equal("RSI. Oscillator. Hidden. Overbought.", result);
+            Assert.Equal("Hidden. RSI. Oscillator. Overbought.", result);
         }
 
         [Fact]

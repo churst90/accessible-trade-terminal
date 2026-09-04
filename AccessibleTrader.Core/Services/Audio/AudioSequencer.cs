@@ -119,6 +119,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 var seriesList = new[] { series };
                 // Series scope: all components; Component scope: just the pinned component.
                 var plan = BuildVoicePlan(seriesList, componentFilter);
+                bool wasAudible = true;
 
                 for (int i = startIndex; i < count; i++)
                 {
@@ -134,17 +135,34 @@ namespace AccessibleTrader.Core.Services.Audio
                     double msPerBar = 100.0 / Math.Max(0.1, state.PlaybackSpeed);
                     int effPanWidth = AudioConstants.ComputePanWidth(state);
 
-                    foreach (var vp in plan)
-                        RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
+                    // F3 SILENCES THE TONES; IT DOES NOT STOP THE PLAYBACK. See the note on
+                    // SonificationManager.IsEnabled — the flag used to cancel this loop from a
+                    // property setter, so with sound off the chart played two bars and announced
+                    // "playback stopped". The cursor must keep walking either way: playback is
+                    // also how the terminal NARRATES a chart, and the landmarks and (soon) the
+                    // signal sentences are speech, not tones.
+                    if (state.IsSonificationEnabled)
+                    {
+                        foreach (var vp in plan)
+                            RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
 
-                    // Cloud pass: fire cloud fill voices for the focused series.
-                    // Enables series-scope playback (Shift+Space) to sonify cloud fills
-                    // (e.g. EMA Fill) rather than only hearing the two component lines.
-                    var state2 = _store.State;
-                    int cloudSlot2 = 0;
-                    int cloudEnd2 = state2.ViewportStartIndex + AudioConstants.ComputePanWidth(state2) - 1;
-                    FireCloudVoices(seriesList, i, state2.ViewportStartIndex, cloudEnd2, msPerBar,
-                        state2.ChartVolume, ref cloudSlot2);
+                        // Cloud pass: fire cloud fill voices for the focused series.
+                        // Enables series-scope playback (Shift+Space) to sonify cloud fills
+                        // (e.g. EMA Fill) rather than only hearing the two component lines.
+                        var state2 = _store.State;
+                        int cloudSlot2 = 0;
+                        int cloudEnd2 = state2.ViewportStartIndex + AudioConstants.ComputePanWidth(state2) - 1;
+                        FireCloudVoices(seriesList, i, state2.ViewportStartIndex, cloudEnd2, msPerBar,
+                            state2.ChartVolume, ref cloudSlot2);
+                    }
+                    else if (wasAudible)
+                    {
+                        // Only on the transition: the playback voices are continuous, so one
+                        // sweep of StopVoice is what actually ends the tone. Re-issuing it every
+                        // bar would be sixty-four calls per tick for nothing.
+                        SilencePlaybackVoices();
+                    }
+                    wasAudible = state.IsSonificationEnabled;
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
@@ -393,6 +411,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 // from component configuration (not per-bar data), so a continuous Sustain
                 // voice keeps a stable slot and glides smoothly bar-to-bar.
                 var plan = BuildVoicePlan(seriesList);
+                bool wasAudible = true;
 
                 for (int i = startIndex; i < count; i++)
                 {
@@ -405,14 +424,24 @@ namespace AccessibleTrader.Core.Services.Audio
                     double msPerBar = 100.0 / Math.Max(0.1, state.PlaybackSpeed);
                     int effPanWidth = AudioConstants.ComputePanWidth(state);
 
-                    foreach (var vp in plan)
-                        RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
+                    // F3 silences the tones and leaves the walk running — see the single-series
+                    // loop above, and SonificationManager.IsEnabled for what this replaced.
+                    if (state.IsSonificationEnabled)
+                    {
+                        foreach (var vp in plan)
+                            RenderComponentVoices(vp, seriesList, data, i, state, msPerBar, effPanWidth, token);
 
-                    // Cloud pass — fires after component voices for each bar (Chart scope only).
-                    int cloudSlot = 0;
-                    int cloudEndMulti = state.ViewportStartIndex + AudioConstants.ComputePanWidth(state) - 1;
-                    FireCloudVoices(seriesList, i, state.ViewportStartIndex, cloudEndMulti, msPerBar,
-                        state.ChartVolume, ref cloudSlot);
+                        // Cloud pass — fires after component voices for each bar (Chart scope only).
+                        int cloudSlot = 0;
+                        int cloudEndMulti = state.ViewportStartIndex + AudioConstants.ComputePanWidth(state) - 1;
+                        FireCloudVoices(seriesList, i, state.ViewportStartIndex, cloudEndMulti, msPerBar,
+                            state.ChartVolume, ref cloudSlot);
+                    }
+                    else if (wasAudible)
+                    {
+                        SilencePlaybackVoices();
+                    }
+                    wasAudible = state.IsSonificationEnabled;
 
                     await Task.Delay((int)msPerBar, token).ConfigureAwait(false);
 
