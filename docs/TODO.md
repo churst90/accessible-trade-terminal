@@ -117,6 +117,225 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-04, NINTH pass — ANALYSIS ONLY, no code changed. Cody
+> reported speech going intermittently silent after chart commands (m, h, Ctrl+Alt+Shift+G,
+> Shift+Arrow: the action happens, the sentence often does not), and asked for a Narration tab
+> in F12 Settings; his follow-up ("3 lines at the bottom of the browser, the first blank") turned out
+> to be the diagnosis, A0. Everything is analysed here; the RANKED list at the end of this block is the
+> order to build, and it supersedes the eighth pass's "LEFT TO DO" ordering below it.**
+>
+> ### A. Speech goes silent after a chart command — what is known, ranked by evidence
+>
+> **Two speech paths, and they fail differently.** `WebHostSpeechManager` probes the machine
+> at startup: if Orca answers on the session bus it picks the Orca D-Bus backend and
+> DISABLES the ARIA live region (`ShouldEnableLiveRegion`); otherwise (the hosted site, any
+> box without Orca) it is the browser + live region. On this box Orca answers
+> (`gdbus … GetVersion` → `51.alpha`), and `~/.local/share/AccessibleTrader/dotpad.log`
+> shows the app ran locally at 02:39 today — so Cody's local sessions are on the D-Bus path
+> and his hosted sessions are on the live-region path. Findings A1 and A3(i) are the
+> live-region path; A2 and A3(ii) are the D-Bus path. **Ask Cody which one he was on when he
+> noticed it, and whether `m` merely went quiet or the series did not mute** (A5).
+>
+> **A0. THE HEADLINE, MEASURED DOWN TO THE ACCESSIBILITY BUS: the status bar is a SECOND
+> live region carrying the SAME sentence, and Orca drops both copies whenever the status
+> bar's copy arrives first.** Cody's follow-up: "as I arrow over [the bottom of the browser]
+> it shows up as 3 lines, one after the other — the first one blank, the second says
+> candles, body unmuted, the third says the same thing… this can't be an Orca issue because
+> this wasn't happening before we changed the status bar." He is right on both counts, and
+> the three lines are the diagnosis. The document has THREE `role="status"` live regions in a
+> row at the bottom (`querySelectorAll('[aria-live],[role=status]')`: `aria-speech-1`
+> assertive, `aria-speech-2` assertive, `.status-content` polite — plus Blazor's error
+> alert). The first two are the invisible speech double-buffer (one always blank — that is
+> the blank line); the third is `StatusBar.razor`, which subscribes to
+> `FeedbackRequestEvent` on its own and writes `ev.Message` into `<div role="status"
+> aria-live="polite">`. Browse mode walks all three as lines; that is not three status bars,
+> it is two hidden speech buffers and one visible mirror of them, and the mirror is the
+> defect. **What 2a1b84af changed:** it deleted the "Last Feedback:" label from that mirror,
+> so its text became IDENTICAL to the speech region's text. Orca 51's live-region presenter
+> (`live_region_presenter.py handle_event`, read on this box) does, in this order: an
+> ASSERTIVE message purges every queued POLITE one; then the message is dropped if its text
+> equals the last ENQUEUED message within 0.25 s. So: polite copy first → enqueued; assertive
+> copy 0–1 ms later → purges the polite copy, then is itself dropped as a duplicate of it →
+> **nothing is spoken.** Assertive first → spoken once, polite copy dropped. Before the label
+> was deleted the two texts differed ("Last Feedback: …"), the duplicate rule never matched,
+> and the user heard the sentence (sometimes with the label — the complaint that session
+> fixed). **Measured with `tools/atspi-listener.py`** (an AT-SPI event listener, run against
+> the harness Chromium launched WITHOUT `NO_AT_BRIDGE` and with
+> `--force-renderer-accessibility`), alternating Ctrl+Alt+Shift+N and Ctrl+Alt+Shift+C so the
+> status text changed on every press, 16 presses: the polite copy reached the bus FIRST on 6
+> of 16 — 6 of the 8 presses where both regions changed in the same accessibility update
+> (the N path: both inserts at +160 ms, same millisecond, polite emitted first 6/8). On the
+> C path the speech region's insert came at +8 ms and the status bar's at +160 ms, so the
+> assertive copy always won there. That is the intermittency: it depends on whether the two
+> DOM updates land in one Chromium accessibility batch and, inside a batch, which node
+> Chromium serializes first — and Cody's `m` and `h` sentences change on every press, so
+> they are in the exposed class. **Fix:** the status bar must not be a live region at all.
+> Remove `role="status" aria-live="polite"` from `.status-content`; it is a visual mirror
+> of what was just spoken, the `<section aria-label="Terminal status">` landmark already
+> makes it reachable by landmark and browse-mode navigation, and the speech double-buffer is
+> the one announcing channel. (The alternative — keep it live and make the text differ — is
+> the bug the last session removed, put back.) **Guard:** a DOM scan asserting that exactly
+> the two speech regions carry `aria-live` and the status bar carries none; and the listener
+> recipe above, re-run, must show one insert per press. **Locally (D-Bus path) the same
+> mirror should make every feedback sentence speak TWICE** — once from `PresentMessage`, once
+> from the polite region 100 ms later — ask Cody whether he hears doubles; if not, that is
+> the next thing to measure.
+>
+> **A1. MEASURED in the browser harness (probe written, run, and deleted — not committed):
+> the two-region live-region alternation never operates for interrupting speech — a real
+> defect, but NOT the one that silences a repeated phrase; that inference was wrong and the
+> AT-SPI trace refutes it.** `SpeechFeedbackRouter` implements `interrupt: true` — its
+> DEFAULT, and what every one of the four commands uses — as `Silence()` then `Speak()`
+> (`FeedbackRouters.cs:67-68`). `BlazorSpeechManager.Silence` invokes `OnSpeak("")` (line
+> 119), and `MainLayout` flips `_activeBuffer` on EVERY callback, empty or not (line 201).
+> Two flips: the text lands in the region the previous utterance used. Measured on a cold
+> start: ArrowRight ×3, Ctrl+Alt+Shift+N ×2, F2 ×2 — **all seven utterances landed in
+> `aria-speech-1`; `aria-speech-2` was never written**; dialog announcements, which call
+> `SpeechManager.Speak` directly with no `Silence()`, alternated 2 → 1 as designed. So the
+> comment at `MainLayout.razor:153-156` is true only for non-interrupting speech. **What the
+> AT-SPI trace showed for a repeated identical phrase** (Ctrl+Alt+Shift+N six times): the
+> region is emptied ~10 ms after the key (`children-changed:remove` + `text-changed:delete`)
+> and refilled ~150 ms later (`text-changed:insert` of the full sentence) — Chromium observed
+> the empty state eagerly every time, so Orca received an insert for every repeat and would
+> speak it; the coalescing I inferred did not happen in 6 of 6. The F2 path (text changes)
+> coalesced into one delete+insert pair — also announced. **So the buffer flip is a latent
+> defect, kept as a lesser item:** fix by flipping only on non-empty text, guard as before
+> (two identical utterances → two different regions). Playwright note learned on the way:
+> `PressAsync("Control+Alt+Shift+N")` fired nothing; `"Control+Alt+Shift+KeyN"` fired the
+> command, and only after `FocusChartAsync`. Use `Key*` codes for shifted chords.
+>
+> **A2. VERIFIED BY READING, outcome unverified: on the Orca D-Bus path the cancel is not
+> awaited.** `SpeakViaOrca` (`WebHostSpeechManager.cs:258`) does `StartSpdSay("-S")` —
+> fire-and-forget — and then starts `gdbus … PresentMessage`. `SpeakViaSpdSay` (line 294)
+> AWAITS the same cancel, and its comment names exactly this race: "the cancel could land
+> AFTER the text and clip the very message it was meant to clear the way for — the interrupt
+> eating its own utterance." The Orca branch was left with the old shape; it dates from
+> 2026-05-16 (`04b49f1f`), so it is not new — but Cody's "now" may simply be that the nudge,
+> G and the drawing sentences are new THINGS to say through it. On top of that, the router's
+> `Silence()` sends a SECOND, awaited `spd-say -S` (line 307) first, so every interrupting
+> utterance is three process spawns — cancel, cancel, speak — and `spd-say -S` stops the
+> audio of EVERY speech-dispatcher client, Orca's own included. Speech-dispatcher's log
+> (`/run/user/1000/speech-dispatcher/log/speech-dispatcher.log`, LogLevel 2) has 51 "Audio
+> interrupted" lines in 02:40–02:49 today (the app running) against 19 in 03:50–03:59 (Orca
+> alone) — consistent, not conclusive. **Fix, one line:** `RunSpdSayToCompletion("-S")` in
+> `SpeakViaOrca`, mirroring line 294. The larger question — whether the app should cancel
+> at all under Orca — is A3(ii).
+>
+> **A3. Orca 51 facts, read from the source installed on this box
+> (`/usr/lib/python3.14/site-packages/orca`; running instance 51.alpha rev a6b36ec94b; X11
+> MATE session; libatspi's X11 device uses XI2 raw events, so Orca learns of a key press in
+> PARALLEL with Chrome, not ahead of it).**
+> - `input_event.py` `_present`: EVERY pressed key calls
+>   `presentation_manager.interrupt_presentation()`, which cancels current speech
+>   (`speech_manager.interrupt_speech()`, a speech-dispatcher CANCEL) **and flushes the
+>   live-region queue** (`live_region_presenter.flush_messages()`).
+> - `live_region_presenter.py`: a live-region message is not spoken on arrival — it is
+>   enqueued and pumped by `GLib.timeout_add(100, …)`, one message per 100 ms tick; a message
+>   whose text equals the last ENQUEUED one within 0.25 s is dropped as a duplicate;
+>   an assertive message purges queued polite ones; only `object:text-changed:insert`
+>   events count (a pure deletion is never announced).
+> - `presentation_manager.py`: a focus change interrupts presentation (with exceptions);
+>   object presentation skips the interrupt if a key was pressed within 1 s.
+> - `dbus_service.py`: `PresentMessage` → `present_message` → `speak_message` → plain
+>   `server.speak` — it does NOT interrupt on its own; `SpeakMessage` is the speech-only
+>   variant (no braille flash).
+>
+> (i) Live-region path: a message that reaches Orca less than ~100 ms before the user's
+> next key press is discarded unspoken, and a Blazor Server round trip (key → SignalR →
+> render → DOM → AT-SPI) puts the message 50–300 ms after the key, so the discard window is
+> larger than a native app's: at any press rate faster than round-trip + 100 ms only the
+> LAST press's sentence survives. Expected screen-reader behaviour, but it is why "hold
+> Shift+Arrow" hears one sentence — the nudge's settle design already matches it.
+> (ii) D-Bus path: Orca has ALREADY cancelled speech when the user pressed the key, so the
+> app's own `spd-say -S` is redundant for key-driven speech and only harmful for
+> event-driven speech (a new-bar sentence cancelling the tail of whatever Orca was reading).
+> A genuine ordering race — Orca's key interrupt being dispatched AFTER the app's
+> PresentMessage on a fast local loop while Orca's main loop is busy with the same key's
+> DOM events — is possible and UNVERIFIED; A4 measures it.
+>
+> **A4. The measurement that settles the local path (Cody's to run, or mine with his
+> say-so — it restarts his screen reader):** `orca --replace --debug-file=/tmp/orca-debug.out`,
+> reproduce each command twenty times, then grep the file for `DBUS SERVICE: PresentMessage
+> called with` (did the sentence reach Orca), `SPEECH DISPATCHER: Speaking` (did Orca send
+> it), `PRESENTATION MANAGER: Interrupting presentation` (what cancelled it, by timestamp),
+> and `locusOfFocus` lines between them (focus wander). For the spd-say race specifically,
+> `LogLevel 4` in `~/.config/speech-dispatcher/speechd.conf` for one session shows the
+> order of spd-say's STOP against Orca's message. For A1's inferred half, an AT-SPI
+> listener (`python3` + `gi.repository.Atspi`, `object:text-changed:insert` on the Chromium
+> process) run against the harness WITHOUT `NO_AT_BRIDGE` — but the harness cannot load a
+> series on a cold start, so m/h/G/nudge themselves are not reachable from it yet.
+>
+> **A5. Ruled out on the app side.** None of the four handlers debounce, rate-limit, or
+> drop: `m`/`h` publish a StateChange sentence on every press (`ChartCommandManager.cs:146-187`);
+> Ctrl+Alt+Shift+G speaks at once (`HandleCycleAnchor`); Shift+Arrow speaks ONE sentence
+> 300 ms after the last press by design, silenced only by a Navigation feedback, an undo, a
+> modal opening, or a tab switch — all user-driven, nothing on the data path. Nothing in the
+> speech pipeline changed since 08-27; the 09-03 commits changed what is SAID. The JS
+> single-letter gate (`keyboard.js:518`, `_chartFocused`, set by a JS-interop round trip from
+> `ChartArea`'s focus/blur) drops `m`/`h` SILENTLY when the chart area has blurred — but
+> chords are not gated and Cody reports the chords acting, so focus wander would present as
+> `m` doing nothing at all, not as silence after the action. Hence the question in the
+> first paragraph.
+>
+> ### B. A Narration tab in Settings — analysis and recommendation
+>
+> **What exists today.** Cody's reading is right: Ctrl+Alt+Shift+N is a PER-SERIES opt-in
+> (`SeriesReducer.ToggleNarration` flips `IsAutoNarrated`; "{name}, narrating"); nothing is
+> narrated unless flagged, and `AutoNarrationService` scans only flagged series on each live
+> bar close, composing one utterance per scan from the tier ladder (Break, Signal, Cross,
+> Touch, Approach, Oscillator; five clauses max). "Announce new bars" (Speech tab,
+> `speech.announceNewBars`, default on) is GLOBAL: the candle-close sentence, with the chart
+> pattern outcome inside it. "Describe chart patterns" (Speech tab) is a CONTENT switch that
+> gates both arrow-key description and that new-bar outcome. Playback speaks TIME landmarks
+> only, non-interrupting, no switch; signal speech during playback is designed (seventh pass
+> item (a)) and not built. Settings has eight tabs; Alerts is slated to move into Alt+J.
+>
+> **The rule that makes the tab coherent is the TRIGGER, not the topic.** Speech tab = how
+> the terminal says what you ASKED for (values order, timestamps, headers, output device).
+> Narration tab = what it says when you pressed NOTHING — a bar closed, playback stepped.
+> Under that rule the tab holds, in this order:
+> 1. **Announce new bars** — moved from Speech, unchanged.
+> 2. **Narrate signals on bar close** — NEW master switch, default on. The help line under
+>    it says which series: "Ctrl+Alt+Shift+N chooses the series; this switch is the master."
+>    Cody's "ladder" is the tier ORDER inside one utterance, not a set of switches; per-tier
+>    toggles (e.g. "no oscillator commentary") are a later refinement, not this item.
+> 3. **Narrate during playback** — NEW, default OFF (playback is the tone-listening mode;
+>    Cody's own words were "just important events"). ON = time landmarks + marker signals +
+>    chart-pattern outcomes, composed one utterance per step, rate-limited as landmarks are
+>    (design (a)). OFF = only the start / pause / end / speed confirmations.
+> 4. **Chart patterns during playback: NOT a separate switch.** Gate = "Describe chart
+>    patterns" (content) AND "Narrate during playback" (trigger). One switch per
+>    content × trigger cell grows without bound, and a user who turned patterns off would be
+>    surprised to hear them in playback. So the answer to Cody's question is: scope it to
+>    whether patterns are enabled — yes — and to the playback switch.
+> 5. **Which series speak during playback: the per-series flag.** REVISE design (a), which
+>    scanned "every active, visible, unmuted series"; use `IsAutoNarrated` instead, so one
+>    mental model holds everywhere: **N picks WHAT, the tab picks WHEN.** Landmarks are
+>    series-independent and unaffected.
+> "Describe chart patterns" STAYS in Speech (it also changes what the arrow keys say); add
+> "narration playback" to its search keywords so the Narration vocabulary finds it. Tab
+> position: after Speech, before Sonification; with Alerts leaving, the count stays at eight.
+> **Three decisions for Cody** (recommendations in brackets): the playback default [off];
+> whether the playback switch also covers time landmarks [yes]; whether the per-series flag
+> selects playback speech [yes].
+>
+> ### RANKED — the order to build, superseding the eighth pass's list
+>
+> **1. A0: take the live region OFF the status bar** (`StatusBar.razor`: drop `role="status"
+> aria-live="polite"` from `.status-content`), with the DOM-scan guard, and re-run
+> `tools/atspi-listener.py` against the harness to show one insert per press. This is the
+> measured cause of the intermittent silence on the live-region path, it is one attribute,
+> and it is the primary channel for a blind user on the hosted site.
+> **2. A1: make `Silence()` stop flipping the live-region buffer**, with the probe turned
+> into a browser guard. Latent, small, same file family.
+> **3. A2: await the cancel in `SpeakViaOrca`** (one line, mirrors line 294), and run A4
+> before deciding whether the app should cancel under Orca at all.
+> **4. Modal background `inert`. 5. Alerts consolidation. 6. Docs and the bump to 2.6.0.**
+> **7. Narration tab (B) built TOGETHER with playback signal speech (a)** — the tab without
+> item 3 is a reshuffle of two switches; it earns its place when the playback switch exists.
+> 2.6.x or 2.7, Cody's call. **8. Object Tree follow-ups, (b), (c)** as before.
+> The segfault dump drop-in still needs Cody (seventh pass block).
+
 > **START HERE (current as of 2026-09-03, EIGHTH pass — the Object Tree is SELECTION-FOLLOWS-FOCUS,
 > Settings has EIGHT tabs, Appearance is ONE Theme panel with New/Clone/Edit, and the app-level
 > colour overrides are RETIRED. Item 1 of the seventh pass's list (settings restructure + the
