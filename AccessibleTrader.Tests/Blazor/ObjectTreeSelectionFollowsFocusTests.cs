@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 using Bunit;
+using Bunit.Rendering;
 using NSubstitute;
 
 namespace AccessibleTrader.Tests.Blazor;
@@ -46,6 +47,18 @@ public class ObjectTreeSelectionFollowsFocusTests
     private static AngleSharp.Dom.IElement Row(IRenderedComponent<AccessibleTrader.BlazorClient.Components.ObjectTreeModal> cut, string seriesName) =>
         cut.FindAll("[role='treeitem'][aria-level='2']")
            .Single(e => e.GetAttribute("aria-label")!.StartsWith(seriesName + ",", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Fires <c>focus</c> on a row ON THE RENDERER DISPATCHER. Blazor re-renders after every
+    /// event handler and every render hands the lambda handlers new ids, so a focus event
+    /// queued from the test thread can be dispatched against a tree the previous event's
+    /// re-render has already replaced (<see cref="UnknownEventHandlerIdException"/>, rethrown
+    /// at the next wait). CI's two-core runners hit it on every run; `taskset -c 0,1`
+    /// reproduces it here. Find-and-trigger inside <c>InvokeAsync</c> runs both against the
+    /// current tree with nothing able to render in between — bUnit's own documented fix.
+    /// </summary>
+    private static void FocusRow(IRenderedComponent<AccessibleTrader.BlazorClient.Components.ObjectTreeModal> cut, string seriesName) =>
+        cut.InvokeAsync(() => Row(cut, seriesName).Focus()).GetAwaiter().GetResult();
 
     [Fact]
     public void The_tab_stop_is_the_charts_focused_series_not_the_first_pane()
@@ -104,7 +117,7 @@ public class ObjectTreeSelectionFollowsFocusTests
         Seed(h, focusedId: "candles");
         var cut = Open(h);
 
-        Row(cut, "RSI 14").Focus();
+        FocusRow(cut, "RSI 14");
         cut.WaitForAssertion(() =>
             h.WorkspaceStore.Received(1).Dispatch(Arg.Is<SelectSeriesAction>(a => a.SeriesId == "rsi")));
 
@@ -116,7 +129,7 @@ public class ObjectTreeSelectionFollowsFocusTests
         // assertion below fails.
         foreach (var name in new[] { "Hide Candles", "Mute Candles" })
         {
-            try { cut.Find($"button[aria-label='{name}']").FocusIn(); }
+            try { cut.InvokeAsync(() => cut.Find($"button[aria-label='{name}']").FocusIn()).GetAwaiter().GetResult(); }
             catch (MissingEventHandlerException) { /* nothing listens above the button — correct */ }
         }
 
@@ -131,7 +144,7 @@ public class ObjectTreeSelectionFollowsFocusTests
         Seed(h, focusedId: "candles");
         var cut = Open(h);
 
-        Row(cut, "RSI 14").Focus();
+        FocusRow(cut, "RSI 14");
 
         // Polled: bUnit queues the handler on the renderer dispatcher, and a read before it has
         // run is the seventh flake of this repo.
@@ -149,8 +162,8 @@ public class ObjectTreeSelectionFollowsFocusTests
         Seed(h, focusedId: "candles");
         var cut = Open(h);
 
-        Row(cut, "Candles").Focus();
-        Row(cut, "RSI 14").Focus();
+        FocusRow(cut, "Candles");
+        FocusRow(cut, "RSI 14");
 
         cut.WaitForAssertion(() =>
             h.WorkspaceStore.Received(1).Dispatch(Arg.Is<SelectSeriesAction>(a => a.SeriesId == "rsi")));
