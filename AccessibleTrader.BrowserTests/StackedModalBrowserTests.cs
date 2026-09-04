@@ -43,7 +43,10 @@ public sealed class StackedModalBrowserTests
     private const string SettingsOpener = "tab-general";   // where focus stands when F1 is pressed
     private const string HelpTitle     = "help-title";
     private const string ThemeTitle    = "theme-editor-title";
-    private const string NewThemeName  = "Create a new theme starting from the one in use";
+    // The visible text IS the accessible name since the 2026-09-03 settings restructure (the
+    // button carries a title, no aria-label), so focus return is checked by the element's id.
+    private const string NewThemeName  = "New theme";
+    private const string NewThemeId    = "s-theme-new";
 
     /// <summary>
     /// F12, two Tabs into Settings (past the search box, onto the General tab button), then F1:
@@ -209,8 +212,8 @@ public sealed class StackedModalBrowserTests
         try
         {
             await t.Page.WaitForFunctionAsync(
-                "name => document.activeElement && document.activeElement.getAttribute('aria-label') === name",
-                NewThemeName, new PageWaitForFunctionOptions { Timeout = 5_000 });
+                "id => document.activeElement && document.activeElement.id === id",
+                NewThemeId, new PageWaitForFunctionOptions { Timeout = 5_000 });
             back = true;
         }
         catch (TimeoutException) { }
