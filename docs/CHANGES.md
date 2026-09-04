@@ -4,6 +4,93 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### Twelve more candle patterns, and the ordering rule that makes them reachable (2026-09-04)
+
+Cody: *"add the missing candle patterns"*. The three-bar set was four of the ten-odd in common
+use, and the analyser had no reach past its two explicit predecessors at all — so four- and
+five-bar shapes could not be expressed, let alone detected. Twelve now join, taking the catalogue
+to **24**:
+
+- **Three-bar:** three inside up / down, three outside up / down, morning / evening doji star,
+  bullish / bearish abandoned baby.
+- **Four-bar:** bullish / bearish three line strike.
+- **Five-bar:** rising / falling three methods.
+
+Bars four and five come from the trailing window rather than from the interface's two explicit
+predecessors — and when no window is passed, the long patterns simply cannot fire. That is honest
+degradation rather than a wrong answer, and it is asserted rather than assumed.
+
+**THE ORDERING IS THE WHOLE DESIGN, and it is why most of the new tests are about it.** Every long
+pattern CONTAINS a shorter one that matches on some bar of it: three inside up contains a harami,
+three outside up contains an engulfing, three line strike contains three white soldiers, a morning
+doji star is a morning star whose middle bar happens to be a doji. Test shortest-first and the
+longer pattern can never be reached — the analyser announces the part instead of the whole, which
+is not an error anyone would notice from the outside. So the analyser now runs longest-first, and
+within the three-bar block most-specific-first (abandoned baby → doji star → plain star). Each of
+those precedences is pinned by a test that asserts the shorter pattern IS found on its own bar and
+loses on the completing one.
+
+**`CandlePatternSpeech.MembershipAt` had to learn the same rule.** It took the nearest completion;
+the analyser prefers the longest. Bar one of a rising three methods is also bar one of a harami
+completing on bar two, so the two disagreed about the same bar — one naming the part while the
+bar's own reading named the whole. Longest wins in both now, ties to the nearest. Found by a test
+written for the reach, not by reading the code.
+
+**`MaxPatternBars` moved 3 → 5**, and that is load-bearing in a quiet way: leaving it at 3 would
+fail nothing loudly — the completing bar would still name the five-bar shape, and the first two
+bars of it would go silently back to saying nothing. That is exactly the defect the span clause
+was added to fix, reappearing only on the longest patterns.
+
+**Abandoned baby is the one pattern that keeps a TRUE GAP**, and the decision is recorded on the
+test that pins it. Everywhere else here a classical gap has been replaced by a body tolerance,
+because 24/7 crypto does not gap and the pattern would otherwise be undetectable. Not here: an
+abandoned baby with the gaps loosened simply IS a morning or evening doji star, and the two would
+become one detector wearing two names. So it stays strict, is rare on crypto and findable on
+anything with a session break. Being honest about which markets a pattern can occur in beats
+reporting one that did not happen.
+
+**Three line strike is filed as a CONTINUATION** despite looking like the opposite. That is the
+received reading — the strike is taken as a shake-out inside the advance — rather than this
+codebase's opinion; the terminal names the shape and states the lean, and does not say what to do
+about it.
+
+**Alerts now write enums BY NAME.** `AlertDefinition.Pattern` is a persisted `CandlePattern?` and
+Newtonsoft's default is the ORDINAL — so removing or reordering a member of that enum would
+silently rebind every saved alert naming a later one onto whatever inherited its number, in a file
+the user cannot read, on a feature that fires unattended. The identical trap was found in the
+shortcut profiles earlier the same day. Safe to switch on: Newtonsoft reads both spellings, so
+existing alerts.json files load unchanged and are rewritten as names on their next save. The enum
+carries an APPEND-ONLY note for as long as any ordinal file can still exist.
+
+### Playback said nothing about a signal indicator you had just added (2026-09-04)
+
+Cody: *"when I added cipher sr or b to the chart I don't hear signals being spoken during
+playback"*. Both indicators exist to print signals. Both were silent.
+
+`SeriesConfig.IsAutoNarrated` defaults to **false** and nothing sets it when an indicator is
+added, so `PlaybackNarration.SignalsForStep` — which skips any series not flagged — skipped every
+series on the chart. A user who had switched narration on in Settings, added a signal indicator
+and pressed play had done everything the feature asks of them; the one remaining gate was a
+per-series flag they had no way to know existed.
+
+**The default is deliberate and is NOT changed here.** The standing convention is that continuous
+verbal output is opted into rather than imposed, and flipping it on for every added indicator
+would make a chart carrying four of them unlistenable. What was never deliberate is the silence
+being indistinguishable from a broken feature — so playback now says it once, at the moment the
+user pressed play: *"…No series is set to narrate, so signals will not be spoken. Press Control
+Alt Shift N on a series to turn its narration on."* Same remedy the detail key got for an empty
+chart: an explicit request answered with silence is the worst shape a failure can take here.
+
+**Only when there is something to be silent about.** A chart of plain moving averages has no
+signals to narrate whether or not a series is flagged, and a marker component with no
+`SignalSpeechTemplate` is silent for a reason the shortcut would not fix. Both are excluded, along
+with hidden and muted series, so the caveat cannot become advice about a feature the user is not
+missing — attached to every press of play. Four of the six guards in
+`PlaybackSilentSignalsTests` exist for that half.
+
+**Whether the default itself should change is Cody's call and is recorded as open in
+`docs/TODO.md`** rather than decided here.
+
 ### Which candles are part of the pattern: every bar of a multi-bar shape says where in it it sits (2026-09-04)
 
 Cody, the moment the multi-bar patterns started being spoken: *"when alt shift d says 3 white

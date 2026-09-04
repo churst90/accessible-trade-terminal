@@ -190,8 +190,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </para>
         ///
         /// <para>
-        /// Returns the NEAREST completion. A bar can be the third soldier of one advance and the
-        /// first of the next; the pattern that ends here is the one being described now.
+        /// WHEN A BAR IS IN MORE THAN ONE PATTERN, THE LONGEST WINS — the same rule the analyser
+        /// itself applies, and it has to be the same or the two disagree about the same bar. Bar
+        /// one of a rising three methods is also bar one of a harami that completes on bar two,
+        /// and answering with the harami is true, useless and quietly wrong: it names the part
+        /// while the bar's own reading names the whole. Ties go to the nearest completion, which
+        /// is the pattern ending soonest.
         /// </para>
         /// </summary>
         public static Membership? MembershipAt(
@@ -203,8 +207,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (data == null || data.Count == 0) return null;
             if (index < 0 || index >= data.Count) return null;
 
-            // MaxPatternBars - 1: a three-bar pattern is the longest the analyser knows, so a bar
-            // can be at most two bars ahead of the one that completes the pattern containing it.
+            // MaxPatternBars - 1: a bar can be at most (longest pattern - 1) bars ahead of the one
+            // that completes the pattern containing it.
+            Membership? best = null;
+
             for (int ahead = 0; ahead <= MaxPatternBars - 1; ahead++)
             {
                 int completeAt = index + ahead;
@@ -216,14 +222,28 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 int start = completeAt - a.PatternBarCount + 1;
                 if (index < start) continue;          // the pattern does not reach back this far
 
-                return new Membership(a.Pattern, index - start + 1, a.PatternBarCount, data[completeAt].Date);
+                // Longest wins; the loop runs nearest-first, so a strict > keeps the nearest of
+                // any tie without a second comparison.
+                if (best == null || a.PatternBarCount > best.BarCount)
+                    best = new Membership(a.Pattern, index - start + 1, a.PatternBarCount, data[completeAt].Date);
             }
 
-            return null;
+            return best;
         }
 
-        /// <summary>The longest pattern the analyser recognises. Three-bar is the whole set.</summary>
-        public const int MaxPatternBars = 3;
+        /// <summary>
+        /// The longest pattern the analyser recognises — five bars, since the three-methods
+        /// shapes landed on 2026-09-04.
+        ///
+        /// <para>
+        /// This is the reach of the "which bar of it am I on?" lookahead, so leaving it at 3 after
+        /// adding a five-bar pattern would not fail anything: the completing bar would still name
+        /// the shape, and the first two bars of it would silently go back to saying nothing. That
+        /// is the exact defect the clause was added to fix, reappearing only on the longest
+        /// patterns. Whenever a longer pattern is added, this number moves with it.
+        /// </para>
+        /// </summary>
+        public const int MaxPatternBars = 5;
 
         /// <summary>
         /// The clause that says WHICH CANDLES: "bar 3 of 3" on the bar whose own name already gave
@@ -327,6 +347,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
             CandlePattern.EveningStar        => "Evening star",
             CandlePattern.ThreeWhiteSoldiers => "Three white soldiers",
             CandlePattern.ThreeBlackCrows    => "Three black crows",
+
+            CandlePattern.ThreeInsideUp          => "Three inside up",
+            CandlePattern.ThreeInsideDown        => "Three inside down",
+            CandlePattern.ThreeOutsideUp         => "Three outside up",
+            CandlePattern.ThreeOutsideDown       => "Three outside down",
+            CandlePattern.MorningDojiStar        => "Morning doji star",
+            CandlePattern.EveningDojiStar        => "Evening doji star",
+            CandlePattern.AbandonedBabyBullish   => "Bullish abandoned baby",
+            CandlePattern.AbandonedBabyBearish   => "Bearish abandoned baby",
+            CandlePattern.ThreeLineStrikeBullish => "Bullish three line strike",
+            CandlePattern.ThreeLineStrikeBearish => "Bearish three line strike",
+            CandlePattern.RisingThreeMethods     => "Rising three methods",
+            CandlePattern.FallingThreeMethods    => "Falling three methods",
+
             _                                => ""
         };
 

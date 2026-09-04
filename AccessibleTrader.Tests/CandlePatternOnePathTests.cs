@@ -191,11 +191,13 @@ public sealed class CandlePatternOnePathTests
     }
 
     [Fact]
-    public void TheNearestCompletionWins()
+    public void WhenABarIsInMoreThanOnePattern_TheLongestWins()
     {
-        // A bar can be the last soldier of one advance and the first of the next. The pattern
-        // that ENDS here is the one being described now, so the search stops at the first hit
-        // rather than running to the furthest.
+        // The same rule the analyser itself applies, and it has to be the same rule or the two
+        // disagree about one bar: bar one of a rising three methods is also bar one of a harami
+        // completing on bar two, and answering with the harami names the part while the bar's own
+        // reading names the whole. Ties go to the nearest completion.
+        // (CandlePatternLongFormTests pins the five-bar case; this is the plain one.)
         var m = CandlePatternSpeech.MembershipAt(
             new SdkCandlePatternAnalyzer(), Buffer(ThreeSoldiers), index: 3, heikinAshi: false);
 

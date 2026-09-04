@@ -331,7 +331,23 @@ namespace AccessibleTrader.Core.Services
         // round-trip it without duplicating the polymorphism rules.
         private static readonly JsonSerializerSettings AlertJsonSettings = new()
         {
-            Converters = { new Alerts.ConditionNodeNewtonsoftBridge() },
+            Converters =
+            {
+                new Alerts.ConditionNodeNewtonsoftBridge(),
+
+                // ENUMS BY NAME, not by ordinal. `AlertDefinition.Pattern` is a persisted
+                // CandlePattern? and Newtonsoft's default is the NUMBER — so removing or
+                // reordering a member of that enum silently rebinds every saved alert naming a
+                // later one onto whatever inherited its position, in a file the user cannot read
+                // and on a feature that fires unattended. The identical trap was found in the
+                // shortcut profiles on 2026-09-04, where deleting five commands from mid-enum
+                // would have rebound a saved keymap onto QuickPlaceMarket.
+                //
+                // Safe to switch on: Newtonsoft READS both spellings, so alerts.json files
+                // already on disk carrying numbers still load and are rewritten as names the
+                // next time they are saved. Nothing needs migrating.
+                new Newtonsoft.Json.Converters.StringEnumConverter(),
+            },
         };
 
         public List<AlertDefinition> LoadAlerts()

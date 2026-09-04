@@ -254,13 +254,36 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   Two of this app's choices are deliberate deviations, documented in the analyser: the star's
 >   "gap" is a body-overlap tolerance because 24/7 crypto never gaps, and engulfing tests BODY
 >   containment rather than high/low.
-> - **OPEN: the three-bar set is FOUR patterns, not all of them.** Morning star, evening star,
->   three white soldiers, three black crows. **Not implemented:** three inside up/down, three
->   outside up/down, abandoned baby, morning/evening doji star, rising/falling three methods,
->   three line strike. The two-bar set (8) and the one-bar types (11) are reasonably complete.
->   Adding a pattern is now a small job — one clause in the analyser, one arm in
->   `CandlePatternSpeech.PatternName`, and `EveryPatternAndTypeHasASpokenName` fails until the
->   name exists. **This is the next candle-pattern item if one is wanted.**
+> - **CLOSED, same day: all twelve missing patterns are in.** The catalogue is 24 —
+>   three-bar (three inside up/down, three outside up/down, morning/evening doji star,
+>   bullish/bearish abandoned baby), four-bar (three line strike) and five-bar (rising/falling
+>   three methods). **The ordering is the design:** every long pattern CONTAINS a shorter one, so
+>   the analyser runs longest-first and, within the three-bar block, most-specific-first
+>   (abandoned baby → doji star → plain star). `MembershipAt` had to learn the same rule — it took
+>   the nearest completion while the analyser preferred the longest, so the two disagreed about
+>   bar one of a rising three methods. **Abandoned baby keeps a TRUE gap** and is the only pattern
+>   that does; loosening it would make it identical to a morning doji star.
+>   **`MaxPatternBars` moved 3 → 5** and that is load-bearing quietly: left at 3 nothing fails
+>   loudly, the first two bars of a five-bar pattern just go silent again.
+>
+> ### 7. PLAYBACK SAID NOTHING ABOUT A SIGNAL INDICATOR YOU HAD JUST ADDED — Cody's report, FIXED
+>
+> *"when I added cipher sr or b to the chart I don't hear signals being spoken during playback"*.
+> `SeriesConfig.IsAutoNarrated` defaults to FALSE and nothing sets it on add, so
+> `SignalsForStep` skipped every series on the chart.
+>
+> **The default is deliberate and was NOT changed** — continuous speech is opted into here, and
+> flipping it on per added indicator makes a four-indicator chart unlistenable. What was never
+> deliberate is the silence being indistinguishable from a broken feature, so playback discloses
+> it once at the moment the user pressed play, with the chord that fixes it. Gated hard so it
+> cannot become noise: nothing is said when there are no signals to miss, when the marker has no
+> speech template, when the series is hidden or muted, or when playback narration is off.
+>
+> **OPEN, and it is Cody's call: should `IsAutoNarrated` DEFAULT to on for a series whose
+> components carry signal templates?** The argument for is that an indicator whose whole purpose
+> is signals is useless silent, and Cody hit exactly that. The argument against is the standing
+> convention plus the noise on a busy chart. The disclosure makes the current behaviour
+> discoverable either way, so this is now a preference question rather than a defect.
 >
 > ### 5. SHIFT+F1 SAID "MAIN PANE" FROM EVERY PANE THAT WAS NOT MAIN — Cody's report, FIXED
 >

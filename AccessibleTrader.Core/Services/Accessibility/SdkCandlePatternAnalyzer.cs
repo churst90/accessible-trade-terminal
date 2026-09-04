@@ -13,7 +13,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Implements ISdkCandlePatternAnalyzer using configurable CandlePatternThresholds.
     /// Recognises single-bar (Doji, Hammer, ShootingStar, Marubozu, SpinningTop),
     /// two-bar (Engulfing, Harami, PiercingLine, DarkCloudCover, TweezerBottom/Top),
-    /// and three-bar (MorningStar, EveningStar, ThreeWhiteSoldiers, ThreeBlackCrows) patterns.
+    /// three-bar (MorningStar, EveningStar, ThreeWhiteSoldiers, ThreeBlackCrows, ThreeInside
+    /// Up/Down, ThreeOutside Up/Down, Morning/EveningDojiStar, AbandonedBaby Bullish/Bearish),
+    /// four-bar (ThreeLineStrike Bullish/Bearish) and five-bar (Rising/FallingThreeMethods)
+    /// patterns — 24 in all.
     /// All arithmetic uses raw doubles — no formatting or rounding inside the analyzer.
     /// </summary>
     public class SdkCandlePatternAnalyzer : AccessibleTrader.Sdk.Analysis.ISdkCandlePatternAnalyzer
@@ -49,11 +52,120 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             SdkCD dir = isBullish ? SdkCD.Bullish : SdkCD.Bearish;
 
-            // ── Three-bar patterns (highest priority) ────────────────────────
+            // ── LONGEST FIRST ────────────────────────────────────────────────
+            //
+            // The order below is by SPAN, longest to shortest, and that is not a style choice: a
+            // rising three methods CONTAINS a small bar that is a doji, a three line strike
+            // contains three white soldiers, and a three inside up contains a harami. Every one of
+            // those shorter shapes matches on some bar of the longer one, so testing shortest-first
+            // would mean the longer pattern could never be reached — the analyser would announce
+            // the part instead of the whole. Within the three-bar block the same rule applies again
+            // (abandoned baby before doji star before plain star), most specific first.
+            //
+            // Bars four and five come from `recent` rather than from parameters. The interface
+            // hands over two explicit predecessors, which was the whole reach the analyser had;
+            // everything beyond that is read off the trailing window, and when no window is passed
+            // the long patterns simply cannot fire. That is honest degradation rather than a
+            // wrong answer: a caller with no history gets the shapes its data can support.
+            int here = IndexOfCurrent(recent, c);
+
+            // ── Five-bar ─────────────────────────────────────────────────────
+            var b1 = Back(recent, here, 1);
+            var b2 = Back(recent, here, 2);
+            var b3 = Back(recent, here, 3);
+            var b4 = Back(recent, here, 4);
+
+            if (b1.HasValue && b2.HasValue && b3.HasValue && b4.HasValue)
+            {
+                // Rising Three Methods. A long bullish bar, three small bars that pull back WITHIN
+                // its range without undoing it, and a second long bullish bar closing beyond the
+                // first. The containment is the pattern: a pullback that breaks the first bar's
+                // range is a reversal attempt, not a pause inside a trend.
+                if (IsLargeBody(b4.Value, true)
+                    && IsSmallBody(b3.Value) && IsSmallBody(b2.Value) && IsSmallBody(b1.Value)
+                    && BodyInRange(b3.Value, b4.Value) && BodyInRange(b2.Value, b4.Value) && BodyInRange(b1.Value, b4.Value)
+                    && b1.Value.Close < b4.Value.Close
+                    && IsLargeBody(c, true) && c.Close > b4.Value.Close)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.RisingThreeMethods,
+                        5, bodyPct, upperPct, lowerPct, changePct, continuation: true);
+
+                // Falling Three Methods — the mirror.
+                if (IsLargeBody(b4.Value, false)
+                    && IsSmallBody(b3.Value) && IsSmallBody(b2.Value) && IsSmallBody(b1.Value)
+                    && BodyInRange(b3.Value, b4.Value) && BodyInRange(b2.Value, b4.Value) && BodyInRange(b1.Value, b4.Value)
+                    && b1.Value.Close > b4.Value.Close
+                    && IsLargeBody(c, false) && c.Close < b4.Value.Close)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.FallingThreeMethods,
+                        5, bodyPct, upperPct, lowerPct, changePct, continuation: true);
+            }
+
+            // ── Four-bar ─────────────────────────────────────────────────────
+            if (b1.HasValue && b2.HasValue && b3.HasValue)
+            {
+                // Three Line Strike. Three rising bullish bars, then one bearish bar that opens
+                // above the third's close and closes below the FIRST one's open — swallowing the
+                // whole advance in a single bar.
+                //
+                // It is classified as a CONTINUATION despite looking like the opposite, and that
+                // is the received reading rather than this codebase's opinion: the strike is taken
+                // as a shake-out inside the advance. The terminal names the shape and states the
+                // lean; it does not tell the user what to do about it, which is the standing rule
+                // for every pattern here.
+                if (IsBull(b3.Value) && IsBull(b2.Value) && IsBull(b1.Value)
+                    && b2.Value.Close > b3.Value.Close && b1.Value.Close > b2.Value.Close
+                    && !isBullish && c.Open > b1.Value.Close && c.Close < b3.Value.Open)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.ThreeLineStrikeBullish,
+                        4, bodyPct, upperPct, lowerPct, changePct, continuation: true);
+
+                // Bearish Three Line Strike — the mirror.
+                if (!IsBull(b3.Value) && !IsBull(b2.Value) && !IsBull(b1.Value)
+                    && b2.Value.Close < b3.Value.Close && b1.Value.Close < b2.Value.Close
+                    && isBullish && c.Open < b1.Value.Close && c.Close > b3.Value.Open)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeLineStrikeBearish,
+                        4, bodyPct, upperPct, lowerPct, changePct, continuation: true);
+            }
+
+            // ── Three-bar patterns ───────────────────────────────────────────
             if (p1.HasValue && p2.HasValue)
             {
                 var pa2 = p2.Value;
                 var pa1 = p1.Value;
+
+                // ── ABANDONED BABY, and it is the one pattern here that keeps a TRUE GAP ──────
+                //
+                // The doji's entire RANGE — not its body — must sit clear of both neighbours'
+                // ranges. Everywhere else in this analyser a classical gap has been replaced with
+                // a body tolerance, because 24/7 crypto does not gap and the pattern would
+                // otherwise be undetectable there. Not here: an abandoned baby with the gaps
+                // loosened IS a morning or evening doji star, and the two would become the same
+                // detector wearing two names. So this one stays strict and is simply rare on
+                // crypto and findable on anything with a session break. Being honest about which
+                // markets a pattern can occur in beats reporting one that did not happen.
+                if (IsDoji(pa1) && !IsBull(pa2) && isBullish
+                    && pa1.High < pa2.Low && c.Low > pa1.High)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.AbandonedBabyBullish,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                if (IsDoji(pa1) && IsBull(pa2) && !isBullish
+                    && pa1.Low > pa2.High && c.High < pa1.Low)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.AbandonedBabyBearish,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                // Morning / Evening DOJI Star — a star whose middle bar is a doji rather than
+                // merely small-bodied. Tested before the plain star, which it would otherwise
+                // match: a doji IS a small body, so the general case would swallow the specific
+                // one and the more decisive shape would never be named.
+                if (IsLargeBody(pa2, false) && IsDoji(pa1) && isBullish
+                    && BodyHigh(pa1) < BodyLow(pa2) + BodySize(pa2) * _t.StarBodyOverlapAllowed
+                    && c.Close > (pa2.Open + pa2.Close) / 2.0)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.MorningDojiStar,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                if (IsLargeBody(pa2, true) && IsDoji(pa1) && !isBullish
+                    && BodyLow(pa1) > BodyHigh(pa2) - BodySize(pa2) * _t.StarBodyOverlapAllowed
+                    && c.Close < (pa2.Open + pa2.Close) / 2.0)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.EveningDojiStar,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
 
                 // Morning Star. The STAR — the small middle body — must sit BELOW the first bar's
                 // body; that separation is what makes the shape a star rather than three ordinary
@@ -91,6 +203,47 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     && pa1.Open < pa2.Open && pa1.Open >= pa2.Close && pa1.Close < pa2.Close)
                     return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeBlackCrows,
                         3, bodyPct, upperPct, lowerPct, changePct, continuation: true);
+
+                // ── THE TWO CONFIRMED REVERSALS ──────────────────────────────────────────────
+                //
+                // Three inside and three outside are a two-bar pattern plus a bar that confirms
+                // it. That third bar is the entire difference: a harami says the trend stalled,
+                // a three inside up says the stall resolved upward and did so before the trader
+                // had to guess. They are worth naming separately for exactly that reason — the
+                // shape carries the confirmation the shorter one is still waiting for.
+                //
+                // They sit AFTER the stars deliberately. A star's middle bar must sit clear of
+                // the first bar's body while a harami's must sit inside it, so the two cannot
+                // both hold except at the very edge of the overlap tolerance; where they can, the
+                // star is the more decisive reading and wins.
+
+                // Three Inside Up: bullish harami, then a bullish bar closing above it.
+                if (IsLargeBody(pa2, false) && IsBull(pa1) && IsInsideBody(pa1, pa2)
+                    && isBullish && c.Close > pa1.Close)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.ThreeInsideUp,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                // Three Inside Down — the mirror.
+                if (IsLargeBody(pa2, true) && !IsBull(pa1) && IsInsideBody(pa1, pa2)
+                    && !isBullish && c.Close < pa1.Close)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeInsideDown,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                // Three Outside Up: bullish ENGULFING, then a bullish bar closing above it.
+                if (!IsBull(pa2) && IsBull(pa1)
+                    && pa1.Open <= pa2.Close && pa1.Close >= pa2.Open
+                    && BodySize(pa1) >= BodySize(pa2) * _t.EngulfingBodyOverlapRequired
+                    && isBullish && c.Close > pa1.Close)
+                    return Build(SdkCD.Bullish, SdkCT.Normal, SdkCP.ThreeOutsideUp,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
+
+                // Three Outside Down — the mirror.
+                if (IsBull(pa2) && !IsBull(pa1)
+                    && pa1.Open >= pa2.Close && pa1.Close <= pa2.Open
+                    && BodySize(pa1) >= BodySize(pa2) * _t.EngulfingBodyOverlapRequired
+                    && !isBullish && c.Close < pa1.Close)
+                    return Build(SdkCD.Bearish, SdkCT.Normal, SdkCP.ThreeOutsideDown,
+                        3, bodyPct, upperPct, lowerPct, changePct, reversal: true);
             }
 
             // ── Two-bar patterns ─────────────────────────────────────────────
@@ -245,14 +398,70 @@ namespace AccessibleTrader.Core.Services.Accessibility
         };
 
         private static bool IsReversalPattern(SdkCP p) => p is
-            SdkCP.BullishEngulfing or SdkCP.BearishEngulfing or
-            SdkCP.BullishHarami    or SdkCP.BearishHarami    or
-            SdkCP.MorningStar      or SdkCP.EveningStar       or
-            SdkCP.TweezerBottom    or SdkCP.TweezerTop        or
-            SdkCP.PiercingLine     or SdkCP.DarkCloudCover;
+            SdkCP.BullishEngulfing     or SdkCP.BearishEngulfing     or
+            SdkCP.BullishHarami        or SdkCP.BearishHarami        or
+            SdkCP.MorningStar          or SdkCP.EveningStar          or
+            SdkCP.TweezerBottom        or SdkCP.TweezerTop           or
+            SdkCP.PiercingLine         or SdkCP.DarkCloudCover       or
+            SdkCP.ThreeInsideUp        or SdkCP.ThreeInsideDown      or
+            SdkCP.ThreeOutsideUp       or SdkCP.ThreeOutsideDown     or
+            SdkCP.MorningDojiStar      or SdkCP.EveningDojiStar      or
+            SdkCP.AbandonedBabyBullish or SdkCP.AbandonedBabyBearish;
 
         private static bool IsContinuationPattern(SdkCP p) => p is
-            SdkCP.ThreeWhiteSoldiers or SdkCP.ThreeBlackCrows;
+            SdkCP.ThreeWhiteSoldiers     or SdkCP.ThreeBlackCrows or
+            SdkCP.RisingThreeMethods     or SdkCP.FallingThreeMethods or
+            SdkCP.ThreeLineStrikeBullish or SdkCP.ThreeLineStrikeBearish;
+
+        /// <summary>
+        /// Where <paramref name="current"/> sits inside the trailing window, found by DATE from
+        /// the live edge backwards; the last bar when the window does not carry it.
+        ///
+        /// <para>
+        /// By date rather than by position, for the reason recorded on <c>PriorTrendIsDown</c>:
+        /// callers pass a window that happens to end at the classified bar today, but one that
+        /// classified a HISTORICAL bar with a longer window in hand would otherwise read bars four
+        /// and five out of the FUTURE. A five-bar continuation assembled from bars that had not
+        /// happened is not a near-miss, it is a fabricated pattern.
+        /// </para>
+        /// </summary>
+        private static int IndexOfCurrent(IReadOnlyList<Ohlcv>? recent, Ohlcv current)
+        {
+            if (recent == null || recent.Count == 0) return -1;
+            for (int i = recent.Count - 1; i >= 0; i--)
+                if (recent[i].Date == current.Date) return i;
+            return recent.Count - 1;
+        }
+
+        /// <summary>The bar <paramref name="back"/> places before <paramref name="index"/>, or null.</summary>
+        private static Ohlcv? Back(IReadOnlyList<Ohlcv>? recent, int index, int back)
+        {
+            if (recent == null || index < 0) return null;
+            int i = index - back;
+            return i >= 0 && i < recent.Count ? recent[i] : (Ohlcv?)null;
+        }
+
+        private static bool IsBull(Ohlcv b) => b.Close >= b.Open;
+
+        /// <summary>A body wholly inside another bar's HIGH–LOW range — the three-methods test.</summary>
+        private static bool BodyInRange(Ohlcv inner, Ohlcv outer)
+            => BodyHigh(inner) <= outer.High && BodyLow(inner) >= outer.Low;
+
+        /// <summary>A body wholly inside another bar's BODY — the harami test.</summary>
+        private static bool IsInsideBody(Ohlcv inner, Ohlcv outer)
+            => BodyHigh(inner) < BodyHigh(outer) && BodyLow(inner) > BodyLow(outer);
+
+        /// <summary>
+        /// A doji by the same threshold the single-bar classification uses. Shared rather than
+        /// re-derived so "the middle bar is a doji" cannot come to mean two different things
+        /// depending on whether it is being named or being used inside a longer pattern.
+        /// </summary>
+        private bool IsDoji(Ohlcv b)
+        {
+            double r = b.High - b.Low;
+            if (r <= 0) return true;
+            return Math.Abs(b.Close - b.Open) / r * 100.0 < _t.DojiBodyMaxPercent;
+        }
 
         private static double BodyHigh(Ohlcv b) => Math.Max(b.Open, b.Close);
         private static double BodyLow(Ohlcv b) => Math.Min(b.Open, b.Close);

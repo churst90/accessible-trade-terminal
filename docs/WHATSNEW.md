@@ -278,6 +278,15 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   them on the bar that closed and on the live bar as it formed — but neither route that reads
   the PAST ran the detector, so on any bar you were not present for, "three white soldiers"
   could not be said. Reading a chart by ear is almost entirely reading the past.
+- **Twenty-four candle patterns, up from twelve.** Three inside up and down, three outside up
+  and down, morning and evening doji star, the abandoned baby, the three line strike, and the
+  rising and falling three methods — the last of which is a five-bar shape the terminal
+  previously had no way to even express.
+- **Playback tells you when it is about to say nothing.** Add Cipher B or Cipher SR, press play,
+  and you heard tones and no signals — because narration is switched on per series and nothing
+  said so. It now tells you once, when you press play: *"No series is set to narrate, so signals
+  will not be spoken. Press Control Alt Shift N on a series to turn its narration on."* Only when
+  there is actually something you are missing.
 - **Every bar of a multi-bar pattern tells you where in it you are.** A three-bar shape can
   only be recognised on its last bar, so hearing "three white soldiers" once told you a pattern
   was there and nothing about which candles it meant. Now the first soldier reads *"Bullish, bar

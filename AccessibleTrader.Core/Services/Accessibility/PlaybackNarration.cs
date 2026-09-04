@@ -60,7 +60,55 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int barSeconds = BarSeconds(state);
             int count = state.Data!.Count - plan.StartIndex;
             string from = DateText(state.Data[plan.StartIndex].Date, barSeconds);
-            return $"Playing {what} from {from}, {count} bar{(count == 1 ? "" : "s")}.";
+            return $"Playing {what} from {from}, {count} bar{(count == 1 ? "" : "s")}."
+                 + SilentSignalsCaveat(state);
+        }
+
+        /// <summary>
+        /// The sentence that turns a silent playback into an answerable one, or "" when there is
+        /// nothing to disclose.
+        ///
+        /// <para>
+        /// Reported by Cody, 2026-09-04: <i>"when I added cipher sr or b to the chart I don't hear
+        /// signals being spoken during playback"</i>. Both indicators exist to print signals, and
+        /// both were silent — because <see cref="SeriesConfig.IsAutoNarrated"/> defaults to FALSE
+        /// and nothing sets it when an indicator is added, so <see cref="SignalsForStep"/> skipped
+        /// every series on the chart.
+        /// </para>
+        ///
+        /// <para>
+        /// The default is deliberate and is not changed here: the standing convention is that
+        /// continuous verbal output is opted into rather than imposed, and flipping it on for
+        /// every added indicator would make a chart with four of them unlistenable. What was NOT
+        /// deliberate is the silence being indistinguishable from a broken feature. A user who has
+        /// switched narration on in Settings, added a signal indicator and pressed play has done
+        /// everything the feature asks of them; the one thing left is a per-series flag they have
+        /// no way to know exists. So playback says it, once, at the moment they asked — the same
+        /// remedy the detail key got for an empty chart.
+        /// </para>
+        ///
+        /// <para>
+        /// Only when there is something to be silent ABOUT. A chart of plain moving averages has
+        /// no signals to narrate whether or not a series is flagged, and telling that user about a
+        /// shortcut for a feature they are not missing is the noise this whole convention exists
+        /// to avoid.
+        /// </para>
+        /// </summary>
+        internal static string SilentSignalsCaveat(WorkspaceState state)
+        {
+            if (!state.NarrateDuringPlayback) return "";
+            if (state.ActiveSeries.Any(s => s.IsAutoNarrated && s.IsVisible && !s.IsMuted)) return "";
+
+            bool anySignalsToMiss = state.ActiveSeries.Any(s =>
+                s.IsVisible && !s.IsMuted && s.Components.Any(c =>
+                    c.IsVisible && !c.IsMuted && !c.IsZoneLine && !c.UsesGradientSpeech
+                    && AudioConstants.MarkerDisplayTypes.Contains(c.DisplayType)
+                    && !string.IsNullOrEmpty(c.SignalSpeechTemplate)));
+
+            return anySignalsToMiss
+                ? " No series is set to narrate, so signals will not be spoken."
+                  + " Press Control Alt Shift N on a series to turn its narration on."
+                : "";
         }
 
         /// <summary>The name the arrow keys use for a series, with the config name behind it for
