@@ -44,7 +44,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var start = data[startIndex].Date;
             var end = data[startIndex + actualLength - 1].Date;
 
-            return $"Viewing {actualLength} bars from {SpeechTimeFormatter.FormatLongDate(start)} to {SpeechTimeFormatter.FormatLongDate(end)}";
+            // Spacing from the two bars at the LEFT edge rather than from the whole range: a
+            // viewport that straddles a weekend or a halt would otherwise average out to
+            // something the chart never had.
+            int barSeconds = actualLength > 1
+                ? SpeechTimeFormatter.SpacingOf(data[startIndex].Date, data[startIndex + 1].Date, 2)
+                : SpeechTimeFormatter.SpacingOf(start, end, actualLength);
+
+            return $"Viewing {actualLength} bars from {SpeechTimeFormatter.FormatBarRange(start, end, barSeconds)}";
         }
 
         public void HandleZoom(string direction, IReadOnlyList<Ohlcv> data)

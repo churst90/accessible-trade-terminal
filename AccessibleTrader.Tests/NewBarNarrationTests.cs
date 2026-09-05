@@ -86,6 +86,11 @@ public sealed class NewBarNarrationTests
         {
             Data = new TimeSeriesBuffer<Ohlcv>(Bars.ToArray()),
             CurrentDataIndex = Bars.Count - 1,
+            // The bars are DAILY, and the announcement's stamp follows the chart's timeframe —
+            // so the identity has to agree with the data. WorkspaceState.Initial carries
+            // ChartIdentity.Empty, whose timeframe is "1h", which made the fixture describe an
+            // hourly chart holding daily bars and read the stamp as a time of day.
+            Identity = new ChartIdentity("Spot", "Test", "BTC/USD", "1d"),
             AnnounceNewBars = true,
             DescribeChartPatterns = describePatterns,
             DescribeCandlePatterns = describeCandlePatterns,
@@ -104,6 +109,59 @@ public sealed class NewBarNarrationTests
 
     private static void CloseBar(SpyEventBus bus) =>
         bus.Publish(new NewBarEvent(Bars[^2], Bars[^1]));   // bar 98 closed, bar 99 opened
+
+    /// <summary>
+    /// How the announcement names the bar that closed. Daily bars here, so it is the date — and
+    /// it is BUILT rather than written out, because the stamp is rendered in the user's zone and
+    /// a hard-coded "April 9 2026" fails for anyone west of UTC (these bars sit at midnight).
+    /// Added 2026-09-05: Cody asked for the closing bar's timestamp, which nothing carried.
+    /// </summary>
+    private static readonly string ClosedBarStamp =
+        " on " + AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(Bars[^2].Date);
+
+    /// <summary>
+    /// Cody, 2026-09-05: <i>"if I'm on a 1 minute chart and hear a new bar… the timestamp of the
+    /// candle closing should also be announced."</i> The unit follows the chart: a time of day
+    /// intraday, where the date does not change for hours, and a date on a daily chart, where
+    /// every bar would otherwise be "00:00".
+    /// </summary>
+    [Fact]
+    public void OnAnIntradayChart_TheClosedBarIsNamedByItsTime()
+    {
+        var store = new MockWorkspaceStore();
+        var bus = new SpyEventBus();
+        var speech = new CounterSpeechManager();
+        var spoken = new List<string>();
+        speech.OnSpeak = t => spoken.Add(t);
+        var formatter = new SpeechFormatter();
+        var router = new SpeechFeedbackRouter(speech, formatter, store);
+
+        _ = new AccessibilityFeedbackCoordinator(
+            store, new NavigationFeedbackManager(router, formatter), router,
+            new AudioFeedbackRouter(new MockNavigationSonifier(), new MockEarconService()),
+            formatter, bus, new MockEarconService(), new RecordingAnalyzer(),
+            new FixedPatterns(), new ChartPatternFocus(), new MockAutoNarrationService());
+
+        var minutes = Enumerable.Range(0, 10)
+            .Select(i => new Ohlcv(new DateTime(2026, 9, 5, 14, 0, 0, DateTimeKind.Utc).AddMinutes(i),
+                                   100 + i, 101 + i, 99 + i, 100.5 + i, 10))
+            .ToList();
+
+        store.EmitState(WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(minutes.ToArray()),
+            CurrentDataIndex = minutes.Count - 1,
+            Identity = new ChartIdentity("Spot", "Test", "BTC/USD", "1m"),
+            AnnounceNewBars = true,
+            DescribeCandlePatterns = false,
+        });
+
+        bus.Publish(new NewBarEvent(minutes[^2], minutes[^1]));
+
+        string said = Assert.Single(spoken);
+        Assert.Equal($"Close 108.50 at {SpeechTimeFormatter.FormatTime(minutes[^2].Date)}. "
+                   + "New bar: Open 109.00", said);
+    }
 
     [Fact]
     public void TheCandleAnalyserGetsTheClosedBarsRealPredecessors()
@@ -131,7 +189,7 @@ public sealed class NewBarNarrationTests
         analyzer.Finds = CandlePattern.BullishEngulfing;
         CloseBar(bus);
 
-        Assert.Equal("Close 198.50, Bullish engulfing. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}, Bullish engulfing. New bar: Open 199.00", Assert.Single(spoken));
     }
 
     [Fact]
@@ -145,7 +203,7 @@ public sealed class NewBarNarrationTests
         analyzer.Finds = CandlePattern.BullishEngulfing;
         CloseBar(bus);
 
-        Assert.Equal("Close 198.50. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
     }
 
     [Fact]
@@ -156,7 +214,7 @@ public sealed class NewBarNarrationTests
 
         string said = Assert.Single(spoken);
         Assert.Equal(
-            "Close 198.50. Double top confirmed on this close: closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00",
+            $"Close 198.50{ClosedBarStamp}. Double top confirmed on this close: closed below the neckline at 150.00, measured target 130.00. New bar: Open 199.00",
             said);
     }
 
@@ -175,7 +233,7 @@ public sealed class NewBarNarrationTests
     {
         var (bus, spoken, _) = Build(describePatterns: true, ResolvingAt(97, ChartPatternState.Completed));
         CloseBar(bus);
-        Assert.Equal("Close 198.50. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
     }
 
     [Fact]
@@ -183,7 +241,7 @@ public sealed class NewBarNarrationTests
     {
         var (bus, spoken, _) = Build(describePatterns: false, ResolvingAt(98, ChartPatternState.Completed));
         CloseBar(bus);
-        Assert.Equal("Close 198.50. New bar: Open 199.00", Assert.Single(spoken));
+        Assert.Equal($"Close 198.50{ClosedBarStamp}. New bar: Open 199.00", Assert.Single(spoken));
     }
 
     [Fact]

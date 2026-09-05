@@ -1928,8 +1928,11 @@ already says which component it is — *"Bullish divergence"*, *"Triple confluen
 confirmation"* — nothing is put in front of it. The same rule holds during playback.
 
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
-then whatever your indicators made of it, in one breath: *"Close 64,905. Bullish engulfing. New
-bar: Open 64,910. Triple confluence buy, strong confirmation. RSI 14: RSI overbought."* Up to
+then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
+engulfing. New bar: Open 64,910. Triple confluence buy, strong confirmation. RSI 14: RSI
+overbought."* The closing bar is named by its own stamp — the time of day on an intraday chart,
+the date on a daily or weekly one — so a run of them in the journal reads back as a record rather
+than a column of prices. Up to
 five clauses, ordered by consequence — a level breaking first, then an indicator's own signals,
 then crossings, then tests, then approaches, and last the oscillator commentary, which is the
 most frequent thing the terminal can say and the least worth leading with. Anything beyond five

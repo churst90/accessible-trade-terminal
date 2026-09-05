@@ -57,5 +57,52 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>Date with year in the user's zone — "August 27 2026".</summary>
         public static string FormatLongDate(DateTime stamp) => Format(stamp, LongDateFormat);
+
+        /// <summary>A day, in seconds — the line between "this chart is intraday" and not.</summary>
+        private const int SecondsPerDay = 86400;
+
+        /// <summary>
+        /// Seconds between adjacent bars, inferred from a run of <paramref name="count"/> of them.
+        /// A fallback for callers that have the range but not the chart's timeframe; anyone who
+        /// has the state should pass <c>PlaybackNarration.BarSeconds</c> instead, which reads the
+        /// declared timeframe first.
+        /// </summary>
+        public static int SpacingOf(DateTime start, DateTime end, int count)
+            => count > 1 ? Math.Max(1, (int)((end - start).TotalSeconds / (count - 1))) : SecondsPerDay;
+
+        /// <summary>
+        /// The stamp a PER-BAR announcement carries: the time of day when bars are closer
+        /// together than a day, the date when they are not.
+        ///
+        /// <para>
+        /// Reported by Cody, 2026-09-05: on a one-minute chart the bar-close announcement named
+        /// no time at all, so a run of them in the journal was a column of prices with nothing to
+        /// say which minute each belonged to. The date is the wrong unit there — it does not
+        /// change for hours — and the time is the wrong unit on a daily chart, where every bar
+        /// would be "00:00".
+        /// </para>
+        /// </summary>
+        public static string FormatBarClock(DateTime stamp, int barSeconds)
+            => barSeconds < SecondsPerDay ? FormatTime(stamp) : FormatLongDate(stamp);
+
+        /// <summary>
+        /// A range of bars — "January 5 2024 to March 15 2024", or on an intraday chart
+        /// "September 5 2026, 14:32 to 15:22".
+        ///
+        /// <para>
+        /// The same report, from the other side: <i>"it just says from september 5 2026 to
+        /// september 5 2026"</i>. Every viewport on a one-minute chart named one date twice,
+        /// which is not a range at all. The date is spoken once when both ends fall on it.
+        /// </para>
+        /// </summary>
+        public static string FormatBarRange(DateTime start, DateTime end, int barSeconds)
+        {
+            if (barSeconds >= SecondsPerDay)
+                return $"{FormatLongDate(start)} to {FormatLongDate(end)}";
+
+            return ToDisplay(start).Date == ToDisplay(end).Date
+                ? $"{FormatLongDate(start)}, {FormatTime(start)} to {FormatTime(end)}"
+                : $"{FormatLongDate(start)} {FormatTime(start)} to {FormatLongDate(end)} {FormatTime(end)}";
+        }
     }
 }

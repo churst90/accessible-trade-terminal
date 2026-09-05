@@ -20,7 +20,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// the same by construction.
         /// </param>
         string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage, int cursorDataIndex = -1);
-        string FormatViewportDescription(int count, DateTime start, DateTime end);
+        /// <param name="barSeconds">Seconds between bars, so an intraday range can carry the
+        /// time. 0 infers it from the range, which is all a caller without the state has.</param>
+        string FormatViewportDescription(int count, DateTime start, DateTime end, int barSeconds = 0);
         void RegisterTemplate(string indicatorCode, string componentName, string template);
     }
 
@@ -76,9 +78,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // provider metadata via IndicatorComponentMetadata.SpeechTemplate.
         }
 
-        public string FormatViewportDescription(int count, DateTime start, DateTime end)
+        public string FormatViewportDescription(int count, DateTime start, DateTime end, int barSeconds = 0)
         {
-            return $"Viewing {count} bars from {SpeechTimeFormatter.FormatLongDate(start)} to {SpeechTimeFormatter.FormatLongDate(end)}";
+            if (barSeconds <= 0) barSeconds = SpeechTimeFormatter.SpacingOf(start, end, count);
+            return $"Viewing {count} bars from {SpeechTimeFormatter.FormatBarRange(start, end, barSeconds)}";
         }
 
         public string FormatPointFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, Ohlcv pt, string prefixMessage)

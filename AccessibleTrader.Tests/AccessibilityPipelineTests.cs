@@ -197,14 +197,48 @@ namespace AccessibleTrader.Tests
         // ── Viewport Description ─────────────────────────────────────────
 
         [Fact]
-        public void FormatViewportDescription_ReturnsCorrectFormat()
+        public void FormatViewportDescription_OnADailyChart_IsTwoDates()
         {
             var start = new DateTime(2024, 1, 5, 9, 0, 0, DateTimeKind.Utc);
-            var end = new DateTime(2024, 3, 15, 9, 0, 0, DateTimeKind.Utc);
+            var end = start.AddDays(70);
 
-            string result = _formatter.FormatViewportDescription(77, start, end);
+            string result = _formatter.FormatViewportDescription(71, start, end, 86400);
 
-            Assert.Equal("Viewing 77 bars from January 5 2024 to March 15 2024", result);
+            Assert.Equal($"Viewing 71 bars from {SpeechTimeFormatter.FormatLongDate(start)} "
+                       + $"to {SpeechTimeFormatter.FormatLongDate(end)}", result);
+        }
+
+        /// <summary>
+        /// Cody, 2026-09-05: <i>"it just says from september 5 2026 to september 5 2026"</i>. On
+        /// a one-minute chart every viewport named one date twice, which is not a range. The date
+        /// is spoken once and the two ends are times.
+        /// </summary>
+        [Fact]
+        public void FormatViewportDescription_OnAnIntradayChart_CarriesTheTimes()
+        {
+            var start = new DateTime(2026, 9, 5, 14, 32, 0, DateTimeKind.Utc);
+            var end = start.AddMinutes(50);
+
+            string result = _formatter.FormatViewportDescription(51, start, end, 60);
+
+            Assert.Equal($"Viewing 51 bars from {SpeechTimeFormatter.FormatLongDate(start)}, "
+                       + $"{SpeechTimeFormatter.FormatTime(start)} to {SpeechTimeFormatter.FormatTime(end)}",
+                result);
+            Assert.DoesNotContain($"{SpeechTimeFormatter.FormatLongDate(start)} to", result);
+        }
+
+        /// <summary>
+        /// A caller with no state — the viewport manager reading raw bars — infers the spacing
+        /// from the range rather than being told it.
+        /// </summary>
+        [Fact]
+        public void FormatViewportDescription_InfersTheSpacing_WhenNobodyPassesIt()
+        {
+            var start = new DateTime(2026, 9, 5, 14, 32, 0, DateTimeKind.Utc);
+            var end = start.AddMinutes(50);
+
+            Assert.Contains(SpeechTimeFormatter.FormatTime(end),
+                _formatter.FormatViewportDescription(51, start, end));
         }
     }
 

@@ -159,7 +159,7 @@ namespace AccessibleTrader.Tests.Mocks
         public string FormatPointFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, Ohlcv pt, string prefixMessage) => $"Price {pt.Close}";
         public string FormatProfileFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int binIndex, string prefixMessage) => "Profile";
         public string FormatHeatmapFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int dataIndex, int binIndex, string prefixMessage, int cursorDataIndex = -1) => "Heatmap";
-        public string FormatViewportDescription(int count, DateTime start, DateTime end) => $"Viewing {count} bars";
+        public string FormatViewportDescription(int count, DateTime start, DateTime end, int barSeconds = 0) => $"Viewing {count} bars";
         public void RegisterTemplate(string indicatorCode, string componentName, string template) { }
     }
 

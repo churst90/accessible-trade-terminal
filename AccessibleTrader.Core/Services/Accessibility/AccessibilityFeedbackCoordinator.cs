@@ -489,7 +489,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 int startIdx = Math.Clamp(state.ViewportStartIndex, 0, state.Data.Count - 1);
                 int endIdx   = Math.Clamp(state.ViewportStartIndex + state.ViewportLength - 1, 0, state.Data.Count - 1);
-                string msg   = _formatter.FormatViewportDescription(state.ViewportLength, state.Data[startIdx].Date, state.Data[endIdx].Date);
+                string msg   = _formatter.FormatViewportDescription(state.ViewportLength,
+                    state.Data[startIdx].Date, state.Data[endIdx].Date, PlaybackNarration.BarSeconds(state));
                 _speechRouter.Speak(msg, true);
             }
 
@@ -591,7 +592,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string patternSuffix = state.DescribeCandlePatterns
                 ? CandlePatternSpeech.Suffix(analysis.Type, analysis.Pattern, finalized: true)
                 : "";
-            string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{patternSuffix}.";
+            // ── WHICH BAR JUST CLOSED, SAID OUT LOUD ───────────────────────────────────
+            //
+            // Cody, 2026-09-05: "if I'm on a 1 minute chart and hear a new bar… the timestamp of
+            // the candle closing should also be announced." Without it a run of these in the
+            // journal is a column of prices with nothing to say which minute each belonged to,
+            // and on a fast chart there is no way to tell a fresh announcement from one that
+            // arrived while you were reading something else.
+            //
+            // The unit follows the chart: the time of day on an intraday one, the date on a
+            // daily or coarser one, where every bar would otherwise be "00:00".
+            int barSeconds = PlaybackNarration.BarSeconds(state);
+            string stamp = SpeechTimeFormatter.FormatBarClock(e.ClosedBar.Date, barSeconds);
+            string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
+
+            string closedMsg = $"Close {SpeechPriceFormatter.FormatPrice(e.ClosedBar.Close)}{when}{patternSuffix}.";
             string openMsg   = $"New bar: Open {SpeechPriceFormatter.FormatPrice(e.NewBar.Open)}";
 
             // A CHART pattern whose story ends on the bar that just closed — a neckline closed
