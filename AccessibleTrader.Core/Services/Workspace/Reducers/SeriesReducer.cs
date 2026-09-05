@@ -30,6 +30,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             ToggleHideAction a      => ToggleHide(state, a.SeriesId, GetEffectiveComponentName(state, a.SeriesId, a.ComponentName), eventBus),
             RestoreAllComponentsAction a => RestoreAll(state, a.Unhide, eventBus),
             ToggleNarrationAction a => ToggleNarration(state, a.SeriesId, a.ComponentName, eventBus),
+            ClearAllNarrationAction => ClearAllNarration(state, eventBus),
 
             // Series management
             AddSeriesAction a                => AddSeries(state, a.Series),
@@ -202,6 +203,37 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             return changed == 0 ? state : state with { ActiveSeries = newList };
         }
 
+        /// <summary>
+        /// Narration off everywhere — the known state. Counts SERIES switched off, and clears
+        /// every component selection whether or not its series was narrating: a stale selection
+        /// left behind on a silent series would otherwise resurface the next time N is pressed
+        /// on that series, narrating one component when the user expected the whole thing.
+        /// </summary>
+        private static WorkspaceState ClearAllNarration(WorkspaceState state, IEventBus eventBus)
+        {
+            int seriesOff = 0;
+            bool anyChange = false;
+
+            var newList = state.ActiveSeries.Select(s =>
+            {
+                bool anyComponent = s.Components.Any(c => c.IsAutoNarrated);
+                if (!s.IsAutoNarrated && !anyComponent) return s;
+
+                var updated = s.Clone();
+                if (updated.IsAutoNarrated) { updated.IsAutoNarrated = false; seriesOff++; }
+                foreach (var c in updated.Components.Where(c => c.IsAutoNarrated)) c.IsAutoNarrated = false;
+                anyChange = true;
+                return updated;
+            }).ToImmutableList();
+
+            eventBus.Publish(new AnnouncementEvent(
+                !anyChange ? "Nothing was narrating."
+                : seriesOff == 0 ? "Narration off. Component selections cleared."
+                : $"Narration off for {seriesOff} series.", true));
+
+            return anyChange ? state with { ActiveSeries = newList } : state;
+        }
+
         private static WorkspaceState ToggleMute(WorkspaceState state, string? seriesId, string? compName, IEventBus eventBus)
         {
             var targetId = seriesId ?? state.FocusedSeriesId;
@@ -326,17 +358,22 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 //    implies.
                 bool anySelected = updated.Components.Any(c => c.IsAutoNarrated);
 
+                // The COMPONENT alone, not "series: component". Cody, 2026-09-05: "then I press
+                // n on a component I hear the series name, the parameter list, then component
+                // name, then 'narrating' — way too verbose. If I'm narrating a component, then
+                // I should just hear 'triple confluence. narrating'." The cursor is ON the
+                // component; the series it belongs to was said when the cursor arrived there.
                 if (!updated.IsAutoNarrated)
-                    msg = $"{updated.FriendlyName}: {label}, narrating. "
+                    msg = $"{label}, narrating. "
                         + "The series is not narrating, so nothing is spoken yet. Press N on the series to start it.";
                 else if (comp.IsAutoNarrated)
                     msg = anySelected && updated.Components.Count(c => c.IsAutoNarrated) == 1
-                        ? $"{updated.FriendlyName}: {label} only, narrating"
-                        : $"{updated.FriendlyName}: {label}, narrating";
+                        ? $"{label} only, narrating"
+                        : $"{label}, narrating";
                 else
                     msg = anySelected
-                        ? $"{updated.FriendlyName}: {label}, narration off"
-                        : $"{updated.FriendlyName}: {label}, narration off. Back to the whole series.";
+                        ? $"{label}, narration off"
+                        : $"{label}, narration off. Back to the whole series.";
 
                 return updated;
             }).ToImmutableList();

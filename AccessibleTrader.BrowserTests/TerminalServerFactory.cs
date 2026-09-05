@@ -172,6 +172,12 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
     /// <summary>The throwaway storage root, for tests that want to inspect what was written.</summary>
     public string DataRoot => _dataRoot;
 
+    /// <summary>
+    /// The path prefix the harness serves the terminal under — the hosted terminal's own, so a
+    /// failure here is a failure production would have. <see cref="RootUrl"/> includes it.
+    /// </summary>
+    public const string PathBase = "/terminal";
+
     /// <summary>The http://127.0.0.1:PORT the browser should navigate to.</summary>
     public string RootUrl { get; private set; } = string.Empty;
 
@@ -274,6 +280,16 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
             .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Kestrel:Endpoints:Http:Url"] = $"http://{IPAddress.Loopback}:0",
+                // UNDER A PREFIX, like production and unlike any other harness. Both hosted
+                // heads are served under a path base (/app/, /terminal/) and nothing else, and
+                // the prefix-only bug class — a535c744 turned every login POST into a 405 —
+                // was caught only by curling the server after a deploy (hosted notes §3). The
+                // HttpClient-level harness covers /terminal/ for the hosted head; this one
+                // covers what only a browser can: the framework script, the SignalR negotiate
+                // and the circuit itself all resolving through <base href> under a prefix.
+                // Program.cs honours this key in every mode; App.razor reads the resulting
+                // Request.PathBase for the base href.
+                ["PathBase"] = PathBase,
             }))
             .UseKestrel());
         _kestrelHost = builder.Build();
@@ -283,7 +299,7 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
             .Features.Get<IServerAddressesFeature>()
             ?? throw new InvalidOperationException("Kestrel reported no bound addresses.");
         BoundAddresses = addresses.Addresses.ToList();
-        RootUrl = BoundAddresses.First();
+        RootUrl = BoundAddresses.First().TrimEnd('/') + PathBase + "/";
 
         testHost.Start();
         return testHost;

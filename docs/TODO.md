@@ -117,6 +117,108 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTIETH pass — THE NAME THAT CAME BACK FROM DISK,
+> THE COMPONENT THAT INTRODUCES ITS OWN SIGNAL, NARRATION'S UNDO-ALL, AND FOUR ITEMS HANDED
+> BACK FROM THE SERVER. Three asks from Cody; the third was "address the deploy notes".**
+>
+> ### 1. THE PARAMETER RECITATION WAS BACK — Cody's item 1, DONE, and the cause was not the namer
+>
+> "When I move through series, I now hear again all of the parameters in a huge list." The
+> nineteenth pass's rule was right and was running; `RestoreSeriesFromSaved` then pinned the
+> SAVED `Name`/`FriendlyName` back onto every rebuilt series ("ensure the exact saved name is
+> preserved"), and every workspace on disk — checked in `~/.local/share/AccessibleTrader/
+> Workspaces/` — was saved when the namer joined every value onto the name: "Cipher SR 5 20 1.2
+> 0.2 1 14 1", "Value Deviation (scale-in tiers) 480 5 2 0 0". The fix existed only on charts
+> built from scratch, and a person's charts are all restored.
+>
+> **Durable: a workspace owns an indicator's PARAMETERS, not its NAME.** The name is derived on
+> restore through the same cohort rule an add uses, and the cohort is re-named as each sibling
+> lands. Indicator names are never user-typed (the Properties rename box is for drawings, which
+> take the `meta == null` path), so nothing was preserved that anyone had chosen.
+>
+> **Cody's design question — "a filter list of indicators which do show their period, or a
+> more robust way?" — answered with a DECLARATION, not a list.** `IndicatorMetadata.NamedByParameters`:
+> the indicator says which parameters ARE its name. The twelve single-line moving averages
+> (EMA, SMA, WMA, HMA, ALMA, DEMA, TEMA, KAMA, ZLEMA, SMMA, TMA, VWMA) declare `lookbackPeriods`;
+> MA Cloud declares both periods. Those values lead the name always — "EMA 50" alone on the
+> chart — and the cohort rule adds its discriminators after them only when the named-by values
+> collide ("EMA 50 hl2" / "EMA 50 close"). A list in the speech layer would have to be found
+> and extended by whoever adds the next average; a declaration sits where the author is, and
+> `TheShippedMovingAverages_DeclareTheirPeriodAsTheirName` fails by name if one is missed.
+>
+> **Also found: the ordinal was the cohort's SIZE.** `siblings + 1` for a pair is "2" for
+> both — two objects, one name, on the one path whose purpose is telling them apart. The
+> namer takes the instance's position now and `RenameCohort` passes it.
+>
+> ### 2. N ON A COMPONENT, AND WHAT INTRODUCES A SIGNAL — Cody's item 1 (second half), DONE
+>
+> - The component confirmation is the component alone: "Triple Confluence Buy, narrating".
+> - **A signal clause is introduced by its COMPONENT, never its series**, live and in playback
+>   — one rule, `SignalClauseSpeech`, because the two paths had already drifted (the live
+>   narrator always named the series; playback only sometimes). The series name had been kept
+>   for two series speaking in one breath. Cody's point stands: narration is opt-in per series,
+>   so which series speaks is a fact the listener CHOSE; which of Cipher B's eleven markers
+>   fired is the fact they are waiting for. The component leads only when the template does
+>   not already name it, which most do.
+>
+> ### 3. NARRATION'S UNDO-ALL — Cody's item 2, DONE, and it found a dead key
+>
+> Ctrl+Alt+Shift+K and U existed (show all, unmute all — series AND components). Narration had
+> none: **Ctrl+Alt+Shift+O** switches every series off and clears every component selection,
+> including one left behind on a silent series (which would otherwise narrate ONE component the
+> next time N is pressed on it). "Narration off for 2 series." / "Nothing was narrating."
+>
+> **The wiring test heard nothing, and the reason was a defect in the two chords that already
+> existed.** `WorkspaceStore` DISCARDED a reducer's queued announcements whenever the state did
+> not change — "the words describe a change that did not happen". `RestoreAll`'s "Nothing was
+> hidden." describes the opposite and went with them, so K with nothing hidden was silent. The
+> four announcing reducers publish only for a target they found, so the discard protected
+> nothing; the store drains a no-op reduce now, and `A_toggle_on_a_series_that_does_not_exist_announces_nothing`
+> pins the property the discard was for. **Durable: the reducer decides WHAT to say; the store
+> decides only WHEN.**
+>
+> ### 4. THE DEPLOY NOTES — Cody's item 3. Four repo-side items closed; one refuted in part
+>
+> `patches/HOSTED-DEPLOY-NOTES.md` (revised 2026-09-05 against `8b5d4998`) lists five open
+> items. Four are repo work and are done; §5g (chmod four legacy dirs, a `UMask` drop-in for the
+> demo unit) is Cody's on the box. Detail in the hosted section below; the short form:
+>
+> - **§5c DNS check — DONE.** `OutboundNetworkGuard.CreateHandler` is now the inner handler of
+>   both plugin factories, gated on `DemoPolicy.BlockPrivateNetworkTargets`; a factory with no
+>   policy fails closed. Proven against a real loopback listener: refused on Hosted, reached on
+>   Full (the desktop's IBKR gateway case).
+> - **§5a positional HttpClient swaps — DONE.** 17 sites → `HttpClientSwap.ReplaceAll` (every
+>   client the object holds); `HttpClientSwapScanTests` fails a return to `First(...)`, with the
+>   classifier proven on both the caught and the allowed shapes.
+> - **§3 PathBase coverage — DONE, and the note was HALF WRONG.** "No automated test runs the
+>   app under a non-empty PathBase" is false for the hosted head: `WebHostIntegration.HostedFactory`
+>   has run every request under `/terminal/` since 2026-08-22, which is how the 405 was found; a
+>   grep for "pathbase" cannot see a prefixed URL. It was true of the DEMO head (`--demo` was
+>   argv-only) and of the browser harness. Both closed: `Demo:Enabled`, `DemoFactory`,
+>   `WebHostPathBaseIntegrationTests` (shell, base href, SignalR negotiate under `/app/`; login
+>   POST 400-not-405 under `/terminal/`), and the browser harness runs Full mode under
+>   `/terminal/` on every run through a `PathBase` override that `Program.cs` honours in any
+>   mode. `App.razor` now reads `<base href>` from `Request.PathBase`.
+>   **Do not add "a POST under /app/ is never 405"** — with the GET-only static fallback mapped,
+>   405 IS the answer for a POST that matches nothing; the regression class is a 405 on a page
+>   that EXISTS, and on the demo head the POST that exists is the negotiate.
+> - **§4c.1 reset requests surfaced — DONE.** `OwnerPushResetRequestNotifier`: Web Push to the
+>   owner account (`Accounts:OwnerEmail` → `ACCOUNTS_SEED_EMAIL`) plus a Warning in the journal,
+>   fire-and-forget from `ForgotPassword`, which still never looks the requested account up.
+>   **For Cody on the box:** set `Accounts__OwnerEmail` (or rely on the seed), sign in as it once
+>   and enable push in the terminal so a subscription exists.
+>
+> ### 5. NEXT
+>
+> - §5g on the box (Cody): `chmod 0700` `cache/ secrets/ users/ xdg-cache/` and `xdg-data/`
+>   under `/var/lib/accessible-trader-terminal/`, and a `UMask=0077` drop-in for the demo unit.
+> - Watch §7g: the segfault fix is consistent with working and not yet proven; a week of
+>   service-hours (~2026-09-10) is when P(0 crashes | unfixed) drops to ~0.02.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it — see `strategylab-rerun-confirmed-2026-09-04`.
+
 > **START HERE (current as of 2026-09-04, NINETEENTH pass — TWO EARCON FAMILIES, A FACTORY
 > RESET, PLAYBACK SPEECH SCOPED THE WAY THE TONES ARE, NAMES THAT ONLY APPEAR WHEN THERE ARE
 > TWO OF SOMETHING, AND N. Five asks from Cody; four became code, one was answered by
@@ -6797,7 +6899,7 @@ or place a live order.
   built), and a real publish costs minutes. Proven by sabotage: red under the old condition, green
   after. Note the companion assertion for the scoped-CSS bundle did **not** go red under the same
   sabotage — it is recorded in the test as an unproven invariant, not a working guard.
-- [ ] **Boot the demo head in the integration harness (note §3).** The hosted head already runs under a
+- [x] **Boot the demo head in the integration harness (note §3).** The hosted head already runs under a
   path base in tests — `WebHostIntegration.HostedFactory` sets `Accounts:Enabled`, `Program.cs` applies
   `UsePathBase("/terminal")`, and every request in `WebHostHostedAccountsIntegrationTests` is prefixed,
   which is why the `UseRouting`/405 bug was caught at all. The **demo** head is not covered:
@@ -6806,6 +6908,14 @@ or place a live order.
   line, same shape), a `DemoFactory`, and port the server's acceptance checks into tests: `/app/` → 200,
   login POST → 400 and never 405 on both prefixes, `_blazor/negotiate` POST → JSON on demo / 401 on
   hosted pre-login.
+  **CLOSED 2026-09-05.** `Demo:Enabled` mirrors `Accounts:Enabled`; `WebHostIntegration.DemoFactory`
+  and `FullFactoryUnder(pathBase)`; `WebHostPathBaseIntegrationTests` covers `/app/` (shell 200,
+  `<base href="/app/">`, `_blazor/negotiate` 200 with a token), `/terminal/` (login POST 400 not
+  405; negotiate refused pre-login without 405) and a configured `PathBase` in Full mode. The
+  browser harness runs under `/terminal/` on every run. The "login POST → 400 on both prefixes"
+  half of this item was wrong for the demo head: no login page exists there and a POST that
+  matches nothing is a 405 by construction (GET-only static fallback), so the negotiate is the
+  demo's probe.
 - [x] **CA1416 ×2 in `SchwabOAuthService.cs:362` — real, and the "0 warnings on Linux" claim is currently
   false (note §5a).** Confirmed by building the plugin here on 2026-08-23: `ProtectedData.Unprotect` and
   `DataProtectionScope.CurrentUser`, 2 warnings, Build succeeded. The server re-verified it on a clean
@@ -6818,7 +6928,7 @@ or place a live order.
   **CLOSED in `fbfb96fb`**, and taken the way this item asked: real `OperatingSystem.IsWindows()`
   guards inlined at `SchwabOAuthService.cs:310` and `:350`, no pragma, so CA1416 stays live for the
   file. Re-verified on the deploy box 2026-08-28 with a clean Release build: 0 warnings.
-- [ ] **Test helpers that locate a field by type instead of by name (note §5b).** `d4ebd2e8` fixed
+- [x] **Test helpers that locate a field by type instead of by name (note §5b).** `d4ebd2e8` fixed
   `BrokerParityTests.Swap`; the pattern is still repo-wide. `ProviderFetchOhlcvTests.SwapHttpClient`
   (and its `.Enrollment` partial), `ProviderSymbolNormalisationTests:283`, `OcoPairTests:146`,
   `PostAuditRegressionTests:294`, plus the single-client ones (SecEdgar, FINRA, CFTC, Wikipedia) all take
@@ -6835,6 +6945,15 @@ or place a live order.
   closed — `BrokerParityTests.Swap` now matches by name against the two spellings the broker plugins
   use, with the reasoning in a comment above it. What is still open is exactly the repo-wide half above:
   25 sites still do `FieldType == typeof(HttpClient)`, and no `*ScanTests` member covers the pattern.
+  **CLOSED 2026-09-05.** `AccessibleTrader.Tests/Fakes/HttpClientSwap.cs` — `ReplaceAll` (every
+  `HttpClient` field the object holds, base types included; throws on none) and `Single` (for the
+  disposal readers; throws unless exactly one). All 17 single-pick sites moved; the "replace all"
+  loops (Tradier, WindowHonesty, Truncation, SilentFailure) and the by-name `BrokerParityTests.Swap`
+  were already safe and are left as they are. `HttpClientSwapScanTests` scans every test file:
+  a paragraph that filters `typeof(HttpClient)` and then takes one match by `First`/`Single`/
+  `Last`/`ElementAt`/`[0]`/`break` without a `.Name` filter fails the build, and the classifier
+  is proven on four caught shapes and two allowed ones. Vacuity floor: ≥3 files must still
+  mention the type filter.
 - [ ] **`AudioEngine.RingBuffer<T>.Enqueue` is single-producer and now has FOUR producers (note §5b).**
   Verified: `AudioEngine.cs:146` reads `_head` non-atomically, writes `_buffer[_head]`, then
   `Volatile.Write`s the advance — textbook SPSC, no CAS, no lock. `_commandQueue`'s only writer is
@@ -6853,7 +6972,7 @@ or place a live order.
   consumer read an unpublished entry, so that route needs per-slot sequence numbers. Whichever way it
   goes, record the decision at the ring: the "HARD REAL-TIME: LOCK-FREE" comment reads as a single-writer
   promise the code no longer keeps, and the drop telemetry doesn't count a command lost this way.
-- [ ] **Surface `AuthPasswordResetRequested` instead of leaving it in a log (note §4c).** No SMTP exists;
+- [x] **Surface `AuthPasswordResetRequested` instead of leaving it in a log (note §4c).** No SMTP exists;
   `ForgotPassword` deliberately doesn't look the user up (that would rebuild the enumeration oracle in the
   audit log) and just records the event for an admin to notice. One request has sat unactioned for ten
   days. Give the admin a way to see it without reading journals: a `--pending-resets` CLI listing recent
@@ -6862,6 +6981,16 @@ or place a live order.
   server)" carries `--accounts --reset-link <email>`, expiry, and the audit trail. Point the server there.
   Note this compounds with `a535c744`: before that fix recovery codes could never redeem, so for a 2FA
   user this admin path was the only way back in.
+  **CLOSED 2026-09-05 — the push half.** `OwnerPushResetRequestNotifier` (WebHost, Push) is
+  handed the request by `ForgotPassword` after the security event is recorded: Warning in the
+  journal (scrape-able by severity) and Web Push to the owner account's subscriptions through the
+  new `IWebPushSender` seam on `HostedWebPushSender`. Owner = `Accounts:OwnerEmail`, else
+  `ACCOUNTS_SEED_EMAIL`; unconfigured logs a second Warning saying the request was NOT pushed.
+  Fire-and-forget, never throws, so the neutral page is unchanged; the requested account is still
+  never looked up. Proven end to end through the real page with a recording sender
+  (`A_reset_request_is_pushed_to_the_owner_account_naming_the_requester_and_the_ip`). The
+  `--pending-resets` CLI listing was not built — the push is what the note asked for and the
+  security-event file remains the record.
 - [ ] **Process, not code: tell the server before the SDK band moves (note §4).** `global.json` pins
   `10.0.301` with `rollForward: latestPatch`; that box has that SDK and no other, so narrowing to
   `disable` or bumping to a band it lacks stops deploys dead. Same for `UseRazorSourceGenerator=false`,
@@ -6872,7 +7001,7 @@ or place a live order.
 pointer above refers to the *old* lettering except where a line says otherwise; the four below use the
 new one). Each was re-checked against this tree before being written down.
 
-- [ ] **The plugin allow-list still does no DNS check (note §5c) — the redirect half is closed, this
+- [x] **The plugin allow-list still does no DNS check (note §5c) — the redirect half is closed, this
   half is not.** Verified 2026-08-28: `WebHostPluginHttpClientFactory.cs:30` and
   `MauiPluginHttpClientFactory.cs:40` both construct `new HttpClientHandler { AllowAutoRedirect = false }`,
   so the 302-off-the-allow-list hole is shut in both heads. Neither sets a `ConnectCallback`, so the
@@ -6885,6 +7014,14 @@ new one). Each was re-checked against this tree before being written down.
   purpose: plugins are trust-hashed (33 verified at boot), so the realistic case is a first-party
   provider's upstream resolving somewhere unexpected, not attacker-supplied code. But the guard to copy
   is thirty lines away, and the two factories are byte-identical in this respect so it is one fix twice.
+  **CLOSED 2026-09-05.** Exactly as filed: `OutboundNetworkGuard.CreateHandler(blockPrivateNetworks)`
+  is the shared inner handler — `AlertChannelHttpClient` and both plugin factories build on it.
+  The factories take `DemoPolicy` (injected on both heads; `BlockPrivateNetworkTargets` is true
+  off the desktop) and fail CLOSED with no policy. `PluginRedirectAllowListTests` proves it against
+  a real loopback `TcpListener`: with "localhost" ON the allow-list, Hosted throws "not on the
+  public internet" and the listener is never reached; Full reaches it (the desktop's IBKR Client
+  Portal case, which is why it is a policy and not always-on). The source scan now requires both
+  copies to call the shared handler and forbids a bare `HttpClientHandler` in either.
 - [x] **DONE 2026-08-28. `AccessibleTrader.BrowserTests` cannot run on the deployment box, and the defect is invisible on
   CI (note §5e).** Fixed exactly as filed, and the filing was right about the mechanism: a `Listen`
   call does not REPLACE a configured endpoint, it ADDS to it. `CreateHost` now overrides

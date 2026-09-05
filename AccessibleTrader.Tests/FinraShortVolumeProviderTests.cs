@@ -18,10 +18,7 @@ namespace AccessibleTrader.Tests
         private static FinraShortVolumeProvider NewProvider(FakeHttpMessageHandler handler)
         {
             var provider = new FinraShortVolumeProvider();
-            var field = typeof(FinraShortVolumeProvider)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
             return provider;
         }
 

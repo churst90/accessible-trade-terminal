@@ -95,10 +95,6 @@ namespace AccessibleTrader.Core.Services
                 foreach (var send in toSend) send();
             }
 
-            /// <summary>Discards without publishing — used when a reduce produced no state
-            /// change, so the announcements describe something that did not happen.</summary>
-            public void Discard() => _pending.Clear();
-
             public IDisposable Subscribe<T>(Action<T> handler) => _inner.Subscribe(handler);
             public IObservable<T> AsObservable<T>() => _inner.AsObservable<T>();
             public IDisposable SubscribeCoalesced<T>(Action<T> handler, TimeSpan quietWindow)
@@ -146,12 +142,16 @@ namespace AccessibleTrader.Core.Services
                     _currentState = candidate;
                     newState = candidate;
                 }
-                else
-                {
-                    // Nothing changed, so anything a reducer queued describes something that
-                    // did not happen. Saying it anyway is worse than saying nothing.
-                    _deferredBus.Discard();
-                }
+                // NO DISCARD ON AN UNCHANGED STATE. Until 2026-09-05 this branch called
+                // _deferredBus.Discard() on the grounds that "anything a reducer queued
+                // describes something that did not happen". That was true of nothing: the four
+                // announcing reducers publish only for a target they found, and RestoreAll's
+                // "Nothing was hidden." / "Nothing was muted." are precisely the report that
+                // nothing changed — which the discard turned into silence, so Ctrl+Alt+Shift+K
+                // with nothing hidden was a dead key. Found while adding the narration
+                // counterpart ("Nothing was narrating."), whose wiring test heard nothing. A
+                // reducer is the only place that knows whether there was anything to do; the
+                // store has no business overruling what it chose to say.
 
                 // NOTIFY AFTER THE COMMIT, STILL UNDER THE LOCK.
                 //
@@ -256,6 +256,14 @@ namespace AccessibleTrader.Core.Services
                         _eventBus.Publish(new TabSwitchedEvent(newState.ActiveTabIndex, label));
                     }
                 }
+                else
+                {
+                    // Nothing changed — and the reducer may have SAID so ("Nothing was
+                    // hidden."). That is the only thing a no-op reduce ever queues, and it is
+                    // the one sentence that stops a no-op key from being a dead key. See the
+                    // note above on the discard this replaced.
+                    _deferredBus.Drain();
+                }
             }
         }
 
@@ -298,6 +306,8 @@ namespace AccessibleTrader.Core.Services
                 // keypress was completely silent. ActionRoutingReachabilityTests now
                 // enumerates every WorkspaceAction subtype so there cannot be a fourth.
                 or RestoreAllComponentsAction
+                // Ctrl+Alt+Shift+O: narration's counterpart to the two above (2026-09-05).
+                or ClearAllNarrationAction
                 // Shift+H / Shift+M: the THIRD action to be implemented in
                 // SeriesReducer, dispatched from CommandDispatcher, and left out of
                 // this list (found 2026-08-24, after WheelZoomAction above and

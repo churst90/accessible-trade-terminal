@@ -465,6 +465,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+Shift+/ | Describe THIS PANE — what each axis measures, its range, and the step between gridlines |
 | Ctrl+Alt+Shift+K | Show every hidden component again (announces how many) |
 | Ctrl+Alt+Shift+U | Unmute every muted component (announces how many) |
+| Ctrl+Alt+Shift+O | Narration off everywhere — every series switched off, every component selection cleared (announces how many) |
 | Alt+M | Market watch — watchlists and the screener  (toolbar: **Watch**) |
 | Alt+R | Respect report — which levels and moving averages this market actually holds (toolbar: **Levels**) |
 | Alt+I | Asset dossier for the loaded symbol (I for Instrument/Info) | "{Symbol}, {class} dossier. N of M sections have data..." |

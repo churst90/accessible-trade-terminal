@@ -169,21 +169,43 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void A_reduce_that_changes_nothing_announces_nothing()
+        public void A_reduce_that_changes_nothing_still_says_so_when_the_reducer_chose_to()
         {
-            // Deferring the reducer's publishes makes this expressible for the first time: an
-            // announcement that describes a change which did not happen is worse than silence,
-            // because the user acts on what they hear.
+            // The inverse of the test this replaces. It asserted that an unchanged state
+            // announces NOTHING, and the store enforced it by discarding whatever the reducer
+            // had queued — which silenced RestoreAll's "Nothing was hidden.", the one sentence
+            // written for exactly this case. A key that does nothing and says nothing is a dead
+            // key to a screen-reader user. The reducer decides what to say; the store only
+            // decides when.
             var bus = new EventBus();
             var store = NewStore(bus);
 
-            int announcements = 0;
-            using var sub = bus.Subscribe<AnnouncementEvent>(_ => announcements++);
+            var announcements = new List<string>();
+            using var sub = bus.Subscribe<AnnouncementEvent>(a => announcements.Add(a.Message));
 
             // No series at all, so there is nothing to restore and the state cannot change.
             store.Dispatch(new RestoreAllComponentsAction(true));
 
             Assert.Equal(WorkspaceState.Initial.ActiveSeries.Count, store.State.ActiveSeries.Count);
+            Assert.Equal("Nothing was hidden.", Assert.Single(announcements));
+        }
+
+        [Fact]
+        public void A_toggle_on_a_series_that_does_not_exist_announces_nothing()
+        {
+            // What the old discard was actually protecting against — and the reducers already
+            // protect against it themselves, by publishing only for a target they found.
+            var bus = new EventBus();
+            var store = NewStore(bus);
+
+            int announcements = 0;
+            using var sub = bus.Subscribe<SeriesStateChangedEvent>(_ => announcements++);
+            using var sub2 = bus.Subscribe<AnnouncementEvent>(_ => announcements++);
+
+            store.Dispatch(new ToggleHideAction("no-such-series", null));
+            store.Dispatch(new ToggleMuteAction("no-such-series", null));
+            store.Dispatch(new ToggleNarrationAction("no-such-series", null));
+
             Assert.Equal(0, announcements);
         }
     }

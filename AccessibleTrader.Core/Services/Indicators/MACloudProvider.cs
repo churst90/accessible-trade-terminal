@@ -36,6 +36,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Code        = "MA_CLOUD",
                 Causality = ComponentCausality.Causal,
                 Name        = "MA Cloud",
+                // "MA Cloud 9 21": a cloud is named by the two periods it sits between, the way
+                // its two lines would be. The MA types are not part of the name.
+                NamedByParameters = new() { "FastPeriod", "SlowPeriod" },
                 Category    = "Overlays",
                 DefaultPane = "Main",
                 Description = "Directional cloud between two moving averages. " +

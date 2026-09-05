@@ -52,6 +52,26 @@ internal static class WebHostIntegration
     /// D-Bus / notify-send / speech tools, which a test box may not have and
     /// a test run must not disturb. Everything else is the real pipeline.
     /// </summary>
+    /// <summary>
+    /// The DEMO head — <c>--demo</c>, served under <c>/app/</c>. Boots through the
+    /// <c>Demo:Enabled</c> configuration switch added 2026-09-05, because a factory cannot pass
+    /// argv and until then no test could boot this head at all.
+    /// </summary>
+    public static WebApplicationFactory<WebHostDemoMode> DemoFactory(string environment = "Production")
+        => new WebApplicationFactory<WebHostDemoMode>().WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment(environment);
+            b.UseSetting("Demo:Enabled", "true");
+            b.UseSetting("Launch:Disabled", "true");
+        });
+
+    /// <summary>
+    /// The Full-mode head served under an arbitrary prefix through the <c>PathBase</c>
+    /// override — the configuration the browser harness runs in.
+    /// </summary>
+    public static WebApplicationFactory<WebHostDemoMode> FullFactoryUnder(string pathBase, string environment = "Production")
+        => FullFactory(environment).WithWebHostBuilder(b => b.UseSetting("PathBase", pathBase));
+
     public static WebApplicationFactory<WebHostDemoMode> FullFactory(string environment = "Production")
         => new WebApplicationFactory<WebHostDemoMode>().WithWebHostBuilder(b =>
         {

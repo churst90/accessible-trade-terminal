@@ -186,16 +186,18 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void TwoSeriesFiringOnOneBar_EACH_CarryTheirName()
+        public void TwoSeriesFiringOnOneBar_AreIntroducedByTheirComponents_NeverTheirSeries()
         {
-            // THE CASE THE PREFIX WAS WRITTEN FOR, and the reason dropping it outright would have
-            // been the wrong fix. Two clauses in one breath with no names is one indicator saying
-            // two things — which is a different fact from two indicators agreeing, and agreement
-            // is the whole reason a trader runs two.
+            // Until 2026-09-05 this was the case the SERIES prefix was written for: two clauses in
+            // one breath from two indicators each carried their series' name. Cody: "hearing only
+            // the component name before the signal is all that is needed, not the series name as
+            // the user probably knows what they enabled for narration". Narration is opt-in per
+            // series — which series speak is a fact the listener chose — and the component is the
+            // fact they are waiting for. Here both templates already name their component
+            // ("{name} at {price}"), so nothing is added and nothing is said about the series.
             // CHART scope, not series scope: since 2026-09-04 narration is scoped exactly the
             // way the tones are, so a SERIES-scoped playback of Cipher B cannot say anything
-            // about Cipher SR — and the prefix rule this test states is about the case where it
-            // legitimately can. The scoping itself is pinned by PlaybackNarrationScopeTests.
+            // about Cipher SR. The scoping itself is pinned by PlaybackNarrationScopeTests.
             var state = Playing(MarkerSeries(120, new[] { 41 }), cursor: 40)
                         with { PlaybackScope = PlaybackScope.Chart };
 
@@ -224,15 +226,35 @@ namespace AccessibleTrader.Tests
             h.Settle(state);
 
             string spoken = Assert.Single(h.Step(41));
-            Assert.Equal("Cipher B: Bull signal at 141.00. Cipher SR: Support test at 141.00.", spoken);
+            Assert.Equal("Bull signal at 141.00. Support test at 141.00.", spoken);
+            Assert.DoesNotContain("Cipher", spoken);
         }
 
         [Fact]
-        public void TwoCOMPONENTSOfOneSeries_NameTheSeriesOnce()
+        public void ATemplateThatDoesNotNameItsComponent_IsIntroducedByIt()
         {
-            // One source, two things to say about it. Repeating the name is the stutter the
-            // single-clause rule removes; dropping it entirely would leave two clauses with no
-            // owner. Once, at the front.
+            // The other half of the rule. A template that does not say which marker fired —
+            // Cipher B's "Wave cross up {value}" is the shipped example — gets its component
+            // in front, because that is the fact the listener is waiting for. The match is
+            // case-insensitive and anywhere in the clause, so "{name} at {price}" templates
+            // and hand-written ones that mention the component mid-sentence are left alone.
+            var series = MarkerSeries(120, new[] { 41 });
+            series.Config.Components[0].DisplayName = "WaveTrend Cross Bull";
+            series.Config.Components[0].SignalSpeechTemplate = "Wave cross up {value}";
+
+            var h = Running(series, cursor: 40);
+
+            string spoken = Assert.Single(h.Step(41));
+            Assert.Equal("WaveTrend Cross Bull: Wave cross up 1.0.", spoken);
+        }
+
+        [Fact]
+        public void TwoCOMPONENTSOfOneSeries_AreEachTheirOwnClause_AndTheSeriesIsNotNamed()
+        {
+            // One source, two things to say about it. Each clause names its own component and
+            // the series is not named at all — the prefix that used to sit here ("Cipher B: …")
+            // was a fixed phrase repeated ahead of every signal for the length of a playback
+            // run, carrying nothing the listener had not chosen themselves.
             var series = MarkerSeries(120, new[] { 41 });
             var extra = new ComponentConfig
             {
@@ -249,7 +271,7 @@ namespace AccessibleTrader.Tests
             var h = Running(series, cursor: 40);
 
             string spoken = Assert.Single(h.Step(41));
-            Assert.Equal("Cipher B: Bull signal at 141.00. Bear signal at 141.00.", spoken);
+            Assert.Equal("Bull signal at 141.00. Bear signal at 141.00.", spoken);
         }
 
         [Fact]

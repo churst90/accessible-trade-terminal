@@ -28,15 +28,7 @@ namespace AccessibleTrader.Tests
 
         private static void SwapHttpClient(object provider, FakeHttpMessageHandler handler)
         {
-            var fields = provider.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
-            FieldInfo? target = null;
-            foreach (var f in fields)
-            {
-                if (f.FieldType == typeof(HttpClient)) { target = f; break; }
-            }
-            if (target == null)
-                throw new InvalidOperationException($"{provider.GetType().Name} has no HttpClient-typed private field.");
-            target.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
         }
 
         /// <summary>Swaps the HttpClient field on a nested private object (e.g. Schwab's OAuth service).</summary>

@@ -220,7 +220,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             /// </summary>
             private const int MaxClauses = 5;
 
-            private readonly List<(int Tier, int Order, string Series, string Key, string Text)> _clauses = new();
+            private readonly List<(int Tier, int Order, string Series, string Key, string Text, string? Component)> _clauses = new();
             private readonly HashSet<string> _approachSuppressed = new();
             private int _next;
 
@@ -229,10 +229,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             /// dictionaries. Identifies which component a clause is about, so two clauses about
             /// the same one can be reconciled.
             /// </param>
-            public void Add(int tier, string seriesName, string key, string? text)
+            /// <param name="componentName">
+            /// The spoken name of the component a SIGNAL clause is about. Given only for clauses
+            /// built from a component's own template, which is the kind that may name nothing;
+            /// see <see cref="Compose"/> for what it is used for.
+            /// </param>
+            public void Add(int tier, string seriesName, string key, string? text, string? componentName = null)
             {
                 if (string.IsNullOrWhiteSpace(text)) return;
-                _clauses.Add((tier, _next++, seriesName, key, text.Trim()));
+                _clauses.Add((tier, _next++, seriesName, key, text.Trim(), componentName));
             }
 
             /// <summary>
@@ -256,11 +261,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     .Take(MaxClauses)
                     .ToList();
 
-                // Naming every series is only needed when there is more than one to confuse.
-                // On a single-series utterance this leaves each clause exactly as it was built,
-                // which is what the narrator has always said.
-                bool multiSeries = kept.Select(c => c.Series).Distinct().Count() > 1;
-
                 var parts = new List<string>(kept.Count);
                 string? prevSeries = null;
 
@@ -270,16 +270,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string prefix = clause.Series + ": ";
                     bool carriesName = text.StartsWith(prefix, StringComparison.Ordinal);
 
-                    if (prevSeries == clause.Series)
+                    if (carriesName)
                     {
-                        if (carriesName) text = text[prefix.Length..];
+                        // A level, cross or zone clause is built "{series}: …" because the
+                        // series IS the thing it is about ("EMA 50: price crossed above"). The
+                        // name is spoken once per run of clauses about that series.
+                        if (prevSeries == clause.Series) text = text[prefix.Length..];
                     }
-                    else if (multiSeries && !carriesName)
+                    else
                     {
-                        // A clause built from a SignalSpeechTemplate names no series — none of the
-                        // 61 shipped templates contains {series} — so joined behind another
-                        // series' clause it would be heard as belonging to that one.
-                        text = prefix + text;
+                        // ── A SIGNAL IS INTRODUCED BY ITS COMPONENT, NEVER BY ITS SERIES ─────
+                        //
+                        // Until 2026-09-05 a template clause joined behind another series' clause
+                        // was prefixed with the SERIES name, so it would not be heard as the
+                        // other series' signal. Cody: "hearing only the component name before the
+                        // signal is all that is needed, not the series name, as the user probably
+                        // knows what they enabled for narration". He is right about what the
+                        // listener already knows — narration is opt-in per series, the person
+                        // chose the two or three series that speak — and the component name is
+                        // the fact they do NOT have: WHICH of Cipher B's eleven markers fired.
+                        //
+                        // The component leads only when the template has not already said it.
+                        // Most of the shipped templates are the component's own name in a
+                        // sentence ("Bullish divergence", "Triple confluence buy, strong
+                        // confirmation"), and "Bullish Divergence: Bullish divergence" is the
+                        // stutter this replaces.
+                        text = SignalClauseSpeech.WithComponentName(text, clause.Component);
                     }
 
                     // 47 of those 61 templates also end without a full stop, which read fine as
@@ -445,7 +461,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     string msg = BuildMarkerMessage(series, comp, val, state, barIndex);
                     if (!string.IsNullOrEmpty(msg))
                     {
-                        utterance.Add(ScanUtterance.TierSignal, series.FriendlyName, markerKey, msg);
+                        utterance.Add(ScanUtterance.TierSignal, series.FriendlyName, markerKey, msg,
+                            componentName: SignalClauseSpeech.ComponentName(comp));
                         announced.Add(barIndex);
                         if (!_lastSeenPivotIndex.TryGetValue(pivotKey, out int cur) || barIndex > cur)
                             _lastSeenPivotIndex[pivotKey] = barIndex;
@@ -790,8 +807,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     .Replace("{series}", series.FriendlyName);
             }
 
-            string compName = !string.IsNullOrEmpty(comp.DisplayName) ? comp.DisplayName : comp.Name;
-            return $"{series.FriendlyName}: {compName} at {price}.";
+            // The component, not the series, introduces a signal — see ScanUtterance.Compose.
+            return $"{SignalClauseSpeech.ComponentName(comp)} at {price}.";
         }
 
         private static string? BuildZoneTransitionMessage(

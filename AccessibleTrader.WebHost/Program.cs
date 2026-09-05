@@ -49,7 +49,13 @@ builder.WebHost.UseStaticWebAssets();
 //               attaching from VS Code). Also settable as config Launch:Disabled=true,
 //               because WebApplicationFactory-based integration tests can pass settings
 //               but not command-line args.
-bool demoMode = args.Contains("--demo");
+// --demo (or Demo:Enabled=true) → the locked-down public taste under /app/. The configuration
+// form exists for the same reason as Accounts:Enabled below: a WebApplicationFactory can pass
+// settings but not argv, and until 2026-09-05 no test could boot the demo head at all — so the
+// /app/ prefix, the one the public demo runs under and nothing else, was checked only by
+// curling the server after a deploy (hosted notes §3).
+bool demoMode = args.Contains("--demo")
+    || builder.Configuration.GetValue<bool>("Demo:Enabled");
 bool autoLaunch = !args.Contains("--no-launch")
     && !builder.Configuration.GetValue<bool>("Launch:Disabled");
 
@@ -151,6 +157,13 @@ if (hostMode == HostMode.Hosted)
     builder.Services.AddSingleton(sp => new AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore(
         usersRoot, sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.Push.PushSubscriptionStore>>()));
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>();
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.IWebPushSender>(sp =>
+        sp.GetRequiredService<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>());
+    // A password-reset request reaches the owner's push subscriptions and the journal at
+    // Warning, instead of only a security-event file (hosted notes §4c). Owner = Accounts:OwnerEmail
+    // or, failing that, the seeded ACCOUNTS_SEED_EMAIL account.
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.IPasswordResetRequestNotifier,
+                                  AccessibleTrader.WebHost.Services.Push.OwnerPushResetRequestNotifier>();
 
     builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
         new AccessibleTrader.WebHost.Services.HostedAlertMonitor(
@@ -428,15 +441,20 @@ if (accountsEnabled)
 
 // The public builds are reverse-proxied behind nginx under a subpath on the marketing
 // site: --demo under /app/, hosted accounts under /terminal/. UsePathBase aligns every
-// route, static asset, and the /_blazor SignalR endpoint with the base href set in
-// App.razor. Must run first in the pipeline. (Deploy-only; kept local to this host.)
-if (demoMode)
+// route, static asset, and the /_blazor SignalR endpoint with the base href App.razor
+// derives from Request.PathBase. Must run first in the pipeline.
+//
+// `PathBase` in configuration overrides the mode's default, and exists for one caller: the
+// browser harness, which runs the Full-mode terminal — the honest surface for the modal and
+// keyboard sweeps — and since 2026-09-05 runs it under a prefix, because both hosted heads run
+// under nothing else and the prefix-only bug class (a535c744: every login POST answered 405)
+// had no automated coverage at the circuit level.
+string? pathBase = app.Configuration["PathBase"];
+if (string.IsNullOrWhiteSpace(pathBase))
+    pathBase = demoMode ? "/app" : accountsEnabled ? "/terminal" : null;
+if (pathBase != null)
 {
-    app.UsePathBase("/app");
-}
-else if (accountsEnabled)
-{
-    app.UsePathBase("/terminal");
+    app.UsePathBase(pathBase);
 }
 
 if (!app.Environment.IsDevelopment())

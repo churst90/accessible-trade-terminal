@@ -121,7 +121,10 @@ namespace AccessibleTrader.Tests
             // a signal in it, on a build where the narrator is broken for some other reason, and
             // on a build where the switch was never read at all.
             var spoken = Assert.Single(RunBarCloseScan(master: true));
-            Assert.Contains("Cipher B", spoken);
+            // The component introduces the signal; the series is never named ahead of one
+            // (2026-09-05, SignalClauseSpeech).
+            Assert.Contains("Bull Signal", spoken);
+            Assert.DoesNotContain("Cipher B", spoken);
             Assert.Contains("Bull Signal", spoken);
         }
 

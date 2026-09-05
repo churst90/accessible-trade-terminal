@@ -19,10 +19,15 @@ namespace AccessibleTrader.WebHost.Pages.Account
     public class ForgotPasswordModel : PageModel
     {
         private readonly ISecurityEventLog _audit;
+        private readonly Services.Push.IPasswordResetRequestNotifier? _notifier;
 
-        public ForgotPasswordModel(IConfiguration config, ISecurityEventLog audit)
+        public ForgotPasswordModel(
+            IConfiguration config,
+            ISecurityEventLog audit,
+            Services.Push.IPasswordResetRequestNotifier? notifier = null)
         {
             _audit = audit;
+            _notifier = notifier;
             SupportEmail = config["Accounts:SupportEmail"] ?? "support@accessibletrader.com";
         }
 
@@ -59,6 +64,11 @@ namespace AccessibleTrader.WebHost.Pages.Account
                 DateTime.UtcNow, SecurityEventKind.AuthPasswordResetRequested, "auth",
                 "Password-reset link requested.",
                 new Dictionary<string, string> { ["ip"] = ip, ["email"] = email }));
+
+            // ...and tell the operator, because a security event nobody reads is a locked-out
+            // user nobody helps (hosted notes §4c: two requests sat unread for ten days each).
+            // Fire-and-forget and never throws, so the response below is the same either way.
+            _notifier?.Notify(email, ip);
 
             // ALWAYS the same neutral outcome — no signal about whether the email exists.
             Submitted = true;

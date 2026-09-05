@@ -11,7 +11,17 @@ namespace AccessibleTrader.WebHost.Services.Push
     /// permission revoked) are pruned from the store so they aren't retried
     /// every poll forever.
     /// </summary>
-    public sealed class HostedWebPushSender
+    /// <summary>
+    /// Web Push to every subscription one user holds. Seam for the callers that fan out
+    /// through it — the alert monitor and the password-reset notifier — so a test can watch
+    /// what would have been pushed without VAPID keys or a push service.
+    /// </summary>
+    public interface IWebPushSender
+    {
+        Task SendToUserAsync(string userKey, string title, string body, CancellationToken ct);
+    }
+
+    public sealed class HostedWebPushSender : IWebPushSender
     {
         private readonly PushServiceClient _client;
         private readonly PushSubscriptionStore _store;

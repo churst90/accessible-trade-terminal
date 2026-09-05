@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The name that came back from disk, the component that introduces its own signal, and four items handed back from the server (2026-09-05)
+
+**The parameter recitation was back, and it had never left the saved workspaces.** The
+nineteenth pass fixed *how* an indicator is named; the restore path then pinned the saved
+`Name`/`FriendlyName` back onto every series it rebuilt ("ensure the exact saved name is
+preserved"), and every workspace on disk had been saved when the namer joined every value onto
+the name — "Cipher SR 5 20 1.2 0.2 1 14 1". So the fix existed only on charts built from
+scratch, and a person's charts are all restored. `RestoreSeriesFromSaved` now derives the name
+from the parameters through the same cohort rule an add uses, and re-names the cohort as each
+restored sibling lands. An indicator's name is never user-typed (the Properties rename box is
+for drawings), so nothing was lost by not preserving it.
+
+**A moving average is named by its period, alone or not.** "Which indicator realistically needs
+the user to know the period? EMA 50, EMA 21, SMA 50, DEMA, TEMA, clouds maybe." The cohort rule
+called a lone EMA "EMA", which drops the one fact the person who added it wanted to hear. Rather
+than a list in the speech layer, `IndicatorMetadata.NamedByParameters` lets the indicator declare
+which parameters *are* its name; the twelve single-line moving averages declare `lookbackPeriods`
+and the MA Cloud declares both periods. Those values lead the name always; the cohort rule adds
+its discriminators after them only when the named-by values collide. Guarded by a test over the
+shipped providers so a new average added without the declaration fails by name.
+
+**The ordinal was the cohort's size, not the instance's position.** Two identically-tuned
+indicators were both named "EMA 2". `IndicatorInstanceName.For` takes the instance's position;
+`RenameCohort` passes it.
+
+**N on a component says the component.** "Triple Confluence Buy, narrating" — the series name,
+its parameters and a colon are gone from the confirmation; the cursor is on the component and the
+series was named on arrival.
+
+**A signal clause is introduced by its component, never its series** — one rule
+(`SignalClauseSpeech`) for the live narrator and playback, which had drifted. The series name
+had been kept for the case of two series speaking in one breath; Cody's point is that narration
+is opt-in per series, so which series speaks is a fact the listener chose, and which of Cipher
+B's eleven markers fired is the fact they are waiting for. The component leads unless the
+template already names it (most do), so "Bullish Divergence: Bullish divergence" never happens.
+
+**Ctrl+Alt+Shift+O: narration off everywhere.** H and M each had an undo-all; N did not. Every
+series switched off and every component selection cleared — including a selection left behind
+on a silent series, which would otherwise have narrated one component the next time N was
+pressed on it. Announces "Narration off for 2 series." / "Nothing was narrating."
+
+**Found on the way: the two existing undo-alls were silent when there was nothing to undo.**
+`WorkspaceStore` discarded whatever a reducer had queued whenever the state did not change, on
+the reasoning that the words described a change that did not happen. `RestoreAll`'s "Nothing was
+hidden." describes exactly the opposite and was thrown away with the rest, so Ctrl+Alt+Shift+K
+with nothing hidden was a dead key. The store now drains a no-op reduce's announcements; the four
+announcing reducers already publish only for a target they found, and a test pins that too.
+
+**From the hosted deployment's notes, four repo-side items closed:**
+
+- **§5c — the plugin allow-list now checks what a name resolves to.** Both plugin HTTP client
+  factories build on `OutboundNetworkGuard.CreateHandler`, the alert channels' handler: redirects
+  refused, and on a hosted head (`DemoPolicy.BlockPrivateNetworkTargets`) the socket connects
+  only to an address that resolved public, checked inside the connect. The desktop keeps
+  localhost gateways reachable. A factory built with no policy fails closed. Proven with a real
+  loopback listener: refused on Hosted, reached on Full.
+- **§5a — no test locates an `HttpClient` field by position.** Seventeen files did
+  `.First(f => f.FieldType == typeof(HttpClient))`; on Tradier, Oanda and MEXC that is
+  declaration order away from faking the wrong client and hitting the real venue. All on
+  `HttpClientSwap.ReplaceAll` now (every client the object holds), and
+  `HttpClientSwapScanTests` fails any test file that goes back, with the classifier proven on
+  the shapes it must and must not catch.
+- **§3 — the prefix-only bug class has coverage on every head.** The note's claim that no test
+  ran under a `PathBase` was half right: the hosted head has run under `/terminal/` in the
+  xunit harness since 2026-08-22, which is how the 405 was found. The *demo* head had none
+  (`--demo` was argv-only), so `Demo:Enabled` joins `Accounts:Enabled` and
+  `WebHostPathBaseIntegrationTests` boots `/app/`: shell, base href, SignalR negotiate. And the
+  browser harness now runs the Full-mode terminal under `/terminal/` through a `PathBase`
+  configuration override, so the framework script, the negotiate and the circuit itself resolve
+  through a prefixed base href on every one of its runs. `App.razor` reads the base href from
+  `Request.PathBase` instead of re-deriving it from the mode, so the two cannot disagree.
+- **§4c — a password-reset request reaches the operator.** `ForgotPassword` still records the
+  security event and still never looks the account up; it now also hands the request to
+  `OwnerPushResetRequestNotifier`, which pushes to the owner account's Web Push subscriptions
+  (`Accounts:OwnerEmail`, or the seeded `ACCOUNTS_SEED_EMAIL`) and logs at Warning. Two such
+  requests had sat unread for ten days each.
+
 ### Five from Cody: two earcon families, a factory reset, narration that follows what you played, names that only appear when there are two of something, and N (2026-09-04)
 
 **Earcons split into two families, and Shift+F3 still mutes both.** Settings → Sonification →

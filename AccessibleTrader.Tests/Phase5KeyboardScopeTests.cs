@@ -263,6 +263,7 @@ namespace AccessibleTrader.Tests
                 // "what am I looking at?" and "show everything again" from wherever you are.
                 SystemCommand.SpeakChartLayout, SystemCommand.SpeakPaneInfo,
                 SystemCommand.ShowAllComponents, SystemCommand.UnmuteAllComponents,
+                SystemCommand.ClearAllNarration,
                 SystemCommand.None,
             };
 

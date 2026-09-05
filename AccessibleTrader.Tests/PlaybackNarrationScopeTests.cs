@@ -39,8 +39,10 @@ public class PlaybackNarrationScopeTests
         string? spoken = PlaybackNarration.SignalsForStep(state, 5, plan);
 
         Assert.NotNull(spoken);
-        Assert.Contains("Alpha", spoken);
-        Assert.Contains("Beta", spoken);
+        // Both series' signals — identified by their clauses, since 2026-09-05 the series name
+        // itself is never spoken ahead of a signal (see SignalClauseSpeech).
+        Assert.Contains("alpha signal", spoken);
+        Assert.Contains("beta signal", spoken);
     }
 
     [Fact]
@@ -94,8 +96,10 @@ public class PlaybackNarrationScopeTests
         string? spoken = PlaybackNarration.SignalsForStep(state, 5, null);
 
         Assert.NotNull(spoken);
-        Assert.Contains("Alpha", spoken);
-        Assert.Contains("Beta", spoken);
+        // Both series' signals — identified by their clauses, since 2026-09-05 the series name
+        // itself is never spoken ahead of a signal (see SignalClauseSpeech).
+        Assert.Contains("alpha signal", spoken);
+        Assert.Contains("beta signal", spoken);
     }
 
     [Fact]

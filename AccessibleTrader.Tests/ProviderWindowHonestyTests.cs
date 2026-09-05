@@ -267,10 +267,7 @@ namespace AccessibleTrader.Tests
             var handler = new FakeHttpMessageHandler { StrictMode = false };
             handler.Get(".*/global.*", GlobalBody);
             var provider = new AccessibleTrader.Plugins.CoinGecko.CoinGeckoProvider();
-            var field = provider.GetType()
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
             return (provider, handler);
         }
 

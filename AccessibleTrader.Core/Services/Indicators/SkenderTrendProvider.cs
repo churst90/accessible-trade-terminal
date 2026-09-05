@@ -58,6 +58,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Ema", Name = "EMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -72,6 +73,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Sma", Name = "SMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -86,6 +88,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Wma", Name = "WMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -99,6 +102,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Hma", Name = "HMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -112,6 +116,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Alma", Name = "ALMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -127,6 +132,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Dema", Name = "DEMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -140,6 +146,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Tema", Name = "TEMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -153,6 +160,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Kama", Name = "KAMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -260,6 +268,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Zlema", Name = "ZLEMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -273,6 +282,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Smma", Name = "SMMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -286,6 +296,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Tma", Name = "TMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

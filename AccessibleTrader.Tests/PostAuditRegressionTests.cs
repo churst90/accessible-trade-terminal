@@ -285,10 +285,7 @@ namespace AccessibleTrader.Tests
             });
 
             var handler = new NonceRecordingHandler();
-            var httpField = provider.GetType()
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            httpField.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
 
             var sign = provider.GetType().GetMethod("PostPrivateAsync",
                 BindingFlags.NonPublic | BindingFlags.Instance);

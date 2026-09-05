@@ -250,6 +250,23 @@ namespace AccessibleTrader.Sdk.Models
 
         public string Description { get; set; } = string.Empty;
         public List<IndicatorParameterMetadata> Parameters { get; set; } = new();
+
+        /// <summary>
+        /// The parameters a trader names an instance BY — spoken in the instance name whether or
+        /// not anything else on the chart could be confused with it. "The 50 EMA", "the 21 EMA":
+        /// for a moving average the period is not a setting, it is the name, and an EMA alone on
+        /// a chart called just "EMA" has lost the one fact the person who added it wanted to hear.
+        ///
+        /// <para>
+        /// Empty for almost everything. A Cipher B has eight parameters and none of them is its
+        /// name; an RSI is "RSI" to the people who use it. Declared here by the indicator rather
+        /// than kept as a list in the speech layer, because which parameter is the name is a fact
+        /// about the indicator — the author knows it and the namer does not. Parameter names, in
+        /// the order they should be spoken; each must match an entry in <see cref="Parameters"/>.
+        /// See <c>IndicatorInstanceName</c> for how these combine with the cohort rule.
+        /// </para>
+        /// </summary>
+        public List<string> NamedByParameters { get; set; } = new();
         public List<IndicatorComponentMetadata> Components { get; set; } = new();
         /// <summary>
         /// Default cloud fills created with the series (separate from Components so they are

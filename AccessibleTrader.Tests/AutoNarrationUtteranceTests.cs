@@ -507,23 +507,28 @@ public class AutoNarrationUtteranceTests
     }
 
     /// <summary>
-    /// …and the name comes back when the utterance moves to a different series — including for a
-    /// clause built from a <c>SignalSpeechTemplate</c>, which names no series of its own.
+    /// A SIGNAL clause is introduced by its COMPONENT, never by its series — and only when the
+    /// clause has not already said which component it is.
     ///
     /// <para>
-    /// <b>None of the 61 shipped templates contains <c>{series}</c>.</b> Spoken alone that was
-    /// fine. Joined behind another series' clause it is heard as belonging to that series, so a
-    /// signal from the squeeze indicator is attributed to Cipher B — a fact about a different
-    /// instrument's chart, stated with no hedge.
+    /// Until 2026-09-05 a template clause joined behind another series' clause was prefixed
+    /// with the SERIES name (none of the 61 shipped templates contains <c>{series}</c>, so it
+    /// would otherwise be heard as the other series' signal). Cody: <i>"hearing only the
+    /// component name before the signal is all that is needed, not the series name as the user
+    /// probably knows what they enabled for narration"</i>. Here the first series' marker names
+    /// itself ("Bull Signal at …") and is left alone; the second's template does not mention
+    /// its component, so the component leads. The series names appear nowhere.
     /// </para>
     /// </summary>
     [Fact]
-    public void ASecondSeriesNamesItselfEvenWhenItsTemplateDoesNot()
+    public void ASignalClauseIsIntroducedByItsComponent_NeverByItsSeries()
     {
         string spoken = Assert.Single(RunTwoSeriesScan().Spoken);
 
-        Assert.Contains("Cipher B: Bull Signal at 104.00.", spoken);
-        Assert.Contains("Squeeze: Long crowded, squeeze risk down.", spoken);
+        Assert.Contains("Bull Signal at 104.00.", spoken);
+        Assert.Contains("Funding Crowding: Long crowded, squeeze risk down.", spoken);
+        Assert.DoesNotContain("Cipher B:", spoken);
+        Assert.DoesNotContain("Squeeze:", spoken);
     }
 
     /// <summary>
@@ -542,12 +547,12 @@ public class AutoNarrationUtteranceTests
     }
 
     /// <summary>
-    /// The counterpart: on a single-series utterance a template that names no series is left
-    /// exactly as its author wrote it. There is nothing to disambiguate, and this is the wording
-    /// the narrator has always used.
+    /// The stutter guard: a template that already says its component's name — here the
+    /// component is "Squeeze" and the sentence contains "squeeze" — is left exactly as its author
+    /// wrote it. "Squeeze: Long crowded, squeeze risk down" is not an introduction.
     /// </summary>
     [Fact]
-    public void ASingleSeriesUtteranceDoesNotGainASeriesNameItNeverHad()
+    public void ATemplateThatAlreadyNamesItsComponentIsLeftAlone()
     {
         string spoken = Assert.Single(RunTemplateOnlyScan().Spoken);
 
@@ -558,7 +563,7 @@ public class AutoNarrationUtteranceTests
     private static CapturingSpeechRouter RunTwoSeriesScan()
     {
         var first = MarkerConfig("CipherB", "Cipher B", Marker("Bull Signal"));
-        var second = MarkerConfig("Squeeze", "Squeeze", Marker("Squeeze", "Long crowded, squeeze risk down"));
+        var second = MarkerConfig("Squeeze", "Squeeze", Marker("Funding Crowding", "Long crowded, squeeze risk down"));
 
         return Drive(n => StateFor(
                 ImmutableList.Create(MarkerSeries(first, n), MarkerSeries(second, n)),

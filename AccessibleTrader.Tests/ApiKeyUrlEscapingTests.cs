@@ -49,11 +49,7 @@ namespace AccessibleTrader.Tests
 
         private static void SwapHttpClient(object provider, FakeHttpMessageHandler handler)
         {
-            var field = provider.GetType()
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .FirstOrDefault(f => f.FieldType == typeof(HttpClient));
-            Assert.True(field != null, $"{provider.GetType().Name} has no HttpClient-typed private field.");
-            field!.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
         }
 
         /// <summary>

@@ -146,6 +146,131 @@ public class IndicatorInstanceNameTests
         Assert.Equal("EMA 2", IndicatorInstanceName.For(meta, same, Siblings(same)));
     }
 
+    [Fact]
+    public void TheOrdinalIsThePosition_NotTheCohortSize()
+    {
+        // The nineteenth pass returned siblings + 1 for the ordinal, which for a pair is "2"
+        // for BOTH of them — two objects, one name, on exactly the path whose whole purpose is
+        // telling them apart. The caller passes each instance's place in the cohort.
+        var meta = Meta("EMA", ("Period", 20));
+        var same = new Dictionary<string, object> { ["Period"] = 20 };
+
+        Assert.Equal("EMA 1", IndicatorInstanceName.For(meta, same, Siblings(same), ordinal: 1));
+        Assert.Equal("EMA 2", IndicatorInstanceName.For(meta, same, Siblings(same), ordinal: 2));
+    }
+
+    // ── Named-by parameters: "the 50 EMA" ───────────────────────────────────────
+
+    private static IndicatorMetadata NamedBy(IndicatorMetadata meta, params string[] names)
+    {
+        meta.NamedByParameters.AddRange(names);
+        return meta;
+    }
+
+    [Fact]
+    public void AnIndicatorNamedByAParameter_SaysItEvenWhenAlone()
+    {
+        // Cody, 2026-09-05: "Which indicator realistically need the user to know the period?
+        // ema 50, ema 21, sma 50, etc." A moving average IS its period to the person who
+        // added it; the cohort rule's "alone → bare name" throws that away. The indicator
+        // declares which parameter names it, and that value is always spoken.
+        var meta = NamedBy(Meta("EMA", ("Period", 20)), "Period");
+        var mine = new Dictionary<string, object> { ["Period"] = 50 };
+
+        Assert.Equal("EMA 50", IndicatorInstanceName.For(meta, mine));
+    }
+
+    [Fact]
+    public void ANamedByParameterAtItsDefault_IsStillSpoken()
+    {
+        // "Differs from the default" was the eighteenth pass's rule and it is wrong here for
+        // the same reason it was wrong for siblings: a 20 EMA left at 20 is still the 20.
+        var meta = NamedBy(Meta("EMA", ("Period", 20)), "Period");
+
+        Assert.Equal("EMA 20", IndicatorInstanceName.For(meta, new Dictionary<string, object>()));
+    }
+
+    [Fact]
+    public void TwoNamedByInstances_ThatDifferInTheNamingParameter_NeedNothingElse()
+    {
+        // "EMA 21" and "EMA 50" are already apart; the cohort rule has no work to do even if
+        // they also differ on something else.
+        var meta = NamedBy(Meta("EMA", ("Period", 20), ("Source", "close")), "Period");
+        var fast = new Dictionary<string, object> { ["Period"] = 21, ["Source"] = "hl2" };
+        var slow = new Dictionary<string, object> { ["Period"] = 50, ["Source"] = "close" };
+
+        Assert.Equal("EMA 21", IndicatorInstanceName.For(meta, fast, Siblings(slow)));
+        Assert.Equal("EMA 50", IndicatorInstanceName.For(meta, slow, Siblings(fast)));
+    }
+
+    [Fact]
+    public void TwoNamedByInstances_SharingTheNamingParameter_FallToTheCohortRule()
+    {
+        // Two 50 EMAs on different sources: the period cannot tell them apart, so what the
+        // cohort disagrees on follows it — and the period stays in front, because it is still
+        // the name.
+        var meta = NamedBy(Meta("EMA", ("Period", 20), ("Source", "close")), "Period");
+        var a = new Dictionary<string, object> { ["Period"] = 50, ["Source"] = "hl2" };
+        var b = new Dictionary<string, object> { ["Period"] = 50, ["Source"] = "close" };
+
+        Assert.Equal("EMA 50 hl2", IndicatorInstanceName.For(meta, a, Siblings(b)));
+        Assert.Equal("EMA 50 close", IndicatorInstanceName.For(meta, b, Siblings(a)));
+    }
+
+    [Fact]
+    public void ACloudIsNamedByBothItsPeriods_InDeclaredOrder()
+    {
+        // "clouds maybe" — a cloud sits between two averages and is called by both, fast
+        // first, the way its own two lines would be.
+        var meta = NamedBy(Meta("MA Cloud", ("FastPeriod", 9), ("SlowPeriod", 21), ("FastType", "EMA")),
+                           "FastPeriod", "SlowPeriod");
+        var mine = new Dictionary<string, object> { ["FastPeriod"] = 21, ["SlowPeriod"] = 55 };
+
+        Assert.Equal("MA Cloud 21 55", IndicatorInstanceName.For(meta, mine));
+    }
+
+    [Fact]
+    public void TheShippedMovingAverages_DeclareTheirPeriodAsTheirName()
+    {
+        // The rule above is only as good as the declarations. Every single-line moving
+        // average the terminal ships is named by its lookback; a new one added without the
+        // declaration would be "EMA"-shaped noise again for exactly the family the report
+        // named.
+        var trend  = new AccessibleTrader.Core.Services.Indicators.SkenderTrendProvider().GetIndicators();
+        var volume = new AccessibleTrader.Core.Services.Indicators.SkenderVolumeProvider().GetIndicators();
+        var all = trend.Concat(volume).ToList();
+
+        foreach (var code in new[] { "Ema", "Sma", "Wma", "Hma", "Alma", "Dema", "Tema", "Kama", "Zlema", "Smma", "Tma", "Vwma" })
+        {
+            var meta = Assert.Single(all, m => m.Code == code);
+            Assert.Equal(new[] { "lookbackPeriods" }, meta.NamedByParameters);
+        }
+
+        var cloud = Assert.Single(new AccessibleTrader.Core.Services.Indicators.MACloudProvider().GetIndicators());
+        Assert.Equal(new[] { "FastPeriod", "SlowPeriod" }, cloud.NamedByParameters);
+    }
+
+    [Fact]
+    public void EveryDeclaredNamingParameter_IsAParameterTheIndicatorActuallyHas()
+    {
+        // A typo in a declaration would name nothing and fail nowhere — the lookup falls
+        // through to "no value" and the suffix silently disappears.
+        var providers = new AccessibleTrader.Sdk.Interfaces.IIndicatorProvider[]
+        {
+            new AccessibleTrader.Core.Services.Indicators.SkenderTrendProvider(),
+            new AccessibleTrader.Core.Services.Indicators.SkenderVolumeProvider(),
+            new AccessibleTrader.Core.Services.Indicators.MACloudProvider(),
+        };
+        int declared = 0;
+        foreach (var meta in providers.SelectMany(p => p.GetIndicators()))
+            foreach (var name in meta.NamedByParameters)
+            {
+                declared++;
+                Assert.Contains(meta.Parameters, p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            }
+        Assert.True(declared >= 12, $"only {declared} naming parameters declared — the sweep found nothing to check");
+    }
+
     [Theory]
     [InlineData(20)]
     [InlineData(20.0)]

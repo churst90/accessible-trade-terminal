@@ -10,11 +10,17 @@ The same binary serves three modes, selected by flags/config:
 | Mode | Flag | Who | Path base | Auth | Persistence |
 |---|---|---|---|---|---|
 | **Local** | (none) | one user on their own machine | `/` | none | local single dir |
-| **Demo** | `--demo` | anonymous public taste | `/app/` | none | none (ephemeral) |
+| **Demo** | `--demo` (or `Demo:Enabled=true`) | anonymous public taste | `/app/` | none | none (ephemeral) |
 | **Hosted** | `--accounts` | logged-in paper-trading users | `/terminal/` | Identity login | per-user under the data root |
 
 `--demo` and `--accounts` are mutually exclusive deployments (run two services, or one).
 Outside both flags it's the plain single-user local app — unchanged.
+
+The path base follows the mode. A `PathBase` configuration value (`PathBase=/anything`,
+env `PathBase`) overrides it in any mode; it exists so the browser test harness can run the
+local terminal under `/terminal/` the way production is served, and it is honoured on a
+deployment too if you ever mount a head somewhere else. `App.razor` derives `<base href>`
+from the request's path base, so the two cannot disagree.
 
 **Local mode only:** the plain (no-flag) local app also registers a **desktop
 system-tray applet** and background-alert monitoring so the server is usable with
@@ -142,6 +148,7 @@ until it is fixed.
 | `TWELVEDATA_APIKEY` | demo/hosted | server-side stock/forex market-data key (read-only; never a trading credential). Falls back to `DEMO_TWELVEDATA_APIKEY`. |
 | `FRED_APIKEY` | demo/hosted | server-side FRED key — unlocks the Economic market (CPI, NFP, GDP, unemployment, fed funds, yields). Read-only public research data. Falls back to `FRED_API_KEY`. |
 | `ACCOUNTS_SEED_EMAIL` / `ACCOUNTS_SEED_PASSWORD` | hosted (optional) | provision one owner/admin account at startup, bypassing the public password policy. Idempotent. |
+| `Accounts__OwnerEmail` | hosted (optional) | the account whose Web Push subscriptions receive operator notices (today: password-reset requests). Defaults to `ACCOUNTS_SEED_EMAIL`. |
 | `XDG_DATA_HOME` / `XDG_CACHE_HOME` | optional | isolate a staging instance's state from a live one |
 | `ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS` | desktop/local only | `1` opts into running custom scripts when the OS sandbox primitive is missing (bwrap / sandbox-exec / AppContainer). Default: script execution is **refused** without the sandbox. Every launch under the override is recorded to the security event log. Never set this on a server. |
 
@@ -396,6 +403,16 @@ the second layer behind it.
 Users who forget their password use **Forgot password** on the sign-in page, which
 never confirms whether an address exists; it tells them to contact support and logs
 an `AuthPasswordResetRequested` security event (with IP) so you can see the request.
+
+**You are told, not left to find it.** The request is also pushed to the owner account's
+Web Push subscriptions — "Password reset requested: user@example.com asked for a reset link
+from 203.0.113.9. Run --reset-link …" — and written to the journal at **Warning**, which a
+log scrape can key on. The owner account is `Accounts__OwnerEmail`, falling back to
+`ACCOUNTS_SEED_EMAIL`; sign in as it once and enable push notifications in the terminal so
+the subscription exists. Two requests sat unread in the security-event file for ten days
+each before this existed; neither was real, and that was luck. The page still never looks
+up the account that was named, so nothing here leaks whether an address is registered.
+
 You then mint a reset link out of band:
 
 ```

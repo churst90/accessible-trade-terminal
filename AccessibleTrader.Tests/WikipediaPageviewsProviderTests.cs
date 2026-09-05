@@ -24,10 +24,7 @@ public class WikipediaPageviewsProviderTests
     private static WikipediaPageviewsProvider NewProvider(FakeHttpMessageHandler h)
     {
         var p = new WikipediaPageviewsProvider();
-        var field = typeof(WikipediaPageviewsProvider)
-            .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-            .First(f => f.FieldType == typeof(HttpClient));
-        field.SetValue(p, new HttpClient(h));
+        HttpClientSwap.ReplaceAll(p, h);
         return p;
     }
 

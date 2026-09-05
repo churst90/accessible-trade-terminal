@@ -104,6 +104,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             new IndicatorMetadata
             {
                 Code = "Vwma", Name = "VWMA", Category = "Overlays", DefaultPane = "Main",
+                NamedByParameters = new() { "lookbackPeriods" },   // "the 50 EMA": the period IS the name
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

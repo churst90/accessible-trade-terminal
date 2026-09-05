@@ -43,10 +43,7 @@ namespace AccessibleTrader.Tests
         {
             var provider = new EtherscanProvider();
             provider.Configure(new Dictionary<string, string> { ["ApiKey"] = "test-key" });
-            var field = typeof(EtherscanProvider)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
             return provider;
         }
 

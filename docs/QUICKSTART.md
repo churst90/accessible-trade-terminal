@@ -826,6 +826,7 @@ controls what happens to you.**
 | N | Narration on or off for focused series or component |
 | Ctrl+Alt+Shift+K | Show everything you have hidden with H (says how many) |
 | Ctrl+Alt+Shift+U | Unmute everything you have muted with M (says how many) |
+| Ctrl+Alt+Shift+O | Switch narration off everywhere you turned it on with N (says how many) |
 
 Errors and your order outcomes — fills, stop hits, take profits — speak through every
 mute, because missing a stop firing costs real money. None of these mutes persist: the

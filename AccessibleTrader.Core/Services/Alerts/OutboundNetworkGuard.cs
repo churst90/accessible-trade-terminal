@@ -96,6 +96,58 @@ namespace AccessibleTrader.Core.Services.Alerts
             return resolved;
         }
 
+        /// <summary>
+        /// The one outbound handler every host-side HTTP client is built on: redirects are
+        /// never followed, and — when the host policy says so — the socket connects only to an
+        /// address that resolved PUBLIC, checked inside the connect itself so the address that
+        /// was validated is the address that is reached (a DNS record that flips after the
+        /// check has nothing to rebind).
+        ///
+        /// <para>
+        /// Shared since 2026-09-05 with the plugin client factories. Until then the alert
+        /// channels had this and the plugin allow-list did not: it matched the NAME on the
+        /// list and never what the name resolved to, so an allow-listed hostname answering
+        /// with <c>169.254.169.254</c> or an RFC1918 address was still connected to. Raised
+        /// from the hosted deployment (notes §5c) three times before it was closed — the guard
+        /// to reuse was thirty lines away.
+        /// </para>
+        /// </summary>
+        /// <param name="blockPrivateNetworks">
+        /// <see cref="DemoPolicy.BlockPrivateNetworkTargets"/> — true on every hosted head,
+        /// false on the desktop, where a plugin reaching a gateway on the user's own machine
+        /// (IBKR's Client Portal on localhost) is the whole point.
+        /// </param>
+        public static SocketsHttpHandler CreateHandler(bool blockPrivateNetworks)
+        {
+            var handler = new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+            };
+
+            if (blockPrivateNetworks)
+            {
+                handler.ConnectCallback = async (ctx, ct) =>
+                {
+                    var addresses = await ResolvePublicOrThrowAsync(ctx.DnsEndPoint.Host, ct)
+                        .ConfigureAwait(false);
+                    var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+                    try
+                    {
+                        await socket.ConnectAsync(addresses.ToArray(), ctx.DnsEndPoint.Port, ct)
+                            .ConfigureAwait(false);
+                        return new NetworkStream(socket, ownsSocket: true);
+                    }
+                    catch
+                    {
+                        socket.Dispose();
+                        throw;
+                    }
+                };
+            }
+
+            return handler;
+        }
+
         private static HttpRequestException NotPublic(string host) => new(
             $"Delivery target '{host}' is not on the public internet. On this host, alert " +
             "channels may only reach public addresses — loopback, private and link-local " +
@@ -127,31 +179,7 @@ namespace AccessibleTrader.Core.Services.Alerts
     {
         public static HttpClient Create(bool blockPrivateNetworks)
         {
-            var handler = new SocketsHttpHandler
-            {
-                AllowAutoRedirect = false,
-            };
-
-            if (blockPrivateNetworks)
-            {
-                handler.ConnectCallback = async (ctx, ct) =>
-                {
-                    var addresses = await OutboundNetworkGuard
-                        .ResolvePublicOrThrowAsync(ctx.DnsEndPoint.Host, ct).ConfigureAwait(false);
-                    var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
-                    try
-                    {
-                        await socket.ConnectAsync(addresses.ToArray(), ctx.DnsEndPoint.Port, ct)
-                            .ConfigureAwait(false);
-                        return new NetworkStream(socket, ownsSocket: true);
-                    }
-                    catch
-                    {
-                        socket.Dispose();
-                        throw;
-                    }
-                };
-            }
+            var handler = OutboundNetworkGuard.CreateHandler(blockPrivateNetworks);
 
             // Same envelope the old per-head copies used: alert payloads and
             // channel responses are small JSON; a hung endpoint must not pin

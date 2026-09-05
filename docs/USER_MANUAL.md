@@ -800,7 +800,11 @@ to walk back and find them, because a hidden component is exactly the thing you 
 longer navigate to. So there are two undo-alls. **Ctrl+Alt+Shift+K brings back
 everything you have hidden** and **Ctrl+Alt+Shift+U unmutes everything you have
 muted**, each announcing how many it restored — *"3 items shown."*, or *"Nothing was
-hidden."* if there was nothing to bring back. Treat them as
+hidden."* if there was nothing to bring back. Narration has the same escape hatch:
+**Ctrl+Alt+Shift+O switches narration off on every series and clears every component you
+picked out with N**, so a selection built up across three indicators over an afternoon is
+one chord from a known state — *"Narration off for 2 series."*, or *"Nothing was
+narrating."* Treat all three as
 the way out whenever the chart has gone quieter than you meant it to, and
 Ctrl+Alt+Shift+Y (above) as the way to hear what is currently hidden or muted before
 you decide. Ctrl+Space pauses and resumes whatever is
@@ -1842,7 +1846,19 @@ components: switching the series on and leaving it there gives you all of them, 
 on the divergence line narrows narration to just that. Press N on it again and you are back to
 the whole series. So the rule is: **no component picked out means all of them**, and the series
 switch is always the master — a component flagged on a series that is not narrating says
-nothing yet, and the confirmation tells you so rather than leaving you waiting.
+nothing yet, and the confirmation tells you so rather than leaving you waiting. The
+confirmation on a component names the component and nothing else — *"Triple Confluence Buy,
+narrating"* — because the cursor is already on it and the series was named when you arrived.
+When you want everything back to a known state, **Ctrl+Alt+Shift+O** switches narration off
+on every series and clears every component selection, the way Ctrl+Alt+Shift+K and U undo
+every hide and every mute.
+
+**What a signal sounds like.** A narrated signal is introduced by the *component* that fired
+it, never by the series: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series
+narrate, so the series name tells you nothing you did not already know; which of Cipher B's
+eleven markers just printed is the fact you are waiting for. Where a signal's own wording
+already says which component it is — *"Bullish divergence"*, *"Triple confluence buy, strong
+confirmation"* — nothing is put in front of it. The same rule holds during playback.
 
 Two switches sit above all of it, both on the **Narration** tab of Settings (F12). "Narrate
 signals on bar close" is the master: N chooses which series and components speak, that switch

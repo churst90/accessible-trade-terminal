@@ -345,11 +345,15 @@ namespace AccessibleTrader.Core.Services
             if (cohort.Count == 0) return;
 
             bool changed = false;
-            foreach (var s in cohort)
+            for (int i = 0; i < cohort.Count; i++)
             {
+                var s = cohort[i];
                 var siblings = cohort.Where(o => o != s).Select(o => ParameterSetOf(o.Config)).ToList();
 
-                string name = IndicatorInstanceName.For(meta, ParameterSetOf(s.Config), siblings);
+                // The ordinal is this instance's POSITION, not the cohort's size. The first
+                // version passed nothing and the namer fell back to siblings + 1 — which for a
+                // pair of identically-tuned indicators named BOTH of them "2".
+                string name = IndicatorInstanceName.For(meta, ParameterSetOf(s.Config), siblings, ordinal: i + 1);
                 if (string.Equals(s.Config.FriendlyName, name, StringComparison.Ordinal)) continue;
                 s.Config.FriendlyName = name;
                 changed = true;
@@ -399,6 +403,22 @@ namespace AccessibleTrader.Core.Services
                 .Concat(config.StringParameters.Select(kvp => (kvp.Key, kvp.Value)))
                 .ToList();
 
+            // THE NAME IS DERIVED, NOT RESTORED.
+            //
+            // Until 2026-09-05 this pinned the saved Name and FriendlyName back onto the fresh
+            // series ("ensure the exact saved name is preserved"), and that is how the parameter
+            // recitation the nineteenth pass removed came back the next morning: Cody, 2026-09-05,
+            // "when I move through series, I now hear AGAIN all of the parameters in a huge list".
+            // His workspaces were saved when the namer joined every value onto the name —
+            // "Cipher SR 5 20 1.2 0.2 1 14 1", "Value Deviation (scale-in tiers) 480 5 2 0 0" —
+            // and the restore path handed those strings straight back to navigation, so the fix
+            // was invisible on every chart that already existed. A workspace does not own an
+            // indicator's name; it owns the parameters the name is computed from. An indicator's
+            // name is never user-typed (the Properties rename box is for drawings, which take the
+            // meta == null path above), so there is nothing here to preserve.
+            var siblings = SiblingParameterSets(config.IndicatorCode, exceptSeriesId: config.Id);
+            string instanceName = IndicatorInstanceName.For(meta, ParameterSetOf(config), siblings);
+
             // Build fresh series through the factory (3-layer merge):
             //   Layer 1: current provider metadata defaults (waveforms, colors, envelope types)
             //   Layer 2: saved component state (visibility/mute/volume/FreqMultiplier only)
@@ -406,15 +426,11 @@ namespace AccessibleTrader.Core.Services
             // Pass the saved ID so pane ratios and other ID-keyed state remain valid.
             var freshSeries = _modelFactory.CreateSeriesFromMetadata(
                 meta,
-                config.FriendlyName.Length > 0 ? config.FriendlyName : config.Name,
+                instanceName,
                 config.Pane,
                 parameters,
                 config.Components.ToList(),
                 restoreId: config.Id);
-
-            // Ensure the exact saved name/friendlyName is preserved (factory always sets both to instanceName).
-            freshSeries.Config.Name         = config.Name;
-            freshSeries.Config.FriendlyName = config.FriendlyName;
 
             // Restore user-saved CloudFills (MigrateSeriesConfig already merged any new defaults into them).
             if (config.CloudFills.Count > 0)
@@ -454,6 +470,13 @@ namespace AccessibleTrader.Core.Services
             }
 
             _store.Dispatch(new AddSeriesAction(freshSeries));
+
+            // Same as an add: the cohort is re-named against its new size, so the EMA restored
+            // first — alone at the time, called "EMA" — becomes "EMA 20" when the second one
+            // lands. A load restores series one at a time, so this runs once per series of the
+            // cohort; RenameCohort dispatches only when a name actually changed.
+            RenameCohort(config.IndicatorCode, meta);
+
             // No PersistWorkspace — restoring must not overwrite the saved profile.
             _eventBus.Publish(new IndicatorUpdatedEvent(config.Id));
         }

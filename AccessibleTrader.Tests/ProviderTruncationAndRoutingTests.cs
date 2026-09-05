@@ -96,10 +96,7 @@ namespace AccessibleTrader.Tests
             handler.Get(".*company_tickers.*", """{"0":{"cik_str":320193,"ticker":"AAPL","title":"Apple Inc."}}""");
 
             var provider = new SecEdgarProvider();
-            typeof(SecEdgarProvider)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient))
-                .SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
 
             var (bars, _) = await provider.FetchOhlcvAsync(
                 new MarketDataRequest("Fundamentals", "AAPL_INSIDER", "1d", 5000));
@@ -294,11 +291,7 @@ namespace AccessibleTrader.Tests
     [Collection("ProviderCredentialBridge")]
     public class AnalyticsProviderDisposalTests
     {
-        private static HttpClient ClientOf(object provider) =>
-            (HttpClient)provider.GetType()
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient))
-                .GetValue(provider)!;
+        private static HttpClient ClientOf(object provider) => HttpClientSwap.Single(provider);
 
         [Fact]
         public void Glassnode_disposes_its_http_client()

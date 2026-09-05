@@ -17,8 +17,10 @@
     @* The public builds are reverse-proxied under a subpath on the marketing site, so the
        base href (and therefore every relative asset + the /_blazor SignalR endpoint) must
        live under that prefix: --demo under /app/, hosted accounts under /terminal/. Root
-       otherwise (desktop / local web). Mirrors UsePathBase in Program.cs. *@
-    <base href="@(Demo.IsDemo ? "/app/" : Demo.IsHosted ? "/terminal/" : "/")" />
+       otherwise (desktop / local web). Read from the REQUEST's PathBase — the value
+       UsePathBase in Program.cs stripped — rather than re-deriving it from the mode, so the
+       two cannot disagree and a configured `PathBase` override reaches here too. *@
+    <base href="@BaseHref" />
     <title>Accessible Trade Terminal</title>
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/AccessibleTrader.BlazorClient.Components/AccessibleTrader.BlazorClient.Components.bundle.scp.css" />
@@ -59,3 +61,20 @@
     <script src="js/webPush.js"></script>
 </body>
 </html>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private string BaseHref
+    {
+        get
+        {
+            string? fromRequest = HttpContext?.Request.PathBase.Value;
+            if (!string.IsNullOrEmpty(fromRequest)) return fromRequest.TrimEnd('/') + "/";
+            // No HttpContext (never the case for the SSR root document) or no prefix on the
+            // request: fall back to the mode's default so a hosted head reached without its
+            // prefix still names the prefix it is served under.
+            return Demo.IsDemo ? "/app/" : Demo.IsHosted ? "/terminal/" : "/";
+        }
+    }
+}

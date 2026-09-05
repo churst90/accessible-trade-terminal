@@ -28,18 +28,9 @@ public class ProviderFetchOhlcvTests
 
         private static void SwapHttpClient(object provider, FakeHttpMessageHandler handler)
         {
-            // Different providers name the field differently (_httpClient,
-            // _http, _client). Find any HttpClient-typed field so the helper
-            // works across the plugin set without per-provider knowledge.
-            var fields = provider.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
-            FieldInfo? target = null;
-            foreach (var f in fields)
-            {
-                if (f.FieldType == typeof(HttpClient)) { target = f; break; }
-            }
-            if (target == null)
-                throw new InvalidOperationException($"{provider.GetType().Name} has no HttpClient-typed private field.");
-            target.SetValue(provider, new HttpClient(handler));
+            // Every HttpClient-typed field, whatever it is called — see HttpClientSwap for why
+            // "the first one" was the wrong answer.
+            HttpClientSwap.ReplaceAll(provider, handler);
         }
 
         // ── Bitstamp ──────────────────────────────────────────────────────────

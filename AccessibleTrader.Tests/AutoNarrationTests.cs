@@ -168,7 +168,9 @@ namespace AccessibleTrader.Tests
             bus2.Publish(new RedrawEvent());
 
             Assert.Single(router2.Spoken);
-            Assert.Contains("Cipher B", router2.Spoken[0]);
+            // The COMPONENT introduces the signal; the series is never named ahead of one
+            // (Cody, 2026-09-05 — see SignalClauseSpeech).
+            Assert.DoesNotContain("Cipher B", router2.Spoken[0]);
             Assert.Contains("Bull Signal", router2.Spoken[0]);
         }
 

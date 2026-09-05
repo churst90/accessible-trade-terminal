@@ -27,10 +27,7 @@ public class SecEdgarProviderTests
     private static SecEdgarProvider NewProvider(FakeHttpMessageHandler h)
     {
         var p = new SecEdgarProvider();
-        var field = typeof(SecEdgarProvider)
-            .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-            .First(f => f.FieldType == typeof(HttpClient));
-        field.SetValue(p, new HttpClient(h));
+        HttpClientSwap.ReplaceAll(p, h);
         return p;
     }
 

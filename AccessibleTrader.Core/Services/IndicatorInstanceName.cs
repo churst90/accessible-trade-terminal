@@ -17,9 +17,9 @@ namespace AccessibleTrader.Core.Services
     /// </para>
     ///
     /// <para>
-    /// THE NAME'S JOB IS TO TELL TWO INSTANCES APART, and that is the whole of it. Which means
-    /// the question the suffix answers is not "did the user change anything" but <b>"is there
-    /// anything else on this chart it could be confused with"</b>.
+    /// THE NAME'S JOB IS TO TELL TWO INSTANCES APART, and that is almost the whole of it. Which
+    /// means the question the suffix answers is not "did the user change anything" but <b>"is
+    /// there anything else on this chart it could be confused with"</b>.
     /// </para>
     ///
     /// <para>
@@ -35,12 +35,24 @@ namespace AccessibleTrader.Core.Services
     /// </para>
     ///
     /// <para>
-    /// So the rule is <see cref="For(IndicatorMetadata, IReadOnlyDictionary{string, object}, IReadOnlyList{IReadOnlyDictionary{string, object}})"/>:
-    /// alone on the chart, an indicator is called what it is called. With siblings, the suffix is
-    /// the parameters on which the COHORT disagrees — in declared order, bare, which is how
-    /// traders write them anyway ("EMA 20", "MACD 12 26 9") — and nothing else. Add a second EMA
-    /// and the first one is renamed in the same breath, because a distinguishing suffix on one of
-    /// a pair is not distinguishing.
+    /// <b>And "almost", because of the EMA alone.</b> Cody, 2026-09-05: <i>"Which indicator
+    /// realistically need the user to know the period? ema 50, ema 21, sma 50, etc. dema, tema,
+    /// those types of things, clouds maybe"</i>. A moving average is NAMED by its period — nobody
+    /// says "the EMA", they say "the 50" — so the cohort rule, which names a lone EMA "EMA",
+    /// throws away the one fact the person who added it wanted to hear. That is not a list kept
+    /// here: it is <see cref="IndicatorMetadata.NamedByParameters"/>, declared by the indicator,
+    /// because which parameter is the name is a fact about the indicator and the author is the
+    /// one who knows it. Those values are ALWAYS in the name, siblings or not, ahead of anything
+    /// the cohort rule adds.
+    /// </para>
+    ///
+    /// <para>
+    /// So the rule is <see cref="For(IndicatorMetadata, IReadOnlyDictionary{string, object}, IReadOnlyList{IReadOnlyDictionary{string, object}}, int)"/>:
+    /// the named-by values first, always. Then, only with siblings, the parameters on which the
+    /// COHORT disagrees — in declared order, bare, which is how traders write them anyway
+    /// ("EMA 20", "MACD 12 26 9") — and nothing else. Add a second EMA and the first one is
+    /// renamed in the same breath, because a distinguishing suffix on one of a pair is not
+    /// distinguishing.
     /// </para>
     ///
     /// <para>
@@ -48,62 +60,97 @@ namespace AccessibleTrader.Core.Services
     /// eight-parameter indicator retuned wholesale would be back where they started. Past
     /// <see cref="MaxNamedParameters"/> the suffix becomes an ordinal — "Cipher B 2" — which is
     /// short, is a name rather than a recitation, and is still unique, which is the entire job.
+    /// The ordinal is the instance's POSITION in its cohort, not the cohort's size: the first
+    /// version returned <c>siblings + 1</c>, which for a pair is "2" for BOTH of them.
     /// </para>
     /// </summary>
     public static class IndicatorInstanceName
     {
         /// <summary>
-        /// How many differing parameter values may be spoken as values before the suffix collapses
-        /// to a count. Three covers the shapes that read naturally — "EMA 20", "MACD 12 26 9" —
-        /// and stops short of the wall of numbers this exists to remove.
+        /// How many parameter values may be spoken as values before the suffix collapses to an
+        /// ordinal. Three covers the shapes that read naturally — "EMA 20", "MACD 12 26 9" — and
+        /// stops short of the wall of numbers this exists to remove.
         /// </summary>
         public const int MaxNamedParameters = 3;
 
         /// <summary>
-        /// The instance name for a series being created from indicator metadata, given what else
-        /// of the same indicator is already on the chart.
+        /// The instance name for a series, given what else of the same indicator is on the chart.
         /// </summary>
         /// <param name="meta">The indicator's metadata — supplies the name, the declared parameter
-        /// ORDER (which is the order a trader writes the values in) and the defaults a sibling
-        /// that never stored a value falls back to.</param>
+        /// ORDER (which is the order a trader writes the values in), the parameters the indicator
+        /// is NAMED BY, and the defaults a sibling that never stored a value falls back to.</param>
         /// <param name="parameters">This instance's parameters.</param>
         /// <param name="siblingParameters">The parameter sets of the OTHER instances of the same
-        /// indicator already on the chart. Empty or null means this one is alone, and an
-        /// indicator alone on the chart is called what it is called.</param>
+        /// indicator on the chart. Empty or null means this one is alone.</param>
+        /// <param name="ordinal">This instance's 1-based position in its cohort, used only when
+        /// the name has to fall back to an ordinal. Zero means "the one just added", i.e. last.</param>
         public static string For(
             IndicatorMetadata meta,
             IReadOnlyDictionary<string, object>? parameters,
-            IReadOnlyList<IReadOnlyDictionary<string, object>>? siblingParameters = null)
+            IReadOnlyList<IReadOnlyDictionary<string, object>>? siblingParameters = null,
+            int ordinal = 0)
         {
-            if (siblingParameters == null || siblingParameters.Count == 0) return meta.Name;
-
             var mine = parameters ?? new Dictionary<string, object>();
+            var siblings = siblingParameters ?? Array.Empty<IReadOnlyDictionary<string, object>>();
 
             // Declared order first, then any undeclared keys alphabetically so the result is
             // stable. Undeclared keys are INCLUDED as candidates: the metadata not knowing about
             // a parameter is no reason to let two instances share a name because of it.
             var declaredOrder = meta.Parameters?.Select(p => p.Name).ToList() ?? new List<string>();
             var extraKeys = mine.Keys
-                .Concat(siblingParameters.SelectMany(d => d.Keys))
+                .Concat(siblings.SelectMany(d => d.Keys))
                 .Where(k => !declaredOrder.Any(d => string.Equals(d, k, StringComparison.OrdinalIgnoreCase)))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
 
-            var discriminating = new List<string>();
+            var namedBy = meta.NamedByParameters ?? new List<string>();
+            bool IsNamedBy(string key) => namedBy.Any(n => string.Equals(n, key, StringComparison.OrdinalIgnoreCase));
+
+            var identity = new List<string>();        // always spoken
+            var discriminating = new List<string>();  // spoken only with siblings, only where they disagree
             foreach (var key in declaredOrder.Concat(extraKeys))
             {
                 object? mineVal = Lookup(mine, key, meta);
-                bool anyDisagrees = siblingParameters.Any(sib => !SameValue(mineVal, Lookup(sib, key, meta)));
+                if (IsNamedBy(key))
+                {
+                    identity.Add(Format(mineVal));
+                    continue;
+                }
+                if (siblings.Count == 0) continue;
+                bool anyDisagrees = siblings.Any(sib => !SameValue(mineVal, Lookup(sib, key, meta)));
                 if (anyDisagrees) discriminating.Add(Format(mineVal));
             }
+
+            string head = identity.Count == 0 ? meta.Name : $"{meta.Name} {string.Join(" ", identity)}";
+            if (siblings.Count == 0) return head;
+
+            // With siblings, the identity values may already tell the instances apart — two EMAs
+            // at 21 and 50 need nothing more. Only when every sibling shares this instance's
+            // identity values does the cohort rule have work to do.
+            bool identityDistinguishes = identity.Count > 0
+                && siblings.All(sib => !SameIdentity(mine, sib, meta, namedBy));
+            if (identityDistinguishes) return head;
 
             // Nothing disagrees: the chart holds two instances configured identically. Rare, and
             // usually blocked upstream, but a name is still owed and "EMA" twice is not one.
             // The ordinal is the honest answer — they really are the same indicator twice.
-            if (discriminating.Count == 0 || discriminating.Count > MaxNamedParameters)
-                return $"{meta.Name} {siblingParameters.Count + 1}";
+            int position = ordinal > 0 ? ordinal : siblings.Count + 1;
+            if (discriminating.Count == 0 || identity.Count + discriminating.Count > MaxNamedParameters)
+                return $"{head} {position}";
 
-            return $"{meta.Name} {string.Join(" ", discriminating)}";
+            return $"{head} {string.Join(" ", discriminating)}";
+        }
+
+        /// <summary>
+        /// Whether two instances agree on every parameter the indicator is named by.
+        /// </summary>
+        private static bool SameIdentity(
+            IReadOnlyDictionary<string, object> a, IReadOnlyDictionary<string, object> b,
+            IndicatorMetadata meta, IReadOnlyList<string> namedBy)
+        {
+            foreach (var key in namedBy)
+                if (!SameValue(Lookup(a, key, meta), Lookup(b, key, meta))) return false;
+            return true;
         }
 
         /// <summary>

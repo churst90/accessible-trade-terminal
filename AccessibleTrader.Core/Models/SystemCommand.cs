@@ -220,6 +220,13 @@ namespace AccessibleTrader.Core.Models
         ShowAllComponents,
         /// <summary>Ctrl+Alt+Shift+U: unmute every muted component.</summary>
         UnmuteAllComponents,
+        /// <summary>
+        /// Ctrl+Alt+Shift+O: narration OFF on every series, every component selection cleared.
+        /// The third of the set — H, M and N are each undone by one chord — added 2026-09-05
+        /// when Cody asked for "a way to quickly bring everything back to a known state" after
+        /// narrating some components and not others across several indicators.
+        /// </summary>
+        ClearAllNarration,
 
         // Undo / redo
         /// <summary>Ctrl+Z: reverse the last chart edit (drawing anchor move, series delete).

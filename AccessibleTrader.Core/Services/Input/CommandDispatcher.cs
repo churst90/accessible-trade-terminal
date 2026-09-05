@@ -301,6 +301,9 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.UnmuteAllComponents:
                     _store.Dispatch(new RestoreAllComponentsAction(Unhide: false));
                     return;
+                case SystemCommand.ClearAllNarration:
+                    _store.Dispatch(new ClearAllNarrationAction());
+                    return;
                 case SystemCommand.ReplayToggle: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.Toggle)); return;
                 case SystemCommand.ReplayStepForward: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepForward)); return;
                 case SystemCommand.ReplayStepBack: _eventBus.Publish(new ReplayCommandEvent(ReplayCommand.StepBack)); return;

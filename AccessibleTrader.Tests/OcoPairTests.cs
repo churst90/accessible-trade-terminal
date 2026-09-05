@@ -180,9 +180,7 @@ namespace AccessibleTrader.Tests
         {
             var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
             p.Configure(new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s" });
-            var field = p.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(p, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(p, handler);
             return p;
         }
 

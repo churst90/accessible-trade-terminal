@@ -32,10 +32,7 @@ namespace AccessibleTrader.Tests
         private static MempoolProvider NewProvider(FakeHttpMessageHandler handler)
         {
             var provider = new MempoolProvider();
-            var field = typeof(MempoolProvider)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
             return provider;
         }
 

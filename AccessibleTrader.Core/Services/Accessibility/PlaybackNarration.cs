@@ -325,7 +325,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var scopedSeries = plan?.Series;
             int componentFilter = plan?.ComponentFilter ?? -1;
 
-            var clauses = new List<(string Series, string Clause)>(MaxSignalClauses);
+            var clauses = new List<(string Component, string Clause)>(MaxSignalClauses);
             foreach (var series in state.ActiveSeries)
             {
                 if (!series.IsAutoNarrated || !series.IsVisible || series.IsMuted) continue;
@@ -351,7 +351,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (double.IsNaN(val)) continue;
 
                     string clause = ExpandSignalTemplate(series, comp, val, state, barIndex);
-                    if (!string.IsNullOrWhiteSpace(clause)) clauses.Add((SeriesName(series), clause));
+                    if (!string.IsNullOrWhiteSpace(clause))
+                        clauses.Add((SignalClauseSpeech.ComponentName(comp), clause));
                 }
 
                 if (clauses.Count >= MaxSignalClauses) break;
@@ -359,30 +360,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (clauses.Count == 0) return null;
 
-            // ── THE SERIES NAME IS SAID ONLY WHEN IT IS DOING WORK ──────────────────────────
+            // ── A SIGNAL IS INTRODUCED BY ITS COMPONENT, NEVER BY ITS SERIES ────────────────
             //
             // Cody, 2026-09-04: "during playback only the signal itself should be read, not
-            // prefixed with everything". He is right about the common case and the prefix was
-            // still worth having, so the rule is now the reason rather than the habit: the name
-            // exists to stop two clauses in one breath being heard as one indicator's. With ONE
-            // clause there is nothing to confuse it with, and the name is a fixed phrase repeated
-            // ahead of every signal for the length of a playback run — which at ten bars a second
-            // is the loudest thing in the stream and carries no information at all.
+            // prefixed with everything" — and then, 2026-09-05, once the series name had been
+            // cut back to the cases where two series spoke in one breath: "hearing only the
+            // component name before the signal is all that is needed, not the series name, as
+            // the user probably knows what they enabled for narration".
             //
-            // Two clauses from DIFFERENT series still get their names, because that is the case
-            // the prefix was written for. Two from the SAME series do not: the series is named
-            // once, at the front, and the second clause follows it.
-            var names = clauses.Select(c => c.Series).Distinct(StringComparer.Ordinal).ToList();
-
-            if (names.Count == 1)
-            {
-                // One source. Name it once and only when there is more than one thing to say
-                // about it — a lone signal reads as itself.
-                string body = string.Join(" ", clauses.Select(c => c.Clause));
-                return clauses.Count == 1 ? body : $"{names[0]}: {body}";
-            }
-
-            return string.Join(" ", clauses.Select(c => $"{c.Series}: {c.Clause}"));
+            // Both are the same instruction. Narration is opt-in per series, so WHICH series is
+            // speaking is a fact the listener chose; WHICH of its markers fired is the fact they
+            // are waiting for. So every clause is introduced by its component — and only when the
+            // template has not already said it, because most templates are the component's own
+            // name in a sentence and "Bullish Divergence: Bullish divergence" is a stutter. The
+            // series name is never spoken here at all.
+            return string.Join(" ", clauses.Select(c => SignalClauseSpeech.WithComponentName(c.Clause, c.Component)));
         }
 
         /// <summary>

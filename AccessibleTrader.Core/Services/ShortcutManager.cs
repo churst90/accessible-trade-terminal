@@ -581,6 +581,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.SpeakPaneInfo,        "OEM2", Alt: true, Shift: true));
             s.Add(new(SystemCommand.ShowAllComponents,    "K", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.UnmuteAllComponents,  "U", Ctrl: true, Alt: true, Shift: true));
+            //   O — narration [O]ff everywhere; N itself is the per-object toggle and the
+            //       three-modifier N is already the focus-anywhere variant of it.
+            s.Add(new(SystemCommand.ClearAllNarration,    "O", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.MonitoringStatus,  "M",     Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+M: background monitoring summary
 
             // ApplyProfile, not LoadProfile: this runs from inside EnsureLoaded, which already

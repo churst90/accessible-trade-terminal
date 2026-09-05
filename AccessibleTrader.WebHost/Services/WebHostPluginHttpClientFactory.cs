@@ -10,6 +10,17 @@ namespace AccessibleTrader.WebHost.Services
     /// </summary>
     public sealed class WebHostPluginHttpClientFactory : IPluginHttpClientFactory
     {
+        private readonly bool _blockPrivateNetworks;
+
+        /// <param name="policy">
+        /// The host's feature policy. <see cref="AccessibleTrader.Core.Services.DemoPolicy.BlockPrivateNetworkTargets"/>
+        /// decides whether an allow-listed host that RESOLVES to a private, loopback or
+        /// link-local address is refused at connect time. Null fails CLOSED — a factory built
+        /// with no policy behaves as the public server does, never as the desktop does.
+        /// </param>
+        public WebHostPluginHttpClientFactory(AccessibleTrader.Core.Services.DemoPolicy? policy = null)
+            => _blockPrivateNetworks = policy?.BlockPrivateNetworkTargets ?? true;
+
         public HttpClient Create(HttpClientPolicy policy)
         {
             if (policy is null) throw new ArgumentNullException(nameof(policy));
@@ -18,16 +29,14 @@ namespace AccessibleTrader.WebHost.Services
                     $"HttpClientPolicy for '{policy.ProviderId}' must declare at least one allowed host.",
                     nameof(policy));
 
-            // AllowAutoRedirect = FALSE. HostAllowListHandler is a DelegatingHandler layered
-            // ABOVE this inner handler, so a redirect followed inside the inner handler never
-            // passes the allow-list at all: it is checked once, on the initial URI, and never
-            // on the hop. An allow-listed host answering
-            // `302 Location: http://169.254.169.254/latest/meta-data/` was followed and the
-            // body handed straight back to the plugin.
-            //
-            // OutboundNetworkGuard already did this and documented why; the plugin factory did
-            // not, and the two copies of this file were byte-identical in that respect.
-            var inner = new HttpClientHandler { AllowAutoRedirect = false };
+            // The inner handler is the SHARED outbound guard: redirects never followed (a hop
+            // inside the inner handler never passes the allow-list, which is checked once on
+            // the initial URI), and on a hosted head the socket connects only to an address
+            // that resolved public. Until 2026-09-05 this was a bare client handler with
+            // only AllowAutoRedirect switched off, in both copies of this file — the redirect
+            // half of the hole closed, the DNS half open: the allow-list
+            // matched the NAME and never what it resolved to. See OutboundNetworkGuard.
+            var inner = AccessibleTrader.Core.Services.Alerts.OutboundNetworkGuard.CreateHandler(_blockPrivateNetworks);
             var handler = new HostAllowListHandler(policy, inner);
             var http = new HttpClient(handler)
             {

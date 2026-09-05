@@ -18,10 +18,7 @@ namespace AccessibleTrader.Tests
         private static CftcProvider NewProvider(FakeHttpMessageHandler handler)
         {
             var provider = new CftcProvider();
-            var field = typeof(CftcProvider)
-                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .First(f => f.FieldType == typeof(HttpClient));
-            field.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
             return provider;
         }
 

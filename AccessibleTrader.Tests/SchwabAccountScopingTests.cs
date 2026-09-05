@@ -67,11 +67,7 @@ namespace AccessibleTrader.Tests
 
         private static void Swap(object provider, FakeHttpMessageHandler handler)
         {
-            var target = provider.GetType()
-                                 .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                                 .FirstOrDefault(f => f.FieldType == typeof(HttpClient));
-            Assert.NotNull(target);
-            target!.SetValue(provider, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(provider, handler);
         }
 
         /// <summary>

@@ -106,6 +106,87 @@ public class NarrationKeyTests
     }
 
     [Fact]
+    public void AComponentToggle_IsConfirmedByTheComponentAlone_NotSeriesColonComponent()
+    {
+        // Cody, 2026-09-05: "then I press n on a component I hear the series name, the
+        // parameter list, then component name, then 'narrating' — way too verbose. If I'm
+        // narrating a component, then I should just hear 'triple confluence. narrating'."
+        var (state, bus, spoken) = Reducing();
+        state = SeriesReducer.Reduce(state, new ToggleNarrationAction("cipher"), bus);
+        spoken.Clear();
+
+        SeriesReducer.Reduce(state, new ToggleNarrationAction("cipher", "Buy"), bus);
+
+        string msg = Assert.Single(spoken).Message;
+        Assert.StartsWith("Buy", msg);
+        Assert.DoesNotContain("Cipher B", msg);
+    }
+
+    // ── Ctrl+Alt+Shift+O: narration off everywhere ───────────────────────────────
+
+    [Fact]
+    public void ClearAll_SwitchesOffEverySeries_AndClearsEveryComponentSelection()
+    {
+        // H and M each have an undo-all (K and U); N did not. "Maybe have a way to quickly
+        // bring everything back to a known state" — Cody, 2026-09-05.
+        var (state, bus, spoken) = Reducing();
+        state = SeriesReducer.Reduce(state, new ToggleNarrationAction("cipher"), bus);
+        state = SeriesReducer.Reduce(state, new ToggleNarrationAction("cipher", "Buy"), bus);
+        spoken.Clear();
+
+        state = SeriesReducer.Reduce(state, new ClearAllNarrationAction(), bus);
+
+        Assert.False(state.ActiveSeries[0].IsAutoNarrated);
+        Assert.False(state.ActiveSeries[0].Components[0].IsAutoNarrated);
+        Assert.Equal("Narration off for 1 series.", Assert.Single(spoken).Message);
+    }
+
+    [Fact]
+    public void ClearAll_ClearsAStaleSelectionOnASilentSeries()
+    {
+        // A component selected while its series was off narrates nothing today and one
+        // component — not the whole series — the next time N is pressed on the series. The
+        // known state has no such surprise waiting in it.
+        var (state, bus, spoken) = Reducing();
+        state = SeriesReducer.Reduce(state, new ToggleNarrationAction("cipher", "Buy"), bus);
+        Assert.False(state.ActiveSeries[0].IsAutoNarrated);
+        spoken.Clear();
+
+        state = SeriesReducer.Reduce(state, new ClearAllNarrationAction(), bus);
+
+        Assert.False(state.ActiveSeries[0].Components[0].IsAutoNarrated);
+        Assert.Equal("Narration off. Component selections cleared.", Assert.Single(spoken).Message);
+    }
+
+    [Fact]
+    public void ClearAll_WithNothingNarrating_SaysSo_AndChangesNothing()
+    {
+        var (state, bus, spoken) = Reducing();
+
+        var after = SeriesReducer.Reduce(state, new ClearAllNarrationAction(), bus);
+
+        Assert.Same(state, after);
+        Assert.Equal("Nothing was narrating.", Assert.Single(spoken).Message);
+    }
+
+    [Fact]
+    public void ClearAll_IsReachableFromItsChord()
+    {
+        // The wiring: the command exists, is bound by default, and the dispatcher routes it
+        // to the reducer whose announcement is the proof it arrived.
+        var (dispatcher, bus, store) = Build();
+        var spoken = new List<AnnouncementEvent>();
+        bus.Subscribe<AnnouncementEvent>(spoken.Add);
+
+        dispatcher.Dispatch(SystemCommand.ClearAllNarration);
+
+        Assert.Contains(spoken, a => a.Message == "Nothing was narrating.");
+
+        var mgr = new ShortcutManager(new TempWorkspacePaths());
+        Assert.Equal(SystemCommand.ClearAllNarration, mgr.GetCommand("O", shift: true, ctrl: true, alt: true));
+    }
+
+    [Fact]
     public void DeselectingTheLastComponent_SaysItWidensBackOut_NotThatItWentOff()
     {
         // Narration widens back to the whole series rather than going quiet, which is the

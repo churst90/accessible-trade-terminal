@@ -71,6 +71,29 @@ public sealed class HarnessSmokeTests
         Assert.Equal(0, await t.OpenModalCountAsync());
     }
 
+    [Fact]
+    public void The_harness_serves_the_terminal_under_a_path_prefix()
+    {
+        // Plain [Fact]: the prefix is a property of the host, measurable with no browser.
+        Assert.EndsWith(TerminalServerFactory.PathBase + "/", _fixture.RootUrl);
+        Assert.StartsWith("http://127.0.0.1:", _fixture.RootUrl);
+    }
+
+    [BrowserFact]
+    public async Task The_page_resolves_everything_through_the_prefixed_base_href()
+    {
+        // GotoAppAsync already proved the circuit booted — the framework script loaded, the
+        // WebSocket negotiated, the app rendered — all of it under the prefix. This pins WHY
+        // that worked: the document's base href is the prefix, so a regression that served a
+        // root-relative base under a prefixed host would fail here by name rather than as a
+        // 60-second wait for a heading that never comes.
+        await using var t = await _fixture.NewPageAsync();
+
+        string baseUri = await t.Page.EvaluateAsync<string>("() => document.baseURI");
+        Assert.EndsWith(TerminalServerFactory.PathBase + "/", baseUri);
+        Assert.StartsWith(_fixture.RootUrl, t.Page.Url);
+    }
+
     [BrowserFact]
     public async Task No_dialog_is_open_before_anything_is_pressed()
     {

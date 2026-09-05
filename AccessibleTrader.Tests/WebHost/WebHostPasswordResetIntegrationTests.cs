@@ -1,7 +1,10 @@
 using System.Net;
 using AccessibleTrader.WebHost.Account;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AccessibleTrader.Tests.WebHost;
 
@@ -126,5 +129,74 @@ public sealed class WebHostPasswordResetIntegrationTests : IClassFixture<HostedW
         // wording that reveals whether the address is registered.
         Assert.DoesNotContain("no account", html, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("not registered", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── The operator hears about it (hosted notes §4c.1) ─────────────────────────────
+
+    private sealed class RecordingPushSender : AccessibleTrader.WebHost.Services.Push.IWebPushSender
+    {
+        public readonly TaskCompletionSource<(string User, string Title, string Body)> First = new();
+        public Task SendToUserAsync(string userKey, string title, string body, CancellationToken ct)
+        {
+            First.TrySetResult((userKey, title, body));
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task A_reset_request_is_pushed_to_the_owner_account_naming_the_requester_and_the_ip()
+    {
+        // The event used to land in a security-event file and nowhere else; two requests sat
+        // there unread for ten days each. Now it goes to the owner's push subscriptions — the
+        // channel the alert monitor already delivers on — without the page ever looking up the
+        // account that was named (that would rebuild the enumeration oracle).
+        const string owner = "owner@example.test";
+        var pushes = new RecordingPushSender();
+        string dataRoot = TestTemp.NewDir("att-reset-push-");
+        try
+        {
+            using var factory = WebHostIntegration.HostedFactory(dataRoot).WithWebHostBuilder(b =>
+            {
+                b.UseSetting(AccessibleTrader.WebHost.Services.Push.OwnerPushResetRequestNotifier.OwnerEmailKey, owner);
+                b.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<AccessibleTrader.WebHost.Services.Push.IWebPushSender>();
+                    services.AddSingleton<AccessibleTrader.WebHost.Services.Push.IWebPushSender>(pushes);
+                });
+            });
+            var ownerUser = await WebHostIntegration.SeedUserAsync(factory, owner, OldPassword);
+
+            using var client = WebHostIntegration.NewClient(factory);
+            var pageToken = await WebHostIntegration.GetAntiforgeryTokenAsync(client, "/terminal/account/forgotpassword");
+            var resp = await client.PostAsync("/terminal/account/forgotpassword", WebHostIntegration.Form(
+                ("__RequestVerificationToken", pageToken),
+                ("Input.Email", "stranded@example.test")));
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+            var pushed = await pushes.First.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(ownerUser.Id, pushed.User);
+            Assert.Equal("Password reset requested", pushed.Title);
+            Assert.Contains("stranded@example.test", pushed.Body);
+            Assert.Contains("--reset-link stranded@example.test", pushed.Body);
+        }
+        finally { try { Directory.Delete(dataRoot, true); } catch { } }
+    }
+
+    [Fact]
+    public async Task With_no_owner_configured_the_request_is_still_acknowledged_and_nothing_is_pushed()
+    {
+        // The fixture's host has no Accounts:OwnerEmail. The page must not fail or change its
+        // answer because the operator side is unconfigured — the visitor sees the same neutral
+        // page, and the journal carries the request.
+        using var client = WebHostIntegration.NewClient(_host.Factory);
+        var pageToken = await WebHostIntegration.GetAntiforgeryTokenAsync(client, "/terminal/account/forgotpassword");
+
+        var resp = await client.PostAsync("/terminal/account/forgotpassword", WebHostIntegration.Form(
+            ("__RequestVerificationToken", pageToken),
+            ("Input.Email", "nobody-home@example.test")));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var notifier = _host.Factory.Services.GetRequiredService<AccessibleTrader.WebHost.Services.Push.IPasswordResetRequestNotifier>();
+        Assert.Null(((AccessibleTrader.WebHost.Services.Push.OwnerPushResetRequestNotifier)notifier).OwnerEmail);
     }
 }

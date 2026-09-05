@@ -44,11 +44,7 @@ namespace AccessibleTrader.Tests
 
         private static void Swap(object target, FakeHttpMessageHandler handler)
         {
-            var field = target.GetType()
-                              .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                              .FirstOrDefault(f => f.FieldType == typeof(HttpClient));
-            Assert.NotNull(field);
-            field!.SetValue(target, new HttpClient(handler));
+            HttpClientSwap.ReplaceAll(target, handler);
         }
 
         private static long TimestampOf(HttpRequestMessage req)

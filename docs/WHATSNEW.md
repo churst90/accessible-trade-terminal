@@ -274,17 +274,35 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
 
 ### Names that only appear when there are two of something
 
-- **One EMA is called "EMA". Two are called "EMA 20" and "EMA 50".** The parameters appear in
-  an indicator's name when — and only when — there is another instance of the same indicator on
-  the chart to be told apart from, and then only the ones the two disagree about. Add the second
-  EMA and the first one is renamed in the same breath, because a period on one of a pair tells
-  you nothing about which is which.
+- **A moving average is called by its period — "EMA 50", "SMA 21", "MA Cloud 9 21" — whether
+  or not there is another on the chart.** That is how traders name them ("the 50"), and it is
+  the one case where a parameter *is* the name. EMA, SMA, WMA, HMA, ALMA, DEMA, TEMA, KAMA,
+  ZLEMA, SMMA, TMA, VWMA and the MA Cloud declare it; nothing else does.
+- **Everything else is called by its name alone — "Cipher B", "RSI", "Market Structure" — until
+  there are two of it.** Then, and only then, the parameters the two disagree about are added
+  ("MACD 12 26 9" beside "MACD 8 21 5"), and past three differing values the name becomes an
+  ordinal — "Cipher B 2" — rather than a wall of digits. Add the second instance and the first
+  is renamed in the same breath, because a suffix on one of a pair tells you nothing about which
+  is which.
 
-  This replaces the rule from earlier in the release, which named whatever differed from the
-  indicator's *defaults* and so turned "Cipher B 9 12 60 50 14 …" into "Cipher B 11". Better,
-  but still a number with nothing to compare it to: one Cipher B on a chart is *the* Cipher B.
-  Past three differing values the name becomes an ordinal — "Cipher B 2" — rather than a wall
-  of digits.
+  This replaces two earlier rules from this release: naming whatever differed from the
+  indicator's *defaults* ("Cipher B 11"), and before that reciting every parameter ("Cipher B
+  9 12 60 50 14 …"). **And it now applies to charts you saved before the fix**: a restored
+  workspace derives every indicator's name afresh from its parameters instead of reading back
+  the name it was saved with, which is how the recitation had kept coming back on every
+  existing chart.
+- **N on a component confirms with the component alone** — *"Triple Confluence Buy, narrating"*
+  — not the series, its parameters and then the component.
+- **A narrated signal is introduced by its component, never its series.** *"WaveTrend Cross
+  Bull: Wave cross up 12."* You chose which series narrate; which marker fired is the news.
+  Where the signal's own wording already names the component, nothing is added. Live and
+  during playback alike.
+- **Ctrl+Alt+Shift+O: narration off everywhere.** Every series switched off, every component
+  selection cleared, announcing how many — the third undo-all beside Ctrl+Alt+Shift+K (show
+  all) and Ctrl+Alt+Shift+U (unmute all).
+- **Those two undo-alls now actually say "Nothing was hidden." and "Nothing was muted."** They
+  had the sentence and the terminal was discarding it, so with nothing to restore the chord
+  was silent — a dead key to a screen-reader user.
 - **Four indicators stopped spelling a parenthetical at you.** "Market Structure (HH/HL/LH/LL)"
   is now just **Market Structure**; the same for **Regime Filter**, **Value Deviation** and
   **Volatility Regime**. Those glosses were written for a picker list you look at, and they were

@@ -360,6 +360,13 @@ namespace AccessibleTrader.Sdk.Models
     /// that component's place in the series' narration selection — see
     /// <c>SeriesNarrationScope</c> for how the two combine.</param>
     public record ToggleNarrationAction(string? SeriesId = null, string? ComponentName = null) : WorkspaceAction;
+    /// <summary>
+    /// The third escape hatch, beside <see cref="RestoreAllComponentsAction"/>'s two: switch
+    /// narration off on every series and clear every component selection, so the chart is back
+    /// in the state it loads in. N is per object like H and M, and a selection built up over a
+    /// session across three indicators and a dozen components has no other way back.
+    /// </summary>
+    public record ClearAllNarrationAction() : WorkspaceAction;
     public record SetPlaybackAction(bool IsPlaying, PlaybackScope Scope = PlaybackScope.Chart) : WorkspaceAction;
     public record TogglePauseAction() : WorkspaceAction;
     public record ToggleHeikinAshiAction() : WorkspaceAction;
