@@ -140,9 +140,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > ### 2. NOT VERIFIABLE HERE — needs a Windows box
 >
 > - **`WindowsDesktopNotifier`** (`Platforms/Windows`, Windows App SDK `AppNotificationManager`,
->   unpackaged path) is written against the documented API and has never been compiled: the
->   Windows TFM is excluded on this Linux box. First Windows build: does it compile, does
->   `Register()` succeed unpackaged, does the toast reach Narrator/NVDA.
+>   unpackaged path). **It COMPILES** — the v2.8.0 release workflow's `maui-windows` job built it
+>   on 2026-09-05. Still unverified at runtime: does `Register()` succeed unpackaged, does the
+>   toast reach Narrator/NVDA. Needs a Windows box running the 2.8.0 Windows zip.
 > - **Alt+Shift+letter with two keyboard layouts installed on Windows.** The layout switch
 >   fires on release without a third key, so the chords should be safe; try Alt+Shift+T with
 >   two layouts before calling it settled.
