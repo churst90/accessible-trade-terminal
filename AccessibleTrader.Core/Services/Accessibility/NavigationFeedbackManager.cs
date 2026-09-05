@@ -166,6 +166,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             //
             // Both are ON CHANGE ONLY, which is what keeps a trailing clause from becoming the
             // ten-times-repeated tail the prepend rule was originally written to prevent.
+            //
+            // ── EXCEPT HIDDEN AND MUTED, WHICH LEAD ─────────────────────────────────────
+            //
+            // Cody, 2026-09-05: "put muted and hidden at the beginning, narrating at the end."
+            // That splits what used to be one if/else chain — Hidden / Muted / Narrating, three
+            // mutually exclusive words in a trailing clause — into the two facts they actually
+            // are, and lines the series readout up with the component one, which has said them
+            // that way round since 2026-09-04 (see SpeechFormatter and VisibilityStateSpeech):
+            //
+            //   • Hidden and muted explain a SILENCE. There is no sound coming from this series,
+            //     and whatever interrupts an utterance cuts its END — so the half a user must
+            //     not lose goes first.
+            //   • Narrating explains nothing of the kind. It is an addition, everything else
+            //     about the series is normal, and it is the least urgent thing in the sentence.
+            //
+            // They are also independent, which the if/else chain denied: a series can be hidden
+            // AND muted (VisibilityStateSpeech.Qualifier says both), and a series that is hidden
+            // can still carry the narration flag it was given before it was hidden — that is
+            // worth hearing, because it is the answer to "why has this stopped talking".
+            string visibilityPrefix = "";
             string stateClause = "";
             string orientationClause = "";
 
@@ -177,11 +197,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string compWord = count == 1 ? "component" : "components";
 
                 // Callers navigating to a hidden or muted series must hear that status so they
-                // know why there is no sound — at the end of the utterance, not the front.
-                stateClause = !s.IsVisible     ? "Hidden."
-                            : s.IsMuted        ? "Muted."
-                            : s.IsAutoNarrated ? "Narrating."
-                            : "";
+                // know why there is no sound. Both flags, in one clause, in front.
+                visibilityPrefix = VisibilityStateSpeech.Prefix(s.IsVisible, s.IsMuted);
+                stateClause = s.IsAutoNarrated ? "Narrating." : "";
 
                 // A text label announces nothing on the switch itself. Its NAME is its wording,
                 // and the component reading that follows in the same utterance is that wording
@@ -191,9 +209,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // still has to explain its own silence.
                 if (s.Drawing is { Type: DrawingType.TextLabel })
                 {
-                    // Nothing leads: the label's NAME is its wording and the reading that follows
-                    // is that wording again. Its state, if any, trails like everything else's.
-                    if (stateClause.Length > 0) stateClause = "Text label. " + stateClause;
+                    // The label's NAME is its wording and the reading that follows is that
+                    // wording again, so only its state survives — and "Text label." goes in
+                    // front of whichever half of the state is actually being said, so the word
+                    // introduces something rather than trailing off on its own.
+                    if (visibilityPrefix.Length > 0) visibilityPrefix = "Text label. " + visibilityPrefix;
+                    else if (stateClause.Length > 0) stateClause = "Text label. " + stateClause;
                 }
                 else if (s.IsDrawing)
                 {
@@ -254,6 +275,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // noise in navigation context — the user knows what they added.
                     speechPrefix = $"{s.Name}. {countMsg}. " + speechPrefix;
                 }
+
+                // In FRONT of everything the branches above built — the series name, the
+                // component count, the drawing's name. All of them are things this series IS;
+                // "hidden and muted" is the reason none of it will make a sound.
+                speechPrefix = visibilityPrefix + speechPrefix;
             }
 
             // 2b. WHERE THE CURSOR NOW IS — the pane, and the strip inside it.

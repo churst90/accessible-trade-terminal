@@ -824,19 +824,30 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   two seconds apart at whatever speed you are playing, so speeding up makes them coarser
   rather than more frequent.
 - **Signals, on the series you asked for.** A marker signal printing on the bar the tones
-  have just reached is spoken — *"Cipher B: bull signal at 64,900."* This is the same flag as
-  live auto-narration, and there are three questions behind what you hear: **N picks what MAY
-  speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
+  have just reached is spoken — *"Triple confluence buy, strong confirmation."* This is the same
+  flag as live auto-narration, and there are three questions behind what you hear: **N picks what
+  MAY speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
   Space and the whole chart may speak; Shift+Space on one series and only that series does.
   Only discrete signals, never crossings, zone changes or oscillator commentary — at ten bars a
   second those would be a wall of speech.
+- **When several fire at once, the rarest is the one you hear.** Two clauses is the ceiling for
+  one bar, and what falls off the end is the marker that fires most often on the chart in front
+  of you. That matters on an indicator like Cipher B, whose gold Triple Confluence dot can only
+  print on a bar that is *also* an oversold crossover and *also* a WaveTrend cross: all three
+  fire together, and the one you added the indicator for is the one that prints twice in four
+  hundred bars. The rare one leads the sentence too, because at ten bars a second the first
+  clause is the one that lands before the next bar sounds.
 - **A formation resolving.** If you have "Describe chart patterns" on, a chart formation
   whose story ends on the bar being played is spoken there, in the same words the arrow keys
   would use if you stopped on it.
 
 Signals and formations are rate-limited to the same two-second cadence as the landmarks: a
 second one arriving inside the window is **dropped, not queued**, because at ten bars a
-second a queue means hearing about a bar the tones passed eight seconds ago. Landmarks are
+second a queue means hearing about a bar the tones passed eight seconds ago. One thing gets
+through that window anyway: a **rarer** signal than the one that opened it. A WaveTrend cross
+every dozen bars would otherwise swallow the gold dot four bars behind it, which is the
+opposite of what the limit is for. It cannot cascade — whatever speaks claims the window at its
+own rarity, so the next thing has to be rarer still. Landmarks are
 never dropped by that limit — they are the only thing telling you where in time you are. The
 master switch is **Settings (F12) → Narration → Narrate during playback**: turn it off and
 playback is tones and nothing else, with the start, pause, speed and finish confirmations
@@ -845,10 +856,20 @@ their own beneath it — **Speak time landmarks during playback**, on by default
 date and the signals answer different questions, and wanting to hear what your indicators
 printed is not the same as wanting the calendar read to you every few seconds.
 
-**A signal is spoken as itself.** "Bull signal at 141.00", not the indicator's name in front
-of it every time. The name comes back when it is carrying information: two different
-indicators firing on the same bar are each named, because two clauses in one breath with no
-names is one indicator saying two things — a different fact from two indicators agreeing.
+**A signal is introduced by the component that fired it, never by the series.** *"Bullish
+divergence."* — and where the wording does not already say which marker it was, the component
+leads: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series narrate, so the
+indicator's name tells you nothing you did not know; which of its markers just printed is the
+fact you are waiting for.
+
+**What playback does NOT say, and where to find it instead.** A continuous line — a moving
+average, a VWAP, an oscillator — never speaks during playback, whether or not you have flagged
+it with N. It has a value on every bar, so narrating it would mean a number ten times a second
+for the length of the run, and the tones already carry it. The events those overlays produce are
+narrated on the **bar close** instead, where there is a whole bar interval for the words to land
+in: price crossing your EMA is announced there, as is an oscillator changing zone. So the
+division is not a special case for playback so much as one rule seen from two sides — *playback
+speaks what happened at a point, bar-close narration speaks what changed.*
 
 If you want playback as *pure* narration rather than as sound, F3 turns the chart tones off
 and leaves everything above running: the cursor still walks the chart, the words still
@@ -1852,6 +1873,22 @@ narrating"* — because the cursor is already on it and the series was named whe
 When you want everything back to a known state, **Ctrl+Alt+Shift+O** switches narration off
 on every series and clears every component selection, the way Ctrl+Alt+Shift+K and U undo
 every hide and every mute.
+
+**Where these words land in the sentence.** Moving onto a series or component that is switched
+off says so **first** — *"Hidden and muted. Cipher B. 11 components…"* — and that it is
+narrating **last**: *"…64,900. Narrating."* The two halves are not the same kind of fact.
+Hidden and muted explain a *silence*, and anything that interrupts an utterance takes its end,
+so the half you must not lose goes in front; narrating is an addition, everything else about the
+reading is normal, and it is the least urgent thing in the phrase. Both flags are spoken when
+both apply, because they are cleared by different keys and a readout naming one of them is a
+readout that guarantees a second wrong guess.
+
+**What an overlay narrates, and when.** Flag a moving average with N and what you get is its
+**crosses, on the bar close**: *"Price crossed above EMA 9 at 64,900."* An overlay gets crosses
+and nothing else — no "support broken", no "tested twice" — because those belong to a level,
+which has a side and can cease to exist, and a moving average has neither. Cipher SR's pivots
+and Spider Lines' fibonacci EMAs are declared levels and do get the fuller vocabulary. And none
+of it is spoken during playback; see the playback section above for why.
 
 **What a signal sounds like.** A narrated signal is introduced by the *component* that fired
 it, never by the series: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series

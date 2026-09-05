@@ -469,6 +469,76 @@ namespace AccessibleTrader.Tests
             Assert.Empty(h.Step(60));
         }
 
+        // ── The rate limit does not silence a RARER signal ──────────────────────
+        //
+        // Cody, 2026-09-05: the gold dot was never heard. The clause ceiling explains the bars
+        // where three markers fire at once (PlaybackSignalPriorityTests); this explains the rest
+        // of them. The window is twenty bars at 1x and Cipher B prints a WaveTrend cross every
+        // ten to twenty, so a gold dot four bars behind a cross had its window already spent by
+        // the cross — the gate written to stop routine commentary piling up was eating the one
+        // utterance the run is listened to for.
+
+        /// <summary>
+        /// A series with a routine marker and a rare one, each with its own template, so a test
+        /// can tell which of them spoke.
+        /// </summary>
+        private static ChartSeries CommonAndRareMarkers(
+            IEnumerable<int> commonBars, IEnumerable<int> rareBars, int bars = 120)
+        {
+            var cfg = new SeriesConfig
+            {
+                Id = "cipher", IndicatorCode = "CIPHER_B",
+                Name = "CipherB", FriendlyName = "Cipher B",
+                IsAutoNarrated = true, IsVisible = true, IsMuted = false,
+            };
+            var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
+
+            void Marker(string name, string template, IEnumerable<int> fires)
+            {
+                cfg.Components.Add(new ComponentConfig
+                {
+                    Name = name, DisplayName = name, DisplayType = ComponentDisplayType.Dot,
+                    IsVisible = true, SignalSpeechTemplate = template,
+                });
+                var data = new double[bars];
+                Array.Fill(data, double.NaN);
+                foreach (int i in fires) data[i] = 1.0;
+                buf.ComponentData[name] = data;
+            }
+
+            Marker("Wave cross", "Wave cross up", commonBars);
+            Marker("Triple confluence", "Triple confluence buy", rareBars);
+            return new ChartSeries(cfg, buf);
+        }
+
+        [Fact]
+        public void ARarerSignalInsideTheWindow_SpeaksAnyway()
+        {
+            // Five wave crosses, one gold dot. Bar 45 is four bars inside the window bar 41's
+            // cross opened, and it speaks because it is rarer — that is the whole rule.
+            var h = Running(CommonAndRareMarkers(
+                commonBars: new[] { 5, 15, 25, 41, 55 }, rareBars: new[] { 45 }), cursor: 40);
+
+            Assert.Equal("Wave cross up.", Assert.Single(h.Step(41)));
+            Assert.Empty(h.Step(42));
+
+            Assert.Equal("Triple confluence buy.", Assert.Single(h.Step(45)));
+        }
+
+        [Fact]
+        public void ACommonerSignalBehindARareOne_IsStillDropped()
+        {
+            // The break-through is strictly rarer, so it cannot chain: whatever spoke claims the
+            // window at its OWN rarity and the next thing has to beat that. Bar 47's cross is
+            // one of five; the gold dot that spoke at 45 is one of one.
+            var h = Running(CommonAndRareMarkers(
+                commonBars: new[] { 5, 15, 25, 41, 47 }, rareBars: new[] { 45 }), cursor: 40);
+
+            h.Step(41);
+            Assert.Equal("Triple confluence buy.", Assert.Single(h.Step(45)));
+            Assert.Empty(h.Step(47));
+        }
+
         [Fact]
         public void NarrateDuringPlayback_Off_LeavesTheStopConfirmationAlone()
         {

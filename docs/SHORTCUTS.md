@@ -299,7 +299,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|-----------------|
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
-| N | Narrate the focused series or component — speak its signals unprompted | "{Series} narrating" / "{Series}: {Component}, narrating" |
+| N | Narrate the focused series or component — speak its signals unprompted | "{Series}, narrating" / "{Component}, narrating" (the component alone; "{Component} only, narrating" when it is the first one picked out) |
 | 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane a new line goes at zero; on the **price** pane there is no meaningful zero, so it goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Level removed." / "No price under the cursor to place a level at." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 | Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |

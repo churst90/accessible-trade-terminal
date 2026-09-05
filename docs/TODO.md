@@ -117,6 +117,65 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-FIRST pass — THE SIGNAL THAT COULD NEVER BE
+> SPOKEN, THE EMA WITH NOTHING TO SAY, AND HIDDEN BEFORE / NARRATING AFTER. One report from
+> Cody, three defects under it.**
+>
+> ### 1. THE GOLD DOT WAS DROPPED FROM EVERY PLAYBACK — DONE, and it was two mechanisms
+>
+> "Everything reads fine for cipher b like the wavetrend and bull/bear crosses just not the
+> tripple." Both causes were structural, not intermittent:
+>
+> - **The clause ceiling was filled in DECLARATION ORDER.** `CipherBProvider` computes the gold
+>   dot inside the blue branch, inside the `crossUp` branch — so a gold bar is ALWAYS also a blue
+>   bar and a cross bar — and declares those components commonest-first. Playback takes two
+>   clauses; the two routine ones took them. **Durable: when a marker's condition is nested
+>   inside another's, they fire on the SAME bar, and any "first N wins" rule silences the inner
+>   one forever.**
+> - **The 20-bar rate limit spent its window on crosses.** Cipher B crosses every 10–20 bars.
+>
+> **The fix is FREQUENCY, not an importance table.** `PlaybackNarration.FireCount` counts
+> non-NaN entries in the component's own array: rarest leads, commonest is dropped, and a
+> strictly rarer signal breaks through the rate-limit window (claiming it at its own rarity, so
+> it cannot cascade). A per-indicator importance column would need maintaining for every plugin
+> provider and would be wrong the moment a parameter is retuned.
+>
+> ### 2. A PLAIN EMA FLAGGED WITH N SAID NOTHING, EVER — DONE
+>
+> "EMA crosses should be announced though on new bar announcements." They were not, and the
+> reason is worth keeping: cross detection lived in `AutoNarrationService.ScanZoneLines` behind
+> `comp.IsZoneLine`, which **only Cipher SR and Spider Lines set**. A moving average has no
+> marker, no registered `IndicatorContextAnalyzer` definition and no zone-line flag, so all
+> three scan sites skipped it. `ScanOverlayCrosses` now says "Price crossed above EMA 9 at
+> 64,900." on the bar close for Main-pane price-space lines. Crosses ONLY — break, touch and
+> approach belong to a level, which has a polarity and can cease to exist.
+>
+> **The documented division, and the answer to Cody's "is this making the narration system too
+> complicated with all these caveats?" — it is ONE rule seen from two sides: playback speaks
+> what happened AT A POINT; bar-close narration speaks what CHANGED.** An overlay has a value on
+> every bar, so it has nothing to say at a point and everything to say when price crosses it.
+> Nothing about that is per-indicator, and it is now in the manual in those words.
+>
+> ### 3. HIDDEN AND MUTED LEAD, NARRATING TRAILS — DONE
+>
+> "Put muted and hidden at the beginning, narrating at the end." The series readout had all
+> three in ONE if/else chain (`Hidden` / `Muted` / `Narrating`), so hidden+muted said only
+> "Hidden." and a muted narrating series never said it was narrating. Now
+> `VisibilityStateSpeech.Prefix` leads and "Narrating." trails, matching the component readout.
+> This REVERSES the 2026-09-04 "best n last" decision for these two words only; the pane clause
+> still trails.
+>
+> ### 4. NEXT
+>
+> - §5g on the box (Cody): `chmod 0700` `cache/ secrets/ users/ xdg-cache/` and `xdg-data/`
+>   under `/var/lib/accessible-trader-terminal/`, and a `UMask=0077` drop-in for the demo unit.
+> - Watch §7g: the segfault fix is consistent with working and not yet proven; a week of
+>   service-hours (~2026-09-10) is when P(0 crashes | unfixed) drops to ~0.02.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it — see `strategylab-rerun-confirmed-2026-09-04`.
+
 > **START HERE (current as of 2026-09-05, TWENTIETH pass — THE NAME THAT CAME BACK FROM DISK,
 > THE COMPONENT THAT INTRODUCES ITS OWN SIGNAL, NARRATION'S UNDO-ALL, AND FOUR ITEMS HANDED
 > BACK FROM THE SERVER. Three asks from Cody; the third was "address the deploy notes".**

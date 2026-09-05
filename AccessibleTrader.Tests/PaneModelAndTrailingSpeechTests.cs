@@ -19,10 +19,18 @@ namespace AccessibleTrader.Tests;
 /// drawn on top of the candles against the same axis.</para>
 ///
 /// <para><b>The speech form.</b> Cody: <i>"Speech form, trailing, not prepend. I noticed the
-/// hide/mute is prepended but I think it would be best n last."</i> The pane and the hidden/muted
-/// state are facts about the MOVE rather than about the bar, they do not change from bar to bar,
-/// and putting them first pushes the value late in every utterance. They trail, and only on
-/// change.</para>
+/// hide/mute is prepended but I think it would be best n last."</i> The pane is a fact about the
+/// MOVE rather than about the bar, it does not change from bar to bar, and putting it first
+/// pushes the value late in every utterance. It trails, and only on change.</para>
+///
+/// <para><b>Except hidden and muted, revised 2026-09-05.</b> Cody, after living with it:
+/// <i>"I was ok with hidden and muted being prefixed and narration being a suffix during nav…
+/// if possible, put muted and hidden at the beginning, narrating at the end."</i> That is the
+/// form the COMPONENT readout has had since 2026-09-04 (<c>SpeechFormatter</c>), and the series
+/// readout now matches it: hidden and muted explain a SILENCE, and whatever interrupts an
+/// utterance cuts its end, so they lead; narrating is an addition and trails. The two are also
+/// independent flags rather than one three-way choice — the if/else chain this replaces could
+/// say only one word of "hidden", "muted", "narrating" per series.</para>
 /// </summary>
 public sealed class PaneModelAndTrailingSpeechTests
 {
@@ -172,19 +180,73 @@ public sealed class PaneModelAndTrailingSpeechTests
     }
 
     /// <summary>
-    /// "hide/mute … best n last". It used to be welded to the series name at the very front
-    /// ("RSI, hidden. 3 components.").
+    /// Hidden LEADS — Cody's 2026-09-05 revision of "best n last". A series that makes no sound
+    /// says so before it says anything else, because an interruption takes the end of a sentence
+    /// and not its beginning.
     /// </summary>
     [Fact]
-    public void Hidden_is_the_last_thing_said_not_the_first()
+    public void Hidden_is_the_first_thing_said_not_the_last()
     {
         var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
         var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
 
         string said = SwitchOnto(rsi, all, visible: false).Trim();
 
-        Assert.EndsWith("Hidden.", said, StringComparison.Ordinal);
+        Assert.StartsWith("Hidden.", said, StringComparison.Ordinal);
+        // Not welded to the name either — that was the 2026-09-04 form, "RSI, hidden."
         Assert.DoesNotContain("RSI, hidden", said, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Both flags, in one clause, in front. The if/else chain this replaces could say only one
+    /// of them, so a series that was hidden AND muted told the user to press one key when it
+    /// needed two — the same defect VisibilityStateSpeech was written for at component level.
+    /// </summary>
+    [Fact]
+    public void Hidden_and_muted_are_both_said_and_they_lead()
+    {
+        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+
+        string said = SwitchOnto(rsi, all, visible: false, muted: true).Trim();
+
+        Assert.StartsWith("Hidden and muted.", said, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And narration TRAILS, in the same utterance as a leading visibility clause when both
+    /// apply. A series can carry the narration flag while hidden — that pairing is the answer to
+    /// "why has this stopped talking", so both halves are spoken.
+    /// </summary>
+    [Fact]
+    public void Narrating_is_the_last_thing_said()
+    {
+        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
+        rsi.IsAutoNarrated = true;
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+
+        string said = SwitchOnto(rsi, all).Trim();
+        Assert.EndsWith("Narrating.", said, StringComparison.Ordinal);
+
+        string bothWays = SwitchOnto(rsi, all, muted: true).Trim();
+        Assert.StartsWith("Muted.", bothWays, StringComparison.Ordinal);
+        Assert.EndsWith("Narrating.", bothWays, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Vacuity guard for the pair above: a series with neither flag says neither word.
+    /// </summary>
+    [Fact]
+    public void A_plain_series_says_neither_word()
+    {
+        var rsi = Series("rsi", "RSI", "Pane_RSI", ("RSI", null));
+        var all = ImmutableList.Create(Series("candles", "Candles", "Main", ("Close", null)), rsi);
+
+        string said = SwitchOnto(rsi, all).Trim();
+
+        Assert.DoesNotContain("Hidden", said, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Muted", said, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Narrating", said, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

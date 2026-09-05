@@ -297,6 +297,28 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   Bull: Wave cross up 12."* You chose which series narrate; which marker fired is the news.
   Where the signal's own wording already names the component, nothing is added. Live and
   during playback alike.
+- **Playback now says the signal you were actually waiting for.** Cipher B's gold Triple
+  Confluence dot can only print on a bar that is *also* an oversold crossover and *also* a
+  WaveTrend cross, and playback takes two clauses per bar — filled, until now, in the order the
+  indicator happens to declare its components. The gold dot was dropped on every one of them.
+  Playback ranks by how often each marker actually fires on your chart: **the rarest leads and
+  the commonest is what gets dropped**, and a rarer signal is no longer swallowed by the
+  two-second window a routine one opened a few bars earlier.
+- **Flag a moving average with N and it finally has something to say**: *"Price crossed above
+  EMA 9 at 64,900."* on the bar close. Cross detection had been reachable only by indicators
+  that declare their lines as levels — Cipher SR, Spider Lines — so a plain EMA you had switched
+  narration on for stayed silent forever. Crosses only: an average has no side to break and
+  nothing to test, so it gets the one sentence that is true of every line on the price axis.
+- **What playback says and what bar-close narration says, in one sentence:** playback speaks
+  what happened **at a point** (a signal printing on the bar the tones just reached), and
+  bar-close narration speaks what **changed** (price crossing your EMA, an oscillator leaving a
+  zone). That is why your averages never talk during a playback however you have flagged them —
+  at ten bars a second a line with a value on every bar is a wall of numbers.
+- **Hidden and muted are spoken first, narrating last.** *"Hidden and muted. Cipher B. 11
+  components…"*, and *"…64,900. Narrating."* Something that is switched off explains itself
+  before the reading, because an interruption takes the end of a sentence and not its start;
+  narration is an addition and goes at the end. Both flags are said when both apply — they are
+  cleared by different keys, and a readout naming one of them guarantees a second wrong guess.
 - **Ctrl+Alt+Shift+O: narration off everywhere.** Every series switched off, every component
   selection cleared, announcing how many — the third undo-all beside Ctrl+Alt+Shift+K (show
   all) and Ctrl+Alt+Shift+U (unmute all).

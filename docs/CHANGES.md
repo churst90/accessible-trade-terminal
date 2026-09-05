@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The signal that could never be spoken, the EMA that had nothing to say, and hidden before, narrating after (2026-09-05)
+
+**Cipher B's Triple Confluence Buy was dropped from every playback there has ever been.** Cody:
+*"everything reads fine for cipher b like the wavetrend and bull/bear crosses just not the
+tripple"*. The gold dot is computed INSIDE the oversold-crossover branch, which is itself inside
+the WaveTrend cross branch — so on a gold bar all three markers are non-NaN. Playback allows two
+clauses per bar and filled them in the order the provider declares its components: cross, blue,
+then gold. The rarest signal Cipher B can print was the one it could never say, on every gold
+dot, since the feature shipped.
+
+**The fix is a ranking, not a table.** `PlaybackNarration.FireCount` counts how often each marker
+actually fired across the loaded range; the rarest clause leads and the commonest is what gets
+dropped. An indicator's consequential calls are its rare ones and the ones it prints every other
+cycle are its commentary — and unlike a per-indicator importance column, this stays true when a
+user retunes `GoldMinConfluence` and it works for plugin indicators nobody has heard of.
+
+**The two-second rate limit was eating it too.** Twenty bars at 1x, and Cipher B prints a
+WaveTrend cross every ten to twenty, so a gold dot behind a cross had its window already spent. A
+strictly rarer signal now breaks through the window the last one opened; because it claims the
+window at its own rarity, it cannot cascade.
+
+**A plain EMA flagged with N had nothing to say, ever.** Cody: *"ema crosses should be announced
+though on new bar announcements"*. They were not. Cross detection sat in `ScanZoneLines` behind
+`comp.IsZoneLine`, a flag set by exactly two indicators in the repo (Cipher SR's pivots, Spider
+Lines' fibonacci EMAs), so a moving average had no marker to fire, no registered oscillator
+definition to transition and no zone-line flag to cross. `ScanOverlayCrosses` announces *"Price
+crossed above EMA 9 at 64,900."* on the bar close, for price-space Main-pane lines only —
+crosses and nothing else, because break/touch/approach belong to a level and an average has no
+side to break. Playback still says nothing about them, which is deliberate and is now documented
+as such: **playback speaks what happened at a point; bar-close narration speaks what changed.**
+
+**Hidden and muted lead, narrating trails.** Cody: *"put muted and hidden at the beginning,
+narrating at the end."* The series readout had all three in one if/else chain, so a series that
+was hidden AND muted said only "Hidden." and a narrating one that was muted never said it was
+narrating. Split into the two independent facts they are, matching the component readout since
+2026-09-04: silence explains itself first because an interruption takes the end of a sentence;
+narration is an addition and goes last.
+
 ### The name that came back from disk, the component that introduces its own signal, and four items handed back from the server (2026-09-05)
 
 **The parameter recitation was back, and it had never left the saved workspaces.** The

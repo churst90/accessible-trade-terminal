@@ -57,6 +57,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // of a run is never suppressed by the last signal of the previous one.
         private int _lastPlaybackSignalBar = -1;
 
+        // How rare the rarest marker in that utterance was (PlaybackNarration.FireCount), or
+        // int.MaxValue when the utterance carried no signal at all. A RARER signal is allowed
+        // through the window the last one opened; see PlaybackSpeechForStep.
+        private int _lastPlaybackSignalRarity = int.MaxValue;
+
         /// <summary>
         /// The plan the current run is playing, captured at the moment playback started.
         ///
@@ -370,6 +375,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // moves nothing and the first real step must be allowed to land a landmark.
                 _awaitingFirstPlaybackStep = state.CurrentDataIndex != plan.StartIndex;
                 _lastPlaybackSignalBar = -1;
+                _lastPlaybackSignalRarity = int.MaxValue;
                 _playbackPlan = plan.IsPlayable ? plan : null;
             }
             else if (playingToggled)
@@ -738,14 +744,39 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 int bar = state.CurrentDataIndex;
                 int minGap = PlaybackNarration.MinBarsBetweenSignals(state.PlaybackSpeed);
-                if (_lastPlaybackSignalBar < 0 || bar - _lastPlaybackSignalBar >= minGap)
+                bool windowOpen = _lastPlaybackSignalBar < 0 || bar - _lastPlaybackSignalBar >= minGap;
+
+                var signal = PlaybackNarration.SignalStepFor(state, bar, _playbackPlan);
+
+                // ── A RARER SIGNAL IS NOT SILENCED BY A COMMONER ONE TWO BARS AGO ───────────
+                //
+                // The window is two seconds wide — twenty bars at 1x — and Cipher B prints a
+                // WaveTrend cross every ten to twenty. So the gate that exists to stop routine
+                // commentary piling up was ALSO eating the one utterance a run is listened to
+                // for: a gold dot that lands four bars after a cross had its window already
+                // spent by the cross. The half of Cody's 2026-09-05 report the clause ceiling
+                // does not explain.
+                //
+                // The break-through is strictly rarer, never equal, so it cannot chain: whatever
+                // speaks claims the window at its OWN rarity, and the next thing has to be rarer
+                // still to interrupt. A stream of crosses is throttled exactly as before.
+                bool rarerThanLast = signal.Text != null
+                                     && signal.RarestFireCount < _lastPlaybackSignalRarity;
+
+                if (windowOpen || rarerThanLast)
                 {
-                    string? signals = PlaybackNarration.SignalsForStep(state, bar, _playbackPlan);
                     string outcomes = ChartPatternOutcomesAt(state, state.Data, bar).Trim();
-                    events = string.Join(" ", new[] { signals, outcomes }
+                    events = string.Join(" ", new[] { signal.Text, outcomes }
                         .Where(x => !string.IsNullOrWhiteSpace(x)));
                     if (string.IsNullOrWhiteSpace(events)) events = null;
-                    else _lastPlaybackSignalBar = bar;
+                    else
+                    {
+                        _lastPlaybackSignalBar = bar;
+                        // A pattern outcome with no signal behind it records int.MaxValue: it is
+                        // not a marker, it claims no rarity, and a gold dot three bars later must
+                        // not be dropped because a triangle resolved.
+                        _lastPlaybackSignalRarity = signal.RarestFireCount;
+                    }
                 }
             }
 

@@ -245,11 +245,76 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Two, where the bar-close narrator's <c>ScanUtterance</c> allows five, and the
         /// difference is the clock. A bar-close utterance has a whole bar interval to land in; a
         /// playback utterance has 100 ms at 1x before the next bar sounds, and speech that runs
-        /// for four seconds is heard over sixty bars of tones it is not about. What gets dropped
-        /// is the later component in scan order, deterministically.
+        /// for four seconds is heard over sixty bars of tones it is not about.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>What gets dropped is the COMMONEST marker, not the last one scanned</b> — see
+        /// <see cref="FireCount"/>. Dropping by scan order is what silenced Cipher B's gold dot
+        /// in every playback there has ever been.
         /// </para>
         /// </summary>
         private const int MaxSignalClauses = 2;
+
+        /// <summary>
+        /// How many bars of a marker's data carry a value at all — how often it fires across the
+        /// whole loaded range. LOWER IS MORE IMPORTANT, and that is the entire ranking rule.
+        ///
+        /// <para>
+        /// <b>The defect this exists for.</b> Reported by Cody, 2026-09-05: <i>"everything reads
+        /// fine for cipher b like the wavetrend and bull/bear crosses just not the tripple"</i>.
+        /// Cipher B's Triple Confluence Buy is computed INSIDE the Oversold Crossover branch,
+        /// which is itself inside the WaveTrend cross branch — so on every gold bar all three
+        /// markers are non-NaN, and the scan reaches them in declaration order: cross, then blue,
+        /// then gold. With a two-clause ceiling the two routine ones filled it and the gold dot
+        /// was dropped on the floor. Not intermittently: on every gold dot, in every playback,
+        /// since the feature shipped. The rarest signal on the chart was the one signal playback
+        /// could never say.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Why frequency and not a table.</b> A per-indicator importance list would have to be
+        /// maintained for every provider including plugin ones, and would be wrong the moment a
+        /// user retunes a parameter — Cipher B's gold gate is a <c>GoldMinConfluence</c> setting
+        /// away from firing five times as often. How often a marker actually fired on the data in
+        /// front of the user is a fact, it is already in the array, and it says what an
+        /// importance column would be trying to approximate: an indicator's consequential calls
+        /// are its rare ones, and the ones it prints every other cycle are its commentary.
+        /// </para>
+        ///
+        /// <para>
+        /// Counted over the whole array rather than the played range so that the ranking does not
+        /// change as playback advances — the same bar must rank the same way whether it was
+        /// reached from bar 0 or from a Shift+Space restart mid-chart.
+        /// </para>
+        /// </summary>
+        internal static int FireCount(IReadOnlyList<double> data)
+        {
+            int fires = 0;
+            for (int i = 0; i < data.Count; i++)
+                if (!double.IsNaN(data[i])) fires++;
+            return fires;
+        }
+
+        /// <summary>
+        /// What one playback step has to say about the markers that fired on it, and how rare the
+        /// rarest of them is.
+        ///
+        /// <para>
+        /// The count travels with the text because the rate limit needs it: a marker that fires
+        /// eight times in four thousand bars must not be swallowed by the window a marker that
+        /// fires four hundred times opened two bars earlier. See
+        /// <c>AccessibilityFeedbackCoordinator.PlaybackSpeechForStep</c>.
+        /// </para>
+        /// </summary>
+        /// <param name="Text">The utterance, or null when nothing fired.</param>
+        /// <param name="RarestFireCount">Fires of the rarest marker SPOKEN, or
+        /// <see cref="int.MaxValue"/> when there is no text — an utterance carrying no signal at
+        /// all claims nothing, so it cannot silence one.</param>
+        public readonly record struct SignalStep(string? Text, int RarestFireCount)
+        {
+            public static readonly SignalStep None = new(null, int.MaxValue);
+        }
 
         /// <summary>
         /// The minimum number of bars between two spoken signal utterances at
@@ -304,8 +369,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <param name="plan">What is actually SOUNDING. Null scans the whole chart, which is
         /// what chart scope means anyway; see the scope note above.</param>
         public static string? SignalsForStep(WorkspaceState state, int barIndex, PlaybackPlan? plan = null)
+            => SignalStepFor(state, barIndex, plan).Text;
+
+        /// <inheritdoc cref="SignalsForStep"/>
+        /// <summary>
+        /// <see cref="SignalsForStep"/> with the rarity of what it chose to say, for the caller
+        /// that has to decide whether this utterance may interrupt the rate-limit window.
+        /// </summary>
+        public static SignalStep SignalStepFor(WorkspaceState state, int barIndex, PlaybackPlan? plan = null)
         {
-            if (barIndex < 0) return null;
+            if (barIndex < 0) return SignalStep.None;
 
             // ── SPEECH IS SCOPED THE WAY THE TONES ARE ──────────────────────────────────────
             //
@@ -325,7 +398,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var scopedSeries = plan?.Series;
             int componentFilter = plan?.ComponentFilter ?? -1;
 
-            var clauses = new List<(string Component, string Clause)>(MaxSignalClauses);
+            // EVERY candidate is collected before any is dropped. The scan used to stop at the
+            // ceiling, which made "which two get spoken" a fact about declaration order in a
+            // provider file — and the provider files declare the routine markers first.
+            var candidates = new List<(int Fires, int Order, string Component, string Clause)>();
+            int order = 0;
+
             foreach (var series in state.ActiveSeries)
             {
                 if (!series.IsAutoNarrated || !series.IsVisible || series.IsMuted) continue;
@@ -337,7 +415,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 for (int ci = 0; ci < series.Components.Count; ci++)
                 {
                     var comp = series.Components[ci];
-                    if (clauses.Count >= MaxSignalClauses) break;
                     if (componentFilter >= 0 && ci != componentFilter) continue;
                     if (!comp.IsVisible || comp.IsMuted) continue;
                     if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
@@ -352,13 +429,24 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                     string clause = ExpandSignalTemplate(series, comp, val, state, barIndex);
                     if (!string.IsNullOrWhiteSpace(clause))
-                        clauses.Add((SignalClauseSpeech.ComponentName(comp), clause));
+                        candidates.Add((FireCount(data), order++, SignalClauseSpeech.ComponentName(comp), clause));
                 }
-
-                if (clauses.Count >= MaxSignalClauses) break;
             }
 
-            if (clauses.Count == 0) return null;
+            if (candidates.Count == 0) return SignalStep.None;
+
+            // ── THE RAREST MARKER LEADS, AND THE COMMONEST IS WHAT GETS DROPPED ─────────────
+            //
+            // Rarity first, then the order the scan found them in so that two markers of equal
+            // frequency keep a stable, explainable order. Sorting rather than merely filtering
+            // matters for the same reason the ceiling does: on a bar where a gold dot and a wave
+            // cross both fire, the first clause is the one that arrives before the next bar's
+            // tones start, and it should be the one the user was waiting for.
+            var kept = candidates
+                .OrderBy(c => c.Fires)
+                .ThenBy(c => c.Order)
+                .Take(MaxSignalClauses)
+                .ToList();
 
             // ── A SIGNAL IS INTRODUCED BY ITS COMPONENT, NEVER BY ITS SERIES ────────────────
             //
@@ -374,7 +462,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // template has not already said it, because most templates are the component's own
             // name in a sentence and "Bullish Divergence: Bullish divergence" is a stutter. The
             // series name is never spoken here at all.
-            return string.Join(" ", clauses.Select(c => SignalClauseSpeech.WithComponentName(c.Clause, c.Component)));
+            return new SignalStep(
+                string.Join(" ", kept.Select(c => SignalClauseSpeech.WithComponentName(c.Clause, c.Component))),
+                kept[0].Fires);
         }
 
         /// <summary>

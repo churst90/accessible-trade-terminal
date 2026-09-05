@@ -103,6 +103,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly Dictionary<string, bool> _lastPriceAboveZone = new();
 
+        /// <summary>
+        /// Which side of a plain price-space OVERLAY line (an EMA, a VWAP, a MA Cloud band) the
+        /// close was on at the last bar close. Separate from <see cref="_lastPriceAboveZone"/>
+        /// because that one belongs to declared zone lines, which also carry break, touch and
+        /// approach vocabulary; an overlay gets crosses and nothing else.
+        /// Key = "{seriesId}:{componentName}".
+        /// </summary>
+        private readonly Dictionary<string, bool> _lastPriceAboveOverlay = new();
+
         /// <summary>Set of series IDs that were narrated in the previous StateStream emission.</summary>
         private HashSet<string> _prevNarratedIds = new();
 
@@ -352,6 +361,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _inProximity.Remove(k);
                 foreach (var k in _lastPriceAboveZone.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastPriceAboveZone.Remove(k);
+                foreach (var k in _lastPriceAboveOverlay.Keys.Where(k => k.StartsWith(id + ":")).ToList())
+                    _lastPriceAboveOverlay.Remove(k);
                 foreach (var k in _lastCloudPosition.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastCloudPosition.Remove(k);
             }
@@ -476,8 +487,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1c. Cloud entry/exit detection — runs on every update
             ScanCloudTransitions(series, state, toIndex, utterance);
 
-            // 2. Oscillator zone transitions — only on bar close (confirmed candle)
+            // Everything below this line is BAR CLOSE ONLY — a confirmed candle.
             if (!isBarClose) return;
+
+            // 1d. Price crossing a plain price-space overlay (an EMA, a VWAP).
+            ScanOverlayCrosses(series, state, toIndex, utterance);
+
+            // 2. Oscillator zone transitions.
 
             var indexedState = state with { CurrentDataIndex = toIndex };
             foreach (var oscContext in _contextAnalyzer.AnalyzeAll(series, indexedState))
@@ -512,6 +528,101 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
         }
 
+        // ── Price crossing a plain overlay line ──────────────────────────────────
+
+        /// <summary>
+        /// Whether <paramref name="comp"/> is a price-space overlay line — the kind of component
+        /// price can be on one side of. An EMA, a VWAP, either band of a MA Cloud.
+        ///
+        /// <para>
+        /// Everything excluded here is excluded because "price crossed it" would be a category
+        /// error or a duplicate: a declared zone line already has its own scan with break, touch
+        /// and approach vocabulary; a marker is a discrete event rather than a line; anything in
+        /// a sub-pane or a non-Main pane is drawn against a different Y axis, so comparing it to
+        /// the close compares two different units; the candles' own components ARE the price; and
+        /// a drawing's components are the user's own lines, which the drawing speech contract
+        /// owns.
+        /// </para>
+        /// </summary>
+        private static bool IsPriceSpaceOverlayLine(ChartSeries series, ComponentConfig comp)
+            => !series.IsDrawing
+               && string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase)
+               && string.IsNullOrEmpty(comp.SubPaneName)
+               && comp.DisplayType == ComponentDisplayType.Line
+               && !comp.IsZoneLine
+               && comp.Role != ComponentRole.PriceAction
+               && comp.Role != ComponentRole.Body
+               && comp.Role != ComponentRole.Wick;
+
+        /// <summary>
+        /// "Price crossed above EMA 9 at 64,900." on the bar close where it happened.
+        ///
+        /// <para>
+        /// <b>Why this exists.</b> Cody, 2026-09-05: <i>"when you add things like ema's, these
+        /// aren't included in playback narration even if you enable it, ema crosses should be
+        /// announced though on new bar announcements"</i>. The first half was already true and is
+        /// deliberate — a line has a value on every bar, and playback speaks discrete signals
+        /// only. The second half was NOT true: cross detection lived in <see cref="ScanZoneLines"/>
+        /// behind <c>comp.IsZoneLine</c>, which only Cipher SR's pivots and Spider Lines'
+        /// fibonacci EMAs set. A user who flagged a plain EMA with N got silence from it forever —
+        /// no marker to fire, no zone definition to transition, no zone-line flag to cross.
+        /// </para>
+        ///
+        /// <para>
+        /// Bar close only, and crosses only. An overlay is not support or resistance — it has no
+        /// polarity to break and nothing to test — so it gets the one sentence that is true about
+        /// every line on the price axis, on the confirmed candle, which is where the user asked
+        /// for it.
+        /// </para>
+        /// </summary>
+        private void ScanOverlayCrosses(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
+        {
+            if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return;
+            double close = (double)state.Data[barIndex].Close;
+            if (close <= 0) return;
+
+            var above = new List<string>();
+            var below = new List<string>();
+            int overlayCount = series.Components.Count(c => IsPriceSpaceOverlayLine(series, c));
+
+            foreach (var comp in series.Components)
+            {
+                if (!comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
+                if (!IsPriceSpaceOverlayLine(series, comp)) continue;
+
+                var data = series.GetComponentData(comp.Name);
+                if (data == null || barIndex >= data.Length) continue;
+                double val = data[barIndex];
+                if (double.IsNaN(val)) continue;
+
+                string key = $"{series.Id}:{comp.Name}";
+                bool nowAbove = close > val;
+
+                // A first sighting SEEDS and says nothing — there is no previous side to have
+                // crossed from, and announcing one would fire a cross the moment N was pressed.
+                if (_lastPriceAboveOverlay.TryGetValue(key, out bool wasAbove) && wasAbove != nowAbove)
+                {
+                    // A one-line overlay IS its series — "the 50 EMA" — so the series name is the
+                    // line's name and adding the component's would read "EMA 50 Ema". A multi-line
+                    // one (a MA Cloud's fast and slow) has to say which of them was crossed.
+                    string label = overlayCount > 1
+                        ? $"{series.FriendlyName} {(string.IsNullOrEmpty(comp.DisplayName) ? comp.Name : comp.DisplayName)}"
+                        : series.FriendlyName;
+                    (nowAbove ? above : below).Add($"{label} at {SpeechPriceFormatter.FormatPrice(val)}");
+                }
+
+                _lastPriceAboveOverlay[key] = nowAbove;
+            }
+
+            if (above.Count > 0)
+                utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:overlay",
+                              $"Price crossed above {string.Join(", ", above)}.");
+            if (below.Count > 0)
+                utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:overlay",
+                              $"Price crossed below {string.Join(", ", below)}.");
+        }
+
         // ── State seeding (prevents false alarms when narration is enabled) ──────
 
         private void SeedOscillatorState(ChartSeries series, WorkspaceState state)
@@ -541,6 +652,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         if (!double.IsNaN(data[i])) { lastPivot = i; break; }
                     }
                     _lastSeenPivotIndex[pivotKey] = lastPivot;
+                }
+                if (IsPriceSpaceOverlayLine(series, comp))
+                {
+                    // Same reason the zone-line seed below exists: the side price is on when
+                    // narration is switched on is not a cross.
+                    var odata = series.GetComponentData(comp.Name);
+                    if (odata != null && idx < odata.Length && !double.IsNaN(odata[idx])
+                        && state.Data != null && idx < state.Data.Count)
+                    {
+                        double oClose = (double)state.Data[idx].Close;
+                        if (oClose > 0) _lastPriceAboveOverlay[$"{series.Id}:{comp.Name}"] = oClose > odata[idx];
+                    }
                 }
                 if (comp.IsZoneLine)
                 {
