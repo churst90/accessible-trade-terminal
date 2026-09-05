@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.6.0] — 2026-09-04
+## [2.7.0] — 2026-09-05
 
 ### The date that only speaks when it changes (2026-09-05)
 
@@ -457,6 +457,8 @@ missing — attached to every press of play. Four of the six guards in
 
 **Whether the default itself should change is Cody's call and is recorded as open in
 `docs/TODO.md`** rather than decided here.
+
+## [2.6.0] — 2026-09-04
 
 ### Which candles are part of the pattern: every bar of a multi-bar shape says where in it it sits (2026-09-04)
 
