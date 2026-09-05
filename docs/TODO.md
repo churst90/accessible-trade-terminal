@@ -117,6 +117,48 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-SIXTH pass — FIVE FROM CODY, all five done:
+> the order book button is gated on the provider, the profile grid is complete (eight), desktop
+> notifications exist on two heads, the drawing chords are Alt+Shift everywhere, and hidden
+> means silent.** See CHANGES `[Unreleased]` for each. What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **Seven hand-written copies of a code list is the clone defect again.** The three profile
+>   codes were spelled out in seven places; `ProfileAnchoring.IsProfileCode` is the one answer
+>   now. When a fourth thing knows the list, it should be asking this class.
+> - **A `== "TPO"` measure pick survived every test.** The orchestrator's string comparison was
+>   green under sabotage until a test drove each code THROUGH the orchestrator and recorded what
+>   the profile service was asked. A registry test on the helper is not a test of the caller.
+> - **The 25th pass's "zero providers declare L2" was wrong** — all nine implementers plus IBKR
+>   declare it. Recorded so nobody re-derives the wrong prerequisite.
+> - **The oscillator narration path applied the N selection and not the visibility rule** the
+>   other four sites apply first, and an unmatched analyser component skipped scope entirely.
+>   Any new scan site must go through `SeriesNarrationScope` AND the component's own
+>   `IsVisible`/`IsMuted`.
+>
+> ### 2. NOT VERIFIABLE HERE — needs a Windows box
+>
+> - **`WindowsDesktopNotifier`** (`Platforms/Windows`, Windows App SDK `AppNotificationManager`,
+>   unpackaged path) is written against the documented API and has never been compiled: the
+>   Windows TFM is excluded on this Linux box. First Windows build: does it compile, does
+>   `Register()` succeed unpackaged, does the toast reach Narrator/NVDA.
+> - **Alt+Shift+letter with two keyboard layouts installed on Windows.** The layout switch
+>   fires on release without a third key, so the chords should be safe; try Alt+Shift+T with
+>   two layouts before calling it settled.
+>
+> ### 3. NEXT
+>
+> - Watch §7g to ~2026-09-10 before calling the segfault fixed.
+> - The two Windows checks above, when a Windows build happens.
+> - Profile sonification pan (`SonifyProfile`, the item under "never pan") — left as filed;
+>   a profile's axis is price, and its pitch encodes node type by design. Decide whether a
+>   per-bin pan (low price left, high price right) is wanted before implementing it.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-FIFTH pass — ELEVEN FROM CODY, and the switches
 > that did not survive a restart.** Six became code, five are discussions with a recommendation
 > each; the decisions are his and are listed under §2.**

@@ -87,22 +87,12 @@ namespace AccessibleTrader.Core.Services
                     // indicator with different names, and nothing said so.
                     //
                     // Named explicitly now. A guess about a code string is not a policy.
-                    var profileData = data;
-                    if (ProfileAnchoring.FollowsViewport(codeUpper))
-                    {
-                        int start = Math.Clamp(state.ViewportStartIndex, 0, data.Count - 1);
-                        int length = Math.Clamp(state.ViewportLength, 1, data.Count - start);
-                        profileData = data.Skip(start).Take(length).ToList();
-                    }
-                    else
-                    {
-                        // A fixed-range profile covers the window it was anchored to when you created
-                        // it — panning and zooming must not change it, because the whole point is a
-                        // reference that stays put while you look around. With no anchor recorded it
-                        // covers every loaded bar, which is still fixed: it does not follow the
-                        // viewport.
-                        profileData = ProfileAnchoring.SliceToAnchor(data, s.Config?.Parameters);
-                    }
+                    //
+                    // Four windows now (visible, fixed, session, anchored), and ProfileAnchoring
+                    // is the one place that knows which bars each covers — the backtester slices
+                    // through the same call, so a window means the same thing in both.
+                    var profileData = ProfileAnchoring.Slice(codeUpper, data, s.Config?.Parameters,
+                        state.ViewportStartIndex, state.ViewportLength);
                     
                     if (profileData.Any())
                     {
@@ -110,10 +100,9 @@ namespace AccessibleTrader.Core.Services
                         // An empty list is safe; the speech formatter and renderer both check Count.
                         // Warn-log on null so a regression in the profile service doesn't silently
                         // convert a real calculation failure into "no profile bars" forever.
-                        var calculated = codeUpper switch {
-                            "TPO" => _profileService.CalculateMarketProfile(profileData),
-                            _ => _profileService.CalculateVolumeProfile(profileData)
-                        };
+                        var calculated = ProfileAnchoring.CountsTime(codeUpper)
+                            ? _profileService.CalculateMarketProfile(profileData)
+                            : _profileService.CalculateVolumeProfile(profileData);
                         if (calculated == null)
                         {
                             _logger.LogWarning(

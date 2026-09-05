@@ -1028,6 +1028,21 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        public async Task<bool> HasOrderBookAsync(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName)) return false;
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
+            if (provider == null) return false;
+
+            // The interface first: nine providers implement it and it cannot be claimed by
+            // mistake. The L2 flag second, for a venue whose snapshot is real but has no
+            // stream (Interactive Brokers). NOT the paper broker's capabilities — the book
+            // belongs to the venue the chart is reading, whichever broker is executing.
+            if (provider is IOrderBookProvider || provider.GetCapability<IOrderBookProvider>() is not null)
+                return true;
+            return (provider.Capabilities & ProviderCapabilities.L2) != 0;
+        }
+
         public async Task<ProviderResult<List<TradeFill>>> GetFillsAsync(string providerName, string? symbol = null, int limit = 50)
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);

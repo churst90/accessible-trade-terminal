@@ -74,7 +74,13 @@
                                   Tooltip="Open trade dashboard, Alt plus T"
                                   OnClick="() => EventBus.Publish(new OpenTradingDashboardEvent())" />
             }
-            @if (Demo.AllowOrderBook)
+            @* Present only when the CURRENT provider has a book to show: it implements
+               IOrderBookProvider (the nine venues with a live depth stream) or declares
+               L2. Cody, 2026-09-05: "Gate the order book button on the provider in the
+               toolbar." The same shape as Deposit below — a button over nothing opened
+               a dialog whose only content was "Order book is not available for X on Y."
+               Alt+B still opens the dialog anywhere, and it still says so. *@
+            @if (Demo.AllowOrderBook && _hasOrderBook)
             {
                 <ToolbarIconButton Icon="order-book" Label="Order book" Variant="neutral"
                                   Tooltip="Open order book, Alt plus B"
@@ -441,6 +447,7 @@
     private IDisposable? _stateSub;
     private IDisposable? _replaySub;
     private IDisposable? _apiKeysSub;
+    private IDisposable? _providersSub;
     private IDisposable? _switchWarnSub;
     private string? _loadError;
 
@@ -467,6 +474,7 @@
     // a field because the check is async and the render path is not.
     private bool _hasWallet;
     private bool _canWithdraw;
+    private bool _hasOrderBook;
     private string _walletCheckedFor = "";
 
     private async Task RefreshWalletAsync()
@@ -475,6 +483,14 @@
         if (provider != _walletCheckedFor)
         {
             _walletCheckedFor = provider;
+
+            // The Order book button rides the same per-provider cache: the answer changes
+            // only when the provider does. Resolved rather than injected for the reason
+            // the wallet is — a host without trading loses the button, not the toolbar.
+            var orders = Services.GetService<IOrderExecutionService>();
+            _hasOrderBook = orders is not null
+                         && !string.IsNullOrEmpty(provider)
+                         && await orders.HasOrderBookAsync(provider);
             var wallet = Services.GetService<AccessibleTrader.Core.Services.Trading.WalletService>();
             // Resolved through the service provider for the same reason as the two
             // above: a host that does not stand up trading should lose the button,
@@ -556,6 +572,19 @@
         _pipelineSub = MarketOrchestrator.PipelineUpdated
             .Subscribe(_ => InvokeAsync(StateHasChanged));
 
+        // Re-ask the provider-gated questions (Deposit, Withdraw, Order book) the moment the
+        // providers become known. IDataService answers null for every provider name until
+        // AppStartupService has loaded the plugins, and the answer is cached per provider
+        // name here — so a toolbar that asked before that moment would keep the wrong answer
+        // until the user switched providers. On the web head MainLayout awaits start-up
+        // before this component exists, so this is the safety net for a head that renders
+        // the toolbar first.
+        _providersSub = EventBus.Subscribe<ProvidersReadyEvent>(_ => InvokeAsync(() =>
+        {
+            _walletCheckedFor = "";
+            return RefreshWalletAsync();
+        }));
+
         // And whenever the WORKSPACE changes, because several controls read their state straight
         // out of the store: Pan and Zoom disable on Store.State.Data.Count, and Heatmap, Heikin
         // and Log show pressed state from the store's own flags. Without this the toolbar only
@@ -564,6 +593,10 @@
         // showing the opposite of the truth. A control that lies about its own state is worse
         // than one that is missing.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(RefreshWalletAsync));
+        // And once now, for the provider already selected: a store that does not replay its
+        // current state on subscription would otherwise leave Deposit and Order book absent
+        // until the first change. Cached per provider, so this costs one lookup.
+        _ = InvokeAsync(RefreshWalletAsync);
 
         // Saving or removing a key can change the answer to CanWithdrawAsync for
         // the CURRENT provider — and RefreshWalletAsync caches per provider name,
@@ -882,6 +915,7 @@
         _stateSub?.Dispose();
         _replaySub?.Dispose();
         _apiKeysSub?.Dispose();
+        _providersSub?.Dispose();
         _switchWarnSub?.Dispose();
     }
 }

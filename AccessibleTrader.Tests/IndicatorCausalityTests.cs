@@ -633,6 +633,9 @@ namespace AccessibleTrader.Tests
             "Ppo.Signal",
             "TOP_BOTTOM_DETECTOR.Bottom Confirmed",
             "TPO.Profile",
+            "TPOANCHOR.Profile",
+            "TPOFR.Profile",
+            "TPOSESSION.Profile",
             "Tma.Tma",
             // Genuinely rare, and newly so. Until 2026-08-27 the profile window grew with the
             // bar's array index, so early bars had a tiny profile, a collapsed value area, and a
@@ -644,7 +647,9 @@ namespace AccessibleTrader.Tests
             "VALUE_DEVIATION.ResistanceDeep",
             "VALUE_DEVIATION.SupportDeep",
             "VOLUME.Volume",
+            "VPANCHOR.Profile",
             "VPFR.Profile",
+            "VPSESSION.Profile",
             "VPVR.Profile",
             "Zlema.Zlema",
         };

@@ -123,7 +123,8 @@ public sealed class NarrationRouteContractTests
         "ANGLEFIB", "CHANNEL", "FIB", "FIBEXT", "GANNBOX", "GANNFAN", "HORIZONTAL", "LABEL",
         "MEASURE", "PITCHFORK", "RECT", "RISKREWARD", "TREND", "VERTICAL",
         // Price, volume and the distribution surfaces
-        "CANDLES", "PRICE", "VOLUME", "HEATMAP", "TPO", "VPVR", "VPFR", "AVWAP",
+        "CANDLES", "PRICE", "VOLUME", "HEATMAP", "AVWAP",
+        "TPO", "TPOFR", "TPOSESSION", "TPOANCHOR", "VPVR", "VPFR", "VPSESSION", "VPANCHOR",
         // Unbounded accumulators — no threshold exists to cross
         "Adl", "Atr", "ForceIndex", "Hv", "Obv", "StdDev", "UlcerIndex",
         // Comparison overlays: another symbol's price, drawn here

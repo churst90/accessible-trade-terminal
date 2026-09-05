@@ -2,32 +2,32 @@
 
 All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Users can customise bindings via the Sound Designer or by editing the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json` (MAUI heads) or `~/.local/share/AccessibleTrader/shortcuts.json` (Linux WebHost).
 
-## Host-specific note: WebHost remaps `Ctrl+Shift+letter` to `Alt+Shift+letter`
+## Host-specific note: the drawing chords are `Alt+Shift+letter` on every head
 
-Firefox (and most browsers) reserve several `Ctrl+Shift+letter` chords at the browser-chrome level — `Ctrl+Shift+T` reopens a closed tab, `Ctrl+Shift+H` opens history, `Ctrl+Shift+P` starts a private window, `Ctrl+Shift+J` opens the browser console, etc. — and they are NOT cancellable from page-level JavaScript even with `preventDefault`. So the Linux WebHost rewrites those bindings in-memory at startup: every `Ctrl+Shift+letter` chord becomes `Alt+Shift+letter` (Firefox does not reserve `Alt+Shift+*`). Same letter, same command, different modifier. Chords with three modifiers (`Ctrl+Alt+Shift+N` and the rest) are untouched — browsers do not reserve those. Non-letter `Ctrl+Shift` chords (`Ctrl+Shift+Space`, `Ctrl+Shift+Tab`) are handled separately, below.
+Since 2026-09-05 the drawing tools and the detailed point summary are bound to `Alt+Shift+letter` in the DEFAULT profile, on the desktop apps and the browser alike. They were Ctrl+Shift+letter on the desktop before that, with the Linux WebHost rewriting them to Alt+Shift at startup because Firefox and most browsers reserve several Ctrl+Shift+letter chords at the browser-chrome level (reopen closed tab, history, private window, console) and they are NOT cancellable from page-level JavaScript even with `preventDefault`. That left the one place the keyboard differed between heads, and it was removed by moving the default rather than by explaining the difference.
 
-| Drawing tool | MAUI head (Win/Mac/iOS/Android) | Linux WebHost |
-| --- | --- | --- |
-| Trend line | `Ctrl+Shift+T` | `Alt+Shift+T` |
-| Horizontal line | `Ctrl+Shift+H` | `Alt+Shift+H` |
-| Vertical line | `Ctrl+Shift+V` | `Alt+Shift+V` |
-| Channel | `Ctrl+Shift+C` | `Alt+Shift+C` |
-| Fibonacci retracement | `Ctrl+Shift+F` | `Alt+Shift+F` |
-| Text label | `Ctrl+Shift+L` | `Alt+Shift+L` |
-| Fibonacci extension | `Ctrl+Shift+E` | `Alt+Shift+E` |
-| Andrews Pitchfork | `Ctrl+Shift+A` | `Alt+Shift+A` |
-| Rectangle | `Ctrl+Shift+R` | `Alt+Shift+R` |
-| Measure tool | `Ctrl+Shift+M` | `Alt+Shift+M` |
-| Gann fan | `Ctrl+Shift+G` | `Alt+Shift+G` |
-| Risk/reward | `Ctrl+Shift+P` | `Alt+Shift+P` |
-| Anchored VWAP | `Ctrl+Shift+W` | `Alt+Shift+W` |
-| Gann box | `Ctrl+Shift+B` | `Alt+Shift+B` |
-| Angle Fibonacci | `Ctrl+Shift+J` | `Alt+Shift+J` |
-| Detailed point summary | `Ctrl+Shift+D` | `Alt+Shift+D` |
+| Drawing tool | Every head |
+| --- | --- |
+| Trend line | `Alt+Shift+T` |
+| Horizontal line | `Alt+Shift+H` |
+| Vertical line | `Alt+Shift+V` |
+| Channel | `Alt+Shift+C` |
+| Fibonacci retracement | `Alt+Shift+F` |
+| Text label | `Alt+Shift+L` |
+| Fibonacci extension | `Alt+Shift+E` |
+| Andrews Pitchfork | `Alt+Shift+A` |
+| Rectangle | `Alt+Shift+R` |
+| Measure tool | `Alt+Shift+M` |
+| Gann fan | `Alt+Shift+G` |
+| Risk/reward | `Alt+Shift+P` |
+| Anchored VWAP | `Alt+Shift+W` |
+| Gann box | `Alt+Shift+B` |
+| Angle Fibonacci | `Alt+Shift+J` |
+| Detailed point summary | `Alt+Shift+D` |
 
-The remap is purely in-memory and never persisted to `shortcuts.json`, so the disk profile remains portable between hosts. The Help dialog (`F1`) reads the live in-memory profile, so each host self-documents its current bindings — you always see the right modifier on the host you're using.
+A `shortcuts.json` saved before the change still carries the Ctrl+Shift chords and keeps working as saved on the desktop; the WebHost still rewrites any such legacy Ctrl+Shift+letter binding to Alt+Shift+letter in memory, never on disk. The Help dialog (`F1`) reads the live in-memory profile, so each host self-documents its current bindings. Chords with three modifiers (`Ctrl+Alt+Shift+N` and the rest) are unaffected. One platform note: Windows switches keyboard layout on a bare Alt+Shift press when two layouts are installed; the switch fires on release without a third key, so `Alt+Shift+T` does not trigger it, but that is the one thing to verify on a Windows box with two layouts.
 
-Some reserved chords are not just remapped letter-for-letter — they're **single-`Ctrl` chrome chords** the browser handles before any page listener runs, so even capture-phase `preventDefault` can't stop them. On the WebHost these reserved bindings are **removed** (so the Help dialog never advertises a chord the browser eats) and the in-app action is rebound to a web-safe equivalent:
+Some browser-reserved chords are **single-`Ctrl` chrome chords** the browser handles before any page listener runs, so even capture-phase `preventDefault` can't stop them. On the WebHost these reserved bindings are **removed** (so the Help dialog never advertises a chord the browser eats) and the in-app action is rebound to a web-safe equivalent:
 
 - `Ctrl+T` (AddTab) — opens a browser tab. On the web use **`Alt+Shift+N`** (a chord browsers leave alone) or the tab bar's always-visible `+` button. (`Ctrl+T` still works on the desktop heads.)
 - `Ctrl+W` (CloseTab) — closes the browser tab. Use a tab's `×` button, or focus the tab bar (`Ctrl+Alt+Shift+T`) and press `Delete`.
@@ -340,7 +340,7 @@ state, last swing high and low, and where price sits between them.
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| Ctrl+Shift+D (web: Alt+Shift+D) | Full candle analysis for the current bar — **including the multi-bar patterns** (engulfing, harami, piercing line, morning and evening star, three white soldiers, three black crows) with how many bars they span and whether they read as reversal or continuation — plus indicator values, **plus every chart formation the cursor sits inside** with its trigger and measured target. Never silenced by *Describe candle patterns*: this key is you asking | Spoken summary |
+| Alt+Shift+D (web: Alt+Shift+D) | Full candle analysis for the current bar — **including the multi-bar patterns** (engulfing, harami, piercing line, morning and evening star, three white soldiers, three black crows) with how many bars they span and whether they read as reversal or continuation — plus indicator values, **plus every chart formation the cursor sits inside** with its trigger and measured target. Never silenced by *Describe candle patterns*: this key is you asking | Spoken summary |
 | Ctrl+Alt+Shift+N | The same as `N`, but works with focus outside the chart. Picks WHAT speaks; Settings → Narration decides WHEN (bar close, playback); the scope you played decides WHICH of them | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 
@@ -371,7 +371,7 @@ The tab switcher bar (a row of tabs just above the chart) is always visible, eve
 All drawing shortcuts use **sequential anchoring**: there is no separate "mode" and no Enter key. Each anchor is set by **pressing the same tool shortcut again** at the current cursor bar. The `DrawingInteractionManager` state machine advances one anchor per press.
 
 1. Navigate to the first bar with the Left/Right arrows.
-2. Press the tool shortcut (e.g. `Ctrl+Shift+T`) to set anchor 1 at the current bar. Speech announces the price and timestamp and prompts: "Navigate to next point and press the shortcut again."
+2. Press the tool shortcut (e.g. `Alt+Shift+T`) to set anchor 1 at the current bar. Speech announces the price and timestamp and prompts: "Navigate to next point and press the shortcut again."
 3. Navigate to the next bar.
 4. Press the **same** shortcut again to set anchor 2. For two-anchor tools this completes the drawing and speech confirms placement.
 5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), press the shortcut once more for anchor 3.
@@ -383,21 +383,21 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 
 | Key | Tool | Anchors Required |
 |-----|------|-----------------|
-| Ctrl+Shift+T | Trendline | 2 |
-| Ctrl+Shift+H | Horizontal line (price level) | 1 |
-| Ctrl+Shift+V | Vertical line (time marker) | 1 |
-| Ctrl+Shift+C | Price channel (two parallel lines) | 2 |
-| Ctrl+Shift+F | Fibonacci retracement | 2 (swing high and swing low) |
-| Ctrl+Shift+E | Fibonacci extension | 3 (move start, move end, pullback) |
-| Ctrl+Shift+L | Text label | 1 |
-| Ctrl+Shift+R | Rectangle | 2 (opposite corners) |
-| Ctrl+Shift+M | Measure / range tool | 2 |
-| Ctrl+Shift+A | Andrews' pitchfork | 3 |
-| Ctrl+Shift+G | Gann fan | 2 |
-| Ctrl+Shift+B | Gann box | 2 |
-| Ctrl+Shift+J | Angle / Fibonacci angle | 2 |
-| Ctrl+Shift+P | Risk/Reward tool | 2 (entry and stop loss) |
-| Ctrl+Shift+W | Anchored VWAP | 1 (the anchor bar) |
+| Alt+Shift+T | Trendline | 2 |
+| Alt+Shift+H | Horizontal line (price level) | 1 |
+| Alt+Shift+V | Vertical line (time marker) | 1 |
+| Alt+Shift+C | Price channel (two parallel lines) | 2 |
+| Alt+Shift+F | Fibonacci retracement | 2 (swing high and swing low) |
+| Alt+Shift+E | Fibonacci extension | 3 (move start, move end, pullback) |
+| Alt+Shift+L | Text label | 1 |
+| Alt+Shift+R | Rectangle | 2 (opposite corners) |
+| Alt+Shift+M | Measure / range tool | 2 |
+| Alt+Shift+A | Andrews' pitchfork | 3 |
+| Alt+Shift+G | Gann fan | 2 |
+| Alt+Shift+B | Gann box | 2 |
+| Alt+Shift+J | Angle / Fibonacci angle | 2 |
+| Alt+Shift+P | Risk/Reward tool | 2 (entry and stop loss) |
+| Alt+Shift+W | Anchored VWAP | 1 (the anchor bar) |
 
 | Key | Drawing Placement Action |
 |-----|--------------------------|
@@ -460,7 +460,7 @@ there; `Escape` cancels a tool armed by accident.
 | Alt+S | Strategy manager |
 | Alt+W | Sound designer |
 | Alt+D | Drawing tools panel |
-| Ctrl+Shift+L | Pin a text label at the cursor bar, then type what it says |
+| Alt+Shift+L | Pin a text label at the cursor bar, then type what it says |
 | Ctrl+Alt+Shift+Y | Describe the chart's LAYOUT — axes, scales, panes, series counts, what is hidden or muted |
 | Alt+Shift+/ | Describe THIS PANE — what each axis measures, its range, and the step between gridlines |
 | Ctrl+Alt+Shift+K | Show every hidden component again (announces how many) |
@@ -522,6 +522,6 @@ button, double-tap to press).
 
 - **Tab** is not a shortcut in this application. Series switching uses Page Up / Page Down.
 - **Ctrl+I** is not assigned. The Add Indicator dialog is Alt+A.
-- **Ctrl+Shift+C** opens a Price Channel drawing — it is not a trendline shortcut. Trendlines use Ctrl+Shift+T.
+- **Alt+Shift+C** opens a Price Channel drawing — it is not a trendline shortcut. Trendlines use Alt+Shift+T.
 - The **P** key opens indicator properties regardless of whether you use it alone or as Shift+F12. Both route to the same `OpenProperties` command.
 - Drawing tools use **sequential anchoring**: press the tool shortcut once per anchor (navigate, re-press the same shortcut). There is **no** Enter-to-confirm and **no** Coordinate Entry mode — `Enter`/`Return` is not bound to drawing.

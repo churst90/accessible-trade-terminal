@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Trading;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -340,14 +341,15 @@ public class StrategyBacktester : IStrategyBacktester
 
         // Detect profile indicator series for per-bar replay. We snapshot the indicator codes
         // up front so we don't pay the lookup cost on every bar.
+        // The parameters ride along because a fixed-range or anchored profile is sliced by its
+        // anchor, and that slice must mean the same thing here as on the live chart.
         var profileCodes = config.ReplayProfiles && _profileService != null && _profileCache != null
             ? liveState.ActiveSeries
-                .Where(s => !string.IsNullOrEmpty(s.IndicatorCode))
-                .Select(s => s.IndicatorCode!.ToUpperInvariant())
-                .Where(c => c == "VPVR" || c == "VPFR" || c == "TPO")
-                .Distinct()
+                .Where(s => ProfileAnchoring.IsProfileCode(s.IndicatorCode))
+                .GroupBy(s => s.IndicatorCode!.ToUpperInvariant())
+                .Select(g => (Code: g.Key, Parameters: (IReadOnlyDictionary<string, double>?)g.First().Config?.Parameters))
                 .ToList()
-            : new List<string>();
+            : new List<(string Code, IReadOnlyDictionary<string, double>? Parameters)>();
 
         try
         {
@@ -374,11 +376,14 @@ public class StrategyBacktester : IStrategyBacktester
             // provider reads bar-i snapshots instead of the workspace's final-state bins.
             if (profileCodes.Count > 0)
             {
-                foreach (var code in profileCodes)
+                foreach (var (code, parameters) in profileCodes)
                 {
-                    var bins = code == "TPO"
-                        ? _profileService!.CalculateMarketProfile(historyBuffer)
-                        : _profileService!.CalculateVolumeProfile(historyBuffer);
+                    // No viewport in a backtest: the visible window is the whole history so far
+                    // and the session is the newest one — ProfileAnchoring documents both.
+                    var window = ProfileAnchoring.Slice(code, historyBuffer, parameters, 0, historyBuffer.Count);
+                    var bins = ProfileAnchoring.CountsTime(code)
+                        ? _profileService!.CalculateMarketProfile(window)
+                        : _profileService!.CalculateVolumeProfile(window);
                     _profileCache!.Set(code, bins);
                 }
             }

@@ -72,7 +72,9 @@ public sealed class ToolbarTooltipDescriptionTests
         { "Drawings",        "Open drawing tools, Alt plus D" },
         { "Sound designer",  "Open sound designer, Alt plus W" },
         { "Trade dashboard", "Open trade dashboard, Alt plus T" },
-        { "Order book",      "Open order book, Alt plus B" },
+        // "Order book" left this list on 2026-09-05: the button is gated on the current
+        // provider having a book, and this harness loads no providers (the plugin DLLs under
+        // bin/ are refused by the trust allow-list), so like Deposit it is absent here.
         { "Strategies",      "Open strategies, Alt plus S" },
         { "Watch lists",     "Open watch lists and screener, Alt plus M" },
         { "Levels",          "Open level respect report, Alt plus R" },

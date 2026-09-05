@@ -14,7 +14,7 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
         string code = indicatorCode.ToUpper();
 
         // Profile indicators overlay the price pane — rendered on the right edge via ProfileRenderLayer.
-        if (code == "VPVR" || code == "VPFR" || code == "TPO") return "Main";
+        if (ProfileAnchoring.IsProfileCode(code)) return "Main";
 
         // Heatmap overlays the main price pane as a background behind candles.
         if (code == "HEATMAP") return "Main";

@@ -847,6 +847,17 @@
             _anchorRangeText = $"Anchored to the bars from {range}. The range was captured when this profile "
                              + "was added; to anchor a different stretch, add a new fixed-range profile while viewing it.";
         }
+        else if (_pinnedParams.TryGetValue(AccessibleTrader.Core.Services.ProfileAnchoring.AnchorStartParam, out var since)
+                 && since > 0
+                 && AccessibleTrader.Core.Services.ProfileAnchoring.WindowOf(code) == AccessibleTrader.Core.Services.ProfileWindow.Anchored)
+        {
+            // An anchored profile has a start and no end: it runs to the newest bar.
+            var start = DateTimeOffset.FromUnixTimeSeconds((long)since).UtcDateTime;
+            _anchorRangeText = $"Anchored at {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(start)}, "
+                             + "running to the newest bar and growing as bars arrive. The anchor was captured from the "
+                             + "bar you were on when this profile was added; to start from a different bar, add a new "
+                             + "anchored profile while on it.";
+        }
         else
         {
             _anchorRangeText = "Fixed range, anchored to every bar loaded when it was added.";

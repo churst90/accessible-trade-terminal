@@ -293,6 +293,65 @@ namespace AccessibleTrader.Tests
             Assert.Equal(99.0, AssertDispatched(store, series.Id).Data.ComponentData["rsi"][^1]);
         }
 
+        // ── Profiles: every code reaches the right measure over the right window ──
+
+        private sealed class RecordingProfileService : IProfileService
+        {
+            public readonly List<(string Measure, int Bars)> Calls = new();
+            public List<ProfileBin> CalculateVolumeProfile(IReadOnlyList<Ohlcv> data, int binCount = 50)
+            { Calls.Add(("volume", data.Count)); return new(); }
+            public List<ProfileBin> CalculateMarketProfile(IReadOnlyList<Ohlcv> data, int binCount = 50)
+            { Calls.Add(("time", data.Count)); return new(); }
+        }
+
+        /// <summary>
+        /// The orchestrator used to pick the measure with <c>codeUpper == "TPO"</c>, which is
+        /// exactly the string-guess shape that once made VPFR behave as VPVR: a fixed-range
+        /// TPO would have been computed as a VOLUME profile and nothing would have said so.
+        /// Sabotage proved it — restoring that comparison leaves ProfileAnchoringTests green
+        /// and turns only this case red. Each of the eight codes is driven through the real
+        /// orchestrator and the profile service records what it was asked for and over how
+        /// many bars.
+        /// </summary>
+        [Theory]
+        [InlineData("VPVR",       "volume", 21)]
+        [InlineData("TPO",        "time",   21)]
+        [InlineData("VPSESSION",  "volume", 24)]
+        [InlineData("TPOSESSION", "time",   24)]
+        [InlineData("VPFR",       "volume", 5)]
+        [InlineData("TPOFR",      "time",   5)]
+        [InlineData("VPANCHOR",   "volume", 12)]
+        [InlineData("TPOANCHOR",  "time",   12)]
+        public async Task EveryProfileCode_ReachesItsMeasure_OverItsWindow(string code, string measure, int bars)
+        {
+            var store = new MockWorkspaceStore();
+            var profile = new RecordingProfileService();
+            var orch = new IndicatorOrchestrator(
+                new StubIndicatorEngine((_, _, _) => new(), null), new IndicatorStateMapper(),
+                new NoOpDrawingService(), profile, new NoOpHeatmapService(), store,
+                new MockNotificationHub(), NullLogger<IndicatorOrchestrator>.Instance);
+
+            // Three UTC days of hourly bars; the viewport ends in day two (bar 40).
+            var start = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+            var data = Enumerable.Range(0, 72)
+                .Select(i => new Ohlcv(start.AddHours(i), 100, 101, 99, 100, 1000)).ToList();
+            store.EmitState(WorkspaceState.Initial with { ViewportStartIndex = 20, ViewportLength = 21 });
+
+            var cfg = new SeriesConfig { Id = "p", Name = code, IndicatorCode = code, Pane = "Main" };
+            cfg.Components.Add(new ComponentConfig { Name = "Profile", DisplayType = ComponentDisplayType.Distribution });
+            switch (ProfileAnchoring.WindowOf(code))
+            {
+                case ProfileWindow.Fixed:    ProfileAnchoring.CaptureAnchor(cfg.Parameters, data, 10, 5); break;
+                case ProfileWindow.Anchored: ProfileAnchoring.CaptureAnchorStart(cfg.Parameters, data, 60); break;
+            }
+            var series = new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "p" }) { IsProfile = true };
+
+            await orch.RecalculateAllAsync(data, new[] { series }, CancellationToken.None);
+
+            var call = Assert.Single(profile.Calls);
+            Assert.Equal((measure, bars), call);
+        }
+
         // ── Fixtures ─────────────────────────────────────────────────────────
 
         private static (IndicatorOrchestrator orch, MockWorkspaceStore store) Build(

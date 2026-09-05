@@ -20,15 +20,16 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
     ///   HVN ⇔ <c>IsValueArea AND TotalVolume &gt; mean × 1.3</c>
     ///   LVN ⇔ <c>IsSinglePrint OR TotalVolume &lt; mean × 0.4</c>
     ///
-    /// **Backtest correctness caveat**: VPVR is computed against the workspace's *current*
-    /// viewport, not the bar-i view. In backtest mode the bins reflect the final profile
-    /// state at every historical bar — strategies that gate on POC / Value Area / HVN / LVN
-    /// will future-leak. This is a known issue documented in docs/TODO.md Phase 11 and is the
-    /// most important pending S/R correctness item.
+    /// **Backtest correctness**: the live <c>series.ProfileBins</c> are computed against the
+    /// workspace's *current* viewport, not the bar-i view, so reading them during a backtest
+    /// would future-leak. That is why <see cref="IBacktestProfileCache"/> exists: with
+    /// <c>ReplayProfiles</c> on, <c>StrategyBacktester</c> recomputes the bins from
+    /// history[0..i] each bar and this provider reads those instead (the branch below). The
+    /// caveat that used to sit here called the leak "the most important pending S/R correctness
+    /// item" for a year after the cache closed it — TODO §A1 filed the stale comment.
     /// </summary>
     public class VolumeProfileLevelProvider : ILevelProvider
     {
-        private static readonly string[] ProfileCodes = { "VPVR", "VPFR", "TPO" };
         private readonly IBacktestProfileCache? _backtestCache;
 
         public string SourceId => "profile";
@@ -46,7 +47,7 @@ namespace AccessibleTrader.Core.Services.Strategies.Levels
             foreach (var series in state.ActiveSeries)
             {
                 if (string.IsNullOrEmpty(series.IndicatorCode)) continue;
-                if (!ProfileCodes.Contains(series.IndicatorCode.ToUpperInvariant())) continue;
+                if (!ProfileAnchoring.IsProfileCode(series.IndicatorCode)) continue;
 
                 // Backtest replay path: when StrategyBacktester is feeding bar-i profile snapshots
                 // into the cache, prefer them over the live series.ProfileBins (which is the

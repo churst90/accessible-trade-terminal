@@ -154,8 +154,7 @@ namespace AccessibleTrader.Core.Services
                 config.Components.Add(comp);
             }
 
-            bool isProfile = codeUp == "VPVR" || codeUp == "VPFR" || codeUp == "TPO" ||
-                             codeUp.Contains("VOLUME PROFILE") || codeUp.Contains("MARKET PROFILE");
+            bool isProfile = ProfileAnchoring.IsProfileCode(codeUp);
             bool isHeatmap = codeUp == "HEATMAP";
 
             if (isProfile || isHeatmap)
@@ -167,6 +166,9 @@ namespace AccessibleTrader.Core.Services
             // exists is now — the viewport the user was looking at when they added it. Recorded as
             // timestamps so that loading older history later cannot slide the profile onto a
             // different stretch of chart, which bar indices would.
+            //
+            // An ANCHORED profile records only where it starts — the bar the cursor is on —
+            // and runs to the newest bar from then on.
             if (isProfile && !ProfileAnchoring.FollowsViewport(codeUp))
             {
                 config.Parameters ??= new();
@@ -174,8 +176,14 @@ namespace AccessibleTrader.Core.Services
                 {
                     var st = _store.State;
                     if (st.Data != null && st.Data.Count > 0)
-                        ProfileAnchoring.CaptureAnchor(config.Parameters, st.Data.ToList(),
-                            st.ViewportStartIndex, st.ViewportLength);
+                    {
+                        if (ProfileAnchoring.WindowOf(codeUp) == ProfileWindow.Anchored)
+                            ProfileAnchoring.CaptureAnchorStart(config.Parameters, st.Data.ToList(),
+                                st.CurrentDataIndex);
+                        else
+                            ProfileAnchoring.CaptureAnchor(config.Parameters, st.Data.ToList(),
+                                st.ViewportStartIndex, st.ViewportLength);
+                    }
                 }
             }
 
@@ -370,8 +378,7 @@ namespace AccessibleTrader.Core.Services
             // anchors as soon as chart data is available (its IsDrawing branch).
             var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id })
             {
-                IsProfile = config.IndicatorCode.ToUpperInvariant() is "VPVR" or "VPFR" or "TPO"
-                         || config.IndicatorCode.ToUpperInvariant().Contains("PROFILE"),
+                IsProfile = ProfileAnchoring.IsProfileCode(config.IndicatorCode),
                 Drawing = config.Drawing
             };
             _store.Dispatch(new AddSeriesAction(series));

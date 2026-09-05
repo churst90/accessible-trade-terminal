@@ -517,6 +517,19 @@ namespace AccessibleTrader.BlazorClient
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
                     sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
+            // Desktop toasts (alerts / fills / new bars, each opt-in). Windows has a toast
+            // path through the Windows App SDK; the other MAUI platforms register the null
+            // notifier and the delivery panel hides the switches. Eager-resolved in
+            // MainLayout like the delivery service, so the subscriptions exist before the
+            // first event.
+#if WINDOWS
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.IDesktopNotifier,
+                                  Platforms.Windows.WindowsDesktopNotifier>();
+#else
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.IDesktopNotifier,
+                                  AccessibleTrader.Core.Services.Notifications.NullDesktopNotifier>();
+#endif
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.DesktopNotificationService>();
             // Part C — bridges strategy setup events into AlertFiredEvent (default-off,
             // gated by the "alerts.setups.enabled" setting) so setups can reach webhooks.
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.SetupAlertBridge>();

@@ -14,15 +14,14 @@ feature and understand what it is doing.
 
 ## How to read this manual
 
-- **Keys** appear inline, like Alt+K or Ctrl+Shift+T. A chord such as Ctrl+Shift+T
-  means hold Control and Shift together, then press T.
+- **Keys** appear inline, like Alt+K or Alt+Shift+T. A chord such as Alt+Shift+T
+  means hold Alt and Shift together, then press T.
 - **Spoken feedback** is written in quotation marks exactly as the application says
   it, for example "Loading history…". When a value changes with your symbol or
   price, it is shown in braces, like "{Symbol} on {Provider}, {Timeframe}. Ready."
-- **Web-host modifier note:** on the Linux browser host, every Ctrl+Shift+letter
-  chord becomes Alt+Shift+letter (the browser reserves the Ctrl+Shift versions).
-  The letter and the command are identical. None of the onboarding keys in this
-  chapter are affected. See the Platform Support chapter for the full remap.
+- **Modifier note:** the drawing tools and the detailed point summary are
+  Alt+Shift+letter on every head, desktop and browser alike (since 2026-09-05; the
+  desktop apps used Ctrl+Shift before that). See the Platform Support chapter.
 
 ---
 
@@ -38,7 +37,7 @@ feature and understand what it is doing.
 8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
 9. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
 10. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
-11. [Platform Support](#platform-support) — per-OS notes, which version to use, the web-host modifier remap
+11. [Platform Support](#platform-support) — per-OS notes, which version to use, the browser-reserved chords
 12. [Glossary](#glossary)
 
 ---
@@ -909,7 +908,7 @@ place so you can bring it back with the same key.
 
 ### Text labels on the chart
 
-**Ctrl+Shift+L** pins a text label at the cursor bar. The anchor goes down first,
+**Alt+Shift+L** pins a text label at the cursor bar. The anchor goes down first,
 then a small dialog asks what the label should say — so the position and the
 wording are two separate decisions, which matters when you cannot see where the
 anchor landed.
@@ -965,7 +964,7 @@ by the button's announced pressed state — whether history is currently hidden.
 
 ### Inspecting a single bar
 
-When one bar deserves a thorough look before you act on it, press Ctrl+Shift+D
+When one bar deserves a thorough look before you act on it, press Alt+Shift+D
 (Alt+Shift+D on the Linux web host) for a full point analysis. It reads the candle's
 open, high, low, close and volume, names any candlestick pattern recognised at that
 bar — "Engulfing bullish" — reports every active indicator's reading there, and lists
@@ -1614,8 +1613,8 @@ navigate the cursor to a point and press the tool's own shortcut to drop an anch
 there; navigate to the next point and press the **same** shortcut again to set the
 next; and so on until the shape is complete. Escape cancels a drawing in progress.
 
-Take a trendline (Ctrl+Shift+T) as the model. Arrow to the first point and press
-Ctrl+Shift+T — speech confirms "Trend line: anchor 1 set at {price}, {time}.
+Take a trendline (Alt+Shift+T) as the model. Arrow to the first point and press
+Alt+Shift+T — speech confirms "Trend line: anchor 1 set at {price}, {time}.
 Navigate to next point and press the shortcut again." Arrow to the second point,
 press it once more, and the line completes: "Trend line placed from {price} to
 {price}." Three-anchor tools — Fibonacci extension, Andrews' pitchfork,
@@ -1630,10 +1629,9 @@ point once per anchor. Re-pressing it advances through the same tool's anchors e
 as re-pressing the shortcut would, so a trend line, channel, or any multi-anchor tool
 completes entirely by touch.
 
-> **Linux web host:** every `Ctrl+Shift+<letter>` drawing chord becomes
-> `Alt+Shift+<letter>` in the browser, because the browser reserves the Ctrl+Shift
-> versions. Same letter, same tool. The desktop and mobile apps use Ctrl+Shift as
-> written, and the F1 help always shows the bindings live on your host.
+> The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and
+> browser. A shortcuts profile saved before 2026-09-05 keeps the old Ctrl+Shift chords
+> on the desktop, and the F1 help always shows the bindings live on your host.
 
 The set spans Trendline (T), Horizontal and Vertical lines (H, V), Channel (C),
 Fibonacci retracement and extension (F, E), Text label (L), Rectangle (R), Measure
@@ -1753,6 +1751,29 @@ accounts for roughly seventy percent of all volume, announces "Entering Value Ar
 as you move into it and "Exiting Value Area" as you leave — so you can feel the edges
 of where the market agreed on price.
 
+There are eight profiles in the Add Indicator dialog's Profile category, and they are
+one idea crossed with another rather than eight different tools. The first choice is
+**what is counted**: a *Volume Profile* counts the volume traded at each price, and a
+*Market Profile (TPO)* counts how many time periods price spent at each level, so a
+level price lingered at ranks highly even on thin volume. The second choice is
+**which bars**, and there are four windows:
+
+- **Visible Range** — whatever is on screen. It recomputes as you pan and zoom, so it
+  always answers "what am I looking at".
+- **Fixed Range** — the stretch you were viewing when you added it. It stays put while
+  you navigate away, so you can compare current price against a reference you chose.
+  Properties reads the range back to you as a sentence.
+- **Session** — one trading day, the day of the last bar on screen. Pan into yesterday
+  and you hear yesterday's session; this is how a market profile is conventionally
+  read. Meant for intraday charts — on a daily chart a session is a single bar.
+- **Anchored** — from the bar your cursor was on when you added it, running to the
+  newest bar and growing as bars arrive. It is the anchored-VWAP idea applied to
+  volume: where has trade concentrated *since* that event? Properties tells you the
+  anchor date, and to start from a different bar you add a new one while on it.
+
+Keeping a visible and a fixed or anchored profile on the chart at once is the normal
+way to use them: one says what you are looking at, the other what you chose.
+
 ### The heatmap
 
 Alt+H toggles a volume heatmap over the price chart, shading each candle and time
@@ -1796,7 +1817,7 @@ Three features sit between reading the chart yourself and acting on it: an AI an
 you can ask for a second opinion, an auto-narrator that watches a series and speaks
 up when something happens, and the Journal that quietly records everything the
 terminal has said so nothing scrolls past for good. All three chords use three
-modifiers and so are **not** remapped on the web host — they are the same everywhere.
+modifiers and are the same on every head.
 
 ### The AI technical analyst
 
@@ -1858,7 +1879,10 @@ navigated. And because it is per-series, you can leave it running on the one ind
 you care about and not be interrupted by the rest of the chart — set it on your RSI, say,
 and get on with reading price while the terminal keeps half an ear on momentum for you.
 Toggling it announces the new state, "Narrating" or "Narration off", so you always
-know whether it is listening. `Ctrl+Alt+Shift+N` does the same thing and is the one to reach
+know whether it is listening. Hiding a series or a component (H), or muting it (M),
+takes it out of narration for as long as it is hidden or muted — on bar closes and in
+playback alike — without touching the N flag, so showing it again brings its narration
+straight back. `Ctrl+Alt+Shift+N` does the same thing and is the one to reach
 for when focus is somewhere other than the chart — it has three modifiers, which browsers do
 not reserve, so it works unchanged on the Linux web host.
 
@@ -1963,13 +1987,13 @@ Auto-narration is one of a small family of "let the terminal keep you posted" fe
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
 you met when you first loaded a market — is the always-on heartbeat of the live candle,
 and you can turn it on or off under Settings (F12), Narration, with "Announce new bars". The
-**detailed point analysis**, Ctrl+Shift+D (Alt+Shift+D on the web host), is the
+**detailed point analysis**, Alt+Shift+D (Alt+Shift+D on the web host), is the
 on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
 indicator, every signal, in one keystroke, covered back in the chart chapter. And the
 **context summary**, Shift+F1 for a quick "symbol, provider, timeframe" and Ctrl+Alt+Shift+C
 for the fuller picture, tells you where you are at any moment. Between them you can run
 as hands-off or as hands-on as you like: narration and new-bar announcements stream the
-live market to you, while Ctrl+Shift+D and the AI Analyst are there the moment you want
+live market to you, while Alt+Shift+D and the AI Analyst are there the moment you want
 to stop and look hard at something.
 
 ### The Journal
@@ -2361,7 +2385,12 @@ never hold two secretly-unlinked orders.)
 ### Reading the order book
 
 Press Alt+B to open the order book for the current symbol; your screen reader
-announces it as "Order Book — {symbol}". It presents the resting buy and sell
+announces it as "Order Book — {symbol}". The toolbar's Order book button appears only
+when the current provider has a book to show — the nine venues that stream depth
+(Binance, Bitstamp, Coinbase, Gemini, Kraken, Kraken Futures, MEXC, Alpaca, Polygon)
+and Interactive Brokers — so on a data feed with no book the button is simply absent,
+the way Deposit is absent on a broker with no wallet. Alt+B still opens the dialog
+anywhere, and on a provider with nothing it says so. It presents the resting buy and sell
 interest as two columns — "Bids (Buy Orders)" and "Asks (Sell Orders)" — each listing
 up to twenty price levels with their size and a running cumulative total, under a
 summary line giving the best bid, best ask, and the spread as both a number and a
@@ -2422,6 +2451,18 @@ beside Close, is **Delivery settings** — the email, Telegram, webhook and brow
 notification channels that carry alerts to you when you are away from the terminal.
 It opens as a second view of the same dialog, so Escape still closes one thing; "Back
 to alerts" returns you to the list, and to the button you left from.
+
+The same panel holds **Desktop notifications** on the heads that can show one: the
+local web host on Linux, where the notification goes through `notify-send` to your
+desktop's notification daemon (MATE, GNOME and KDE all show it, and Orca can present
+it), and the Windows app, where it is a Windows toast that Narrator, NVDA and JAWS
+read. Three switches, each off until you turn it on: **Alerts that fire**, **Order
+fills, stops and take-profits**, and **New bars on the current chart**. They exist for
+the moment the terminal is not the window you are in — speech inside the terminal is
+unchanged, and nothing here replaces it. New bars are one notification per bar close,
+so switch that one on for an hourly or daily chart rather than a one-minute one. The
+hosted site has no desktop to reach and shows its browser-notification (Web Push)
+controls instead; the switches simply do not appear where there is no toast path.
 
 When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
@@ -3210,19 +3251,20 @@ wants that build. And the safety sandbox for custom scripts is fullest on the na
 desktop platforms. Everything else — every chart, indicator, drawing tool, alert,
 strategy, trade, and the whole Hybrid Voice model — works the same on both, so if you
 move between a Windows desktop and a Linux laptop you are using the same terminal in both
-places, with only the plumbing underneath and the one block of shortcuts below changing.
+places, with only the plumbing underneath changing.
 
-### The web host modifier remap
+### The web host and the modifiers
 
-The one place the keyboard genuinely differs is the browser. Firefox and most
-browsers reserve several `Ctrl+Shift+<letter>` chords for themselves — `Ctrl+Shift+T`
-reopens a closed tab, `Ctrl+Shift+P` opens a private window, and so on — and a web
-page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is
-remapped to `Alt+Shift+<letter>`**: the same letter and the same command, just a
-different modifier. This affects all the drawing tools and the detailed point summary
-(`Ctrl+Shift+D` becomes `Alt+Shift+D`). Chords with three modifiers — the AI Analyst,
-auto-narration, the Journal, save and load workspace — are **not** remapped, because
-browsers do not reserve them. A few single-`Ctrl` chords are reserved by the browser at
+The keyboard is the same on every head. Until 2026-09-05 it was not quite: Firefox and
+most browsers reserve several Ctrl+Shift+letter chords for themselves — reopen a closed
+tab, open a private window, and so on — and a web page cannot override them, so the
+browser host used to rewrite the desktop's Ctrl+Shift drawing chords to Alt+Shift at
+startup and the help had to explain the difference. The default profile now binds all
+the drawing tools and the detailed point summary to `Alt+Shift+<letter>` everywhere,
+so the difference is gone. A shortcuts profile saved before the change still carries
+the Ctrl+Shift chords; the desktop honours it as saved, and the browser host rewrites
+those legacy chords to Alt+Shift in memory. Chords with three modifiers — the AI Analyst,
+auto-narration, the Journal, save and load workspace — were never affected. A few single-`Ctrl` chords are reserved by the browser at
 an even deeper level — it acts on them before the page ever sees the keystroke, so they
 cannot be cancelled in-page at all. On the web host these are dropped from the bindings
 (so the Help dialog never lists a chord the browser eats) and the action moves elsewhere:
@@ -3239,22 +3281,22 @@ using, so it self-documents per platform.
 
 | Tool / command | Desktop & mobile | Linux web host |
 |---|---|---|
-| Trendline | Ctrl+Shift+T | Alt+Shift+T |
-| Horizontal line | Ctrl+Shift+H | Alt+Shift+H |
-| Vertical line | Ctrl+Shift+V | Alt+Shift+V |
-| Channel | Ctrl+Shift+C | Alt+Shift+C |
-| Fibonacci retracement | Ctrl+Shift+F | Alt+Shift+F |
-| Fibonacci extension | Ctrl+Shift+E | Alt+Shift+E |
-| Text label | Ctrl+Shift+L | Alt+Shift+L |
-| Rectangle | Ctrl+Shift+R | Alt+Shift+R |
-| Measure | Ctrl+Shift+M | Alt+Shift+M |
-| Andrews' pitchfork | Ctrl+Shift+A | Alt+Shift+A |
-| Gann fan | Ctrl+Shift+G | Alt+Shift+G |
-| Gann box | Ctrl+Shift+B | Alt+Shift+B |
-| Angle | Ctrl+Shift+J | Alt+Shift+J |
-| Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
-| Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
-| Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
+| Trendline | Alt+Shift+T | Alt+Shift+T |
+| Horizontal line | Alt+Shift+H | Alt+Shift+H |
+| Vertical line | Alt+Shift+V | Alt+Shift+V |
+| Channel | Alt+Shift+C | Alt+Shift+C |
+| Fibonacci retracement | Alt+Shift+F | Alt+Shift+F |
+| Fibonacci extension | Alt+Shift+E | Alt+Shift+E |
+| Text label | Alt+Shift+L | Alt+Shift+L |
+| Rectangle | Alt+Shift+R | Alt+Shift+R |
+| Measure | Alt+Shift+M | Alt+Shift+M |
+| Andrews' pitchfork | Alt+Shift+A | Alt+Shift+A |
+| Gann fan | Alt+Shift+G | Alt+Shift+G |
+| Gann box | Alt+Shift+B | Alt+Shift+B |
+| Angle | Alt+Shift+J | Alt+Shift+J |
+| Risk/Reward | Alt+Shift+P | Alt+Shift+P |
+| Anchored VWAP | Alt+Shift+W | Alt+Shift+W |
+| Detailed point summary | Alt+Shift+D | Alt+Shift+D |
 | New chart tab | Ctrl+T (or Alt+Shift+N) | Alt+Shift+N (or the tab bar's + button) |
 | Close chart tab | Ctrl+W | The Close tab button beside it, or focus the bar + Delete |
 | Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 |

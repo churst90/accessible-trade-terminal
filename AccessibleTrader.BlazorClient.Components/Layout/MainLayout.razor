@@ -36,6 +36,9 @@
 @* SetupAlertBridge subscribes to Setup* events on construction; eager-resolved here
    so setups can be routed to webhooks the moment the app starts (default-off gate). *@
 @inject AccessibleTrader.Core.Services.Alerts.SetupAlertBridge _setupAlertBridge
+@* DesktopNotificationService subscribes to alert / fill / new-bar events on construction;
+   eager-resolved here for the same reason as the two above. *@
+@inject AccessibleTrader.Core.Services.Notifications.DesktopNotificationService _desktopNotifications
 @inject ILogger<MainLayout> _layoutLogger
 @inject AccessibleTrader.Core.Services.ThemeService _themeService
 @inject DemoPolicy Demo

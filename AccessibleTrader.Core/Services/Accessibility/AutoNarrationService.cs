@@ -583,7 +583,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // below — dropping the tracking as well would make the NEXT bar look like a
                 // fresh transition.
                 var oscComp = series.Components.FirstOrDefault(c => c.Name == oscContext.ComponentName);
-                bool oscNarrates = oscComp == null || SeriesNarrationScope.ComponentNarrates(series, oscComp);
+                // Hidden or muted is silent here exactly as it is at the four other scan sites
+                // (Cody, 2026-09-05: "if a series or component is hidden, it should be excluded
+                // from the narration"). Two gaps closed: a hidden oscillator COMPONENT used to
+                // narrate because this path applied only the N selection; and a context naming
+                // a component the series does not have skipped the scope check altogether, so a
+                // hidden SERIES spoke through it. HiddenSeriesNarrationTests pins both.
+                bool oscNarrates = SeriesNarrationScope.SeriesNarrates(series)
+                    && (oscComp == null
+                        || (oscComp.IsVisible && !oscComp.IsMuted
+                            && SeriesNarrationScope.ComponentNarrates(series, oscComp)));
 
                 if (oscNarrates && _lastOscState.TryGetValue(oscKey, out var prev))
                 {

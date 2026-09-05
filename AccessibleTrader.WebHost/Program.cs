@@ -127,6 +127,14 @@ if (hostMode == HostMode.Full)
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.IDesktopAlertPresenter,
                                   AccessibleTrader.WebHost.Services.ProcessDesktopAlertPresenter>();
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
+    // In-session desktop toasts (alerts, fills, new bars — each opt-in under Alerts →
+    // Delivery settings) through the same notify-send the monitor uses, so the MATE
+    // notification daemon shows them and Orca can present them. Full only: the hosted
+    // server's desktop is not the user's, and its Web Push path is the equivalent there.
+    // Every other mode keeps the NullDesktopNotifier registered by
+    // AddAccessibleTraderWebHostServices; this later registration replaces it.
+    builder.Services.AddSingleton<AccessibleTrader.Core.Services.Notifications.IDesktopNotifier,
+                                  AccessibleTrader.WebHost.Services.NotifySendDesktopNotifier>();
     // Cross-platform panel tray (Linux verified; Windows/macOS best-effort). Gives a control
     // surface — reopen the UI, review alerts, silence, status, copy address, toggle
     // monitoring, quit — with the browser closed. Never registered on the hosted server.

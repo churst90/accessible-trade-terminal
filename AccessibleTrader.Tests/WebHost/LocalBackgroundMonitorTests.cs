@@ -261,6 +261,7 @@ public class LocalBackgroundMonitorTests
         public int SoundsPlayed;
 
         public string Describe() => "spy";
+        public bool CanNotify => true;
         public void PlayNotificationSound() => SoundsPlayed++;
         public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
         public void Speak(string text) => Spoken.Add(text);

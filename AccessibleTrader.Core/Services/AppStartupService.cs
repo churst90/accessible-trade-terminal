@@ -69,6 +69,10 @@ namespace AccessibleTrader.Core.Services
             // sentinel in RefreshSymbolsAsync, which would never clear on its own.)
             await dataService.ConfigureStoredKeyProvidersAsync().ConfigureAwait(false);
 
+            // The providers are known from here on; anything that asked a provider-shaped
+            // question earlier (the toolbar's Deposit / Withdraw / Order book gates) asks again.
+            _services.GetService<IEventBus>()?.Publish(new Models.ProvidersReadyEvent());
+
             // 1b. Indicator Plugins — scan Plugins/Indicators/ for drop-in indicator DLLs.
             var indicatorService = _services.GetRequiredService<IIndicatorService>();
             indicatorService.LoadIndicatorPlugins(pluginLoader);

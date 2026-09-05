@@ -136,6 +136,15 @@ namespace AccessibleTrader.Core.Models
     public record ApiKeysChangedEvent(string Provider);
 
     /// <summary>
+    /// The data service has loaded its plugins and configured stored keys, so
+    /// <c>IDataService.GetProviderAsync</c> answers for real from now on. Before this it
+    /// answers null for every name. Published once per app start by <c>AppStartupService</c>;
+    /// anything that asked a provider-shaped question earlier (the toolbar's Deposit, Withdraw
+    /// and Order book gates) should ask again on it.
+    /// </summary>
+    public record ProvidersReadyEvent();
+
+    /// <summary>
     /// Open the deposit-address dialog. Only ever raised for a provider that
     /// implements <c>IWalletProvider</c>; equity brokers have no wallet and the
     /// button that raises this is absent for them.

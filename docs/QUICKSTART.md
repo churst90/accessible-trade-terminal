@@ -438,12 +438,12 @@ All drawing tools use **sequential anchoring**. You do not hold keys and drag, a
 
 ### The Sequential Anchoring Workflow
 
-Take a trendline (Ctrl+Shift+T) as the example:
+Take a trendline (Alt+Shift+T) as the example:
 
 1. Navigate the cursor to the first point using the Left and Right arrows.
-2. Press the drawing shortcut (Ctrl+Shift+T) to set the first anchor at the current bar. Speech announces the price and timestamp of the anchor and tells you what to do next — for example: "Trend line: anchor 1 set at 42,500.00, 14:30. Navigate to next point and press the shortcut again."
+2. Press the drawing shortcut (Alt+Shift+T) to set the first anchor at the current bar. Speech announces the price and timestamp of the anchor and tells you what to do next — for example: "Trend line: anchor 1 set at 42,500.00, 14:30. Navigate to next point and press the shortcut again."
 3. Navigate to the second point.
-4. Press the **same** shortcut again (Ctrl+Shift+T) to set the second anchor and complete the drawing. Speech announces the completed drawing: for example, "Trend line placed from 42,500.00 to 43,100.00."
+4. Press the **same** shortcut again (Alt+Shift+T) to set the second anchor and complete the drawing. Speech announces the completed drawing: for example, "Trend line placed from 42,500.00 to 43,100.00."
 5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), repeat: navigate, then press the shortcut a third time to set the final anchor.
 6. Press Escape at any time during placement to cancel the in-progress drawing.
 
@@ -453,25 +453,25 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 
 ### Drawing Shortcuts
 
-> **Linux web host users:** every `Ctrl+Shift+<letter>` chord below becomes `Alt+Shift+<letter>` in the browser (Firefox reserves several `Ctrl+Shift` chords at the browser level). Same letter, same tool — see [Platform Support](#17-platform-support). The desktop/mobile apps use `Ctrl+Shift` as shown.
+> The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and browser. (Before 2026-09-05 the desktop apps used Ctrl+Shift and only the browser used Alt+Shift; see [Platform Support](#17-platform-support).)
 
 | Key | Tool |
 |-----|------|
-| Ctrl+Shift+T | Trendline (2 anchors) |
-| Ctrl+Shift+H | Horizontal line — price level (1 anchor) |
-| Ctrl+Shift+V | Vertical line — time marker (1 anchor) |
-| Ctrl+Shift+C | Price channel (2 anchors) |
-| Ctrl+Shift+F | Fibonacci retracement (2 anchors: swing high and swing low) |
-| Ctrl+Shift+E | Fibonacci extension (3 anchors: move start, move end, pullback) |
-| Ctrl+Shift+L | Text label (1 anchor) |
-| Ctrl+Shift+R | Rectangle (2 anchors: opposite corners) |
-| Ctrl+Shift+M | Measure / range tool (2 anchors: start and end of range) |
-| Ctrl+Shift+A | Andrews' pitchfork (3 anchors) |
-| Ctrl+Shift+G | Gann fan (2 anchors) |
-| Ctrl+Shift+B | Gann box (2 anchors) |
-| Ctrl+Shift+J | Angle / Fibonacci angle (2 anchors) |
-| Ctrl+Shift+P | Risk/Reward tool (2 anchors: entry and stop loss, then speech guides you to the target) |
-| Ctrl+Shift+W | Anchored VWAP (1 anchor: the bar from which VWAP is calculated forward) |
+| Alt+Shift+T | Trendline (2 anchors) |
+| Alt+Shift+H | Horizontal line — price level (1 anchor) |
+| Alt+Shift+V | Vertical line — time marker (1 anchor) |
+| Alt+Shift+C | Price channel (2 anchors) |
+| Alt+Shift+F | Fibonacci retracement (2 anchors: swing high and swing low) |
+| Alt+Shift+E | Fibonacci extension (3 anchors: move start, move end, pullback) |
+| Alt+Shift+L | Text label (1 anchor) |
+| Alt+Shift+R | Rectangle (2 anchors: opposite corners) |
+| Alt+Shift+M | Measure / range tool (2 anchors: start and end of range) |
+| Alt+Shift+A | Andrews' pitchfork (3 anchors) |
+| Alt+Shift+G | Gann fan (2 anchors) |
+| Alt+Shift+B | Gann box (2 anchors) |
+| Alt+Shift+J | Angle / Fibonacci angle (2 anchors) |
+| Alt+Shift+P | Risk/Reward tool (2 anchors: entry and stop loss, then speech guides you to the target) |
+| Alt+Shift+W | Anchored VWAP (1 anchor: the bar from which VWAP is calculated forward) |
 | Alt+D | Open the drawing tools panel (manage and delete existing drawings) |
 
 ### Fibonacci Retracement
@@ -480,11 +480,11 @@ After placing 2 anchors (for example, from a swing low to a swing high), the app
 
 ### Anchored VWAP
 
-The Anchored VWAP tool (Ctrl+Shift+W) places a Volume Weighted Average Price line starting from the bar you anchor it to and extending to the latest bar. It behaves like a moving average overlay — you can focus on it with Up/Down, and price/VWAP crossings are navigable with Ctrl+Left/Right.
+The Anchored VWAP tool (Alt+Shift+W) places a Volume Weighted Average Price line starting from the bar you anchor it to and extending to the latest bar. It behaves like a moving average overlay — you can focus on it with Up/Down, and price/VWAP crossings are navigable with Ctrl+Left/Right.
 
 ### Risk/Reward Tool
 
-Ctrl+Shift+P starts the Risk/Reward tool. After you set the entry and stop-loss anchors, speech announces the resulting risk amount and asks you to set the target. When the target is set, speech announces the full risk-to-reward ratio.
+Alt+Shift+P starts the Risk/Reward tool. After you set the entry and stop-loss anchors, speech announces the resulting risk amount and asks you to set the target. When the target is set, speech announces the full risk-to-reward ratio.
 
 ---
 
@@ -494,7 +494,7 @@ Ctrl+Shift+P starts the Risk/Reward tool. After you set the entry and stop-loss 
 
 | Key | Action |
 |-----|--------|
-| Ctrl+Shift+D | Announce full analysis of the current bar |
+| Alt+Shift+D | Announce full analysis of the current bar |
 
 This announces:
 - The candle's open, high, low, close, and volume
@@ -711,31 +711,31 @@ Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windo
 
 **Linux (web host, runs in a browser such as Firefox):**
 - Works with Orca and other browser-compatible screen readers
-- **Modifier remap:** browsers (especially Firefox) reserve several `Ctrl+Shift+<letter>` chords at the browser-chrome level — `Ctrl+Shift+T` (reopen tab), `Ctrl+Shift+H` (history), `Ctrl+Shift+P` (private window), `Ctrl+Shift+J` (console), `Ctrl+Shift+R` (reload), `Ctrl+Shift+W` (close window) — and the page cannot override them. So on the web host **every `Ctrl+Shift+<letter>` chord is remapped to `Alt+Shift+<letter>`**. This affects all drawing tools *and* the detailed point summary (`Ctrl+Shift+D` → `Alt+Shift+D`). The letter and the command are unchanged — only the modifier differs.
-- Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are **not** remapped — browsers don't reserve them.
+- **Modifiers are the same as on the desktop.** The drawing tools and the detailed point summary are `Alt+Shift+<letter>` on every head. Browsers (especially Firefox) reserve several Ctrl+Shift+letter chords at the browser-chrome level (reopen tab, history, private window, console, reload, close window) and the page cannot override them, which is why the default moved to Alt+Shift everywhere on 2026-09-05 instead of the browser silently rewriting the desktop's chords. A shortcuts profile saved before then that still carries Ctrl+Shift chords is rewritten to Alt+Shift in the browser, in memory only.
+- Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are the same everywhere — browsers don't reserve them.
 - A few single-`Ctrl` browser chords are reserved at the chrome level and can't be overridden in-page, so on the web the in-app action moves to a web-safe chord (the reserved one is dropped from the Help dialog): new tab is **`Alt+Shift+N`** or the always-visible tab bar **+** button (not `Ctrl+T`); close a tab with the **Close tab** button beside it or by focusing the bar and pressing `Delete` (not `Ctrl+W`); switch tabs by pressing **`Ctrl+Alt+Shift+T`** to focus the tab switcher bar, then the arrow keys / `Home`/`End` / the number row (`1`–`9`) / `Insert` to add / `Delete` to close (not `Ctrl+Tab`). Pane navigation needs no such rule — it is **`Alt+PageUp`** / **`Alt+PageDown`** on every head, and `Ctrl+PageUp`/`Ctrl+PageDown` is left unbound because the browser cycles its own tabs on it.
 - The Help dialog (F1) and its live shortcut table always read the bindings actually in effect on your host, so you will always see the correct modifier for the platform you are using.
 
-#### MAUI head vs. Linux web host — drawing tool modifiers
+#### Drawing tool modifiers — the same on every head
 
-| Drawing tool | Desktop/mobile app (`Ctrl+Shift`) | Linux web host (`Alt+Shift`) |
-|---|---|---|
-| Trendline | Ctrl+Shift+T | Alt+Shift+T |
-| Horizontal line | Ctrl+Shift+H | Alt+Shift+H |
-| Vertical line | Ctrl+Shift+V | Alt+Shift+V |
-| Channel | Ctrl+Shift+C | Alt+Shift+C |
-| Fibonacci retracement | Ctrl+Shift+F | Alt+Shift+F |
-| Fibonacci extension | Ctrl+Shift+E | Alt+Shift+E |
-| Text label | Ctrl+Shift+L | Alt+Shift+L |
-| Rectangle | Ctrl+Shift+R | Alt+Shift+R |
-| Measure / range | Ctrl+Shift+M | Alt+Shift+M |
-| Andrews' pitchfork | Ctrl+Shift+A | Alt+Shift+A |
-| Gann fan | Ctrl+Shift+G | Alt+Shift+G |
-| Gann box | Ctrl+Shift+B | Alt+Shift+B |
-| Angle / Fibonacci angle | Ctrl+Shift+J | Alt+Shift+J |
-| Risk/Reward | Ctrl+Shift+P | Alt+Shift+P |
-| Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
-| Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
+| Drawing tool | Every head (`Alt+Shift`) |
+|---|---|
+| Trendline | Alt+Shift+T |
+| Horizontal line | Alt+Shift+H |
+| Vertical line | Alt+Shift+V |
+| Channel | Alt+Shift+C |
+| Fibonacci retracement | Alt+Shift+F |
+| Fibonacci extension | Alt+Shift+E |
+| Text label | Alt+Shift+L |
+| Rectangle | Alt+Shift+R |
+| Measure / range | Alt+Shift+M |
+| Andrews' pitchfork | Alt+Shift+A |
+| Gann fan | Alt+Shift+G |
+| Gann box | Alt+Shift+B |
+| Angle / Fibonacci angle | Alt+Shift+J |
+| Risk/Reward | Alt+Shift+P |
+| Anchored VWAP | Alt+Shift+W |
+| Detailed point summary | Alt+Shift+D |
 
 ---
 
@@ -847,7 +847,7 @@ terminal always starts with everything audible.
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+Shift+D | Full point analysis of current bar |
+| Alt+Shift+D | Full point analysis of current bar |
 | Ctrl+Alt+Shift+C | Focus chart and announce context summary |
 | Ctrl+Alt+Shift+N | Narration on/off for the focused series or component (`N` on the chart) |
 | Ctrl+Alt+Shift+A | Open AI Analyst modal |
@@ -925,27 +925,27 @@ By default only the chart on screen is live. To keep the other tabs watched too,
 
 | Shortcut | Tool |
 |----------|------|
-| Ctrl+Shift+T | Trendline |
-| Ctrl+Shift+H | Horizontal line |
-| Ctrl+Shift+V | Vertical line |
-| Ctrl+Shift+C | Price channel |
-| Ctrl+Shift+F | Fibonacci retracement |
-| Ctrl+Shift+E | Fibonacci extension |
-| Ctrl+Shift+L | Text label |
-| Ctrl+Shift+R | Rectangle |
-| Ctrl+Shift+M | Measure / range tool |
-| Ctrl+Shift+A | Andrews' pitchfork |
-| Ctrl+Shift+G | Gann fan |
-| Ctrl+Shift+B | Gann box |
-| Ctrl+Shift+J | Angle / Fibonacci angle |
-| Ctrl+Shift+P | Risk/Reward tool |
-| Ctrl+Shift+W | Anchored VWAP |
+| Alt+Shift+T | Trendline |
+| Alt+Shift+H | Horizontal line |
+| Alt+Shift+V | Vertical line |
+| Alt+Shift+C | Price channel |
+| Alt+Shift+F | Fibonacci retracement |
+| Alt+Shift+E | Fibonacci extension |
+| Alt+Shift+L | Text label |
+| Alt+Shift+R | Rectangle |
+| Alt+Shift+M | Measure / range tool |
+| Alt+Shift+A | Andrews' pitchfork |
+| Alt+Shift+G | Gann fan |
+| Alt+Shift+B | Gann box |
+| Alt+Shift+J | Angle / Fibonacci angle |
+| Alt+Shift+P | Risk/Reward tool |
+| Alt+Shift+W | Anchored VWAP |
 | Alt+D | Open drawing tools panel |
 | (re-press the tool shortcut) | Set each anchor at the current bar; the same shortcut advances anchor 1 → 2 → 3 and completes the drawing |
 | ContextMenu / Shift+F10 | Open the context menu for the focused drawing (keyboard equivalent of right-click) |
 | Escape | Cancel an in-progress drawing / close dialog |
 
-> On the Linux web host these `Ctrl+Shift` drawing chords are `Alt+Shift` — see [Platform Support](#17-platform-support).
+> These `Alt+Shift` drawing chords are the same on every head — see [Platform Support](#17-platform-support).
 
 ### Panels and Dialogs
 

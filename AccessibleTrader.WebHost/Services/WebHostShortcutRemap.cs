@@ -4,27 +4,25 @@ using AccessibleTrader.Core.Services;
 namespace AccessibleTrader.WebHost.Services
 {
     /// <summary>
-    /// Remaps Ctrl+Shift+letter shortcuts to Alt+Shift+letter on the
-    /// WebHost. Firefox reserves chords like Ctrl+Shift+T (reopen closed
-    /// tab), Ctrl+Shift+H (history), Ctrl+Shift+P (private window),
-    /// Ctrl+Shift+J (browser console), Ctrl+Shift+R (hard reload), and
-    /// Ctrl+Shift+W (close window) at the chrome level — they're handled
-    /// before any page-level keyboard listener fires, so even our
-    /// capture-phase <c>preventDefault</c> can't stop them. The MAUI head
-    /// runs inside a WebView with no browser chrome, so its default
-    /// shortcut profile uses Ctrl+Shift+letter for every drawing tool
-    /// (T = trend, H = horizontal, R = rectangle, etc.). Under the
-    /// WebHost we shift each of those to Alt+Shift+letter (a chord
-    /// Firefox does not claim), preserving the "same letter, same
-    /// drawing tool" muscle memory.
+    /// Browser-host overrides for the shortcut profile.
     ///
-    /// Three-modifier chords (Ctrl+Alt+Shift+letter) are not touched —
-    /// they're not Firefox-reserved and we want to keep them as-is.
-    /// Non-letter Ctrl+Shift chords (Ctrl+Shift+Space for
-    /// PlayComponent, Ctrl+Shift+Tab for SwitchTabPrev, Ctrl+Shift+F12
-    /// etc.) are handled separately below.
+    /// Until 2026-09-05 this class's main job was rewriting every Ctrl+Shift+letter
+    /// drawing chord to Alt+Shift+letter, because Firefox and Chrome reserve most of
+    /// that row at the chrome level — Ctrl+Shift+T (reopen closed tab), Ctrl+Shift+H
+    /// (history), Ctrl+Shift+P (private window), Ctrl+Shift+J (console), Ctrl+Shift+R
+    /// (hard reload), Ctrl+Shift+W (close window) — and they are dispatched before any
+    /// page-level listener fires, so even a capture-phase <c>preventDefault</c> cannot
+    /// stop them. The DEFAULT profile now binds those commands to Alt+Shift+letter on
+    /// every head (see <c>ShortcutManager.InitializeDefaultProfile</c>), so the letter
+    /// rewrite is a legacy step for a saved shortcuts.json that still carries the old
+    /// chords: same letter, same command, browser-safe modifier.
     ///
-    /// On top of the letter remap, a handful of <b>single-Ctrl</b> chords are
+    /// Three-modifier chords (Ctrl+Alt+Shift+letter) are not touched — they are not
+    /// browser-reserved. Non-letter Ctrl+Shift chords (Ctrl+Shift+Space for
+    /// PlayComponent, Ctrl+Shift+Tab for SwitchTabPrev, Ctrl+Shift+F12 etc.) are handled
+    /// separately below.
+    ///
+    /// A handful of <b>single-Ctrl</b> chords are
     /// reserved by the browser at the chrome level — they are dispatched before
     /// any page-level listener, so even our capture-phase <c>preventDefault</c>
     /// cannot stop them. These are rebound to web-safe equivalents:
@@ -52,7 +50,12 @@ namespace AccessibleTrader.WebHost.Services
             var profile = shortcuts.CurrentProfile;
             int remapped = 0;
 
-            // 1. Ctrl+Shift+letter → Alt+Shift+letter (drawing tools, detailed summary).
+            // 1. Ctrl+Shift+letter → Alt+Shift+letter. LEGACY since 2026-09-05: the default
+            //    profile binds the drawing tools and the detailed summary to Alt+Shift+letter on
+            //    every head, so on a fresh profile this loop finds nothing. It stays for a saved
+            //    shortcuts.json that still carries the old Ctrl+Shift chords — those are the
+            //    browser-reserved ones, and a user who rebinds a command onto Ctrl+Shift+letter
+            //    by hand is choosing a chord the browser eats.
             //    Snapshot the candidates first — we mutate the list inside the loop.
             var candidates = profile.Shortcuts
                 .Where(s => s.Ctrl && s.Shift && !s.Alt && IsSingleAsciiLetter(s.Key))
@@ -83,7 +86,7 @@ namespace AccessibleTrader.WebHost.Services
             {
                 shortcuts.LoadProfile(profile); // rebuild the lookup dictionary
                 logger.LogInformation(
-                    "Shortcuts: applied {Count} browser-host override(s) — Ctrl+Shift+letter → Alt+Shift+letter, plus reserved single-Ctrl tab/page chords rebound to web-safe equivalents.",
+                    "Shortcuts: applied {Count} browser-host override(s) — reserved single-Ctrl tab chords dropped, plus any legacy Ctrl+Shift+letter binding moved to Alt+Shift+letter.",
                     remapped);
             }
         }

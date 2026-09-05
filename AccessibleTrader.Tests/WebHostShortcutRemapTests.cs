@@ -76,12 +76,38 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void Remap_StillConvertsDrawingTools_ToAltShiftLetter()
+        public void TheDefaultProfile_IsAlreadyAltShift_OnEveryHead()
         {
+            // Cody, 2026-09-05: "change the keybindings on the windows client to alt as you
+            // suggested for consistency." The drawing tools and the detailed summary are
+            // Alt+Shift+letter in the DEFAULT profile now, so the desktop and the browser
+            // agree before any remap runs — and the remap has nothing to move.
             var sm = FreshManager();
+            Assert.Equal(SystemCommand.DrawTrend, sm.GetCommand("T", shift: true, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.DrawHorizontal, sm.GetCommand("H", shift: true, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.DetailedPointSummary, sm.GetCommand("D", shift: true, ctrl: false, alt: true));
+            Assert.Equal(SystemCommand.None, sm.GetCommand("T", shift: true, ctrl: true, alt: false));
+            Assert.Equal(SystemCommand.None, sm.GetCommand("D", shift: true, ctrl: true, alt: false));
+
+            Assert.Empty(sm.CurrentProfile.Shortcuts.Where(
+                s => s.Ctrl && s.Shift && !s.Alt && s.Key.Length == 1 && char.IsLetter(s.Key[0])));
+        }
+
+        [Fact]
+        public void Remap_StillConvertsALegacyCtrlShiftBinding_ToAltShiftLetter()
+        {
+            // A shortcuts.json saved before 2026-09-05 still carries Ctrl+Shift+T. On the
+            // desktop it keeps working as saved; on the browser host it is still a chord the
+            // browser eats, so the legacy rewrite stays.
+            var sm = FreshManager();
+            var legacy = sm.CurrentProfile;
+            legacy.Shortcuts.RemoveAll(s => s.Command == SystemCommand.DrawTrend);
+            legacy.Shortcuts.Add(new ShortcutDefinition(SystemCommand.DrawTrend, "T", Ctrl: true, Shift: true));
+            sm.LoadProfile(legacy);
+            Assert.Equal(SystemCommand.DrawTrend, sm.GetCommand("T", shift: true, ctrl: true, alt: false));
+
             WebHostShortcutRemap.ApplyBrowserHostOverrides(sm, NullLogger.Instance);
 
-            // Ctrl+Shift+T (DrawTrend) → Alt+Shift+T; the Ctrl+Shift form is gone.
             Assert.Equal(SystemCommand.DrawTrend, sm.GetCommand("T", shift: true, ctrl: false, alt: true));
             Assert.Equal(SystemCommand.None, sm.GetCommand("T", shift: true, ctrl: true, alt: false));
         }

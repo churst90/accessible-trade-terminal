@@ -416,28 +416,43 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.PlayPause, "SPACE", Ctrl: true));
             s.Add(new(SystemCommand.PlayPause, " ", Ctrl: true));
 
-            // Drawing Tools (Ctrl+Shift+letter)
-            s.Add(new(SystemCommand.DrawTrend,      "T", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawHorizontal, "H", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawVertical,   "V", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawChannel,    "C", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawFibonacci,  "F", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawLabel,      "L", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawFibExtension, "E", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawPitchfork,  "A", Ctrl: true, Shift: true)); // Ctrl+Shift+A
-            s.Add(new(SystemCommand.DrawRectangle,  "R", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawMeasure,    "M", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawGannFan,      "G", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawRiskReward,   "P", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawAnchoredVwap, "W", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawGannBox,      "B", Ctrl: true, Shift: true));
-            s.Add(new(SystemCommand.DrawAngleFib,     "J", Ctrl: true, Shift: true));
+            // Drawing Tools (Alt+Shift+letter).
+            //
+            // Alt+Shift since 2026-09-05, on EVERY head. They were Ctrl+Shift+letter, and the
+            // browser host rewrote them to Alt+Shift because Firefox and Chrome reserve most of
+            // the Ctrl+Shift row at the chrome level (Ctrl+Shift+T reopens a tab, +H history,
+            // +P a private window, +J the console) where no page listener can cancel them. That
+            // left the one remaining desktop/browser split the Help dialog had to explain on
+            // every page. Cody asked for the desktop to match. No Alt+Shift+letter chord below
+            // collides with anything else in this profile (Alt+Shift+N is AddTab, Alt+Shift+/
+            // is the pane description); ShortcutConflictTests keeps it that way. The one
+            // platform caveat: Windows switches keyboard layout on a bare Alt+Shift when two
+            // layouts are installed — the switch fires on RELEASE without a third key, so
+            // Alt+Shift+T is safe, but it is the thing to test on a Windows box with two
+            // layouts. A saved shortcuts.json that still carries Ctrl+Shift keeps working as
+            // saved (the Help dialog reads the live profile); the browser host still rewrites
+            // it. See WebHostShortcutRemap.
+            s.Add(new(SystemCommand.DrawTrend,      "T", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawHorizontal, "H", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawVertical,   "V", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawChannel,    "C", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawFibonacci,  "F", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawLabel,      "L", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawFibExtension, "E", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawPitchfork,  "A", Alt: true, Shift: true)); // Alt+Shift+A
+            s.Add(new(SystemCommand.DrawRectangle,  "R", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawMeasure,    "M", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawGannFan,      "G", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawRiskReward,   "P", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawAnchoredVwap, "W", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawGannBox,      "B", Alt: true, Shift: true));
+            s.Add(new(SystemCommand.DrawAngleFib,     "J", Alt: true, Shift: true));
             // Escape cancels an in-progress drawing placement when the chart has focus,
             // OR closes the topmost open modal — CommandDispatcher re-routes Escape to
             // CloseModal whenever _openModalCount > 0.
             s.Add(new(SystemCommand.CancelDrawing,  "ESCAPE"));
             // NOTE: There is no Enter/Return binding for drawing. Anchors are set by
-            // re-pressing the same tool shortcut (e.g. Ctrl+Shift+T) at each point — the
+            // re-pressing the same tool shortcut (e.g. Alt+Shift+T) at each point — the
             // DrawingInteractionManager state machine advances one anchor per press.
             // ConfirmCoordinateEntry is reserved/unused (no handler in CommandDispatcher).
             // Application/Menu key + Shift+F10: open the right-click context menu on
@@ -461,7 +476,7 @@ namespace AccessibleTrader.Core.Services
 
             // ── Quick trade ──────────────────────────────────────────────────
             // Three-modifier chords: these move money, so they must be impossible to
-            // hit by accident and must survive the WebHost's Ctrl+Shift remap untouched.
+            // hit by accident; the WebHost's legacy Ctrl+Shift remap never touches three-modifier chords.
             // The number row maps to increasing risk, and 0 — the key past 3 — cancels.
             s.Add(new(SystemCommand.QuickArmRisk1, "1", Ctrl: true, Alt: true, Shift: true));
             s.Add(new(SystemCommand.QuickArmRisk2, "2", Ctrl: true, Alt: true, Shift: true));
@@ -474,8 +489,9 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.QuickPlaceLimit,  "ENTER", Shift: true));
             s.Add(new(SystemCommand.QuickPlaceMarket, "ENTER", Ctrl: true));
 
-            // Detail summary: Ctrl+Shift+D speaks full candle pattern analysis for the current bar.
-            s.Add(new(SystemCommand.DetailedPointSummary, "D", Ctrl: true, Shift: true));
+            // Detail summary: Alt+Shift+D speaks full candle pattern analysis for the current bar.
+            // Moved with the drawing tools (it was the other Ctrl+Shift+letter chord).
+            s.Add(new(SystemCommand.DetailedPointSummary, "D", Alt: true, Shift: true));
             // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.
             s.Add(new(SystemCommand.ToggleNarration, "N", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+N
 
@@ -560,12 +576,13 @@ namespace AccessibleTrader.Core.Services
 
             // ── Orientation and recovery ─────────────────────────────────────
             //
-            // These sat on Alt+Shift+L / H / M and had to move. The Linux WebHost rewrites every
-            // Ctrl+Shift+letter chord to Alt+Shift+letter at startup — browsers reserve the former
-            // at chrome level and a page cannot cancel it — so all three landed exactly on the
-            // remapped Text Label, Horizontal Line and Measure Tool. The DEFAULT profile was
-            // clean, which is why the original conflict guard was happy; the profile a WebHost
-            // user actually runs had two commands on one chord in three places.
+            // These sat on Alt+Shift+L / H / M and had to move. At the time the drawing tools
+            // were Ctrl+Shift+letter and only the Linux WebHost rewrote them to Alt+Shift+letter
+            // at startup, so all three landed exactly on the remapped Text Label, Horizontal
+            // Line and Measure Tool. The DEFAULT profile was clean, which is why the original
+            // conflict guard was happy; the profile a WebHost user actually ran had two commands
+            // on one chord in three places. Since 2026-09-05 the drawing tools are Alt+Shift in
+            // the default itself, so the conflict guard now sees what every user runs.
             //
             // Three-modifier chords are untouched by that rewrite, so Ctrl+Alt+Shift is the only
             // family that means the same thing on both heads. Letters chosen from what is

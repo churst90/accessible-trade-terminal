@@ -97,6 +97,54 @@ public class AlertDeliverySettingsTests
         Assert.DoesNotContain("Active Alerts", cut.Markup);
     }
 
+    // ── Desktop notifications ────────────────────────────────────────────────
+
+    [Fact]
+    public void DesktopSwitches_AreAbsent_WhereNoToastCanBeDelivered()
+    {
+        // Hosted, demo, and any desktop without a notification path: the notifier says
+        // unavailable and the panel offers no checkbox that would do nothing.
+        using var h = new BlazorTestHarness();
+        var cut = OpenDeliveryPanel(h);
+        Assert.Empty(cut.FindAll("#s-notify-alerts"));
+        Assert.Empty(cut.FindAll("#s-notify-fills"));
+        Assert.Empty(cut.FindAll("#s-notify-bars"));
+    }
+
+    [Fact]
+    public void DesktopSwitches_ArePresentAndOff_WhereAToastCanBeDelivered()
+    {
+        using var h = new BlazorTestHarness();
+        h.DesktopNotifier.IsAvailable.Returns(true);
+        h.DesktopNotifier.Describe().Returns("notify-send");
+        var cut = OpenDeliveryPanel(h);
+        Assert.Single(cut.FindAll("#s-notify-alerts"));
+        Assert.Single(cut.FindAll("#s-notify-fills"));
+        Assert.Single(cut.FindAll("#s-notify-bars"));
+        Assert.Null(cut.Find("#s-notify-bars").GetAttribute("checked"));
+        Assert.Contains("notify-send", cut.Markup);
+    }
+
+    [Fact]
+    public void TickingADesktopSwitch_WritesItsKeyImmediately()
+    {
+        // Same commit rule as the SMTP fields: no Save button, and Escape cannot lose it.
+        using var h = new BlazorTestHarness();
+        h.DesktopNotifier.IsAvailable.Returns(true);
+        var cut = OpenDeliveryPanel(h);
+
+        cut.InvokeAsync(() => cut.Find("#s-notify-bars").Change(true)).GetAwaiter().GetResult();
+
+        cut.WaitForAssertion(() =>
+        {
+            h.SettingsManager.Received().SetSetting(SettingsKeys.DesktopNotifyNewBars,
+                Arg.Is<JToken>(t => t.Type == JTokenType.Boolean && (bool)t));
+            h.SettingsManager.Received().SetSetting(SettingsKeys.DesktopNotifyAlerts,
+                Arg.Is<JToken>(t => t.Type == JTokenType.Boolean && !(bool)t));
+            h.SettingsManager.Received().SaveSettings();
+        });
+    }
+
     [Fact]
     public void BackToAlerts_ReturnsToTheList()
     {

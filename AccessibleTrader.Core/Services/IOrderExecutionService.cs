@@ -90,6 +90,16 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string provider, string symbol);
 
+        /// <summary>
+        /// Whether <paramref name="provider"/> has an order book worth opening a dialog for:
+        /// it implements <see cref="IOrderBookProvider"/> (a compiler-enforced fact, the way
+        /// Deposit is gated on <c>IWalletProvider</c>) or declares
+        /// <see cref="ProviderCapabilities.L2"/>. The toolbar's Order book button is gated on
+        /// this, so it appears only where it can show something; Alt+B still opens the dialog
+        /// anywhere, and the dialog says when there is nothing to show.
+        /// </summary>
+        Task<bool> HasOrderBookAsync(string provider);
+
         /// <summary>Recent filled trades for the account, or why they could not be read.</summary>
         Task<ProviderResult<List<TradeFill>>> GetFillsAsync(string provider, string? symbol = null, int limit = 50);
 

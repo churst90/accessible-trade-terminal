@@ -89,7 +89,11 @@ internal static class ModalRoutes
         new("DrawingToolsModal",     OpenBy.ToolbarButton, "Drawings",                 "drawing-tools-title",   "heading names the dialog"),
         new("SoundDesignerModal",    OpenBy.ToolbarButton, "Sound designer",          "sound-designer-title",  "heading names the dialog"),
         new("TradingDashboardModal", OpenBy.ToolbarButton, "Trade dashboard",          "trade-title",           "heading names the dialog"),
-        new("OrderBookModal",        OpenBy.ToolbarButton, "Order book",              "orderbook-title",       "heading names the dialog"),
+        // OrderBookModal is NOT here since 2026-09-05: its toolbar button is gated on the
+        // current provider having a book (IOrderBookProvider or L2), the way Deposit is gated
+        // on IWalletProvider — and this harness loads ZERO providers, because every plugin DLL
+        // under bin/ is refused by the trust allow-list (measured: "Total Unique Loaded Data
+        // Providers: 0"). The dialog is still swept through its Alt+B route above.
         new("StrategyModal",         OpenBy.ToolbarButton, "Strategies",              "strategy-title",        "heading names the dialog"),
         new("WatchlistModal",        OpenBy.ToolbarButton, "Watch lists", "watchlist-title",       "heading names the dialog"),
         new("LevelReportModal",      OpenBy.ToolbarButton, "Levels", "levelreport-title",     "heading names the dialog"),

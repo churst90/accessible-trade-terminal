@@ -136,6 +136,13 @@ namespace AccessibleTrader.Core.Services
         public const string LiveBackgroundTabs   = "workspace.liveBackgroundTabs";
         public const string ResumeLastSession    = "workspace.resumeLastSession";
 
+        // ── Desktop notifications (the OS toast; see DesktopNotificationService) ──
+        // All three default FALSE — opt-in, so a bare settings substitute gets the default
+        // and a one-minute chart does not become a toast a minute by surprise.
+        public const string DesktopNotifyAlerts     = "notifications.desktop.alerts";
+        public const string DesktopNotifyNewBars    = "notifications.desktop.newBars";
+        public const string DesktopNotifyOrderFills = "notifications.desktop.orderFills";
+
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";
         public const string EmailPort          = "alerts.email.port";

@@ -100,6 +100,7 @@ namespace AccessibleTrader.Tests
                 string provider, string symbol, int depth = 10) => Task.FromResult((new List<OrderBookEntry>(), new List<OrderBookEntry>()));
             public Task<IObservable<OrderBookUpdate>?> SubscribeOrderBookAsync(string provider, string symbol) =>
                 Task.FromResult<IObservable<OrderBookUpdate>?>(null);
+            public Task<bool> HasOrderBookAsync(string provider) => Task.FromResult(false);
             public Task<ProviderResult<List<TradeFill>>> GetFillsAsync(string provider, string? symbol = null, int limit = 50) =>
                 Task.FromResult(ProviderResult<List<TradeFill>>.Ok(new List<TradeFill>()));
             public Task<bool> SupportsMarginTradingAsync(string provider) => Task.FromResult(false);

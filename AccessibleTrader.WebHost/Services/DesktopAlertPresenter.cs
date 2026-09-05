@@ -31,6 +31,9 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>The notification sound. Silent when no player is installed.</summary>
         void PlayNotificationSound();
 
+        /// <summary>Whether <see cref="Notify"/> can reach a desktop at all (<c>notify-send</c> found on the PATH).</summary>
+        bool CanNotify { get; }
+
         /// <summary>A desktop toast. No-op when <c>notify-send</c> is not installed.</summary>
         /// <param name="urgent">Critical urgency — used for the monitor reporting on ITSELF
         /// (a feed it can no longer watch), not for an alert firing normally.</param>
@@ -88,6 +91,8 @@ namespace AccessibleTrader.WebHost.Services
         {
             if (_player != null && File.Exists(_soundPath)) Run(_player, _soundPath);
         }
+
+        public bool CanNotify => _notifySend != null;
 
         public void Notify(string title, string text, bool urgent)
         {

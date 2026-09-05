@@ -536,6 +536,15 @@ namespace AccessibleTrader.WebHost
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
                     sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
+            // Desktop toasts for alerts / fills / new bars, per circuit like the delivery
+            // service; the IDesktopNotifier it speaks through is registered in Program.cs.
+            services.AddScoped<AccessibleTrader.Core.Services.Notifications.DesktopNotificationService>();
+            // The null notifier is the default for every host mode; Program.cs REPLACES it with
+            // the notify-send one on HostMode.Full only (a later AddSingleton wins for a single
+            // resolve). Registered here rather than only there so HostParityTests sees both
+            // heads register the seam.
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.IDesktopNotifier,
+                                  AccessibleTrader.Core.Services.Notifications.NullDesktopNotifier>();
             // Part C — strategy-setup → AlertFiredEvent bridge (default-off; see SetupAlertBridge).
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.SetupAlertBridge>();
 

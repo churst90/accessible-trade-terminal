@@ -96,7 +96,7 @@
             <details style="margin-bottom:12px;">
                 <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Volume Profile Navigation</h3></summary>
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
-                    <p>When you focus a Volume Profile (VPVR/VPFR/TPO) series using <strong>Page Up/Down</strong>:</p>
+                    <p>When you focus a profile series (volume or TPO; visible range, fixed range, session or anchored) using <strong>Page Up/Down</strong>:</p>
                     <ul style="margin:4px 0 4px 1.2em;">
                         <li><strong>Left/Right arrows are silenced</strong> — profiles are vertical distributions, not time series.</li>
                         <li><strong>Up/Down arrows</strong> move through price bins. Each bin is announced with price range, volume, and percentage of session total.</li>
@@ -113,16 +113,16 @@
                 <div style="padding:8px 0 4px; font-size:0.9rem; line-height:1.6;">
                     <p>All drawing tools use <strong>Sequential Anchoring</strong> — navigate to each point and press the shortcut. No holding keys required.</p>
 
-                    <p><strong>Trendline (Ctrl+Shift+T) — 2 anchors:</strong></p>
+                    <p><strong>Trendline (Alt+Shift+T) — 2 anchors:</strong></p>
                     <ol style="margin:2px 0 8px 1.2em;">
-                        <li>Navigate to the start point. Press <kbd>Ctrl+Shift+T</kbd>. Speech: "Anchor 1 set."</li>
-                        <li>Navigate to the end point. Press <kbd>Ctrl+Shift+T</kbd>. The line is drawn.</li>
+                        <li>Navigate to the start point. Press <kbd>Alt+Shift+T</kbd>. Speech: "Anchor 1 set."</li>
+                        <li>Navigate to the end point. Press <kbd>Alt+Shift+T</kbd>. The line is drawn.</li>
                     </ol>
 
-                    <p><strong>Fibonacci Retracement (Ctrl+Shift+F) — 2 anchors:</strong></p>
+                    <p><strong>Fibonacci Retracement (Alt+Shift+F) — 2 anchors:</strong></p>
                     <ol style="margin:2px 0 8px 1.2em;">
-                        <li>Navigate to the swing High. Press <kbd>Ctrl+Shift+F</kbd>.</li>
-                        <li>Navigate to the swing Low. Press <kbd>Ctrl+Shift+F</kbd>. Levels are drawn.</li>
+                        <li>Navigate to the swing High. Press <kbd>Alt+Shift+F</kbd>.</li>
+                        <li>Navigate to the swing Low. Press <kbd>Alt+Shift+F</kbd>. Levels are drawn.</li>
                     </ol>
 
                     <p><strong>Risk/Reward Tool — 3 anchors:</strong></p>
@@ -161,7 +161,7 @@
                         <li><strong>Momentum:</strong> RSI, MACD, Stochastics, CCI, Williams %R.</li>
                         <li><strong>Volatility:</strong> Bollinger Bands, ATR, Keltner Channels.</li>
                         <li><strong>Volume:</strong> OBV, Chaikin, VWAP, Volume bars.</li>
-                        <li><strong>Profiles:</strong> Volume Profile (VPVR/VPFR), TPO/Market Profile.</li>
+                        <li><strong>Profiles:</strong> Volume Profile and Market Profile (TPO), each over the visible range, a fixed range, one session, or anchored at a bar.</li>
                     </ul>
                     <p>Once an indicator is on the chart, focus it with <strong>Page Up/Down</strong>. Press <strong>P</strong> to open its properties. Press <strong>H</strong> to toggle visibility. Press <strong>M</strong> to toggle audio mute. Press <strong>Delete</strong> to remove it — and if that was a mistake, <strong>Ctrl+Z</strong> brings it back. Ctrl+Z also reverses an accidentally dragged drawing anchor; <strong>Ctrl+Y</strong> redoes.</p>
                     <p>Use <strong>F5/Shift+F5</strong> to cycle the focused component's volume. <strong>F6/Shift+F6</strong> for the full series. <strong>F7/Shift+F7</strong> for chart master volume.</p>
@@ -326,7 +326,7 @@
                         <tr><td>Alt+L</td><td>Toggle log scale / linear scale</td></tr>
                         <tr><td>Alt+H</td><td>Toggle volume heatmap overlay</td></tr>
                         <tr><td>P / Shift+F12</td><td>Open Properties for focused indicator</td></tr>
-                        <tr><td>Ctrl+Shift+D</td><td>Detailed bar summary (candle pattern + all indicators)</td></tr>
+                        <tr><td>Alt+Shift+D</td><td>Detailed bar summary (candle pattern + all indicators)</td></tr>
                         <tr><td>Ctrl+Alt+Shift+A</td><td>Open the AI Technical Analyst</td></tr>
                         <tr><td>Ctrl+Alt+Shift+N</td><td>Narration on or off — the same as N, but works with focus outside the chart</td></tr>
                         <tr><td>Ctrl+Alt+Shift+J</td><td>Open the Journal (speech / alerts / setups / errors)</td></tr>
@@ -408,33 +408,34 @@
             <details style="margin-bottom:12px;">
                 <summary style="cursor:pointer; font-weight:700; padding:4px 0;"><h3 style="display:inline; font-size:inherit; font-weight:inherit; margin:0;">Drawing tool shortcuts</h3></summary>
                 <p style="font-size:0.82rem; color:var(--text-muted,#666); margin:4px 0 8px;">
-                    On the Linux web host, every <strong>Ctrl+Shift+&lt;letter&gt;</strong> drawing chord below is
-                    remapped to <strong>Alt+Shift+&lt;letter&gt;</strong> (Firefox reserves several Ctrl+Shift chords).
-                    Same letter, same tool. The <strong>All Keyboard Shortcuts (Live — from current profile)</strong> section at
+                    Every drawing chord is <strong>Alt+Shift+&lt;letter&gt;</strong> on every head — desktop and browser
+                    alike. (They were Ctrl+Shift on the desktop until 2026-09-05; browsers reserve most of that row,
+                    so the two heads used to differ.) A shortcuts profile saved before then keeps its old chords.
+                    The <strong>All Keyboard Shortcuts (Live — from current profile)</strong> section at
                     the END of this dialog always shows the bindings actually in effect on this host.
                 </p>
                 <table class="shortcuts-table">
                     <thead><tr><th>Key</th><th>Action</th></tr></thead>
                     <tbody>
-                        <tr><td>Ctrl+Shift+T</td><td>Draw trend line (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+H</td><td>Draw horizontal level (1 anchor)</td></tr>
-                        <tr><td>Ctrl+Shift+V</td><td>Draw vertical line (1 anchor)</td></tr>
-                        <tr><td>Ctrl+Shift+C</td><td>Draw channel (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+F</td><td>Draw Fibonacci retracement (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+E</td><td>Draw Fibonacci extension (3 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+J</td><td>Draw angle Fibonacci (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+R</td><td>Draw rectangle (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+A</td><td>Draw Andrews' Pitchfork (3 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+G</td><td>Draw Gann Fan (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+B</td><td>Draw Gann Box (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+P</td><td>Draw Risk/Reward zone (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+W</td><td>Draw Anchored VWAP (1 anchor)</td></tr>
+                        <tr><td>Alt+Shift+T</td><td>Draw trend line (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+H</td><td>Draw horizontal level (1 anchor)</td></tr>
+                        <tr><td>Alt+Shift+V</td><td>Draw vertical line (1 anchor)</td></tr>
+                        <tr><td>Alt+Shift+C</td><td>Draw channel (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+F</td><td>Draw Fibonacci retracement (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+E</td><td>Draw Fibonacci extension (3 anchors)</td></tr>
+                        <tr><td>Alt+Shift+J</td><td>Draw angle Fibonacci (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+R</td><td>Draw rectangle (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+A</td><td>Draw Andrews' Pitchfork (3 anchors)</td></tr>
+                        <tr><td>Alt+Shift+G</td><td>Draw Gann Fan (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+B</td><td>Draw Gann Box (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+P</td><td>Draw Risk/Reward zone (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+W</td><td>Draw Anchored VWAP (1 anchor)</td></tr>
                         <tr><td>Shift+Left / Shift+Right</td><td>Nudge the focused drawing's selected anchor one bar earlier / later</td></tr>
                         <tr><td>Shift+Up / Shift+Down</td><td>Nudge the selected anchor's price up / down by 1% of the visible range</td></tr>
                         <tr><td>Ctrl+Alt+Shift+G</td><td>Select the next anchor of the focused drawing (first press says which is selected)</td></tr>
                         <tr><td>Ctrl+Alt+Shift+B</td><td>Snap the selected anchor to its bar's high, low, open or close (repeat to cycle)</td></tr>
-                        <tr><td>Ctrl+Shift+M</td><td>Measure tool — reads distance and % change (2 anchors)</td></tr>
-                        <tr><td>Ctrl+Shift+L</td><td>Draw text label</td></tr>
+                        <tr><td>Alt+Shift+M</td><td>Measure tool — reads distance and % change (2 anchors)</td></tr>
+                        <tr><td>Alt+Shift+L</td><td>Draw text label</td></tr>
                         <tr><td>Escape</td><td>Cancel drawing in progress</td></tr>
                     </tbody>
                 </table>

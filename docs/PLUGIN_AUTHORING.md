@@ -197,7 +197,7 @@ public int GetStabilityWindow(string code, Dictionary<string, object> parameters
 ### `string GetDetailFact(...)`
 
 Returns a multi-sentence human-readable description of the indicator's full state at
-a specific bar. Announced when the user presses Ctrl+Shift+D (or F4 on some
+a specific bar. Announced when the user presses Alt+Shift+D (or F4 on some
 configurations).
 
 ```csharp

@@ -148,4 +148,130 @@ public class ProfileAnchoringTests
         Assert.Empty(p);
         Assert.Empty(ProfileAnchoring.SliceToAnchor(new List<Ohlcv>(), p));
     }
+
+    // ── The eight codes, and the four windows (2026-09-05) ─────────────────────
+
+    /// <summary>
+    /// One idea crossed with another: four windows by two measures. Every cell exists, every
+    /// cell is a profile, and the window and the measure are read from the code — not from a
+    /// string guess, which is the defect this class was born from.
+    /// </summary>
+    [Theory]
+    [InlineData("VPVR",       ProfileWindow.Visible,  false)]
+    [InlineData("VPFR",       ProfileWindow.Fixed,    false)]
+    [InlineData("VPSESSION",  ProfileWindow.Session,  false)]
+    [InlineData("VPANCHOR",   ProfileWindow.Anchored, false)]
+    [InlineData("TPO",        ProfileWindow.Visible,  true)]
+    [InlineData("TPOFR",      ProfileWindow.Fixed,    true)]
+    [InlineData("TPOSESSION", ProfileWindow.Session,  true)]
+    [InlineData("TPOANCHOR",  ProfileWindow.Anchored, true)]
+    public void EveryCellOfTheGrid_IsAProfileWithItsWindowAndMeasure(string code, ProfileWindow window, bool countsTime)
+    {
+        Assert.True(ProfileAnchoring.IsProfileCode(code));
+        Assert.True(ProfileAnchoring.IsProfileCode(code.ToLowerInvariant()));
+        Assert.Equal(window, ProfileAnchoring.WindowOf(code));
+        Assert.Equal(countsTime, ProfileAnchoring.CountsTime(code));
+        // Visible and session profiles are picked BY the viewport; fixed and anchored are not.
+        Assert.Equal(window is ProfileWindow.Visible or ProfileWindow.Session,
+                     ProfileAnchoring.FollowsViewport(code));
+        Assert.Contains(code, ProfileAnchoring.AllCodes);
+    }
+
+    [Fact]
+    public void TheCatalogueRegistersExactlyTheEight_UnderProfile()
+    {
+        var metas = new AccessibleTrader.Core.Services.Indicators.ProfileIndicatorProvider().GetIndicators();
+        Assert.Equal(ProfileAnchoring.AllCodes, metas.Select(m => m.Code).ToList());
+        Assert.All(metas, m => Assert.Equal("Profile", m.Category));
+        // Every name is distinct: two entries with the same spoken name is the old VPVR/VPFR
+        // defect in a new coat — two descriptions the ear cannot tell apart.
+        Assert.Equal(metas.Count, metas.Select(m => m.Name).Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData("VOLUME PROFILE", false)]
+    [InlineData("MARKET PROFILE", true)]
+    [InlineData("EMA", null)]
+    public void ALegacyProfileCodeStillLoadsAsOne_AndAnIndicatorDoesNot(string code, bool? countsTime)
+    {
+        if (countsTime is null)
+        {
+            Assert.False(ProfileAnchoring.IsProfileCode(code));
+            return;
+        }
+        Assert.True(ProfileAnchoring.IsProfileCode(code));
+        Assert.Equal(ProfileWindow.Visible, ProfileAnchoring.WindowOf(code));
+        Assert.Equal(countsTime.Value, ProfileAnchoring.CountsTime(code));
+    }
+
+    private static List<Ohlcv> HourlyBars(int days)
+    {
+        var start = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+        return Enumerable.Range(0, days * 24)
+            .Select(i => new Ohlcv(start.AddHours(i), 100 + i, 101 + i, 99 + i, 100 + i, 1000))
+            .ToList();
+    }
+
+    /// <summary>A session is the calendar day of the LAST visible bar — the day you have panned to.</summary>
+    [Fact]
+    public void ASessionSlice_IsTheDayOfTheLastVisibleBar()
+    {
+        var bars = HourlyBars(3); // 72 bars, three UTC days
+        // Viewport ends at bar 40 (day 2, 16:00): the session is all 24 bars of day 2.
+        var slice = ProfileAnchoring.SliceToSession(bars, viewportStart: 20, viewportLength: 21);
+        Assert.Equal(24, slice.Count);
+        Assert.All(slice, b => Assert.Equal(new DateTime(2026, 3, 2), b.Date.Date));
+        // Pan into day 3 and the profile follows.
+        var next = ProfileAnchoring.SliceToSession(bars, viewportStart: 50, viewportLength: 20);
+        Assert.All(next, b => Assert.Equal(new DateTime(2026, 3, 3), b.Date.Date));
+    }
+
+    /// <summary>An anchored profile has a start and no end: it runs to the newest bar and grows.</summary>
+    [Fact]
+    public void AnAnchoredProfile_RunsFromTheChosenBarToTheNewestOne_AndGrows()
+    {
+        var bars = Bars(100);
+        var p = new Dictionary<string, double>();
+        ProfileAnchoring.CaptureAnchorStart(p, bars, barIndex: 30);
+        Assert.False(p.ContainsKey(ProfileAnchoring.AnchorEndParam));
+
+        var slice = ProfileAnchoring.SliceToAnchor(bars, p);
+        Assert.Equal(70, slice.Count);
+        Assert.Equal(bars[30].Date, slice[0].Date);
+        Assert.Equal(bars[^1].Date, slice[^1].Date);
+
+        // Five more bars arrive: the anchor stays, the window grows.
+        var grown = bars.Concat(Enumerable.Range(100, 5)
+            .Select(i => new Ohlcv(bars[0].Date.AddDays(i), 1, 1, 1, 1, 1))).ToList();
+        Assert.Equal(75, ProfileAnchoring.SliceToAnchor(grown, p).Count);
+    }
+
+    /// <summary>
+    /// The one entry point the orchestrator and the backtester share, so a window means the
+    /// same thing on both. Each code goes to its own slice.
+    /// </summary>
+    [Fact]
+    public void Slice_DispatchesEachCodeToItsWindow()
+    {
+        var bars = HourlyBars(3);
+        var fixedRange = new Dictionary<string, double>();
+        ProfileAnchoring.CaptureAnchor(fixedRange, bars, 10, 5);
+        var anchored = new Dictionary<string, double>();
+        ProfileAnchoring.CaptureAnchorStart(anchored, bars, 60);
+
+        Assert.Equal(21, ProfileAnchoring.Slice("VPVR", bars, null, 20, 21).Count);
+        Assert.Equal(21, ProfileAnchoring.Slice("TPO", bars, null, 20, 21).Count);
+        Assert.Equal(24, ProfileAnchoring.Slice("VPSESSION", bars, null, 20, 21).Count);
+        Assert.Equal(24, ProfileAnchoring.Slice("TPOSESSION", bars, null, 20, 21).Count);
+        Assert.Equal(5,  ProfileAnchoring.Slice("VPFR", bars, fixedRange, 20, 21).Count);
+        Assert.Equal(5,  ProfileAnchoring.Slice("TPOFR", bars, fixedRange, 20, 21).Count);
+        Assert.Equal(12, ProfileAnchoring.Slice("VPANCHOR", bars, anchored, 20, 21).Count);
+        Assert.Equal(12, ProfileAnchoring.Slice("TPOANCHOR", bars, anchored, 20, 21).Count);
+        // A caller with no viewport (the backtester) passes the whole buffer: the visible
+        // window is everything and the session is the newest one.
+        Assert.Equal(72, ProfileAnchoring.Slice("VPVR", bars, null, 0, bars.Count).Count);
+        Assert.Equal(24, ProfileAnchoring.Slice("VPSESSION", bars, null, 0, bars.Count).Count);
+        Assert.All(ProfileAnchoring.Slice("VPSESSION", bars, null, 0, bars.Count),
+                   b => Assert.Equal(new DateTime(2026, 3, 3), b.Date.Date));
+    }
 }

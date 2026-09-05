@@ -7,6 +7,97 @@ All notable changes to this project will be documented in this file.
 Everything under this heading postdates the `v2.7.0` tag. At the next cut this heading becomes
 `## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.7.0 binaries.
 
+### Five from Cody: the order book button, five more profiles, desktop notifications, Alt+Shift everywhere, and hidden means silent (2026-09-05)
+
+**The Order book button is gated on the provider.** Cody: *"Gate the order book button on the
+provider in the toolbar."* It was gated on the host policy alone, so on Twelve Data or an index
+feed it opened a dialog whose only content was "Order book is not available for X on Y."
+`IOrderExecutionService.HasOrderBookAsync` answers for the CURRENT provider — it implements
+`IOrderBookProvider` (nine venues, a compiler-enforced fact, the same shape as Deposit on
+`IWalletProvider`) or declares `ProviderCapabilities.L2` (Interactive Brokers: a real snapshot
+with no stream). The toolbar renders the button only on a yes; Alt+B still opens the dialog
+anywhere and it still says when there is nothing. Correction to the 25th pass's note: L2 was
+NOT undeclared — all nine implementers plus IBKR already declare it. `OrderBookGateTests`
+(service and markup; the markup half proven by sabotage). Two things learned on the way. The
+toolbar caches its provider-gated answers per provider NAME, and `IDataService.GetProviderAsync`
+answers null for every name until start-up has loaded the plugins — so a `ProvidersReadyEvent`
+is published at that moment and the toolbar re-asks on it (it also asks once at construction,
+so Deposit and Withdraw no longer depend on the store replaying its state). And **the browser
+harness loads ZERO providers**: every plugin DLL under its bin/ is refused by the trust
+allow-list ("Total Unique Loaded Data Providers: 0", measured with a probe after three wrong
+guesses about timing). A provider-gated button therefore cannot appear there, so the Order book
+dialog's toolbar route and its tooltip row left the browser sweep; the Alt+B route still covers
+the dialog. Browser suite 203 of 203.
+
+**Five more profiles — the grid is complete.** Cody: *"add the additional profile indicators,
+address any problems remaining/documented with them."* A profile is one idea (which bars)
+crossed with another (what is counted), and three of the eight cells existed. The Profile
+category now has all eight: Volume Profile and Market Profile (TPO), each over the **visible
+range**, a **fixed range**, one **session** (the UTC calendar day of the last visible bar — pan
+into yesterday and you get yesterday's), or **anchored** (from the bar the cursor was on when
+it was added to the newest bar, growing as bars arrive — the anchored-VWAP idea applied to
+volume). Codes: `VPVR VPFR VPSESSION VPANCHOR TPO TPOFR TPOSESSION TPOANCHOR`. Properties
+describes a fixed range as a sentence (already) and an anchored profile as "Anchored at {date},
+running to the newest bar". **The problem addressed on the way:** the three codes were spelled
+out by hand in SEVEN places (pane assignment, the series manager twice, the orchestrator, the
+backtester, the level provider, the anchoring class) — the same shape as the hand-written clone
+that dropped narration flags on restore. `ProfileAnchoring` now owns the codes, the window of
+each, the measure of each, and ONE `Slice` entry point the orchestrator and the backtester
+share, so a window means the same thing on both (the backtester used to feed the whole history
+to every profile regardless of its window). Also closed: the `VolumeProfileLevelProvider` comment
+still calling the backtest future-leak "the most important pending S/R correctness item" a
+year after `IBacktestProfileCache` closed it (TODO §A1 filed it). **Sabotage:** restoring the
+orchestrator's `codeUpper == "TPO"` measure pick left every existing test green and a fixed-range
+TPO computing as a VOLUME profile; `EveryProfileCode_ReachesItsMeasure_OverItsWindow` (eight
+cases through the real orchestrator) is the guard, red on the sabotage. Not done: a per-bin
+stereo pan in profile sonification (TODO's `SonifyProfile` item) — a profile's axis is price,
+which pitch already does not encode there by design; left as filed.
+
+**Desktop notifications on the local web host and the Windows app.** Cody: *"is it possible for
+the webhost to send desktop notifications using the mate notification center? How about the
+maui head, can it be added here for windows toast notifications?"* Yes and yes. One seam,
+`IDesktopNotifier`, and one policy, `DesktopNotificationService`, which turns three events into
+a toast, each behind its own switch under Alerts → Delivery settings → **Desktop
+notifications**: alerts that fire, order fills (with stops and take-profits — a fill you did not
+press a key for), and new bars on the current chart. **All three default OFF** (a one-minute
+chart is a toast a minute; opt-in also means a bare settings substitute gets the default).
+Playback bars are skipped — the sequencer is not the market. Delivery: the local WebHost goes
+through the same `notify-send` the background monitor already uses, so the MATE daemon shows it
+like any freedesktop notification and Orca can present it; the two cannot double up, because
+the monitor pauses while a browser circuit is open and this service IS the circuit. The Windows
+MAUI head gets `WindowsDesktopNotifier` on the Windows App SDK's `AppNotificationManager`
+(unpackaged-app path, registers on first use, reports itself unavailable if registration
+throws). **The Windows file is NOT compiled on this Linux box** — the Windows TFM is excluded
+here — so it is written against the documented API and needs a Windows build to verify. Hosted,
+demo, macOS, iOS and Android register the null notifier and the panel hides the switches. The
+toast body is the speech layer's own sentence, so what the toast reads and what the journal
+recorded agree. `DesktopNotificationServiceTests` (9), `AlertDeliverySettingsTests` (+3).
+
+**The drawing chords are Alt+Shift+letter on every head.** Cody: *"change the keybindings on the
+windows client to alt as you suggested for consistency if it won't cause any conflicts."* The
+fifteen drawing tools and the detailed point summary were Ctrl+Shift+letter in the default
+profile with the browser host rewriting them to Alt+Shift at start-up — the one real
+desktop/browser split left, which the Help dialog had to explain on every page. The DEFAULT
+profile now binds them to Alt+Shift+letter. **Conflicts: none.** The only Alt+Shift+letter
+chords already in the profile are Alt+Shift+N (new tab) and Alt+Shift+/ (pane description),
+neither in the drawing set, and `ShortcutConflictTests` keeps it so. The browser rewrite stays as
+a legacy step for a `shortcuts.json` saved before today; on the desktop such a profile keeps
+working as saved. **One platform caveat, not testable here:** Windows switches keyboard layout
+on a bare Alt+Shift when two layouts are installed — the switch fires on release without a
+third key, so Alt+Shift+T should be safe, but it is the thing to try on a Windows box with two
+layouts. Help, `docs/SHORTCUTS.md`, the quick start and the manual all say Alt+Shift now;
+`ShortcutHelpParityTests` holds the three in step.
+
+**Hidden or muted means silent, on bar close and in playback.** Cody: *"if a series or
+component is hidden, it should be excluded from the narration, both playback and new bars."* It
+already was on four of the five bar-close scan sites and in playback — every one goes through
+`SeriesNarrationScope`, which requires the series visible and unmuted — but the OSCILLATOR path
+had two gaps, both demonstrated red before the fix: a hidden oscillator component still narrated
+its zone transitions (that path applied the N selection and not the visibility rule), and an
+analyser context naming a component the series does not have skipped the scope check entirely,
+so a hidden SERIES spoke through it. `HiddenSeriesNarrationTests` pins hidden and muted, series
+and component, on both routes (3 of 8 red on the defect).
+
 ### Eleven from Cody: what survives a restart, what the tab bar shows, and what a candle says about crossings (2026-09-05)
 
 **Narration did not survive a restart — and neither did a component mute.** Cody: *"Workspaces

@@ -57,6 +57,7 @@ public sealed class BlazorTestHarness : IDisposable
     public IStrategyBacktester StrategyBacktester { get; }
     public IBacktestWarmupAnalyzer BacktestWarmupAnalyzer { get; }
     public IOrderExecutionService OrderService { get; }
+    public AccessibleTrader.Core.Services.Notifications.IDesktopNotifier DesktopNotifier { get; }
     public AccessibleTrader.Core.Services.ISoundPatchLibrary SoundPatchLibrary { get; }
 
     /// <summary>The factory reset behind Settings → General. Substituted, so a test can assert
@@ -198,6 +199,11 @@ public sealed class BlazorTestHarness : IDisposable
         Ctx.Services.AddSingleton(wavetables);
         // MainLayout/Toolbar/AddIndicatorModal inject DemoPolicy; no-op in tests.
         Ctx.Services.AddSingleton(new DemoPolicy(isDemo: false));
+        // AlertDeliverySettings injects IDesktopNotifier. A bare substitute says IsAvailable
+        // false — the hosted/demo shape — so the desktop switches are absent unless a test
+        // turns them on.
+        DesktopNotifier = Substitute.For<AccessibleTrader.Core.Services.Notifications.IDesktopNotifier>();
+        Ctx.Services.AddSingleton(DesktopNotifier);
         Ctx.Services.AddSingleton<IEnumerable<IAlertChannel>>(_alertChannels);
         // PropertiesModal / SoundDesignerModal inject the sound-patch services. Real registry
         // (parameterless, cheap) so patch dropdowns list built-ins; the rest are no-op substitutes.
