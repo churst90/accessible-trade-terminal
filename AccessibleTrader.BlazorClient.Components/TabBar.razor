@@ -15,7 +15,7 @@
    • Web: Ctrl+Tab and Ctrl+Number are reserved by the browser, so the user presses
      Ctrl+Alt+Shift+T (FocusTabBar) to move focus onto this bar, then drives it with
      ArrowLeft/Right (or Up/Down), Home/End, the number row (1-9 → tab N), Delete
-     (close the active tab) and Insert / + (new tab). Implemented as an ARIA tablist
+     (close the active tab) or the Close button beside each tab, and Insert / + (new tab). Implemented as an ARIA tablist
      with the activedescendant pattern: the container holds focus (tabindex 0) and
      aria-activedescendant points at the selected tab; selection follows focus, so
      each arrow press switches tabs. A web-safe global new-tab chord is Alt+Shift+N. *@
@@ -36,30 +36,37 @@
     @foreach (var tab in GetAllTabs())
     {
         var captured = tab;
-        <button @key="captured.Index"
-                id="@($"ws-tab-{captured.Index}")"
-                role="tab"
-                aria-selected="@(captured.IsActive ? "true" : "false")"
-                tabindex="-1"
-                class="tab-button@(captured.IsActive ? " tab-active" : "")"
-                title="Switch to tab @(captured.Index + 1)"
-                @onclick="() => Store.Dispatch(new SwitchTabAction(captured.Index))">
-            Tab @(captured.Index + 1): @captured.Label
+        @* One tab = the role="tab" button plus a SIBLING close button. The close used to be an
+           aria-hidden span nested inside the tab, because a <button> inside a <button> is invalid
+           HTML that the parser hoists out and that corrupted the tablist's owned elements. A
+           sibling has neither problem: the tab stays a single element and the close is a real,
+           named button — visible to a screen reader's browse mode, clickable, and honest about
+           what it does. It is NOT a Tab stop (tabindex -1): the bar is one stop that moves focus
+           with the arrows, and N extra stops would double the length of every Tab pass through
+           the page for a control Delete already answers. Cody, 2026-09-05: "we should also have
+           a delete button too next to each tab." *@
+        <span class="tab-item" role="presentation" @key="captured.Index">
+            <button id="@($"ws-tab-{captured.Index}")"
+                    role="tab"
+                    aria-selected="@(captured.IsActive ? "true" : "false")"
+                    tabindex="-1"
+                    class="tab-button@(captured.IsActive ? " tab-active" : "")"
+                    title="Switch to tab @(captured.Index + 1)"
+                    @onclick="() => Store.Dispatch(new SwitchTabAction(captured.Index))">
+                Tab @(captured.Index + 1): @captured.Label
+            </button>
             @if (canClose)
             {
-                @* Mouse-only affordance: a button here would nest inside the role="tab"
-                   button — invalid HTML that the parser hoists out, corrupting the
-                   tablist's owned elements. Keyboard users close via Delete on the
-                   tablist (arrows move selection first), per the ARIA tabs pattern. *@
-                <span class="tab-close"
-                      aria-hidden="true"
-                      title="Close tab @(captured.Index + 1)"
-                      @onclick:stopPropagation="true"
-                      @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
+                <button type="button"
+                        class="tab-close"
+                        tabindex="-1"
+                        aria-label="Close tab @(captured.Index + 1), @captured.Label"
+                        title="Close tab @(captured.Index + 1)"
+                        @onclick="() => Store.Dispatch(new CloseTabAction(captured.Index))">
                     ×
-                </span>
+                </button>
             }
-        </button>
+        </span>
     }
 
     @* New tab button — always present. Desktop also has Ctrl+T; everywhere Alt+Shift+N. *@

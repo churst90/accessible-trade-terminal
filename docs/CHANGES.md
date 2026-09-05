@@ -2,6 +2,70 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Everything under this heading postdates the `v2.7.0` tag. At the next cut this heading becomes
+`## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.7.0 binaries.
+
+### Eleven from Cody: what survives a restart, what the tab bar shows, and what a candle says about crossings (2026-09-05)
+
+**Narration did not survive a restart — and neither did a component mute.** Cody: *"Workspaces
+also do not persist narration per component when the terminal is restarted. Everything should be
+left as the user had it before the terminal closed."* The flags were on disk the whole time: N
+writes `IsAutoNarrated` onto the series config and its components, and the workspace file
+serialises the whole config. Two places on the READ side dropped them. `RestoreSeriesFromSaved`
+copied mute, volume and visibility back onto the rebuilt indicator and not narration; and the
+model factory's hand-written `CloneComponent` — which sits between the saved-component merge and
+the series — copied `IsVisible` and `IsEnabled` and neither `IsMuted` nor `IsAutoNarrated`. So
+"narrate only this component" and "mute this component" each lasted exactly one session, for as
+long as those switches have existed. Core series (Candles, Price, Volume) never had the defect;
+they restore their config verbatim. `NarrationRestoreTests` — four cases, each red on the
+defect it names (the clone fix was reverted and two went red; restored, four green).
+
+**A new chart is candles, volume and price.** Cody: *"I changed my mind about the market
+structure indicator being added to the chart by default. I don't want it."* **Add Market
+Structure to new charts** is now OFF by default (opt-in, so a bare settings substitute gets the
+default). Anyone who had switched it off already is unaffected; anyone who wants it back ticks
+the box under Settings → General → Analysis. Chart patterns were already off by default on both
+switches (**Describe chart patterns** and **Show chart pattern visuals**); nothing to change.
+
+**Ctrl+Left/Right on the candles names the series, not a feature.** It said *"No trendlines
+found"*, which names something the user may never have drawn and does not say what the key is
+for on a price series. Now: *"Candles has no crossings to jump to. Draw a trend line and this key
+finds where price crosses it."* Every other route on that key already speaks about its own
+series. `CrossingMessageTests`.
+
+**Each tab has a Close button.** It used to be an `aria-hidden` span inside the tab — a fix for
+the earlier nested-button bug that made the control invisible to a screen reader's browse mode.
+It is now a real `<button>` beside the tab, named *"Close tab 2, BTC/USD 1h"*, clickable, and
+still not a Tab stop (`tabindex="-1"`): the bar is one stop that moves with the arrows, and N
+extra stops would double every Tab pass for a control Delete already answers. Cody: *"I think we
+should also have a delete button too next to each tab."* The tablist's owned elements stay
+clean: the tab is one element, the close is its sibling inside a presentational wrapper.
+`TabBarTests` rewritten: never nested, named, `tabindex -1`, closes THAT tab.
+
+**A fixed-range profile's anchor is a sentence, not two editable numbers.** Properties listed
+`AnchorStart` and `AnchorEnd` — Unix seconds captured from the viewport when the profile was
+added — as number inputs, which read as nonsense and were one typo away from moving the profile
+onto a different stretch of chart. Now: *"Anchored to the bars from January 1 2024 to January 10
+2024."*, and the values ride through Apply untouched (Apply rebuilds the parameter list, so lifting
+them out of the editable list without writing them back would have turned every saved
+fixed-range profile into a whole-history one). Found while answering Cody's question about why
+the fixed and visible range profiles show the same parameters: they do, because the anchor is
+captured, not typed. `PropertiesModalTests`, two cases.
+
+**Footer.** *"Accessible Trade Terminal © 2026. Trading carries risk."*
+
+**Not changed, on inspection — recorded so the next reader does not re-open them:**
+- The **AI analyst** toolbar button exists (Analysis group, after Trade journal, tooltip names
+  Ctrl+Alt+Shift+A). It is gated on `HostMode.Full`, so the hosted terminal never shows it; the
+  local WebHost and the desktop build do.
+- The **Announce new bars** setting is already named that in Settings and the search registry;
+  the "Live bar announcements" wording does not appear anywhere in the terminal or the docs.
+- **Alt+PageUp/PageDown** is already the pane key on every head (16th pass, 2026-09-04). The
+  browser remap still rewrites Ctrl+Shift+letter to Alt+Shift+letter for the drawing tools and
+  drops Ctrl+T/W/Tab; see the discussion in TODO for whether to unify further.
+
 ## [2.7.0] — 2026-09-05
 
 ### The date that only speaks when it changes (2026-09-05)

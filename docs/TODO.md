@@ -117,6 +117,116 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-FIFTH pass — ELEVEN FROM CODY, and the switches
+> that did not survive a restart.** Six became code, five are discussions with a recommendation
+> each; the decisions are his and are listed under §2.**
+>
+> ### 1. DONE (see CHANGES `[Unreleased]`)
+>
+> - **Narration and component mute did not survive a restart.** Two read-side drops:
+>   `RestoreSeriesFromSaved` copied mute/volume/visibility and not `IsAutoNarrated`; the model
+>   factory's hand-written `CloneComponent` copied neither `IsMuted` nor `IsAutoNarrated`, so the
+>   saved-component merge two lines above it was setting flags the clone threw away. **Durable: a
+>   hand-written clone is a second place every new field must be added, and nothing tells you when
+>   you forgot.** `ComponentConfig.Clone()` already copies everything; the factory has its own for
+>   historical reasons. If a third field goes missing, replace the factory clone with `Clone()`.
+>   `NarrationRestoreTests` (4), proven by sabotage.
+> - **Market Structure is OFF for new charts** (opt-in). Chart patterns were already off on both
+>   switches. Manual, README, settings hint updated.
+> - **Ctrl+Left/Right on the candles:** "Candles has no crossings to jump to. Draw a trend line
+>   and this key finds where price crosses it." `CrossingMessageTests`.
+> - **Tab bar: a real, named Close button beside each tab** (`tabindex -1`; Delete remains the
+>   keyboard route). `TabBarTests` rewritten.
+> - **Fixed-range profile anchor is a sentence in Properties, and survives Apply** — Apply
+>   rebuilds the parameter list, so hiding the anchor without writing it back would have turned
+>   every fixed-range profile into a whole-history one on the first Save. `PropertiesModalTests`.
+> - **Footer:** "Trading carries risk."
+> - Verified and left alone: the AI analyst button exists (HostMode.Full only); the setting is
+>   already "Announce new bars"; Alt+PageUp/Down is already the pane key on every head.
+>
+> ### 2. DECISIONS FOR CODY — recommendations, not changes
+>
+> **(a) H and M versus N.** They are NOT the same model today, and the difference is deliberate.
+> N is a *selection*: the series flag is the master and a component flag means "of this series,
+> only these". H and M are *independent switches*: H on a component hides that one component and
+> leaves the rest visible; H on the series hides all of it regardless of component flags. So
+> pressing H on the body of the candles hides the body and keeps the wicks — which is what "hide"
+> means and what the Object Tree shows. Making H/M behave like N ("show only this component") would
+> take away "hide just the wicks" and "mute just the histogram", both real uses. **Recommendation:
+> keep the two models, and make the CONFIRMATIONS parallel instead** — H/M say "Body, hidden" /
+> "Body, muted" (component alone, as N does since 2026-09-05) rather than "Candles: Body".
+> Not done, because it is a vocabulary change on two well-tested reducers and the ask was about
+> behaviour; say the word and it is a small change.
+>
+> **(b) Ctrl versus Alt across the board.** What is still Ctrl in the default profile: Ctrl+Z/Y
+> (undo/redo), Ctrl+Space (play), Ctrl+Shift+Space (play component), Ctrl+Left/Right (crossing
+> jump), Ctrl+Up/Down (component in pane), Ctrl+Enter (quick market order), Ctrl+Shift+D (detail),
+> Ctrl+Shift+letter (15 drawing tools), Ctrl+T/W/Tab (tabs, desktop only). The browser remap moves
+> only Ctrl+Shift+letter → Alt+Shift+letter and drops Ctrl+T/W/Tab. None of the arrow/edit chords
+> are browser-reserved, and Alt+Arrow is pane scrolling, Alt+letter is the modal block, Alt+Shift+
+> letter is the web drawing block — there is no free Alt row to move them onto. **Recommendation:
+> do NOT move the arrow/edit chords; DO consider making the drawing tools Alt+Shift+letter in the
+> DEFAULT profile** (the one real desktop/browser split left, and the Help dialog explains it on
+> every page). Cost: 15 muscle-memory changes for desktop users; Windows switches keyboard layout
+> on a bare Alt+Shift press when two layouts are installed, which is the one platform risk to test
+> before deciding. Ctrl+PageUp/Down on the desktop is the other option asked about — no: it
+> re-creates the split the 16th pass removed.
+>
+> **(c) Notifications.** What exists: the LOCAL WebHost's `LocalBackgroundMonitor` speaks (Orca /
+> spd-say), toasts (`notify-send`) and plays a sound for SIMPLE alerts while the browser is
+> closed, opt-in under Settings → General; the HOSTED terminal sends Web Push for alerts (service
+> worker → OS notification); the MAUI desktop has a Windows tray icon (H.NotifyIcon) and NO toast
+> or notification path. In-session, everything is speech through the live region — no OS
+> notification anywhere. New bars and order fills never reach a notification on any head.
+> **Recommendation, if wanted:** one `IDesktopNotifier` seam in Core fed by three events
+> (`NewBarEvent` behind Announce new bars, `OrderFilledEvent`, alert fired), implemented by the
+> existing `IDesktopAlertPresenter` on the local WebHost, Web Push on hosted, and the platform
+> notification API on MAUI (Windows: `Microsoft.Toolkit.Uwp.Notifications`; macOS: UNUserNotification).
+> Gate each source by a Settings → Alerts checkbox; default OFF for new bars (a one-minute chart is
+> a toast a minute). Mac and Linux MATE both read toasts through the screen reader; Windows
+> Narrator/NVDA/JAWS announce toasts natively. Not started — it is a feature, and a per-platform one.
+>
+> **(d) Profiles.** VPVR and VPFR show the same parameter (Bin Count) because the difference is
+> not a parameter the user types: `ProfileAnchoring` fixes VPFR to the viewport at the moment it
+> was added (two captured timestamps), and VPVR/TPO recompute against whatever is on screen. That
+> is one idea (which window) crossed with what is counted (volume vs time-at-price); today three
+> of the four cells exist and **fixed-range TPO does not** — `ProfileAnchoring` says it would be a
+> new catalogue code with the anchor set. Narration: profiles have no bar-indexed data, so N on a
+> profile can never say anything; the reading route is Up/Down through bins (POC/VAH/VAL/HVN/LVN
+> via `ProfileBinClassifier`). Nothing wrong found in the implementation beyond the Properties
+> anchor display fixed above. **Worth adding, in order of value:** fixed-range TPO (cheap, named
+> in the code); **session profiles** (one profile per trading day, the market-profile convention);
+> an **anchored profile** starting at a chosen bar and running to the live edge (the AVWAP idea
+> applied to volume). Whether to keep both visible AND fixed: yes — "what am I looking at" and
+> "what I chose" are different questions, and the fixed one is what you compare price against
+> after navigating away.
+>
+> **(e) Order book.** Two interfaces share the name: every market-data provider has a snapshot
+> `GetOrderBookAsync` (34 overrides; a venue with no book returns an empty one, so the only way to know is to ask), and nine — Binance, Bitstamp,
+> Coinbase, Gemini, Kraken, Kraken Futures, Mexc, Alpaca, Polygon — implement `IOrderBookProvider`
+> for a live stream. So it is not crypto-only (Alpaca and Polygon are equities), but it is
+> venue-dependent, and Twelve Data / Finnhub / index feeds have nothing. The toolbar button is
+> gated on `AllowOrderBook` (not demo), never on the provider; on a provider with nothing it opens
+> to "Order book is not available for X on Y." The dashboard already has the book as a tab.
+> **Recommendation: keep it in BOTH places but gate the toolbar button on the current provider**,
+> the way Deposit is gated on `IWalletProvider` — the button appears only where it can show
+> something. Not done today because the two-interface split means the honest gate is "snapshot
+> returned rows OR stream available", which is a probe, not a declaration; declaring
+> `ProviderCapabilities.L2` on the nine (zero declare it today) is the clean prerequisite.
+>
+> ### 3. NEXT
+>
+> - Watch §7g to ~2026-09-10 before calling the segfault fixed.
+> - Cody's five decisions above.
+> - **Flake candidate:** `Tab_never_escapes_an_open_dialog("AIAnalystModal via toolbar")` failed
+>   once in a full browser run ("reports 2 focusable controls but Tab only ever reached 1", 265 ms)
+>   and passed on an immediate rerun of all 48 routes. The AI analyst modal was not touched in
+>   this pass. One occurrence is not a pattern; two is.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-FOURTH pass — THE DATE THAT ONLY SPEAKS WHEN IT
 > CHANGES.** One ask from Cody, one new setting.**
 >

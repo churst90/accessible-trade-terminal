@@ -448,10 +448,19 @@ namespace AccessibleTrader.Core.Services
                     freshSeries.Config.ZoneBands.Add(band.Clone());
             }
 
-            // Restore series-level mute/volume/visibility from the saved config.
-            freshSeries.Config.IsMuted    = config.IsMuted;
-            freshSeries.Config.Volume     = config.Volume;
-            freshSeries.Config.IsVisible  = config.IsVisible;
+            // Restore series-level mute/volume/visibility from the saved config — and narration.
+            //
+            // Narration was the one switch of the four that did not come back. N writes
+            // IsAutoNarrated onto the SeriesConfig, the workspace file serialises the whole
+            // config, and this line copied everything except it; the factory's per-component
+            // merge did the same for the component flag. Cody, 2026-09-05: "Workspaces also do
+            // not persist narration per component when the terminal is restarted." The flags
+            // were on disk the whole time. Core series never had the defect (they restore their
+            // config verbatim), so it was every indicator — the ones N is pressed on.
+            freshSeries.Config.IsMuted        = config.IsMuted;
+            freshSeries.Config.Volume         = config.Volume;
+            freshSeries.Config.IsVisible      = config.IsVisible;
+            freshSeries.Config.IsAutoNarrated = config.IsAutoNarrated;
 
             // Restore levels from workspace-saved config when available (per-instance source of
             // truth).  This prevents global IndicatorPreferencesService type-defaults from

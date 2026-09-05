@@ -64,7 +64,7 @@ namespace AccessibleTrader.Core.Services.Input
                                   || focusedComp.DisplayType == ComponentDisplayType.Wick;
                 if (isPriceAction)
                 {
-                    DoTrendlineCrossJump(state, data, count, current, jumpRight);
+                    DoTrendlineCrossJump(state, focusedSeries, data, count, current, jumpRight);
                     return;
                 }
 
@@ -125,7 +125,7 @@ namespace AccessibleTrader.Core.Services.Input
                 }
             }
 
-            DoTrendlineCrossJump(state, data, count, current, jumpRight);
+            DoTrendlineCrossJump(state, focusedSeries, data, count, current, jumpRight);
         }
 
         // ── Crossing type resolution ──────────────────────────────────────────
@@ -403,13 +403,18 @@ namespace AccessibleTrader.Core.Services.Input
             }
         }
 
-        private void DoTrendlineCrossJump(WorkspaceState state, System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)
+        private void DoTrendlineCrossJump(WorkspaceState state, ChartSeries? focusedSeries, System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)
         {
             var trendlines = state.ActiveSeries
                 .Where(s => s.IsDrawing && s.Drawing?.Type == DrawingType.TrendLine)
                 .ToList();
 
-            if (!trendlines.Any()) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No trendlines found")); return; }
+            if (!trendlines.Any())
+            {
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation,
+                    NoTrendlinesMessage(focusedSeries)));
+                return;
+            }
 
             int foundIndex = -1;
             foreach (var series in trendlines)
@@ -444,6 +449,20 @@ namespace AccessibleTrader.Core.Services.Input
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "Trendline crossing"));
             }
             else _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing found"));
+        }
+
+        /// <summary>
+        /// What Ctrl+Left/Right says on a candle or price series when there is no trend line to
+        /// cross. It used to say "No trendlines found", which names a thing the user may never
+        /// have heard of and does not say what the key does here. Cody, 2026-09-05: every other
+        /// series answers with something about ITSELF ("No more Buy signals in this direction"),
+        /// so this one should too — the series has no crossings, and here is how to give it some.
+        /// </summary>
+        internal static string NoTrendlinesMessage(ChartSeries? focusedSeries)
+        {
+            string? name = focusedSeries?.FriendlyName;
+            if (string.IsNullOrWhiteSpace(name)) name = focusedSeries?.Name ?? "This series";
+            return $"{name} has no crossings to jump to. Draw a trend line and this key finds where price crosses it.";
         }
 
         // ── Static scan primitives (also used by CrossingNavigationTests via reflection) ─

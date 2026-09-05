@@ -41,7 +41,10 @@ Four files, four different jobs:
 | `docs/WHATSNEW.md` | The CURRENT release only, in plain language | A user who just updated |
 | `README.md` | What the terminal is and how to get started | Someone who has never seen it |
 
-An item moves TODO → CHANGES when it lands, carrying any caveat with it. `WHATSNEW.md` is
+An item moves TODO → CHANGES when it lands, carrying any caveat with it — under a `## [Unreleased]`
+heading at the top of CHANGES, so the tag's own section never quietly grows after the tag (that is
+how the 2.6.0 heading came to promise five things the 2.6.0 binaries did not have). At cut time the
+Unreleased heading is renamed to the version and date. `WHATSNEW.md` is
 the current release's story, drawn from the CHANGES entries since the last tag; history stays
 in CHANGES. The technical reference is `docs/README.md`, and the root `README.md` is the
 GitHub front page — general reader, no build numbers in it that can drift.

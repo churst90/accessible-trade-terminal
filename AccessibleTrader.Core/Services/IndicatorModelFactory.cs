@@ -185,8 +185,10 @@ namespace AccessibleTrader.Core.Services
             }
 
             // Layer 2: restore lightweight per-component user state from the workspace save
-            //          (visibility, mute, component volume, freq multiplier ONLY).
-            //          Colors and audio properties come from metadata or preferences — not workspace.
+            //          (visibility, mute, component volume, freq multiplier, and the narration
+            //          selection N makes on a component). Colors and audio properties come from
+            //          metadata or preferences — not workspace. Narration was missing from this
+            //          list until 2026-09-05, so "narrate only this component" lasted one session.
             if (componentOverrides != null && componentOverrides.Any())
             {
                 foreach (var fresh in sourceComponents)
@@ -198,6 +200,7 @@ namespace AccessibleTrader.Core.Services
                     fresh.IsMuted        = saved.IsMuted;
                     fresh.Volume         = saved.Volume;
                     fresh.FreqMultiplier = saved.FreqMultiplier;
+                    fresh.IsAutoNarrated = saved.IsAutoNarrated;
                 }
             }
 
@@ -389,6 +392,10 @@ namespace AccessibleTrader.Core.Services
                 Waveform = c.Waveform, AboveReferenceWaveform = c.AboveReferenceWaveform, BelowReferenceWaveform = c.BelowReferenceWaveform,
                 FreqMultiplier = c.FreqMultiplier, TriggerBoundaryClick = c.TriggerBoundaryClick, EnvelopeType = c.EnvelopeType,
                 Volume = c.Volume, Thickness = c.Thickness, DashStyle = c.DashStyle, IsEnabled = c.IsEnabled, IsVisible = c.IsVisible,
+                // The two per-component SWITCHES. Both were missing from this clone, which sits
+                // between the saved-state merge and the series, so M and N on a component were
+                // silently undone by every workspace restore (2026-09-05).
+                IsMuted = c.IsMuted, IsAutoNarrated = c.IsAutoNarrated,
                 BaseFrequency = c.BaseFrequency, BullishFrequency = c.BullishFrequency, BearishFrequency = c.BearishFrequency,
                 NoiseAmount = c.NoiseAmount,
                 SpeechTemplate = c.SpeechTemplate, ReferenceLevel = c.ReferenceLevel,

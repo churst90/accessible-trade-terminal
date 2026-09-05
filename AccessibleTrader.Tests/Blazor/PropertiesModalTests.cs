@@ -267,4 +267,69 @@ public class PropertiesModalTests
             Assert.Single(cut.FindAll("label"), l => l.TextContent.Contains("Red (bearish) patch"));
         });
     }
+    // ── Fixed-range profile anchors ──────────────────────────────────────────────
+
+    /// <summary>A Volume Profile (Fixed Range) as SeriesManagementService builds one: the bin
+    /// count the user chose, plus the two anchor timestamps it captured from the viewport.</summary>
+    private static ChartSeries FixedRangeProfile()
+    {
+        var config = new SeriesConfig
+        {
+            Id = "vp", IndicatorCode = "VPFR", Name = "Volume Profile (Fixed Range)",
+            FriendlyName = "Volume Profile (Fixed Range)", Pane = "Main",
+        };
+        config.Parameters["BinCount"] = 50;
+        config.Parameters[AccessibleTrader.Core.Services.ProfileAnchoring.AnchorStartParam] =
+            new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds();
+        config.Parameters[AccessibleTrader.Core.Services.ProfileAnchoring.AnchorEndParam] =
+            new DateTimeOffset(2024, 1, 10, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds();
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Profile", DisplayName = "Profile", DisplayType = ComponentDisplayType.Distribution, IsVisible = true,
+        });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = "vp" }) { IsProfile = true };
+    }
+
+    [Fact]
+    public void FixedRangeProfile_DescribesItsAnchor_InsteadOfListingUnixSecondsAsFields()
+    {
+        // The anchor is two Unix timestamps the user never typed. They were rendered as number
+        // inputs labelled "AnchorStart" and "AnchorEnd" — meaningless to read and one typo away
+        // from moving the profile onto a different stretch of chart.
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, FixedRangeProfile());
+
+        var cut = OpenProperties(h);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Empty(cut.FindAll("#prop-AnchorStart"));
+            Assert.Empty(cut.FindAll("#prop-AnchorEnd"));
+            Assert.Single(cut.FindAll("#prop-BinCount"));            // the real knob is still editable
+            var text = cut.Find("#prop-anchor-range").TextContent;
+            Assert.Contains("Anchored to the bars from", text);
+            Assert.Contains("2024", text);
+        });
+    }
+
+    [Fact]
+    public void FixedRangeProfile_KeepsItsAnchor_ThroughApply()
+    {
+        // Apply rebuilds Parameters from the editable list. With the anchor lifted out of that
+        // list, this is the line that would otherwise turn a fixed-range profile into a
+        // whole-history one on the first Save.
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, FixedRangeProfile());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("#props-save");
+
+        cut.Find("#props-save").Click();
+
+        h.WorkspaceStore.Received().Dispatch(Arg.Is<UpdateSeriesAction>(a =>
+            a.Series.Single(s => s.Id == "vp").Parameters.ContainsKey(
+                AccessibleTrader.Core.Services.ProfileAnchoring.AnchorStartParam)
+            && a.Series.Single(s => s.Id == "vp").Parameters.ContainsKey(
+                AccessibleTrader.Core.Services.ProfileAnchoring.AnchorEndParam)
+            && a.Series.Single(s => s.Id == "vp").Parameters.ContainsKey("BinCount")));
+    }
 }

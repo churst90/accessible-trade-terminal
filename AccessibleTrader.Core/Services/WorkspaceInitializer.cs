@@ -214,12 +214,12 @@ namespace AccessibleTrader.Core.Services
                 if (meta != null) _seriesService.RegisterSeriesFromMetadata(meta);
             }
 
-            // 3b. Market Structure overlay — seeded by default on OHLCV charts because
-            //     structure is the orientation layer a sighted trader reads off the chart's
-            //     shape for free. Opt-out via Settings; once the user removes the series it
-            //     stays removed for that chart, and this only ever ADDS when absent, so a
-            //     deliberate deletion is not undone on the next reconcile within the session.
-            if (dataShape == ProviderDataShape.Ohlcv && (_settings?.MarketStructureOnByDefault ?? true))
+            // 3b. Market Structure overlay — seeded on OHLCV charts only when the user has
+            //     switched it on in Settings (off by default since 2026-09-05: a new chart is
+            //     Candles, Volume and Price and nothing the user did not add). Once the user
+            //     removes the series it stays removed for that chart, and this only ever ADDS
+            //     when absent, so a deliberate deletion is not undone on the next reconcile.
+            if (dataShape == ProviderDataShape.Ohlcv && (_settings?.MarketStructureOnByDefault ?? false))
             {
                 bool alreadyPresent = _store.State.ActiveSeries.Any(sr =>
                     string.Equals(sr.IndicatorCode, Indicators.SwingStructureProvider.Code,

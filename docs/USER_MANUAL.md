@@ -1066,8 +1066,10 @@ where price has moved by large percentages.
 
 ### Market structure
 
-**Market Structure** is on your chart by default, and it is the
-answer to "where am I?" before any indicator answers "what should I do?". It
+**Market Structure** is the answer to "where am I?" before any indicator answers
+"what should I do?". A new chart starts without it — candles, volume and price only —
+and you add it from Alt+A like any other indicator, or switch it on for every new
+chart under Settings, General, Analysis. It
 finds the swing highs and lows, labels each one against the one before it —
 higher high, higher low, lower high, lower low — and reports the trend state
 those labels imply.
@@ -2954,12 +2956,12 @@ Those are gone: a colour belongs to a theme now, and anything you had set there 
 To get the same look back, Clone the theme you use and set the colours in the editor.
 
 The **Analysis** group on the general tab holds one preference worth knowing about:
-**Add Market Structure (swing highs and lows) to new charts**, which is on by
-default and is why every chart you load already has swing labelling on it. Untick
-it if you would rather add that indicator per chart. It changes what happens on the
-*next* load and deliberately leaves charts you already have open alone — silently
-stripping an indicator off a chart you were reading would be a worse surprise than
-the setting waiting one load to take effect.
+**Add Market Structure (swing highs and lows) to new charts**, which is off by
+default — a new chart is candles, volume and price, and nothing you did not put
+there. Tick it if you want swing labelling on every chart you load. It changes what
+happens on the *next* load and deliberately leaves charts you already have open
+alone — silently adding or stripping an indicator on a chart you were reading would
+be a worse surprise than the setting waiting one load to take effect.
 
 **Visual accessibility options.** Under the theme, the Appearance tab carries a group of
 visual accommodations. All of them are **off by default** — the terminal presents itself
@@ -3225,8 +3227,8 @@ an even deeper level — it acts on them before the page ever sees the keystroke
 cannot be cancelled in-page at all. On the web host these are dropped from the bindings
 (so the Help dialog never lists a chord the browser eats) and the action moves elsewhere:
 open a new tab with `Alt+Shift+N` or the tab bar's **+** button instead of `Ctrl+T`;
-close a tab with its **×** button or by focusing the bar and pressing Delete instead of
-`Ctrl+W`; switch tabs by pressing `Ctrl+Alt+Shift+T` (a three-modifier chord browsers
+close a tab with the **Close tab** button beside it or by focusing the bar and pressing Delete
+instead of `Ctrl+W`; switch tabs by pressing `Ctrl+Alt+Shift+T` (a three-modifier chord browsers
 leave alone) to focus the tab switcher bar, then the arrow keys, Home/End, the number
 row, Insert (new) or Delete (close) instead of `Ctrl+Tab`. Pane navigation needs no such
 rule: it is `Alt+PageUp` / `Alt+PageDown` on every head, and `Ctrl+PageUp` / `Ctrl+PageDown`
@@ -3254,7 +3256,7 @@ using, so it self-documents per platform.
 | Anchored VWAP | Ctrl+Shift+W | Alt+Shift+W |
 | Detailed point summary | Ctrl+Shift+D | Alt+Shift+D |
 | New chart tab | Ctrl+T (or Alt+Shift+N) | Alt+Shift+N (or the tab bar's + button) |
-| Close chart tab | Ctrl+W | Tab's × button, or focus the bar + Delete |
+| Close chart tab | Ctrl+W | The Close tab button beside it, or focus the bar + Delete |
 | Switch chart tabs | Ctrl+Tab / Ctrl+Shift+Tab | Ctrl+Alt+Shift+T, then arrows / Home / End / 1–9 |
 | Move between panes | Alt+PageUp / Alt+PageDown | Alt+PageUp / Alt+PageDown |
 

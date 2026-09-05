@@ -57,7 +57,7 @@
                 {
                     case "General":
                         <div class="scroll-area">
-                            @if (_params.Any() || _stringParams.Any())
+                            @if (_params.Any() || _stringParams.Any() || _anchorRangeText != null)
                             {
                                 <fieldset>
                                     <legend>Indicator Parameters</legend>
@@ -117,6 +117,17 @@
                                         {
                                             <p style="margin:-4px 0 8px 0; font-size:0.78rem; color:var(--text-muted);">@pm.Description</p>
                                         }
+                                    }
+                                    @* A fixed-range profile's anchor. Two parameters the user never
+                                       typed — Unix seconds captured from the viewport when the profile
+                                       was added — used to be listed here as editable numbers under the
+                                       raw names "AnchorStart" and "AnchorEnd", which read as nonsense
+                                       and invited a typo that moved the profile onto a different stretch
+                                       of chart. Now a sentence, and the values ride through Apply
+                                       untouched. *@
+                                    @if (_anchorRangeText != null)
+                                    {
+                                        <p id="prop-anchor-range" style="margin:4px 0 8px 0; font-size:0.85rem;">@_anchorRangeText</p>
                                     }
                                 </fieldset>
                             }
@@ -786,6 +797,61 @@
     private string _selectedComponentName = "";  // "" = show all components
     private ChartSeries? _series;
     private Dictionary<string, double> _params = new();
+
+    /// <summary>Parameters shown as a sentence rather than a field, and written back on Apply
+    /// exactly as they were read: today, a fixed-range profile's anchor timestamps.</summary>
+    private readonly Dictionary<string, double> _pinnedParams = new();
+    private string? _anchorRangeText;
+
+    /// <summary>
+    /// Lifts a fixed-range profile's <c>AnchorStart</c>/<c>AnchorEnd</c> out of the editable
+    /// parameter list and describes them instead. They are Unix seconds captured from the
+    /// viewport when the profile was added — a value the user did not type and should not be
+    /// asked to edit as a number. See <see cref="AccessibleTrader.Core.Services.ProfileAnchoring"/>.
+    /// </summary>
+    private void PinProfileAnchor()
+    {
+        _pinnedParams.Clear();
+        _anchorRangeText = null;
+        if (_series == null) return;
+
+        string code = _series.Config?.IndicatorCode ?? string.Empty;
+        bool fixedProfile = _series.IsProfile
+            && !AccessibleTrader.Core.Services.ProfileAnchoring.FollowsViewport(code);
+        if (!fixedProfile) return;
+
+        foreach (var key in new[] {
+            AccessibleTrader.Core.Services.ProfileAnchoring.AnchorStartParam,
+            AccessibleTrader.Core.Services.ProfileAnchoring.AnchorEndParam })
+        {
+            if (_params.TryGetValue(key, out var v))
+            {
+                _pinnedParams[key] = v;
+                _params.Remove(key);
+            }
+        }
+
+        if (_pinnedParams.TryGetValue(AccessibleTrader.Core.Services.ProfileAnchoring.AnchorStartParam, out var from)
+            && _pinnedParams.TryGetValue(AccessibleTrader.Core.Services.ProfileAnchoring.AnchorEndParam, out var to)
+            && from > 0 && to > 0)
+        {
+            if (to < from) (from, to) = (to, from);
+            var start = DateTimeOffset.FromUnixTimeSeconds((long)from).UtcDateTime;
+            var end = DateTimeOffset.FromUnixTimeSeconds((long)to).UtcDateTime;
+            int barSeconds = 0;
+            try { barSeconds = AccessibleTrader.Sdk.Configuration.TimeframeUtility.ToSeconds(Store.State.Identity.Timeframe ?? ""); }
+            catch { /* an unknown timeframe just means "spell out both ends" */ }
+            string range = barSeconds > 0
+                ? AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatBarRange(start, end, barSeconds)
+                : $"{AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(start)} to {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(end)}";
+            _anchorRangeText = $"Anchored to the bars from {range}. The range was captured when this profile "
+                             + "was added; to anchor a different stretch, add a new fixed-range profile while viewing it.";
+        }
+        else
+        {
+            _anchorRangeText = "Fixed range, anchored to every bar loaded when it was added.";
+        }
+    }
     private Dictionary<string, string> _stringParams = new();
     private List<IndicatorParameterMetadata> _paramMeta = new();
     private string? _error;
@@ -813,6 +879,7 @@
         _params = _series.Parameters != null
             ? new Dictionary<string, double>(_series.Parameters)
             : new Dictionary<string, double>();
+        PinProfileAnchor();
         _stringParams = _series.StringParameters != null
             ? new Dictionary<string, string>(_series.StringParameters)
             : new Dictionary<string, string>();
@@ -981,6 +1048,9 @@
 
         _series.Parameters.Clear();
         foreach (var kvp in _params) _series.Parameters[kvp.Key] = kvp.Value;
+        // The anchor is not in _params (see PinProfileAnchor); without this line Apply would
+        // erase it and a fixed-range profile would quietly become a whole-history one.
+        foreach (var kvp in _pinnedParams) _series.Parameters[kvp.Key] = kvp.Value;
         _series.StringParameters.Clear();
         foreach (var kvp in _stringParams) _series.StringParameters[kvp.Key] = kvp.Value;
 

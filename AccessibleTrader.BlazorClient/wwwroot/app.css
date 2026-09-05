@@ -155,13 +155,26 @@ html, body {
     font-weight: 600;
 }
 
+.tab-item {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+/* A real <button> now (it was a span inside the tab), so undo the global button
+   styling and keep it the small × it always looked like. */
 .tab-close {
-    opacity: 0.5;
+    background: transparent;
+    color: inherit;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-bottom: none;
+    border-radius: 0 4px 0 0;
+    opacity: 0.6;
     font-size: 0.85rem;
     line-height: 1;
-    padding: 0 2px;
+    padding: 0 6px;
+    min-width: 0;
     cursor: pointer;
-    border-radius: 2px;
 }
 
 .tab-close:hover {
