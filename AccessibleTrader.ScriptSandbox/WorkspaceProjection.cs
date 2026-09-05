@@ -139,6 +139,8 @@ public static class WorkspaceProjection
         // aloud while playing. A strategy that behaved differently because of it would be a
         // defect, and in a backtest there is no speech channel for it to be true of.
         nameof(WorkspaceState.SpeakPlaybackLandmarks),
+        // And this one says whether it reads the DATE aloud while you arrow around.
+        nameof(WorkspaceState.SpeakDateOnEveryBar),
     };
 
     /// <summary>

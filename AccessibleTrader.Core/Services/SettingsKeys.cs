@@ -71,6 +71,7 @@ namespace AccessibleTrader.Core.Services
 
         // ── Speech (stage b: persisted mirrors of WorkspaceState preferences) ─
         public const string SpeakTimestamps       = "speech.speakTimestamps";
+        public const string SpeakDateOnEveryBar  = "speech.dateOnEveryBar";
         public const string TimestampReadLocation = "speech.timestampReadLocation";
         public const string ReadColumnHeaders     = "speech.readColumnHeaders";
         public const string SpeechOrder           = "speech.speechOrder";

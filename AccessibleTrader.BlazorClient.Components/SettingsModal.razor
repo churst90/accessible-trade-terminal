@@ -531,6 +531,18 @@
                     </p>
 
                     <div class="modal-row">
+                        <label for="s-date-every-bar">Speak the date on every bar</label>
+                        <input id="s-date-every-bar" type="checkbox"
+                               checked="@Store.State.SpeakDateOnEveryBar"
+                               @onchange="e => _dateEveryBar = e.Value is bool b ? b : Store.State.SpeakDateOnEveryBar" />
+                    </div>
+                    <p style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Off, an intraday bar reads its time alone and the date is spoken only when
+                        you cross into a new day &mdash; "14:00", "15:00", then "September 6,
+                        00:00". On a daily chart or coarser the date is the timestamp either way.
+                    </p>
+
+                    <div class="modal-row">
                         <label for="s-speech-order">Speak values as</label>
                         <select id="s-speech-order" value="@_speechOrder"
                                 @onchange="OnSpeechOrderChanged">
@@ -1158,6 +1170,7 @@
 
     // Local copies for pending changes — written by Save, dropped by Cancel
     private bool _speakTimestamps;
+    private bool _dateEveryBar;
     private bool _readHeaders;
     private bool _announceBars;
     private bool _describeChartPatterns;
@@ -1192,6 +1205,7 @@
         new("Speech enabled", "Speech", "s-speech-enabled", "voice talk announce tts"),
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
+        new("Speak the date on every bar", "Speech", "s-date-every-bar", "date day boundary intraday timestamp"),
         new("Speak values as", "Speech", "s-speech-order", "name value order header"),
         new("Read column headers", "Speech", "s-read-headers", "table grid"),
 
@@ -1735,6 +1749,7 @@
     private void ResetLocal()
     {
         _speakTimestamps = Store.State.SpeakTimestamps;
+        _dateEveryBar    = Store.State.SpeakDateOnEveryBar;
         _readHeaders = Store.State.ReadColumnHeaders;
         _announceBars = Store.State.AnnounceNewBars;
         _describeChartPatterns = Store.State.DescribeChartPatterns;
@@ -1941,6 +1956,7 @@
         Store.Dispatch(new UpdateSettingsAction(s => s with
         {
             SpeakTimestamps  = _speakTimestamps,
+            SpeakDateOnEveryBar = _dateEveryBar,
             // Both of these were honoured by SpeechFormatter with no control anywhere to set
             // them — live behaviour with no way to reach it, which is what the settings-wiring
             // audit exists to find. They go through the store like every other speech preference.

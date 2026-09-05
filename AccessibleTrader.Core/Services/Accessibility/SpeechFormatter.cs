@@ -218,13 +218,69 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 else if (state.TimestampReadLocation == "None") shouldSpeakTimestamp = false;
             }
 
-            string timestampFormat = SpeechTimeFormatter.DateTimeFormat;
-            if (state.SpeechOrder.Contains("TimeOnly")) timestampFormat = SpeechTimeFormatter.TimeFormat;
-            else if (state.SpeechOrder.Contains("DateOnly")) timestampFormat = SpeechTimeFormatter.DateFormat;
-
-            string timestamp = shouldSpeakTimestamp ? SpeechTimeFormatter.Format(pt.Date, timestampFormat) + ". " : "";
+            string timestamp = shouldSpeakTimestamp ? NavigationTimestamp(state, pt.Date) + ". " : "";
 
             return timestamp + prefixMessage + msg;
+        }
+
+        /// <summary>
+        /// The day the last spoken navigation timestamp fell on, so the next one knows whether it
+        /// has crossed into a new one. Null until something has been read.
+        ///
+        /// <para>
+        /// State in a formatter, deliberately, and it is state about what was SAID rather than
+        /// about the chart — which is why it does not live in the store. Comparing against the
+        /// previously READ bar rather than against the bar before this one in the data is what
+        /// makes it work in both directions: arrowing LEFT across midnight lands on the last bar
+        /// of the previous day, which is not the first bar of anything and would never announce
+        /// itself under a data-only rule.
+        /// </para>
+        /// </summary>
+        private DateTime? _lastSpokenBarDay;
+
+        /// <summary>
+        /// The timestamp an arrow-key reading carries.
+        ///
+        /// <para>
+        /// Cody, 2026-09-05: <i>"if I switch to an hour chart, when I use the arrows to move by
+        /// bar, I want to hear the date… when I actually cross into a new day, otherwise, just
+        /// the timestamp itself."</i> Every bar used to carry the full stamp — "September 05,
+        /// 2026, 14:00" — which is the same eleven syllables of date in front of every one of
+        /// twenty-four consecutive readings, and on a daily chart it was the reverse absurdity:
+        /// "September 05, 2026, 00:00", a time that is the same on every bar a daily chart has.
+        /// </para>
+        ///
+        /// <list type="bullet">
+        ///   <item><b>Daily bars or coarser</b> — the date, alone. There is no time to tell.</item>
+        ///   <item><b>Intraday</b> — the time, alone, until the reading crosses into a new day;
+        ///         that bar leads with the date. <c>Speak the date on every bar</c> in Settings
+        ///         (F12) → Speech makes every bar carry it, for a user who would rather have it
+        ///         than infer it.</item>
+        /// </list>
+        ///
+        /// <para>
+        /// The two "Speak values as" orders that name a timestamp explicitly — time only, date
+        /// only — are honoured exactly as before. A user who has asked for one of them has
+        /// already answered this question.
+        /// </para>
+        /// </summary>
+        private string NavigationTimestamp(WorkspaceState state, DateTime stamp)
+        {
+            if (state.SpeechOrder.Contains("TimeOnly"))
+                return SpeechTimeFormatter.FormatTime(stamp);
+            if (state.SpeechOrder.Contains("DateOnly"))
+                return SpeechTimeFormatter.Format(stamp, SpeechTimeFormatter.DateFormat);
+
+            var day = SpeechTimeFormatter.ToDisplay(stamp).Date;
+            bool dayChanged = _lastSpokenBarDay != day;
+            _lastSpokenBarDay = day;
+
+            if (PlaybackNarration.BarSeconds(state) >= 86400)
+                return SpeechTimeFormatter.FormatLongDate(stamp);
+
+            return dayChanged || state.SpeakDateOnEveryBar
+                ? $"{SpeechTimeFormatter.Format(stamp, SpeechTimeFormatter.DateFormat)}, {SpeechTimeFormatter.FormatTime(stamp)}"
+                : SpeechTimeFormatter.FormatTime(stamp);
         }
 
         public string FormatProfileFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int binIndex, string prefixMessage)

@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The date that only speaks when it changes (2026-09-05)
+
+**Every arrow-key reading carried the full stamp.** Cody: *"if I switch to an hour chart, when I
+use the arrows to move by bar, I want to hear the date… when I actually cross into a new day,
+otherwise, just the timestamp itself."* It was "September 05, 2026, 14:00" on every bar — the same
+eleven syllables of date in front of each of twenty-four consecutive readings — and on a daily
+chart the reverse absurdity, "September 05, 2026, 00:00", a time identical on every bar such a
+chart has. `SpeechFormatter.NavigationTimestamp`: the date alone on daily bars and coarser, the
+time alone intraday, and the day named on the reading that crosses into it.
+
+**Compared against the last bar READ, not the bar before it in the data.** Arrowing LEFT across
+midnight lands on the last bar of the previous day, which is not the first bar of anything — under
+a data-only rule the crossing the user just made would be the one crossing that stayed silent. The
+formatter remembers the day it last spoke.
+
+**`Speak the date on every bar`** — Settings (F12) → Speech, default OFF, for a user who would
+rather have the date in front of every reading than infer it. Opt-IN by design: an opt-OUT setting
+silently inverts wherever nobody configures it. The two "Speak values as" orders that name a
+timestamp explicitly are untouched.
+
 ### The bar that would not say which bar it was (2026-09-05)
 
 **The new-bar announcement carried no timestamp.** Cody: *"if I'm on a 1 minute chart and hear a

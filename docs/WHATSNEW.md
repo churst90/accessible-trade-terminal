@@ -321,6 +321,14 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   the first, so you heard the candle and nothing else. The closing time is new too: on a
   one-minute chart the announcement named no time at all, so nothing in it — or in the journal
   afterwards — said which minute it belonged to.
+- **Arrowing along an intraday chart reads the time, and the date only when you cross into a new
+  day.** *"14:00."*, *"15:00."*, then *"September 6, 00:00."* Every bar used to carry the whole
+  stamp — "September 05, 2026, 14:00" — which is the same eleven syllables in front of each of
+  twenty-four consecutive readings. It follows what you are READING, so arrowing backwards over
+  midnight names the day too. **Settings (F12) → Speech → Speak the date on every bar** puts it
+  back in front of everything if you prefer it there.
+- **A daily bar no longer says "00:00" after its date** — a time that is identical on every bar a
+  daily chart has.
 - **A viewport on an intraday chart no longer reads one date twice.** "From September 5 2026 to
   September 5 2026" is not a range. It is *"from September 5 2026, 14:32 to 15:22"* now, with the
   date spoken once when both ends share it.

@@ -63,6 +63,7 @@ namespace AccessibleTrader.Core.Services
         // PreferencePersistenceService, which seeds the store at startup and
         // writes changes back here)
         bool SpeakTimestamps { get; set; }
+        bool SpeakDateOnEveryBar { get; set; }
         string TimestampReadLocation { get; set; }
         bool ReadColumnHeaders { get; set; }
         string SpeechOrder { get; set; }
@@ -200,6 +201,22 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.SpeakTimestamps, def: true);
             set => Set(SettingsKeys.SpeakTimestamps, value);
+        }
+
+        /// <summary>
+        /// Whether every bar's timestamp carries the date, or only the ones that cross into a new
+        /// day. Default FALSE — boundaries only, which is what Cody asked for and the quieter
+        /// reading: on an hour chart the date is the same for twenty-four bars in a row.
+        ///
+        /// <para>
+        /// Opt-IN by design, so a bare substitute returning false gives the default behaviour —
+        /// an opt-OUT setting would silently invert in every test that does not configure it.
+        /// </para>
+        /// </summary>
+        public bool SpeakDateOnEveryBar
+        {
+            get => GetBool(SettingsKeys.SpeakDateOnEveryBar, def: false);
+            set => Set(SettingsKeys.SpeakDateOnEveryBar, value);
         }
         public string TimestampReadLocation
         {

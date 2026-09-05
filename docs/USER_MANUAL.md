@@ -1927,6 +1927,17 @@ eleven markers just printed is the fact you are waiting for. Where a signal's ow
 already says which component it is — *"Bullish divergence"*, *"Triple confluence buy, strong
 confirmation"* — nothing is put in front of it. The same rule holds during playback.
 
+**The date, only when it changes.** Arrowing along an hour chart reads the time alone — *"14:00.
+Close 64,900."*, *"15:00. …"* — and names the day when the bars you are reading cross into a new
+one: *"September 6, 00:00. …"*. It follows the reading rather than the chart, so arrowing
+backwards across midnight names the day you have just come back into, and so does a jump that
+lands in a different one. On a daily chart or coarser the date **is** the timestamp; you no longer
+hear "00:00" after it, which was the same on every bar a daily chart has. If you would rather have
+the date in front of every reading, **Settings (F12) → Speech → Speak the date on every bar**
+turns it on; boundaries only is the default. The two "Speak values as" orders that name a
+timestamp explicitly — time only, date only — are unaffected: choosing one has already answered
+the question.
+
 **Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
 then whatever your indicators made of it, in one breath: *"Close 64,905 at 14:32, Bullish
 engulfing. New bar: Open 64,910. Triple confluence buy, strong confirmation. RSI 14: RSI

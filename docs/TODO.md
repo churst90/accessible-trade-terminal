@@ -117,6 +117,39 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-FOURTH pass — THE DATE THAT ONLY SPEAKS WHEN IT
+> CHANGES.** One ask from Cody, one new setting.**
+>
+> ### 1. THE NAVIGATION TIMESTAMP — DONE
+>
+> "On an hour chart… I want to hear the date when I actually cross into a new day, otherwise just
+> the timestamp itself." Was the full stamp on EVERY bar; now the date alone on daily+ (the
+> ", 00:00" it used to append is the same on every bar such a chart has), the time alone
+> intraday, and the day named on the reading that crosses into it.
+>
+> **Durable: compare against the last bar READ, not the bar before it in the DATA.** Arrowing
+> left across midnight lands on the last bar of the previous day — not the first bar of anything
+> — so a data-only rule would stay silent on exactly the crossing the user just made.
+>
+> **Durable, in the tests: a fixture built in UTC crosses midnight only for a reader in UTC.**
+> Every stamp goes through `SpeechTimeFormatter.ToDisplay`, so the day a reading falls on is the
+> user's local day. `NavigationTimestampTests` builds its bars with `DateTimeKind.Local`.
+>
+> **New setting: `Speak the date on every bar`** (Speech tab, default OFF). Opt-IN, so a bare
+> substitute gets the default. Eight sites, the `SpeakPlaybackLandmarks` pattern:
+> `SettingsKeys`, `IAppSettings`/`AppSettings`, `WorkspaceState` + `Initial`,
+> `PreferencePersistenceService` (record, `FromState`, seed, write-back), `WorkspaceProjection`'s
+> excluded list, the modal's field/checkbox/load/save, and **the settings search registry** —
+> `SettingsSearchRegistryTests` fails a labelled control with no row.
+>
+> ### 2. NEXT
+>
+> - Watch §7g to ~2026-09-10 before calling the segfault fixed.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-THIRD pass — THE BAR THAT WOULD NOT SAY WHICH
 > BAR IT WAS. One small ask from Cody, plus a re-read of the deploy notes.**
 >

@@ -233,7 +233,9 @@ namespace AccessibleTrader.Sdk.Models
         // indicators printed), and someone who wants the signals may not want the calendar read
         // to them every few seconds. Default TRUE — it has spoken since 2026-09-02, and it is
         // subordinate to NarrateDuringPlayback, which remains the master switch.
-        bool SpeakPlaybackLandmarks = true
+        bool SpeakPlaybackLandmarks = true,
+        /// <summary>Speak the date on every bar, rather than only when the day changes.</summary>
+        bool SpeakDateOnEveryBar = false
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -267,6 +269,7 @@ namespace AccessibleTrader.Sdk.Models
             NarrateSignalsOnBarClose: true,
             NarrateDuringPlayback: true,
             SpeakPlaybackLandmarks: true,
+            SpeakDateOnEveryBar: false,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,
