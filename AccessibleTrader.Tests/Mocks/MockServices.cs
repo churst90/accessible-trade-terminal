@@ -292,7 +292,13 @@ namespace AccessibleTrader.Tests.Mocks
         public void ClearAllPreferences() { }
     }
 
-    public class MockAutoNarrationService : IAutoNarrationService { }
+    /// <summary>Narrates nothing, so the coordinator speaks the new-bar sentence itself —
+    /// which is what every test that does not wire the real narrator wants.</summary>
+    public class MockAutoNarrationService : IAutoNarrationService
+    {
+        public bool WillNarrateBarClose() => false;
+        public void DeferBarCloseSentence(string sentence) { }
+    }
 }
 
 

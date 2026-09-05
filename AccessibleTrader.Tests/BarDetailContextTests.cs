@@ -314,21 +314,38 @@ namespace AccessibleTrader.Tests
             Assert.Equal("bullish crossover detected", ctx.NarrativeHint);
         }
 
+        /// <summary>
+        /// <b>This used to assert the "BB|Upper" definition, and it was a test written to match a
+        /// definition rather than the product.</b> Bollinger's components are called "UpperBand"
+        /// and "LowerBand" — have been for years — so the registered "BB|Upper" and "BB|Lower"
+        /// entries bound to nothing on a real chart, and the only place a component named "Upper"
+        /// existed was in this fixture. The test passed for the whole life of the defect.
+        ///
+        /// <para>
+        /// Both definitions were deleted on 2026-09-05 (see <c>IndicatorContextAnalyzer</c>), and
+        /// what replaces this assertion is the one that would have caught it: the analyser has
+        /// nothing to say about a REAL Bollinger series. Its narration comes from the price-cross
+        /// route instead — see <c>OverlayCrossNarrationTests</c> — and
+        /// <c>NarrationRouteContractTests.EveryRegisteredOscillatorDefinition_NamesAComponentThatExists</c>
+        /// fails if a key that binds to no component comes back.
+        /// </para>
+        /// </summary>
         [Fact]
-        public void Analyzer_BollingerUpper_MapsToAtUpperBandHint()
+        public void Analyzer_HasNothingToSay_AboutARealBollingerSeries()
         {
-            // BB Upper has no OB/OS threshold; the component-name branch in DetermineZone
-            // drives AtUpperBand regardless of value. Hint: "at upper band - potential resistance".
             var analyzer = new IndicatorContextAnalyzer();
-            var series = MakeIndicatorSeries("bb_upper", "BB",
-                component: "Upper",
+            var series = MakeIndicatorSeries("bb", "Bb",
+                component: "UpperBand",
                 values: new[] { 110.0, 111.0, 112.0 });
             var state = StateAtIndex(series, 2);
 
             var ctx = analyzer.Analyze(series, state);
-            Assert.NotNull(ctx);
-            Assert.Equal(ZoneStatus.AtUpperBand, ctx!.Zone);
-            Assert.Equal("at upper band - potential resistance", ctx.NarrativeHint);
+
+            // The fallback path still returns a context for the first visible component — it is
+            // how the detail key reads a value — but it carries no zone and no crossover, which
+            // is what "no registered definition" means.
+            Assert.Equal(ZoneStatus.Normal, ctx!.Zone);
+            Assert.Equal(CrossoverStatus.None, ctx.Crossover);
         }
 
         [Fact]

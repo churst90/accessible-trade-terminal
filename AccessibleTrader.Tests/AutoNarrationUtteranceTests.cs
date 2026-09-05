@@ -79,6 +79,7 @@ public class AutoNarrationUtteranceTests
             => Context != null && (OnlyForSeries == null || series.FriendlyName == OnlyForSeries);
 
         public void RegisterDefinition(IndicatorContextDefinition def) { }
+        public bool HasZoneThresholds(string indicatorCode, string componentName) => false;
         public IndicatorContext? Analyze(ChartSeries series, WorkspaceState state)
             => Applies(series) ? Context : null;
         public IEnumerable<IndicatorContext> AnalyzeAll(ChartSeries series, WorkspaceState state)

@@ -33,6 +33,7 @@ namespace AccessibleTrader.Tests
         private sealed class StubContextAnalyzer : IIndicatorContextAnalyzer
         {
             public void RegisterDefinition(IndicatorContextDefinition def) { }
+            public bool HasZoneThresholds(string indicatorCode, string componentName) => false;
             public IndicatorContext? Analyze(ChartSeries series, WorkspaceState state) => null;
             public IEnumerable<IndicatorContext> AnalyzeAll(ChartSeries series, WorkspaceState state)
                 => Enumerable.Empty<IndicatorContext>();

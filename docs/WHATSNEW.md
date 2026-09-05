@@ -314,6 +314,19 @@ you find out**. Both had holes in them, and one of the holes could cost real mon
   bar-close narration speaks what **changed** (price crossing your EMA, an oscillator leaving a
   zone). That is why your averages never talk during a playback however you have flagged them —
   at ten bars a second a line with a value on every bar is a wall of numbers.
+- **A bar close is one sentence again.** The candle and what your indicators made of it arrive
+  together — *"Close 64,905. Bullish engulfing. New bar: Open 64,910. Triple confluence buy,
+  strong confirmation."* Two parts of the terminal were announcing the same moment separately,
+  and on the web head the second one silently replaced the first, so you heard the candle and
+  nothing else.
+- **The first bar to close after you press N now speaks.** It never did: the bar that is still
+  forming when you switch narration on was being treated as history, so the one bar you are
+  listening for was the one bar that could not talk.
+- **Oscillators can narrate at last — all of them.** Stochastic, CCI, MFI, ADX, ROC, Williams %R,
+  TRIX, CMO, Choppiness, PPO, StochRSI and two dozen more had no way to say anything at all:
+  pressing N confirmed "narrating" and then gave you silence for the rest of the session. They
+  speak their own thresholds now — *"Stochastic 14: crossed above overbought, 80."* — including
+  levels you have moved or added yourself.
 - **Hidden and muted are spoken first, narrating last.** *"Hidden and muted. Cipher B. 11
   components…"*, and *"…64,900. Narrating."* Something that is switched off explains itself
   before the reading, because an interruption takes the end of a sentence and not its start;

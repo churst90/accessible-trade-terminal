@@ -25,24 +25,29 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 TrendLookbackBars = 3,
                 SpeechTemplate = "{value:F6}, {trend}, {zone}"
             });
+            // ── FOUR DEFINITIONS USED TO SIT HERE AND BIND TO NOTHING ──────────────
+            //
+            // "BB|Upper" and "BB|Lower" (Bollinger's components are "UpperBand"/"LowerBand"),
+            // "STOCH|K" (Stochastic's are "Oscillator"/"Signal", renamed years ago to match
+            // Skender's result type) and "CIPHER_B|Trigger Wave" (no such component). Keys that
+            // match no component are dead configuration that LOOKS like coverage, which is worse
+            // than no entry at all: it is why nobody noticed that Stochastic could not narrate.
+            // `NarrationRouteContractTests.EveryRegisteredOscillatorDefinition_NamesAComponentThatExists`
+            // fails if one comes back.
+            //
+            // They are deleted rather than re-keyed because the generic routes cover all three
+            // now: Bollinger is a Main-pane overlay and gets price-cross narration, and
+            // Stochastic declares Overbought/Oversold levels and gets level-cross narration.
+            // A definition is for an indicator whose thresholds need their OWN wording.
+            //
+            // Vortex is the opposite case and gets one: VI+ crossing VI- IS the indicator, it
+            // declares no levels, and nothing else could ever have spoken for it.
             RegisterDefinition(new IndicatorContextDefinition
             {
-                IndicatorCode = "BB", ComponentName = "Upper",
+                IndicatorCode = "Vortex", ComponentName = "Pvi",
+                CrossoverComponentA = "Pvi", CrossoverComponentB = "Nvi",
                 TrendLookbackBars = 3,
-                SpeechTemplate = "{value:F6}, at upper band"
-            });
-            RegisterDefinition(new IndicatorContextDefinition
-            {
-                IndicatorCode = "BB", ComponentName = "Lower",
-                TrendLookbackBars = 3,
-                SpeechTemplate = "{value:F6}, at lower band"
-            });
-            RegisterDefinition(new IndicatorContextDefinition
-            {
-                IndicatorCode = "STOCH", ComponentName = "K",
-                OverboughtThreshold = 80, OversoldThreshold = 20,
-                TrendLookbackBars = 3,
-                SpeechTemplate = "{value:F6}, {trend}, {zone}"
+                SpeechTemplate = "{value:F2}, {trend}"
             });
             RegisterDefinition(new IndicatorContextDefinition
             {
@@ -68,15 +73,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 TrendLookbackBars = 5,
                 SpeechTemplate = "{value:F1}, {zone}"
             });
-            // Trigger Wave: WT1 − EMA(WT1) zero-oscillator.
-            // Threshold ±3 filters noise; positive = WT1 accelerating up (entry warning).
-            RegisterDefinition(new IndicatorContextDefinition
-            {
-                IndicatorCode = "CIPHER_B", ComponentName = "Trigger Wave",
-                OverboughtThreshold = 3, OversoldThreshold = -3,
-                TrendLookbackBars = 2,
-                SpeechTemplate = "{value:F1}"
-            });
+            // (The "Trigger Wave" definition that sat here named a component Cipher B does not
+            // have — see the note above.)
             // Money Flow Wave: raw values −100..−60, neutral at −80.
             // OB = −70 (>50% buying pressure), OS = −90 (>50% selling pressure).
             RegisterDefinition(new IndicatorContextDefinition
@@ -93,6 +91,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string key = $"{definition.IndicatorCode.ToUpperInvariant()}|{definition.ComponentName.ToUpperInvariant()}";
             _defs[key] = definition;
         }
+
+        /// <inheritdoc />
+        public bool HasZoneThresholds(string indicatorCode, string componentName)
+            => _defs.TryGetValue($"{indicatorCode.ToUpperInvariant()}|{componentName.ToUpperInvariant()}", out var def)
+               && (def.OverboughtThreshold.HasValue || def.OversoldThreshold.HasValue);
 
         public IndicatorContext? Analyze(ChartSeries series, WorkspaceState state)
             => AnalyzeAll(series, state).FirstOrDefault();

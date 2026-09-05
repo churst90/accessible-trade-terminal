@@ -1890,12 +1890,50 @@ which has a side and can cease to exist, and a moving average has neither. Ciphe
 and Spider Lines' fibonacci EMAs are declared levels and do get the fuller vocabulary. And none
 of it is spoken during playback; see the playback section above for why.
 
+**What an oscillator narrates, and when.** Its **levels** — the thresholds the indicator was
+built around, which it declares for itself and which you can see as dashed lines in its pane.
+Crossing one is spoken on the bar close: *"Stochastic 14: crossed above overbought, 80."*,
+*"Rate of Change 9: crossed above zero."* Move a level with the Properties dialog, or drop your
+own with `0`, and the new value is what gets narrated — the sentence follows the line, not a
+number baked into the terminal. A handful of indicators have wording written specially for them
+and use that instead, so RSI says *"RSI overbought"* rather than the generic form, and Cipher B
+says *"Anchor wave oversold"*; you never hear both for one crossing.
+
+**Every indicator, and what it will say.** Six routes, and an indicator uses whichever ones it
+has:
+
+| What the indicator has | What you hear, and when | In playback? |
+|---|---|---|
+| **A signal marker** — an entry dot, a divergence, a break of structure | The signal itself, on the bar it prints: *"Triple confluence buy, strong confirmation."* | **Yes** — this is the only thing playback speaks |
+| **A price-space line** — EMA, SMA, VWAP, Bollinger, Keltner, Donchian, Ichimoku's lines, pivots | *"Price crossed above EMA 9 at 64,900."* on the bar close | No |
+| **A declared level** — most oscillators: Stochastic, CCI, MFI, ADX, ROC, %R, TRIX, CMO, Chop, PPO, StochRSI | *"crossed above overbought, 80."* on the bar close | No |
+| **Its own zone wording** — RSI, MACD, Vortex, Cipher B's waves | The indicator's own phrase: *"RSI overbought."*, *"MACD bullish crossover."* | No |
+| **A declared level line** — Cipher SR's pivots, Spider Lines | Broken, tested, approached, and crossed — the full support/resistance vocabulary | No |
+| **A cloud** — Ichimoku's Kumo, MA Cloud, Cipher B's anchor fill | *"Price entered the Kumo."*, exited, crossed | No |
+
+Four kinds of thing stay silent however you flag them, and it is deliberate: your **drawings**
+(they answer to the drawing keys and read themselves when you arrow onto them), the **candles,
+volume and the profile surfaces** (the new-bar announcement *is* the candle's narration), the
+**comparison overlays** (another symbol's price, drawn here), and the **unbounded accumulators**
+— OBV, A/D line, Force Index, standard deviation, ATR, Ulcer, historical volatility. Those last
+ones have no threshold that means anything: an ATR of 400 is enormous on one asset and noise on
+another, so there is nothing to cross and inventing a number to cross would be worse than the
+silence.
+
 **What a signal sounds like.** A narrated signal is introduced by the *component* that fired
 it, never by the series: *"WaveTrend Cross Bull: Wave cross up 12."* You chose which series
 narrate, so the series name tells you nothing you did not already know; which of Cipher B's
 eleven markers just printed is the fact you are waiting for. Where a signal's own wording
 already says which component it is — *"Bullish divergence"*, *"Triple confluence buy, strong
 confirmation"* — nothing is put in front of it. The same rule holds during playback.
+
+**Everything about one bar arrives as one sentence.** When a bar closes you hear the candle and
+then whatever your indicators made of it, in one breath: *"Close 64,905. Bullish engulfing. New
+bar: Open 64,910. Triple confluence buy, strong confirmation. RSI 14: RSI overbought."* Up to
+five clauses, ordered by consequence — a level breaking first, then an indicator's own signals,
+then crossings, then tests, then approaches, and last the oscillator commentary, which is the
+most frequent thing the terminal can say and the least worth leading with. Anything beyond five
+is dropped from the bottom of that order rather than from whatever arrived last.
 
 Two switches sit above all of it, both on the **Narration** tab of Settings (F12). "Narrate
 signals on bar close" is the master: N chooses which series and components speak, that switch

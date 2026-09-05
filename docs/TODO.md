@@ -117,6 +117,59 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-SECOND pass — THE BAR CLOSE THAT SPOKE TWICE,
+> THIRTY-FIVE INDICATORS THAT COULD NOT SPEAK AT ALL, AND A GUARD THAT LISTENS.**
+>
+> ### 1. "ONLY THE NEWEST CANDLE IS READ OUT ON A NEW BAR" — DONE, two defects
+>
+> Reproduced before fixing (`NewBarNarrationCompositionTests`), and it was two:
+>
+> - **Two services spoke about the same moment.** The coordinator on `NewBarEvent` (published
+>   the instant the store commits), `AutoNarrationService` on the `RedrawEvent` after the
+>   recalculation. ARIA live region → the second write replaces the first. **Durable: any two
+>   subscribers that speak about the SAME EVENT are one lost utterance on the web head.** The
+>   narrator composes now; the coordinator hands it the sentence and only speaks when no scan
+>   is coming (`WillNarrateBarClose` / `DeferBarCloseSentence`).
+> - **The first bar to close after enabling narration could never speak.** `_seedBarCounts[id]`
+>   was `Data.Count`; the first bar to close is `count - 1`. **The last bar is the FORMING one,
+>   not history.**
+>
+> ### 2. THIRTY-FIVE INDICATORS COULD NOT NARRATE ANYTHING — DONE
+>
+> Found by census, not by report: 3 of 99 indicators had a registered
+> `IndicatorContextDefinition`; the rest had no marker, no zone line, no cloud. N on Stochastic,
+> CCI, MFI, ADX, ROC, %R, TRIX, CMO, Chop, PPO or StochRSI was a dead switch.
+> **`ScanLevelCrosses` uses what the providers ALREADY declare** (`GetDefaultLevels` →
+> `series.Levels`), so no per-indicator registration is needed and a user-moved level narrates at
+> its new value. `HasZoneThresholds` keeps the one indicator with its own wording (RSI, Cipher B)
+> from saying the same crossing twice.
+>
+> **Four registered definitions bound to NOTHING** — `STOCH|K`, `BB|Upper`, `BB|Lower`,
+> `CIPHER_B|Trigger Wave`. Deleted; Vortex gained the crossover definition it always needed.
+> **A test that asserted `BB|Upper` was deleted with them: it built a component named "Upper",
+> which no Bollinger series has.** A test written to match the configuration rather than the
+> product passes for the whole life of the defect.
+>
+> ### 3. THE GUARD §5n ASKED FOR — DONE: `NarrationRouteContractTests`
+>
+> `patches/HOSTED-DEPLOY-NOTES.md` §5n: *"assert the artifact, not the incantation… a test that
+> enables narration on each shipped indicator in turn and asserts a non-empty utterance would
+> have caught the EMA."* That is what it does — drives the real narrator through a real bar
+> close per indicator and fails on silence, with a categorised exemption list (drawings, price
+> and the profile surfaces, unbounded accumulators, comparison overlays). Proven: reverting the
+> overlay-cross route makes it name all twenty silent moving averages.
+>
+> ### 4. NEXT
+>
+> - §5g on the box (Cody): `chmod 0700` `cache/ secrets/ users/ xdg-cache/` and `xdg-data/`
+>   under `/var/lib/accessible-trader-terminal/`, and a `UMask=0077` drop-in for the demo unit.
+> - Watch §7g: the segfault fix is consistent with working and not yet proven; a week of
+>   service-hours (~2026-09-10) is when P(0 crashes | unfixed) drops to ~0.02.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-FIRST pass — THE SIGNAL THAT COULD NEVER BE
 > SPOKEN, THE EMA WITH NOTHING TO SAY, AND HIDDEN BEFORE / NARRATING AFTER. One report from
 > Cody, three defects under it.**

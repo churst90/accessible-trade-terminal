@@ -112,6 +112,19 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private readonly Dictionary<string, bool> _lastPriceAboveOverlay = new();
 
+        /// <summary>
+        /// The new-bar sentence the coordinator handed over, waiting to be spoken as the first
+        /// clause of this bar's narration. Null when there is none. See
+        /// <see cref="DeferBarCloseSentence"/>.
+        /// </summary>
+        private string? _pendingBarCloseSentence;
+
+        /// <summary>
+        /// Which side of one of the series' declared reference levels its reading was on at the
+        /// last bar close. Key = "{seriesId}:{componentName}:{levelName}".
+        /// </summary>
+        private readonly Dictionary<string, bool> _lastAboveLevel = new();
+
         /// <summary>Set of series IDs that were narrated in the previous StateStream emission.</summary>
         private HashSet<string> _prevNarratedIds = new();
 
@@ -329,8 +342,22 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Newly enabled — record seed bar count so no historical signals fire
             foreach (var id in currentIds.Except(_prevNarratedIds))
             {
+                // ── THE LIVE BAR IS NOT HISTORICAL ──────────────────────────────────────
+                //
+                // This was `barCount`, and the effect was that THE FIRST BAR TO CLOSE AFTER
+                // YOU SWITCH NARRATION ON COULD NEVER SPEAK — the one bar the user is
+                // listening for when they press N. The scan requires
+                // `max(seedCount, …) <= closedBound`, and the first bar to close is index
+                // `barCount - 1`, one below a seed of `barCount`.
+                //
+                // The last bar is the FORMING one. Everything strictly before it has closed
+                // already and is history nobody asked to have replayed; the forming bar has
+                // not happened yet, and what it prints when it closes is exactly the news the
+                // flag was set to hear. Measured, not reasoned: the diagnostic in
+                // NewBarNarrationCompositionTests spoke only the candle on the first close and
+                // the signal on the second.
                 int barCount = state.Data?.Count ?? 0;
-                _seedBarCounts[id] = barCount;
+                _seedBarCounts[id] = Math.Max(0, barCount - 1);
 
                 var series = state.ActiveSeries.FirstOrDefault(s => s.Id == id);
                 if (series != null)
@@ -363,6 +390,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     _lastPriceAboveZone.Remove(k);
                 foreach (var k in _lastPriceAboveOverlay.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastPriceAboveOverlay.Remove(k);
+                foreach (var k in _lastAboveLevel.Keys.Where(k => k.StartsWith(id + ":")).ToList())
+                    _lastAboveLevel.Remove(k);
                 foreach (var k in _lastCloudPosition.Keys.Where(k => k.StartsWith(id + ":")).ToList())
                     _lastCloudPosition.Remove(k);
             }
@@ -372,13 +401,60 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         // ── RedrawEvent: scan for new signals ────────────────────────────────────
 
-        private void OnIndicatorsUpdated()
+        /// <inheritdoc />
+        public bool WillNarrateBarClose()
         {
             var state = _store.State;
-            if (state.Data == null || state.Data.Count == 0) return;
-            if (state.DataStatus == DataStatus.LoadingHistorical) return;
-            if (state.InitStatus != InitializationStatus.Ready) return;
-            if (!state.IsSpeechEnabled) return;
+            return state.Data is { Count: > 0 }
+                && state.DataStatus != DataStatus.LoadingHistorical
+                && state.InitStatus == InitializationStatus.Ready
+                && state.IsSpeechEnabled
+                && state.NarrateSignalsOnBarClose
+                && _prevNarratedIds.Any();
+        }
+
+        /// <inheritdoc />
+        public void DeferBarCloseSentence(string sentence)
+        {
+            if (string.IsNullOrWhiteSpace(sentence)) return;
+            // Replacing rather than appending: if two bars closed without a scan in between,
+            // the older sentence describes a bar that is no longer the one that just closed,
+            // and speaking it late is worse than not speaking it.
+            _pendingBarCloseSentence = sentence.Trim();
+        }
+
+        /// <summary>
+        /// ONE utterance per bar close: the new-bar sentence the coordinator deferred, then
+        /// whatever this scan found, spoken together or not at all.
+        ///
+        /// <para>
+        /// The pending sentence is taken BEFORE the scan and spoken even when the scan itself
+        /// bails out — a narration gate must not be able to swallow the new-bar announcement,
+        /// which answers to a different switch (<c>AnnounceNewBars</c>).
+        /// </para>
+        /// </summary>
+        private void OnIndicatorsUpdated()
+        {
+            string? pending = _pendingBarCloseSentence;
+            _pendingBarCloseSentence = null;
+
+            string? scanned = ScanForNarration();
+
+            string whole = string.Join(" ", new[] { pending, scanned }
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+            if (whole.Length == 0) return;
+
+            _speechRouter.Speak(whole, interrupt: false, channel: SpeechChannel.Event);
+        }
+
+        /// <summary>What this scan found, or null. Speaks nothing itself — see the caller.</summary>
+        private string? ScanForNarration()
+        {
+            var state = _store.State;
+            if (state.Data == null || state.Data.Count == 0) return null;
+            if (state.DataStatus == DataStatus.LoadingHistorical) return null;
+            if (state.InitStatus != InitializationStatus.Ready) return null;
+            if (!state.IsSpeechEnabled) return null;
 
             // The Narration tab's master switch. It sits ABOVE the per-series flag, not instead
             // of it: Ctrl+Alt+Shift+N picks WHICH series speak, this says whether any of them
@@ -393,9 +469,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // speak a signal from up to 20 bars back. That is pre-existing behaviour for F2, it
             // is bounded, and a signal 20 bars old is arguably still worth hearing — noted here
             // rather than special-cased.
-            if (!state.NarrateSignalsOnBarClose) return;
+            if (!state.NarrateSignalsOnBarClose) return null;
 
-            if (!_prevNarratedIds.Any()) return;
+            if (!_prevNarratedIds.Any()) return null;
 
             int currentCount = state.Data.Count;
             bool isNewBar = currentCount > _lastDataCount && _lastDataCount > 0;
@@ -405,7 +481,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Only scan confirmed (closed) bars to avoid announcing unstable live-bar values.
             // On bar close: just-closed bar is scanIndex. On intra-bar tick: penultimate bar.
             int closedBound = isNewBar ? scanIndex : currentCount - 2;
-            if (closedBound < 0) return;
+            if (closedBound < 0) return null;
 
             // Everything this scan finds, across every narrated series, goes into ONE phrase —
             // see ScanUtterance. Nine Speak calls in one handler is eight discarded on the web
@@ -426,8 +502,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
 
             string composed = utterance.Compose();
-            if (!string.IsNullOrEmpty(composed))
-                _speechRouter.Speak(composed, interrupt: false, channel: SpeechChannel.Event);
+            return string.IsNullOrEmpty(composed) ? null : composed;
         }
 
         // ── Core scanning logic ──────────────────────────────────────────────────
@@ -492,6 +567,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // 1d. Price crossing a plain price-space overlay (an EMA, a VWAP).
             ScanOverlayCrosses(series, state, toIndex, utterance);
+
+            // 1e. The indicator crossing one of its OWN declared levels (RSI 70, MACD zero).
+            ScanLevelCrosses(series, toIndex, utterance);
 
             // 2. Oscillator zone transitions.
 
@@ -623,6 +701,116 @@ namespace AccessibleTrader.Core.Services.Accessibility
                               $"Price crossed below {string.Join(", ", below)}.");
         }
 
+        // ── The indicator crossing its own reference levels ──────────────────────
+
+        /// <summary>
+        /// The component a series' declared levels are ABOUT: its primary reading.
+        ///
+        /// <para>
+        /// One component, not all of them, and the reason is Stochastic: %K and %D cross 80
+        /// within a bar or two of each other, and saying it twice is the wall of speech this
+        /// narrator's tiers exist to prevent. An oscillator LINE is preferred over a histogram
+        /// or a plain line because that is what the pane's levels are drawn against — on Cipher
+        /// B the first visible component is the WT Histogram, and its ±53 bands belong to the
+        /// Wave Trend. A user who wants a different component picks it with N; the selection is
+        /// honoured through <see cref="SeriesNarrationScope.ComponentNarrates"/> below.
+        /// </para>
+        /// </summary>
+        private static ComponentConfig? PrimaryReading(ChartSeries series)
+        {
+            ComponentConfig? fallback = null;
+            foreach (var comp in series.Components)
+            {
+                if (!comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
+                if (comp.IsZoneLine || comp.UsesGradientSpeech) continue;
+                if (IsMarkerDisplayType(comp.DisplayType)) continue;
+
+                if (comp.DisplayType == ComponentDisplayType.Oscillator) return comp;
+                if (fallback == null &&
+                    (comp.DisplayType == ComponentDisplayType.Line || comp.DisplayType == ComponentDisplayType.Histogram))
+                    fallback = comp;
+            }
+            return fallback;
+        }
+
+        /// <summary>
+        /// "RSI 14: crossed above overbought, 70." on the bar close.
+        ///
+        /// <para>
+        /// <b>Why this exists.</b> A census of every shipped provider on 2026-09-05 found that
+        /// roughly thirty-five indicators — nearly every oscillator in the terminal: Stochastic,
+        /// CCI, MFI, ADX, ROC, Williams %R, TRIX, CMO, Chop, PPO, StochRSI and the rest — had NO
+        /// route by which they could ever narrate anything. They print no markers, declare no
+        /// zone lines, own no cloud, and are not one of the three indicators
+        /// (<c>RSI</c>, <c>MACD</c>, <c>ATR</c>) with a hand-registered
+        /// <c>IndicatorContextDefinition</c>. Pressing N on any of them was a dead switch that
+        /// confirmed "narrating" and then said nothing for the rest of the session.
+        /// </para>
+        ///
+        /// <para>
+        /// The fix uses what the providers ALREADY declare: <c>GetDefaultLevels</c>, which
+        /// <c>SeriesManagementService.InjectDefaultLevels</c> turns into <c>series.Levels</c>.
+        /// Those constants are the thresholds the indicator was designed around, so crossing one
+        /// is the event. Registering a definition per indicator was the alternative and is what
+        /// produced the gap: three of ninety-nine got one.
+        /// </para>
+        ///
+        /// <para>
+        /// Levels the user hid are skipped, and so are Main-pane series: a fixed constant cannot
+        /// be a price (<c>MainPaneLevelUnitsTests</c> enforces that no Main-pane indicator
+        /// declares one), and price-space crossings are <see cref="ScanOverlayCrosses"/>'s job.
+        /// </para>
+        /// </summary>
+        private void ScanLevelCrosses(ChartSeries series, int barIndex, ScanUtterance utterance)
+        {
+            if (series.Levels.Count == 0) return;
+            if (string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase)) return;
+
+            var comp = PrimaryReading(series);
+            if (comp == null) return;
+
+            // One voice per threshold. A component with a registered definition already has
+            // hand-written overbought/oversold wording, and RSI declares 70/30 in both places.
+            if (_contextAnalyzer.HasZoneThresholds(series.IndicatorCode, comp.Name)) return;
+
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || barIndex < 0 || barIndex >= data.Length) return;
+            double val = data[barIndex];
+            if (double.IsNaN(val)) return;
+
+            var above = new List<string>();
+            var below = new List<string>();
+
+            foreach (var level in series.Levels)
+            {
+                if (!level.IsVisible) continue;
+                string key = $"{series.Id}:{comp.Name}:{level.Name}";
+                bool nowAbove = val > level.Value;
+
+                if (_lastAboveLevel.TryGetValue(key, out bool wasAbove) && wasAbove != nowAbove)
+                    (nowAbove ? above : below).Add(LevelPhrase(level));
+
+                _lastAboveLevel[key] = nowAbove;
+            }
+
+            if (above.Count > 0)
+                utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
+                              $"{series.FriendlyName}: crossed above {string.Join(", ", above)}.");
+            if (below.Count > 0)
+                utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
+                              $"{series.FriendlyName}: crossed below {string.Join(", ", below)}.");
+        }
+
+        /// <summary>"overbought, 70" — or just "zero", where the name already IS the number.</summary>
+        private static string LevelPhrase(LevelConfig level)
+        {
+            string name = level.Name.ToLowerInvariant();
+            return Math.Abs(level.Value) < 1e-9 && name.Contains("zero")
+                ? name
+                : $"{name}, {level.Value.ToString("0.####", CultureInfo.InvariantCulture)}";
+        }
+
         // ── State seeding (prevents false alarms when narration is enabled) ──────
 
         private void SeedOscillatorState(ChartSeries series, WorkspaceState state)
@@ -685,6 +873,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     }
                 }
             }
+            // The side the reading is on when narration is switched on is not a cross.
+            var primary = PrimaryReading(series);
+            if (primary != null)
+            {
+                var pdata = series.GetComponentData(primary.Name);
+                if (pdata != null && idx < pdata.Length && !double.IsNaN(pdata[idx]))
+                    foreach (var level in series.Levels)
+                        _lastAboveLevel[$"{series.Id}:{primary.Name}:{level.Name}"] = pdata[idx] > level.Value;
+            }
+
             foreach (var comp in series.Components)
             {
                 if (!comp.IsZoneLine) continue;

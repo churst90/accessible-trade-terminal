@@ -29,6 +29,7 @@ namespace AccessibleTrader.Tests
         {
             public IndicatorContext? FixedContext { get; set; }
             public void RegisterDefinition(IndicatorContextDefinition def) { }
+            public bool HasZoneThresholds(string indicatorCode, string componentName) => false;
             public IndicatorContext? Analyze(ChartSeries series, WorkspaceState state) => FixedContext;
             public IEnumerable<IndicatorContext> AnalyzeAll(ChartSeries series, WorkspaceState state)
                 => FixedContext != null ? new[] { FixedContext } : Enumerable.Empty<IndicatorContext>();

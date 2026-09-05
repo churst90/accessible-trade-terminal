@@ -42,6 +42,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IDrawingInteractionManager? _drawings;
         private readonly CompositeDisposable _subscriptions = new();
 
+        // The bar-close narrator. Held so the new-bar sentence can be composed INTO its
+        // utterance rather than racing it — see OnNewBar.
+        private readonly IAutoNarrationService _autoNarration;
+
         private WorkspaceState _previousState;
 
         // True from a playback start until the sequencer's first NavigateAction lands. That
@@ -92,11 +96,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             ISdkCandlePatternAnalyzer patternAnalyzer,
             IChartPatternCache patternCache,
             IChartPatternFocus patternFocus,
-            // Not stored, and that is deliberate. AutoNarrationService does all of its work
-            // from its own subscriptions, so this coordinator never calls it — but nothing
-            // else asks the container for it either, and a service DI is never asked for is
-            // a service that never runs. Naming it here is what constructs it. Do not
-            // "clean up" the parameter: auto-narration goes silent if you do.
+            // Naming this parameter is what CONSTRUCTS the narrator — nothing else asks the
+            // container for it, and a service DI is never asked for is a service that never
+            // runs. It is now also stored: the new-bar announcement is handed to it so that
+            // one utterance describes a bar close. See OnNewBar.
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
@@ -114,6 +117,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _patternAnalyzer = patternAnalyzer;
             _patternCache = patternCache;
             _patternFocus = patternFocus;
+            _autoNarration = autoNarration;
             _quickTrade = quickTrade as Trading.QuickTradeService;
             _previousState = store.State;
 
@@ -599,7 +603,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string outcomes = ChartPatternOutcomesAt(state, data, closedIndex);
 
             _earconService.PlayNewBar();
-            _speechRouter.Speak($"{closedMsg} {outcomes}{openMsg}", interrupt: false, channel: SpeechChannel.Event);
+
+            // ── ONE UTTERANCE DESCRIBES A BAR CLOSE ────────────────────────────────────
+            //
+            // Reported by Cody, 2026-09-05: "even if narration is on for several series, only
+            // the newest candle is actually read out on the print of a new bar." Two services
+            // were speaking about the same moment — this one the instant the store commits the
+            // bar, and AutoNarrationService on the RedrawEvent that follows the recalculation.
+            // On the web head speech is an ARIA live region and the second write replaces the
+            // first, so the user hears one of the two; which one depends on render batching.
+            // This is the same defect NavigationFeedbackManager's "one utterance per bar"
+            // composition exists for, on the other route.
+            //
+            // The narrator is the one that can compose, because it speaks LAST: the indicator
+            // values for the closed bar are not recalculated until after this event. So the
+            // sentence is handed over when a scan is coming and spoken here when it is not.
+            string sentence = $"{closedMsg} {outcomes}{openMsg}";
+            if (_autoNarration.WillNarrateBarClose())
+                _autoNarration.DeferBarCloseSentence(sentence);
+            else
+                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
 
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;

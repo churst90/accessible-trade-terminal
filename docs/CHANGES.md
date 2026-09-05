@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The bar close that spoke twice, thirty-five indicators that could not speak at all, and a guard that listens (2026-09-05)
+
+**Only the candle was read out when a bar printed.** Cody: *"even if narration is on for several
+series, only the newest candle is actually read out on the print of a new bar."* Two services
+were speaking about the same moment — the coordinator the instant the store commits the bar, and
+`AutoNarrationService` on the `RedrawEvent` after the recalculation. On the web head speech is an
+ARIA live region and the second write replaces the first, which is the defect
+`NavigationFeedbackManager`'s "one utterance per bar" composition was written for, arriving on
+the other route. The new-bar sentence is now handed to the narrator (`DeferBarCloseSentence`) and
+spoken as the first clause of its utterance; the coordinator speaks it itself when no scan is
+coming.
+
+**And the first bar to close after switching narration on could never speak.** `_seedBarCounts`
+recorded the BAR COUNT, and the first bar to close is index `count - 1` — one below the seed, so
+the scan skipped it. The last bar is the FORMING one; everything before it is history nobody
+asked to have replayed, and what the forming bar prints when it closes is exactly the news the
+flag was set to hear.
+
+**Thirty-five indicators had no way to narrate anything.** A census of every shipped provider:
+three of ninety-nine had a hand-registered `IndicatorContextDefinition`, and the rest print no
+markers, declare no zone lines and own no cloud. Pressing N on Stochastic, CCI, MFI, ADX, ROC,
+Williams %R, TRIX, CMO, Chop, PPO or StochRSI confirmed "narrating" and then said nothing for the
+rest of the session. `ScanLevelCrosses` uses what the providers already declare —
+`GetDefaultLevels`, which becomes `series.Levels` — so crossing a threshold speaks:
+*"Stochastic 14: crossed above overbought, 80."* An indicator with its own registered wording
+keeps it and the generic sentence stays out of the way (`HasZoneThresholds`), so RSI's 70 is
+never announced twice.
+
+**Four registered definitions bound to nothing.** `STOCH|K` (Stochastic's components are
+"Oscillator" and "Signal"), `BB|Upper` and `BB|Lower` ("UpperBand"/"LowerBand") and
+`CIPHER_B|Trigger Wave` (no such component). Configuration that looks like coverage. Deleted —
+the generic routes cover all of them — and Vortex, which could never have spoken at all, gets the
+crossover definition it needed. A test that asserted the dead `BB|Upper` entry went with them: it
+constructed a component named "Upper", which no real Bollinger series has, so it passed for the
+whole life of the defect.
+
+**`NarrationRouteContractTests` is the guard `patches/HOSTED-DEPLOY-NOTES.md` §5n asked for.** It
+does not check that a route exists in metadata — that is the "incantation" the note warns about.
+It switches narration on for every shipped indicator in turn, feeds it a bar close with a marker
+printing and a level crossed, and fails if nothing was SPOKEN, with a written-down exemption list
+carrying a reason per category. Reverting the overlay-cross route makes it name all twenty
+silent moving averages, EMA included.
+
 ### The signal that could never be spoken, the EMA that had nothing to say, and hidden before, narrating after (2026-09-05)
 
 **Cipher B's Triple Confluence Buy was dropped from every playback there has ever been.** Cody:
