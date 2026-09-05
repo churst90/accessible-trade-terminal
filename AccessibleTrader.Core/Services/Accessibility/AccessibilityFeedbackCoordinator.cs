@@ -482,8 +482,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Pan  (ViewportStartIndex changes WITHOUT cursor moving) → announce.
             // Jump commands (NAV_LIVE, NAV_HOME, NAV_END): cursor AND viewport both move together.
             //   → suppress the viewport description; only the bar at the new position is spoken.
+            // Live data (a bar appended, or older history prepended): the reducer slides the
+            //   window so the live edge stays in view, or so the user stays on the same bar.
+            //   → the feed moved the chart, not the user. Say nothing about the range; the bar
+            //   close speaks for itself. Cody, 2026-09-05: "when a new bar announcement comes
+            //   in, I don't hear the viewport announcement too". NewBarViewportSilenceTests.
             bool isCursorJump = indexChanged && viewportStartChanged && !viewportLengthChanged;
-            bool shouldAnnounceViewport = viewportLengthChanged || (viewportStartChanged && !isCursorJump);
+            bool dataArrived  = (state.Data?.Count ?? 0) != (_previousState.Data?.Count ?? 0);
+            bool shouldAnnounceViewport = viewportLengthChanged
+                                       || (viewportStartChanged && !isCursorJump && !dataArrived);
 
             if (shouldAnnounceViewport && state.Data != null && state.Data.Any())
             {

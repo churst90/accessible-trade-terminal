@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Everything under this heading postdates the `v2.8.0` tag. At the next cut this heading becomes
+`## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.8.0 binaries.
+
+### The viewport that announced itself on every bar close (2026-09-05)
+
+**A live bar no longer speaks the viewport range.** Cody: *"when a new bar announcement comes in,
+I don't hear the viewport announcement too — 'viewing 100 bars from x to y' — then the new bar
+data."* When the viewport is showing the live edge, the reducer slides it by one bar on every
+append so the newest bar stays in view, and leaves the cursor where it was. The coordinator's
+viewport policy read that as a PAN — the window moved and the cursor did not — and spoke the whole
+range, interrupting, before every bar close. The feed scrolling the chart is not the user moving
+it: a viewport shift that arrives in the same state change as a change in the bar count (an append,
+or older history prepended) now says nothing, and the bar close speaks for itself. A pan the user
+makes still announces. `NewBarViewportSilenceTests` (3), one red on the defect.
+
 ## [2.8.0] — 2026-09-05
 
 ### Five from Cody: the order book button, five more profiles, desktop notifications, Alt+Shift everywhere, and hidden means silent (2026-09-05)

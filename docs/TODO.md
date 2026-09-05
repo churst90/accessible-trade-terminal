@@ -122,6 +122,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > notifications exist on two heads, the drawing chords are Alt+Shift everywhere, and hidden
 > means silent.** See CHANGES `[Unreleased]` for each. What is worth carrying forward:
 >
+> ### 0. AFTER THE 2.8.0 TAG
+>
+> - **A live bar no longer speaks "Viewing N bars from…"** — the reducer's live-edge scroll
+>   looked like a pan to the coordinator. `dataArrived` (bar count changed in the same state
+>   change) now suppresses the range sentence. **Durable: a viewport shift is only a pan when
+>   the DATA did not change under it.** `NewBarViewportSilenceTests`.
+>
 > ### 1. DURABLE, from this pass
 >
 > - **Seven hand-written copies of a code list is the clone defect again.** The three profile
