@@ -117,6 +117,45 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-05, TWENTY-THIRD pass — THE BAR THAT WOULD NOT SAY WHICH
+> BAR IT WAS. One small ask from Cody, plus a re-read of the deploy notes.**
+>
+> ### 1. THE NEW-BAR ANNOUNCEMENT NOW NAMES ITS BAR — DONE
+>
+> "If I'm on a 1 minute chart and hear a new bar… the timestamp of the candle closing should also
+> be announced." `SpeechTimeFormatter.FormatBarClock` — time of day when bars are closer together
+> than a day, date otherwise. And the same report's other half: the viewport sentence read
+> "from September 5 2026 to September 5 2026" on any intraday chart, because both ends went
+> through `FormatLongDate`. `FormatBarRange` speaks the date once and the ends as times.
+>
+> **Durable: `WorkspaceState.Initial` carries `ChartIdentity.Empty`, whose timeframe is "1h".**
+> `NewBarNarrationTests` held daily bars under it, so the fixture described an hourly chart
+> holding daily bars. Any test whose output depends on the timeframe inherits that hour.
+>
+> ### 2. THE DEPLOY NOTES, RE-READ (their revision against `54676bd7`)
+>
+> - **Nothing is open.** §5a-§5g are all closed; §5g turned out not to be cosmetic — `www-data`
+>   is in group `debian`, so one account's settings and strategies were readable by the
+>   web-server user.
+> - **§5n is ANSWERED and says the guard came out better than asked.** The exemption-list audit
+>   is the part it did not request and calls "the one that keeps the guard honest": an exemption
+>   list is exactly where this defect class reconstitutes itself.
+> - **What it asks next: the rule is proven on ONE subsystem.** Of the other five instances, §2
+>   already has an artifact guard (`WebHostStaticAssetManifestTests`) and §3 and §5g are closed,
+>   so the one where "silence still means nobody has looked" is **§7b, the crash-dump path** —
+>   and that is box-side configuration, not repo-testable.
+> - **§7g: the segfault watch is still not proof.** 0 crashes, 0 dumps, 0 unscheduled restarts as
+>   of 2026-09-05 08:30 over ~38 hours; P(0 crashes | nothing was fixed) ≈ 0.40 over that window.
+>   ~2026-09-10 is when the silence becomes evidence.
+>
+> ### 3. NEXT
+>
+> - Watch §7g to ~2026-09-10 before calling the segfault fixed.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-SECOND pass — THE BAR CLOSE THAT SPOKE TWICE,
 > THIRTY-FIVE INDICATORS THAT COULD NOT SPEAK AT ALL, AND A GUARD THAT LISTENS.**
 >

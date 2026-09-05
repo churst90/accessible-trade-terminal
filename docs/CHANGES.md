@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [2.6.0] — 2026-09-04
 
+### The bar that would not say which bar it was (2026-09-05)
+
+**The new-bar announcement carried no timestamp.** Cody: *"if I'm on a 1 minute chart and hear a
+new bar… the timestamp of the candle closing should also be announced."* It named a price and
+nothing else, so a run of announcements in the journal was a column of prices with no way to tell
+which minute each belonged to. The closed bar is named by its own stamp now —
+*"Close 64,905 at 14:32."* — with the unit following the chart
+(`SpeechTimeFormatter.FormatBarClock`): the time of day intraday, the date on a daily or coarser
+chart where every bar would otherwise be "00:00".
+
+**And a viewport on an intraday chart read one date twice.** *"from September 5 2026 to September
+5 2026"* is not a range. `FormatBarRange` speaks the date once when both ends fall on it and makes
+the ends times: *"from September 5 2026, 14:32 to 15:22"*. Both the arrow-key viewport description
+and the layout description go through it, and a caller that has the chart state passes the
+declared timeframe rather than inferring the spacing from the range.
+
+**A fixture disagreed with itself and hid the rule.** `NewBarNarrationTests` held DAILY bars in a
+state whose `ChartIdentity.Empty` declares a "1h" timeframe, so the announcement described an
+hourly chart holding daily bars. The identity is set to match the data now — worth recording
+because `WorkspaceState.Initial` carries that identity everywhere, and any test whose output
+depends on the timeframe inherits an hour that its data does not have.
+
 ### The bar close that spoke twice, thirty-five indicators that could not speak at all, and a guard that listens (2026-09-05)
 
 **Only the candle was read out when a bar printed.** Cody: *"even if narration is on for several
