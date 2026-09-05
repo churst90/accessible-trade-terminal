@@ -2,10 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
-Everything under this heading postdates the `v2.7.0` tag. At the next cut this heading becomes
-`## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.7.0 binaries.
+## [2.8.0] — 2026-09-05
 
 ### Five from Cody: the order book button, five more profiles, desktop notifications, Alt+Shift everywhere, and hidden means silent (2026-09-05)
 

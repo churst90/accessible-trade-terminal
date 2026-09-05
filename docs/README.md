@@ -13,7 +13,7 @@ Diagrams of all of this — architecture, hosting topology, the data/order/feedb
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.7.0** — everything you switched on now speaks: thirty-five oscillators, every moving average and Cipher B's gold dot could not narrate at all, a bar close threw away one of its two sentences before you heard it, and the first bar to close after you pressed N was structurally silent. Before it, **v2.6.0** — the accessibility release, and the first since 2.3.0 with features in it: speech that actually reaches a screen reader, `inert` on the background of every modal, the pane model behind Alt+Page Up / Alt+Page Down, candle patterns readable on history, and playback as a narration mode. And **v2.5.0** — a fixing release, and the honest description of it is that nothing was added: an API key containing `&` was sent truncated and then spoken aloud in the error, Kraken's History tab was blank for its busiest pair, a support break could be announced as resistance, whole-chart playback had clipped since the day it was written, and a password reset left the old session open. Everything in it is something a user on 2.3.0 is silently exposed to right now; see [`WHATSNEW.md`](WHATSNEW.md) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.8.0** — the keys agree on every head, desktop notifications on the local web host and the Windows app, eight profiles where there were three, the Order book button only where there is a book, and the switches you set now survive a restart) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -103,7 +103,22 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status — 2.7.0 (2026-09-05)
+## Current Status — 2.8.0 (2026-09-05)
+
+**2.8.0 is the release where what you set stays set and every head agrees.** The narration and
+mute switches on a component survive a restart (they had lasted exactly one session for as long
+as they existed); hidden or muted is excluded from narration on bar close and in playback; the
+fifteen drawing tools and the detailed summary are Alt+Shift+letter on the desktop as well as in
+the browser; the local web host and the Windows app can raise a desktop notification for an
+alert, a fill, or a bar close; the profile grid is complete at eight; and the Order book button is
+gated on the current provider having a book. Nothing postdates the tag yet — the first change
+after it opens a `## [Unreleased]` heading in [`CHANGES.md`](CHANGES.md).
+
+One thing this release could not verify on the machine it was built on: the Windows toast
+notifier is compiled for the first time by the release workflow's Windows job, and the two-layout
+Alt+Shift question on Windows needs a Windows box. Both are in `docs/TODO.md`.
+
+### 2.7.0 — everything you switched on now speaks (2026-09-05)
 
 **2.7.0 is the release where everything you switched on actually speaks.** 2.6.0 gave the
 terminal a voice; this one is about the places that voice was silent while the user had already
