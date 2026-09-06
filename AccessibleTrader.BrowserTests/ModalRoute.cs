@@ -86,14 +86,20 @@ internal static class ModalRoutes
     public static readonly IReadOnlyList<ModalRoute> Toolbar = new ModalRoute[]
     {
         new("ObjectTreeModal",       OpenBy.ToolbarButton, "Object tree", "objtree-title",         "heading names the dialog"),
+        // Drawings moved to the INDICATOR BAR under the chart on 2026-09-06. The route is
+        // unchanged because it is keyed by accessible name and the name did not move with it —
+        // which is the argument for naming a control by what it is rather than by where it sits.
         new("DrawingToolsModal",     OpenBy.ToolbarButton, "Drawings",                 "drawing-tools-title",   "heading names the dialog"),
         new("SoundDesignerModal",    OpenBy.ToolbarButton, "Sound designer",          "sound-designer-title",  "heading names the dialog"),
         new("TradingDashboardModal", OpenBy.ToolbarButton, "Trade dashboard",          "trade-title",           "heading names the dialog"),
-        // OrderBookModal is NOT here since 2026-09-05: its toolbar button is gated on the
-        // current provider having a book (IOrderBookProvider or L2), the way Deposit is gated
-        // on IWalletProvider — and this harness loads ZERO providers, because every plugin DLL
-        // under bin/ is refused by the trust allow-list (measured: "Total Unique Loaded Data
-        // Providers: 0"). The dialog is still swept through its Alt+B route above.
+        // BACK, 2026-09-06: the button is ungated again. It was gated on the provider having a
+        // book for one day, which left Alt+B opening a dialog whose button had vanished — and
+        // this harness loads ZERO providers (every plugin DLL under bin/ is refused by the trust
+        // allow-list, measured: "Total Unique Loaded Data Providers: 0"), so the button was
+        // absent here too. It is present now, and the dialog it opens says the venue publishes
+        // no depth, which is a perfectly good thing for this route to arrive at: the contract
+        // theories assert the heading and where focus lands, not what the panel contains.
+        new("OrderBookModal",        OpenBy.ToolbarButton, "Order book",              "orderbook-title",       "heading names the dialog"),
         new("StrategyModal",         OpenBy.ToolbarButton, "Strategies",              "strategy-title",        "heading names the dialog"),
         new("WatchlistModal",        OpenBy.ToolbarButton, "Watch lists", "watchlist-title",       "heading names the dialog"),
         new("LevelReportModal",      OpenBy.ToolbarButton, "Levels", "levelreport-title",     "heading names the dialog"),

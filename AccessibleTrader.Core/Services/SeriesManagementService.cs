@@ -468,6 +468,11 @@ namespace AccessibleTrader.Core.Services
             freshSeries.Config.Volume         = config.Volume;
             freshSeries.Config.IsVisible      = config.IsVisible;
             freshSeries.Config.IsAutoNarrated = config.IsAutoNarrated;
+            // The fifth switch, found by the completeness guard rather than by a user report:
+            // Properties offers "announce across series" as a checkbox (PropertiesModal.razor:144),
+            // the workspace file carries it, and this list never read it back. Same class as the
+            // narration flag above — set it, restart, it is gone.
+            freshSeries.Config.AnnounceAcrossSeries = config.AnnounceAcrossSeries;
 
             // Restore levels from workspace-saved config when available (per-instance source of
             // truth).  This prevents global IndicatorPreferencesService type-defaults from

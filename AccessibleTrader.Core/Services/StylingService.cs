@@ -170,6 +170,12 @@ namespace AccessibleTrader.Core.Services
             if (code.Contains("RSI"))   return 50;
             if (code.Contains("MACD"))  return 0;
             if (code.Contains("STOCH")) return 50;
+            // Williams %R runs -100..0, so its midline is -50 and zero is the CEILING. Left
+            // unset it fell through to the oscillator type default of 0, which put the
+            // above/below waveform split at a bound the value only touches at an extreme — and,
+            // once the 0 key started reading this field, would have marked the top of the pane
+            // as its neutral.
+            if (code.Contains("WILLIAMS")) return -50;
             return null;
         }
 

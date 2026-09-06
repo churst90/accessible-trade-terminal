@@ -335,30 +335,6 @@
                     </fieldset>
                 }
 
-                @* ── Braille / Tactile Display ─────────────────────────────────
-                   Hidden on the browser host: the Dot Pad connects to the machine
-                   RUNNING the app (the server), never the user's browser — offering
-                   the toggle there was a dead end. Windows-only besides. *@
-                @if (!Platform.IsBrowserHost)
-                {
-                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Braille / Tactile Display</legend>
-                    <div class="modal-row">
-                        <label for="s-braille-enabled">Braille display</label>
-                        <input id="s-braille-enabled" type="checkbox"
-                               checked="@_brailleEnabled"
-                               @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
-                    </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        When on, the app looks for a supported tactile display at startup and while
-                        running, and announces it as it connects or disconnects. All Dot Pad models
-                        are supported (the Dot Pad X and the second generation). Turning it off skips
-                        device detection entirely. Tactile graphics require Windows and a connected
-                        display.
-                    </p>
-                </fieldset>
-                }
-
                 @* ── Touch navigation bar ────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
@@ -790,6 +766,49 @@
 
             </div>
 
+            @* ── Braille tab ───────────────────────────────────────────────────
+               Desktop only. The panel and the tab are gated on the same condition, so on the
+               browser host there is no tab to reach and no panel behind it. Shift+F4 opens the
+               dialog here directly. *@
+            @if (!Platform.IsBrowserHost)
+            {
+            <div role="tabpanel" id="tabpanel-braille"
+                 aria-labelledby="tab-braille"
+                 hidden="@(_activeTab != "Braille")">
+
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Braille / Tactile Display</legend>
+                    <div class="modal-row">
+                        <label for="s-braille-enabled">Braille display</label>
+                        <input id="s-braille-enabled" type="checkbox"
+                               checked="@_brailleEnabled"
+                               @onchange="e => _brailleEnabled = e.Value is bool b ? b : _brailleEnabled" />
+                    </div>
+                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
+                        When on, the app looks for a supported tactile display at startup and while
+                        running, and announces it as it connects or disconnects. All Dot Pad models
+                        are supported (the Dot Pad X and the second generation). Turning it off skips
+                        device detection entirely. Tactile graphics require Windows and a connected
+                        display.
+                    </p>
+                </fieldset>
+
+                @* One device is supported, so there is nothing to choose between and no picker.
+                   Said out loud rather than left as an absence: a tab with a single checkbox
+                   invites the question "where is the rest of it", and the honest answer is that
+                   the rest of it does not exist yet. *@
+                <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                    <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Device</legend>
+                    <p style="margin:0; color:var(--text-muted); font-size:0.9em;">
+                        The Dot Pad is the only supported display, and it is detected automatically
+                        while the switch above is on — F4 turns tactile output on and off from
+                        anywhere, and Shift+F4 brings you back to this tab. A device picker will
+                        appear here when there is a second device to pick.
+                    </p>
+                </fieldset>
+            </div>
+            }
+
             @* ── Appearance tab ────────────────────────────────────────────── *@
             <div role="tabpanel" id="tabpanel-appearance"
                  aria-labelledby="tab-appearance"
@@ -1145,8 +1164,20 @@
     // Single source of truth for the tab row: the markup renders from it and the arrow-key
     // handler indexes into it. Two lists would drift, and a drifted list here means an
     // arrow key that lands on a tab that is not there.
-    private static readonly string[] SettingsTabs =
-        { "General", "Speech", "Narration", "Sonification", "Appearance", "Keyboard", "License", "About" };
+    private static readonly string[] AllSettingsTabs =
+        { "General", "Speech", "Narration", "Sonification", "Braille", "Appearance", "Keyboard", "License", "About" };
+
+    /// <summary>
+    /// Braille sits with the other output channels — Speech, Narration, Sonification, Braille —
+    /// because that is what it is, and it is absent on the browser host for the same reason its
+    /// controls were: a Dot Pad connects to the machine RUNNING the app, never to the viewer's
+    /// browser, so on the web head the tab could only ever be an empty room. Absent rather than
+    /// disabled: a disabled control is something a screen-reader user has to walk past to learn
+    /// is useless.
+    /// </summary>
+    private string[] SettingsTabs => Platform.IsBrowserHost
+        ? AllSettingsTabs.Where(t => t != "Braille").ToArray()
+        : AllSettingsTabs;
 
     private static string TabElementId(string tab) => "tab-" + tab.ToLowerInvariant();
 
@@ -1196,7 +1227,7 @@
         new("Check every", "General", "s-bg-poll", "background poll seconds interval refresh"),
         new("Live-stream other tabs", "General", "s-bg-live-tabs", "background streaming tick fresh"),
         new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
-        new("Braille display", "General", "s-braille-enabled", "dot pad tactile"),
+        new("Braille display", "Braille", "s-braille-enabled", "dot pad tactile"),
         new("Touch toolbar", "General", "s-touch-nav", "touchscreen buttons navigation bar"),
         new("Add Market Structure to new charts", "General", "s-market-structure", "swing highs lows analysis indicator default"),
         new("Describe candle patterns", "General", "s-candle-patterns", "engulfing harami doji hammer bar close forming narration speech"),
@@ -1310,7 +1341,7 @@
 
     protected override void OnInitialized()
     {
-        _eventSub = EventBus.Subscribe<OpenSettingsEvent>(_ => InvokeAsync(ShowAsync));
+        _eventSub = EventBus.Subscribe<OpenSettingsEvent>(e => InvokeAsync(() => ShowAsync(e.Tab)));
         _closeSub = EventBus.Subscribe<CloseTopModalEvent>(e =>
         {
             if (!_isVisible || e.ModalName != "Settings") return;
@@ -1810,18 +1841,35 @@
         _selectedThemeInitial      = _selectedTheme;
     }
 
-    private async Task ShowAsync()
+    private async Task ShowAsync(string? requestedTab = null)
     {
         ResetLocal();
         // A confirmation left hanging when the dialog closed must not still be armed when it
         // reopens: the next visitor would find "Confirm reset" under the cursor where "Reset
         // paper account" belongs, and one keypress would answer a question they never heard.
         _pendingPaperReset = false;
+
+        // A shortcut that names a destination lands on it. An unknown or unavailable name —
+        // "Braille" on the browser host, a stale name from an older build — falls back to the
+        // default rather than hiding every panel at once, which is what an unmatched _activeTab
+        // does: every panel's hidden attribute is a != test, so a name matching none of them
+        // renders an empty dialog with a working tab strip above it.
+        if (requestedTab != null && SettingsTabs.Contains(requestedTab))
+            _activeTab = requestedTab;
+
         _isVisible = true;
         EventBus.Publish(new ModalStateChangedEvent(true, "Settings"));
         StateHasChanged();
         await Task.Yield();
-        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "settings-title"); } catch { }
+
+        // Focus the TAB, not the title, when one was asked for: the point of Shift+F4 is to
+        // arrive at the braille controls, and landing on the dialog heading would leave the user
+        // to find them. The title is still the right target for a plain F12, which names no
+        // destination.
+        string focusTarget = requestedTab != null && SettingsTabs.Contains(requestedTab)
+            ? TabElementId(requestedTab)
+            : "settings-title";
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", focusTarget); } catch { }
     }
 
     /// <summary>

@@ -201,6 +201,11 @@ namespace AccessibleTrader.Core.Services
                     fresh.Volume         = saved.Volume;
                     fresh.FreqMultiplier = saved.FreqMultiplier;
                     fresh.IsAutoNarrated = saved.IsAutoNarrated;
+                    // "The user picked this colour by hand." Layer 3 restores the colour itself,
+                    // but not the flag that stops a theme change overwriting it again — so
+                    // without this line a hand-picked colour survives one restart and then loses
+                    // its protection. StandardRenderers.cs:328 is the reader.
+                    fresh.IsUserStyled   = saved.IsUserStyled;
                 }
             }
 
@@ -228,7 +233,14 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            foreach (var uiComp in sourceComponents) config.Components.Add(CloneComponent(uiComp));
+            // ComponentConfig.Clone() rather than a clone of our own: a second hand-written
+            // field list is a second place every new property must be added, and this one had
+            // silently fallen three fields behind (MarkerAnchor, IsUserStyled,
+            // SecondaryWaveform). MarkerAnchor mattered — it is set from provider metadata a
+            // few lines above and dropped here on EVERY series build, not just a restore, so
+            // Market Structure's swing markers were anchored to the value instead of above and
+            // below the bar for as long as the anchor has existed.
+            foreach (var uiComp in sourceComponents) config.Components.Add(uiComp.Clone());
 
             // Copy default cloud fills from metadata
             foreach (var fill in meta.DefaultCloudFills)
@@ -383,36 +395,5 @@ namespace AccessibleTrader.Core.Services
             return comp;
         }
 
-        private ComponentConfig CloneComponent(ComponentConfig c)
-        {
-            return new ComponentConfig
-            {
-                Name = c.Name, DisplayName = c.DisplayName, DisplayType = c.DisplayType, Role = c.Role, ColorSource = c.ColorSource,
-                AmplitudeMapping = c.AmplitudeMapping, PitchMapping = c.PitchMapping, ColorHex = c.ColorHex, ColorHexSecondary = c.ColorHexSecondary,
-                Waveform = c.Waveform, AboveReferenceWaveform = c.AboveReferenceWaveform, BelowReferenceWaveform = c.BelowReferenceWaveform,
-                FreqMultiplier = c.FreqMultiplier, TriggerBoundaryClick = c.TriggerBoundaryClick, EnvelopeType = c.EnvelopeType,
-                Volume = c.Volume, Thickness = c.Thickness, DashStyle = c.DashStyle, IsEnabled = c.IsEnabled, IsVisible = c.IsVisible,
-                // The two per-component SWITCHES. Both were missing from this clone, which sits
-                // between the saved-state merge and the series, so M and N on a component were
-                // silently undone by every workspace restore (2026-09-05).
-                IsMuted = c.IsMuted, IsAutoNarrated = c.IsAutoNarrated,
-                BaseFrequency = c.BaseFrequency, BullishFrequency = c.BullishFrequency, BearishFrequency = c.BearishFrequency,
-                NoiseAmount = c.NoiseAmount,
-                SpeechTemplate = c.SpeechTemplate, ReferenceLevel = c.ReferenceLevel,
-                IsAreaFill = c.IsAreaFill, UsePolarityColoring = c.UsePolarityColoring,
-                ColorBaseline = c.ColorBaseline, DataMapping = c.DataMapping, SoundPatchId = c.SoundPatchId,
-                BullishSoundPatchId = c.BullishSoundPatchId, BearishSoundPatchId = c.BearishSoundPatchId,
-                UsesGradientSpeech = c.UsesGradientSpeech,
-                // Cloud component bounds — must survive the clone or RenderCloud will silently skip.
-                UpperComponentName = c.UpperComponentName, LowerComponentName = c.LowerComponentName,
-                ColorRules = new List<ColorRule>(c.ColorRules),
-                SubPaneName = c.SubPaneName, SubPaneHeightRatio = c.SubPaneHeightRatio,
-                DecayMs = c.DecayMs, PlaybackLayer = c.PlaybackLayer,
-                IsZoneLine = c.IsZoneLine,
-                SignalSpeechTemplate = c.SignalSpeechTemplate,
-                SubscribedLevelNames = c.SubscribedLevelNames,
-                DeviationNorm = c.DeviationNorm,
-            };
-        }
     }
 }

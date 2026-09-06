@@ -110,6 +110,12 @@ namespace AccessibleTrader.Sdk.Models
             foreach (var fill in CloudFills) c.CloudFills.Add(fill.Clone());
             foreach (var band in ZoneBands) c.ZoneBands.Add(band.Clone());
             foreach (var p in Parameters) c.Parameters[p.Key] = p.Value;
+            // The string half of the parameter set — a comparison symbol, an MA type, a pivot
+            // period, a threshold mode. It was missing here, and this clone is what
+            // ChartSeries.Clone() calls, so undoing a chart edit with Ctrl+Z reset those four
+            // indicators' string parameters to their metadata defaults. Found by
+            // CloneCompletenessTests rather than by a user, which is the point of that test.
+            foreach (var p in StringParameters) c.StringParameters[p.Key] = p.Value;
             return c;
         }    }
 

@@ -84,7 +84,7 @@ see the move has no way to detect.
 |------------------------|-------------|
 | Price candle or candle wick | Next bar where price crosses a drawn trendline |
 | Sparse marker (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square, ZeroDot) | Next bar where that component has a non-NaN signal value |
-| Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses the zero line |
+| Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses its **midline** — zero on a zero-centred reading, 50 on a bounded one. Recognised by the line's role, so all four spellings providers use for it (Zero, Midpoint, Midline, Neutral) are reached |
 | Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone |
 | Moving average overlay (EMA, SMA, WMA, Spider Lines etc.) | Next bar where price (close) crosses the focused MA line |
 | Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
@@ -272,7 +272,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | F3 | Toggle chart sonification (navigation tones, playback) | "Sound on/off" |
 | Shift+F3 | Toggle earcons. Order-outcome and error earcons break through | "Earcons on/muted" |
 | F4 | Toggle braille / tactile display output ("Braille not available on this platform" where unsupported) | "Braille on/off" |
-| Shift+F4 | Open braille display settings (Settings dialog) | — |
+| Shift+F4 | Open the Settings dialog on its **Braille** tab, with focus on the tab (desktop only — the tab does not exist on the web head, where no display can attach) | — |
 | Shift+F1 | Announce context summary (moved from F4 in 1.10). Names the focused series, the PANE it is in and where that pane sits in the stack, the strip inside it when you are standing in a component, and the drawing anchor a nudge would move. The pane comes from the same model the navigation keys read, so it cannot disagree with where Alt+Page Up / Alt+Page Down just put you | "{Symbol} on {Provider}, {Timeframe}. Focused on Volume, Volume pane, 2 of 3" |
 | Ctrl+Alt+Shift+C | Focus chart area + announce context summary | "{Symbol} context summary" |
 
@@ -300,7 +300,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
 | N | Narrate the focused series or component — speak its signals unprompted | "{Series}, narrating" / "{Component}, narrating" (the component alone; "{Component} only, narrating" when it is the first one picked out) |
-| 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane a new line goes at zero; on the **price** pane there is no meaningful zero, so it goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Level removed." / "No price under the cursor to place a level at." |
+| 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane the line goes on that pane's **neutral** — zero for MACD and the other zero-centred readings, **50** for RSI, Stochastic and MFI, **−50** for Williams %R — because zero is only the meaningful constant where the value actually swings about it. Where the indicator already declares its own midline (RSI ships one at 50) you are told so and nothing is added. On the **price** pane there is no meaningful constant at all, so the line goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Midpoint added at 50, audible on crossing." / "Midpoint already marks 50 on this pane." / "Level removed." / "Nothing on this pane declares a neutral line, so there is no level to add." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 | Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |
 | Ctrl+Y | Redo the last undone chart edit | Says what was redone, or "Nothing to redo" |

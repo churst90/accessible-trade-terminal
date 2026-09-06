@@ -52,12 +52,13 @@
             <ToolbarIconButton Icon="object-tree" Label="Object tree" Variant="neutral"
                               Tooltip="Open object tree, Alt plus O"
                               OnClick="() => EventBus.Publish(new OpenObjectTreeEvent())" />
-            @if (IsTradingTab)
-            {
-                <ToolbarIconButton Icon="drawings" Label="Drawings" Variant="data"
-                                  Tooltip="Open drawing tools, Alt plus D"
-                                  OnClick="() => EventBus.Publish(new OpenDrawingToolsEvent())" />
-            }
+            @* Drawings MOVED to the indicator bar under the chart, 2026-09-06 (Cody's call).
+               That bar is the chart-content bar — everything on it acts on what is drawn on
+               THIS chart, and its two switches act on the focused series. This bar is the
+               application bar: accounts, orders, workspaces, settings. A drawing is chart
+               content in the same sense an indicator is — you add it to a chart, it appears
+               in the Object Tree beside the indicators, it sonifies like a series, and
+               Shift+Arrow nudges it like one. It belongs with Add and Scripts. *@
             @if (Demo.AllowSoundDesigner)
             {
                 <ToolbarIconButton Icon="sound-designer" Label="Sound designer" Variant="neutral"
@@ -74,13 +75,23 @@
                                   Tooltip="Open trade dashboard, Alt plus T"
                                   OnClick="() => EventBus.Publish(new OpenTradingDashboardEvent())" />
             }
-            @* Present only when the CURRENT provider has a book to show: it implements
-               IOrderBookProvider (the nine venues with a live depth stream) or declares
-               L2. Cody, 2026-09-05: "Gate the order book button on the provider in the
-               toolbar." The same shape as Deposit below — a button over nothing opened
-               a dialog whose only content was "Order book is not available for X on Y."
-               Alt+B still opens the dialog anywhere, and it still says so. *@
-            @if (Demo.AllowOrderBook && _hasOrderBook)
+            @* UNGATED, and deliberately so (Cody, 2026-09-06). It was gated on the current
+               provider between 2026-09-05 and now, which left Alt+B opening a dialog that
+               had no button — the one shortcut in the app whose toolbar control could
+               vanish underneath it. Cody's rule: "no shortcut should exist if there isn't
+               also a button for it on the toolbar."
+
+               A vanishing control is the worse failure for this user. A screen-reader user
+               who has learned where a button is finds an absence, with nothing to say why,
+               and cannot tell "this provider has no depth feed" from "the toolbar is
+               broken". A button that opens a dialog SAYING the provider publishes no depth
+               is a shorter path to the same fact. That is the same reasoning that made
+               `disabled` deletion for this user rather than a hint.
+
+               Deposit stays gated: it is an ACTION on an account, and offering an action
+               that cannot be performed is a different thing from offering a view of data
+               that is not there. *@
+            @if (Demo.AllowOrderBook)
             {
                 <ToolbarIconButton Icon="order-book" Label="Order book" Variant="neutral"
                                   Tooltip="Open order book, Alt plus B"
@@ -474,7 +485,6 @@
     // a field because the check is async and the render path is not.
     private bool _hasWallet;
     private bool _canWithdraw;
-    private bool _hasOrderBook;
     private string _walletCheckedFor = "";
 
     private async Task RefreshWalletAsync()
@@ -484,13 +494,6 @@
         {
             _walletCheckedFor = provider;
 
-            // The Order book button rides the same per-provider cache: the answer changes
-            // only when the provider does. Resolved rather than injected for the reason
-            // the wallet is — a host without trading loses the button, not the toolbar.
-            var orders = Services.GetService<IOrderExecutionService>();
-            _hasOrderBook = orders is not null
-                         && !string.IsNullOrEmpty(provider)
-                         && await orders.HasOrderBookAsync(provider);
             var wallet = Services.GetService<AccessibleTrader.Core.Services.Trading.WalletService>();
             // Resolved through the service provider for the same reason as the two
             // above: a host that does not stand up trading should lose the button,

@@ -130,13 +130,25 @@ the approach ping.
 
 **Adding a level of your own.** Press `0` with a series focused and the terminal drops a reference
 line on it. What it does depends on which pane you are on, because a level only means something in
-the units of the thing it sits on. On an oscillator — MACD, a momentum reading, anything that swings
-around a centre — it goes at **zero**, which is the line that matters there. On the price chart there
-is no meaningful zero, so it goes at **the price of the bar under your cursor**: arrow to the level
-you care about, press `0`, and you have marked it. You will hear which one you got — *"Zero line
-added"* or *"Level added at 63,920.11"*. From then on that line speaks and pings like any other, so
-you can hear price approach and cross the level you chose — from either direction, straight away,
-without visiting any settings.
+the units of the thing it sits on.
+
+On the price chart there is no meaningful constant at all, so the line goes at **the price of the
+bar under your cursor**: arrow to the level you care about, press `0`, and you have marked it.
+
+On an oscillator the line goes on that pane's **neutral** — the value the reading actually swings
+about. For MACD, momentum and the other zero-centred readings that is zero. For RSI, Stochastic and
+MFI, which run 0 to 100, it is **50**. For Williams %R, which runs −100 to 0, it is **−50**. This
+used to be zero everywhere, which put a line on the floor of every 0–100 oscillator — a value RSI
+never visits, so a line that could never be crossed and could never make a sound. Where the
+indicator already declares its own midline — RSI ships one at 50 — you are told so and nothing is
+added, because two lines at one value would report every crossing twice. And on a pane where
+nothing declares a neutral, the key says so rather than guessing.
+
+You will hear which one you got — *"Zero line added"*, *"Midpoint added at 50"* or *"Level added at
+63,920.11"*. From then on that line speaks and pings like any other, so you can hear price approach
+and cross the level you chose — from either direction, straight away, without visiting any
+settings. Ctrl+Left and Ctrl+Right jump to those crossings too: the midline is one of the places
+that key stops, alongside the overbought and oversold lines.
 
 **Removing one.** Press `0` again on the same bar and the level comes off; you will hear "Level
 removed". Levels an indicator declared for itself — an RSI's 30 and 70 lines — are never removed this
@@ -889,7 +901,7 @@ truly want total silence, Settings → Speech has an "Event mutes also silence
 order fills and stops" switch — read its warning first.) Individual alerts can
 also be marked **Break through mutes** when you create them, for the handful
 that must never be missed. F4 toggles the braille display on platforms that
-support one, and Shift+F4 opens its settings. None of these mutes persist —
+support one, and Shift+F4 opens Settings on its Braille tab, with focus already on it. None of these mutes persist —
 the terminal always starts with everything audible.
 
 One extra control exists on the public website versions (the demo and the

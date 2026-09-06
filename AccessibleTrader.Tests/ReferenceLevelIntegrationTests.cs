@@ -36,13 +36,25 @@ public class ReferenceLevelIntegrationTests
     }
 
     [Fact]
-    public void UniqueNamingAlsoAvoidsProviderLevelNames()
+    public void APaneThatAlreadyHasItsMidlineGetsNoSecondOne()
     {
+        // SUPERSEDED PREMISE, 2026-09-06. This used to assert that pressing the key on a MACD
+        // pane already carrying a provider "Zero" added a second line called "Zero 2". It did,
+        // and that was the wrong thing to want: two lines at one value with two names means the
+        // crossing earcon fires twice for one event, and a spoken chart then reports a midline
+        // cross it has already reported. The key now declines and says which line is already
+        // there — information, not an error, so the caller speaks it in the ordinary voice.
+        //
+        // Unique naming itself is unchanged and still covered, on the price pane above, where
+        // several levels at different prices are the normal case.
         var existing = new List<LevelConfig> { new() { Name = "Zero", Value = 0 } };
-        var added = ReferenceLevelPlacement.For("Pane_MACD", 0, existing, out _);
 
-        Assert.NotNull(added);
-        Assert.NotEqual("Zero", added!.Name);
+        var added = ReferenceLevelPlacement.For("Pane_MACD", 0, existing,
+            paneNeutral: 0, out string reason, out bool refused);
+
+        Assert.Null(added);
+        Assert.Contains("Zero", reason);
+        Assert.False(refused);
     }
 
     // ── Audibility: the point of placing one on an audio-first terminal ──────

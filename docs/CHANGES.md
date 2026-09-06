@@ -7,6 +7,117 @@ All notable changes to this project will be documented in this file.
 Everything under this heading postdates the `v2.8.0` tag. At the next cut this heading becomes
 `## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.8.0 binaries.
 
+### Four from Cody: the 0 line by role, the Braille tab, the order book button back, and drawings move bar (2026-09-06)
+
+**The `0` key marks the pane's neutral, not the number zero.** The rule was "price pane → the
+cursor's price, anything else → zero", and the second half is only true of oscillators that swing
+about zero. RSI runs 0–100 and swings about 50; so do Stochastic, Stoch RSI, MFI and the Ultimate
+Oscillator. Williams %R runs −100…0 and swings about −50. Pressing `0` on any of them put a line
+called "Zero" at the very floor of the pane — a value RSI does not visit, so a line that could
+never be crossed, never fire its earcon and never be navigated to. Right units, wrong constant:
+the same shape as the price-pane bug `ReferenceLevelPlacement` was created to fix, one level down.
+The neutral is not guessed — it is `ComponentConfig.ReferenceLevel`, which the indicator factory
+already populates across the whole provider fleet and which the audio layer already splits its
+above/below waveforms on. Where the indicator ships its own midline (RSI's Midpoint at 50) the key
+now says so and adds nothing, rather than stacking a second line at one value that would report
+every crossing twice; where nothing declares a neutral it refuses out loud. The line is named for
+what it is — "Zero" at zero, "Midpoint" elsewhere — and the removal target follows the placement
+target, so the key can still take back what it just added. Williams %R gained its −50 reference
+level in `StylingService` on the way, which also fixes its above/below waveform split (it had been
+set at a bound the value only touches at an extreme). **`LevelRoleTests` (24), three proven by
+sabotage; one existing test's premise was superseded and rewritten.**
+
+**Ctrl+Left/Right can reach an RSI's 50 line.** Same root cause, and the sharper half of it.
+Sixteen providers declare the line their oscillator swings about and they spell it four ways —
+`Zero` (7), `Midpoint` (5), `Neutral` (3), `Midline` (1) — while `IndicatorCrossingEngine` tested
+`Name == "Zero"`, so nine of the sixteen were invisible to it. RSI declares `Midpoint` at 50 with
+`PlayEarcon: true`: **the earcon has always fired at a line the navigation could not jump to.** A
+Fear & Greed pane whose `Neutral` sits at 50 was scanned for sign changes about 0 and reported "no
+crossing in view" for its entire history. The name was load-bearing in the other direction too —
+adding a level of your own and calling it "Zero" silently changed which crossing algorithm ran.
+New `LevelConfig.Role` (`Auto` / `Neutral` / `Overbought` / `Oversold` / `None`) with name
+inference behind `EffectiveRole`, exactly the shape `LevelCrossDirection` already used, so ~350
+provider declarations and every saved workspace keep working untouched. The midline is now a third
+target in the bounded-oscillator jump alongside overbought and oversold, nearest-in-direction wins,
+and the zero-line jump scans the declared value rather than the literal 0.
+
+**Braille has its own Settings tab, and Shift+F4 lands on it.** The key is documented as "open
+braille display settings" and published a bare `OpenSettingsEvent`, so it opened the dialog on
+General and said nothing about where it had put you — right only by coincidence, because the
+braille checkbox happened to live there. `OpenSettingsEvent` carries an optional tab now, the
+dialog opens on it and puts focus on the tab itself (F12, which names no destination, still lands
+on the title). Braille sits with the other output channels — Speech, Narration, Sonification,
+Braille — and is absent on the browser host, tab and panel together, for the reason its controls
+already were: a Dot Pad connects to the machine running the app, never to the viewer's browser. An
+unknown tab name falls back to General rather than hiding every panel at once, which is what an
+unmatched `_activeTab` does. Nine tabs. `SettingsModalTests` +4, two red on sabotage.
+
+**The Order book button is back on the toolbar unconditionally, and the dialog explains itself.**
+Reverses the gate added on 2026-09-05. Cody: *"no shortcut should exist if there isn't also a
+button for it on the toolbar"* — and Alt+B was bound everywhere while its button vanished on
+providers with no depth feed, making it the one shortcut in the app whose control could disappear
+underneath it. For this user the vanishing control is the worse failure: an absence says nothing,
+and cannot be told apart from a broken toolbar. `HasOrderBookAsync` did not go away; it moved to
+where it can say something. The dialog now distinguishes two facts that used to share one sentence
+— *"Kraken does not publish an order book"* (never, on this venue) from *"No depth returned just
+now"* (a quiet market, try again) — and the message carries `role="alert"`, because it arrives
+after the dialog has opened and focus has landed, and it was previously silent. Deposit stays
+gated: offering an action that cannot be performed is not the same as offering a view of data that
+is not there. `OrderBookGateTests` rewritten around the new consumer, and four `OrderBookModalTests` needed a
+`HasOrderBookAsync` stub — a bare NSubstitute answers `false` to a `Task<bool>`, so every one of
+them had silently started taking the "no depth on this venue" branch.
+
+**Drawings moved to the indicator bar under the chart.** Cody: *"drawing tools is more appropriate
+on the bottom bar where the indicator and custom script buttons are."* That bar is the
+chart-content bar — everything on it acts on what is drawn on this chart. The top toolbar is the
+application bar: accounts, orders, workspaces, settings. A drawing is chart content in the same
+sense an indicator is: you add it to a chart, it sits beside the indicators in the Object Tree, it
+sonifies like a series, Shift+Arrow nudges it like one. Reads after Add and Scripts. The data-shape
+gate moved with it. `DrawingsButtonPlacementTests` asserts both halves — on the bottom bar AND no
+longer on the top — because checking only the first stays green if the button is duplicated. Two
+existing guards caught the move and both were right to: `LabelInNameRenderSweepTests` found an
+`AriaLabel` of "Open drawing tools" that does not contain the visible "Drawings" (WCAG 2.5.3 —
+the override is gone, and the accessible name is also the route the browser harness clicks by),
+and `ToolbarControlSurfaceTests` went red for a button that had not gone anywhere, because it read
+`Toolbar.razor` alone. That guard now reads the whole persistent chrome: the property it defends
+is whether a control EXISTS, not which file it lives in.
+
+### One test for a whole class of workspace defect (2026-09-06)
+
+**Every hand-written clone is now policed by reflection, and it found three live drops.** Seven
+fields have reached users unrestored, one at a time, each found by Cody and fixed with a point test
+naming that one field — component mute and narration were the two most recent, both undone by every
+restart for as long as each had existed. The cause is structural: a hand-written clone is a second
+place every new field has to be added, and nothing tells you when you forget.
+`CloneCompletenessTests` enumerates every settable property on every type declaring a `Clone()`,
+sets each to a value asserted to differ from the default, clones, and diffs — with a discovery test
+that rediscovers the type list from the assembly so a new cloneable type cannot slip past by not
+being listed. Live on arrival: **`ComponentConfig.Clone()` dropped `MarkerAnchor`**;
+**`IndicatorModelFactory.CloneComponent` dropped `MarkerAnchor`, `IsUserStyled` and
+`SecondaryWaveform`** — and it ran on every series build, not only a restore, so Market Structure's
+swing markers were anchored to the value instead of above and below the bar for as long as the
+anchor has existed; **`SeriesConfig.Clone()` dropped `StringParameters`**, reached through
+`ChartSeries.Clone()`, so undoing a chart edit with Ctrl+Z reset four indicators' string parameters
+(comparison symbol, MA type, pivot period, threshold mode) to their defaults. The factory's second
+clone is deleted outright; one hand-written clone remains and is now safe to keep. `SoundPatch` has
+a recorded exemption with its reason — its `Clone()` is "duplicate this patch", so the copy is
+meant to get a new id and a "(copy)" name.
+
+**And the restore contract is written down.** Restoring a workspace is deliberately not "put
+everything back" — provider metadata supplies colours and shapes so improvements reach existing
+charts, the workspace supplies what the user set with a key or a checkbox, preferences win over
+both — which is exactly why "did this field come back?" had no single answer to check against.
+`WorkspaceRestoreContractTests` requires every `SeriesConfig` and `ComponentConfig` property to be
+declared either user-owned (must survive a restore, asserted end to end through the real
+`RestoreSeriesFromSaved`) or owned by something else, **with the reason recorded**. A property in
+neither list fails the build. It found one live drop: **`AnnounceAcrossSeries`**, a Properties
+checkbox the workspace file has always carried and the restore path never read back — same shape as
+the narration flag fixed the day before. `IsUserStyled` joined the layer-2 merge for the same
+reason (layer 3 restores the colour, but not the flag that stops the next theme change overwriting
+it). Also added: a save→load→save byte-identity check, which is where an asymmetric default shows
+up and nowhere else, and a JSON round-trip over every property, because nothing downstream can
+restore a field the save format never carried. Two sabotages, both red.
+
 ### The viewport that announced itself on every bar close (2026-09-05)
 
 **A live bar no longer speaks the viewport range.** Cody: *"when a new bar announcement comes in,

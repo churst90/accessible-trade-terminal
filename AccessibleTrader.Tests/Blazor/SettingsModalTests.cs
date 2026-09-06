@@ -95,12 +95,16 @@ public class SettingsModalTests
     public void SettingsModal_ArrowKeys_ReachEverySettingsTab()
     {
         // The actual user-facing claim, stated as a walk rather than as a single step:
-        // starting at General, seven Right presses visit all eight tabs in order.
-        // Narration joined between Speech and Sonification on 2026-09-04.
+        // starting at General, eight Right presses visit all nine tabs in order.
+        // Narration joined between Speech and Sonification on 2026-09-04; Braille joined
+        // after Sonification on 2026-09-06, with the other output channels, so that
+        // Shift+F4 has a destination to name. The harness's IRuntimePlatform substitute
+        // returns false for IsBrowserHost, which is the desktop head — the only head the
+        // Braille tab exists on.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        foreach (var id in new[] { "tab-speech", "tab-narration", "tab-sonification", "tab-appearance", "tab-keyboard", "tab-license", "tab-about" })
+        foreach (var id in new[] { "tab-speech", "tab-narration", "tab-sonification", "tab-braille", "tab-appearance", "tab-keyboard", "tab-license", "tab-about" })
         {
             ArrowOnTabList(cut, "ArrowRight");
             AssertSelected(cut, id);
@@ -147,6 +151,68 @@ public class SettingsModalTests
         ArrowOnTabList(cut, "ArrowRight");
 
         h.WaitForFocus("tab-speech");
+    }
+
+    // ── Shift+F4 has a destination (2026-09-06) ──────────────────────────
+    //
+    // The key is documented as "open braille display settings" and published a bare
+    // OpenSettingsEvent, so it opened the dialog on General and said nothing about where it
+    // had landed. That was only ever right by coincidence — the braille checkbox happened to
+    // be on General — and it left the user to find the control themselves. The tab exists now
+    // and the event carries a destination.
+
+    [Fact]
+    public void SettingsModal_OpensOnTheRequestedTab()
+    {
+        using var h = new BlazorTestHarness();
+
+        var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.SettingsModal>(
+            bus => bus.Publish(new OpenSettingsEvent("Braille")));
+
+        AssertSelected(cut, "tab-braille");
+        Assert.NotNull(cut.Find("#s-braille-enabled"));
+    }
+
+    [Fact]
+    public void SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle()
+    {
+        // Arriving at the dialog heading would leave the user to walk to the controls the
+        // shortcut promised to take them to. F12, which names no destination, still lands on
+        // the title — see the test below.
+        using var h = new BlazorTestHarness();
+
+        h.OpenModal<AccessibleTrader.BlazorClient.Components.SettingsModal>(
+            bus => bus.Publish(new OpenSettingsEvent("Braille")));
+
+        h.WaitForFocus("tab-braille");
+    }
+
+    [Fact]
+    public void SettingsModal_OpenedWithNoTab_StillLandsOnTheTitleAndGeneral()
+    {
+        // The control. F12 names no destination and must behave exactly as it always has.
+        using var h = new BlazorTestHarness();
+
+        var cut = OpenSettings(h);
+
+        AssertSelected(cut, "tab-general");
+        h.WaitForFocus("settings-title");
+    }
+
+    [Fact]
+    public void SettingsModal_AnUnknownTabFallsBackToGeneralRatherThanAnEmptyDialog()
+    {
+        // Every panel's visibility is a `_activeTab != "Name"` test, so an _activeTab matching
+        // none of them hides ALL of them — a dialog with a working tab strip and nothing under
+        // it. A stale name from an older build, or "Braille" on the web head, must not do that.
+        using var h = new BlazorTestHarness();
+
+        var cut = h.OpenModal<AccessibleTrader.BlazorClient.Components.SettingsModal>(
+            bus => bus.Publish(new OpenSettingsEvent("Telepathy")));
+
+        AssertSelected(cut, "tab-general");
+        // The General panel is actually rendering, not merely selected in the strip.
+        Assert.Null(cut.Find("#tabpanel-general").GetAttribute("hidden"));
     }
 
     // ── The 2026-09-03 restructure ───────────────────────────────────────

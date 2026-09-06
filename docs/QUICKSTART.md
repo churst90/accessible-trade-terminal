@@ -813,7 +813,7 @@ controls what happens to you.**
 | F3 | Toggle chart sonification — navigation tones and playback |
 | Shift+F3 | Toggle earcons — the short UI confirmation sounds |
 | F4 | Toggle the braille / tactile display (where a device is connected) |
-| Shift+F4 | Open braille display settings |
+| Shift+F4 | Open Settings on the Braille tab (desktop only) |
 | Shift+F1 | Announce symbol, provider, timeframe |
 | F5 | Component volume up |
 | Shift+F5 | Component volume down |

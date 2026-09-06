@@ -202,11 +202,31 @@ namespace AccessibleTrader.Sdk.Models
         /// </summary>
         public IReadOnlyList<string>? SubscribedLevelNames { get; set; }
 
+        /// <summary>
+        /// A complete copy. EVERY settable property must appear below.
+        ///
+        /// <para>
+        /// This method is the single hand-written clone left in the codebase, and a hand-written
+        /// clone is a second place every new field has to be added. That has cost this repo four
+        /// user-visible defects — component mute and narration both undone by every restart
+        /// (2026-09-05), and <see cref="MarkerAnchor"/> dropped from every series build for as
+        /// long as it has existed, which drew Market Structure's swing markers at the value
+        /// instead of above and below the bar.
+        /// </para>
+        ///
+        /// <para>
+        /// It is safe to keep hand-written ONLY because <c>ComponentCloneCompletenessTests</c>
+        /// enumerates this type's properties by reflection, sets each to a distinct non-default
+        /// value, clones, and diffs. Add a property and that test goes red until it is copied
+        /// here. Do not delete that test to make a build pass.
+        /// </para>
+        /// </summary>
         public ComponentConfig Clone()
         {
             return new ComponentConfig
             {
                 Name = Name, DisplayName = DisplayName, DisplayType = DisplayType,
+                MarkerAnchor = MarkerAnchor,
                 Role = Role, ColorSource = ColorSource,
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,

@@ -117,6 +117,93 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-06, TWENTY-SEVENTH pass — FOUR FROM CODY plus the workspace
+> guard: the `0` line goes on the pane's NEUTRAL and Ctrl+Left/Right can reach RSI's 50, Braille
+> has its own Settings tab with Shift+F4 landing on it, the Order book button is unconditional and
+> the dialog says why, drawings moved to the bottom bar — and one reflection guard retired the
+> "another field was dropped" genre and found four live drops on arrival.** See CHANGES
+> `[Unreleased]` for each. What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A NAME is not a ROLE, and matching on one is a silent partial.** Sixteen providers declare
+>   the same line four ways (`Zero` 7, `Midpoint` 5, `Neutral` 3, `Midline` 1) and the crossing
+>   engine matched `"Zero"`, so nine of the sixteen were unreachable. **The tell that this class of
+>   bug is present: an EARCON fires at something the NAVIGATION cannot jump to.** Two readers of
+>   the same concept disagreeing means one of them is reading a string. `LevelConfig.Role` with
+>   `Auto` name inference is the same shape `LevelCrossDirection` already used — it is the
+>   migration-free way to add a declared fact to ~350 existing declarations.
+> - **"Right units, wrong constant" is a defect shape that repeats at each level of a hierarchy.**
+>   `ReferenceLevelPlacement` was written because zero is meaningless on a price pane; the fix said
+>   "on an oscillator pane the constant is zero", which is wrong for every 0–100 oscillator. When a
+>   rule is fixed by narrowing its scope, check whether the narrowed scope is still too wide.
+> - **The declared fact usually already exists somewhere.** The pane's neutral did not need a new
+>   provider declaration: `ComponentConfig.ReferenceLevel` had carried it fleet-wide for the audio
+>   layer's above/below waveform split all along. Look for the field the other subsystem is already
+>   reading before adding one.
+> - **A reflection completeness guard beats N point tests, and its own vacuity is the hard part.**
+>   `CloneCompletenessTests` asserts each generated fixture value DIFFERS from the default, and
+>   rediscovers its own type list from the assembly. Both defences earned their place: `double.NaN`
+>   as a default made two properties compare equal to themselves, and `ChartSeries` was missing
+>   from the list.
+> - **Property ORDER matters in a reflection sweep, and getting it wrong is a FALSE POSITIVE.**
+>   `ChartSeries` exposes `Components` as a get-only pass-through to its `Config`, so filling it
+>   before assigning a fresh `Config` threw the contents away and the sweep reported a drop the
+>   clone never made. Composed objects first, then scalars, then fill-in-place collections.
+> - **A SURVIVED sabotage told the truth about a test.** The Fear & Greed midline test passed with
+>   the role fix reverted, because an `Oscillator` display type falls through to the zero-line
+>   strategy anyway — the fallback was masking the line under test. A `Line` component has no such
+>   fallback, and that is the test that pins it. **If a sabotage survives, the test is measuring
+>   something adjacent to what its name says.**
+> - **An exemption is only trustworthy with its reason attached.** `SoundPatch.Clone()` legitimately
+>   does not copy `Id` and `Name` — it is "duplicate this patch", not a faithful copy. Recorded in
+>   the guard with that sentence, so the next reader does not have to re-derive it.
+>
+> ### 2. DECISIONS MADE, recorded so they are not re-litigated
+>
+> - **The order book button is ungated (reverses 2026-09-05).** A vanishing control is worse for a
+>   screen-reader user than a control that opens a dialog explaining itself. Deposit stays gated —
+>   an ACTION that cannot be performed is not the same as a VIEW of data that is not there.
+> - **`Alt+Shift+B` (Draw Gann Box) and the other 13 Alt+Shift drawing chords keep no toolbar
+>   button of their own.** They are tool selectors inside a mode; the Drawings modal is their
+>   button. Cody's "a shortcut needs a button" rule was applied to Alt+B only, by his direction.
+> - **The Braille tab holds one checkbox plus a "why there is nothing else here" note.** A device
+>   picker waits for a second supported device. Said out loud in the panel rather than left as an
+>   unexplained absence.
+>
+> ### 3. NOT VERIFIABLE HERE — needs a Windows box (unchanged from the 26th pass)
+>
+> - **`WindowsDesktopNotifier`** compiles (the v2.8.0 `maui-windows` job). Runtime unverified:
+>   does `Register()` succeed unpackaged, does the toast reach Narrator/NVDA.
+> - **Alt+Shift+letter with two keyboard layouts installed on Windows.**
+> - **New:** the Braille tab is desktop-only by construction, so its markup has never rendered on
+>   the head that has a Dot Pad attached. The bUnit coverage runs with `IsBrowserHost` false, which
+>   is the right branch, but it is not the MAUI head.
+>
+> ### 4. NEXT
+>
+> - Watch §7g to ~2026-09-10 before calling the segfault fixed.
+> - The Windows checks above, when a Windows build happens.
+> - **The report card's own "what would move it" list**, discussed with Cody on 2026-09-06 and
+>   still open: a recorded live-venue session (the single thing holding production-readiness at
+>   B−); the MAUI head measured with a screen reader (never done, and it is the head real money
+>   would trade on); StrategyLab's 71-of-99 untested types. Two more raised in that discussion and
+>   not yet filed anywhere else: **no performance budget exists** (nothing pins recalculation time
+>   for a chart with N indicators on a live tick, and the failure mode is speech falling behind the
+>   market), and **there is no crash-report path** (the segfault ran 20 times over 31 days).
+> - **Automate the sabotage.** The catch rate is 73.1% — roughly one in four single-line
+>   regressions still passes a green suite — and the campaigns are manual. Stryker.NET scoped
+>   per-directory on a schedule, starting with the two areas the report card names as most-changed
+>   and least-mutated: narration and restore.
+> - **A vacuity-floor guard over the test assembly.** The recurring pathology is a sweep over a
+>   discovered collection that turns out empty; any test whose body is `foreach (var x in
+>   Discover())` should be required to assert a count floor first. That one IS statically checkable.
+> - Profile sonification pan — left as filed; decide whether a per-bin pan is wanted first.
+> - The standing research item is still the top of the list below.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-05, TWENTY-SIXTH pass — FIVE FROM CODY, all five done:
 > the order book button is gated on the provider, the profile grid is complete (eight), desktop
 > notifications exist on two heads, the drawing chords are Alt+Shift everywhere, and hidden
@@ -16202,10 +16289,13 @@ asked for), Shift+F-key = the ambient channel (things that happen to you).**
   had no earcon case (Delivery=Earcon alerts were SILENT in-app — now a real
   rising double-tone, patch key "Alert"); earcons no longer die silently with F3
   (own tier now); modal open/close announcements now respect F2.
-- [ ] **Shift+F4 dedicated braille display picker modal** — currently opens the
-  Settings dialog (braille fieldset). A real picker needs multi-device
-  enumeration in the driver layer; do alongside the next Dot Pad hardware
-  session.
+- [ ] **Shift+F4 dedicated braille display picker modal** — PARTLY CLOSED 2026-09-06.
+  Shift+F4 now opens the Settings dialog on a dedicated **Braille** tab with focus
+  on the tab (`OpenSettingsEvent` carries an optional tab name), and the tab says
+  in so many words that the Dot Pad is the only supported device and a picker will
+  appear when there is a second. A real picker still needs multi-device enumeration
+  in the driver layer; do alongside the next Dot Pad hardware session. Whether it
+  wants to be a modal of its own at that point is open — the tab may be enough.
 
 ### Hosted double-speech (Chrome: Orca + browser TTS both speak) (~1d)
 

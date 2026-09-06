@@ -152,12 +152,22 @@ namespace AccessibleTrader.Core.Services.Input
                 code.Contains("MOVING AVG") || code.Contains("MOVING AVERAGE"))
                 return CrossingType.MovingAverageCross;
 
+            // BY ROLE, NOT BY SPELLING.
+            //
+            // These three tests used to read the level's NAME. Sixteen providers declare the line
+            // their oscillator swings about and they spell it four ways — Zero (7), Midpoint (5),
+            // Neutral (3), Midline (1) — while the test here was Name == "Zero". So Ctrl+Left and
+            // Ctrl+Right could jump to the midline of seven indicators and not of the other nine.
+            // RSI was the sharpest case: it declares Midpoint at 50 with PlayEarcon true, so the
+            // earcon fired at a line the navigation could not reach. The name was also load-bearing
+            // in the other direction — adding a level of your own and calling it "Zero" silently
+            // changed what Ctrl+Left/Right did on that indicator.
             var seriesLevels = focusedSeries.Levels;
-            bool hasOB = seriesLevels.Any(l => l.Name.Contains("Overbought", StringComparison.OrdinalIgnoreCase) || l.Name.Contains("Extreme OB", StringComparison.OrdinalIgnoreCase));
-            bool hasOS = seriesLevels.Any(l => l.Name.Contains("Oversold",   StringComparison.OrdinalIgnoreCase) || l.Name.Contains("Extreme OS", StringComparison.OrdinalIgnoreCase));
+            bool hasOB = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Overbought);
+            bool hasOS = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Oversold);
             if (hasOB && hasOS) return CrossingType.ThresholdLevel;
 
-            bool hasZero = seriesLevels.Any(l => l.Name.Equals("Zero", StringComparison.OrdinalIgnoreCase));
+            bool hasZero = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Neutral);
             if (hasZero) return CrossingType.ZeroLine;
 
             var primaryComp = focusedSeries.Components.FirstOrDefault(c =>
@@ -210,29 +220,29 @@ namespace AccessibleTrader.Core.Services.Input
             var seriesData = focusedSeries.GetComponentData(primaryComp.Name);
             if (seriesData == null || seriesData.Length < 2) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
 
-            int found = ScanSignCrossing(seriesData, current, jumpRight, 0.0);
+            // The line to scan is the one the pane declares, not the number zero. A Fear & Greed
+            // pane whose Neutral sits at 50 was scanned for sign changes about 0 and reported "no
+            // crossing in view" for the entire history of the indicator.
+            var neutral = NeutralLevel(focusedSeries);
+            double neutralValue = neutral?.Value ?? primaryComp.ReferenceLevel ?? 0.0;
+            string neutralName  = neutral?.Name ?? (neutralValue == 0 ? "Zero" : "Midpoint");
+
+            int found = ScanSignCrossing(seriesData, current, jumpRight, neutralValue);
             if (found >= 0)
             {
                 _store.Dispatch(new NavigateAction(found));
                 _store.Dispatch(new SetInteractionContextAction(InteractionContext.Component));
-                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"Zero line cross at {FormatTimestamp(state, found)}", true));
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{neutralName} line cross at {FormatTimestamp(state, found)}", true));
             }
             else _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view"));
         }
 
         private void DoThresholdCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
-            double obLevel = GetNamedLevelValue(focusedSeries, "Overbought", "Extreme OB");
-            double osLevel = GetNamedLevelValue(focusedSeries, "Oversold",   "Extreme OS");
-
-            if (double.IsNaN(obLevel) || double.IsNaN(osLevel))
-            {
-                var seriesLevels2 = focusedSeries.Levels;
-                var obEntry = seriesLevels2.FirstOrDefault(l => l.Name.Contains("Overbought", StringComparison.OrdinalIgnoreCase) || l.Name.Contains("Extreme OB", StringComparison.OrdinalIgnoreCase));
-                var osEntry = seriesLevels2.FirstOrDefault(l => l.Name.Contains("Oversold",   StringComparison.OrdinalIgnoreCase) || l.Name.Contains("Extreme OS", StringComparison.OrdinalIgnoreCase));
-                if (obEntry != null) obLevel = obEntry.Value;
-                if (osEntry != null) osLevel = osEntry.Value;
-            }
+            var obEntry = focusedSeries.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Overbought);
+            var osEntry = focusedSeries.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Oversold);
+            double obLevel = obEntry?.Value ?? double.NaN;
+            double osLevel = osEntry?.Value ?? double.NaN;
 
             if (double.IsNaN(obLevel) || double.IsNaN(osLevel)) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
 
@@ -246,14 +256,30 @@ namespace AccessibleTrader.Core.Services.Input
             int obFound = ScanThresholdCrossing(seriesData, current, jumpRight, obLevel, aboveIsZone: true,  out string obMsg);
             int osFound = ScanThresholdCrossing(seriesData, current, jumpRight, osLevel, aboveIsZone: false, out string osMsg);
 
-            int found = -1; string crossMsg = string.Empty;
-            if (obFound >= 0 && osFound >= 0)
+            // THE MIDLINE IS A TARGET TOO.
+            //
+            // A bounded oscillator went straight to the OB/OS branch and nothing here ever looked
+            // at the line between them, so RSI's Midpoint at 50 — declared by the provider, drawn
+            // on the chart, with an earcon that fires when price crosses it — could not be reached
+            // by Ctrl+Left or Ctrl+Right. Crossing 50 is the momentum event a trader is usually
+            // looking for on an RSI; the two extremes are the rarer ones.
+            var midEntry = NeutralLevel(focusedSeries);
+            int midFound = -1; string midMsg = string.Empty;
+            if (midEntry != null)
             {
-                bool pickOb = jumpRight ? obFound <= osFound : obFound >= osFound;
-                (found, crossMsg) = pickOb ? (obFound, obMsg) : (osFound, osMsg);
+                midFound = ScanSignCrossing(seriesData, current, jumpRight, midEntry.Value);
+                midMsg   = $"{midEntry.Name} cross";
             }
-            else if (obFound >= 0) { found = obFound; crossMsg = obMsg; }
-            else if (osFound >= 0) { found = osFound; crossMsg = osMsg; }
+
+            int found = -1; string crossMsg = string.Empty;
+            foreach (var (idx, msg) in new[] { (obFound, obMsg), (osFound, osMsg), (midFound, midMsg) })
+            {
+                if (idx < 0) continue;
+                // Nearest wins in the direction of travel — the same rule the two-way version
+                // used, generalised so a third candidate cannot jump the queue.
+                bool better = found < 0 || (jumpRight ? idx < found : idx > found);
+                if (better) { found = idx; crossMsg = msg; }
+            }
 
             if (found >= 0)
             {
@@ -263,6 +289,13 @@ namespace AccessibleTrader.Core.Services.Input
             }
             else _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view"));
         }
+
+        /// <summary>
+        /// The line this series swings about, by declared role rather than by name. Null when the
+        /// series declares none — which is a real answer, not a reason to assume zero.
+        /// </summary>
+        private static LevelConfig? NeutralLevel(ChartSeries series) =>
+            series.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral);
 
         private void DoMACrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {

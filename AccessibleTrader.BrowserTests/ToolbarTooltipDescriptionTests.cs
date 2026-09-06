@@ -72,9 +72,10 @@ public sealed class ToolbarTooltipDescriptionTests
         { "Drawings",        "Open drawing tools, Alt plus D" },
         { "Sound designer",  "Open sound designer, Alt plus W" },
         { "Trade dashboard", "Open trade dashboard, Alt plus T" },
-        // "Order book" left this list on 2026-09-05: the button is gated on the current
-        // provider having a book, and this harness loads no providers (the plugin DLLs under
-        // bin/ are refused by the trust allow-list), so like Deposit it is absent here.
+        // "Order book" is back on 2026-09-06: the gate added the day before is reversed, so the
+        // button is unconditional again and this harness (which loads no providers at all) sees
+        // it like any other. Deposit stays gated and stays off this list.
+        { "Order book",      "Open order book, Alt plus B" },
         { "Strategies",      "Open strategies, Alt plus S" },
         { "Watch lists",     "Open watch lists and screener, Alt plus M" },
         { "Levels",          "Open level respect report, Alt plus R" },

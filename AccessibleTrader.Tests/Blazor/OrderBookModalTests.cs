@@ -43,6 +43,21 @@ public class OrderBookModalTests
             },
         };
 
+    /// <summary>
+    /// A venue that HAS an order book.
+    ///
+    /// <para>
+    /// Required since 2026-09-06, when the dialog started asking <c>HasOrderBookAsync</c> before
+    /// fetching, so it can tell "this venue publishes no depth" from "the book came back empty" —
+    /// two facts that used to share one sentence. A bare NSubstitute answers <c>false</c> to a
+    /// <c>Task&lt;bool&gt;</c>, so without this line every test below takes the "no depth on this
+    /// venue" branch and never reaches the fetch it is about. The four that broke are the reason
+    /// this is a named helper rather than a line repeated in each.
+    /// </para>
+    /// </summary>
+    private static void VenueHasABook(BlazorTestHarness h) =>
+        h.OrderService.HasOrderBookAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
+
     [Fact]
     public void OrderBookModal_HiddenByDefault_RendersNothing()
     {
@@ -69,6 +84,7 @@ public class OrderBookModalTests
         using var h = new BlazorTestHarness();
         h.WorkspaceStore.State.Returns(_ => BuildStateWithSymbol());
         var (bids, asks) = BuildSnapshot(20);
+        VenueHasABook(h);
         h.OrderService.GetOrderBookAsync("TestProvider", "BTC/USDT", 20)
             .Returns(Task.FromResult((bids, asks)));
 
@@ -84,6 +100,7 @@ public class OrderBookModalTests
         using var h = new BlazorTestHarness();
         h.WorkspaceStore.State.Returns(_ => BuildStateWithSymbol());
         var (bids, asks) = BuildSnapshot(20);
+        VenueHasABook(h);
         h.OrderService.GetOrderBookAsync("TestProvider", "BTC/USDT", 20)
             .Returns(Task.FromResult((bids, asks)));
 
@@ -101,6 +118,7 @@ public class OrderBookModalTests
         h.WorkspaceStore.State.Returns(_ => BuildStateWithSymbol());
         var bids = new List<OrderBookEntry> { new(67234.50, 0.85) };
         var asks = new List<OrderBookEntry> { new(67235.00, 1.20) };
+        VenueHasABook(h);
         h.OrderService.GetOrderBookAsync("TestProvider", "BTC/USDT", 20)
             .Returns(Task.FromResult((bids, asks)));
 
@@ -150,6 +168,7 @@ public class OrderBookModalTests
         // Initial snapshot: one row each side.
         var initialBids = new List<OrderBookEntry> { new(67234.50, 0.85) };
         var initialAsks = new List<OrderBookEntry> { new(67235.00, 1.20) };
+        VenueHasABook(h);
         h.OrderService.GetOrderBookAsync("TestProvider", "BTC/USDT", 20)
             .Returns(Task.FromResult((initialBids, initialAsks)));
 

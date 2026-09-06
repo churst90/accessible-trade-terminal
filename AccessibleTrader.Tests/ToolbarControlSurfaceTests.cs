@@ -34,6 +34,27 @@ namespace AccessibleTrader.Tests
 
         private static string Toolbar() => File.ReadAllText(Path.Combine(ComponentsDir(), "Toolbar.razor"));
 
+        /// <summary>
+        /// The persistent chrome: the bars that are on screen at all times, without opening
+        /// anything. That is what "reachable without knowing the shortcut" actually means, and it
+        /// is TWO bars — the top toolbar (application: accounts, orders, workspaces, settings) and
+        /// the indicator bar under the chart (chart content: the focused series' switches, Add,
+        /// Scripts, Drawings).
+        ///
+        /// <para>
+        /// Widened from Toolbar.razor alone on 2026-09-06, when Drawings moved down to the
+        /// indicator bar and this guard went red for a button that had not gone anywhere. Reading
+        /// one file made it a test of WHERE a control lives; the property it is defending is
+        /// WHETHER one exists. Note the deliberate contrast with
+        /// <see cref="NoToolbarButtonOverridesItsOwnName"/>, which stays scoped to Toolbar.razor
+        /// because the naming convention it pins really is about the top bar only.
+        /// </para>
+        /// </summary>
+        private static IReadOnlyList<(string File, string Text)> PersistentChrome() =>
+            new[] { "Toolbar.razor", "IndicatorBar.razor" }
+                .Select(f => (f, File.ReadAllText(Path.Combine(ComponentsDir(), f))))
+                .ToList();
+
         private static string Sprite() => File.ReadAllText(Path.Combine(ComponentsDir(), "IconSprite.razor"));
 
         /// <summary>
@@ -63,13 +84,21 @@ namespace AccessibleTrader.Tests
         [MemberData(nameof(ReachableFeatures))]
         public void EveryFeature_hasAToolbarControl(string feature, string eventName)
         {
-            string toolbar = Toolbar();
+            var chrome = PersistentChrome();
+
+            // The vacuity floor. If a file were renamed away, every lookup below would fail for
+            // the wrong reason — "the feature is unreachable" instead of "the scan lost its
+            // anchor" — and the two read identically from a red build.
+            Assert.True(chrome.All(c => c.Text.Length > 1000),
+                "one of the chrome files came back empty or tiny; the scan has lost its anchor.");
 
             // Either published directly from an OnClick lambda, or from a named handler in the
             // component's own code block — both are real wiring; a shortcut alone is not.
-            Assert.True(toolbar.Contains($"new {eventName}("),
-                $"{feature} has no toolbar control: Toolbar.razor never constructs {eventName}. " +
-                "A keyboard shortcut on its own leaves the feature undiscoverable.");
+            Assert.True(chrome.Any(c => c.Text.Contains($"new {eventName}(")),
+                $"{feature} has no control in the persistent chrome: neither " +
+                string.Join(" nor ", chrome.Select(c => c.File)) + $" constructs {eventName}. " +
+                "A keyboard shortcut on its own leaves the feature undiscoverable — this is " +
+                "Cody's rule that a shortcut and a button come as a pair.");
         }
 
         [Fact]

@@ -372,10 +372,27 @@ namespace AccessibleTrader.Core.Services.Input
                         ? (double)bars[cursor].Close
                         : double.NaN;
 
+                    // WHAT the pane's neutral is comes from the components, not from a guess.
+                    // ComponentConfig.ReferenceLevel is the value a component swings about — the
+                    // same field the audio layer splits its above/below waveforms on — and the
+                    // factory populates it for the whole provider fleet (RSI 50, Stochastic 50,
+                    // MACD 0, Williams %R -50, 0 for oscillator and zero-area types). Prefer the
+                    // component the cursor is actually on; a Cipher B pane holds components with
+                    // different neutrals and the one in focus is the one being asked about.
+                    double? paneNeutral = null;
+                    int compIdx = _store.State.FocusedComponentIndex;
+                    if (compIdx >= 0 && compIdx < focused.Components.Count)
+                        paneNeutral = focused.Components[compIdx].ReferenceLevel;
+                    paneNeutral ??= focused.Components
+                        .FirstOrDefault(c => c.ReferenceLevel.HasValue)?.ReferenceLevel;
+
                     // The key toggles. Pressing it where one of your own levels already sits removes
                     // that level — which is the only way to remove one from the keyboard, and until
-                    // 2026-08-04 there was no way to remove one at all.
-                    var doomed = ReferenceLevelPlacement.FindRemovable(focused.Levels, focused.Pane, cursorPrice);
+                    // 2026-08-04 there was no way to remove one at all. The removal target follows
+                    // the same rule as the placement target, or the key would stop being able to
+                    // take back what it had just added on a pane whose neutral is not zero.
+                    var doomed = ReferenceLevelPlacement.FindRemovable(
+                        focused.Levels, focused.Pane, cursorPrice, paneNeutral ?? 0);
                     if (doomed != null)
                     {
                         _store.Dispatch(new RemoveLevelAction(focusedId, doomed.Name));
@@ -385,10 +402,14 @@ namespace AccessibleTrader.Core.Services.Input
                     }
 
                     var level = ReferenceLevelPlacement.For(
-                        focused.Pane, cursorPrice, focused.Levels, out string levelReason);
+                        focused.Pane, cursorPrice, focused.Levels, paneNeutral,
+                        out string levelReason, out bool levelRefused);
                     if (level == null)
                     {
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error, levelReason, true));
+                        // "Already marked" is information; "no neutral is declared here" is a
+                        // refusal. Speaking both as errors taught the user to distrust the key.
+                        _eventBus.Publish(new FeedbackRequestEvent(
+                            levelRefused ? FeedbackType.Error : FeedbackType.Info, levelReason, true));
                         return;
                     }
 
@@ -401,9 +422,10 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.ToggleEventSpeech: _store.Dispatch(new ToggleEventSpeechAction()); return;
                 case SystemCommand.ToggleEarcons: _store.Dispatch(new ToggleEarconsAction()); return;
                 case SystemCommand.ToggleBraille: _eventBus.Publish(new BrailleToggleRequestedEvent()); return;
-                // Interim: braille device settings live in the Settings dialog; a
-                // dedicated picker modal is TODO (needs multi-device enumeration).
-                case SystemCommand.OpenBrailleSettings: _eventBus.Publish(new OpenSettingsEvent()); return;
+                // Braille device settings live on their own tab in the Settings dialog, and this
+                // key opens the dialog ON that tab. A dedicated picker modal stays TODO until
+                // there is more than one device to pick between.
+                case SystemCommand.OpenBrailleSettings: _eventBus.Publish(new OpenSettingsEvent("Braille")); return;
 
                 // Multi-tab — always available regardless of chart focus
                 case SystemCommand.AddTab:

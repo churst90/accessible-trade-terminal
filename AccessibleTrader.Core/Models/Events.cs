@@ -112,7 +112,22 @@ namespace AccessibleTrader.Core.Models
     public record NavKeyReleasedEvent();
 
     // ── UI Commands ───────────────────────────────────────────────────────────
-    public record OpenSettingsEvent();
+    /// <summary>
+    /// Opens the Settings dialog, optionally on a named tab.
+    ///
+    /// <para>
+    /// The tab exists because Shift+F4 is documented as "open braille display settings" and
+    /// published a bare open, landing on General — which happened to be right only because the
+    /// braille checkbox lived there, and told the user nothing about where it had put them. A
+    /// shortcut that names a destination should reach it.
+    /// </para>
+    ///
+    /// <para>
+    /// Null means "wherever the dialog opens by default". An unknown or unavailable tab name is
+    /// not an error: the dialog falls back to General rather than showing an empty panel.
+    /// </para>
+    /// </summary>
+    public record OpenSettingsEvent(string? Tab = null);
     public record OpenTradingDashboardEvent();
     public record OpenObjectTreeEvent();
 

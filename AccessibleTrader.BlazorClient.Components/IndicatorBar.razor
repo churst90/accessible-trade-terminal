@@ -1,5 +1,6 @@
 @using AccessibleTrader.Core.Models
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Sdk.Plugins
 @inject IWorkspaceStore Store
 @inject IEventBus EventBus
 @inject DemoPolicy Demo
@@ -69,6 +70,24 @@
                           OnClick="() => EventBus.Publish(new OpenCustomScriptsEvent())" />
     }
 
+    @* Moved down from the top toolbar, 2026-09-06. Reading order is Add → Scripts →
+       Drawings: the three things you put ON a chart, in the order they are reached for.
+       Gated the same way it was up there — a drawing needs price bars to anchor to, and
+       CurrentDataShape says whether this tab has any. *@
+    @if (IsTradingTab)
+    {
+        @* NO AriaLabel, deliberately. The accessible name stays "Drawings" — the visible
+           label — for two reasons. WCAG 2.5.3 Label-in-Name wants the visible text contained
+           in the accessible name, and "Open drawing tools" does not contain "Drawings" (the
+           two neighbours here get away with an override because "Add indicator to chart"
+           does contain "Add", and "Custom Scripts (Alt+Comma)" contains "Scripts"). And the
+           name is the ROUTE: the browser harness clicks this button by accessible name, so
+           the move is invisible to it only while the name is unchanged. *@
+        <ToolbarIconButton Icon="drawings" Label="Drawings" Variant="data"
+                          Tooltip="Open drawing tools, Alt plus D"
+                          OnClick="() => EventBus.Publish(new OpenDrawingToolsEvent())" />
+    }
+
 </nav>
 
 @code {
@@ -76,6 +95,13 @@
         Store.State.ActiveSeries.FirstOrDefault(s => s.Id == Store.State.FocusedSeriesId);
 
     private IDisposable? _stateSub;
+
+    /// <summary>
+    /// Whether this tab is showing price bars. The same test the top toolbar used while
+    /// Drawings lived there: an analytics feed has no OHLCV for a trend line to be anchored
+    /// to, so the tool would open onto a chart it cannot draw on.
+    /// </summary>
+    private bool IsTradingTab => Store.State.CurrentDataShape == ProviderDataShape.Ohlcv;
 
     /// <summary>
     /// Observe the store, the way <c>TabBar</c> and <c>Toolbar</c> already do.

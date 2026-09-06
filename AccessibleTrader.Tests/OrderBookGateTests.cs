@@ -13,18 +13,24 @@ using Cmp = AccessibleTrader.BlazorClient.Components;
 namespace AccessibleTrader.Tests;
 
 /// <summary>
-/// The toolbar's Order book button is gated on the CURRENT provider, the way Deposit is gated
-/// on <c>IWalletProvider</c>. Cody, 2026-09-05: "Gate the order book button on the provider in
-/// the toolbar." Before this the button was gated on the host policy alone, so on Twelve Data
-/// or an index feed it opened a dialog whose only content was "Order book is not available for
-/// X on Y." — a button over nothing.
+/// "Does this provider have an order book", and what the app does with the answer.
 ///
 /// <para>
-/// Two halves. The SERVICE answers "does this provider have a book": the interface first (a
-/// compiler-enforced fact; nine providers implement it), then the declared L2 flag (for a venue
-/// with a real snapshot and no stream — Interactive Brokers). The TOOLBAR renders the button
-/// only when the answer is yes. Each half is pinned on its own, because a green service test
-/// says nothing about whether the markup reads it.
+/// The SERVICE half is unchanged and is a good check: the interface first (a compiler-enforced
+/// fact; nine providers implement <c>IOrderBookProvider</c>), then the declared L2 flag, for a
+/// venue with a real snapshot and no stream — Interactive Brokers.
+/// </para>
+///
+/// <para>
+/// <b>The CONSUMER half moved, 2026-09-06.</b> From 2026-09-05 the answer gated the toolbar
+/// button, so on Twelve Data or an index feed the button was absent — and Alt+B still opened the
+/// dialog, making it the one shortcut in the app whose toolbar control could vanish underneath
+/// it. Cody's rule is that a shortcut and a button come as a pair, and for a screen-reader user
+/// a control that disappears is the worse of the two failures: an absence says nothing, while a
+/// dialog can say "this venue publishes no depth" in a sentence. So the button is always there
+/// and the ANSWER now shapes what the dialog says — "does not publish an order book" when the
+/// venue has none, "no depth returned just now" when it has one and the book came back empty.
+/// Those were one sentence before, and they are not the same fact.
 /// </para>
 /// </summary>
 public class OrderBookGateTests
@@ -87,9 +93,9 @@ public class OrderBookGateTests
         Assert.False(await Service(Plain(ProviderCapabilities.L2)).HasOrderBookAsync(""));
     }
 
-    // ── The toolbar ──────────────────────────────────────────────────────────
+    // ── The consumer ─────────────────────────────────────────────────────────
 
-    private static IRenderedComponent<Cmp.Toolbar> Render(bool hasBook)
+    private static IRenderedComponent<Cmp.Toolbar> RenderToolbar(bool hasBook)
     {
         var h = new Blazor.BlazorTestHarness();
         h.OrderService.HasOrderBookAsync(Arg.Any<string>()).Returns(Task.FromResult(hasBook));
@@ -101,17 +107,91 @@ public class OrderBookGateTests
     [Fact]
     public void TheButtonIsThere_WhenTheProviderHasABook()
     {
-        var cut = Render(hasBook: true);
+        var cut = RenderToolbar(hasBook: true);
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll("button[aria-label='Order book']")));
     }
 
     [Fact]
-    public void TheButtonIsAbsent_WhenTheProviderHasNone()
+    public void TheButtonIsStillThere_WhenTheProviderHasNone()
     {
-        var cut = Render(hasBook: false);
-        // The Deposit button is the precedent and the vacuity floor: the toolbar rendered,
-        // just without this one control.
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("button")));
-        Assert.Empty(cut.FindAll("button[aria-label='Order book']"));
+        // The reversal, stated as a test. Alt+B is bound unconditionally, so the button has to
+        // be too — otherwise the shortcut has no visible counterpart and the user meets an
+        // absence with nothing to explain it.
+        var cut = RenderToolbar(hasBook: false);
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll("button[aria-label='Order book']")));
+    }
+
+    [Fact]
+    public void TheToolbarDoesNotAskTheProviderAtAll()
+    {
+        // The gate is gone, not merely inverted: the toolbar no longer makes a per-provider
+        // capability call it does nothing with. Pins the deletion rather than the symptom, so
+        // reintroducing the call to gate on it again fails here first.
+        var h = new Blazor.BlazorTestHarness();
+        h.Ctx.RenderComponent<Cmp.Toolbar>();
+
+        h.OrderService.DidNotReceive().HasOrderBookAsync(Arg.Any<string>());
+    }
+
+    // ── The dialog says WHICH of the two things is true ──────────────────────
+
+    private static IRenderedComponent<Cmp.OrderBookModal> OpenBook(
+        Blazor.BlazorTestHarness h, bool hasBook)
+    {
+        // WorkspaceState.Initial carries ChartIdentity.Empty, whose provider is "Bitstamp" with
+        // only the SYMBOL blank — and a blank symbol takes the dialog down its "No symbol
+        // selected" branch before it ever asks about depth. Give it a real chart.
+        h.WorkspaceStore.State.Returns(_ => AccessibleTrader.Sdk.Models.WorkspaceState.Initial with
+        {
+            Identity = new AccessibleTrader.Sdk.Models.ChartIdentity("Crypto", "kraken", "BTC/USD", "1h"),
+        });
+        h.OrderService.HasOrderBookAsync(Arg.Any<string>()).Returns(Task.FromResult(hasBook));
+        h.OrderService.GetOrderBookAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>())
+            .Returns(Task.FromResult((
+                Bids: new List<AccessibleTrader.Sdk.Models.OrderBookEntry>(),
+                Asks: new List<AccessibleTrader.Sdk.Models.OrderBookEntry>())));
+        return h.OpenModal<Cmp.OrderBookModal>(
+            bus => bus.Publish(new AccessibleTrader.Core.Models.OpenOrderBookEvent()));
+    }
+
+    [Fact]
+    public void OnAProviderWithNoBook_TheDialogSaysTheVenuePublishesNone()
+    {
+        using var h = new Blazor.BlazorTestHarness();
+
+        var cut = OpenBook(h, hasBook: false);
+
+        cut.WaitForAssertion(() =>
+            Assert.Contains("does not publish an order book", cut.Markup));
+    }
+
+    [Fact]
+    public void OnAProviderWithABook_AnEmptyResultIsReportedAsTemporary()
+    {
+        // The other half of the split. A venue that HAS a book and returned nothing is a quiet
+        // market, and telling that user the venue has no order book would be false.
+        using var h = new Blazor.BlazorTestHarness();
+
+        var cut = OpenBook(h, hasBook: true);
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("No depth returned", cut.Markup);
+            Assert.DoesNotContain("does not publish", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void TheMessageIsAnnouncedRatherThanLeftForTheUserToFind()
+    {
+        // The load is async, so this sentence arrives after the dialog opened and focus landed
+        // on the heading. Without a live region it is silent — and since the button no longer
+        // hides itself, this sentence is the whole explanation for an empty panel.
+        using var h = new Blazor.BlazorTestHarness();
+
+        var cut = OpenBook(h, hasBook: false);
+
+        cut.WaitForAssertion(() =>
+            Assert.Equal("alert", cut.Find(".alert-box.warning").GetAttribute("role")));
     }
 }
