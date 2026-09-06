@@ -320,9 +320,11 @@
                                 Alerts that name a symbol and provider keep evaluating on this
                                 machine with no browser open — spoken through your screen reader, shown as a
                                 desktop notification, with a sound (replace it at
-                                sounds/alert.wav in the app data folder). Checks once a minute;
-                                pauses whenever a browser session is connected. Advanced
-                                condition-tree alerts stay session-only.
+                                sounds/alert.wav in the app data folder). Checks once a minute.
+                                With a browser session open it watches the symbols that session is
+                                not already watching, so an alert on a symbol you have no tab open
+                                for is still covered. Advanced condition-tree alerts stay
+                                session-only.
                             </p>
                         }
                         <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">

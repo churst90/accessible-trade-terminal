@@ -117,6 +117,104 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-06, TWENTY-NINTH pass — BACKGROUND MONITOR **PHASE 1**:
+> one DI scope for the life of the process, and the discovery that the monitor's "pause while a
+> browser is open" meant an alert on a symbol with no tab open was watched by NOBODY.** See
+> CHANGES `[Unreleased]` and `docs/BACKGROUND_MONITOR_SCOPE.md` §1 and Phase 1. Suite **6,954**
+> (was 6,939). What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A guard written to prevent a double is a guard that can create a hole.** The monitor stood
+>   down entirely whenever `ActiveCircuits > 0`, to stop it and the circuit speaking the same
+>   alert through the same Orca. Correct about the symbol ON SCREEN — and `AlertOrchestrator`
+>   watches nothing else. So the browser being open made the app watch FEWER of the user's alerts
+>   than the browser being closed. **When a component stands down "because something else has
+>   this", check what that something else actually covers.** The hosted monitor had already found
+>   and fixed this exact shape; the local one had not, because nobody re-read the local one when
+>   the hosted fix landed.
+> - **A scope per poll is a subscription budget of one tick.** The reason "keep getting
+>   notifications with the browser closed" looked like a missing feature is that everything able
+>   to notify is `AddScoped` = per circuit, and the one survivor rebuilt its scope every 60
+>   seconds. The fix is not more notifiers; it is **one scope with a lifetime**.
+> - **The mirror of the 22nd pass's lesson.** Two subscribers speaking about one event = a LOST
+>   utterance. Two long-lived sessions on two buses = a DOUBLED one. Every delivery test in this
+>   phase is written TWICE — a circuit open, and none — and asserts exactly one delivery in each.
+>   **A test that exercises one of two states proves nothing about the state that breaks.**
+> - **The plan said to route the monitor's alert through `DesktopNotificationService`. Doing that
+>   would have un-shipped the feature.** That service's three switches default OFF, so an
+>   already-opted-in delivery would have silently acquired a second switch nobody had set. This is
+>   the Phase 0 lesson repeating one pass later: **a switch inherited from another caller is a
+>   policy nobody wrote down.** Hence `DesktopNotificationCategories` — and the mask decides
+>   whether the SUBSCRIPTION EXISTS, not whether a handler returns early, so an unowned category
+>   is unreachable rather than merely unhandled.
+> - **A harness that turns the switch ON is what makes a mask test non-vacuous.** With
+>   `notifications.desktop.alerts` off, "no second toast" passes whether the mask works or not.
+> - **Coverage had to be a CALLBACK, not a snapshot.** What a circuit covers includes the
+>   background-tab monitors, which start and stop on tab switches without a workspace-state change
+>   of their own. A pushed snapshot would be stale exactly when it mattered.
+> - **`AlertEvaluator` leaves `AlertFired.Symbol` null; only `AlertOrchestrator` stamps it.** Every
+>   background alert had been going into the tray's recent list with no symbol, and would have
+>   reached per-asset webhook routing the same way. **A field populated by one of two producers is
+>   a field the other one silently omits.**
+>
+> ### 2. DECISIONS MADE, recorded so they are not re-litigated
+>
+> - **The scope that PRODUCED an event owns its delivery.** The scope doc's routing table said
+>   "toast: headless" in both columns, which cannot mean the headless subscriber delivers a
+>   circuit's toasts — the buses are per scope. Read as "a toast is an OS artifact in both states,
+>   unlike speech and earcons", it was already true and needed no code.
+> - **Suppression is per SYMBOL, not per process.** Same rule the hosted monitor uses, keyed
+>   differently because the local desktop has exactly one user.
+> - **A circuit whose scope is disposing covers NOTHING** rather than throwing — so the headless
+>   side takes the symbol. Of the two ways to be wrong, a possible duplicate is recoverable and
+>   silence is not.
+> - **`IOrderExecutionService` is NOT subscribed headless yet.** That is Phase 2 and it needs the
+>   credential / reconnect / rate-limit decisions written down there first. The SAFETY LINE —
+>   **headless REPORTS, it never ACTS** — is now stated at the top of `HeadlessSession.cs`, not
+>   only in the scope doc.
+> - **`InSessionAlertRecorder` is deliberately absent from the headless scope** (the monitor files
+>   its own alerts), as are `AccessibilityFeedbackCoordinator` and `SonificationManager` (they
+>   speak through the browser, and with none attached they would deliver to nobody while the log
+>   said otherwise).
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **Nobody has HEARD the routing.** The doubling hazard is proved at the level of which owner
+>   delivered what, in unit tests. No one has sat with Orca running, a browser open on one symbol,
+>   and an alert firing on another.
+> - Everything on the twenty-eighth pass's §3 list is unchanged: the WebHost Windows toast never
+>   raised on Windows, no macOS command ever run on a Mac, `WindowsDesktopNotifier` compile-only,
+>   minimize-to-tray never exercised in a Windows session, the tray icon never measured with a
+>   screen reader, Alt+Shift+letter with two Windows keyboard layouts, the Braille tab never
+>   rendered on the MAUI head.
+>
+> ### 4. NEXT
+>
+> - **Phase 2 — order fills headless.** `GeneralOrderService.SubscribeLive(providerName)` already
+>   exists; the headless scope subscribes on startup to every provider with stored keys and an
+>   open order or position. Settle first, in writing: credentials with no user session (fine on
+>   local Full, needs thought if it ever reaches hosted), and unattended reconnect + rate limits —
+>   a websocket that dies at 03:00 must escalate the way `DeadFeedTracker` already does, because
+>   **silent non-coverage is worse than no feature.** **SAFETY LINE: headless REPORTS, it never
+>   ACTS.**
+> - **Phase 3 — new bars, and the alerts the monitor still cannot watch.** Reuse
+>   `BackgroundTabFeedService`'s existing cap rather than inventing a second budget. Shrink
+>   `BackgroundWatchability.WhyNotBackgroundWatchable` IN THE SAME COMMIT as the capability that
+>   shrinks it. **Gate new-bar toasts harder headless than in-session** — a one-minute chart is a
+>   toast a minute.
+> - **Whether to cut 2.10.0.** Now covers two phases, and the argument for holding is unchanged:
+>   Phase 0's paths are proved only as far as the process start, and Phase 1's hazard is proved by
+>   unit test rather than by a person with a screen reader. A release note that says what §6 of the
+>   scope doc says would be honest. **Cody's call.**
+> - Everything under §4–§6 of the twenty-seventh pass block below still stands: the report card's
+>   own list (live-venue evidence, the MAUI head measured with a screen reader, StrategyLab's
+>   71-of-99), no performance budget, no crash-report path, automating the sabotage, the
+>   vacuity-floor guard over the test assembly, §7g to ~2026-09-10 for the segfault.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-06, TWENTY-EIGHTH pass — BACKGROUND MONITOR **PHASE 0**:
 > the feature that "already worked" turned out to be Linux-only because of one line in a file
 > with no notifications in it, and MAUI's close button now asks before it stops being a close

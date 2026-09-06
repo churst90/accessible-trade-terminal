@@ -4,6 +4,89 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Background monitoring, Phase 1 — one long-lived scope, and one delivery owner (2026-09-06)
+
+**"Close the browser and keep being told things" was never a missing feature. It was a
+service-lifetime boundary.** On the WebHost, `IEventBus`, `IWorkspaceStore`, `IDataService`,
+`IOrderExecutionService` and `DesktopNotificationService` are all `AddScoped`, which on Blazor
+Server means **per circuit**. Close the browser, the circuit is disposed, and every subscription
+in that list goes with it. `LocalBackgroundMonitor` survived only by being a *parallel*
+implementation — its own evaluator, its own fetch loop, its own delivery — and it built a
+throwaway DI scope **on every poll**, so nothing inside one could hold a subscription for longer
+than a single 60-second tick.
+
+**`HeadlessSession` is the smallest thing that fixes that: one scope, created once, kept for the
+life of the process.** "Browser closed" becomes "a session that happens to have no UI", and the
+ordinary in-session subscribers live in it unchanged. It is deliberately **not** a re-lifetiming
+of the container — scoped-per-circuit is correct for everything a circuit actually owns, and
+changing that would be a far larger and riskier change than the problem needs.
+
+**The pause became a routing rule, and that closed a defect nobody had reported.** The monitor
+used to return immediately whenever `WebHostBrowserCircuitHandler.ActiveCircuits > 0`, on the
+grounds that the circuit and the monitor both speak through the same Orca and doubling every
+announcement is exactly the bug the speech work killed. That reasoning is right about the symbol
+**on screen** and wrong about every other one: `AlertOrchestrator` gates alerts to the focused
+chart (its Part A symbol gating), and the background-tab monitors that cover the rest are opt-in
+and off by default. So an alert on a symbol with no tab open was evaluated by **nobody** while the
+browser was connected — **closing your browser made more of your alerts work than leaving it
+open.** This is the same defect the *hosted* monitor already fixed per user, and it is now fixed
+per symbol locally: `CircuitAlertCoverage` asks each open circuit what it is actually watching,
+and the headless session takes everything else.
+
+Coverage is a **callback, not a snapshot**, because it includes the background workspace monitors,
+which start and stop on tab switches without a workspace-state change of their own — a pushed
+snapshot of those would be stale exactly when it mattered. A circuit whose scope is mid-disposal
+contributes nothing rather than throwing, and contributing nothing means the headless side takes
+the symbol: of the two ways to be wrong, a possible duplicate is recoverable and silence is not.
+
+**THE HAZARD, and it is the 2026-09-05 narration bug inverted.** *Two subscribers speaking about
+the same event is one lost utterance.* Two sessions alive in one process is the mirror image: a
+**doubled** one. The invariant that keeps it to exactly one delivery is stated in two places and
+nowhere else:
+
+- **Evaluation** — `CircuitAlertCoverage`, above. Each fired alert has exactly one producer.
+- **Delivery** — a new `DesktopNotificationCategories` mask on `DesktopNotificationService`. The
+  headless instance is built **without the Alerts category**, because the monitor already
+  delivers its own alert (sound, toast, speech) under its *own* opt-in switch. Routing it through
+  the notification service as well would have put an already-opted-in feature behind
+  `notifications.desktop.alerts`, which **defaults off** — silently un-shipping it. That is the
+  Phase 0 lesson repeating: *a switch inherited from another caller is a policy nobody wrote
+  down.* The mask decides whether the **subscription exists**, not whether a handler returns
+  early, so an unowned category is unreachable rather than merely unhandled.
+
+**Background alerts reach the delivery channels for the first time.** With a real, long-lived
+event bus to publish on, the monitor now publishes `AlertFiredEvent` there, and the headless
+session force-creates `AlertDeliveryService` — so an alert that fires with no browser attached
+finally goes out by email, Telegram and webhook like any other. Publication is last and inside a
+try: a broken channel must never cost the user the announcement.
+
+**A smaller defect found on the way: background alerts had no symbol on them.** `AlertEvaluator`
+constructs `AlertFired` with `Symbol` left null — the in-session pipeline stamps it afterwards
+from the on-screen chart (`AlertOrchestrator`'s `enriched`) and this monitor never did. So every
+background alert was filed in the tray's recent list with no symbol, and would now have reached
+per-asset webhook routing the same way. The watch knows which market it fetched; it stamps it.
+
+What is **deliberately not** in the headless scope is as much of the design as what is:
+`InSessionAlertRecorder` (the monitor files its own alerts into the buffer, and a recorder on that
+bus would file them twice) and `AccessibilityFeedbackCoordinator` / `SonificationManager` (they
+speak and sound *through the browser*, and with none attached they would deliver to nobody while
+looking, from the log, like delivery happened).
+
+**SAFETY LINE, stated in the code as well as here: the headless session REPORTS; it never ACTS.**
+Nothing resolved in it places an order, moves a stop, or runs a strategy. That line is Phase 2's
+governing constraint and it is written at the top of `HeadlessSession`.
+
+**Proved by sabotage, four of them, each red and each restored:** the headless notification
+service given the Alerts category (the double toast — 1 red, and the harness turns the alert
+switch *on* so the mask is what is measured, not a settings default); the routing rule ignoring
+what circuits already cover (3 red); a scope per call instead of one for the process (4 red); the
+symbol enrichment dropped (2 red). Control green.
+
+**Not verified, and it is the same limit as Phase 0:** none of this has run with a real browser
+attached to a real Orca. The doubling hazard is proved at the level of *what is delivered by which
+owner*, from unit tests. What a person actually hears with a circuit open and an off-screen alert
+firing is still unmeasured.
+
 ### Background monitoring, Phase 0 — the delivery paths (2026-09-06)
 
 **"Notifications with the browser closed" was a Linux-only feature and nothing said so.** The

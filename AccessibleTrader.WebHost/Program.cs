@@ -126,6 +126,12 @@ if (hostMode == HostMode.Full)
     // test and its dead-feed escalation can be driven without spawning anything.
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.IDesktopAlertPresenter,
                                   AccessibleTrader.WebHost.Services.ProcessDesktopAlertPresenter>();
+    // ONE DI scope for the life of the process — the terminal's session with no UI. The
+    // monitor used to build a throwaway scope per poll, so nothing inside one could hold a
+    // subscription for longer than a tick; "browser closed" is now "a session that happens to
+    // have no browser", and the ordinary in-session subscribers live in it unchanged. Disposed
+    // by the container on shutdown, which disposes the scope and every subscription in it.
+    builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.HeadlessSession>();
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
     // In-session desktop toasts (alerts, fills, new bars — each opt-in under Alerts →
     // Delivery settings) through the same presenter the monitor uses, so on Linux the MATE

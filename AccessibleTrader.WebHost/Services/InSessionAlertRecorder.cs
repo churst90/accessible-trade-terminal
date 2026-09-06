@@ -10,8 +10,13 @@ namespace AccessibleTrader.WebHost.Services
     /// to the circuit's own <see cref="IEventBus"/> (which is where the in-session alert pipeline
     /// publishes), and its subscription is disposed with the circuit.
     ///
-    /// No double-counting with the background monitor: that monitor only evaluates when zero
-    /// circuits are connected, so exactly one of the two records any given fire.
+    /// No double-counting with the background monitor. That used to be true because the monitor
+    /// stood down entirely while any circuit was connected; since Phase 1 (2026-09-06) it is
+    /// true for a better reason — the monitor takes only the symbols no open circuit is
+    /// watching (see <see cref="CircuitAlertCoverage"/>), so a given fire has exactly one
+    /// producer and therefore exactly one recorder. The headless session deliberately does NOT
+    /// resolve this class: <c>LocalBackgroundMonitor</c> files its own alerts into the buffer
+    /// directly, and a recorder on that bus would file them a second time.
     /// </summary>
     public sealed class InSessionAlertRecorder : IDisposable
     {

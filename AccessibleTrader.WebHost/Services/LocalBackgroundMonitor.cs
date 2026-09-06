@@ -24,9 +24,25 @@ namespace AccessibleTrader.WebHost.Services
     /// explicit Symbol + Provider — the watch list is DERIVED from your saved
     /// alerts, no separate configuration. Condition-tree and current-chart
     /// alerts need the full indicator pipeline and stay session-only (the
-    /// Settings text says so). The monitor PAUSES while any browser session is
-    /// connected — the in-session alert pipeline owns delivery then, and both
-    /// speaking through the same Orca would double every announcement.
+    /// Settings text says so).
+    ///
+    /// Until 2026-09-06 (Phase 1) the monitor PAUSED entirely while any browser
+    /// session was connected, because the in-session pipeline owned delivery then
+    /// and both speaking through the same Orca would double every announcement.
+    /// That was true of the symbol ON SCREEN and false of every other one: the
+    /// in-session pipeline gates alerts to the focused chart, so an alert on a
+    /// symbol with no tab open was evaluated by NOBODY while the browser was
+    /// connected — closing your browser made MORE of your alerts work than
+    /// leaving it open. The pause is now a ROUTING rule: see
+    /// <see cref="CircuitAlertCoverage"/>, which is the same per-symbol
+    /// suppression the hosted monitor already uses.
+    ///
+    /// It also no longer builds a throwaway DI scope per poll. It runs inside
+    /// <see cref="HeadlessSession"/> — one scope for the life of the process —
+    /// so subscriptions inside it outlive a tick, providers stay configured
+    /// between polls, and a fired alert can be PUBLISHED on a real event bus
+    /// where the ordinary in-session subscribers (email, Telegram, webhooks, the
+    /// journal) pick it up unchanged.
     ///
     /// Opt-in: Settings → General → "Keep monitoring when the browser is closed"
     /// (monitoring.backgroundLocal, default off). Read per poll, so toggling
@@ -37,7 +53,7 @@ namespace AccessibleTrader.WebHost.Services
         public const string SettingKey = "monitoring.backgroundLocal";
         public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
-        private readonly IServiceScopeFactory _scopes;
+        private readonly HeadlessSession _session;
         private readonly DemoPolicy _demo;
         private readonly RecentAlertsBuffer _recent;
         private readonly Tray.AlertSnooze _snooze;
@@ -55,14 +71,14 @@ namespace AccessibleTrader.WebHost.Services
             new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer());
 
         public LocalBackgroundMonitor(
-            IServiceScopeFactory scopes,
+            HeadlessSession session,
             DemoPolicy demo,
             RecentAlertsBuffer recent,
             Tray.AlertSnooze snooze,
             IDesktopAlertPresenter presenter,
             ILogger<LocalBackgroundMonitor> logger)
         {
-            _scopes = scopes;
+            _session = session;
             _demo = demo;
             _recent = recent;
             _snooze = snooze;
@@ -91,27 +107,30 @@ namespace AccessibleTrader.WebHost.Services
             }
         }
 
-        private async Task PollOnceAsync(CancellationToken ct)
+        /// <remarks>Internal rather than private so the whole poll — routing, evaluation and
+        /// delivery — can be driven once in a test. The DOUBLING hazard this phase introduces
+        /// cannot be proved from the pure helpers alone: it only shows up in what actually
+        /// reaches the desktop with a circuit open versus with none.</remarks>
+        internal async Task PollOnceAsync(CancellationToken ct)
         {
-            // A connected browser session owns alert delivery — both this monitor
-            // and the circuit speak through the same local Orca, and doubling
-            // every announcement is exactly the bug the speech-output work killed.
-            if (WebHostBrowserCircuitHandler.ActiveCircuits > 0) return;
-
             // The user silenced alerts from the tray — skip delivery until it expires.
             if (_snooze.IsActive) return;
 
-            using var scope = _scopes.CreateScope();
-            var settings = scope.ServiceProvider.GetRequiredService<ISettingsManager>();
+            var services = _session.Services;
+            var settings = services.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
 
-            var alerts = scope.ServiceProvider.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
+            var alerts = services.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
             WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts));
-            var watches = DeriveWatches(alerts);
+
+            // The routing rule that replaced "stand down while a circuit is open". A symbol an
+            // open browser session already watches belongs to that session; everything else is
+            // ours. See CircuitAlertCoverage for why this is not a pause.
+            var watches = OwnedWatches(DeriveWatches(alerts), CircuitAlertCoverage.CoveredSymbols());
             if (watches.Count == 0) return;
 
-            var data = scope.ServiceProvider.GetRequiredService<IDataService>();
-            await data.InitializeAsync(scope.ServiceProvider.GetRequiredService<IPluginLoaderService>());
+            var data = services.GetRequiredService<IDataService>();
+            await data.InitializeAsync(services.GetRequiredService<IPluginLoaderService>());
             await data.ConfigureStoredKeyProvidersAsync();
 
             foreach (var watch in watches)
@@ -142,7 +161,7 @@ namespace AccessibleTrader.WebHost.Services
                     watch.Alerts, state, bars[^1], bars[^2],
                     new Dictionary<string, double>()).ToList();
 
-                foreach (var f in fired) Deliver(f);
+                foreach (var f in fired) Deliver(f, watch.Symbol);
             }
         }
 
@@ -265,6 +284,31 @@ namespace AccessibleTrader.WebHost.Services
                 .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market))
                 .ToList();
 
+        /// <summary>
+        /// The routing rule, pure and therefore testable: the watches THIS session owns, given
+        /// what the open browser circuits are already covering.
+        ///
+        /// <para>
+        /// It replaces a whole-process pause (<c>ActiveCircuits &gt; 0</c> → return), which was
+        /// right about the on-screen symbol and wrong about every other one. Empty coverage —
+        /// the browser is closed — means every watch is ours, which is the behaviour that
+        /// existed before and is the case that must not regress.
+        /// </para>
+        ///
+        /// <para>
+        /// THE HAZARD is doubling, not silence. A symbol that appears in <paramref name="covered"/>
+        /// is being evaluated by a circuit's own pipeline right now; taking it here would speak
+        /// the same alert twice through the same Orca. Comparison is case-insensitive because
+        /// that is what the alert pipeline itself uses.
+        /// </para>
+        /// </summary>
+        public static IReadOnlyList<Watch> OwnedWatches(
+            IReadOnlyList<Watch> watches, IReadOnlySet<string> covered)
+        {
+            if (covered.Count == 0) return watches;
+            return watches.Where(w => !covered.Contains(w.Symbol)).ToList();
+        }
+
         private sealed class StringTupleComparer
             : IEqualityComparer<(string Provider, string Symbol, string Timeframe, string Market)>
         {
@@ -282,17 +326,40 @@ namespace AccessibleTrader.WebHost.Services
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────
 
-        private void Deliver(AlertFired fired)
+        private void Deliver(AlertFired fired, string watchedSymbol)
         {
+            // AlertEvaluator constructs AlertFired with Symbol left null — the in-session
+            // pipeline stamps it afterwards from the on-screen chart (AlertOrchestrator's
+            // "enriched"), and this monitor never did. So every background alert reached the
+            // tray's recent list, and would now reach webhook per-asset routing, with no
+            // symbol on it at all. The watch knows which market it fetched; use it.
+            if (string.IsNullOrEmpty(fired.Symbol) && !string.IsNullOrWhiteSpace(watchedSymbol))
+                fired = fired with { Symbol = watchedSymbol };
+
             string text = fired.SpeechText;
             _logger.LogInformation("Background alert fired: {Text}", text);
 
             // Record it so the tray's recent-alerts list and unread-count label can show it.
+            // Directly, not through InSessionAlertRecorder: the headless session deliberately
+            // does not resolve that recorder, because it and this line would file the same
+            // alert in the buffer twice. See HeadlessSession.
             _recent.Add(text, fired.Symbol);
 
+            // Sound, toast and speech are THIS monitor's, under THIS monitor's opt-in switch.
+            // They are not routed through the headless DesktopNotificationService — that would
+            // put an already-opted-in delivery behind notifications.desktop.alerts, which
+            // defaults off, and silently un-ship the feature. The headless service is built
+            // without the Alerts category for exactly this reason.
             _presenter.PlayNotificationSound();
             _presenter.Notify("Trading alert", text, urgent: false);
             _presenter.Speak(text);
+
+            // And then publish it on the long-lived session's bus, so the ordinary in-session
+            // subscribers see a background alert for the first time: AlertDeliveryService's
+            // email / Telegram / webhook fan-out, and the journal. Last, and inside a try:
+            // a broken channel must never cost the user the announcement above.
+            try { _session.Get<IEventBus>().Publish(new AccessibleTrader.Core.Models.AlertFiredEvent(fired)); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Background alert could not be published to the headless session bus."); }
         }
     }
 }

@@ -63,6 +63,50 @@ public class DesktopNotificationServiceTests
 
     private static Ohlcv Bar(DateTime at) => new(at, 100, 110, 95, 105.5, 1000);
 
+    // ── The category mask (Phase 1: two of these services in one process) ────
+
+    /// <summary>
+    /// Every switch on, and the headless mask still refuses alerts. The mask exists because
+    /// there are now TWO of these alive — one per browser circuit, one in the long-lived
+    /// headless session — and <c>LocalBackgroundMonitor</c> already delivers the alert it fired
+    /// under its own opt-in. Routing it through here as well would toast it twice.
+    /// </summary>
+    [Fact]
+    public void AMaskedInstanceDoesNotSubscribeToTheCategoriesItDoesNotOwn()
+    {
+        var bus = new SpyEventBus();
+        var settings = Substitute.For<ISettingsManager>();
+        foreach (var key in new[] { SettingsKeys.DesktopNotifyAlerts, SettingsKeys.DesktopNotifyNewBars,
+                                    SettingsKeys.DesktopNotifyOrderFills })
+            settings.GetSetting(key).Returns(JToken.FromObject(true));
+        var notifier = new SpyNotifier();
+
+        using var _ = new DesktopNotificationService(
+            bus, new MockWorkspaceStore(), settings, notifier,
+            DesktopNotificationCategories.OrderFills | DesktopNotificationCategories.NewBars);
+
+        bus.Publish(new AlertFiredEvent(Alert()));
+        Assert.Empty(notifier.Shown);
+
+        // Vacuity floor: the two categories it DOES own still arrive, so the silence above is
+        // the mask and not a broken harness.
+        bus.Publish(new OrderFilledEvent(Fill()));
+        bus.Publish(new NewBarEvent(Bar(DateTime.UtcNow), Bar(DateTime.UtcNow)));
+        Assert.Equal(2, notifier.Shown.Count);
+    }
+
+    /// <summary>The default is still everything — a circuit's instance owns all three.</summary>
+    [Fact]
+    public void TheDefaultInstanceOwnsAllThreeCategories()
+    {
+        var h = new Harness(SettingsKeys.DesktopNotifyAlerts, SettingsKeys.DesktopNotifyNewBars,
+                            SettingsKeys.DesktopNotifyOrderFills);
+        h.Bus.Publish(new AlertFiredEvent(Alert()));
+        h.Bus.Publish(new OrderFilledEvent(Fill()));
+        h.Bus.Publish(new NewBarEvent(Bar(DateTime.UtcNow), Bar(DateTime.UtcNow)));
+        Assert.Equal(3, h.Notifier.Shown.Count);
+    }
+
     // ── Defaults ─────────────────────────────────────────────────────────────
 
     [Fact]

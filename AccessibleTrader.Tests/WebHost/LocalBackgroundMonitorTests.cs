@@ -271,10 +271,11 @@ public class LocalBackgroundMonitorTests
     private static LocalBackgroundMonitor Monitor(out SpyPresenter presenter)
     {
         presenter = new SpyPresenter();
-        // The scope factory is never touched by the dead-feed path — it is reached from the
+        // The headless session is never touched by the dead-feed path — it is reached from the
         // poll loop, and these tests drive the escalation directly.
         return new LocalBackgroundMonitor(
-            Substitute.For<IServiceScopeFactory>(),
+            new HeadlessSession(Substitute.For<IServiceScopeFactory>(),
+                NullLogger<HeadlessSession>.Instance),
             new DemoPolicy(isDemo: false),
             new RecentAlertsBuffer(),
             new AlertSnooze(),

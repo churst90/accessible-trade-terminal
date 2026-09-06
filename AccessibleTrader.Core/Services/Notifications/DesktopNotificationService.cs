@@ -8,6 +8,31 @@ using Newtonsoft.Json.Linq;
 namespace AccessibleTrader.Core.Services.Notifications
 {
     /// <summary>
+    /// Which of the three toast categories an instance of
+    /// <see cref="DesktopNotificationService"/> owns.
+    ///
+    /// <para>
+    /// It exists because of Phase 1 of the background-monitor work: there are now TWO of these
+    /// services alive in one process — one per browser circuit, and one in the long-lived
+    /// headless session. Both would happily toast the same fill twice. The mask is how "exactly
+    /// one delivery owner at a time" is stated in code: the headless instance is built without
+    /// <see cref="Alerts"/>, because <c>LocalBackgroundMonitor</c> already delivers the alert it
+    /// fired — sound, toast and speech — under its OWN opt-in switch, and routing it through
+    /// here would put a feature the user has already turned on behind a second switch that
+    /// defaults off.
+    /// </para>
+    /// </summary>
+    [Flags]
+    public enum DesktopNotificationCategories
+    {
+        None = 0,
+        Alerts = 1,
+        OrderFills = 2,
+        NewBars = 4,
+        All = Alerts | OrderFills | NewBars,
+    }
+
+    /// <summary>
     /// Turns three kinds of event into a desktop notification, each behind its own switch.
     ///
     /// <para>
@@ -45,27 +70,52 @@ namespace AccessibleTrader.Core.Services.Notifications
         private readonly ILogger<DesktopNotificationService>? _logger;
         private readonly CompositeDisposable _subs = new();
 
+        /// <summary>Which categories THIS instance owns. See <see cref="DesktopNotificationCategories"/>.</summary>
+        public DesktopNotificationCategories Categories { get; }
+
         public DesktopNotificationService(
             IEventBus bus,
             IWorkspaceStore store,
             ISettingsManager settings,
             IDesktopNotifier notifier,
             ILogger<DesktopNotificationService>? logger = null)
+            : this(bus, store, settings, notifier, DesktopNotificationCategories.All, logger)
+        {
+        }
+
+        public DesktopNotificationService(
+            IEventBus bus,
+            IWorkspaceStore store,
+            ISettingsManager settings,
+            IDesktopNotifier notifier,
+            DesktopNotificationCategories categories,
+            ILogger<DesktopNotificationService>? logger = null)
         {
             _store = store;
             _settings = settings;
             _notifier = notifier;
             _logger = logger;
+            Categories = categories;
 
-            _subs.Add(bus.Subscribe<AlertFiredEvent>(OnAlertFired));
-            _subs.Add(bus.Subscribe<NewBarEvent>(OnNewBar));
-            _subs.Add(bus.Subscribe<OrderFilledEvent>(e => OnFill("Order filled", e.Order)));
-            _subs.Add(bus.Subscribe<StopHitEvent>(e => OnFill(e.Order.Trailing ? "Trailing stop hit" : "Stop loss hit", e.Order)));
-            _subs.Add(bus.Subscribe<TakeProfitHitEvent>(e => OnFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order)));
+            // The mask decides whether the SUBSCRIPTION exists, not whether the handler
+            // returns early. An unowned category is then unreachable rather than merely
+            // unhandled, which is the difference between a routing rule and a comment.
+            if (Owns(DesktopNotificationCategories.Alerts))
+                _subs.Add(bus.Subscribe<AlertFiredEvent>(OnAlertFired));
+            if (Owns(DesktopNotificationCategories.NewBars))
+                _subs.Add(bus.Subscribe<NewBarEvent>(OnNewBar));
+            if (Owns(DesktopNotificationCategories.OrderFills))
+            {
+                _subs.Add(bus.Subscribe<OrderFilledEvent>(e => OnFill("Order filled", e.Order)));
+                _subs.Add(bus.Subscribe<StopHitEvent>(e => OnFill(e.Order.Trailing ? "Trailing stop hit" : "Stop loss hit", e.Order)));
+                _subs.Add(bus.Subscribe<TakeProfitHitEvent>(e => OnFill(e.Order.Trailing ? "Trailing take profit hit" : "Take profit hit", e.Order)));
+            }
 
             if (notifier.IsAvailable)
                 _logger?.LogInformation("Desktop notifications available ({Delivery}). Switches live under Alerts → Delivery settings.", notifier.Describe());
         }
+
+        private bool Owns(DesktopNotificationCategories c) => (Categories & c) == c;
 
         private bool Enabled(string key) => _settings.GetSetting(key)?.ToObject<bool>() ?? false;
 

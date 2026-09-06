@@ -99,9 +99,16 @@ namespace AccessibleTrader.WebHost.Services
         private IDisposable? _symbolWatch;
         private string? _circuitId;
 
-        /// <summary>Live browser sessions on this process. The local background
-        /// monitor pauses while any session is connected (the in-session alert
-        /// pipeline owns delivery then — same Orca, would double-speak).</summary>
+        /// <summary>This circuit's registration in <see cref="CircuitAlertCoverage"/> — the
+        /// LOCAL analogue of the per-user suppression above. Disposed with the circuit, and it
+        /// must be: a stale registration keeps a closed circuit's symbols "covered" and the
+        /// background monitor would stop watching them with nothing on screen.</summary>
+        private IDisposable? _coverage;
+
+        /// <summary>Live browser sessions on this process. Ops observability only since
+        /// Phase 1 (2026-09-06): the local background monitor used to pause outright while this
+        /// was non-zero, and now suppresses per SYMBOL instead — see
+        /// <see cref="CircuitAlertCoverage"/>, which is what it reads.</summary>
         internal static int ActiveCircuits => _activeCircuits;
 
         private readonly ILogger<WebHostBrowserCircuitHandler> _logger;
@@ -198,6 +205,47 @@ namespace AccessibleTrader.WebHost.Services
                 // this replaces.
                 _logger.LogDebug(ex, "On-screen symbol tracking could not start for this circuit.");
             }
+
+            // The LOCAL desktop's version of the same rule (HostMode.Full has one user, so the
+            // per-user keying above never engages there — nothing sets _userKey with accounts
+            // off). Registered as a CALLBACK rather than a snapshot because coverage includes
+            // the background workspace monitors, which start and stop on tab switches without a
+            // workspace-state change of their own. See CircuitAlertCoverage.
+            try
+            {
+                var store = _scope.GetService<IWorkspaceStore>();
+                if (store != null)
+                {
+                    var monitoring = _scope.GetService<
+                        AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>();
+                    _coverage = CircuitAlertCoverage.Register(
+                        circuit.Id, () => CoveredSymbols(store, monitoring));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Alert-coverage registration could not start for this circuit.");
+            }
+        }
+
+        /// <summary>
+        /// What this circuit is actually evaluating alerts for: the focused chart (the only
+        /// symbol <c>AlertOrchestrator</c> considers — see its Part A symbol gating) plus every
+        /// non-focused tab that has a running <c>BackgroundWorkspaceMonitor</c>. The latter is
+        /// opt-in and off by default, which is precisely why it must be asked rather than
+        /// assumed: if it is off, those symbols are covered by nobody in-session and the
+        /// headless session should take them.
+        /// </summary>
+        private static IEnumerable<string> CoveredSymbols(
+            IWorkspaceStore store,
+            AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService? monitoring)
+        {
+            var focused = store.State.SymbolDisplayName;
+            if (!string.IsNullOrWhiteSpace(focused)) yield return focused;
+
+            if (monitoring?.IsEnabled != true) yield break;
+            foreach (var m in monitoring.Monitors)
+                if (!string.IsNullOrWhiteSpace(m.SymbolDisplayName)) yield return m.SymbolDisplayName;
         }
         public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
         {
@@ -206,6 +254,9 @@ namespace AccessibleTrader.WebHost.Services
 
             _symbolWatch?.Dispose();
             _symbolWatch = null;
+
+            _coverage?.Dispose();
+            _coverage = null;
 
             if (_userKey != null)
             {

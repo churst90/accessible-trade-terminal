@@ -1,6 +1,6 @@
 # Background monitoring — the expansion, scoped
 
-**Status: PHASE 0 IS BUILT (2026-09-06). Phases 1–3 are scope only.** Written 2026-09-06 from a
+**Status: PHASES 0 AND 1 ARE BUILT (2026-09-06). Phases 2–3 are scope only.** Written 2026-09-06 from a
 reading of the code as it stands at `4702a00f`. Every "today" statement below carries the file and line it was read from,
 so a later reader can check whether it is still true rather than trusting the date.
 
@@ -44,6 +44,14 @@ it and the circuit would otherwise both speak through the same Orca and double e
 | Order fills, stops, take-profits | ✅ | ❌ nothing |
 | New bars | ✅ | ❌ nothing |
 | Dead-feed escalation | ✅ | ✅ (monitor only) |
+
+> **PARTLY CLOSED 2026-09-06 (Phase 1).** Row 1's "browser open" cell was worse than it looks:
+> the in-session pipeline evaluates alerts for the symbol ON SCREEN only, and the monitor stood
+> down entirely whenever a circuit was connected, so an alert on a symbol with no tab open was
+> evaluated by **nobody** while the browser was open. The pause is now a per-symbol routing rule
+> (`CircuitAlertCoverage`), so row 1 reads "in-session for what is on screen, headless for
+> everything else". Rows 3 and 4 are unchanged and are Phases 2 and 3; the long-lived scope they
+> need now exists.
 
 ## 2. The delivery matrix is the other half, and it is in worse shape
 
@@ -140,7 +148,7 @@ operating systems.
 2.10.0 is a separate decision, and there is an argument for holding it until one of the two
 untested desktops has actually been touched.
 
-### Phase 1 — one long-lived scope, not a second event bus
+### Phase 1 — one long-lived scope, not a second event bus — **DONE 2026-09-06**
 
 `LocalBackgroundMonitor` already calls `_scopes.CreateScope()` once per poll. **Keep one scope for
 the process lifetime instead**, and resolve `IEventBus`, `IWorkspaceStore`, `IOrderExecutionService`
@@ -166,6 +174,38 @@ with exactly one delivery owner at a time:
 > exercises one of the two states proves nothing about the case that breaks.
 
 **Estimate: 1 session plus tests.**
+
+**What landed, against that list:**
+
+| Item | State |
+|---|---|
+| One scope for the process lifetime | Done — `WebHost/Services/HeadlessSession.cs`, a singleton created lazily on first poll and disposed with the container. `LocalBackgroundMonitor` no longer calls `CreateScope()` at all; a behavioural test counts scopes across two polls. |
+| Resolve the in-session subscribers inside it | Partly, and the omissions are deliberate. `AlertDeliveryService` is force-created, so background alerts reach email / Telegram / webhook for the first time. `DesktopNotificationService` is force-created **without the Alerts category** (see the routing note below). `IOrderExecutionService` is **not** subscribed yet — that is Phase 2, and it needs the credential and reconnect decisions listed there first. |
+| The routing rule replacing the pause | Done, and it is per SYMBOL rather than per channel — see below. `CircuitAlertCoverage` asks each open circuit what it is actually watching (focused chart + running background-tab monitors) and the headless session takes the rest. |
+| A test with a circuit open AND with none | Done. Every delivery assertion in `HeadlessSessionTests` is written twice and asserts exactly one delivery in each state. Four sabotages, each red, each restored. |
+
+**The routing table above was implemented differently from how it was written, and the reason is
+worth keeping.** The toast row said "headless, opt-in per category" in *both* columns. That cannot
+mean "the headless subscriber delivers the circuit's toasts" — the buses are per scope, and the
+headless bus never sees a circuit's events. Read as *"the toast is an OS artifact in both states,
+unlike speech (browser Orca vs `spd-say`) and earcon (WebAudio vs `paplay`)"* it is already true
+and needed no change. The rule that was actually needed is the one the table does not state:
+**the scope that produced an event owns its delivery**, and the per-symbol coverage rule is what
+guarantees exactly one producer.
+
+**And one thing the plan would have broken.** Routing the monitor's alert through
+`DesktopNotificationService` — which is what "resolve `DesktopNotificationService` inside it"
+literally says — would have put an already-opted-in delivery behind
+`notifications.desktop.alerts`, which defaults **off**. A user who had turned on "keep monitoring
+when the browser is closed" would have silently stopped getting toasts. Hence the
+`DesktopNotificationCategories` mask: the headless instance owns fills and new bars (Phases 2 and
+3) and never alerts. It is the Phase 0 lesson repeating — *a switch inherited from another caller
+is a policy nobody wrote down.*
+
+**Found on the way:** `AlertEvaluator` leaves `AlertFired.Symbol` null and only
+`AlertOrchestrator` stamps it, so every background alert had been filed in the tray's recent list
+with no symbol at all — and would have reached per-asset webhook routing the same way. Fixed and
+pinned.
 
 ### Phase 2 — order fills headless (the risky one)
 
@@ -213,6 +253,12 @@ lifetime work goes badly.
 **Recommended order:** cut 2.9.0 → Phase 0 as its own small release → Phases 1–3 as the next
 headline.
 
+**Where that stands (2026-09-06):** 2.9.0 is tagged. Phases 0 and 1 are both on `main` and
+neither has been released — the argument for holding is unchanged and now covers two phases:
+every Phase 0 path is proved only as far as the process start, and Phase 1's doubling hazard is
+proved by unit test rather than by a person with Orca running and a browser open. Two to three
+sessions remain (Phases 2 and 3).
+
 ## 6. What Phase 0 does NOT prove, stated plainly
 
 Every command above is asserted character for character by `DesktopDeliveryPlanTests`, from Linux.
@@ -229,6 +275,9 @@ rule in this repo is to demonstrate the defect or mark it unverified, so:
 - **Minimize-to-tray has never been exercised in a Windows session.** The four smoke-test steps
   are at the top of `TrayIconService.cs`. CI's `maui-windows-build` job compiles the file; a
   compile is not a smoke test.
-- **The tray icon has still never been measured with a screen reader**, on either head. Its
+- **The tray icon has still never been measured with a screen reader**, on either head.
+- **Phase 1's doubling hazard has never been heard.** The routing is proved at the level of
+  *which owner delivered what*, in unit tests. Nobody has sat with Orca running, a browser open on
+  one symbol, and an alert firing on another. Its
   tooltip is its accessible name and the menu is reachable the way any notification-area menu is,
   but that is reasoning, not measurement.
