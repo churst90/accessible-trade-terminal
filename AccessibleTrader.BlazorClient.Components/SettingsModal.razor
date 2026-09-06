@@ -335,6 +335,32 @@
                     </fieldset>
                 }
 
+                @* ── Window behaviour ────────────────────────────────────────────
+                   Desktop MAUI only, and today Windows only: the tray applet lives in
+                   Platforms/Windows/TrayIconService.cs and Mac Catalyst has no tray yet. A
+                   checkbox that does nothing is worse than an absent one for a screen-reader
+                   user, so the panel appears on the head that can honour it and nowhere else. *@
+                @if (!Platform.IsBrowserHost && Platform.IsWindows)
+                {
+                    <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
+                        <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Window</legend>
+                        <div class="modal-row">
+                            <label for="s-minimize-to-tray">Minimize to tray on exit</label>
+                            <input id="s-minimize-to-tray" type="checkbox"
+                                   checked="@_minimizeToTray"
+                                   @onchange="OnMinimizeToTrayChanged" />
+                        </div>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
+                            Off by default. With it on, closing the window hides the terminal to
+                            the notification area instead of quitting, so alerts, fills and feeds
+                            keep running and keep announcing. The tray icon's menu — reachable
+                            with the Applications key or Shift+F10 once it has focus — offers
+                            Restore and Quit, so there is always a way out that does not need the
+                            window.
+                        </p>
+                    </fieldset>
+                }
+
                 @* ── Touch navigation bar ────────────────────────────────────── *@
                 <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Touch navigation bar</legend>
@@ -1227,6 +1253,7 @@
         new("Check every", "General", "s-bg-poll", "background poll seconds interval refresh"),
         new("Live-stream other tabs", "General", "s-bg-live-tabs", "background streaming tick fresh"),
         new("Keep monitoring when browser closed", "General", "s-bg-local", "background headless orca notify alert service"),
+        new("Minimize to tray on exit", "General", "s-minimize-to-tray", "window close tray notification area quit background keep running"),
         new("Braille display", "Braille", "s-braille-enabled", "dot pad tactile"),
         new("Touch toolbar", "General", "s-touch-nav", "touchscreen buttons navigation bar"),
         new("Add Market Structure to new charts", "General", "s-market-structure", "swing highs lows analysis indicator default"),
@@ -1292,6 +1319,7 @@
         "s-paper-trading"  => Demo.AllowLiveTrading,
         "s-bg-monitor" or "s-bg-poll" or "s-bg-live-tabs" => Demo.AllowBackgroundMonitoring,
         "s-bg-local"       => Demo.AllowBackgroundMonitoring && Platform.IsBrowserHost && !Demo.IsDemo && !Demo.IsHosted,
+        "s-minimize-to-tray" => !Platform.IsBrowserHost && Platform.IsWindows,
         "s-braille-enabled" => !Platform.IsBrowserHost,
         "s-speech-output"  => _speechOutput is { IsBrowserTtsBackend: true },
         _ => true,
@@ -1421,6 +1449,20 @@
         EventBus.Publish(new RedrawEvent());
     }
 
+    /// <summary>
+    /// Cody, 2026-09-06: an app that does not close when you close it is a surprise, so the
+    /// switch has to say what it now does rather than change the window's behaviour in silence.
+    /// The value itself commits on Save with everything else on this tab.
+    /// </summary>
+    private void OnMinimizeToTrayChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _minimizeToTray = e.Value is bool b && b;
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _minimizeToTray
+                ? "Minimize to tray on. Closing the window will hide the terminal to the notification area and it keeps running. Quit from the tray menu."
+                : "Minimize to tray off. Closing the window quits the terminal.", true));
+    }
+
     private void OnVisualEarconsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _visualEarcons = e.Value is bool b && b;
@@ -1496,6 +1538,7 @@
     private bool _chartEarcons;
     private bool _interfaceEarcons;
     private bool _bgLocalMonitor;
+    private bool _minimizeToTray;
 
     // Web-head-only speech-output control (double-speech fix). Null on MAUI —
     // resolved optionally so the desktop heads never show it.
@@ -1802,6 +1845,8 @@
         _chartEarcons     = App.ChartEarconsEnabled;
         _interfaceEarcons = App.InterfaceEarconsEnabled;
         _bgLocalMonitor = Settings.GetSetting("monitoring.backgroundLocal")?.ToObject<bool>() ?? false;
+        _minimizeToTray = Settings.GetSetting(
+            AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayKey)?.ToObject<bool>() ?? false;
 
         // Optional web-head capability (null on MAUI). Seed the dropdown from the
         // live mode so it reflects a first-visit prompt choice made this session.
@@ -2058,6 +2103,8 @@
         App.LiveBackgroundTabs      = _liveBgTabs;
         App.ResumeLastSession       = _resumeSession;
         Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
+        Settings.SetSetting(AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayKey,
+                            Newtonsoft.Json.Linq.JToken.FromObject(_minimizeToTray));
         App.Save();
 
         // Side effects that follow the WRITE, not the keystroke. Reconcile restarts the

@@ -9,9 +9,16 @@ namespace AccessibleTrader.WebHost.Services
     /// The local background-monitoring core: on a LOCAL WebHost (HostMode.Full —
     /// not the hosted terminal, not the demo) the server process outlives the
     /// browser tab, and everything needed to keep watching is server-side —
-    /// speech through Orca's D-Bus (or spd-say), desktop toasts through
-    /// notify-send, and a notification sound through paplay/pw-play. So: close
-    /// the browser and your alerts keep evaluating and keep being HEARD.
+    /// speech, a desktop toast and a notification sound, each through whatever
+    /// this desktop provides (see DesktopDeliveryPlan: Orca/spd-say +
+    /// notify-send + paplay on Linux, say + Notification Center + afplay on
+    /// macOS, SAPI + the Action Center on Windows). So: close the browser and
+    /// your alerts keep evaluating and keep being HEARD.
+    ///
+    /// Until 2026-09-06 that last sentence was true on LINUX ONLY and said so
+    /// nowhere: every probe went through WebHostSpeechManager.FindOnPath, which
+    /// returns null on anything that is not Linux, so a Windows or macOS user
+    /// got a monitor that ran, watched, and delivered silently to no one.
     ///
     /// Scope, deliberately: SIMPLE alerts (price/pattern rules) that carry an
     /// explicit Symbol + Provider — the watch list is DERIVED from your saved

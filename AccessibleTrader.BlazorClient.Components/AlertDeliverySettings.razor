@@ -60,10 +60,17 @@
     @if (Notifier.IsAvailable)
     {
         @* ── Desktop notifications (the OS toast) ────────────────────────
-           Shown only where a toast can be delivered: the local WebHost (notify-send, which
-           the MATE notification daemon shows and Orca can present) and the Windows app
-           (Windows toasts, read by Narrator, NVDA and JAWS). Hosted has Web Push above
-           instead. Three switches, all off by default — see DesktopNotificationService. *@
+           Shown only where a toast can be delivered. On the local WebHost that is whatever
+           this desktop has (notify-send on Linux, which the MATE notification daemon shows
+           and Orca can present; Notification Center on macOS; the Action Center on Windows —
+           see DesktopDeliveryPlan), and on the Windows app it is the Windows App SDK toast,
+           read by Narrator, NVDA and JAWS. Hosted has Web Push above instead. Three switches,
+           all off by default — see DesktopNotificationService.
+
+           Notifier.Describe() below is the only place the user learns WHICH of those is
+           carrying their toasts, which is why it comes from the live plan rather than from a
+           sentence written here: until 2026-09-06 it said "notify-send is not installed" to a
+           Mac user, which was a wrong answer to a real question. *@
         <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
             <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Desktop notifications</legend>
             <div class="modal-row">

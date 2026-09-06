@@ -261,6 +261,7 @@ public class LocalBackgroundMonitorTests
         public int SoundsPlayed;
 
         public string Describe() => "spy";
+        public string DescribeToast() => "spy toast";
         public bool CanNotify => true;
         public void PlayNotificationSound() => SoundsPlayed++;
         public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
@@ -416,6 +417,10 @@ public class LocalBackgroundMonitorTests
         Assert.Contains("_presenter.Speak", source, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("FindOnPath", source, StringComparison.Ordinal);
+        // The CALL, not the word. Widened from "FindOnPath" on 2026-09-06: the class comment now
+        // explains that FindOnPath is Linux-only and that this is why background notification was
+        // a Linux-only feature until then, and a guard that fails on its own documentation
+        // teaches the next reader to delete the documentation.
+        Assert.DoesNotContain("FindOnPath(", source, StringComparison.Ordinal);
     }
 }

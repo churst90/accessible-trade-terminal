@@ -117,6 +117,105 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-06, TWENTY-EIGHTH pass — BACKGROUND MONITOR **PHASE 0**:
+> the feature that "already worked" turned out to be Linux-only because of one line in a file
+> with no notifications in it, and MAUI's close button now asks before it stops being a close
+> button.** See CHANGES `[Unreleased]` and `docs/BACKGROUND_MONITOR_SCOPE.md` §2, §3 and the new
+> §6. Suite **6,939** (was 6,903 at the 2.9.0 tag). What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A platform guard in a helper is a feature switch for every one of its callers.**
+>   `WebHostSpeechManager.FindOnPath` opens with `if (!IsOSPlatform(Linux)) return null;`, which is
+>   correct for the in-session Linux speech manager it belongs to. Every probe in
+>   `ProcessDesktopAlertPresenter` went through it, so background notification was a **Linux-only**
+>   feature on a class registered for `HostMode.Full` on **every** OS — and it announced this by
+>   hiding three checkboxes. **When a shared helper contains an early return on an environment
+>   check, its callers have inherited a policy nobody wrote down.**
+> - **The defect was invisible because it could not be reached from the development box.** The fix
+>   is not "be careful": it is to make the OS and the filesystem probe **parameters**.
+>   `DesktopDeliveryPlan.For(os, fileExists)` means a Mac without `terminal-notifier` and a Windows
+>   box with no PowerShell are ordinary xUnit cases on a Linux machine. **The reachable half of an
+>   unreachable problem is usually the decision, not the effect.**
+> - **`Path.Combine` uses the separator of the machine it RUNS on, not the one it is BUILDING
+>   for.** The Windows probe produced `C:\Windows/System32\WindowsPowerShell\...` and the test
+>   caught it on its first run. Target-OS paths get joined by hand.
+> - **A scan guard must ban the CALL, not the WORD.** Two guards here went red on their own
+>   documentation the moment a class comment explained the defect it was written for. Both now ban
+>   `FindOnPath(`. A guard that fails on prose teaches the next reader to delete the prose — which
+>   is the opposite of what a guard is for.
+> - **What a test can prove about another operating system is exactly one thing: what gets
+>   spawned.** Everything after `Process.Start` is unverified until the hardware exists. Said in
+>   the code, in CHANGES, and in the scope doc's new §6, rather than left to be assumed by
+>   someone reading a green suite.
+> - **An error in a document written this morning is still an error.** The scope doc said "MAUI
+>   currently has no tray at all". The MAUI *Windows* head has had one since before 2.4.0
+>   (`Platforms/Windows/TrayIconService.cs`, `#if TRAY_ICON`, on by default). The grep behind that
+>   sentence looked for the `ITrayPlatform` seam and the MAUI applet does not use it. **A census by
+>   seam misses every implementation that predates the seam.**
+>
+> ### 2. DECISIONS MADE, recorded so they are not re-litigated
+>
+> - **"Minimize to tray on exit" ships on the MAUI Windows head only.** Mac Catalyst has no tray,
+>   and a checkbox that silently does nothing is worse for this user than an absent one — the same
+>   rule the delivery panel already follows when it hides switches with no toast path behind them.
+>   It reverses nothing: Cody's decision was "on the MAUI clients", and the Windows client is the
+>   only MAUI client that can honour it today.
+> - **The setting is read at CLOSE time, not at startup.** Flipping the checkbox takes effect on
+>   the next close rather than the next launch, and nothing has to care whether the settings file
+>   had finished loading when the window was created.
+> - **Windows headless speech is SAPI, not NVDA or JAWS.** There is no supported command-line route
+>   into a running Windows screen reader. The toast is the path that reaches one; SAPI is the
+>   spoken fallback for a machine where the toast was refused or missed.
+> - **The Windows WebHost toast borrows PowerShell's AUMID.** An unpackaged process has no identity
+>   to hang a toast on and the shell drops it silently without one. Windows PowerShell 5.1
+>   specifically — `pwsh` has no built-in WinRT projection.
+> - **`NotifySendDesktopNotifier` is renamed `LocalDesktopNotifier`.** The name was the last thing
+>   asserting the Linux-only shape.
+>
+> ### 3. NOT VERIFIABLE HERE — needs a Windows box or a Mac (this list GREW this pass)
+>
+> - **The WebHost Windows toast has never been raised on Windows.** The AUMID borrow, the WinRT
+>   type load under PowerShell 5.1, and whether Narrator announces it.
+> - **No macOS command has ever run on a Mac.** `osascript`'s display-notification under a hardened
+>   runtime; whether VoiceOver announces the banner the way the user configured.
+> - **`WindowsDesktopNotifier`** (MAUI, Windows App SDK) — unchanged since 2.8.0. Compiles; does
+>   `Register()` succeed unpackaged, does the toast reach Narrator/NVDA.
+> - **Minimize-to-tray has never been exercised in a Windows session.** Four smoke-test steps at
+>   the top of `TrayIconService.cs`, and the first of them is new: with the switch OFF, close must
+>   actually close. CI's `maui-windows-build` job compiles the file on every push to main; **a
+>   compile is not a smoke test.**
+> - **The tray icon has never been measured with a screen reader on either head.** Its tooltip is
+>   its accessible name and the menu is reachable the way any notification-area menu is. That is
+>   reasoning, not measurement.
+> - Alt+Shift+letter with two keyboard layouts installed on Windows (unchanged).
+> - The Braille tab's markup has never rendered on the MAUI head (unchanged).
+>
+> ### 4. NEXT
+>
+> - **Phase 1 — one long-lived scope.** `LocalBackgroundMonitor` already calls
+>   `_scopes.CreateScope()` once per poll; keep ONE for the process lifetime and resolve
+>   `IEventBus`, `IWorkspaceStore`, `IOrderExecutionService` and `DesktopNotificationService`
+>   inside it. **THE HAZARD, and it is the 22nd pass's lesson inverted:** two subscribers speaking
+>   about one event is a LOST utterance; a headless session running alongside a circuit is the
+>   mirror image — a DOUBLED one. Any test must capture the bus with a circuit open **and** with
+>   none and assert exactly one delivery in each. Fold the never-mutated `Feeds` + `Notifications`
+>   files (5) into this phase rather than sabotaging them first.
+> - **Whether to cut 2.10.0 for Phase 0 now.** The scope doc said "ship it as its own release".
+>   The argument against is on the list above: every new path is proved only as far as the process
+>   start, and a release note saying "now works on Windows and macOS" would be ahead of the
+>   evidence. A release that says what §6 says would be honest. **Cody's call.**
+> - Phases 2 (order fills headless — **SAFETY LINE: headless REPORTS, it never ACTS**) and 3 (new
+>   bars; gate new-bar toasts harder headless than in-session, a one-minute chart is a toast a
+>   minute).
+> - Everything under §4–§6 of the twenty-seventh pass block below still stands: the report card's
+>   own list (live-venue evidence, the MAUI head measured with a screen reader, StrategyLab's
+>   71-of-99), no performance budget, no crash-report path, automating the sabotage, the
+>   vacuity-floor guard over the test assembly, §7g to ~2026-09-10 for the segfault.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-06, TWENTY-SEVENTH pass — FOUR FROM CODY plus the workspace
 > guard: the `0` line goes on the pane's NEUTRAL and Ctrl+Left/Right can reach RSI's 50, Braille
 > has its own Settings tab with Shift+F4 landing on it, the Order book button is unconditional and

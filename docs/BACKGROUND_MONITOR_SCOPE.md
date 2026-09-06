@@ -1,7 +1,7 @@
 # Background monitoring — the expansion, scoped
 
-**Status: SCOPE ONLY. Nothing here is built.** Written 2026-09-06 from a reading of the code as
-it stands at `4702a00f`. Every "today" statement below carries the file and line it was read from,
+**Status: PHASE 0 IS BUILT (2026-09-06). Phases 1–3 are scope only.** Written 2026-09-06 from a
+reading of the code as it stands at `4702a00f`. Every "today" statement below carries the file and line it was read from,
 so a later reader can check whether it is still true rather than trusting the date.
 
 **The goal, in Cody's words:** *"keep the terminal running, close the browser and still receive
@@ -64,6 +64,16 @@ switches.
 **So "notifications with the browser closed" is today a Linux-only feature even for the subset of
 alerts it does cover.** That is the cheapest and largest gap in the whole plan.
 
+> **CLOSED 2026-09-06 (Phase 0).** The per-OS decision moved to `WebHost/Services/
+> DesktopDeliveryPlan.cs`, which takes the OS and the filesystem probe as parameters and is
+> therefore asserted for all three desktops from this repo's Linux box. Rows 2 and 3 of the table
+> above now read: **WebHost Windows** — PowerShell toast into the Action Center, SAPI speech;
+> **WebHost macOS** — `terminal-notifier` or `osascript` into Notification Center, `say` speech.
+> The root cause was never in the notification code: every probe went through
+> `WebHostSpeechManager.FindOnPath`, whose first line returns null on anything that is not Linux.
+> **What is proved is what gets spawned. Nothing on this row has run on a Mac or a Windows box** —
+> see §6.
+
 ## 3. A correction to the framing, and the decision it produced
 
 **On MAUI desktop there is no "close the browser".** Closing the window closes the app. The
@@ -77,19 +87,29 @@ exit".** Consequences to carry into Phase 0:
 
 - MAUI currently has **no tray at all**; the tray is WebHost-only (`WebHost/Services/Tray/`, with
   `LinuxTrayPlatform`, `WindowsTrayPlatform`, `MacTrayPlatform` behind `ITrayPlatform`).
+  **CORRECTED 2026-09-06: this was wrong, and it is the one factual error in this document.** The
+  MAUI *Windows* head has had a tray since before 2.4.0 —
+  `BlazorClient/Platforms/Windows/TrayIconService.cs`, behind `#if TRAY_ICON`, with
+  `EnableWindowsTrayIcon` defaulting to true. The grep that produced this bullet looked for the
+  `ITrayPlatform` seam, and the MAUI applet does not use it. **Mac Catalyst genuinely has none**,
+  which is why the Phase-0 checkbox ships on the Windows head only.
 - The `ITrayPlatform` seam is the right thing to reuse, but it lives in the WebHost project and
   would have to move to Core (or an equivalent be written for MAUI's window model).
 - The checkbox must **default off**. An app that does not close when you close it is a surprise,
   and for a screen-reader user a surprise with no announcement is worse than an extra keystroke.
   Turning it on should say what it now does; the tray icon should carry a "Quit" item so there is
-  always a way out that does not need the window.
+  always a way out that does not need the window. **DONE 2026-09-06:** the applet reads
+  `app.minimizeToTray` (`Core/Services/DesktopWindowSettings.MinimizeToTrayKey`, one constant with
+  two readers a project apart) *at close time* rather than at startup, so the switch takes effect
+  on the next close; "Exit" is renamed "Quit"; and the checkbox announces what the close button
+  now means.
 - Accessibility note for whoever builds it: a tray icon is a control with no visible label. It
   needs an accessible name and its menu needs to be keyboard-reachable — the WebHost tray already
   has this problem and has never been measured with a screen reader.
 
 ## 4. The phases
 
-### Phase 0 — delivery paths (independently shippable, highest value per hour)
+### Phase 0 — delivery paths (independently shippable, highest value per hour) — **DONE 2026-09-06**
 
 Nothing here touches a lifetime, and it makes the feature that **already exists** work on two more
 operating systems.
@@ -105,6 +125,20 @@ operating systems.
 - **Verify `WindowsDesktopNotifier` at runtime** — it has only ever been compiled.
 
 **Estimate: 1–2 sessions.** Ship it as its own release.
+
+**What landed, against that list:**
+
+| Item | State |
+|---|---|
+| `MacDesktopNotifier` | Done, as the macOS branch of `DesktopDeliveryPlan` rather than a class of its own — `terminal-notifier` when present, `osascript` otherwise, both Intel and Apple-silicon Homebrew probed. Serves the WebHost head. |
+| Windows notifier for the WebHost | Done. The WebHost cannot reference the Windows App SDK (wrong TFM), so it is the PowerShell toast, borrowing PowerShell's own AUMID because an unpackaged process has no identity to hang a toast on. |
+| Headless speech per OS | Done — `say` on macOS, SAPI on Windows, the Orca→`spd-say` ladder unchanged on Linux. Windows speech is SAPI, **not** NVDA/JAWS: there is no supported command-line route into a running Windows screen reader, so the toast is the path that reaches one. |
+| MAUI minimise-to-tray + General checkbox | Done, Windows head only (Mac Catalyst has no tray — see the correction in §3). Default OFF, announces on change, tray menu says "Quit". |
+| Verify `WindowsDesktopNotifier` at runtime | **NOT DONE — no Windows box.** Still compile-only, as since 2.8.0. |
+
+**Not shipped as its own release yet.** The suite is 6,939 green and Phase 0 is on `main`; cutting
+2.10.0 is a separate decision, and there is an argument for holding it until one of the two
+untested desktops has actually been touched.
 
 ### Phase 1 — one long-lived scope, not a second event bus
 
@@ -178,3 +212,23 @@ lifetime work goes badly.
 
 **Recommended order:** cut 2.9.0 → Phase 0 as its own small release → Phases 1–3 as the next
 headline.
+
+## 6. What Phase 0 does NOT prove, stated plainly
+
+Every command above is asserted character for character by `DesktopDeliveryPlanTests`, from Linux.
+That proves **what gets spawned** and nothing about what happens after it starts. The standing
+rule in this repo is to demonstrate the defect or mark it unverified, so:
+
+- **The Windows PowerShell toast has never been raised on Windows.** The AUMID trick, the WinRT
+  type load in PowerShell 5.1, and whether Narrator announces the result are all unverified.
+- **`WindowsDesktopNotifier` (MAUI, Windows App SDK) is still compile-only**, unchanged since
+  2.8.0: does `Register()` succeed unpackaged, does the toast reach Narrator/NVDA.
+- **No macOS command has run on a Mac.** `osascript` display-notification behaviour under a
+  hardened runtime, and whether VoiceOver announces Notification Center banners in the user's
+  configured way, are unverified.
+- **Minimize-to-tray has never been exercised in a Windows session.** The four smoke-test steps
+  are at the top of `TrayIconService.cs`. CI's `maui-windows-build` job compiles the file; a
+  compile is not a smoke test.
+- **The tray icon has still never been measured with a screen reader**, on either head. Its
+  tooltip is its accessible name and the menu is reachable the way any notification-area menu is,
+  but that is reasoning, not measurement.

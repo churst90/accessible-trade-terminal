@@ -31,16 +31,23 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>The notification sound. Silent when no player is installed.</summary>
         void PlayNotificationSound();
 
-        /// <summary>Whether <see cref="Notify"/> can reach a desktop at all (<c>notify-send</c> found on the PATH).</summary>
+        /// <summary>Whether <see cref="Notify"/> can reach a desktop at all — this machine's
+        /// toast tool was found (<c>notify-send</c> on Linux, <c>terminal-notifier</c> or
+        /// <c>osascript</c> on macOS, Windows PowerShell on Windows).</summary>
         bool CanNotify { get; }
 
-        /// <summary>A desktop toast. No-op when <c>notify-send</c> is not installed.</summary>
+        /// <summary>What is carrying the toasts, in words, for the delivery panel's hint.</summary>
+        string DescribeToast();
+
+        /// <summary>A desktop toast. No-op when this machine has no toast tool.</summary>
         /// <param name="urgent">Critical urgency — used for the monitor reporting on ITSELF
-        /// (a feed it can no longer watch), not for an alert firing normally.</param>
+        /// (a feed it can no longer watch), not for an alert firing normally. Only Linux honours
+        /// it; macOS and Windows have no urgency level on a notification.</param>
         void Notify(string title, string text, bool urgent);
 
-        /// <summary>Speaks, Orca first (the user's own voice and rate) then <c>spd-say</c> —
-        /// the same ladder the in-session speech manager uses.</summary>
+        /// <summary>Speaks with no browser in the picture: Orca then <c>spd-say</c> on Linux —
+        /// the same ladder the in-session speech manager uses — <c>say</c> on macOS, SAPI on
+        /// Windows.</summary>
         void Speak(string text);
     }
 
@@ -48,26 +55,37 @@ namespace AccessibleTrader.WebHost.Services
     /// The real one: PATH probes at construction, external processes at delivery. Everything
     /// that made <see cref="LocalBackgroundMonitor"/> untestable now lives here, where a test
     /// substitutes the interface instead.
+    ///
+    /// <para>
+    /// <b>What changed on 2026-09-06.</b> Every probe used to go through
+    /// <c>WebHostSpeechManager.FindOnPath</c>, whose first line returns null on anything that is
+    /// not Linux — so on Windows and macOS this class reported no toast, no speech and no sound,
+    /// and the whole background-notification feature was Linux-only without ever saying so. The
+    /// per-OS decision moved to <see cref="DesktopDeliveryPlan"/>, which is pure and therefore
+    /// testable from any of the three; what is left here is the part that genuinely needs the
+    /// machine: spawning the process.
+    /// </para>
     /// </summary>
     public sealed class ProcessDesktopAlertPresenter : IDesktopAlertPresenter
     {
         private readonly ILogger<ProcessDesktopAlertPresenter> _logger;
+        private readonly DesktopDeliveryPlan _plan;
         private readonly string _soundPath;
-        private readonly string? _notifySend;
-        private readonly string? _gdbus;
-        private readonly string? _spdSay;
-        private readonly string? _player;
 
         public ProcessDesktopAlertPresenter(
             IPlatformPathService paths, ILogger<ProcessDesktopAlertPresenter> logger)
+            : this(paths, logger, DesktopDeliveryPlan.ForCurrentMachine())
+        {
+        }
+
+        /// <summary>Test seam: hand in a plan built for a machine this one is not.</summary>
+        internal ProcessDesktopAlertPresenter(
+            IPlatformPathService paths,
+            ILogger<ProcessDesktopAlertPresenter> logger,
+            DesktopDeliveryPlan plan)
         {
             _logger = logger;
-
-            _notifySend = WebHostSpeechManager.FindOnPath("notify-send", File.Exists);
-            _gdbus = WebHostSpeechManager.FindOnPath("gdbus", File.Exists);
-            _spdSay = WebHostSpeechManager.FindOnPath("spd-say", File.Exists);
-            _player = WebHostSpeechManager.FindOnPath("paplay", File.Exists)
-                   ?? WebHostSpeechManager.FindOnPath("pw-play", File.Exists);
+            _plan = plan;
 
             // Notification sound: app-data/sounds/alert.wav. Users (or the future
             // factory sound bank) drop their own file there; until then a small
@@ -83,62 +101,43 @@ namespace AccessibleTrader.WebHost.Services
             catch (Exception ex) { _logger.LogWarning(ex, "Could not write default alert sound."); }
         }
 
-        public string Describe() =>
-            $"speech: {(_gdbus != null ? "orca" : _spdSay != null ? "spd-say" : "none")}, "
-            + $"toast: {_notifySend != null}, sound: {_player != null}";
+        /// <summary>What is carrying the toasts, for the alert-delivery panel's hint.</summary>
+        public string DescribeToast() => _plan.DescribeToast();
+
+        public string Describe() => _plan.Describe();
 
         public void PlayNotificationSound()
         {
-            if (_player != null && File.Exists(_soundPath)) Run(_player, _soundPath);
+            if (!File.Exists(_soundPath)) return;
+            Run(_plan.SoundCommand(_soundPath));
         }
 
-        public bool CanNotify => _notifySend != null;
+        public bool CanNotify => _plan.CanNotify;
 
         public void Notify(string title, string text, bool urgent)
-        {
-            if (_notifySend == null) return;
-            Run(_notifySend, "--app-name=Accessible Trade Terminal",
-                urgent ? "--urgency=critical" : "--urgency=normal", title, text);
-        }
+            => Run(_plan.ToastCommand(title, text, urgent));
 
-        public void Speak(string text)
-        {
-            if (_gdbus != null && TrySpeakViaOrca(text)) return;
-            if (_spdSay != null) Run(_spdSay, text);
-        }
+        public void Speak(string text) => Run(_plan.SpeechCommand(text));
 
-        private bool TrySpeakViaOrca(string text)
+        private void Run(DesktopCommand? command)
         {
-            try
-            {
-                Run(_gdbus!, "call", "--session",
-                    "--dest=org.gnome.Orca1.Service",
-                    "--object-path=/org/gnome/Orca1/Service",
-                    "--method=org.gnome.Orca1.Service.PresentMessage",
-                    text);
-                return true;
-            }
-            catch { return false; }
-        }
-
-        private void Run(string file, params string[] args)
-        {
+            if (command == null) return;
             try
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = file,
+                    FileName = command.File,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                 };
-                foreach (var a in args) psi.ArgumentList.Add(a);
+                foreach (var a in command.Args) psi.ArgumentList.Add(a);
                 using var _ = Process.Start(psi);
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Background delivery command {File} failed.", file);
+                _logger.LogDebug(ex, "Background delivery command {File} failed.", command.File);
             }
         }
 

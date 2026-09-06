@@ -2,6 +2,96 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Background monitoring, Phase 0 — the delivery paths (2026-09-06)
+
+**"Notifications with the browser closed" was a Linux-only feature and nothing said so.** The
+cause is one line, and it is not in any of the notification code:
+`WebHostSpeechManager.FindOnPath` opens with
+`if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return null;`. That is a correct guard
+for the in-session Linux speech manager it belongs to. Every probe in
+`ProcessDesktopAlertPresenter` went through it — `notify-send`, `gdbus`, `spd-say`, `paplay` — so
+on Windows and macOS the presenter reported no toast, no speech and no sound, the notifier
+registered for `HostMode.Full` **on every OS** reported itself unavailable, and the alert-delivery
+panel silently hid its three switches. A Windows or macOS user got a background monitor that ran,
+watched, and delivered to nobody. **The feature was not missing. It was never asked about.**
+
+**The per-OS decision is now a pure class, `DesktopDeliveryPlan`**, taking the operating system
+and the filesystem probe as parameters. That is the whole point: a Mac without
+`terminal-notifier`, an Apple-silicon Mac whose Homebrew lives at `/opt/homebrew/bin`, and a
+Windows box with PowerShell removed are ordinary test cases on this repo's Linux development
+machine. What is left in the presenter is the part that genuinely needs the machine — spawning
+the process.
+
+| | Linux | macOS | Windows (WebHost) |
+|---|---|---|---|
+| Toast | `notify-send` | `terminal-notifier`, else `osascript` → Notification Center | PowerShell → Action Center |
+| Headless speech | Orca via `gdbus`, else `spd-say` | `say` | SAPI (`System.Speech`) |
+| Sound | `paplay` / `pw-play` | `afplay` | `System.Media.SoundPlayer` |
+
+Notes on the choices. **The Windows toast is spawned through `powershell.exe` and borrows
+PowerShell's own AUMID** — an unpackaged process has no identity of its own to hang a toast on,
+and without one the shell drops it silently. Windows PowerShell 5.1 specifically, not `pwsh`,
+which has no built-in WinRT projection. **Windows speech is SAPI, not NVDA or JAWS**: there is no
+supported command-line route into a running Windows screen reader, so the toast is the path that
+reaches one and SAPI is the spoken fallback. **Urgency is Linux-only** — macOS and Windows
+notifications have no urgency level, so the monitor's "I can no longer watch this feed" arrives as
+an ordinary notification there.
+
+**The escaping is the sharp edge, and it has its own cases.** Symbols, alert names and strategy
+names are user text and all three reach a script. PowerShell literals are single-quoted with the
+apostrophe doubled (inside single quotes PowerShell expands nothing — no `$variable`, no backtick,
+no subexpression). AppleScript literals escape the backslash *before* the quote, and turn newlines
+into spaces because AppleScript has no line continuation inside a string literal — a two-line
+alert name would have been a syntax error and a toast that never appeared. This repo has already
+shipped one defect of exactly this shape (an API key containing `&` truncated at the ampersand),
+so both rules are pinned by table-driven cases and by a case proving the command builder actually
+calls them.
+
+**A separator bug the test found on its first run.** `Path.Combine` uses the separator of the
+machine it is running on, so building the Windows PowerShell path on Linux produced
+`C:\Windows/System32\WindowsPowerShell\...`. Target-OS paths are joined by hand now. It is the
+kind of thing that is invisible until a test describes a machine the developer is not sitting at.
+
+**`NotifySendDesktopNotifier` is renamed `LocalDesktopNotifier`,** and the rename is the fix: the
+class was never Linux-specific in where it was registered, only in what it could do. Its
+`Describe()` — the only place a user learns which path is carrying their toasts — now comes from
+the live plan, so a Mac user stops being told "notify-send is not installed".
+
+**"Minimize to tray on exit", Settings → General, default OFF.** Cody, 2026-09-06: on MAUI there
+is no "close the browser" — closing the window closes the app — so the analogue is a minimise.
+The Windows tray applet already existed but cancelled every close unconditionally; it now reads
+the switch, and reads it *at close time*, so flipping the checkbox takes effect on the next close
+rather than the next launch. The default is off on purpose: an application that does not close
+when you close it is a surprise, and for a screen-reader user a surprise with no announcement is
+worse than an extra keystroke. Turning it on says out loud what the close button now does, and
+the tray menu's "Exit" is renamed **"Quit"** so there is always a way out that does not need the
+window. The switch appears only on the MAUI Windows head, because that is the only head with a
+tray — Mac Catalyst has none yet, and a checkbox that silently does nothing is worse for this
+user than an absent one.
+
+**One existing guard was widened, for the reason a new one taught.**
+`The_monitor_itself_neither_probes_the_path_nor_starts_processes` banned the string `FindOnPath`;
+the monitor's class comment now explains what `FindOnPath` did and why background notification was
+Linux-only until today, and the guard went red on its own documentation. Both guards ban
+`FindOnPath(` — the call — and both keep a vacuity floor. A guard that fails on prose teaches the
+next reader to delete the prose.
+
+**Proved by sabotage, seven of them, each red and each restored:** non-Linux desktops silently
+downgraded to no delivery (13 red); the PowerShell apostrophe left undoubled (2); the AppleScript
+escapes applied in the wrong order (2); minimize-to-tray defaulting on (1); the switch offered on
+a head with no tray (1); the switch changing the close button with no announcement (2); the value
+committed on the keystroke instead of on Save (1). Control green in every case. Suite 6,939.
+
+**STILL UNVERIFIED AT RUNTIME, and it is the honest limit of this work.** Everything above is
+proved at the level of *what gets spawned*, from Linux. Nothing here proves what happens next.
+Specifically: the Windows PowerShell toast has never been raised on Windows; `WindowsDesktopNotifier`
+(the MAUI head's Windows App SDK path) still compiles-only, as it has since 2.8.0; the macOS
+commands have never run on a Mac; and minimize-to-tray has never been exercised in a Windows
+session. The MAUI-side C# does get compiled by CI's `maui-windows-build` job, which is a compile
+and not a smoke test. These are listed in `docs/TODO.md` rather than assumed.
+
 ## [2.9.0] — 2026-09-06
 
 ### The keyboard and the alerts, measured by breaking them (2026-09-06)
