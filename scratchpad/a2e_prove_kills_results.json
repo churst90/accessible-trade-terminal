@@ -1,0 +1,60 @@
+[
+ {
+  "id": "E03",
+  "expected_test": "F1ReachesHelpFromInsideAnOpenDialog",
+  "failed": 1,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.F1ReachesHelpFromInsideAnOpenDialog"
+  ],
+  "status": "PROVED_RED"
+ },
+ {
+  "id": "E04",
+  "expected_test": "TheZeroKeyReadsTheNeutralOfTheCOMPONENTUnderTheCursor",
+  "failed": 1,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.TheZeroKeyReadsTheNeutralOfTheCOMPONENTUnderTheCursor"
+  ],
+  "status": "PROVED_RED"
+ },
+ {
+  "id": "E09",
+  "expected_test": "TheNEARESTCrossingWins",
+  "failed": 2,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRoleTests.TheNEARESTCrossingWins_JumpingLeftAsWell",
+   "AccessibleTrader.Tests.LevelRoleTests.TheNEARESTCrossingWins_WhenTheMidlineAndAnExtremeBothLieAhead"
+  ],
+  "status": "PROVED_RED"
+ },
+ {
+  "id": "E10",
+  "expected_test": "AContinuousLineWithNoCrossingRuleSaysSo",
+  "failed": 1,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRoleTests.AContinuousLineWithNoCrossingRuleSaysSo_RatherThanLandingSomewhereArbitrary"
+  ],
+  "status": "PROVED_RED"
+ },
+ {
+  "id": "E17",
+  "expected_test": "RepeatIfStillActiveWaitsForTheCooldownItWasGiven",
+  "failed": 1,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.RepeatIfStillActiveWaitsForTheCooldownItWasGiven"
+  ],
+  "status": "PROVED_RED"
+ },
+ {
+  "id": "E24",
+  "expected_test": "AnUnconfiguredChannelIsNotAskedToDeliver",
+  "failed": 4,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertDeliveryServiceTests.AConfiguredChannelIsAskedToDeliver",
+   "AccessibleTrader.Tests.AlertDeliveryServiceTests.AnUnconfiguredChannelIsNotAskedToDeliver",
+   "AccessibleTrader.Tests.AlertDeliveryServiceTests.OneChannelFailingDoesNotStarveTheOthers",
+   "AccessibleTrader.Tests.AlertDeliveryServiceTests.TheConfiguredOneIsCalledWhileTheUnconfiguredOneIsNot"
+  ],
+  "status": "PROVED_RED"
+ }
+]

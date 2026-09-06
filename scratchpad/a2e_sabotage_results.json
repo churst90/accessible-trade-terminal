@@ -1,0 +1,446 @@
+[
+ {
+  "id": "E01",
+  "area": "modal gate lets chart keys through",
+  "file": "AccessibleTrader.Core/Services/Input/CommandDispatcher.cs",
+  "breaks": "every chart command fires while a dialog is open, and Escape stops closing it",
+  "occurrences": 1,
+  "failed": 9,
+  "passed": 6878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingAnchorNudgeTests.An_open_modal_owns_the_arrows_so_a_nudge_is_swallowed",
+   "AccessibleTrader.Tests.DrawingNavigationDiagnosticsTests.Q6_Inverted_NudgeIsRefusedAloud_OffChart_AndUnderAnEditingDialog_ButRunsUnderTheObjectTree",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.CloseModal_PublishesEvent_WhenSingleModalOpen",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.CloseModal_ReadsTheSharedModalStack_WhenOneIsSupplied",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.CloseModal_TargetsTopmostName_WhenStacked",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.EscapeAsCancelDrawing_ReroutesToCloseModal_WhenModalOpen",
+   "AccessibleTrader.Tests.NudgeGateSpeechTests.AnEditingDialogOnTopOfTheTree_IsRefused_NamingTheTopDialog",
+   "AccessibleTrader.Tests.NudgeGateSpeechTests.UnderAnEditingDialog_TheRefusalNamesTheDialog_Once",
+   "AccessibleTrader.Tests.NudgeGateSpeechTests.UnderAnEditingDialog_TheSentenceReturnsWhenTheStackChanges"
+  ],
+  "status": "CAUGHT",
+  "seconds": 226
+ },
+ {
+  "id": "E02",
+  "area": "chart-focus gate inverted",
+  "file": "AccessibleTrader.Core/Services/Input/CommandDispatcher.cs",
+  "breaks": "arrow keys work ONLY when the chart does not have focus \u2014 typing in a text box navigates the chart",
+  "occurrences": 1,
+  "failed": 33,
+  "passed": 6854,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.ChartFocusEvent_OnBus_OpensTheGate",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.ChartScopedCommand_IsSilentlySuppressed_BeforeChartEverHadFocus",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.ChartScopedNavCommand_RoutesToNavigationEngine_WhenChartFocused",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.NavigationOnEmptyWorkspace_AnnouncesNoChartLoaded_AndDoesNotNavigate",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlayChart_SecondPress_StopsPlayback_EvenWhilePaused",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlayCommand_StartsPlaybackWithMatchingScope_WhenIdle",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlayPause_DispatchesTogglePauseAction",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlaySpeed_AdjustsByTenthSteps",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlayStop_StopsUsingTheCurrentPlaybackScope",
+   "AccessibleTrader.Tests.CommandDispatcherGatingTests.PlaybackOnEmptyWorkspace_AnnouncesNoChartLoaded_AndDispatchesNothing",
+   "AccessibleTrader.Tests.DrawingAnchorNudgeTests.The_dispatcher_forwards_each_chord_as_its_event_only_while_the_chart_is_focused",
+   "AccessibleTrader.Tests.DrawingAnchorNudgeTests.With_no_chart_loaded_a_nudge_says_so_instead_of_staying_silent",
+   "AccessibleTrader.Tests.DrawingNavigationDiagnosticsTests.Q6_Inverted_NudgeIsRefusedAloud_OffChart_AndUnderAnEditingDialog_ButRunsUnderTheObjectTree",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.OpenDrawingContextMenu_FiresEvent_ForFocusedDrawing",
+   "AccessibleTrader.Tests.ModalCloseDispatchTests.OpenDrawingContextMenu_OpensChartMenu_WhenNoDrawingFocused",
+   "AccessibleTrader.Tests.NarrationKeyTests.TheScopeFollowsWhatTheUserWasLastMovingThrough",
+   "AccessibleTrader.Tests.NarrationKeyTests.WithNoChartLoaded_TheKeyAnswers_RatherThanFallingSilent",
+   "AccessibleTrader.Tests.NudgeGateSpeechTests.OffChart_TheFirstPressSpeaksTheRemedy_AndEveryPressPlaysTheEarcon",
+   "AccessibleTrader.Tests.NudgeGateSpeechTests.OffChart_TheSentenceReturnsAfterFocusChanges",
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.IntraPaneNavigation_WalksAcrossSeriesInThePane",
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.PaneNavigation_ClampsAtTheBottom_WithABoundaryEarcon",
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.PaneNavigation_DoesNotCarryItsOwnPaneLabel",
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.PaneNavigation_FromCandles_ReachesTheIndicatorPane",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Dispatcher_PauseOrStop_WithNothingPlaying_SaysSo_AndDispatchesNothing",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Dispatcher_RefusesToStart_AndSaysWhy_WhenEverySeriesIsMuted"
+  ],
+  "status": "CAUGHT",
+  "seconds": 206
+ },
+ {
+  "id": "E05",
+  "area": "price pane loses its zero refusal",
+  "file": "AccessibleTrader.Core/Services/Input/ReferenceLevelPlacement.cs",
+  "breaks": "a level at 0 on the price pane again \u2014 the defect this whole class exists to stop",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 6884,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AboutDialogHonestyTests.TheReleaseDocsNameTheVersionThatIsActuallyBuilt",
+   "AccessibleTrader.Tests.ReferenceLevelPlacementTests.APricePaneWithNoUsablePriceRefusesAndExplains"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "E06",
+  "area": "removal tolerance widened a hundredfold",
+  "file": "AccessibleTrader.Core/Services/Input/ReferenceLevelPlacement.cs",
+  "breaks": "pressing 0 anywhere within 25% of a level deletes it \u2014 a level placed on a different bar",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 6885,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ReferenceLevelIntegrationTests.ALevelOnADifferentBarIsLeftAlone",
+   "AccessibleTrader.Tests.ReferenceLevelIntegrationTests.ASubCentLevelUsesTheSameProportionalTolerance"
+  ],
+  "status": "CAUGHT",
+  "seconds": 211
+ },
+ {
+  "id": "E07",
+  "area": "midline role no longer inferred",
+  "file": "AccessibleTrader.Sdk/Models/LevelConfig.cs",
+  "breaks": "RSI's Midpoint at 50 stops being a midline: Ctrl+Left/Right cannot reach it again",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 6883,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRoleTests.AMidlineOnALineSeriesStillSelectsTheMidlineCrossingStrategy",
+   "AccessibleTrader.Tests.LevelRoleTests.AllFourSpellingsOfTheMidlineResolveToOneRole",
+   "AccessibleTrader.Tests.LevelRoleTests.CtrlRightJumpsToAnRsiMidpointCross",
+   "AccessibleTrader.Tests.LevelRoleTests.WhereTheProviderAlreadyDeclaresAMidlineTheKeyAddsNothingAndSaysSo"
+  ],
+  "status": "CAUGHT",
+  "seconds": 205
+ },
+ {
+  "id": "E08",
+  "area": "overbought/oversold direction inference dropped",
+  "file": "AccessibleTrader.Sdk/Models/LevelConfig.cs",
+  "breaks": "an overbought line reports crossings from below too \u2014 every RSI dip re-announces 70",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 6882,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.Reset_ClearsSustainedAndApproachState",
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.SustainedConfirmation_FiresOnce_ThenRequiresReEntry",
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.SustainedConfirmation_Fires_OnFourthConsecutiveBarBeyondLevel",
+   "AccessibleTrader.Tests.ReferenceLevelIntegrationTests.ProviderLevelsKeepTheirInferredDirection"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "E09",
+  "area": "crossing engine picks the wrong jump direction",
+  "file": "AccessibleTrader.Core/Services/Input/IndicatorCrossingEngine.cs",
+  "breaks": "Ctrl+Right jumps to the FARTHEST crossing, skipping every one in between",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 205
+ },
+ {
+  "id": "E10",
+  "area": "sparse-signal jump loses its NaN test",
+  "file": "AccessibleTrader.Core/Services/Input/IndicatorCrossingEngine.cs",
+  "breaks": "a continuous line is treated as a sparse marker \u2014 Ctrl+Left/Right lands on any bar",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 206
+ },
+ {
+  "id": "E11",
+  "area": "modal stack re-open duplicates",
+  "file": "AccessibleTrader.Core/Services/Input/ModalStack.cs",
+  "breaks": "re-opening the FIRST modal on the stack duplicates it \u2014 Escape needs two presses",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 6885,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ModalStackTests.Opening_the_same_modal_twice_then_closing_it_once_leaves_nothing_open",
+   "AccessibleTrader.Tests.ModalStackTests.Reopening_an_open_modal_moves_it_to_the_top_and_does_not_duplicate_it"
+  ],
+  "status": "CAUGHT",
+  "seconds": 208
+ },
+ {
+  "id": "E12",
+  "area": "modal close ignores 'not open'",
+  "file": "AccessibleTrader.Core/Services/Input/ModalStack.cs",
+  "breaks": "a close for a modal that was never open fires a stack change and RemoveAt(-1) throws",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6886,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ModalStackTests.Closing_a_name_that_is_not_open_changes_nothing_and_raises_nothing"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "E13",
+  "area": "key normalisation strips the wrong prefix",
+  "file": "AccessibleTrader.Core/Services/Input/KeyNormalizationService.cs",
+  "breaks": "every KEY_-prefixed key normalises with a leading underscore and matches no binding",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 6885,
+  "failing_tests": [
+   "AccessibleTrader.Tests.InputRoutingTests.Normalize_StripsPlatformPrefixes_AndUppercases"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "E14",
+  "area": "blank key no longer short-circuits",
+  "file": "AccessibleTrader.Core/Services/Input/KeyNormalizationService.cs",
+  "breaks": "a whitespace key falls through the map and is normalised to a non-empty token",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 199
+ },
+ {
+  "id": "E15",
+  "area": "crossing fires without crossing",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "a price ALREADY above the level fires on every bar \u2014 the level-vs-crossing distinction is gone",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 6885,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "E16",
+  "area": "duplicate-per-bar suppression removed",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "the exact 59-duplicate-emails-per-crossing bug, inverted: it fires ONLY on repeats",
+  "occurrences": 1,
+  "failed": 13,
+  "passed": 6874,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertEvaluatorCursorAndZoneTests.An_indicator_alert_reads_the_live_bar_however_far_back_the_cursor_is_parked",
+   "AccessibleTrader.Tests.AlertEvaluatorCursorAndZoneTests.Parking_the_cursor_below_the_threshold_does_not_silence_a_live_crossing",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ALaterBarsCrossingStillFiresAfterAnEarlierOneWasDeduped",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ARepolledCrossingFiresOnceNotOncePerPoll",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ChangesDirection_FiresOnlyOnPolarityFlip",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_BoundarySemantics_TouchFires_ButRestingAtThresholdDoesNot",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_Fires_WhenCloseCrossesThresholdUpward",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesBelow_Fires_WhenCloseCrossesThresholdDownward",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.MultipleAlerts_OnOneBar_AllFireIndependently",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.RepeatIfStillActiveStillReAnnouncesWithinTheSameBar",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ThrowingAlertRule_IsIsolated_OtherAlertsStillFire",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "E17",
+  "area": "cooldown ignored on repeat",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "RepeatIfStillActive re-fires every poll regardless of the user's cooldown",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 200
+ },
+ {
+  "id": "E18",
+  "area": "tree alert edge state lost",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "a condition-tree alert fires only while it was ALREADY true \u2014 never on the transition",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 6883,
+  "failing_tests": [
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_FiresOnRisingEdge_Once",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_ReArmsAfterGoingFalse",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_RepeatIfStillActive_HonoursCooldown",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_ScoreTree_SpeaksTheScore"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "E19",
+  "area": "inactive alerts evaluated",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "disabled alerts fire and enabled ones never do",
+  "occurrences": 1,
+  "failed": 21,
+  "passed": 6866,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertDegradationSurfacedTests.ADegradedTreeAlert_IsAnnounced_RatherThanStayingSilentlyFalse",
+   "AccessibleTrader.Tests.AlertDegradationSurfacedTests.EditingTheAlert_ReArmsTheAnnouncement",
+   "AccessibleTrader.Tests.AlertDegradationSurfacedTests.TheDegradationIsAnnouncedOncePerAlert_NotOnEveryTick",
+   "AccessibleTrader.Tests.AlertEvaluatorCursorAndZoneTests.An_indicator_alert_reads_the_live_bar_however_far_back_the_cursor_is_parked",
+   "AccessibleTrader.Tests.AlertEvaluatorCursorAndZoneTests.Parking_the_cursor_below_the_threshold_does_not_silence_a_live_crossing",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ALaterBarsCrossingStillFiresAfterAnEarlierOneWasDeduped",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ARepolledCrossingFiresOnceNotOncePerPoll",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ChangesDirection_FiresOnlyOnPolarityFlip",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_BoundarySemantics_TouchFires_ButRestingAtThresholdDoesNot",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_DoesNotRefire_WhileHoldingAboveThreshold",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesAbove_Fires_WhenCloseCrossesThresholdUpward",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.CrossesBelow_Fires_WhenCloseCrossesThresholdDownward",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.DisabledAlert_NeverFires_EvenWhenConditionIsMet",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.MultipleAlerts_OnOneBar_AllFireIndependently",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.RepeatIfStillActiveStillReAnnouncesWithinTheSameBar",
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ThrowingAlertRule_IsIsolated_OtherAlertsStillFire",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_FiresOnRisingEdge_Once",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_ReArmsAfterGoingFalse",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_RepeatIfStillActive_HonoursCooldown",
+   "AccessibleTrader.Tests.TreeAlertTests.TreeAlert_ScoreTree_SpeaksTheScore",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Persistent_evaluator_fires_a_cross_once_not_every_poll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "E20",
+  "area": "direction-change reads one side only",
+  "file": "AccessibleTrader.Core/Services/AlertEvaluator.cs",
+  "breaks": "a 'changes direction' alert fires on every bullish bar instead of on the flip",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6886,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.ChangesDirection_FiresOnlyOnPolarityFlip"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "E21",
+  "area": "condition trees declared background-watchable",
+  "file": "AccessibleTrader.Core/Services/Alerts/BackgroundWatchability.cs",
+  "breaks": "the monitor promises to watch tree alerts it cannot evaluate, and refuses simple ones",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 6883,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.AlertsModalTests.AddingAPriceAlert_AnnouncesPlainSuccess_NoScaryCaveat",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Chart_dependent_alerts_are_excluded_and_named_not_silently_no_opped",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Watches_carry_the_alerts_market_instead_of_hardcoding_spot",
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Watches_group_by_provider_symbol_timeframe_case_insensitively"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "E22",
+  "area": "alerts with no symbol pass the watchability gate",
+  "file": "AccessibleTrader.Core/Services/Alerts/BackgroundWatchability.cs",
+  "breaks": "an alert with a provider and no symbol is watched \u2014 the monitor fetches nothing, silently",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6886,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.LocalBackgroundMonitorTests.Watches_require_symbol_provider_active_and_no_tree"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "E23",
+  "area": "zone alert with no zone accepted",
+  "file": "AccessibleTrader.Core/Services/Alerts/BackgroundWatchability.cs",
+  "breaks": "a zone alert is rejected when it HAS a zone and accepted when it does not",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6886,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.AlertsModalTests.AZoneAlertCarriesTheZoneItWasGiven"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "E24",
+  "area": "unconfigured channels dispatched to",
+  "file": "AccessibleTrader.Core/Services/Alerts/AlertDeliveryService.cs",
+  "breaks": "every configured channel is skipped and every unconfigured one is called",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "E25",
+  "area": "outbound guard fails OPEN on an unknown family",
+  "file": "AccessibleTrader.Core/Services/Alerts/OutboundNetworkGuard.cs",
+  "breaks": "an address family the guard does not understand is treated as public \u2014 SSRF",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 199
+ },
+ {
+  "id": "E26",
+  "area": "loopback allowed as a webhook target",
+  "file": "AccessibleTrader.Core/Services/Alerts/OutboundNetworkGuard.cs",
+  "breaks": "a webhook can point at 127.0.0.1 and reach services on the user's own machine",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 6876,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Guarded_client_refuses_loopback_before_any_connection_is_made",
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Private_loopback_and_special_addresses_are_not_public",
+   "AccessibleTrader.Tests.OutboundNetworkGuardTests.Resolving_a_private_target_throws",
+   "AccessibleTrader.Tests.WebHost.PluginRedirectAllowListTests.OnAHostedHead_AnAllowListedNameThatResolvesPrivate_IsRefusedAtConnect",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.A_push_endpoint_outside_the_public_internet_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "E27",
+  "area": "any-private-address check weakened to all",
+  "file": "AccessibleTrader.Core/Services/Alerts/OutboundNetworkGuard.cs",
+  "breaks": "a hostname resolving to one public and one private address passes \u2014 DNS rebinding",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 197
+ },
+ {
+  "id": "E03",
+  "area": "F1 no longer escapes a modal",
+  "file": "AccessibleTrader.Core/Services/Input/CommandDispatcher.cs",
+  "breaks": "Help is unreachable from inside any dialog \u2014 the one key a stuck user reaches for",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "E04",
+  "area": "level placement ignores the focused component's neutral",
+  "file": "AccessibleTrader.Core/Services/Input/CommandDispatcher.cs",
+  "breaks": "the 0 key ignores the component under the cursor and takes the first one on the pane",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 6887,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ }
+]

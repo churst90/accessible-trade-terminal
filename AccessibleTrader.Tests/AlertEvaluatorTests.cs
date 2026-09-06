@@ -319,5 +319,58 @@ namespace AccessibleTrader.Tests
             Assert.Single(evaluator.EvaluateAlerts(
                 new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
         }
+
+        /// <summary>
+        /// A2e SURVIVOR (E17): the repeat branch honours the user's cooldown.
+        ///
+        /// <para>
+        /// Replacing <c>DateTime.UtcNow - last &gt;= alert.Cooldown</c> with
+        /// <c>&gt;= TimeSpan.Zero</c> passed all 6,887 tests. The test directly above LOOKS like
+        /// it covers this — it is the RepeatIfStillActive test, it mentions the cooldown in its
+        /// own summary — but it sets <c>Cooldown = TimeSpan.Zero</c>, which makes the mutant and
+        /// the original the same expression. **A test that sets a value to zero is not testing
+        /// what that value does.**
+        /// </para>
+        ///
+        /// <para>
+        /// What it costs when it is wrong: both background monitors re-poll every 60 seconds
+        /// (HostedAlertMonitor, LocalBackgroundMonitor), so a held level with RepeatIfStillActive
+        /// would re-announce on every poll no matter what the user set — the same unbounded
+        /// duplicate delivery the per-bar dedupe was added to stop, arriving through the one
+        /// branch deliberately exempted from it.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void RepeatIfStillActiveWaitsForTheCooldownItWasGiven()
+        {
+            var evaluator = BuildEvaluator();
+            var alert = new AlertDefinition
+            {
+                Id = "cooled",
+                Name = "Repeating slowly",
+                Target = AlertTarget.Price,
+                Condition = AlertCondition.CrossesAbove,
+                Threshold = 100,
+                Delivery = AlertDelivery.Speech,
+                IsActive = true,
+                RepeatIfStillActive = true,
+                // The whole point: a real cooldown, not TimeSpan.Zero.
+                Cooldown = TimeSpan.FromMinutes(10),
+            };
+
+            var newBar = Bar(99, 101, 1);
+            var prevBar = Bar(98, 99, 0);
+
+            // The crossing itself fires, cooldown or not — it is a new event, not a repeat.
+            Assert.Single(evaluator.EvaluateAlerts(
+                new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
+
+            // Same bar, milliseconds later. The crossing is deduped and the repeat branch must
+            // stay quiet: ten minutes have not passed. Three polls, because a monitor polls
+            // every sixty seconds and the failure mode is "every one of them speaks".
+            for (int poll = 0; poll < 3; poll++)
+                Assert.Empty(evaluator.EvaluateAlerts(
+                    new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
+        }
     }
 }

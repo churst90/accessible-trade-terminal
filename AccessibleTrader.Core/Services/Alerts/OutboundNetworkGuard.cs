@@ -91,10 +91,32 @@ namespace AccessibleTrader.Core.Services.Alerts
                 throw new HttpRequestException($"Delivery target '{host}' did not resolve.", ex);
             }
 
-            if (resolved.Length == 0 || resolved.Any(a => !IsPublic(a)))
-                throw NotPublic(host);
+            if (!AllPublic(resolved)) throw NotPublic(host);
             return resolved;
         }
+
+        /// <summary>
+        /// Every resolved address is public, and there is at least one.
+        ///
+        /// <para>
+        /// EXTRACTED so it can be tested, 2026-09-06. The rule used to be inline in
+        /// <see cref="ResolvePublicOrThrowAsync"/> immediately after a live
+        /// <c>Dns.GetHostAddressesAsync</c> call, which meant the one case it exists for — a
+        /// hostname resolving to a MIX of public and private addresses, i.e. DNS rebinding —
+        /// could not be reached from a test without controlling DNS. The A2e campaign proved it:
+        /// weakening <c>Any(a =&gt; !IsPublic(a))</c> to <c>All(...)</c> passed the whole suite,
+        /// so a record with one public and one private answer would have been let through and
+        /// nothing would have said so. The surrounding cases (a private literal, a private-only
+        /// name) were well covered; this one sentence was not.
+        /// </para>
+        ///
+        /// <para>
+        /// The empty check is part of the rule, not a null guard: a name that resolves to nothing
+        /// must fail closed, and <c>All</c> over an empty sequence is <c>true</c>.
+        /// </para>
+        /// </summary>
+        internal static bool AllPublic(IReadOnlyList<IPAddress> resolved) =>
+            resolved.Count > 0 && resolved.All(IsPublic);
 
         /// <summary>
         /// The one outbound handler every host-side HTTP client is built on: redirects are

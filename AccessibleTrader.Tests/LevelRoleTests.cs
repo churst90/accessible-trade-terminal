@@ -271,6 +271,69 @@ public class LevelRoleTests
         Assert.Contains(spoken, f => f.Message.Contains("Midpoint", StringComparison.OrdinalIgnoreCase));
     }
 
+    // ── A2e survivors: what the campaign found nothing was asserting ────────────
+
+    [Fact]
+    public void TheNEARESTCrossingWins_WhenTheMidlineAndAnExtremeBothLieAhead()
+    {
+        // A2e SURVIVOR (E09). The bounded-oscillator jump picks the nearest of three candidates
+        // in the direction of travel, and inverting that comparison passed all 6,887 tests —
+        // because with ONE candidate `found < 0` takes it regardless of the comparison. Every
+        // existing test had exactly one. **A selection rule is only under test when at least two
+        // candidates compete.**
+        //
+        // 45 → 55 crosses the Midpoint (50) at index 1; 65 → 75 crosses Overbought (70) at 3.
+        var (engine, bus, store) = Build();
+        var rsi = Rsi(new[] { 45.0, 55.0, 65.0, 75.0 });
+        Focus(store, rsi, currentIndex: 0);
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+
+        Assert.Equal(1, store.State.CurrentDataIndex);
+        Assert.Contains(spoken, f => f.Message.Contains("Midpoint", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void TheNEARESTCrossingWins_JumpingLeftAsWell()
+    {
+        // The other arm of the same ternary, which the test above cannot reach. From the right
+        // edge the overbought cross at index 3 is nearer than the midpoint cross at index 1.
+        var (engine, bus, store) = Build();
+        var rsi = Rsi(new[] { 45.0, 55.0, 65.0, 75.0, 78.0 });
+        Focus(store, rsi, currentIndex: 4);
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        engine.HandleCrossJump(SystemCommand.NavLeftJump);
+
+        Assert.Equal(3, store.State.CurrentDataIndex);
+        Assert.Contains(spoken, f => f.Message.Contains("verbought", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void AContinuousLineWithNoCrossingRuleSaysSo_RatherThanLandingSomewhereArbitrary()
+    {
+        // A2e SURVIVOR (E10). The fallback branch tells a SPARSE marker (NaN gaps between
+        // signals) from a CONTINUOUS line by looking for NaNs. Weakening that test to "the array
+        // exists" passed the whole suite, and it sends every dense line to the sparse-signal
+        // jump — so Ctrl+Left/Right lands on an arbitrary bar instead of saying there is nothing
+        // to jump to. That is the exact "silently falling through surprised users" case the
+        // branch's own comment describes, reintroduced.
+        var (engine, bus, store) = Build();
+        var dense = Oscillator("DENSE", new[] { 1.0, 2.0, 3.0, 4.0, 5.0 });   // no levels, no NaN
+        dense.Components[0].DisplayType = ComponentDisplayType.Line;
+        Focus(store, dense, currentIndex: 0);
+        var spoken = new List<FeedbackRequestEvent>();
+        bus.Subscribe<FeedbackRequestEvent>(spoken.Add);
+
+        engine.HandleCrossJump(SystemCommand.NavRightJump);
+
+        Assert.Equal(0, store.State.CurrentDataIndex);
+        Assert.Contains(spoken, f => f.Message.Contains("No points of interest", StringComparison.OrdinalIgnoreCase));
+    }
+
     // ── Scaffolding ─────────────────────────────────────────────────────────────
 
     private static ChartSeries Rsi(double[] values) => Oscillator("RSI", values,

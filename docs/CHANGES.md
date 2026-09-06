@@ -2,10 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.9.0] — 2026-09-06
 
-Everything under this heading postdates the `v2.8.0` tag. At the next cut this heading becomes
-`## [x.y.z] — date` and `WHATSNEW.md` is rewritten from it; nothing here is in the 2.8.0 binaries.
+### The keyboard and the alerts, measured by breaking them (2026-09-06)
+
+**A2e — the fourth mutant set, the first TARGETED one, and the honest catch rate is 72.0%.** Full
+write-up in `docs/MUTATION_A2E_2026-09-06.md`. The reason for a targeted set rather than a fourth
+broad one is a measurement nobody had taken: **reconstructing the file lists from the previous
+campaigns, 39 distinct production files have ever had a mutant applied, out of 660.** The 73.1%
+figure is real but it was measured over ~6% of the tree — a sample, not a survey, and it should be
+quoted that way. So this set went to two areas with no measurement at all: `Core/Services/Input`
+(every keystroke in the application, and the area rewritten the same day) and
+`Core/Services/Alerts` plus `AlertEvaluator` (what wakes a trader who is not looking at the
+screen, and the foundation the background-monitor work will be built on). 27 mutants, none in any
+file A2/A2b/A2c/A2d touched; 2 equivalent and excluded, 25 valid, 18 caught, **7 survived — all
+seven now closed and each proved red by re-applying its mutant.** 72.0% against A2d's 73.1% on a
+disjoint area, chosen a week apart, is corroboration rather than repetition.
+
+**F1 was unreachable from inside any dialog, and nothing noticed.** The modal gate lets seven
+commands through while a dialog is open; removing `OpenHelp` from that list passed all 6,887
+tests. For a screen-reader user who has arrived somewhere they do not recognise, F1 is the key
+they reach for, and it would have been dead in exactly the situation it exists for. The gate's own
+comment says "help is always reachable" — nothing checked that it was. Closed with a test that
+drives the real dispatcher, plus a control so that "let everything through" cannot satisfy it.
+
+**A hostname resolving to one public AND one private address was let through.** Weakening
+`resolved.Any(a => !IsPublic(a))` to `All(...)` passed everything: that is DNS rebinding, and an
+attacker controls their own DNS record. The cases around it were well covered — a private literal,
+a name resolving only to loopback, eleven tests catching the loopback mutant — but this sentence
+sat inline after a live `Dns.GetHostAddressesAsync` and could not be reached without controlling
+DNS. The rule is extracted to `OutboundNetworkGuard.AllPublic` now, tested without a network, with
+a further test that the resolver actually calls it rather than carrying a copy. **A well-tested
+file is not a measured file: this one had 46 passing tests.**
+
+**`AlertDeliveryService` had no test file at all**, so inverting `if (!ch.IsConfigured) continue;`
+— every configured channel skipped, every unconfigured one called — passed. A channel is
+unconfigured precisely when it has no SMTP host, no bot token, no webhook URL; calling it anyway
+is an exception per alert while the channel the user actually set up goes silent, with no symptom
+on an audio-first terminal. Five new tests, including the class's stated but never-tested contract
+that one channel failing must not starve the others.
+
+**The alert cooldown was ignored on repeat, and the test that looks like it covers that sets the
+cooldown to zero.** `RepeatIfStillActive` re-fires a held level once its cooldown elapses;
+replacing `>= alert.Cooldown` with `>= TimeSpan.Zero` passed. The existing test is named for the
+flag and mentions the cooldown in its own summary — and neutralises it. **A test that sets a value
+to zero is not testing what that value does.** Both background monitors poll every 60 seconds, so
+the real cost is a held level re-announcing on every poll regardless of what the user set.
+
+**Three more, all the same shape — the one sentence of a tested class that nobody asked about.**
+Ctrl+Left/Right picked the FARTHEST crossing rather than the nearest (a selection rule is only
+under test when at least two candidates compete, and every existing test had one); a continuous
+line was treated as a sparse marker, so the key landed on an arbitrary bar instead of saying there
+was nothing to jump to; and the `0` key ignored the component under the cursor, because a fallback
+masked the rule it was a fallback for and every test had a single-component series where the two
+agree.
+
+**Two equivalent mutants, recorded rather than quietly dropped** — "equivalent" being the excuse a
+weak campaign uses. Removing a whitespace guard that the next line's `Trim()` already subsumes;
+and flipping an unreachable defensive `return false` for an address family `IPAddress` cannot
+represent.
+
+**And a harness rule, learned during the run and paid for in results.** Mid-campaign the version
+was bumped to 2.9.0 and WHATSNEW rewritten for the release. This repo has a doc-honesty test that
+diffs `Directory.Build.props` against CHANGES and WHATSNEW; it went red, and two mutants came back
+falsely CAUGHT with that single unrelated test as their only failure — the A2 flake trap by
+another route, which cost that campaign a naive 79% against an honest 61%. Both were re-run on a
+restored baseline and **both survived**, which is how two of the most interesting findings were
+nearly lost. **Rule 5: a campaign's baseline includes the DOCS.** The tree must be quiet in every
+sense from launch to control run.
 
 ### Four from Cody: the 0 line by role, the Braille tab, the order book button back, and drawings move bar (2026-09-06)
 

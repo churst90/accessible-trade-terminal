@@ -180,8 +180,91 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   the head that has a Dot Pad attached. The bUnit coverage runs with `IsBrowserHost` false, which
 >   is the right branch, but it is not the MAUI head.
 >
-> ### 4. NEXT
+> ### 4. THE MEASUREMENT NOBODY HAD TAKEN (2026-09-06)
 >
+> - **39 distinct production files have EVER had a mutant applied, out of 660.** Reconstructed
+>   from `scratchpad/a2b_sabotage_results.json`, `a2d_sabotage_results.json` and
+>   `a2_disambiguate.json`. **The 73.1% catch rate is real but it is measured over ~6% of the
+>   tree — a sample, not a survey, and it should be quoted that way from now on.**
+> - **Areas with ZERO mutants ever**, with file counts: `Core/Services/Input` (6 — every keystroke
+>   in the app), `Core/Services/Alerts` (10), `Core/Services/Workspace` (9),
+>   `Core/Services/Audio` (19), `Core/Services/Analysis` (17), `Core/Services/Rendering` (12),
+>   `Core/Services/Feeds` + `Notifications` (5).
+> - **Census re-run 2026-09-06** (`python3 scratchpad/a2d_untested.py`): **996 of 1,340 declared
+>   types named by a test, 26% never named** — down from 28% on 08-30. `StrategyLab` unchanged at
+>   **71 of 99**, still the largest single hole.
+> - **A2e RAN against Input + Alerts — the honest catch rate is 72.0%**, and the full write-up is
+>   **`docs/MUTATION_A2E_2026-09-06.md`**. 27 mutants, none in any file A2/A2b/A2c/A2d touched;
+>   2 equivalent (excluded), 25 valid, 18 caught, **7 survived, all seven closed and PROVED RED**.
+>   **72.0% against A2d's 73.1% on a completely different area is corroboration, not repetition** —
+>   different files, chosen a week apart, so the agreement says the rate is a property of the
+>   suite rather than of the sampling.
+> - **The sharpest survivor: F1 was unreachable from inside any dialog and nothing noticed.**
+>   Dropping `OpenHelp` from the modal gate's allow-list passed all 6,887 tests. For a
+>   screen-reader user who has arrived somewhere they do not recognise, that is the key they
+>   reach for. The gate's own comment said "help is always reachable"; nothing checked it.
+> - **Two survivors were security code** in a file that already had 46 passing tests — a hostname
+>   resolving to one public AND one private address was allowed through (DNS rebinding). **A
+>   well-tested file is not a measured file.**
+> - **Six of the seven are the A2d shape one level deeper**: not an untested class, but the one
+>   sentence of a tested class that nobody asked about, *next to a test that looks like it covers
+>   it*. The purest example: the alert-cooldown test sets `Cooldown = TimeSpan.Zero`, which makes
+>   the mutant and the original the same expression. **A test that sets a value to zero is not
+>   testing what that value does.**
+> - **HARNESS RULE 5, learned the hard way mid-run: a campaign's baseline includes the DOCS.**
+>   Bumping `<Version>` and rewriting WHATSNEW while the campaign ran broke
+>   `AboutDialogHonestyTests`, and two mutants came back falsely CAUGHT with that single unrelated
+>   test as their only failure — the A2 flake trap by another route. Both re-ran and both
+>   SURVIVED. The tree must be quiet in every sense from launch to control run.
+>
+> ### 5. THE BACKGROUND MONITOR EXPANSION — SCOPED, NOT BUILT
+>
+> **`docs/BACKGROUND_MONITOR_SCOPE.md`** is the whole thing: why the browser has to stay open
+> today (a service-lifetime boundary, not a missing feature — `IEventBus`, `IWorkspaceStore`,
+> `IDataService`, `IOrderExecutionService` and `DesktopNotificationService` are all `AddScoped`,
+> i.e. per Blazor circuit), the delivery matrix per head, and four phases at 4–7 sessions.
+>
+> The three facts worth carrying without opening the file:
+>
+> - **"Notifications with the browser closed" is a LINUX-ONLY feature today**, even for the
+>   alerts it does cover. `NotifySendDesktopNotifier.IsAvailable` is "`notify-send` on the PATH";
+>   `Program.cs:136` registers it for `HostMode.Full` on every OS, so Windows and macOS resolve it,
+>   report unavailable, and the delivery panel silently hides its switches. **Phase 0 — the
+>   per-OS delivery paths — is the highest value per hour in the plan and touches no lifetime.**
+> - **On MAUI there is no "close the browser"** — closing the window closes the app, and the
+>   analogue is minimise, where the singletons already keep running. So the MAUI half is delivery
+>   paths plus runtime verification, not a monitor.
+> - **DECIDED (Cody, 2026-09-06): MAUI closes to tray, behind a Settings → General checkbox
+>   "Minimize to tray on exit", default OFF.** MAUI has no tray today (the tray is WebHost-only,
+>   `WebHost/Services/Tray/` behind `ITrayPlatform`), so the seam has to move to Core or be
+>   rewritten for MAUI's window model. An app that does not close when you close it is a surprise;
+>   the switch must announce what it now does, and the tray menu must carry a reachable Quit.
+>
+> **THE HAZARD to carry into Phase 1**, because it is the 22nd pass's lesson inverted: that pass
+> found *two subscribers speaking about the same event = one LOST utterance*. A headless session
+> running alongside a circuit risks the mirror image — one DOUBLED utterance. Any test for the
+> routing rule must capture the bus with a circuit open **and** with none, and assert exactly one
+> delivery in each. Exercising one state proves nothing about the case that breaks.
+>
+> **SAFETY LINE for Phase 2, to be written in the code as well as the doc: headless REPORTS, it
+> never ACTS.** No strategy execution, no automatic orders, no stop adjustment with nobody
+> watching.
+>
+> ### 6. NEXT
+>
+> - **Cut 2.9.0** — it is a minor (a changed default key behaviour, a new Settings tab, a moved
+>   button, a reversed 2.8.0 behaviour). Cut it BEFORE the monitor work: 2.8.0 is currently the
+>   newest tag and it carries the order-book gate regression, plus the `MarkerAnchor` defect that
+>   has been live for as long as the anchor has existed. A tagged 2.9.0 is also the fallback point
+>   if the DI-lifetime work in Phase 1 goes badly.
+> - Then **Phase 0 of the monitor** as its own small release, then Phases 1–3.
+> - **Should more sabotage precede the monitor work? NO, with one exception.** The five
+>   never-mutated areas that remain (`Workspace` 9 files, `Audio` 19, `Analysis` 17, `Rendering`
+>   12, `Feeds`+`Notifications` 5) do not intersect the monitor, and gating a feature on them is
+>   coverage theatre. **The exception is `Feeds` + `Notifications` — 5 files, and exactly what
+>   Phase 1 rewires — so fold those into Phase 1 rather than doing them first.** After the
+>   monitor, `Workspace` is the one to take next: it is the most-recently-broken area and the new
+>   completeness guards there have never been measured.
 > - Watch §7g to ~2026-09-10 before calling the segfault fixed.
 > - The Windows checks above, when a Windows build happens.
 > - **The report card's own "what would move it" list**, discussed with Cody on 2026-09-06 and

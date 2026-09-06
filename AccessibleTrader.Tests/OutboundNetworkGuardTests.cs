@@ -56,6 +56,58 @@ public class OutboundNetworkGuardTests
     public void Public_addresses_are_public(string ip)
         => Assert.True(OutboundNetworkGuard.IsPublic(IPAddress.Parse(ip)));
 
+    // ── The mixed-answer rule: DNS rebinding ────────────────────────────────
+    //
+    // A2e SURVIVOR (E27). Weakening `resolved.Any(a => !IsPublic(a))` to `All(...)` passed the
+    // entire suite. The cases around it were well covered — a private literal, a name that
+    // resolves only to loopback — but the one the rule exists for was not: an attacker controls
+    // their own DNS record, so a name answering with one public address AND one private one is
+    // still a probe at the private one. Under the mutant that name was let through.
+    //
+    // It was untestable where it sat, inline after a live Dns.GetHostAddressesAsync. So the rule
+    // was extracted to OutboundNetworkGuard.AllPublic, which needs no network.
+
+    [Fact]
+    public void A_name_answering_with_one_public_and_one_private_address_is_refused()
+    {
+        Assert.False(OutboundNetworkGuard.AllPublic(new[]
+        {
+            IPAddress.Parse("8.8.8.8"),      // looks fine
+            IPAddress.Parse("10.0.0.1"),     // and this is the actual target
+        }));
+    }
+
+    [Fact]
+    public void A_name_answering_only_with_public_addresses_is_allowed()
+    {
+        // The control. Without it, "return false always" would pass the test above.
+        Assert.True(OutboundNetworkGuard.AllPublic(new[]
+        {
+            IPAddress.Parse("8.8.8.8"),
+            IPAddress.Parse("1.1.1.1"),
+        }));
+    }
+
+    [Fact]
+    public void A_name_that_resolves_to_nothing_fails_closed()
+    {
+        // Part of the rule, not a null guard: All() over an empty sequence is TRUE, so an empty
+        // answer would be "every address is public" if the count check were dropped.
+        Assert.False(OutboundNetworkGuard.AllPublic(Array.Empty<IPAddress>()));
+    }
+
+    [Fact]
+    public void TheResolverUsesThatRule_AndNotACopyOfIt()
+    {
+        // A pure function tested in isolation says nothing about whether the caller reads it —
+        // the "scan guard checks presence, not path" trap. localhost resolves offline to
+        // loopback, so this drives the real resolver down the same rule.
+        Assert.False(OutboundNetworkGuard.AllPublic(new[] { IPAddress.Loopback }));
+        var ex = Assert.ThrowsAsync<HttpRequestException>(
+            () => OutboundNetworkGuard.ResolvePublicOrThrowAsync("localhost")).GetAwaiter().GetResult();
+        Assert.Contains("public internet", ex.Message);
+    }
+
     // ── Resolution path ─────────────────────────────────────────────────────
 
     [Theory]

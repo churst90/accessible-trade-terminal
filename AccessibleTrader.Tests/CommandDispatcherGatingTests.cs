@@ -1,5 +1,6 @@
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
@@ -53,6 +54,106 @@ namespace AccessibleTrader.Tests
             var crossing = new IndicatorCrossingEngine(store, bus);
             var dispatcher = new CommandDispatcher(bus, nav, store, barDetail, crossing);
             return (dispatcher, bus, store, nav);
+        }
+
+        // ── A2e survivors: driven through the REAL dispatcher ───────────────
+        //
+        // Both of these were written after the 2026-09-06 campaign found nothing asserting
+        // them. Both go through CommandDispatcher.Dispatch rather than re-deriving its rule in
+        // the test — the first draft of the second one did re-derive it, which would have left
+        // the mutant alive while looking like a fix.
+
+        [Fact]
+        public void F1ReachesHelpFromInsideAnOpenDialog()
+        {
+            // A2e SURVIVOR (E03), and the most serious of the seven. Dropping OpenHelp from the
+            // modal gate's allow-list — so F1 does nothing while any dialog is open — passed all
+            // 6,887 tests. For a screen-reader user who has arrived somewhere they do not
+            // recognise, F1 is the key they reach for, and it would have gone dead in exactly
+            // the situation it exists for. The gate's own comment says "help is always
+            // reachable"; nothing checked that it was.
+            var bus = new SpyEventBus();
+            var nav = Substitute.For<INavigationEngine>();
+            var store = new MockWorkspaceStore();
+            store.EmitState(LoadedState());
+            var bar = Substitute.For<IBarDetailService>();
+            var crossing = new IndicatorCrossingEngine(store, bus);
+            var modalBus = new EventBus();
+            var stack = new ModalStack(modalBus);
+            var dispatcher = new CommandDispatcher(bus, nav, store, bar, crossing, modalStack: stack);
+
+            modalBus.Publish(new ModalStateChangedEvent(true, "Settings"));
+            Assert.True(stack.IsAnyOpen, "fixture floor: the modal stack must actually be open, "
+                                       + "or this passes for the wrong reason.");
+
+            dispatcher.Dispatch(SystemCommand.OpenHelp);
+
+            Assert.Single(bus.Log.OfType<OpenHelpEvent>());
+        }
+
+        [Fact]
+        public void AChartCommandIsStillSwallowedWhileADialogIsOpen()
+        {
+            // The control for the test above: the allow-list is an EXCEPTION, not a hole. Without
+            // this, "let everything through" would satisfy the F1 test.
+            var bus = new SpyEventBus();
+            var nav = Substitute.For<INavigationEngine>();
+            var store = new MockWorkspaceStore();
+            store.EmitState(LoadedState());
+            var bar = Substitute.For<IBarDetailService>();
+            var crossing = new IndicatorCrossingEngine(store, bus);
+            var modalBus = new EventBus();
+            var stack = new ModalStack(modalBus);
+            var dispatcher = new CommandDispatcher(bus, nav, store, bar, crossing, modalStack: stack);
+            bus.Publish(new ChartFocusEvent());
+
+            modalBus.Publish(new ModalStateChangedEvent(true, "Settings"));
+            dispatcher.Dispatch(SystemCommand.NavRight);
+
+            nav.DidNotReceive().ProcessNavigation(Arg.Any<string>());
+        }
+
+        [Fact]
+        public void TheZeroKeyReadsTheNeutralOfTheCOMPONENTUnderTheCursor()
+        {
+            // A2e SURVIVOR (E04) — code written the same day the campaign ran. Deleting the
+            // focused-component lookup, leaving only the "first component that declares a
+            // neutral" fallback, passed everything: every test had a single-component series
+            // where the two answers agree. A Cipher B pane holds components with different
+            // neutrals, and the one under the cursor is the one being asked about.
+            //
+            // Component 0 is zero-centred, component 1 runs 0-100. With the cursor on component
+            // 1, the level must land on 50 — the fallback's answer is 0.
+            var config = new SeriesConfig { Id = "osc", IndicatorCode = "TWONEUTRAL", Name = "Two", Pane = "Oscillator" };
+            config.Components.Add(new ComponentConfig
+            {
+                Name = "Wave", DisplayName = "Wave", IsVisible = true,
+                DisplayType = ComponentDisplayType.Oscillator, ReferenceLevel = 0,
+            });
+            config.Components.Add(new ComponentConfig
+            {
+                Name = "Bounded", DisplayName = "Bounded", IsVisible = true,
+                DisplayType = ComponentDisplayType.Oscillator, ReferenceLevel = 50,
+            });
+            var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "osc" });
+
+            var (dispatcher, bus, store, _) = Build(WorkspaceState.Initial with
+            {
+                Data = new TimeSeriesBuffer<Ohlcv>(
+                    Enumerable.Range(0, 5).Select(i => Bar(100 + i, i)).ToList()),
+                ActiveSeries = System.Collections.Immutable.ImmutableList.Create(series),
+                PrimarySeriesId = "osc",
+                FocusedSeriesId = "osc",
+                FocusedComponentIndex = 1,          // the cursor is on the BOUNDED one
+                CurrentDataIndex = 4,
+            });
+            bus.Publish(new ChartFocusEvent());   // the gate the chart's @onfocus opens
+
+            dispatcher.Dispatch(SystemCommand.AddReferenceLevel);
+
+            var added = Assert.Single(store.DispatchedActions.OfType<AddLevelAction>());
+            Assert.Equal(50, added.Level.Value);
+            Assert.NotEqual(0, added.Level.Value);   // what the fallback would have said
         }
 
         // ── Chart-focus gate ────────────────────────────────────────────────
