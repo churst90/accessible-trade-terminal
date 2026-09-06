@@ -133,6 +133,12 @@ if (hostMode == HostMode.Full)
     // by the container on shutdown, which disposes the scope and every subscription in it.
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.HeadlessSession>();
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.LocalBackgroundMonitor>();
+    // Phase 2: order fills, stops and take-profits with the browser closed. Keeps the live
+    // order stream of every venue with an active stored key and open work hooked to the
+    // headless session; HeadlessOrderAnnouncer speaks/toasts/sounds the result, and
+    // CircuitOrderCoverage decides per venue which of the two owners says it. Same opt-in
+    // switch as the alert monitor. HEADLESS REPORTS; IT NEVER ACTS.
+    builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.HeadlessOrderWatch>();
     // In-session desktop toasts (alerts, fills, new bars — each opt-in under Alerts →
     // Delivery settings) through the same presenter the monitor uses, so on Linux the MATE
     // notification daemon shows them and Orca can present them, on macOS they land in

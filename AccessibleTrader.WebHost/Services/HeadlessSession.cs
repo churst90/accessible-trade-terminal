@@ -46,7 +46,13 @@ namespace AccessibleTrader.WebHost.Services
     ///   <item><b>Delivery</b> — <see cref="DesktopNotificationCategories"/>. The headless
     ///   <see cref="DesktopNotificationService"/> is built WITHOUT the Alerts category, because
     ///   <see cref="LocalBackgroundMonitor"/> already delivers its own alert (sound, toast,
-    ///   speech) under its own opt-in switch.</item>
+    ///   speech) under its own opt-in switch — and, since Phase 2, without OrderFills either,
+    ///   because <see cref="HeadlessOrderAnnouncer"/> owns those and is the only one of the two
+    ///   that can ask <see cref="CircuitOrderCoverage"/> whether a browser is already saying
+    ///   it.</item>
+    ///   <item><b>Fills</b> — <see cref="CircuitOrderCoverage"/>. A venue whose stream an open
+    ///   circuit has hooked announces through that circuit; every other venue is ours. Asked at
+    ///   delivery time, because browsers open and close between a subscription and a fill.</item>
     /// </list>
     ///
     /// <para>
@@ -61,8 +67,10 @@ namespace AccessibleTrader.WebHost.Services
     /// <para>
     /// ── SAFETY LINE, restated here because this is the class that makes it possible ───────
     /// <b>The headless session REPORTS; it never ACTS.</b> Nothing resolved here places an
-    /// order, moves a stop, or runs a strategy. Anything that acts on the market stays
-    /// in-session, where a person is present.
+    /// order, moves a stop, or runs a strategy. Phase 2 makes that line load-bearing rather
+    /// than aspirational: an <c>IOrderExecutionService</c> now lives in this scope, subscribed
+    /// to real venues with real credentials, and it is here to LISTEN. Anything that acts on
+    /// the market stays in-session, where a person is present.
     /// </para>
     /// </summary>
     public sealed class HeadlessSession : IDisposable
@@ -74,6 +82,9 @@ namespace AccessibleTrader.WebHost.Services
         private IServiceScope? _scope;
         private readonly List<IDisposable> _subscribers = new();
         private bool _disposed;
+
+        /// <summary>One caller at a time inside <see cref="EnsureDataReadyAsync"/>.</summary>
+        private readonly SemaphoreSlim _dataGate = new(1, 1);
 
         public HeadlessSession(IServiceScopeFactory scopes, ILogger<HeadlessSession> logger)
         {
@@ -107,6 +118,44 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>Resolve an optional service from the long-lived scope.</summary>
         public T? GetOptional<T>() where T : class => Services.GetService<T>();
 
+        /// <summary>
+        /// Plugins loaded and every stored key applied to its provider — the preamble both
+        /// headless loops need before they can ask a provider anything.
+        ///
+        /// <para>
+        /// <b>It is serialised, and that is the point.</b> Since Phase 2 there are TWO
+        /// <see cref="BackgroundService"/>s ticking on the same 60-second interval against this
+        /// ONE scope, and therefore against one scoped <see cref="IDataService"/> whose
+        /// <c>InitializeAsync</c> is not thread-safe: it guards on a plain bool set at the END of
+        /// the method and appends to plain <see cref="List{T}"/>s in between. Two loops starting
+        /// together would both enter it and mutate those lists concurrently — a corrupted
+        /// provider list or an <see cref="InvalidOperationException"/> out of a collection, on
+        /// the very tick the whole feature exists to serve. One gate, one caller at a time.
+        /// </para>
+        ///
+        /// <para>
+        /// <c>ConfigureStoredKeyProvidersAsync</c> stays INSIDE the gate rather than being
+        /// hoisted to startup: it is how a key saved five minutes ago reaches its provider, so it
+        /// belongs on the poll. It skips anything already configured, so the repeat costs a loop
+        /// over the key list.
+        /// </para>
+        /// </summary>
+        public async Task EnsureDataReadyAsync()
+        {
+            var sp = Services;
+            await _dataGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var data = sp.GetRequiredService<IDataService>();
+                await data.InitializeAsync(sp.GetRequiredService<IPluginLoaderService>()).ConfigureAwait(false);
+                await data.ConfigureStoredKeyProvidersAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _dataGate.Release();
+            }
+        }
+
         // ── Startup ──────────────────────────────────────────────────────────
 
         /// <remarks>Call under <see cref="_gate"/>.</remarks>
@@ -129,8 +178,33 @@ namespace AccessibleTrader.WebHost.Services
             TryAdd<AlertDeliveryService>(sp,
                 "email / Telegram / webhook fan-out for alerts fired with no browser attached");
 
-            // Fills and new bars, per-category opt-in, exactly as in a circuit — but NOT alerts.
-            // See DesktopNotificationCategories for why the mask and not a settings check.
+            // Order events — fills, stops, take-profits, and orders that leave the book —
+            // spoken/toasted/sounded with no browser attached. HeadlessOrderWatch keeps the
+            // venue streams hooked; this is what turns the resulting bus event into something
+            // the user hears. Created here rather than by the watch so it exists BEFORE any
+            // subscription can fire: a fill published into no subscriber is the same silence
+            // one layer down.
+            try
+            {
+                if (sp.GetService<IDesktopAlertPresenter>() is { } presenter)
+                    _subscribers.Add(new HeadlessOrderAnnouncer(
+                        sp.GetRequiredService<IEventBus>(),
+                        presenter,
+                        sp.GetService<ILogger<HeadlessOrderAnnouncer>>()));
+                else
+                    _logger.LogInformation(
+                        "Headless session has no desktop presenter; order events will not be announced.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Headless session could not start order announcements.");
+            }
+
+            // New bars, per-category opt-in, exactly as in a circuit — but NOT alerts, and
+            // NOT order fills. See DesktopNotificationCategories for why the mask and not a
+            // settings check, and HeadlessOrderAnnouncer for why fills left this instance:
+            // this service cannot ask CircuitOrderCoverage anything, so it would toast a fill
+            // an open browser session was already announcing.
             try
             {
                 // Constructed by hand rather than through ActivatorUtilities: the class has two
@@ -142,7 +216,7 @@ namespace AccessibleTrader.WebHost.Services
                     sp.GetRequiredService<IWorkspaceStore>(),
                     sp.GetRequiredService<ISettingsManager>(),
                     sp.GetRequiredService<IDesktopNotifier>(),
-                    DesktopNotificationCategories.OrderFills | DesktopNotificationCategories.NewBars,
+                    DesktopNotificationCategories.NewBars,
                     sp.GetService<ILogger<DesktopNotificationService>>()));
             }
             catch (Exception ex)
@@ -189,6 +263,7 @@ namespace AccessibleTrader.WebHost.Services
                 try { s.Dispose(); } catch (Exception ex) { _logger.LogDebug(ex, "Headless subscriber dispose failed."); }
             }
             scope?.Dispose();
+            _dataGate.Dispose();
         }
     }
 }

@@ -352,24 +352,39 @@ namespace AccessibleTrader.Core.Models
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 
     // ── Trading Order Events ──────────────────────────────────────────────────
-    public record OrderFilledEvent(OrderUpdate Order);
-    public record OrderPartialFillEvent(OrderUpdate Order);
-    public record StopHitEvent(OrderUpdate Order);
-    public record TakeProfitHitEvent(OrderUpdate Order);
-    public record OrderRejectedEvent(OrderUpdate Order, string Reason);
+    //
+    // ── Why every one of these carries a Provider ─────────────────────────────
+    // <see cref="OrderUpdate"/> says what happened to an order and never says WHERE:
+    // the venue name is known at subscription time (one stream per provider) and was
+    // being dropped on the floor. That was survivable while exactly one pipeline
+    // announced fills. Phase 2 of the background monitor puts a SECOND one in the same
+    // process — the headless session subscribes the same singleton provider streams so
+    // fills announce with no browser open — and "which of us owns this fill" cannot be
+    // answered without knowing which venue produced it. So the provider rides along.
+    //
+    // It is ROUTING data, not speech: no announcement wording changed. Null when the
+    // publisher genuinely does not know (a hand-constructed event in a test, an older
+    // caller), and a null provider is treated as "nobody covers it" — which routes it to
+    // the headless side. Of the two ways to be wrong, a possible duplicate is
+    // recoverable and silence is not.
+    public record OrderFilledEvent(OrderUpdate Order, string? Provider = null);
+    public record OrderPartialFillEvent(OrderUpdate Order, string? Provider = null);
+    public record StopHitEvent(OrderUpdate Order, string? Provider = null);
+    public record TakeProfitHitEvent(OrderUpdate Order, string? Provider = null);
+    public record OrderRejectedEvent(OrderUpdate Order, string Reason, string? Provider = null);
     /// <summary>An order left the book without filling — cancelled by the user,
     /// expired, or (on polled brokers, where the two are indistinguishable)
     /// rejected upstream. Announced so no order ever disappears silently.</summary>
-    public record OrderCancelledEvent(OrderUpdate Order);
+    public record OrderCancelledEvent(OrderUpdate Order, string? Provider = null);
     /// <summary>The order's time-in-force ran out (IOC/FOK remainder, day order
     /// at the close). Not a cancel — nobody asked — and not a rejection — the
     /// venue accepted it. Announced distinctly so the trader knows their intent
     /// lapsed rather than was refused.</summary>
-    public record OrderExpiredEvent(OrderUpdate Order);
+    public record OrderExpiredEvent(OrderUpdate Order, string? Provider = null);
     /// <summary>The order was modified and is STILL LIVE under a new id. Must
     /// never be announced as cancelled: a trader who hears "cancelled" believes
     /// they are flat, re-enters, and is double-sized with the original resting.</summary>
-    public record OrderReplacedEvent(OrderUpdate Order);
+    public record OrderReplacedEvent(OrderUpdate Order, string? Provider = null);
     public record MarginWarningEvent(string Symbol, double MarginLevel, string Message);
 
     /// <summary>

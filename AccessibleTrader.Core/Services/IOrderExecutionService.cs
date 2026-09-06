@@ -30,6 +30,34 @@ namespace AccessibleTrader.Core.Services
         Task<OrderPlacement> PlaceOrderAsync(string provider, TradeSignal signal);
         Task<bool>   CancelOrderAsync(string provider, string orderId, string symbol);
 
+        // ── Live order streams (fills that nobody pressed a key for) ───────────
+        //
+        // Both members are DEFAULT-implemented because they are about a capability, not
+        // an obligation: a test double or a future execution service that has no venue
+        // stream is honest to say "I am subscribed to nothing", and callers then route
+        // the fill elsewhere rather than assuming coverage that does not exist.
+
+        /// <summary>
+        /// Hooks <paramref name="providerName"/>'s live order stream so fills, stops and
+        /// take-profits on that venue announce — including for orders this terminal never
+        /// placed, and orders resting since yesterday.
+        ///
+        /// <para>
+        /// Idempotent per provider. Safe to call repeatedly: that is how a stream that died
+        /// overnight gets re-established, since a terminated stream removes itself from
+        /// <see cref="LiveOrderStreamProviders"/>.
+        /// </para>
+        /// </summary>
+        Task SubscribeOrderUpdatesAsync(string providerName) => Task.CompletedTask;
+
+        /// <summary>
+        /// The venues whose live order stream this service is subscribed to right now — a live
+        /// fact, not a record of intent. Read by <c>CircuitOrderCoverage</c> to decide which
+        /// fills a browser session is already announcing and which the headless session must
+        /// take, so exactly one of the two speaks.
+        /// </summary>
+        IReadOnlyCollection<string> LiveOrderStreamProviders => Array.Empty<string>();
+
         /// <summary>
         /// True when a LINKED one-cancels-other pair can actually be placed on the
         /// effective broker: the paper simulator (terminal-enforced pairing) or an

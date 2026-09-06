@@ -46,6 +46,50 @@ namespace AccessibleTrader.Core.Services
             lock (_initLock) { return _initTask ??= InitializeCoreAsync(); }
         }
 
+        /// <summary>
+        /// Subscribes the order-update stream of every provider that has an ACTIVE stored
+        /// trading key, so a fill, stop or take-profit on a resting order announces even
+        /// though this session did not place it.
+        ///
+        /// <para>
+        /// Withdrawal profiles are excluded for the same reason
+        /// <c>ConfigureStoredKeyProvidersAsync</c> excludes them: that credential exists to
+        /// move funds off the venue and must never become a session credential. Paper mode is
+        /// deliberately NOT a gate — real money already resting on an exchange keeps
+        /// announcing while the user practises, which is the rule
+        /// <c>SubscribeOrderUpdatesAsync</c> itself documents.
+        /// </para>
+        /// </summary>
+        private async Task ArmLiveOrderStreamsAsync()
+        {
+            var orders = _services.GetService<IOrderExecutionService>();
+            var keys = _services.GetService<IApiKeyService>();
+            if (orders == null || keys == null) return;
+
+            List<ApiKeyConfig> stored;
+            try { stored = await keys.GetAllKeysAsync().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not read stored keys to arm live order streams.");
+                return;
+            }
+
+            foreach (var name in stored
+                .Where(k => k.IsActive && !k.AllowsWithdrawal && !string.IsNullOrEmpty(k.ApiKey))
+                .Select(k => k.Provider)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                try { await orders.SubscribeOrderUpdatesAsync(name).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Could not hook the live order stream for {Provider}; fills there will not announce "
+                      + "until it reconnects.", name);
+                }
+            }
+        }
+
         private async Task InitializeCoreAsync()
         {
             // Resolve in dependency order: data pipeline first, then input routing,
@@ -68,6 +112,25 @@ namespace AccessibleTrader.Core.Services
             // configuration is otherwise lazy and gated behind the IsConfigured
             // sentinel in RefreshSymbolsAsync, which would never clear on its own.)
             await dataService.ConfigureStoredKeyProvidersAsync().ConfigureAwait(false);
+
+            // 1a. Arm the live order streams for every venue the user has a working key on.
+            //
+            // ── The defect this closes ────────────────────────────────────────────────
+            // GeneralOrderService.SubscribeOrderUpdatesAsync had exactly one production
+            // caller: its own ConnectionStatusEvent(Connected) subscription. And the ONLY
+            // publisher of that event is DataOrchestrator's circuit-breaker onReset — i.e.
+            // a provider that failed ten times in a row and then recovered. So on an
+            // ordinary session no live broker stream was ever subscribed, and the only
+            // fills that announced were the ones this terminal placed itself and then
+            // polled. A stop-loss triggering on an order resting since yesterday said
+            // NOTHING, on every head, in every mode.
+            //
+            // It is armed here because this is where the provider list and the stored keys
+            // are both known, and because this method's lifetime is right on both heads —
+            // singleton on MAUI, per browser circuit on the WebHost. Each venue is wrapped
+            // on its own: one provider that throws while hooking its stream must not stop
+            // the others, and must not stop startup.
+            await ArmLiveOrderStreamsAsync().ConfigureAwait(false);
 
             // The providers are known from here on; anything that asked a provider-shaped
             // question earlier (the toolbar's Deposit / Withdraw / Order book gates) asks again.

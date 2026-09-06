@@ -105,6 +105,12 @@ namespace AccessibleTrader.WebHost.Services
         /// background monitor would stop watching them with nothing on screen.</summary>
         private IDisposable? _coverage;
 
+        /// <summary>This circuit's registration in <see cref="CircuitOrderCoverage"/> — which
+        /// venues' fills it is announcing. Disposed with the circuit for the same reason: a
+        /// stale registration keeps a closed browser's venues "covered" and the headless
+        /// announcer would stay quiet about fills nobody is announcing.</summary>
+        private IDisposable? _orderCoverage;
+
         /// <summary>Live browser sessions on this process. Ops observability only since
         /// Phase 1 (2026-09-06): the local background monitor used to pause outright while this
         /// was non-zero, and now suppresses per SYMBOL instead — see
@@ -226,6 +232,33 @@ namespace AccessibleTrader.WebHost.Services
             {
                 _logger.LogDebug(ex, "Alert-coverage registration could not start for this circuit.");
             }
+
+            // The same rule for ORDER FILLS, keyed by venue instead of by symbol (Phase 2).
+            // The headless session subscribes the same singleton provider streams this circuit
+            // does, so both would announce the same fill; this says which venues THIS circuit
+            // has actually hooked, and the headless announcer takes the rest. A callback, not a
+            // snapshot: a stream that dies removes itself from the order service's set with no
+            // event of its own, and a snapshot would go on claiming coverage that had gone.
+            try
+            {
+                var orders = _scope.GetService<AccessibleTrader.Core.Services.IOrderExecutionService>();
+                if (orders != null)
+                    _orderCoverage = CircuitOrderCoverage.Register(circuit.Id, () =>
+                        // …plus PAPER, always. The paper broker's stream is subscribed for the
+                        // order service's whole lifetime rather than hooked on demand, so it never
+                        // appears in LiveOrderStreamProviders — and the paper ACCOUNT is shared
+                        // through PaperAccountHub, so this circuit's service and the headless one
+                        // subscribe to the same subject. Leaving it out is a real double: the
+                        // browser speaks the paper fill and spd-say says it again.
+                        orders.LiveOrderStreamProviders.Append(
+                            AccessibleTrader.Core.Services.GeneralOrderService.PaperProviderName));
+            }
+            catch (Exception ex)
+            {
+                // Registering nothing means the headless side may also announce a fill this
+                // circuit announces — a duplicate. Failing the other way is silence.
+                _logger.LogDebug(ex, "Order-coverage registration could not start for this circuit.");
+            }
         }
 
         /// <summary>
@@ -257,6 +290,9 @@ namespace AccessibleTrader.WebHost.Services
 
             _coverage?.Dispose();
             _coverage = null;
+
+            _orderCoverage?.Dispose();
+            _orderCoverage = null;
 
             if (_userKey != null)
             {

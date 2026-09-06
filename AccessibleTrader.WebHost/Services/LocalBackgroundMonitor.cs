@@ -129,9 +129,10 @@ namespace AccessibleTrader.WebHost.Services
             var watches = OwnedWatches(DeriveWatches(alerts), CircuitAlertCoverage.CoveredSymbols());
             if (watches.Count == 0) return;
 
+            // Serialised with the order watch's identical preamble — two loops on one scope
+            // means one non-thread-safe IDataService. See HeadlessSession.EnsureDataReadyAsync.
+            await _session.EnsureDataReadyAsync();
             var data = services.GetRequiredService<IDataService>();
-            await data.InitializeAsync(services.GetRequiredService<IPluginLoaderService>());
-            await data.ConfigureStoredKeyProvidersAsync();
 
             foreach (var watch in watches)
             {

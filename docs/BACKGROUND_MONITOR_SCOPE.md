@@ -1,6 +1,6 @@
 # Background monitoring — the expansion, scoped
 
-**Status: PHASES 0 AND 1 ARE BUILT (2026-09-06). Phases 2–3 are scope only.** Written 2026-09-06 from a
+**Status: PHASES 0, 1 AND 2 ARE BUILT (2026-09-06). Phase 3 is scope only.** Written 2026-09-06 from a
 reading of the code as it stands at `4702a00f`. Every "today" statement below carries the file and line it was read from,
 so a later reader can check whether it is still true rather than trusting the date.
 
@@ -52,6 +52,16 @@ it and the circuit would otherwise both speak through the same Orca and double e
 > (`CircuitAlertCoverage`), so row 1 reads "in-session for what is on screen, headless for
 > everything else". Rows 3 and 4 are unchanged and are Phases 2 and 3; the long-lived scope they
 > need now exists.
+
+> **ROW 3 CLOSED 2026-09-06 (Phase 2) — and its "browser open ✅" was a LIE.** Nothing hooked a
+> live broker order stream in any head: `SubscribeOrderUpdatesAsync`'s only caller reacted to
+> `ConnectionStatusEvent(Connected)`, which only `DataOrchestrator`'s circuit-breaker `onReset`
+> publishes. So fills, stops and take-profits announced only for orders this terminal placed
+> itself and then polled; a stop triggering on an order resting since yesterday announced
+> nowhere, browser or no browser. Startup now arms those streams (both heads), and
+> `HeadlessOrderWatch` keeps them hooked with no browser attached. Row 3 now reads: **browser
+> open — in-session speech and earcon for every venue the circuit hooked; browser closed —
+> `HeadlessOrderAnnouncer`, sound, toast and speech.** Row 4 remains Phase 3.
 
 ## 2. The delivery matrix is the other half, and it is in worse shape
 
@@ -207,7 +217,7 @@ is a policy nobody wrote down.*
 with no symbol at all — and would have reached per-asset webhook routing the same way. Fixed and
 pinned.
 
-### Phase 2 — order fills headless (the risky one)
+### Phase 2 — order fills headless (the risky one) — **DONE 2026-09-06**
 
 `GeneralOrderService.SubscribeLive(providerName)` already exists
 (`GeneralOrderService.cs:105–129`) and subscribes to a provider's `OrderUpdateStream`. The headless
@@ -225,6 +235,41 @@ Decisions this needs, each of which should be settled before code:
   Anything that places an order stays in-session.
 
 **Estimate: 1–2 sessions.**
+
+> **THE SENTENCE ABOVE CONTAINS THE PHASE'S BIGGEST WRONG ASSUMPTION, and it is worth leaving
+> here.** *"`SubscribeLive(providerName)` already exists"* is true and irrelevant: **it had no
+> production caller.** The only one was the service's own `ConnectionStatusEvent(Connected)`
+> subscription, and the only publisher of that event is `DataOrchestrator`'s circuit-breaker
+> `onReset` — a provider that failed ten times in a row and then recovered. So no live broker
+> stream was ever hooked on an ordinary session, in ANY head, browser open or closed, and a
+> stop-loss triggering on an order resting since yesterday announced nothing at all. Phase 2 was
+> scoped as "extend a working feature to the headless case"; half of it turned out to be
+> **building the feature**. *A method with tests and no production caller is a feature that does
+> not exist.*
+
+**What landed, against that list:**
+
+| Item | State |
+|---|---|
+| The headless scope subscribes eligible venues | Done — `WebHost/Services/HeadlessOrderWatch.cs`, a `BackgroundService` on the same 60 s tick and the same opt-in switch as the alert monitor. Eligibility is an active, non-withdrawal stored key **and** an open order or position: holding an authenticated socket open all night for an empty account spends the user's rate limit to learn nothing. |
+| Delivery | `WebHost/Services/HeadlessOrderAnnouncer.cs` — sound, toast and speech, the same three channels an alert uses, in the in-session wording word for word. Eight event types: fill, partial fill, stop, take-profit, rejection, cancel, expiry, replacement. |
+| Credentials with no user session | Settled as scoped: `HostMode.Full` registration only, and it stands down on demo and hosted via `DemoPolicy`. The hosted head's per-user keys need their own design and do not get one by accident. |
+| Unattended reconnect + rate limits | Done, and the defect was in the method the plan said to reuse. A subscription went into the order service's map and stayed there whatever happened to it, so the idempotency check refused every re-subscribe for the life of the process — **a stream that failed once was dead until restart while the trader believed they were watched.** Both terminal arms now remove the entry; the watch re-establishes it on its next tick, at poll cadence and deliberately not in a tight reconnect loop. |
+| Escalation | `DeadFeedTracker<string>` keyed by provider — the same rule, the same once-only latch and the same recovery announcement the OHLCV watch has used since 2026-08-29. |
+| SAFETY LINE in the code | Stated at the top of `HeadlessOrderWatch`, `HeadlessOrderAnnouncer` and `HeadlessSession`. |
+
+**The routing rule is per VENUE, and that was the one real design decision.** Provider plugins are
+singletons, so the headless subscription and a circuit's are to the *same* stream; both publish
+onto their own bus and both would announce the fill. `CircuitOrderCoverage` is the arbiter,
+asked at delivery time. It is per venue rather than "is a browser open" for precisely the reason
+Phase 1 had to undo that rule for alerts: **"a browser is open" is not the same claim as "that
+fill will be announced".** Consequently the headless `DesktopNotificationService` gave up the
+`OrderFills` category too — it cannot ask the coverage registry anything.
+
+**And the same switch trap as Phases 0 and 1, avoided the same way.** The announcer is not gated
+on `notifications.desktop.orderFills`, which defaults off. The user opted into "keep monitoring
+when the browser is closed"; that is the switch this feature rides on. The Settings text now says
+what it covers.
 
 ### Phase 3 — new bars, and the alerts the monitor cannot watch today
 
@@ -253,11 +298,11 @@ lifetime work goes badly.
 **Recommended order:** cut 2.9.0 → Phase 0 as its own small release → Phases 1–3 as the next
 headline.
 
-**Where that stands (2026-09-06):** 2.9.0 is tagged. Phases 0 and 1 are both on `main` and
-neither has been released — the argument for holding is unchanged and now covers two phases:
-every Phase 0 path is proved only as far as the process start, and Phase 1's doubling hazard is
-proved by unit test rather than by a person with Orca running and a browser open. Two to three
-sessions remain (Phases 2 and 3).
+**Where that stands (2026-09-06):** 2.9.0 is tagged. Phases 0, 1 and 2 are all on `main` and none
+has been released — the argument for holding is unchanged and now covers three phases: every
+Phase 0 path is proved only as far as the process start, and the Phase 1 and Phase 2 doubling
+hazards are proved by unit test rather than by a person with Orca running and a browser open.
+One to two sessions remain (Phase 3). Suite 7,012 green.
 
 ## 6. What Phase 0 does NOT prove, stated plainly
 
@@ -278,6 +323,20 @@ rule in this repo is to demonstrate the defect or mark it unverified, so:
 - **The tray icon has still never been measured with a screen reader**, on either head.
 - **Phase 1's doubling hazard has never been heard.** The routing is proved at the level of
   *which owner delivered what*, in unit tests. Nobody has sat with Orca running, a browser open on
-  one symbol, and an alert firing on another. Its
+  one symbol, and an alert firing on another.
+- **Phase 2 has never touched a live exchange socket.** Every order event in its tests is pushed
+  onto a `Subject<OrderUpdate>` by the test. What a real venue's `OrderUpdateStream` does when the
+  network drops — whether it faults, completes, or simply goes quiet forever — decides whether the
+  re-subscribe path ever runs, and a stream that goes quiet without a terminal arm is a hole this
+  design does NOT close. **No fill has been heard through `spd-say`.**
+- **The circuit handler's registration into `CircuitOrderCoverage` is not covered by a test.**
+  `Circuit` is not constructible from a test, so the registry, the announcer and the watch are
+  each proved and the wire between the handler and the registry is read, not measured. If it
+  silently failed the result would be a duplicate announcement, not silence — the recoverable
+  direction, deliberately.
+- **`HasOpenWorkAsync` calls two account endpoints per keyed venue per poll, while unsubscribed.**
+  That is once a minute for a user who has opted in and has a key on a venue with nothing open. It
+  is within every venue's published limit by a wide margin on paper; it has not been run against
+  a real one. Its
   tooltip is its accessible name and the menu is reachable the way any notification-area menu is,
   but that is reasoning, not measurement.

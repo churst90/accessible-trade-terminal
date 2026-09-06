@@ -30,6 +30,34 @@ namespace AccessibleTrader.Core.Services
         // them must announce. Populated reactively from ConnectionStatusEvent.
         private readonly Dictionary<string, IDisposable> _liveStreamSubs = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _liveStreamLock = new();
+
+        /// <summary>
+        /// The providers whose live order stream this service is subscribed to RIGHT NOW.
+        ///
+        /// <para>
+        /// Exists because there are now two of these services alive in one WebHost process —
+        /// one per browser circuit, one in the long-lived headless session — subscribing to the
+        /// SAME singleton provider plugins. Both would announce the same fill. The rule that
+        /// keeps it to one is per provider, and this is the half of it a circuit can answer:
+        /// see <c>CircuitOrderCoverage</c>. A snapshot, deliberately — a stream that dies at
+        /// 03:00 removes itself from the set (see the onError/onCompleted arms of
+        /// <see cref="SubscribeOrderUpdatesAsync"/>), so "still subscribed" is a live fact and
+        /// not a record of an intention.
+        /// </para>
+        /// </summary>
+        public IReadOnlyCollection<string> LiveOrderStreamProviders
+        {
+            get { lock (_liveStreamLock) return _liveStreamSubs.Keys.ToArray(); }
+        }
+
+        /// <summary>
+        /// What the paper broker's fills are tagged with. Not a real provider name — the paper
+        /// stream is subscribed for the service's whole lifetime and belongs to no venue — but a
+        /// fill has to say where it came from, and "null" would route a paper fill to the
+        /// headless announcer as uncovered.
+        /// </summary>
+        public const string PaperProviderName = "Paper";
+
         private readonly IDisposable _connectionSub;
 
         // The paper broker's order stream is subscribed for the whole lifetime: it
@@ -86,7 +114,7 @@ namespace AccessibleTrader.Core.Services
             _settings = settings;
             _demo = demo;
             _equity = equity;
-            _paperStreamSub = paper.OrderUpdateStream.Subscribe(PublishOrderEvent);
+            _paperStreamSub = paper.OrderUpdateStream.Subscribe(u => PublishOrderEvent(u, PaperProviderName));
 
             // Self-wire the live-broker streams: whenever a provider connects, hook
             // its order stream so fills/stops/TPs announce. No head has to remember
@@ -122,16 +150,66 @@ namespace AccessibleTrader.Core.Services
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider is not ITradingProvider tp) return;
 
+            // ── The stream has to be able to DIE, and say so ──────────────────────
+            // It could not before: the subscription went into the dictionary and stayed
+            // there for the life of the service whatever happened to it. A broker socket
+            // that drops at 03:00 left a dead entry, the idempotency check above then
+            // refused every re-subscribe attempt for the rest of the process, and the
+            // trader kept believing their fills were being watched. That is the exact
+            // failure this whole feature exists to avoid — silent non-coverage is worse
+            // than no feature — and it matters more now that a HEADLESS session holds one
+            // of these with nobody sitting in front of it.
+            //
+            // So both terminal arms remove the entry, which makes the next call to this
+            // method a genuine re-subscribe. The retry cadence is the CALLER's (the
+            // headless watch polls once a minute), because a tight reconnect loop against
+            // a venue that is refusing is how an API key gets rate-limited.
+            var ended = new System.Runtime.CompilerServices.StrongBox<bool>(false);
+            var sub = tp.OrderUpdateStream.Subscribe(
+                u => PublishOrderEvent(u, providerName),
+                ex => EndLiveStream(providerName, ended, ex),
+                () => EndLiveStream(providerName, ended, null));
+
             lock (_liveStreamLock)
             {
-                // Re-check under the lock: a reconnect blip can race two events.
-                if (_liveStreamSubs.ContainsKey(providerName)) return;
-                _liveStreamSubs[providerName] = tp.OrderUpdateStream.Subscribe(PublishOrderEvent);
+                // A stream that was already over calls onError/onCompleted DURING Subscribe,
+                // so the flag can be set before we get here. Reading it under the same lock
+                // EndLiveStream writes it under is what makes that read ordered.
+                if (ended.Value || _liveStreamSubs.ContainsKey(providerName))
+                {
+                    sub.Dispose();
+                    return;
+                }
+                _liveStreamSubs[providerName] = sub;
             }
             _logger.LogInformation("Subscribed to live order updates from {Provider}", providerName);
         }
 
-        private void PublishOrderEvent(OrderUpdate update)
+        /// <summary>
+        /// A live order stream reached a terminal state. Forgets it so a later
+        /// <see cref="SubscribeOrderUpdatesAsync"/> can genuinely re-subscribe, and says so in
+        /// the log — a broker feed going away is not a debug detail.
+        /// </summary>
+        private void EndLiveStream(string providerName,
+            System.Runtime.CompilerServices.StrongBox<bool> ended, Exception? error)
+        {
+            lock (_liveStreamLock)
+            {
+                ended.Value = true;
+                if (_liveStreamSubs.Remove(providerName, out var sub)) sub.Dispose();
+            }
+
+            if (error != null)
+                _logger.LogWarning(error,
+                    "Live order-update stream for {Provider} FAILED. Fills on that venue are not being "
+                  + "announced until it reconnects.", providerName);
+            else
+                _logger.LogWarning(
+                    "Live order-update stream for {Provider} closed. Fills on that venue are not being "
+                  + "announced until it reconnects.", providerName);
+        }
+
+        private void PublishOrderEvent(OrderUpdate update, string providerName)
         {
             // The stop/take-profit flags say which LEG this update belongs to, not
             // that it executed. A protective leg can also be rejected or cancelled,
@@ -141,22 +219,22 @@ namespace AccessibleTrader.Core.Services
             bool executed = update.Status is OrderStatus.Filled or OrderStatus.PartialFill;
             if (executed && update.StopTriggered)
             {
-                _eventBus.Publish(new StopHitEvent(update));
+                _eventBus.Publish(new StopHitEvent(update, providerName));
                 return;
             }
             if (executed && update.TakeProfitTriggered)
             {
-                _eventBus.Publish(new TakeProfitHitEvent(update));
+                _eventBus.Publish(new TakeProfitHitEvent(update, providerName));
                 return;
             }
 
             switch (update.Status)
             {
                 case OrderStatus.Filled:
-                    _eventBus.Publish(new OrderFilledEvent(update));
+                    _eventBus.Publish(new OrderFilledEvent(update, providerName));
                     break;
                 case OrderStatus.PartialFill:
-                    _eventBus.Publish(new OrderPartialFillEvent(update));
+                    _eventBus.Publish(new OrderPartialFillEvent(update, providerName));
                     break;
                 case OrderStatus.Rejected:
                     // The broker's own words when it gave any. The old fallback text
@@ -164,19 +242,19 @@ namespace AccessibleTrader.Core.Services
                     // nothing they could act on — so absent a reason we say none
                     // rather than reciting one.
                     _logger.LogInformation("Order {OrderId} rejected: {Reason}", update.OrderId, update.Reason ?? "(no reason given)");
-                    _eventBus.Publish(new OrderRejectedEvent(update, update.Reason ?? ""));
+                    _eventBus.Publish(new OrderRejectedEvent(update, update.Reason ?? "", providerName));
                     break;
                 case OrderStatus.Cancelled:
                     _logger.LogInformation("Order {OrderId} cancelled", update.OrderId);
-                    _eventBus.Publish(new OrderCancelledEvent(update));
+                    _eventBus.Publish(new OrderCancelledEvent(update, providerName));
                     break;
                 case OrderStatus.Expired:
                     _logger.LogInformation("Order {OrderId} expired: {Reason}", update.OrderId, update.Reason ?? "(no reason given)");
-                    _eventBus.Publish(new OrderExpiredEvent(update));
+                    _eventBus.Publish(new OrderExpiredEvent(update, providerName));
                     break;
                 case OrderStatus.Replaced:
                     _logger.LogInformation("Order {OrderId} replaced — still live under a new id", update.OrderId);
-                    _eventBus.Publish(new OrderReplacedEvent(update));
+                    _eventBus.Publish(new OrderReplacedEvent(update, providerName));
                     break;
                 case OrderStatus.New:
                     // Accepted and working. Logged, not announced: placement was
@@ -658,7 +736,7 @@ namespace AccessibleTrader.Core.Services
                         RemainingQuantity: snap.RemainingQuantity, status,
                         StopTriggered: snap.StopTriggered || (status == OrderStatus.Filled && IsStopType(signal.Type)),
                         TakeProfitTriggered: snap.TakeProfitTriggered || (status == OrderStatus.Filled && IsTakeProfitType(signal.Type)),
-                        Timestamp: DateTime.UtcNow));
+                        Timestamp: DateTime.UtcNow), providerName);
                     return;
                 }
 
@@ -704,7 +782,7 @@ namespace AccessibleTrader.Core.Services
                                 StopTriggered: IsStopType(signal.Type),
                                 TakeProfitTriggered: IsTakeProfitType(signal.Type),
                                 Timestamp: fill.FilledAt,
-                                RealizedPnL: fill.RealizedPnL == 0.0 ? null : fill.RealizedPnL));
+                                RealizedPnL: fill.RealizedPnL == 0.0 ? null : fill.RealizedPnL), providerName);
                             return;
                         }
                     }
@@ -725,7 +803,7 @@ namespace AccessibleTrader.Core.Services
                 PublishOrderEvent(new OrderUpdate(
                     orderId, signal.Symbol, signal.Side, FilledQuantity: 0, FilledPrice: 0,
                     RemainingQuantity: signal.Quantity, OrderStatus.Cancelled,
-                    StopTriggered: false, TakeProfitTriggered: false, Timestamp: DateTime.UtcNow));
+                    StopTriggered: false, TakeProfitTriggered: false, Timestamp: DateTime.UtcNow), providerName);
                 return;
             }
         }

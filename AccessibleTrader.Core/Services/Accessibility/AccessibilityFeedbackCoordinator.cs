@@ -222,9 +222,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         // ── Order speech formatting ────────────────────────────────────────────
-        // Internal static so OrderEventAnnouncementTests can verify formats directly.
+        // Static so OrderEventAnnouncementTests can verify formats directly. PUBLIC rather
+        // than internal since 2026-09-06: the headless session announces the same fills with
+        // no browser attached, through spd-say/say/SAPI instead of this coordinator's speech
+        // router, and it lives in the WebHost assembly. One wording for the fill, whoever is
+        // carrying it — a second copy of these sentences is a second place they can drift.
 
-        internal static string FormatFill(string prefix, Sdk.Trading.OrderUpdate o)
+        public static string FormatFill(string prefix, Sdk.Trading.OrderUpdate o)
         {
             string side = o.Side == Sdk.Plugins.OrderSide.Buy ? "bought" : "sold";
             string at = o.FilledPrice > 0 ? $" at {SpeechPriceFormatter.FormatPrice(o.FilledPrice)}" : "";
@@ -243,7 +247,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return $"{prefix}. {Capitalize(side)} {FormatQty(o.FilledQuantity)} {o.Symbol}{at}.{pnl}{why}";
         }
 
-        internal static string FormatPartialFill(Sdk.Trading.OrderUpdate o)
+        public static string FormatPartialFill(Sdk.Trading.OrderUpdate o)
         {
             string baseMsg = FormatFill("Partial fill", o);
             return o.RemainingQuantity > 0
@@ -259,7 +263,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// and MEXC's "partially filled then canceled" status is one terminal
         /// message. So a terminal announcement always speaks the executed part.
         /// </summary>
-        internal static string FormatTerminated(string what, Sdk.Trading.OrderUpdate o)
+        public static string FormatTerminated(string what, Sdk.Trading.OrderUpdate o)
         {
             string why = string.IsNullOrWhiteSpace(o.Reason) ? "" : " " + o.Reason.TrimEnd('.') + ".";
             if (o.FilledQuantity > 0)

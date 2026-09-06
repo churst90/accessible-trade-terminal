@@ -4,6 +4,98 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Background monitoring, Phase 2 — order fills with the browser closed, and the streams that were never hooked (2026-09-06)
+
+**A stop-loss triggering overnight said nothing. On every head, in every mode, browser or no
+browser.** `GeneralOrderService.SubscribeOrderUpdatesAsync` — the method that hooks a venue's
+`OrderUpdateStream` so fills, stops and take-profits announce — was fully written, idempotent,
+and covered by four tests, every one of which called it itself. Its only production caller was
+the service's own `ConnectionStatusEvent(Connected)` subscription, and the **only** publisher of
+that event is `DataOrchestrator`'s circuit-breaker `onReset`: a provider that had failed ten
+consecutive times and then recovered. So on an ordinary session no live broker stream was ever
+hooked, and the only fills that announced were the ones this terminal placed itself and then
+polled. **A method with tests and no production caller is a feature that does not exist** — the
+same shape as the alert pipeline that could not fire (2026-08).
+
+`AppStartupService` now arms the stream of every venue with an active, non-withdrawal stored key,
+right after it configures those providers. That fixes the in-session case on **both** heads, and
+it is what makes the headless routing below safe rather than a source of silence.
+
+**Phase 2 proper: `HeadlessOrderWatch` + `HeadlessOrderAnnouncer`.** Inside the long-lived
+headless scope, the watch keeps hooked the order stream of every venue that has an active stored
+key **and something actually at stake** — an open order or an open position. The announcer turns
+the resulting typed event into the same three channels an alert uses: a sound, a desktop toast
+and speech through Orca/`spd-say`, `say` or SAPI. Fills, partial fills, stops, take-profits,
+rejections, cancels, expiries and replacements, in the in-session wording, word for word.
+
+**SAFETY LINE, stated in the code and not only here: the headless session REPORTS; it never
+ACTS.** It subscribes to streams and reads open orders and positions. It never places an order,
+never moves a stop, never runs a strategy. Anything that acts on the market stays in-session,
+where a person is present to hear it happen.
+
+**The doubling hazard, and why the routing is per VENUE.** Provider plugins are singletons
+(`IPluginLoaderService` is `AddSingleton`), so the stream the headless session hooks is the same
+object a browser circuit's order service hooks; each publishes onto its own bus and both would
+announce the same fill. The arbiter is `CircuitOrderCoverage`, asked **at delivery time** because
+browsers open and close between a subscription and a fill. It is per venue and not "is a browser
+open" for exactly the reason Phase 1 had to undo that rule one domain over: **"a browser is open"
+is not the same claim as "that fill will be announced"** — a circuit covers the venues its own
+service actually hooked, and hooking can fail. A fill nobody covers is ours; an unattributed fill
+is ours too, because of the two ways to be wrong a possible duplicate is recoverable and silence
+is not.
+
+Consequently the headless `DesktopNotificationService` also gave up the **OrderFills** category,
+as it gave up Alerts in Phase 1: it cannot ask `CircuitOrderCoverage` anything, so it would toast
+a fill the browser was already announcing. And the announcer is **not** gated on
+`notifications.desktop.orderFills`, which defaults off — the user opted into "keep monitoring when
+the browser is closed", and *a switch inherited from another caller is a policy nobody wrote down*.
+
+**The websocket that dies at 03:00 — the failure the scope document named.** A subscription used
+to go into the order service's map and stay there whatever happened to it; the idempotency check
+at the top of `SubscribeOrderUpdatesAsync` then refused every re-subscribe attempt for the rest of
+the process. A stream that failed once was dead until restart, with the trader believing their
+fills were watched. Both terminal arms now remove the entry, so the watch's next tick genuinely
+re-subscribes — at **poll cadence, 60 s**, deliberately not a tight reconnect loop, because
+hammering a venue that is refusing is how an API key gets rate-limited and a rate-limited key is a
+longer outage than the one being retried. Three consecutive polls that cannot establish or keep a
+venue's stream escalate through `DeadFeedTracker` — said once, and said again on recovery, because
+a user who heard the failure has no other way to learn it is over. **Silent non-coverage is worse
+than no feature.**
+
+Two supporting changes. Every order event now carries the **provider** it came from — `OrderUpdate`
+says what happened and never said where, and the venue is known only at subscription time; it is
+routing data, and no announcement wording changed. And `HasOpenWorkAsync` answers **true / false /
+unknown**: "no open orders" and "I could not reach the exchange" look identical to a caller holding
+a bool, and treating the second as the first is how an expired key reads as an empty account.
+
+Eleven sabotages, each red, each restored: the dead stream keeping its slot; startup not arming;
+the announcer ignoring coverage; coverage made per-process; the headless toast service keeping
+OrderFills; an unreadable account reading as empty; the opt-in ignored; the subscribe result
+assumed rather than checked; a withdrawal profile used as a session credential; the shared data
+preamble left unserialised; and the account teardown made non-idempotent again.
+
+**One route was nearly missed, and it is the one closest to home.** Paper fills. The paper
+account is shared through `PaperAccountHub` and every order service subscribes to its stream for
+its whole lifetime rather than hooking it on demand — so `LiveOrderStreamProviders` never mentions
+it, and the headless announcer would have said every paper fill a second time beside the browser.
+A circuit now reports `Paper` as covered explicitly. (What is *not* fixed: two browser tabs still
+announce one fill twice, which was already true of paper fills and is now equally true of live
+ones. Same shape, different owner problem, left for whoever next touches multi-tab announcement.)
+
+**And one regression this pass caused and fixed.** Resolving the order service in the long-lived
+headless scope pulls the paper broker into that scope, so at host shutdown both `PaperAccountHub`
+and the headless scope tear the same account down — and `DisposeAccount` was not idempotent, so
+the second one threw `ObjectDisposedException` out of `Subject.OnCompleted` and took twelve WebHost
+integration tests with it, none of them about paper trading. Disposal order between two singletons
+is not something a caller can rely on; the teardown is now a no-op the second time.
+
+**Not verified:** nobody has *heard* this. The routing is proved at the level of which owner
+delivered what, in unit tests written twice — a circuit covering the venue and none. No one has
+sat with Orca running, a browser open, and a real venue filling a real order. Nor has any of it
+run against a live exchange socket. And the circuit handler's registration into
+`CircuitOrderCoverage` is not itself covered by a test (`Circuit` is not constructible from one);
+if it silently failed, the result would be a duplicate announcement, not silence.
+
 ### Background monitoring, Phase 1 — one long-lived scope, and one delivery owner (2026-09-06)
 
 **"Close the browser and keep being told things" was never a missing feature. It was a

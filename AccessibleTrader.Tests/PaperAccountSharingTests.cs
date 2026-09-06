@@ -220,6 +220,32 @@ namespace AccessibleTrader.Tests
 
         // ── Fixtures ─────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// The hub and a still-open scope can BOTH tear the account down at process shutdown, and
+        /// the second one must be a no-op.
+        ///
+        /// <para>
+        /// The hub disposes by clearing <c>SharedOwnership</c> and calling <c>DisposeAccount</c>;
+        /// any scope still holding the same instance then disposes it too, and with the flag now
+        /// false <c>Dispose()</c> no longer returns early and reaches the same teardown. Container
+        /// disposal order between two singletons is not something a caller can rely on. Before
+        /// this was idempotent, host shutdown threw <c>ObjectDisposedException</c> out of
+        /// <c>Subject.OnCompleted</c> the moment a long-lived headless scope started resolving the
+        /// broker — twelve WebHost integration tests at once, none of them about paper trading.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TearingTheAccountDownTwice_IsANoOp_NotAThrow()
+        {
+            var account = Account("user-1", out _);
+
+            _hub.Dispose();                 // the owner tears it down and clears SharedOwnership
+
+            var ex = Record.Exception(() => account.Dispose());   // …and a live scope follows
+
+            Assert.Null(ex);
+        }
+
         private PaperTradingProvider Account(string userKey, out MockWorkspaceStore store)
         {
             var s = new MockWorkspaceStore();

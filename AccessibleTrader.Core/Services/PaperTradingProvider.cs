@@ -1958,11 +1958,26 @@ namespace AccessibleTrader.Core.Services
             DisposeAccount();
         }
 
-        /// <summary>Really tear down. Called by the owner, not by scope disposal.</summary>
+        /// <summary>
+        /// Really tear down. Called by the owner, not by scope disposal.
+        ///
+        /// <para>
+        /// <b>Idempotent, and it has to be, because two owners can both reach it at shutdown.</b>
+        /// <c>PaperAccountHub</c> disposes the account by clearing <see cref="SharedOwnership"/>
+        /// and calling this; any scope still holding the same instance then disposes it too, and
+        /// with the flag now false <see cref="Dispose"/> no longer returns early. Container
+        /// disposal order between two singletons is not something a caller can rely on, so the
+        /// second call has to be a no-op rather than an <see cref="ObjectDisposedException"/> out
+        /// of <c>Subject.OnCompleted</c> — which is what host shutdown started throwing the
+        /// moment a long-lived headless scope began resolving the broker (Phase 2, 2026-09-06).
+        /// </para>
+        /// </summary>
         internal void DisposeAccount()
         {
             lock (_storeLock)
             {
+                if (_accountDisposed) return;
+                _accountDisposed = true;
                 foreach (var e in _stores) { e.Sub.Dispose(); e.Monitor?.Dispose(); }
                 _stores.Clear();
             }
@@ -1970,6 +1985,9 @@ namespace AccessibleTrader.Core.Services
             _orderUpdates.OnCompleted();
             _orderUpdates.Dispose();
         }
+
+        /// <summary>Set once by <see cref="DisposeAccount"/>, under <c>_storeLock</c>.</summary>
+        private bool _accountDisposed;
 
         // ── Internal records ──────────────────────────────────────────────────
 

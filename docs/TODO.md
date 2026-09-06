@@ -117,6 +117,123 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-06, THIRTIETH pass — BACKGROUND MONITOR **PHASE 2**:
+> order fills with the browser closed — and the discovery that the streams they arrive on had
+> NEVER BEEN HOOKED, in any head, browser open or closed.** See CHANGES `[Unreleased]` and
+> `docs/BACKGROUND_MONITOR_SCOPE.md` Phase 2. Suite **7,012** (was 6,954). What is worth carrying
+> forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A method with tests and no production caller is a feature that does not exist.** The scope
+>   document opened Phase 2 with *"`SubscribeLive(providerName)` already exists"*. It did, it was
+>   idempotent, and four tests in `GeneralOrderServiceTests` covered it — every one of which
+>   called it itself. Its only production caller reacted to `ConnectionStatusEvent(Connected)`,
+>   and the ONLY publisher of that event is `DataOrchestrator`'s circuit-breaker `onReset`: a
+>   provider that failed ten times in a row and then recovered. **So a stop-loss triggering on an
+>   order resting since yesterday announced NOTHING, on every head, in every mode.** Half of
+>   "extend a working feature to the headless case" was building the feature. Same shape as the
+>   alert pipeline that could not fire. **When a plan says a mechanism "already exists", grep for
+>   its CALLERS before believing the phase is small.**
+> - **Trace the publisher, not just the subscriber.** The subscription in `GeneralOrderService`'s
+>   constructor reads like end-to-end wiring and its test proves the subscription works. The hole
+>   was one hop further out — who ever raises that event. **A green test on "X reacts to event E"
+>   says nothing about whether E is ever published.**
+> - **A subscription that cannot DIE is a subscription that cannot be RE-ESTABLISHED.** The live
+>   stream went into a dictionary and stayed there whatever happened to it, so the idempotency
+>   check at the top of the subscribe method refused every retry for the life of the process. One
+>   dropped socket = dead until restart, with the trader believing they were watched. Both
+>   terminal arms (`onError` AND `onCompleted`) now remove the entry. **A "have I already done
+>   this" map needs an entry-removal path or it is a permanent latch.**
+> - **"A browser is open" is not the same claim as "that will be announced".** Phase 1's lesson,
+>   applied one domain over BEFORE it could bite: the per-process rule was rejected for fills in
+>   favour of `CircuitOrderCoverage`, per VENUE, asked at delivery time. A circuit covers the
+>   venues its own service actually hooked; hooking can fail.
+> - **Three-state answers where two would lie.** `HasOpenWorkAsync` returns true / false / null.
+>   "No open orders" and "I could not reach the exchange" are identical to a caller holding a
+>   bool, and treating the second as the first is how an expired key reads as an empty account.
+> - **Do not clear a health counter on the strength of a DIFFERENT check.** First cut called
+>   `NoteStreamHealthy` after a successful account read, one line before the subscribe that then
+>   failed — so the counter reset every poll and the escalation could never arrive. Caught by the
+>   test, not by reading. **Health belongs where coverage is actually established.**
+> - **Adding a SECOND long-lived loop to one scope is a concurrency change, not just a feature.**
+>   `IDataService.InitializeAsync` guards on a plain bool set at the END of the method and appends
+>   to plain `List<T>`s in between. One loop was safe; two on the same 60-second tick are not.
+>   Hence `HeadlessSession.EnsureDataReadyAsync`, one gate for both preambles. **Count the loops
+>   sharing a scope before assuming its services are being used the way they were designed for.**
+> - **Resolving a service pulls its whole constructor graph into your lifetime.** The headless
+>   scope resolving `IOrderExecutionService` pulled the shared paper broker in with it, and at
+>   host shutdown both `PaperAccountHub` and that scope tore the same account down —
+>   `DisposeAccount` was not idempotent, so it threw and took TWELVE WebHost integration tests
+>   with it, none of them about paper trading. **Teardown that two owners can reach must be a
+>   no-op the second time**; container disposal order between two singletons is not something a
+>   caller can rely on.
+> - **The switch trap, for the third phase running.** The announcer is NOT gated on
+>   `notifications.desktop.orderFills` (defaults off). The user opted into "keep monitoring when
+>   the browser is closed"; that is the switch this rides on. *A switch inherited from another
+>   caller is a policy nobody wrote down.*
+>
+> ### 2. DECISIONS MADE, recorded so they are not re-litigated
+>
+> - **HEADLESS REPORTS; IT NEVER ACTS.** Stated at the top of `HeadlessOrderWatch`,
+>   `HeadlessOrderAnnouncer` and `HeadlessSession`. It subscribes and reads; it never places,
+>   moves or cancels.
+> - **Eligibility is a key AND something at stake** — an open order or an open position. An
+>   authenticated socket held all night for an empty account spends the user's rate limit to
+>   learn nothing.
+> - **Retry cadence is the 60 s poll, never a tight reconnect loop.** Hammering a venue that is
+>   refusing is how a key gets rate-limited, and a rate-limited key is a longer outage than the
+>   one being retried.
+> - **Credentials headless are LOCAL FULL ONLY.** Demo and hosted stand down. Hosted's per-user
+>   keys need their own design and do not get one by accident.
+> - **The headless `DesktopNotificationService` gave up `OrderFills`** as it gave up `Alerts` in
+>   Phase 1 — it cannot ask `CircuitOrderCoverage` anything, so it would toast a fill the browser
+>   was already announcing.
+> - **Every order event carries its provider now.** Routing data, not speech: no announcement
+>   wording changed. A null provider routes to the headless side — a possible duplicate is
+>   recoverable, silence is not.
+> - **The tray snooze silences ALERTS, not fills.** Money events are never gated, which is the
+>   rule `AccessibilityFeedbackCoordinator` has always followed in-session.
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **No live exchange socket has been touched.** Every order event in the tests is pushed onto a
+>   `Subject<OrderUpdate>` by the test. What a real venue's stream does when the network drops —
+>   fault, complete, or **go quiet forever** — decides whether the re-subscribe path ever runs,
+>   and a stream that goes quiet with no terminal arm is a hole this design does NOT close.
+> - **No fill has been HEARD through `spd-say`.** Same limitation as Phase 1's routing.
+> - **The circuit handler's registration into `CircuitOrderCoverage` has no test** — `Circuit` is
+>   not constructible from one. The registry, the announcer and the watch are each proved; the
+>   wire between handler and registry is read, not measured.
+> - **TWO BROWSER TABS ANNOUNCE ONE FILL TWICE, and that is not new but it is now WIDER.** Each
+>   circuit has its own order service and its own bus, so two tabs = two announcements of one
+>   fill. That was already true of PAPER fills (the account is shared through `PaperAccountHub`
+>   and every circuit's service subscribes to the same subject for its lifetime); arming the live
+>   streams makes live fills behave the same way. Not addressed here. The fix is the same shape as
+>   `CircuitOrderCoverage` — one owner among the circuits — and it belongs with whoever next
+>   touches multi-tab announcement.
+> - Everything on the twenty-eighth and twenty-ninth passes' lists is unchanged.
+>
+> ### 4. NEXT
+>
+> - **Phase 3 — new bars, and the alerts the monitor still cannot watch.** Reuse
+>   `BackgroundTabFeedService`'s existing cap rather than inventing a second budget. Shrink
+>   `BackgroundWatchability.WhyNotBackgroundWatchable` IN THE SAME COMMIT as the capability that
+>   shrinks it. **Gate new-bar toasts harder headless than in-session** — a one-minute chart is a
+>   toast a minute. Note the headless `DesktopNotificationService` still owns the `NewBars`
+>   category and is currently inert; that is the seam Phase 3 lights up.
+> - **Whether to cut 2.10.0.** Now covers three phases. The honest release note says what §6 of
+>   the scope doc says: nothing has run on a Mac or a Windows box, nothing has been heard with a
+>   screen reader, and no live venue socket has been touched. **Cody's call.**
+> - Everything under §4–§6 of the twenty-seventh pass block below still stands: the report card's
+>   own list (live-venue evidence — which this phase makes MORE urgent, not less — the MAUI head
+>   measured with a screen reader, StrategyLab's 71-of-99), no performance budget, no crash-report
+>   path, automating the sabotage, the vacuity-floor guard over the test assembly, §7g to
+>   ~2026-09-10 for the segfault.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-06, TWENTY-NINTH pass — BACKGROUND MONITOR **PHASE 1**:
 > one DI scope for the life of the process, and the discovery that the monitor's "pause while a
 > browser is open" meant an alert on a symbol with no tab open was watched by NOBODY.** See
