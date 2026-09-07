@@ -18,6 +18,26 @@ namespace AccessibleTrader.Core.Services
         /// after InitializeAsync and after a key is saved. Idempotent.</summary>
         Task ConfigureStoredKeyProvidersAsync();
 
+        /// <summary>
+        /// <b>The stored credential a provider is actually configured with</b> — the one that
+        /// chose its host and, since 2026-09-07, the one the checkout adapters hand out to sign
+        /// with. Null when nothing has configured that provider yet.
+        ///
+        /// <para>This is the app's single answer to "which key is this order using". Before it
+        /// existed the host and the signature could come from different profiles and the
+        /// dashboard's switcher agreed with neither. <c>GeneralOrderService</c> reads it to
+        /// refuse a Paper-labelled key on a venue that has no practice environment.</para>
+        /// </summary>
+        ApiKeyConfig? CredentialInUse(string providerName);
+
+        /// <summary>
+        /// Point a provider at one specific stored key by nickname, with no IsConfigured skip,
+        /// and record it as the credential in use. Returns the key now in use, or null if the
+        /// provider or profile could not be found — the caller must tell the user rather than
+        /// leave the old credential silently in place.
+        /// </summary>
+        Task<ApiKeyConfig?> ReconfigureProviderAsync(string providerName, string nickname);
+
         Task<List<string>> LoadAvailableMarketsAsync();
         Task<List<string>> LoadProvidersAsync();
         Task<List<string>> LoadProvidersByMarketTypeAsync(string marketType);

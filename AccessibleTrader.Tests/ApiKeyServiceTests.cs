@@ -125,14 +125,23 @@ public class ApiKeyServiceTests
         Assert.False(storage.Store.ContainsKey("apikey_main_passphrase"));
     }
 
+    /// <summary>
+    /// <b>Exactly ONE active key per PROVIDER</b>, whatever its environment.
+    ///
+    /// <para>Until 2026-09-07 the scope was provider+environment, so a Paper key and a Live key
+    /// for one venue could both be active at once and "active" answered nothing: the startup
+    /// loop configured whichever it reached first (choosing the HOST), and the signing lookup
+    /// read neither flag. One active key per provider is what lets the dashboard's switcher be a
+    /// choice rather than an announcement.</para>
+    /// </summary>
     [Fact]
-    public async Task SetActiveKey_ActivatesTarget_AndDeactivatesSiblings_SameProviderAndEnvironment()
+    public async Task SetActiveKey_ActivatesTarget_AndDeactivatesEveryOtherProfileForThatProvider()
     {
         var storage = new InMemorySecureStorage();
         var svc = NewService(storage);
         await svc.SaveKeyAsync(Config("a", provider: "Kraken", env: "Live", active: true));
         await svc.SaveKeyAsync(Config("b", provider: "Kraken", env: "Live"));
-        await svc.SaveKeyAsync(Config("c", provider: "Kraken", env: "Paper", active: true)); // other env untouched
+        await svc.SaveKeyAsync(Config("c", provider: "Kraken", env: "Paper", active: true)); // SAME provider — deactivated
         await svc.SaveKeyAsync(Config("d", provider: "Binance", env: "Live", active: true)); // other provider untouched
 
         await svc.SetActiveKeyAsync("b");
@@ -140,7 +149,7 @@ public class ApiKeyServiceTests
         var all = await svc.GetAllKeysAsync();
         Assert.False(all.Single(k => k.Nickname == "a").IsActive);
         Assert.True(all.Single(k => k.Nickname == "b").IsActive);
-        Assert.True(all.Single(k => k.Nickname == "c").IsActive);
+        Assert.False(all.Single(k => k.Nickname == "c").IsActive);
         Assert.True(all.Single(k => k.Nickname == "d").IsActive);
     }
 

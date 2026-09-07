@@ -44,6 +44,28 @@ public class WebHostServiceLifetimeTests
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<IPluginLoaderService>(s));
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<PluginTrustPolicy>(s));
         Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<IApiKeyService>(s));
+        // Which credential each provider was configured with. Singleton even though IDataService
+        // is Scoped here: the process-wide PluginHostServices.ApiKeys bridge reads this record to
+        // decide what SIGNS, and a per-circuit record would be invisible to it.
+        Assert.Equal(ServiceLifetime.Singleton, LifetimeOf<ICredentialInUseRegistry>(s));
+    }
+
+    /// <summary>
+    /// The process-wide credential bridge must actually BUILD. It is resolved once at startup
+    /// (<c>Program.cs</c>) and assigned to a static, so a missing dependency here would be a
+    /// startup crash rather than a test failure — and adding a constructor parameter to it is
+    /// exactly how that happens.
+    /// </summary>
+    [Fact]
+    public void TheProcessWideCredentialBridgeResolves()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();          // the real host has both; a bare ServiceCollection has neither
+        services.AddDataProtection();   // WebHostSecureStorageService encrypts the key store with it
+        services.AddAccessibleTraderWebHostServices();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        Assert.NotNull(provider.GetRequiredService<AccessibleTrader.WebHost.Services.PluginHostApiKeyBridge>());
     }
 
     [Fact]

@@ -17,15 +17,18 @@ namespace AccessibleTrader.WebHost.Services
         public const double LatencyWarnThresholdMs = 50.0;
 
         private readonly IApiKeyService _apiKeys;
+        private readonly ICredentialInUseRegistry _inUse;
         private readonly CheckoutLatencyTracker? _tracker;
         private readonly ILogger<WebHostApiKeyCheckoutAdapter>? _logger;
 
         public WebHostApiKeyCheckoutAdapter(
             IApiKeyService apiKeys,
+            ICredentialInUseRegistry inUse,
             CheckoutLatencyTracker? tracker = null,
             ILogger<WebHostApiKeyCheckoutAdapter>? logger = null)
         {
             _apiKeys = apiKeys;
+            _inUse = inUse;
             _tracker = tracker;
             _logger = logger;
         }
@@ -38,7 +41,7 @@ namespace AccessibleTrader.WebHost.Services
             var sw = Stopwatch.StartNew();
             try
             {
-                var cfg = await _apiKeys.GetKeyForProviderAsync(providerId, marketType).ConfigureAwait(false);
+                var cfg = await ApiKeyCheckoutResolution.ResolveAsync(_inUse, _apiKeys, providerId, marketType).ConfigureAwait(false);
                 if (cfg == null || string.IsNullOrEmpty(cfg.ApiKey))
                     return ApiKeyCheckoutResult.None;
 

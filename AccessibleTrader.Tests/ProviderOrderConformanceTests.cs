@@ -376,6 +376,37 @@ namespace AccessibleTrader.Tests
             Assert.Equal(new[] { "Bitstamp", "Coinbase", "Interactive Brokers", "Kraken", "MEXC futures", "MEXC spot", "Schwab" }, routeLive);
         }
 
+        /// <summary>
+        /// <b>The by-name pin above, asserted against the plugins' own declaration.</b>
+        ///
+        /// <para>A list of venue names in a test file is a fact about the test file. The order
+        /// path cannot read it — what <c>GeneralOrderService</c> reads is
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>, and its default is <c>true</c>,
+        /// the permissive direction. So a plugin that has no sandbox and forgets to override gets
+        /// no refusal and nothing anywhere notices. This is what notices: the set of providers
+        /// declaring <c>false</c> must be exactly the set of rigs with no practice host.</para>
+        ///
+        /// <para>Kraken Futures is in the declared set and NOT in the pin above, because it
+        /// refuses a Paper credential inside the plugin already — its demo was withdrawn. Both
+        /// facts are true of it and they are different facts.</para>
+        /// </summary>
+        [Fact]
+        public void Providers_declaring_no_practice_environment_are_exactly_the_rigs_without_a_practice_host()
+        {
+            var declared = ProviderRoster.Trading()
+                .Where(p => !((ITradingProvider)p).HasPracticeEnvironment)
+                .Select(p => p.GetType().Name).Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();
+            var rigged = OrderRigs.All.Where(r => r.PracticeHost == null)
+                .Select(r => r.ProviderTypeName).Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+            Assert.Equal(rigged, declared);
+            Assert.Equal(new[]
+            {
+                "BitstampProvider", "CoinbaseProvider", "InteractiveBrokersProvider", "KrakenFuturesProvider",
+                "KrakenProvider", "MexcProvider", "SchwabProvider",
+            }, declared);
+        }
+
         // ── 8. Dry runs: the venue validates the SAME payload, and places nothing ──
 
         public static IEnumerable<object[]> RigsWithDryRun() => OrderRigs.All.Where(r => r.HasDryRun).Select(r => new object[] { r.Name });
@@ -437,7 +468,7 @@ namespace AccessibleTrader.Tests
                 .Select(r => r.ProviderTypeName).Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();
 
             Assert.Equal(implementing, rigged);
-            Assert.Equal(new[] { "BinanceProvider", "KrakenProvider", "TradierProvider" }, implementing);
+            Assert.Equal(new[] { "BinanceProvider", "KrakenProvider", "SchwabProvider", "TradierProvider" }, implementing);
         }
 
         // ── 9. Anti-vacuity ─────────────────────────────────────────────────────

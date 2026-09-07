@@ -227,6 +227,8 @@ namespace AccessibleTrader.BlazorClient
             services.AddSingleton<IOhlcvStore, OhlcvStore>();
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
+            // The one answer to "which key is this provider signing with".
+            services.AddSingleton<ICredentialInUseRegistry, CredentialInUseRegistry>();
 
             // Historical fetcher and live stream manager are internal building blocks
             // consumed by DataOrchestrator — registered as concrete types for easy mocking.

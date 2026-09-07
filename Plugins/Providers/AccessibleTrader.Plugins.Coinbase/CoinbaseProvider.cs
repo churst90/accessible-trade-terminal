@@ -42,6 +42,12 @@ namespace AccessibleTrader.Plugins.Coinbase
         private volatile bool _userChannelUp;
         public bool SupportsOrderEventStreaming => _userChannelUp && (_ws?.IsConnected ?? false);
 
+        /// <summary>No practice environment. Coinbase Advanced Trade retired its sandbox; the old exchange sandbox is a different API.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         // Order book streaming
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
 

@@ -52,6 +52,14 @@ namespace AccessibleTrader.Plugins.Kraken
         public bool SupportsOrderEventStreaming =>
             (_authWs?.IsConnected ?? false) && !string.IsNullOrEmpty(_wsToken);
 
+        /// <summary>No practice environment. Kraken's UAT sandbox is granted by request to
+        /// institutional accounts only, so a retail credential has one venue: the real one.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. <c>AddOrder validate=true</c>
+        /// (see <see cref="DryRunOrderAsync"/>) is the substitute.
+        /// See <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         private readonly Subject<OrderBookUpdate> _orderBookSubject = new();
         private string? _orderBookSymbol;
 

@@ -74,7 +74,12 @@ public class LiveOrderReviewStalenessTests
         // "nothing was sent after an edit" would pass for the wrong reason forever. The Mode
         // stat is the component's own answer to "am I live?", so read that rather than
         // re-deriving it here.
-        Assert.Contains(">Live<", cut.Markup, StringComparison.Ordinal);
+        // The Mode cell now names the KEY as well as the environment ("Live — kraken-main"), so
+        // this reads the cell rather than matching an exact element body.
+        var mode = cut.FindAll("div.stat")
+            .First(d => d.QuerySelector("span")?.TextContent == "Mode")
+            .QuerySelector("strong")!.TextContent;
+        Assert.StartsWith("Live", mode, StringComparison.Ordinal);
         return cut;
     }
 

@@ -44,6 +44,12 @@ namespace AccessibleTrader.Plugins.Bitstamp
         // terminal state. See TODO's SupportsOrderEventStreaming-honesty item.
         public bool SupportsOrderEventStreaming => true;
 
+        /// <summary>No practice environment. Bitstamp has no sandbox: one set of live keys, one live venue.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         // Last-known remaining amount per live order id, captured from the
         // private-my_orders_ stream's order_created / order_changed events so we
         // can report the incremental fill quantity (Bitstamp only sends the

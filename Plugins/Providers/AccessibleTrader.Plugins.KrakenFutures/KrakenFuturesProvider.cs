@@ -281,6 +281,12 @@ namespace AccessibleTrader.Plugins.KrakenFutures
         /// two wrote a working venue off permanently on 2026-09-07.</summary>
         public bool ProvidesOrderStream => false;
 
+        /// <summary>No practice environment. demo-futures.kraken.com was withdrawn — measured 2026-09-07, a 301 to a marketing page. This plugin already refuses a Paper credential outright; the chokepoint refusal is the same answer one layer up.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         public bool SupportsOrderEventStreaming => false;
 
         public async Task<List<Balance>> GetBalancesAsync()

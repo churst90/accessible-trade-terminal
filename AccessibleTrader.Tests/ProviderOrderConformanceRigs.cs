@@ -680,8 +680,24 @@ namespace AccessibleTrader.Tests.OrderConformance
         public override void ArmRejection(FakeHttpMessageHandler h) =>
             h.Post(@"api\.schwabapi\.com/trader/v1/accounts/HASH/orders$", """{"message":"Insufficient buying power","errors":["Insufficient buying power"]}""", HttpStatusCode.BadRequest);
 
+        // previewOrder: the same body, a different endpoint, no order placed. Schwab's verdict is
+        // `orderValidationResult.rejects` being empty — a 200 with rejects in it is a REJECTION,
+        // which is why the rejection is armed as a 200 rather than reusing the 400 above.
+        public override bool HasDryRun => true;
+        public override void ArmDryRunSuccess(FakeHttpMessageHandler h) =>
+            h.Post(@"api\.schwabapi\.com/trader/v1/accounts/HASH/previewOrder$",
+                """{"orderValidationResult":{"rejects":[],"warns":[],"reviews":[],"accepts":[],"alerts":[]},"commissionAndFee":{"commission":{"commissionLegs":[{"commissionValues":[{"value":0.65,"type":"COMMISSION"}]}]}}}""");
+        public override void ArmDryRunRejection(FakeHttpMessageHandler h) =>
+            h.Post(@"api\.schwabapi\.com/trader/v1/accounts/HASH/previewOrder$",
+                """{"orderValidationResult":{"rejects":[{"validationRuleName":"BUYING_POWER","activityMessage":"Insufficient buying power for this order"}],"warns":[],"reviews":[],"accepts":[]}}""");
+        public override bool IsDryRunRequest(HttpRequestMessage req, string body) =>
+            req.RequestUri!.AbsolutePath.EndsWith("/previewOrder", StringComparison.Ordinal);
+
+        // Both endpoints decode through the SAME reader, so "the dry run sent the placement
+        // payload" is a comparison of two decoded orders, not of two spellings.
         public override IReadOnlyList<WireOrder> Orders(FakeHttpMessageHandler h) =>
             Posts(h, "/trader/v1/accounts/HASH/orders")
+                .Concat(Posts(h, "/trader/v1/accounts/HASH/previewOrder"))
                 .SelectMany(x => Flatten(x.Req.RequestUri!.Host, JObject.Parse(x.Body))).ToList();
 
         private static IEnumerable<WireOrder> Flatten(string host, JObject node)

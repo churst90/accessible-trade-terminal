@@ -453,6 +453,53 @@ namespace AccessibleTrader.Core.Services
                 _errorCoordinator.ReportError($"Cannot place order. {providerName} is not connected.", ErrorSeverity.High);
                 return OrderPlacement.Parse($"PROVIDER_NOT_CONNECTED:{providerName} is not connected");
             }
+
+            // ── 4a. A PAPER key on a venue with no practice environment is REFUSED ──────
+            //
+            // Six venues have no sandbox, testnet or demo at all — Bitstamp, Coinbase,
+            // Interactive Brokers, Kraken spot, MEXC and Schwab — and Kraken Futures joined them
+            // when its demo was withdrawn. On those, a stored key labelled "Paper" signs against
+            // the real venue with real money, while the dashboard banner, the Mode cell and the
+            // user all say paper. The label is the only thing that is paper about it.
+            //
+            // The refusal lives HERE because this is the one chokepoint every order passes
+            // through — the dashboard ticket, the quick-trade path, a strategy and a script all
+            // arrive at this line — and because a warning in the UI is a warning the order path
+            // can be reached around. The dashboard's spoken live review keys off the same label
+            // and is skipped for exactly the keys this refuses, so before this existed the
+            // dangerous case was also the quiet one.
+            //
+            // Two things make it fail-safe rather than fail-permissive. The question asked is
+            // "does this venue have a practice environment", not "does this key look live", so a
+            // venue that has one is never affected. And a venue that has none with NO recorded
+            // credential refuses too: an order signed with a credential nobody can name is the
+            // thing this is here to stop.
+            if (!tp.HasPracticeEnvironment)
+            {
+                var cred = _dataService.CredentialInUse(providerName);
+                if (cred == null)
+                {
+                    _errorCoordinator.ReportError(
+                        $"Cannot place order. {providerName} has no practice venue and no stored key is in use, "
+                        + "so which account this would trade is unknown.", ErrorSeverity.High);
+                    return OrderPlacement.Parse(
+                        $"PROVIDER_NOT_CONFIGURED:{providerName} has no practice venue and no stored key is in use, "
+                        + "so it is not clear whose money this would spend. Choose a key in the trading dashboard");
+                }
+                if (!ProviderConfigKeys.IsLive(cred.Environment))
+                {
+                    _logger.LogWarning(
+                        "Refused: {Provider} has no practice environment and key '{Nickname}' is marked '{Environment}'.",
+                        providerName, cred.Nickname, string.IsNullOrEmpty(cred.Environment) ? "(none)" : cred.Environment);
+                    _errorCoordinator.ReportError(
+                        $"Order refused: {providerName} has no practice venue, so this would be a real order.",
+                        ErrorSeverity.High);
+                    return OrderPlacement.Parse(
+                        $"ORDER_FAILED:{providerName} has no practice venue and the key '{cred.Nickname}' is marked "
+                        + "Paper, so this order would be real. Mark that key Live to trade real money, "
+                        + "or turn on Paper trading with F12");
+                }
+            }
             try
             {
                 var result = await tp.PlaceOrderAsync(signal).ConfigureAwait(false);

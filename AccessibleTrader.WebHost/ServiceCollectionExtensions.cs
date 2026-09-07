@@ -268,6 +268,10 @@ namespace AccessibleTrader.WebHost
             services.AddSingleton<ICacheService, FileCacheService>();
             services.AddSingleton<IResamplerService, ResamplerService>();
             services.AddSingleton<IApiKeyService, ApiKeyService>();
+            // Singleton in BOTH heads even though IDataService is Scoped here: the record
+            // describes which credential a process-wide plugin object was configured with,
+            // and the checkout that reads it (PluginHostServices.ApiKeys) is process-wide too.
+            services.AddSingleton<ICredentialInUseRegistry, CredentialInUseRegistry>();
 
             services.AddScoped<HistoricalDataFetcher>();
             // Lazy hub + store so a reconnect can gap-fill the outage and record feed

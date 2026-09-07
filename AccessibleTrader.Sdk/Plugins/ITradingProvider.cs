@@ -244,6 +244,37 @@ namespace AccessibleTrader.Sdk.Plugins
         /// </summary>
         bool ProvidesOrderStream => true;
 
+        /// <summary>
+        /// Whether this venue offers a practice environment AT ALL — a sandbox, testnet, demo or
+        /// paper account that a credential marked Paper can be signed against.
+        ///
+        /// <para>
+        /// <b>Why the order path needs this as a property rather than an inference.</b> A stored
+        /// credential carries the user's own label, Paper or Live. On a venue with a practice
+        /// environment the label picks the host and everything agrees. On a venue WITHOUT one
+        /// there is only the real venue, so a Paper-labelled key signs a real order against real
+        /// money while the dashboard, the banner and the user all say paper. Six venues are in
+        /// that position today (Bitstamp, Coinbase, Interactive Brokers, Kraken spot, MEXC and
+        /// Schwab) and Kraken Futures joined them when its demo was withdrawn.
+        /// </para>
+        ///
+        /// <para>
+        /// Inferring the same fact from <c>IMarketDataProvider.Environment</c> would work and is
+        /// what the first draft did; this is self-documenting, it cannot be confused with "which
+        /// environment am I currently pointed at", and a plugin author reading the SDK sees the
+        /// question asked in words. <b>The default is <c>true</c> and that is the permissive
+        /// direction</b> — a venue that forgets to override gets no refusal — so the conformance
+        /// suite asserts the false set by name.
+        /// </para>
+        ///
+        /// <para>
+        /// <c>GeneralOrderService</c> refuses, in words, when the credential in use is not marked
+        /// Live and this is <c>false</c>. That refusal is the only thing standing between a
+        /// mislabelled key and a real order on those venues.
+        /// </para>
+        /// </summary>
+        bool HasPracticeEnvironment => true;
+
         /// True (the default) when <see cref="OrderUpdateStream"/> is actually fed by a
         /// broker push channel. Providers whose stream is a dead subject (no streaming
         /// implementation — e.g. Schwab/Tradier v1) MUST override this to false so the

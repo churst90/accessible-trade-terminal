@@ -89,7 +89,7 @@ public sealed class ApiKeysProviderNameTests
                                      TestTemp.NewPath("at-apikeys-name-") + ".json");
 
         var data = new DataService(loader, NullLogger<DataService>.Instance,
-                                   Substitute.For<ICacheService>(), keys);
+                                   Substitute.For<ICacheService>(), keys, new CredentialInUseRegistry());
         await data.InitializeAsync(loader);
 
         var provider = new KeyedStockProvider();

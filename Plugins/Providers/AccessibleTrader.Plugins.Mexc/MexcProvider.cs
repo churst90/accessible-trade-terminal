@@ -91,6 +91,12 @@ namespace AccessibleTrader.Plugins.Mexc
         // polling so fills still announce.
         public bool SupportsOrderEventStreaming => _privateWs?.IsConnected ?? false;
 
+        /// <summary>No practice environment. MEXC offers no testnet for spot or futures.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         public override List<string> NativelySupportedTimeframes => new List<string>
         {
             StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes,

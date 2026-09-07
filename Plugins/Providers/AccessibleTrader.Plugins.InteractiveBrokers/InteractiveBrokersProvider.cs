@@ -66,6 +66,12 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
         // by polling — the default-true flag used to claim streaming regardless.
         public bool SupportsOrderEventStreaming => _ws?.IsConnected ?? false;
 
+        /// <summary>No practice environment. IBKR paper vs live is chosen by which account the GATEWAY logged in as, and the gateway does not tell this plugin which it was. Invisible here means it cannot be relied on here.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
+
         // Session keepalive timer
         private System.Timers.Timer? _tickleTimer;
 

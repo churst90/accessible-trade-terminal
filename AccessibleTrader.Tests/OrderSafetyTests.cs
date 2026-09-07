@@ -40,6 +40,12 @@ namespace AccessibleTrader.Tests
             var trading = (ITradingProvider)tp;
             trading.IsConnected.Returns(true);
             trading.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
+            // Same trap as SupportsOrderEventStreaming above: NSubstitute intercepts the
+            // HasPracticeEnvironment default interface member and answers FALSE, which arms the
+            // no-practice-venue refusal in every unrelated test. This fixture's venue is a
+            // generic one WITH a practice environment, so pin the real-world default; the
+            // refusal itself is proven on its own fixture in OrderRoutingSafetyTests.
+            trading.HasPracticeEnvironment.Returns(true);
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
             var err = Substitute.For<IGlobalErrorCoordinator>();
             var bus = new EventBus();
@@ -48,6 +54,7 @@ namespace AccessibleTrader.Tests
             // decide routing. Default (no setting) routes to the live provider above.
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
+            paper.HasPracticeEnvironment.Returns(true);
             var settings = Substitute.For<ISettingsManager>();
             // Full host mode → AllowLiveTrading true, so routing follows the (unset)
             // paperTradingMode setting and reaches the live provider substitute above.
@@ -254,6 +261,7 @@ namespace AccessibleTrader.Tests
             var tp2t = (ITradingProvider)tp2;
             tp2t.IsConnected.Returns(true);
             tp2t.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
+            tp2t.HasPracticeEnvironment.Returns(true);   // see BuildService — NSubstitute answers false
             tp2t.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK2"));
             data.GetProviderAsync("Coinbase").Returns(_ => Task.FromResult<IMarketDataProvider?>(tp2));
             tp1.PlaceOrderAsync(Arg.Any<TradeSignal>()).Returns(_ => Task.FromResult("OK1"));

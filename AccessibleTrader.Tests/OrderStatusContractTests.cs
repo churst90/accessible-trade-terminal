@@ -71,6 +71,7 @@ namespace AccessibleTrader.Tests
             var bus = new SpyEventBus();
             var paperStream = new Subject<OrderUpdate>();
             var paper = Substitute.For<IPaperTradingProvider>();
+            paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             paper.IsConnected.Returns(true);
             paper.OrderUpdateStream.Returns(paperStream);
             var settings = Substitute.For<ISettingsManager>();
@@ -147,6 +148,7 @@ namespace AccessibleTrader.Tests
             var (svc, bus, _) = BuildService();
             svc.OrderPollFastInterval = TimeSpan.FromMilliseconds(5);
             var tp = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tp).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             var live = (ITradingProvider)tp;
             live.IsConnected.Returns(true);
             live.SupportsOrderStatusQuery.Returns(true);

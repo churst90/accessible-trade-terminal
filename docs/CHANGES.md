@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Order routing safety, IMPLEMENTED — one credential per provider, a refusal at the chokepoint, and a dashboard that says "real money" (2026-09-07)
+
+`docs/ORDER_ROUTING_SAFETY_SCOPE.md` D1–D4, built. Suite **7,223** (was 7,215 before this pass
+began, 7,195 at the start of the day). Nothing has been sent to a real venue.
+
+**D4 — Schwab `previewOrder` is a dry run.** `SchwabProvider` implements `IOrderDryRunProvider`
+over `POST /trader/v1/accounts/{hash}/previewOrder`, built from `BuildSchwabOrder` — the same
+builder `PlaceOrderAsync` uses, so what the venue validates is what it would be asked to place.
+Accepted iff `orderValidationResult.rejects` is empty; a 400 or 422 is the venue's verdict, and
+everything else (401, 403, 404, 429, a transport fault) THROWS, per the SDK contract, so "could
+not ask" can never read as "the venue said no". Schwab has no sandbox at all, which makes this the
+only way to settle two things marked UNVERIFIED in `PROVIDER_PLACEMENT_AUDIT_2026-09-07.md` — the
+`duration: "GTC"` spelling on every bracket (published enum: `GOOD_TILL_CANCEL`) and whether
+option legs need `BUY_TO_OPEN`-style instructions — **with no order placed**. The rig joins the
+existing dry-run theories, so `Dry_run_sends_the_placement_payload_plus_only_the_validate_flag`
+covers Schwab with no new theory; the response schema is Schwab's published one and is read
+defensively because **it has not been seen from the venue.**
+
+**D1 — one credential in use per provider.** `ICredentialInUseRegistry` (a registered singleton in
+both heads) records the `ApiKeyConfig` that `DataService` last pushed into `provider.Configure` —
+the profile that chose the HOST. `IDataService.CredentialInUse(provider)` reads it, and **both
+checkout adapters now sign with it** through the shared `ApiKeyCheckoutResolution`, falling back
+to the old `GetKeyForProviderAsync` only when nothing has configured that provider yet. Before
+this the host could come from one stored profile and the signature from another: with a paper and
+a live profile stored for one venue, every order was signed with whichever was saved first,
+whatever was marked active. `IDataService.ReconfigureProviderAsync(provider, nickname)` pushes one
+named profile with **no `IsConfigured` skip** — that guard protects startup, and seven plugins
+declare `IsConfigured => true` unconditionally, so for them it fired every time and the user's
+choice was discarded. **`SetActiveKeyAsync`'s scope is now the PROVIDER, not provider+environment**:
+two active keys for one venue is what made "active" answer nothing.
+
+**D2 — the chokepoint refuses a Paper key on a venue with no practice environment.**
+`ITradingProvider.HasPracticeEnvironment` (default `true`) is declared `false` by Bitstamp,
+Coinbase, Interactive Brokers, Kraken spot, Kraken Futures, MEXC and Schwab.
+`GeneralOrderService.PlaceOrderAsync` refuses, in words, when the venue has no practice
+environment and the credential in use is not marked Live: *"Kraken has no practice venue and the
+key 'kraken-main' is marked Paper, so this order would be real. Mark that key Live to trade real
+money, or turn on Paper trading with F12."* A venue with no practice environment and NO recorded
+credential is refused too — uncertainty resolves to refuse. **F12 paper mode is untouched**: it
+routes to the simulator and never reaches this gate. The conformance suite's by-name pin is now
+also asserted against the plugins' own declaration, because the default is the permissive one and
+a plugin that forgets to override would otherwise be caught by nothing.
+
+**D3 — the dashboard.** The dropdown is the choice of record: it is labelled *"API key for this
+order"*, its options read *"live-main — Live, real money"* / *"sandbox — Paper, practice
+environment"*, and `OnKeyChanged` calls `ReconfigureProviderAsync` and **says so when that fails**
+rather than announcing a switch that did not happen. Opening the dashboard on a non-paper account
+speaks one sentence on the OrderEvent channel — *"Kraken: LIVE account 'live-main'. Orders here
+are real money."* — after focus lands; the banners stay visual, because a second live region
+carrying the same sentence is how Orca came to drop both copies. **The review gate is now
+fail-safe**: anything not explicitly `"Paper"` is reviewed, so a legacy profile with an empty
+environment gets the spoken review instead of going straight out. The Mode cell and the live
+banner name the key. The status bar gained a **LIVE badge** symmetrical to PAPER — until now
+"real money" was conveyed by the ABSENCE of the paper badge, and an absence is not something a
+screen-reader user can navigate to.
+
+**Proven by sabotage, each red then green:** the dry run posting to `/orders` instead of
+`/previewOrder`; the preview ignoring `rejects`; the `IsLive` check removed from the chokepoint
+(3 rows red); the review gate reverted to `== "Live"`; `OnKeyChanged` not reconfiguring; the
+open-time sentence suppressed; Kraken claiming a practice environment.
+
+**A trap worth recording.** `HasPracticeEnvironment` is a default interface member defaulting to
+`true`, and **NSubstitute answers `false` to it** — so adding it armed the refusal in 26 unrelated
+tests across eleven fixtures whose substituted venue is a generic one with a sandbox. Same shape
+as `SupportsOrderEventStreaming` before it, and the same fix: pin the real-world default at the
+fixture with a comment saying why.
+
 ### SCOPE ONLY — order routing safety: the key switcher that does not switch (2026-09-07)
 
 `docs/ORDER_ROUTING_SAFETY_SCOPE.md`, written for Cody's three asks (a Paper key must never route

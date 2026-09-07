@@ -33,12 +33,19 @@
                 
                 @if (_availableKeys.Any())
                 {
+                    @* The label says what the control DOES. "Switch API Key" named an action this
+                       control did not perform: it flipped a flag and announced a switch, while the
+                       key that signed came from a lookup that read neither the flag nor the
+                       environment. It is now the choice of record — see OnKeyChanged. *@
                     <div class="key-selector">
-                        <label for="key-select" style="font-size: 0.8rem; color: var(--text-muted); margin-right: 8px;">Switch API Key:</label>
+                        <label for="key-select" style="font-size: 0.8rem; color: var(--text-muted); margin-right: 8px;">API key for this order:</label>
                         <select id="key-select" value="@_activeKeyNickname" @onchange="OnKeyChanged" style="padding: 4px; background: #222; color: #fff; border: 1px solid var(--border-color);">
                             @foreach (var key in _availableKeys)
                             {
-                                <option value="@key.Nickname">@key.Nickname (@key.Environment)</option>
+                                @* The CONSEQUENCE, not the vocabulary. "Live" is a word; "real money"
+                                   is what it costs, and the option text is the only place a user
+                                   arrowing through this list hears either. *@
+                                <option value="@key.Nickname">@KeyOptionText(key)</option>
                             }
                         </select>
                     </div>
@@ -60,7 +67,7 @@
             }
             else if (_isLiveEnvironment)
             {
-                <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk.</div>
+                <div class="alert-box danger">⚠ LIVE TRADING — Real funds at risk@(string.IsNullOrEmpty(_activeKeyNickname) ? "" : $" (key: {_activeKeyNickname})").</div>
             }
 
                 <div class="dashboard-grid">
@@ -93,7 +100,7 @@
                                 <div class="stat"><span>Price</span><strong>@GetLastPrice()</strong></div>
                                 @* "Env: None" was accurate and meaningless — it is what shows when no API keys are
    configured, which is a thing the user can act on and "None" does not tell them. *@
-<div class="stat"><span>Mode</span><strong>@(_paperMode ? "Paper (simulated)" : (_availableKeys.Any() ? (_isLiveEnvironment ? "Live" : "Paper") : "No API key"))</strong></div>
+<div class="stat"><span>Mode</span><strong>@ModeCellText()</strong></div>
                             </div>
                         </section>
 
@@ -1137,7 +1144,7 @@
         // the saved setting. (There are also no live broker keys in these modes — the API-keys
         // modal is gated off — so this is belt-and-suspenders over the no-keys backstop.)
         _paperMode = !Demo.AllowLiveTrading
-            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+            || (Settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
 
         // No chart is not a reason to refuse to open. It used to be: this method
         // returned here, so pressing Alt+T with no chart focused produced a dialog
@@ -1186,6 +1193,24 @@
         // would otherwise never hear it. Only the trading-only work is gated.
         await Task.Yield();
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "trade-title"); } catch { }
+
+        // ── Say which account this is, ONCE, after focus lands ──────────────────────
+        // The two banners above are visual only and stay that way: the status bar's own comment
+        // records why a second live region repeating the same sentence is how Orca came to drop
+        // BOTH copies. This is a one-shot utterance on the OrderEvent channel instead, after the
+        // heading has taken focus so it is not cut off by the dialog's own name.
+        //
+        // It is not decoration. For a screen-reader user nothing on this screen said "you are
+        // about to spend real money" until the review text — and the review was skipped for
+        // exactly the keys that most needed it.
+        if (!_paperMode)
+        {
+            var openKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
+            if (openKey != null)
+                EventBus.Publish(new FeedbackRequestEvent(
+                    FeedbackType.StateChange, EnvironmentSentence(provider, openKey),
+                    Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
+        }
 
         await LoadAccountDataAsync();
         await RefreshBookAsync();
@@ -1608,9 +1633,16 @@
     private void RefreshTradingEnvironment()
     {
         _paperMode = !Demo.AllowLiveTrading
-            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+            || (Settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
         var activeKey = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
-        _isLiveEnvironment = !_paperMode && activeKey?.Environment == "Live";
+        // FAIL-SAFE, and the polarity is the whole point. This used to be `== "Live"`, so anything
+        // that was not exactly that word — a key labelled Paper on one of the six venues with no
+        // practice environment, or a legacy profile whose environment is empty — skipped the
+        // spoken review entirely and went straight out. The dangerous case was the quiet one.
+        // Anything not explicitly Paper is now reviewed.
+        _isLiveEnvironment = !_paperMode
+            && activeKey != null
+            && !string.Equals(activeKey.Environment, "Paper", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -1655,16 +1687,79 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// <b>A control that names an action is a claim.</b> This one said "Switch API Key" and did
+    /// not switch the key: it flipped <c>IsActive</c> and spoke, while the credential that
+    /// actually signed came from a lookup blind to that flag, and the HOST stayed whatever the
+    /// startup loop had configured first. Both halves now come from
+    /// <c>IDataService.ReconfigureProviderAsync</c>, which pushes this exact profile into the
+    /// provider and records it as the credential in use.
+    ///
+    /// <para>The reconfigure can fail — a renamed profile, a provider nothing answers to — and
+    /// when it does the old credential is still the one that signs. Saying so is not optional:
+    /// the user has just been told the key changed, and the next order would go out on the other
+    /// account.</para>
+    /// </summary>
     private async Task OnKeyChanged(ChangeEventArgs e)
     {
         _activeKeyNickname = e.Value?.ToString() ?? "";
-        await ApiKeyService.SetActiveKeyAsync(_activeKeyNickname);
-        
-        // Announce key change
         var key = _availableKeys.FirstOrDefault(k => k.Nickname == _activeKeyNickname);
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Switched to API key {key?.Nickname} ({key?.Environment})", true));
-        
+        await ApiKeyService.SetActiveKeyAsync(_activeKeyNickname);
+
+        var provider = Store.State.Identity.Provider ?? "";
+        var inUse = string.IsNullOrEmpty(provider)
+            ? null
+            : await Data.ReconfigureProviderAsync(provider, _activeKeyNickname);
+
+        // Re-read the stored profiles: SetActiveKeyAsync has just moved the active flag, and this
+        // list is what the review gate and the Mode cell are computed from.
+        if (!string.IsNullOrEmpty(provider))
+            _availableKeys = await ApiKeyService.GetKeysForProviderAsync(provider);
+        RefreshTradingEnvironment();
+        EventBus.Publish(new ApiKeysChangedEvent(provider));
+
+        if (inUse == null)
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
+                $"Could not switch to '{_activeKeyNickname}'. {(string.IsNullOrEmpty(provider) ? "No chart is focused, so there is no provider to configure." : $"{provider} is still signing with the key it had.")}",
+                true));
+        }
+        else
+        {
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                EnvironmentSentence(provider, inUse), true));
+        }
+
         await LoadAccountDataAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// One sentence, used on open and on every key change, so the two can never disagree about
+    /// what this account is. It names the CONSEQUENCE — a screen-reader user gets no colour, no
+    /// banner and no red border, and "Live" on its own is a word rather than a warning.
+    /// </summary>
+    private static string EnvironmentSentence(string provider, ApiKeyConfig key) =>
+        string.Equals(key.Environment, "Paper", StringComparison.OrdinalIgnoreCase)
+            ? $"{provider}: paper account '{key.Nickname}' — a practice environment, no real money."
+            : $"{provider}: LIVE account '{key.Nickname}'. Orders here are real money.";
+
+    /// <summary>What one row of the key dropdown reads as. Anything not explicitly Paper is
+    /// announced as live, matching the review gate exactly — a legacy profile with no environment
+    /// is a live key until someone says otherwise.</summary>
+    private static string KeyOptionText(ApiKeyConfig key) =>
+        string.Equals(key.Environment, "Paper", StringComparison.OrdinalIgnoreCase)
+            ? $"{key.Nickname} — Paper, practice environment"
+            : $"{key.Nickname} — Live, real money";
+
+    /// <summary>The Mode cell. Names the KEY as well as the environment: with two profiles stored
+    /// for one venue, "Live" alone does not say which account is about to be traded.</summary>
+    private string ModeCellText()
+    {
+        if (_paperMode) return "Paper (simulated)";
+        if (!_availableKeys.Any()) return "No API key";
+        string word = _isLiveEnvironment ? "Live" : "Paper";
+        return string.IsNullOrEmpty(_activeKeyNickname) ? word : $"{word} — {_activeKeyNickname}";
     }
 
     private async Task RefreshAccount() => await LoadAccountDataAsync();

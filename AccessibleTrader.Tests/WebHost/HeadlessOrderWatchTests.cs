@@ -544,6 +544,7 @@ public class HeadlessOrderWatchTests : IDisposable
             bool subscribeSucceeds = true)
         {
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             Trading = (ITradingProvider)tpSub;
             // NSubstitute intercepts the default interface member and would answer FALSE, which
             // would make every watch test exercise the "cannot stream" path instead of the one
@@ -868,6 +869,7 @@ public class HeadlessOrderWatchTests : IDisposable
         // MEXC spot requires a symbol on the open-orders endpoint. Giving up at the first
         // throw would call a perfectly healthy account unreadable.
         var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+        ((ITradingProvider)tpSub).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
         var tp = (ITradingProvider)tpSub;
         tp.GetOpenOrdersAsync().Returns<Task<List<OpenOrder>>>(_ => throw new InvalidOperationException("symbol required"));
         tp.GetPositionsAsync().Returns(new List<Position> { new("BTC/USD", 1, 100, 100, 0) });

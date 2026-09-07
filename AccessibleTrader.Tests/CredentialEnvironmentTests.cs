@@ -49,7 +49,8 @@ namespace AccessibleTrader.Tests
                 Substitute.For<IPluginLoaderService>(),
                 NullLogger<DataService>.Instance,
                 Substitute.For<ICacheService>(),
-                keys);
+                keys,
+                new CredentialInUseRegistry());
 
             Dictionary<string, string>? captured = null;
             var provider = Substitute.For<IMarketDataProvider>();

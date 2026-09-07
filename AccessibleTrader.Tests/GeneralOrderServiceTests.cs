@@ -51,6 +51,12 @@ namespace AccessibleTrader.Tests
             // member and would return false — which silently starts the polling
             // fallback in every unrelated test. Pin the real-world default.
             live.SupportsOrderEventStreaming.Returns(true);
+            // Same trap as SupportsOrderEventStreaming above: NSubstitute intercepts the
+            // HasPracticeEnvironment default interface member and answers FALSE, which arms the
+            // no-practice-venue refusal in every unrelated test. This fixture's venue is a
+            // generic one WITH a practice environment, so pin the real-world default; the
+            // refusal itself is proven on its own fixture in OrderRoutingSafetyTests.
+            live.HasPracticeEnvironment.Returns(true);
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tp));
 
             var err = Substitute.For<IGlobalErrorCoordinator>();
@@ -58,6 +64,7 @@ namespace AccessibleTrader.Tests
             var paperStream = new Subject<OrderUpdate>();
             var paper = Substitute.For<IPaperTradingProvider>();
             paper.IsConnected.Returns(true);
+            paper.HasPracticeEnvironment.Returns(true);
             // Must be wired BEFORE construction: the service subscribes to the paper
             // stream for its whole lifetime in the constructor.
             paper.OrderUpdateStream.Returns(paperStream);

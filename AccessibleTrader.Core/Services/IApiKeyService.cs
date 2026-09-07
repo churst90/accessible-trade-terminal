@@ -14,7 +14,9 @@ namespace AccessibleTrader.Core.Services
         // "Paper" or "Live". Shown prominently in the API Keys modal.
         string Environment = "Paper",
         // True when this profile is the one currently used for trading sessions.
-        // Only one profile per provider+environment combination should be active.
+        // Exactly one profile per PROVIDER is active (see SetActiveKeyAsync). It was
+        // provider+environment until 2026-09-07, which allowed two active keys for one
+        // venue and made "active" ambiguous about which one signed.
         bool IsActive = false,
 
         // True only for a profile deliberately created to move funds OFF the venue.

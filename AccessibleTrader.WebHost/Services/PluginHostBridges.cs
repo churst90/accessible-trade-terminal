@@ -43,8 +43,8 @@ namespace AccessibleTrader.WebHost.Services
     {
         private readonly WebHostApiKeyCheckoutAdapter _inner;
 
-        public PluginHostApiKeyBridge(IApiKeyService apiKeys, ILogger<WebHostApiKeyCheckoutAdapter>? logger = null)
-            => _inner = new WebHostApiKeyCheckoutAdapter(apiKeys, tracker: null, logger: logger);
+        public PluginHostApiKeyBridge(IApiKeyService apiKeys, ICredentialInUseRegistry inUse, ILogger<WebHostApiKeyCheckoutAdapter>? logger = null)
+            => _inner = new WebHostApiKeyCheckoutAdapter(apiKeys, inUse, tracker: null, logger: logger);
 
         public Task<ApiKeyCheckoutResult> CheckoutAsync(
             string providerId, string marketType = "Spot", CancellationToken ct = default)

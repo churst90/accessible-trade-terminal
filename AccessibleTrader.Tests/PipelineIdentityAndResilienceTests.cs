@@ -532,7 +532,8 @@ namespace AccessibleTrader.Tests
                 Substitute.For<IPluginLoaderService>(),
                 NullLogger<DataService>.Instance,
                 Substitute.For<ICacheService>(),
-                apiKeys);
+                apiKeys,
+                new CredentialInUseRegistry());
 
             // No injection point for providers — the real list is built by plugin
             // discovery. Reflection is how the existing suite reaches these internals

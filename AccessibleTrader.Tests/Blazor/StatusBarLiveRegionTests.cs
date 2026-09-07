@@ -40,6 +40,12 @@ public sealed class StatusBarLiveRegionTests
         ctx.Services.AddSingleton<IEventBus>(bus);
         ctx.Services.AddSingleton<ISettingsManager>(Substitute.For<ISettingsManager>());
         ctx.Services.AddSingleton(new DemoPolicy(isDemo: false));
+        // The strip reads the key store to decide whether the LIVE badge belongs there. A bare
+        // substitute answers null for GetAllKeysAsync, which NSubstitute cannot await — give it
+        // an empty list, i.e. "no keys, so nothing is live".
+        var keys = Substitute.For<IApiKeyService>();
+        keys.GetAllKeysAsync().Returns(_ => Task.FromResult(new List<ApiKeyConfig>()));
+        ctx.Services.AddSingleton(keys);
         return (ctx, bus);
     }
 

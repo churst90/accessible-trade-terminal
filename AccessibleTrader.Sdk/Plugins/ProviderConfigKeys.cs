@@ -76,7 +76,15 @@ namespace AccessibleTrader.Sdk.Plugins
         /// should be answered, so a plugin cannot get the polarity backwards.
         /// </summary>
         public static bool IsLive(IReadOnlyDictionary<string, string> config) =>
-            config.TryGetValue(Environment, out var env)
-            && string.Equals(env, Live, System.StringComparison.OrdinalIgnoreCase);
+            config.TryGetValue(Environment, out var env) && IsLive(env);
+
+        /// <summary>
+        /// The same question asked of a bare environment string — the value a stored key carries.
+        /// <b>The polarity is fail-safe and must stay that way:</b> only the exact word
+        /// <see cref="Live"/> means the real venue, so an empty environment (every profile stored
+        /// before that field existed) reads as practice rather than as real money.
+        /// </summary>
+        public static bool IsLive(string? environment) =>
+            string.Equals(environment, Live, System.StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -230,17 +230,25 @@ namespace AccessibleTrader.Core.Services
                         $"{nickname} is a withdrawal profile. It is used automatically for withdrawals "
                       + "and cannot be made the active trading profile.");
 
-                // Deactivate other profiles for same provider+environment, activate this one.
+                // Deactivate every other profile for this PROVIDER, activate this one.
+                //
+                // ── Why the scope is the provider and not provider+environment ────────────
+                // It used to be provider+environment, so a Paper key and a Live key for one
+                // venue could both be active at once and "active" answered nothing: whichever
+                // the startup loop reached first chose the HOST, and the signature came from a
+                // lookup that read neither flag. One active key per provider is what makes the
+                // dashboard's switcher a choice rather than an announcement — and the API-keys
+                // dialog shows the environment on every row, so nothing is lost by it.
+                //
+                // ProviderNames.Match, not string equality: a store can hold the same
+                // provider under two spellings (an older profile saved as "TwelveData"
+                // beside a new "Twelve Data" one). Both are that provider, so exactly
+                // one of them may be active — otherwise the lookup picks whichever it
+                // reaches first and the user cannot tell which key is in use.
                 for (int i = 0; i < _cache.Count; i++)
                 {
                     var m = _cache[i];
-                    // ProviderNames.Match, not string equality: a store can hold the same
-                    // provider under two spellings (an older profile saved as "TwelveData"
-                    // beside a new "Twelve Data" one). Both are that provider, so exactly
-                    // one of them may be active — otherwise the lookup picks whichever it
-                    // reaches first and the user cannot tell which key is in use.
-                    if (ProviderNames.Match(m.Provider, target.Provider) &&
-                        m.Environment.Equals(target.Environment, StringComparison.OrdinalIgnoreCase))
+                    if (ProviderNames.Match(m.Provider, target.Provider))
                     {
                         _cache[i] = m with { IsActive = m.Nickname == nickname };
                     }

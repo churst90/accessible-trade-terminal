@@ -435,6 +435,8 @@ namespace AccessibleTrader.Tests
             var captured = new List<TradeSignal>();
 
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            ((ITradingProvider)tpSub).HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             var tp = (ITradingProvider)tpSub;
             tp.IsConnected.Returns(true);
             tp.SupportsOrderEventStreaming.Returns(true);
@@ -449,6 +451,8 @@ namespace AccessibleTrader.Tests
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tpSub));
 
             var paper = Substitute.For<IPaperTradingProvider>();
+            paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
+            paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             paper.OrderUpdateStream.Returns(new System.Reactive.Subjects.Subject<OrderUpdate>());
 
             var svc = new GeneralOrderService(

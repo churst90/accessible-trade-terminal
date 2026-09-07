@@ -48,9 +48,11 @@ namespace AccessibleTrader.Tests
             tp.IsConnected.Returns(true);
             tp.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
             tp.SupportsOrderEventStreaming.Returns(true);
+            tp.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>((IMarketDataProvider)tp));
 
             var paper = Substitute.For<IPaperTradingProvider>();
+            paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
             paper.IsConnected.Returns(true);
             paper.OrderUpdateStream.Returns(Observable.Empty<OrderUpdate>());
 

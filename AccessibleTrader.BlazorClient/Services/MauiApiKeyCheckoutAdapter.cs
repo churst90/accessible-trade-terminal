@@ -33,6 +33,7 @@ namespace AccessibleTrader.BlazorClient.Services
     public sealed class MauiApiKeyCheckoutAdapter : IApiKeyCheckout
     {
         private readonly IApiKeyService _apiKeys;
+        private readonly ICredentialInUseRegistry _inUse;
         private readonly CheckoutLatencyTracker? _tracker;
         private readonly ILogger<MauiApiKeyCheckoutAdapter>? _logger;
 
@@ -44,10 +45,12 @@ namespace AccessibleTrader.BlazorClient.Services
 
         public MauiApiKeyCheckoutAdapter(
             IApiKeyService apiKeys,
+            ICredentialInUseRegistry inUse,
             CheckoutLatencyTracker? tracker = null,
             ILogger<MauiApiKeyCheckoutAdapter>? logger = null)
         {
             _apiKeys = apiKeys;
+            _inUse = inUse;
             _tracker = tracker;
             _logger = logger;
         }
@@ -60,13 +63,7 @@ namespace AccessibleTrader.BlazorClient.Services
             var sw = Stopwatch.StartNew();
             try
             {
-                // GetKeyForProviderAsync returns the first profile matching
-                // (provider, marketType). If it returns null there is no profile
-                // configured — callers should treat that as "not configured".
-                // We do not fall back to GetActiveKeyForProviderAsync because the
-                // active-flag semantics are tied to Paper vs Live environment,
-                // and providers usually pick the right Environment themselves.
-                var cfg = await _apiKeys.GetKeyForProviderAsync(providerId, marketType).ConfigureAwait(false);
+                var cfg = await ApiKeyCheckoutResolution.ResolveAsync(_inUse, _apiKeys, providerId, marketType).ConfigureAwait(false);
                 if (cfg == null || string.IsNullOrEmpty(cfg.ApiKey))
                     return ApiKeyCheckoutResult.None;
 

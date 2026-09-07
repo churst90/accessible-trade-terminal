@@ -3,6 +3,7 @@
 @inject IEventBus EventBus
 @inject ISettingsManager Settings
 @inject DemoPolicy Demo
+@inject IApiKeyService ApiKeyService
 @implements IDisposable
 
 @* A landmark, not a bare <div>. This strip carries the PAPER badge — the one persistent
@@ -61,6 +62,20 @@
             PAPER
         </span>
     }
+    @* The MISSING half. Until 2026-09-07 the only signal in this strip was the PAPER badge, so
+       "real money" was conveyed by the ABSENCE of something — and an absence is not a signal a
+       screen-reader user can navigate to, ask about, or notice. It reads the same way the paper
+       badge does (role="img" with a name), so browse-mode navigation finds either one. *@
+    else if (_liveCapable)
+    {
+        <span class="live-indicator" role="img" aria-label="Live trading — real money" title="Live trading — real money">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle cx="8" cy="8" r="6" fill="#3a1414" stroke="#ff5252" stroke-width="1.2" />
+                <circle cx="8" cy="8" r="2.5" fill="#ff5252" />
+            </svg>
+            LIVE
+        </span>
+    }
 </section>
 
 <style>
@@ -80,6 +95,16 @@
     .status-text {
         color: #4ec9b0;
     }
+    .live-indicator {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #ff5252;
+        font-weight: bold;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
     .paper-indicator {
         margin-left: auto;
         display: inline-flex;
@@ -95,15 +120,21 @@
 @code {
     private string _lastMessage = "Ready";
     private bool _paperMode;
+    /// <summary>True when at least one stored trading profile would sign against a real venue.
+    /// The polarity is fail-safe and matches the review gate: anything NOT explicitly marked
+    /// Paper counts as live, so a legacy profile with an empty environment lights the badge
+    /// rather than hiding behind it.</summary>
+    private bool _liveCapable;
     private IDisposable? _eventSub;
     private IDisposable? _paperSub;
+    private IDisposable? _keysSub;
 
     protected override void OnInitialized()
     {
         // Hosted/demo builds are paper-only, so the indicator is always on there; elsewhere it
         // follows the saved setting.
         _paperMode = !Demo.AllowLiveTrading
-            || (Settings.GetSetting("trading.paperTradingMode")?.ToObject<bool>() ?? false);
+            || (Settings.GetSetting(SettingsKeys.PaperTradingMode)?.ToObject<bool>() ?? false);
 
         _eventSub = EventBus.Subscribe<FeedbackRequestEvent>(ev => {
             if (!string.IsNullOrEmpty(ev.Message))
@@ -117,11 +148,34 @@
             _paperMode = ev.Enabled;
             InvokeAsync(StateHasChanged);
         });
+
+        // Saving, deleting or switching a key changes whether real money is reachable.
+        _keysSub = EventBus.Subscribe<ApiKeysChangedEvent>(_ => InvokeAsync(RefreshLiveCapableAsync));
+    }
+
+    protected override async Task OnInitializedAsync() => await RefreshLiveCapableAsync();
+
+    private async Task RefreshLiveCapableAsync()
+    {
+        try
+        {
+            var keys = await ApiKeyService.GetAllKeysAsync();
+            _liveCapable = keys.Any(k => !k.AllowsWithdrawal
+                                      && !string.IsNullOrEmpty(k.ApiKey)
+                                      && !string.Equals(k.Environment, "Paper", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            // A key store that cannot be read is not evidence that nothing is live, but the badge
+            // has nothing honest to say either. Leave it as it was.
+        }
+        StateHasChanged();
     }
 
     public void Dispose()
     {
         _eventSub?.Dispose();
         _paperSub?.Dispose();
+        _keysSub?.Dispose();
     }
 }

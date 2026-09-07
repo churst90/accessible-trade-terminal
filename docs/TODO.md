@@ -117,6 +117,70 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-07, THIRTY-SIXTH pass — ORDER ROUTING SAFETY IS BUILT.
+> One credential per provider, a refusal at the chokepoint, and a dashboard that says "real
+> money".** Suite **7,223**. `docs/ORDER_ROUTING_SAFETY_SCOPE.md` D1–D4 are all done; that
+> document is now a record rather than a work order. **Nothing has been sent to a real venue.**
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A control that names an action is a claim, and the claim has to be checked.** "Switch API
+>   Key" flipped a flag and spoke; the key that signed came from a lookup blind to that flag,
+>   and the HOST stayed whatever startup configured first. Three parts of the app held three
+>   different opinions about which key an order used and none of them was authoritative.
+> - **Two write paths for one fact is one fact too many.** Host from `Configure`, signature from
+>   `GetKeyForProviderAsync`. They could disagree, and on the six venues with no practice
+>   environment the disagreement was a real order on a key labelled Paper.
+> - **A skip that protects startup is a skip that discards a user's choice.**
+>   `ConfigureStoredKeyProvidersAsync`'s `IsConfigured` guard is right for the boot loop and
+>   exactly wrong for "the user picked this key" — and seven plugins declare `IsConfigured`
+>   unconditionally, so for them it fired every time.
+> - **A safety gate keyed on a LABEL is skipped by exactly the label that needs it.** The live
+>   review armed on `Environment == "Live"`, so a Paper-marked key on a no-practice venue, and
+>   every legacy profile whose environment is empty, sent with no review. Fail-safe now: anything
+>   not explicitly Paper is reviewed.
+> - **An ABSENCE is not a signal.** The status bar's only badge was PAPER, so "real money" was
+>   conveyed by nothing being there — unnavigable, unaskable, unnoticeable. There is a LIVE badge.
+> - **A default interface member's default does not reach a mock.** `HasPracticeEnvironment`
+>   defaults `true`; NSubstitute answers `false`, which armed the refusal in 26 unrelated tests.
+>   Second instance after `SupportsOrderEventStreaming`. **Adding a default-true member to
+>   `ITradingProvider` means auditing every fixture that substitutes it.**
+>
+> ### 2. DECISIONS MADE (both were flagged for Cody; the recommended option was taken)
+>
+> - **One active key per PROVIDER**, not per provider+environment. Two active keys for one venue
+>   is what made "active" ambiguous. Nothing is lost: the API-keys dialog shows the environment
+>   on every row.
+> - **A Paper-labelled key on a venue with no practice environment is REFUSED**, not routed live.
+>   **This will surprise:** legacy profiles carry an empty environment and are treated as Paper,
+>   so on Bitstamp, Coinbase, IBKR, Kraken spot, MEXC and Schwab they now refuse until re-saved
+>   as Live. That is the fail-safe direction and it is reversible in one line
+>   (`GeneralOrderService`, the `HasPracticeEnvironment` block) if Cody wants the old behaviour.
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **Schwab's `previewOrder` response schema is UNREAD.** The code follows Schwab's published
+>   shape and is read defensively; the accept/reject verdict is `rejects` being empty. Nothing
+>   has been sent.
+> - **No dry run has reached any venue.** Kraken, Binance, Tradier and now Schwab are wired.
+> - The MAUI head was not compiled here (no workload on this box) — `MauiApiKeyCheckoutAdapter`
+>   and its registration changed. The maui-windows CI job is the first compile.
+> - `GetActiveKeyForProviderAsync` still has no production caller.
+>
+> ### 4. NEXT — in this order
+>
+> 1. **Send the dry runs to real venues.** Tradier sandbox first (free signup, `preview=true`):
+>    it settles the `gtc`-on-market question and proves the bracket form. Then Schwab
+>    `previewOrder` and Kraken `validate=true` **with Cody present — those keys are LIVE.**
+>    Schwab settles the `GTC` spelling (`BrokerParityTests.cs:165` pins `"GTC"`; the published
+>    enum reads `GOOD_TILL_CANCEL`) and the option-leg instructions.
+> 2. **The order stream.** Alpaca paper is the only reachable venue with a push channel. Drive it
+>    to a real fill.
+> 3. Background monitor Phase 3.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-07, THIRTY-FIFTH pass — SCOPE ONLY: order routing safety.
 > Cody's three asks, read into the code and written up in `docs/ORDER_ROUTING_SAFETY_SCOPE.md`.
 > NOTHING IMPLEMENTED.** Read that document first; it is the work order.

@@ -34,7 +34,7 @@ namespace AccessibleTrader.Plugins.Schwab
     /// streamer (ACCT_ACTIVITY) remain out of scope; order updates arrive via
     /// the order-status polling fallback.
     /// </summary>
-    public sealed class SchwabProvider : BaseMarketDataProvider, ITradingProvider
+    public sealed class SchwabProvider : BaseMarketDataProvider, ITradingProvider, IOrderDryRunProvider
     {
         private const string ApiBase       = "https://api.schwabapi.com";
         private const string TraderV1      = ApiBase + "/trader/v1";
@@ -65,6 +65,12 @@ namespace AccessibleTrader.Plugins.Schwab
         /// A constant false here is a STATIC fact; Alpaca's is dynamic, and conflating the
         /// two wrote a working venue off permanently on 2026-09-07.</summary>
         public bool ProvidesOrderStream => false;
+
+        /// <summary>No practice environment. Schwab has no sandbox at all. previewOrder (see DryRunOrderAsync) is the substitute: the real venue validates an order it does not place.
+        /// A credential marked Paper here would sign a REAL order, so
+        /// <c>GeneralOrderService</c> refuses it. See
+        /// <see cref="ITradingProvider.HasPracticeEnvironment"/>.</summary>
+        public bool HasPracticeEnvironment => false;
 
         public bool SupportsOrderEventStreaming => false;
 
@@ -739,6 +745,130 @@ namespace AccessibleTrader.Plugins.Schwab
                 _errorStream.OnNext($"Schwab order error: {ex.GetType().Name}");
                 return $"ORDER_FAILED:{ex.GetType().Name}";
             }
+        }
+
+
+        // ── Dry run: Schwab's own verdict on an order it does not place ──────
+
+        /// <summary>
+        /// <b>The venue validates the REAL order body and places nothing.</b>
+        ///
+        /// <para>The payload comes from <see cref="BuildSchwabOrder"/> — the same builder
+        /// <see cref="PlaceOrderAsync"/> uses — because a dry run that constructs its own body
+        /// validates nothing about the order that would actually be sent. The ONLY difference on
+        /// the wire is the endpoint: <c>/previewOrder</c> instead of <c>/orders</c>. The
+        /// conformance suite asserts the two decoded orders are identical.</para>
+        ///
+        /// <para><b>What this is for.</b> Two things about Schwab's order form are recorded
+        /// UNVERIFIED in <c>docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md</c>: the
+        /// <c>duration: "GTC"</c> spelling on every bracket (the published enum reads
+        /// <c>GOOD_TILL_CANCEL</c>) and whether option legs need <c>BUY_TO_OPEN</c>-style
+        /// instructions. Schwab has no sandbox, so this endpoint is the only way to settle either
+        /// against the real venue with no order placed and no money at risk.</para>
+        ///
+        /// <para><b>The response shape is Schwab's published schema and is UNVERIFIED here</b> —
+        /// nothing has been sent to the venue. It is read defensively: the verdict is
+        /// <c>rejects</c> being empty, and every other field is optional decoration.</para>
+        ///
+        /// <para>Per the <see cref="IOrderDryRunProvider"/> contract a transport or credential
+        /// failure THROWS, so a caller cannot mistake "could not ask" for "the venue said no".
+        /// Only a 400 or 422 — the codes that carry the venue's own complaint about the order —
+        /// come back as a rejection.</para>
+        /// </summary>
+        public async Task<OrderDryRunResult> DryRunOrderAsync(TradeSignal signal)
+        {
+            if (!IsConnected)
+                throw new InvalidOperationException("Schwab: no account is connected, so the venue cannot be asked.");
+
+            var order = BuildSchwabOrder(signal);
+            if (order == null) return new OrderDryRunResult(false, "Unsupported order type");
+
+            string body;
+            try
+            {
+                body = await _rateLimiter.ExecuteOnceAsync(async () =>
+                {
+                    var url  = $"{TraderV1}/accounts/{_primaryAccountHash}/previewOrder";
+                    var json = JsonConvert.SerializeObject(order);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    return (await SendWithAuthCoreAsync(HttpMethod.Post, url, content).ConfigureAwait(false)).Body;
+                }).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+                when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity)
+            {
+                // The body is in the message (SendWithAuthCoreAsync puts it there) and it is the
+                // venue's reason. Anything else — 401, 403, 404, 429, no status at all — is
+                // "could not ask", and the contract says that throws.
+                return new OrderDryRunResult(false, ex.Message);
+            }
+
+            return ReadPreviewVerdict(body);
+        }
+
+        /// <summary>Test seam: the verdict reader, so the response shapes can be pinned without
+        /// a transport. See <see cref="DryRunOrderAsync"/> for why the schema is unverified.</summary>
+        internal static OrderDryRunResult ReadPreviewVerdict(string body)
+        {
+            JObject root;
+            try { root = JObject.Parse(body); }
+            catch (JsonException)
+            {
+                // A preview that cannot be read is not a preview that passed.
+                return new OrderDryRunResult(false, $"Schwab returned an unreadable preview: {body}");
+            }
+
+            var result  = root["orderValidationResult"];
+            var rejects = Complaints(result?["rejects"]);
+            if (rejects.Count > 0)
+                return new OrderDryRunResult(false, string.Join("; ", rejects));
+
+            var notes = Complaints(result?["warns"])
+                .Concat(Complaints(result?["reviews"]))
+                .Concat(Complaints(result?["alerts"]))
+                .ToList();
+
+            var text = new StringBuilder("Schwab validated the order (nothing was placed)");
+            double? cost = TotalCommissionAndFee(root["commissionAndFee"]);
+            if (cost is > 0) text.Append($". Estimated commission and fees {cost.Value.ToString("0.##", CultureInfo.InvariantCulture)}");
+            if (notes.Count > 0) text.Append(". ").Append(string.Join("; ", notes));
+            return new OrderDryRunResult(true, text.ToString());
+        }
+
+        /// <summary>One line per item in a <c>rejects</c>/<c>warns</c>/<c>reviews</c>/<c>alerts</c>
+        /// array, in the venue's own words.</summary>
+        private static List<string> Complaints(JToken? array)
+        {
+            var list = new List<string>();
+            if (array is not JArray items) return list;
+            foreach (var item in items)
+            {
+                string? line = item["activityMessage"]?.ToString();
+                if (string.IsNullOrWhiteSpace(line)) line = item["message"]?.ToString();
+                if (string.IsNullOrWhiteSpace(line)) line = item["validationRuleName"]?.ToString();
+                if (string.IsNullOrWhiteSpace(line)) line = item.ToString(Formatting.None);
+                if (!string.IsNullOrWhiteSpace(line)) list.Add(line!.Trim());
+            }
+            return list;
+        }
+
+        /// <summary>The cost of the order as Schwab prices it. The published shape nests the
+        /// numbers several levels down (<c>commission.commissionLegs[].commissionValues[].value</c>
+        /// and the matching <c>fee</c> tree), so every <c>value</c> beneath the node is summed
+        /// rather than a path being guessed at. UNVERIFIED against the venue; a wrong sum only
+        /// changes a number in a sentence, never the accept/reject verdict.</summary>
+        private static double? TotalCommissionAndFee(JToken? node)
+        {
+            if (node == null) return null;
+            double total = 0; bool any = false;
+            foreach (var v in node.SelectTokens("$..value"))
+            {
+                if (v.Type is JTokenType.Float or JTokenType.Integer) { total += v.Value<double>(); any = true; }
+                else if (v.Type == JTokenType.String
+                         && double.TryParse(v.Value<string>(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+                { total += d; any = true; }
+            }
+            return any ? total : null;
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

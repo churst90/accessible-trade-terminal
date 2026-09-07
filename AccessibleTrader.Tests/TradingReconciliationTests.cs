@@ -37,6 +37,7 @@ public class TradingReconciliationTests
         var bus = new SpyEventBus();
         var orders = Substitute.For<IOrderExecutionService>();
         var paper = Substitute.For<IPaperTradingProvider>();
+        paper.HasPracticeEnvironment.Returns(true);   // NSubstitute answers FALSE to the default interface member, which arms the no-practice-venue refusal
         paper.GetPositionsAsync().Returns(new List<Position>());
         paper.GetOpenOrdersAsync().Returns(new List<OpenOrder>());
         var settings = Substitute.For<ISettingsManager>();

@@ -13,13 +13,28 @@ namespace AccessibleTrader.Core.Services
         private readonly ILogger<DataService> _logger;
         private readonly ICacheService _cacheService;
         private readonly IApiKeyService _apiKeyService;
+        private readonly ICredentialInUseRegistry _credentialsInUse;
         private bool _isInitialized;
 
-        public DataService(IPluginLoaderService pluginLoader, ILogger<DataService> logger, ICacheService cacheService, IApiKeyService apiKeyService)
+        public DataService(IPluginLoaderService pluginLoader, ILogger<DataService> logger, ICacheService cacheService, IApiKeyService apiKeyService, ICredentialInUseRegistry credentialsInUse)
         {
             _logger = logger;
             _cacheService = cacheService;
             _apiKeyService = apiKeyService;
+            _credentialsInUse = credentialsInUse;
+        }
+
+        /// <inheritdoc />
+        public ApiKeyConfig? CredentialInUse(string providerName) => _credentialsInUse.For(providerName);
+
+        /// <summary>
+        /// Push a credential into a provider and record it as the one in use — the single write
+        /// path, so the record cannot drift from what <c>Configure</c> was actually given.
+        /// </summary>
+        private void ConfigureWith(IMarketDataProvider provider, ApiKeyConfig key)
+        {
+            provider.Configure(CredentialFor(key));
+            _credentialsInUse.Record(provider.Name, key);
         }
 
         public async Task InitializeAsync(IPluginLoaderService pluginLoader)
@@ -107,7 +122,7 @@ namespace AccessibleTrader.Core.Services
             if (provider == null) return;
 
             var key = await _apiKeyService.GetKeyForProviderAsync(providerName, marketType).ConfigureAwait(false);
-            if (key != null) provider.Configure(CredentialFor(key));
+            if (key != null) ConfigureWith(provider, key);
         }
 
         /// <summary>
@@ -162,7 +177,7 @@ namespace AccessibleTrader.Core.Services
             // one of them would have been handed to its plugin as a live-money credential. The
             // cost of being wrong is not symmetric: a live order placed on a practice account is
             // an inconvenience, and a practice order placed on a live account is money.
-            bool live = string.Equals(key.Environment, "Live", StringComparison.OrdinalIgnoreCase);
+            bool live = ProviderConfigKeys.IsLive(key.Environment);
 
             return new()
             {
@@ -222,13 +237,73 @@ namespace AccessibleTrader.Core.Services
                 if (provider.IsConfigured) continue;
                 try
                 {
-                    provider.Configure(CredentialFor(k));
+                    ConfigureWith(provider, k);
                     _logger.LogInformation("Configured provider {Provider} from stored key '{Nickname}'.", k.Provider, k.Nickname);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to configure provider {Provider} from stored key.", k.Provider);
                 }
+            }
+        }
+
+        /// <summary>
+        /// <b>Point a provider at one specific stored key, unconditionally.</b>
+        ///
+        /// <para>
+        /// <see cref="ConfigureStoredKeyProvidersAsync"/> skips any provider already reporting
+        /// <c>IsConfigured</c>. That guard is right for startup — it stops a second pass undoing
+        /// the first — and it is exactly wrong for a user CHOOSING a key: seven plugins report
+        /// <c>IsConfigured</c> unconditionally, so for them the skip fires every time and the
+        /// dashboard's key switcher changed nothing at all. This path has no skip.
+        /// </para>
+        ///
+        /// <para>
+        /// Returns the key that is now in use, or null when the provider or the nickname could
+        /// not be found — the caller must SAY so rather than leaving the previous credential
+        /// silently in place, because the user has just been told the key changed. A withdrawal
+        /// profile is refused here as it is everywhere else on the trading path.
+        /// </para>
+        ///
+        /// <para>Publishing <c>ApiKeysChangedEvent</c> is the caller's job: this service has no
+        /// event bus, and the UI that made the change knows what else it needs to refresh.</para>
+        /// </summary>
+        public async Task<ApiKeyConfig?> ReconfigureProviderAsync(string providerName, string nickname)
+        {
+            if (!_isInitialized) return null;
+            var provider = FindProvider(providerName);
+            if (provider == null)
+            {
+                _logger.LogWarning("Cannot switch key: no loaded provider answers to '{Provider}'.", providerName);
+                return null;
+            }
+
+            List<ApiKeyConfig> keys;
+            try { keys = await _apiKeyService.GetKeysForProviderAsync(providerName).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not load stored keys while switching {Provider} to '{Nickname}'.", providerName, nickname);
+                return null;
+            }
+
+            var key = keys.FirstOrDefault(k => k.Nickname == nickname);
+            if (key == null || string.IsNullOrEmpty(key.ApiKey) || key.AllowsWithdrawal)
+            {
+                _logger.LogWarning("Cannot switch {Provider} to '{Nickname}': no such usable trading profile.", providerName, nickname);
+                return null;
+            }
+
+            try
+            {
+                ConfigureWith(provider, key);
+                _logger.LogInformation("Provider {Provider} now signs with stored key '{Nickname}' ({Environment}).",
+                    provider.Name, key.Nickname, key.Environment);
+                return key;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to configure {Provider} from stored key '{Nickname}'.", providerName, nickname);
+                return null;
             }
         }
 

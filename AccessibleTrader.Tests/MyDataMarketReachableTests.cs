@@ -30,7 +30,8 @@ public sealed class MyDataMarketReachableTests
             loader,
             NullLogger<DataService>.Instance,
             Substitute.For<ICacheService>(),
-            Substitute.For<IApiKeyService>());
+            Substitute.For<IApiKeyService>(),
+            new CredentialInUseRegistry());
 
         await data.InitializeAsync(loader);
 
@@ -93,7 +94,7 @@ public sealed class MyDataMarketReachableTests
         loader.LoadPlugins<IMarketDataProvider>(Arg.Any<string>()).Returns(_ => new List<IMarketDataProvider>());
         var data = new DataService(
             loader, NullLogger<DataService>.Instance,
-            Substitute.For<ICacheService>(), Substitute.For<IApiKeyService>());
+            Substitute.For<ICacheService>(), Substitute.For<IApiKeyService>(), new CredentialInUseRegistry());
         await data.InitializeAsync(loader);
         data.RegisterProvider(new MyDataProvider(store));
 

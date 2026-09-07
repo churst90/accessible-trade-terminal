@@ -53,6 +53,8 @@ namespace AccessibleTrader.Tests
             public void RegisterProvider(IMarketDataProvider provider) { }
             public Task InitializeAsync(IPluginLoaderService _) => Task.CompletedTask;
             public Task ConfigureStoredKeyProvidersAsync() => Task.CompletedTask;
+            public ApiKeyConfig? CredentialInUse(string providerName) => null;
+            public Task<ApiKeyConfig?> ReconfigureProviderAsync(string providerName, string nickname) => Task.FromResult<ApiKeyConfig?>(null);
             public Task<List<string>> LoadAvailableMarketsAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersAsync() => Task.FromResult(new List<string>());
             public Task<List<string>> LoadProvidersByMarketTypeAsync(string _) => Task.FromResult(new List<string>());

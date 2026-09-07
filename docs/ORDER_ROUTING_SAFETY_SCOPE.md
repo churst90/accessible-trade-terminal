@@ -1,5 +1,15 @@
 # Order routing safety — which key signs, which host receives, and what the dashboard says
 
+**Written 2026-09-07 as SCOPE ONLY. IMPLEMENTED the same day — D1, D2, D3 and D4 are all built;
+see CHANGES `[Unreleased]`. This document is now a RECORD of the findings and the design, not a
+work order.** Two things it left for Cody were decided and the recommended option taken: one
+active key per PROVIDER, and a Paper-labelled key on a venue with no practice environment is
+REFUSED rather than routed live (which means legacy profiles, whose environment is empty, refuse
+on those six venues until re-saved as Live). Nothing below has been measured at a venue; the
+Schwab preview response schema in D4 remains unverified.
+
+**Original preamble:**
+
 **Written 2026-09-07, SCOPE ONLY — nothing here is implemented.** Cody asked for three things after
 the conformance pass: (1) a Paper key on a venue with no practice environment must never route an
 order to the live venue, and a live order must be unmistakable in the trading dashboard; (2) a
