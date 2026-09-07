@@ -61,6 +61,11 @@ namespace AccessibleTrader.Plugins.Schwab
         // The stream above is a dead subject — no streaming implementation yet.
         // Declaring it lets GeneralOrderService poll order status so fills still
         // announce. Flip to true when the real event stream lands.
+        /// <summary>No order push channel at all — see ProvidesOrderStream on ITradingProvider.
+        /// A constant false here is a STATIC fact; Alpaca's is dynamic, and conflating the
+        /// two wrote a working venue off permanently on 2026-09-07.</summary>
+        public bool ProvidesOrderStream => false;
+
         public bool SupportsOrderEventStreaming => false;
 
         // Schwab ALWAYS polls (no stream), and its transaction records don't carry

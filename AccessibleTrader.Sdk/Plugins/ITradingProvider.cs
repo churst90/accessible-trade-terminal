@@ -33,13 +33,28 @@ namespace AccessibleTrader.Sdk.Plugins
         double    Quantity,
         OrderType Type        = OrderType.Market,
         double?   Price       = null,        // Limit price (required for Limit orders)
-        double?   StopLoss    = null,        // Price at which to exit at a loss
-        double?   TakeProfit  = null,        // Price at which to lock in profit
+        // ── StopLoss / TakeProfit mean TWO different things, and which one depends
+        //    entirely on Type. This ambiguity has cost real money twice, so read it once.
+        //
+        //    On an ENTRY (Market, Limit): a BRACKET to attach after the fill. "Buy, and
+        //    protect the resulting position here."
+        //
+        //    On a STOP or TAKE-PROFIT order type: the order's OWN TRIGGER — the same number
+        //    as TriggerPrice. Plugins disagree about which field to read (Kraken and Coinbase
+        //    read these; Gemini and Binance prefer TriggerPrice), so
+        //    GeneralOrderService.NormaliseTrigger fills in whichever is missing from the other
+        //    before any signal reaches a plugin. A PLUGIN AUTHOR SHOULD READ
+        //    `TriggerPrice ?? StopLoss` (or `?? TakeProfit`) AND WILL THEN BE CORRECT EITHER
+        //    WAY; a CALLER should set TriggerPrice and let the normaliser do the rest.
+        double?   StopLoss    = null,        // entry: protective leg — stop order: its trigger
+        double?   TakeProfit  = null,        // entry: profit leg    — TP order: its trigger
         double?   Leverage    = null,        // Desired leverage multiplier (futures/margin)
         string?   ClientOid   = null,        // Optional client-supplied order ID for tracking
         string?   SubType     = null,        // "Futures" routes to the futures API; null / "Spot" = spot
         string?    MarginType     = null,     // "Isolated" or "Cross" (futures/margin only)
-        double?    TriggerPrice   = null,     // Trigger price for Stop / Stop-Limit / Take-Profit order types
+        // The CANONICAL trigger for Stop / Stop-Limit / Take-Profit order types. Prefer this
+        // over StopLoss/TakeProfit when constructing such an order; see the note on those.
+        double?    TriggerPrice   = null,
         TrailMode? TrailStopMode  = null,     // Trailing stop: how TrailStopValue is read
         double?    TrailStopValue = null,     // Trailing stop distance (amount / percent / callback rate)
         TrailMode? TrailTpMode    = null,     // Trailing take-profit: how TrailTpValue is read
@@ -204,6 +219,31 @@ namespace AccessibleTrader.Sdk.Plugins
         bool SupportsSimultaneousStopAndTarget => true;
 
         /// <summary>
+        /// <summary>
+        /// Whether this venue has an order-update stream AT ALL — a fact about the exchange,
+        /// not about the current connection.
+        ///
+        /// <para>
+        /// <b>This is the "never" that <see cref="SupportsOrderEventStreaming"/> cannot express.</b>
+        /// That flag is allowed to be dynamic — Alpaca returns
+        /// <c>_tradeStreamListening &amp;&amp; socket.IsConnected</c>, false at rest and true once
+        /// its socket comes up — so a caller reading it once cannot tell "this venue has no
+        /// stream" from "the stream is not up yet". Treating the second as the first writes a
+        /// working venue off forever; treating the first as the second reports a dead feed every
+        /// poll about something that will never change. Both mistakes were made on 2026-09-07
+        /// before this member existed.
+        /// </para>
+        ///
+        /// <para>
+        /// Override to <c>false</c> if the venue offers no order push channel and
+        /// <see cref="OrderUpdateStream"/> is a dead subject (Gemini, Kraken Futures, Schwab).
+        /// Fills there are resolved by the order-status poller instead, which follows only the
+        /// orders this terminal placed — a genuinely narrower guarantee that a user watching
+        /// with no session open has to be told about.
+        /// </para>
+        /// </summary>
+        bool ProvidesOrderStream => true;
+
         /// True (the default) when <see cref="OrderUpdateStream"/> is actually fed by a
         /// broker push channel. Providers whose stream is a dead subject (no streaming
         /// implementation — e.g. Schwab/Tradier v1) MUST override this to false so the

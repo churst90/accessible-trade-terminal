@@ -70,6 +70,40 @@ not move the chart until Load), and a blank identity never wipes a dropdown that
 right. Why it is not merely cosmetic is written on the sync itself: pressing Load would otherwise
 load the symbol named in the dropdown rather than the one being looked at.
 
+### The SDK contract says what it means now — and the provider layer has a scope document (2026-09-07)
+
+Nine defects across eight venues in this repo's history are all the same class: **the wrong value
+in the wrong field of an outgoing request, failing silently.** `docs/PROVIDER_CONFORMANCE_SCOPE.md`
+sets out why, with the evidence, and what would stop it. Three SDK changes close the parts of the
+contract that let a plugin be wrong without anything noticing:
+
+- **`ProviderConfigKeys` (new)** — the `Configure` dictionary is stringly-typed and nothing said
+  what its keys were, so the fleet grew FOUR vocabularies for "is this practice or real money".
+  Two of them failed toward real money. The keys, the two legal environment values, and an
+  `IsLive()` helper are now named and documented, with the rule that a plugin branches on `Live`
+  and treats everything else as practice — so an unrecognised value fails safe.
+- **`ITradingProvider.ProvidesOrderStream` (new)** — the STATIC "this venue has no order push
+  channel", separate from the dynamic `SupportsOrderEventStreaming`. That single flag had to carry
+  both meanings, and a fix written this morning got it wrong in both directions within four hours:
+  a venue written off permanently, then a dead feed announced forever. Declared `false` on Gemini,
+  Kraken Futures and Schwab; the headless watch now says that limitation once and no longer
+  confuses it with a socket that is merely not up yet.
+- **`TradeSignal` is documented where the ambiguity lives** — what `StopLoss`/`TakeProfit` mean on
+  an ENTRY (a bracket to attach after the fill) versus on a stop order (its own trigger), and the
+  instruction that a plugin author should read `TriggerPrice ?? StopLoss` and be correct either
+  way. The ambiguity is the reason Kraken and Coinbase read one field while Gemini and Binance
+  read the other.
+
+**The scope document's main recommendation costs no credentials at all.** Eight of the nine known
+defects are payload-construction bugs, catchable with a fake HTTP handler asserting the outgoing
+body — no venue, no key, no VPN. A single conformance `[Theory]` across all twelve plugins would
+have caught Tradier's `(int)` quantity truncation, MEXC's stop-becomes-market, IBKR's conId reuse,
+Schwab's discarded order id, the trigger disagreement and the environment vocabulary — and would
+cover the five trading plugins that have no test file at all.
+
+It also records two things nobody was using: Kraken spot's `AddOrder` `validate=true` and Binance's
+`/api/v3/order/test`, both of which check a real order against a real venue without placing it.
+
 ### Coverage means "events can arrive", not "a subscribe call returned" (2026-09-07)
 
 **A correction to a fix made hours earlier the same day, caught by an Alpaca paper account.**

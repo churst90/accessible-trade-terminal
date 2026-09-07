@@ -144,6 +144,24 @@ namespace AccessibleTrader.WebHost.Services
                     continue;
                 }
 
+                // A venue with NO push channel at all is a permanent fact, not a failing feed.
+                // Said once, then left alone — escalating it every three polls would be a
+                // warning about something that can never change, which teaches the user to
+                // ignore the channel that reports the real thing. Distinct from a stream that
+                // is merely not up YET (Alpaca), which the dead-feed tracker below handles.
+                if (await NeverStreamsAsync(data, name))
+                {
+                    if (_noStreamReported.Add(name))
+                    {
+                        string text = $"{name} has no order-update stream, so fills there cannot be "
+                                    + "watched with the browser closed. Orders you place from the "
+                                    + "terminal are still followed while it is open.";
+                        _logger.LogInformation("{Text}", text);
+                        Announce(text);
+                    }
+                    continue;
+                }
+
                 bool? hasWork = await HasOpenWorkAsync(data, name);
                 if (hasWork == null)
                 {
@@ -224,6 +242,31 @@ namespace AccessibleTrader.WebHost.Services
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        /// <summary>Venues already reported as having no stream, so it is said once.</summary>
+        private readonly HashSet<string> _noStreamReported = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// True when the venue declares it has NO order push channel at all — the static fact,
+        /// not the live one.
+        ///
+        /// <para>
+        /// <c>SupportsOrderEventStreaming</c> cannot answer this: Alpaca's is dynamic
+        /// (<c>listening &amp;&amp; socket.IsConnected</c>), false at rest and true once its socket
+        /// comes up, so reading THAT once and calling it permanent writes a working venue off
+        /// forever — a mistake made and caught on 2026-09-07. <c>ProvidesOrderStream</c> is the
+        /// separate, static declaration added for exactly this distinction.
+        /// </para>
+        /// </summary>
+        internal static async Task<bool> NeverStreamsAsync(IDataService data, string providerName)
+        {
+            try
+            {
+                var provider = await data.GetProviderAsync(providerName);
+                return provider is ITradingProvider tp && !tp.ProvidesOrderStream;
+            }
+            catch { return false; }   // unreadable is a dead feed, not a permanent limitation
         }
 
         /// <summary>

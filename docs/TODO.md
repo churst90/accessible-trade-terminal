@@ -117,6 +117,65 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-07, THIRTY-THIRD pass — THE PROVIDER LAYER, DIAGNOSED.
+> Nine defects across eight venues are ONE class of bug, and the fix that would retire it needs
+> no credentials at all.** See `docs/PROVIDER_CONFORMANCE_SCOPE.md` — read that FIRST, it is the
+> whole picture. Suite **7,046+**. What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **Nine instances across eight venues is not eight coincidences.** IBKR's conId reuse, MEXC's
+>   stop-becomes-market, Tradier's `(int)` quantity truncation, Schwab's discarded order id, the
+>   trigger-field disagreement, the environment vocabulary, the streaming flag — all the same
+>   shape: **the wrong value in the wrong field of an outgoing request, failing silently.**
+> - **An undocumented contract is the root, and it cost real money twice.**
+>   `Configure(Dictionary<string,string>)` had no documented keys, so the fleet grew four
+>   vocabularies for "practice or real"; Tradier's could never match and Binance read a key
+>   nobody supplied, so BOTH signed against live venues while the user believed otherwise.
+> - **A single flag cannot carry a static fact and a live one.** `SupportsOrderEventStreaming` had
+>   to mean both "this venue has no stream" and "the stream is not up yet"; a fix written in the
+>   morning got it wrong in BOTH directions by the afternoon. `ProvidesOrderStream` now carries
+>   the static half.
+> - **Eight of nine defects need no venue to catch.** They are payload-construction bugs, findable
+>   with a fake HTTP handler asserting the outgoing body. **The instinct that "I need a testnet for
+>   every provider" is wrong in the direction that matters** — testnets buy the last 20%.
+> - **Measuring against one real venue found more in an afternoon than the suite had in weeks**,
+>   including a defect in code committed the previous day.
+>
+> ### 2. DECISIONS MADE
+>
+> - **`ProviderConfigKeys` is the contract.** A plugin branches on `Live` and treats everything
+>   else as practice, so an unrecognised value fails toward the safe side.
+> - **One fact, every spelling the fleet reads, reconciled at ONE chokepoint** — `NormaliseTrigger`
+>   for triggers, `CredentialFor` for credentials.
+> - **Teaching Tradier the word "Paper" is PATCHWORK and is labelled as such.** The contract fix is
+>   adopting `ProviderConfigKeys` across all twelve plugins.
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **The conformance suite does not exist.** §4 of the scope doc is a design, not a record.
+> - **No plugin has been read against its venue's published API docs.** The nine defects were found
+>   by measurement and accident, not audit, so **the true count is unknown and certainly higher.**
+> - **Nothing has FILLED at a real venue**, and **no reachable venue delivers an order stream** —
+>   the foundation of monitor Phases 1–3, still unexercised.
+> - `AAPL 1h → 0 bars` from Alpaca is unexplained and should not be assumed benign.
+>
+> ### 4. NEXT — in this order
+>
+> 1. **The provider conformance suite.** No keys, no VPN, no accounts. Retires eight of nine known
+>    defect classes and covers the five trading plugins with NO test file (Binance, Coinbase,
+>    Bitstamp, Oanda, InteractiveBrokers).
+> 2. **Adopt `ProviderConfigKeys` across the twelve plugins** — turns the Tradier patch into a
+>    contract.
+> 3. **Wire the dry-run endpoints**: Kraken spot `AddOrder validate=true`, Binance
+>    `/api/v3/order/test`. Real venue, no order, no sandbox. **No plugin uses either today.**
+> 4. **Kraken Futures demo** (`demo-futures.kraken.com`) — the only self-serve environment left
+>    with futures, shorts, leverage, stop-market AND a real order stream.
+> 5. Only then, background monitor Phase 3.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-07, THIRTY-SECOND pass — THE FIRST MEASUREMENT AGAINST A
 > REAL VENUE. The Gemini sandbox proved the credential fix end to end, and found a defect in the
 > PREVIOUS DAY'S work that unit tests could not.** See CHANGES `[Unreleased]`. Suite **7,042**

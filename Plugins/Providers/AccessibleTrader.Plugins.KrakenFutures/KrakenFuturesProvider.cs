@@ -274,6 +274,11 @@ namespace AccessibleTrader.Plugins.KrakenFutures
 
         // Kraken Futures has no order-event push in this plugin yet, so the order
         // service must poll rather than wait for a stream that will never emit.
+        /// <summary>No order push channel at all — see ProvidesOrderStream on ITradingProvider.
+        /// A constant false here is a STATIC fact; Alpaca's is dynamic, and conflating the
+        /// two wrote a working venue off permanently on 2026-09-07.</summary>
+        public bool ProvidesOrderStream => false;
+
         public bool SupportsOrderEventStreaming => false;
 
         public async Task<List<Balance>> GetBalancesAsync()

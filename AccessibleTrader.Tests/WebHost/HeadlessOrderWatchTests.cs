@@ -549,6 +549,9 @@ public class HeadlessOrderWatchTests : IDisposable
             // would make every watch test exercise the "cannot stream" path instead of the one
             // it is about. Pin the real-world default.
             Trading.SupportsOrderEventStreaming.Returns(true);
+            // The STATIC capability. NSubstitute answers false for a default interface member,
+            // which would send every test down the "this venue has no stream" path.
+            Trading.ProvidesOrderStream.Returns(true);
             if (accountFailure != null)
             {
                 Trading.GetOpenOrdersAsync().Returns<Task<List<OpenOrder>>>(_ => throw accountFailure);
@@ -780,7 +783,24 @@ public class HeadlessOrderWatchTests : IDisposable
     }
 
     [Fact]
-    public async Task A_venue_that_never_streams_is_told_to_the_user_ONCE()
+    public async Task A_venue_that_DECLARES_no_stream_is_told_once_and_never_retried()
+    {
+        // ProvidesOrderStream is the STATIC fact (Gemini, Kraken Futures, Schwab). It is not a
+        // failing feed and must not be escalated every three polls about something that can
+        // never change.
+        using var h = new WatchHarness(openOrders: OneOpenOrder());
+        h.Trading.ProvidesOrderStream.Returns(false);
+
+        for (int i = 0; i < 5; i++) await h.PollAsync();
+
+        Assert.Empty(h.Subscribed);
+        var said = Assert.Single(h.Presenter.Spoken);
+        Assert.Contains("no order-update stream", said);
+        Assert.DoesNotContain("Order monitoring stopped", said);
+    }
+
+    [Fact]
+    public async Task A_venue_whose_stream_is_merely_DOWN_is_treated_as_a_dead_feed()
     {
         // MEASURED 2026-09-07. Gemini, Kraken Futures and Schwab return a dead subject and say so
         // with a constant false; Alpaca's flag is LIVE — false until its trade socket connects,

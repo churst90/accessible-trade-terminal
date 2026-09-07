@@ -110,6 +110,11 @@ namespace AccessibleTrader.Plugins.Gemini
         public override bool RequiresApiKey => false;          // public market data needs none
         public override bool IsConfigured => true;
         public override bool SupportsLiveUpdates => false;     // REST polling; WS is a later slice
+
+        /// <summary>Gemini has no order push channel: OrderUpdateStream is a dead subject and
+        /// fills are resolved by the order-status poller. Measured 2026-09-07 — subscribing
+        /// SUCCEEDS and emits nothing, forever, which is why the static fact needs saying.</summary>
+        public bool ProvidesOrderStream => false;
         public override ProviderEnvironment Environment => _useSandbox ? ProviderEnvironment.Paper : ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1440;         // /v2/candles returns a fixed window; 1440 rows measured on 1m
         public override List<string> NativelySupportedTimeframes =>
