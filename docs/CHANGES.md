@@ -70,6 +70,87 @@ not move the chart until Load), and a blank identity never wipes a dropdown that
 right. Why it is not merely cosmetic is written on the sync itself: pressing Load would otherwise
 load the symbol named in the dropdown rather than the one being looked at.
 
+### Coverage means "events can arrive", not "a subscribe call returned" (2026-09-07)
+
+**A correction to a fix made hours earlier the same day, caught by an Alpaca paper account.**
+That fix made `SubscribeOrderUpdatesAsync` refuse to record a subscription when
+`SupportsOrderEventStreaming` was false. Right for Gemini, Kraken Futures and Schwab, which
+return a CONSTANT false — and wrong for Alpaca, whose flag is
+`_tradeStreamListening && _tradeWs.IsConnected`: false until its trade socket comes up, true
+after. Reading a DYNAMIC capability once, at startup, and treating the answer as permanent is the
+same mistake this week's other findings are made of, committed while fixing one of them.
+
+`LiveOrderStreamProviders` — the set both the headless watch and `CircuitOrderCoverage` read to
+decide who is covering a venue — now reports what is streaming NOW rather than what was once
+subscribed. Subscribing stays cheap and unconditional, so a socket that comes up late is picked
+up; the venue is simply not counted as covered until it can actually deliver. The dead-feed
+tracker already latches, so a venue that never streams is still told to the user once rather than
+every minute, and it clears itself if the venue starts streaming.
+
+**Measured, not reasoned:** Gemini sandbox (constant false) and an Alpaca paper account (dynamic,
+false at rest) were both driven through the real plugins. Across the whole fleet, **no venue
+reachable from this machine currently delivers a live order stream**, which is the foundation of
+background monitor Phases 1–3 — the largest unverified area in the codebase, now measured rather
+than suspected.
+
+### A test of mine raced the suite, and the suite said so (2026-09-07)
+
+`CredentialEnvironmentTests` asserted its mapping by driving a REAL `DataService` through
+`InitializeAsync` six times — which scans for plugins and creates the real app-data directory.
+That is process-wide state, and it raced the bUnit Settings tests: the full suite lost between one
+and three `MinimizeToTraySettingTests` per run while every one of them passed in isolation, and
+the victim count changed run to run.
+
+Two things worth keeping. **The count varying is the signature of a race, not a regression** — it
+was called a flake on one data point, then "not a flake" on two identical runs, and it took
+running the committed tree twice (green, twice) to establish that the new work caused it. **And a
+mapping is arithmetic**: the vocabulary and the polarity are now pinned as the pure function they
+are, with exactly ONE end-to-end test for the property that actually needed a real service — that
+the dictionary reaches `Configure` at all, which is what the original defect broke. Six plugin
+scans bought one assertion's worth of confidence and cost the suite its determinism.
+
+### The app's word for "not real money" now reaches every plugin (2026-09-07)
+
+**A CORRECTION to this file's own entry from earlier today, and it makes the defect worse rather
+than better.** That entry said of Tradier: *"a profile marked sandbox would have placed real orders
+at a real broker."* That was too soft. `TradierProvider` compared `Environment` against the literal
+`"sandbox"`, and the API-keys dialog is a two-option dropdown offering **only "Paper" and "Live"**
+— the value it looked for could never be produced. **Every Tradier profile signed against the live
+broker, always, including one explicitly marked Paper.** The `Environment` plumbing fix did not
+close it, because the field arrived and the word was wrong.
+
+Found by asking a different question — what a US user can actually test against, once Binance
+turned out to geo-block account creation. The fleet keeps FOUR vocabularies for one fact:
+
+| Plugin | Reads | Before |
+|---|---|---|
+| Gemini, Kraken Futures | `"Paper"` → practice | worked |
+| Alpaca | `"Live"` → live, else paper | worked |
+| Oanda | `"live"` → live, else practice | worked |
+| **Tradier** | **`"sandbox"`** → sandbox | **never matched: always LIVE** |
+| **Binance** | a separate **`"Testnet"`** key | **never supplied: always LIVE** |
+
+Both are fixed at the one chokepoint that builds a credential, the way
+`GeneralOrderService.NormaliseTrigger` reconciles the two spellings of a stop trigger: one fact,
+every spelling the fleet reads. `Environment` is now NORMALISED to exactly `"Live"` or `"Paper"`
+— never the empty string a legacy profile holds — and `Testnet` is derived from it. Tradier also
+accepts the host's vocabulary directly.
+
+**And the polarity is now fail-safe**: anything that is not explicitly `"Live"` is the practice
+environment, rather than anything that is not `"Paper"` being live. Profiles predate this field, so
+a legacy one carries an empty string, and under the other polarity every one of them would have
+been handed to its plugin as a live-money credential. The costs are not symmetric — a live order on
+a practice account is an inconvenience, a practice order on a live account is money. One of the
+test expectations written an hour earlier asserted the unsafe answer for an empty profile and was
+corrected.
+
+**Reachability, measured from a US connection:** Binance's futures testnet API answers (HTTP 200)
+but account creation is geo-blocked to binance.us, which has no futures testnet — so Binance is not
+available without a VPN, and registering from a restricted location is a terms problem rather than
+a technical one. Binance's spot testnet returns HTTP 451 outright. Alpaca (paper), Tradier
+(sandbox) and Kraken Futures (demo) are the US-reachable practice venues this app already has
+plugins for — and until this fix, two of the three could not be reached in practice mode at all.
+
 ### Order safety — the stop that opened a short, and four more found under it (2026-09-06)
 
 **Reported from paper trading: "I set a stop on my long and it switched the position to a sell

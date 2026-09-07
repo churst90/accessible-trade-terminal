@@ -29,6 +29,9 @@ namespace AccessibleTrader.Core.Services
         // brokers can be connected at once (multi-workspace) and a fill on any of
         // them must announce. Populated reactively from ConnectionStatusEvent.
         private readonly Dictionary<string, IDisposable> _liveStreamSubs = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The provider behind each live subscription, so <see cref="LiveOrderStreamProviders"/>
+        /// can ask whether events are flowing RIGHT NOW without an async provider lookup.</summary>
+        private readonly Dictionary<string, ITradingProvider> _liveStreamProviders = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _liveStreamLock = new();
 
         /// <summary>
@@ -47,7 +50,21 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         public IReadOnlyCollection<string> LiveOrderStreamProviders
         {
-            get { lock (_liveStreamLock) return _liveStreamSubs.Keys.ToArray(); }
+            get
+            {
+                lock (_liveStreamLock)
+                {
+                    // A held subscription is not coverage. Gemini, Kraken Futures and Schwab
+                    // return a dead subject and say so with a constant false; Alpaca's flag is
+                    // live, false until its trade socket is up. Both are answered by asking now
+                    // rather than remembering what was true at subscribe time — MEASURED against
+                    // the Gemini sandbox and an Alpaca paper account, 2026-09-07.
+                    return _liveStreamSubs.Keys
+                        .Where(n => !_liveStreamProviders.TryGetValue(n, out var tp)
+                                    || tp.SupportsOrderEventStreaming)
+                        .ToArray();
+                }
+            }
         }
 
         /// <summary>
@@ -150,25 +167,15 @@ namespace AccessibleTrader.Core.Services
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider is not ITradingProvider tp) return;
 
-            // ── A venue with no order stream must not LOOK subscribed ─────────────
-            // Providers whose OrderUpdateStream is a dead subject declare
-            // SupportsOrderEventStreaming = false (Gemini, Schwab, Tradier). Subscribing to
-            // one succeeds, emits nothing, ever, and — because LiveOrderStreamProviders is
-            // what the headless watch and CircuitOrderCoverage both read — makes this service
-            // claim coverage it does not have. Measured against the real Gemini sandbox on
-            // 2026-09-07: the subscription is accepted and no fill ever arrives.
-            //
-            // Their fills are resolved by the order POLLER instead, which watches the orders
-            // this terminal placed. That is a real difference in what can be covered and the
-            // caller has to be able to see it, so the set stays honest and empty here.
-            if (!tp.SupportsOrderEventStreaming)
-            {
-                _logger.LogInformation(
-                    "{Provider} has no order-update stream; fills there are resolved by polling the "
-                  + "orders this terminal placed, and cannot be watched with no session open.",
-                    providerName);
-                return;
-            }
+            // ── Subscribing is CHEAP and the capability is not always static ──────
+            // This briefly refused to subscribe when SupportsOrderEventStreaming was false.
+            // That is right for Gemini, Kraken Futures and Schwab, which return a constant
+            // false — and WRONG for Alpaca, whose flag is `_tradeStreamListening &&
+            // _tradeWs.IsConnected`: false until its socket comes up, true afterwards. Reading a
+            // dynamic capability once, at startup, and treating the answer as permanent is the
+            // same mistake as every other one found this week, so the honest fix is not here.
+            // It is in LiveOrderStreamProviders, which reports what is CURRENTLY streaming
+            // rather than what was once subscribed.
 
             // ── The stream has to be able to DIE, and say so ──────────────────────
             // It could not before: the subscription went into the dictionary and stayed
@@ -201,6 +208,7 @@ namespace AccessibleTrader.Core.Services
                     return;
                 }
                 _liveStreamSubs[providerName] = sub;
+                _liveStreamProviders[providerName] = tp;
             }
             _logger.LogInformation("Subscribed to live order updates from {Provider}", providerName);
         }
@@ -216,6 +224,7 @@ namespace AccessibleTrader.Core.Services
             lock (_liveStreamLock)
             {
                 ended.Value = true;
+                _liveStreamProviders.Remove(providerName);
                 if (_liveStreamSubs.Remove(providerName, out var sub)) sub.Dispose();
             }
 
@@ -304,6 +313,7 @@ namespace AccessibleTrader.Core.Services
             {
                 foreach (var sub in _liveStreamSubs.Values) sub.Dispose();
                 _liveStreamSubs.Clear();
+                _liveStreamProviders.Clear();
             }
             _paperStreamSub?.Dispose();
         }

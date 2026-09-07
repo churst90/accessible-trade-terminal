@@ -533,6 +533,7 @@ public class HeadlessOrderWatchTests : IDisposable
 
         private readonly ServiceProvider _root;
         private readonly HashSet<string> _live = new(StringComparer.OrdinalIgnoreCase);
+        private bool _subscribeSucceeds;
 
         public WatchHarness(
             bool optIn = true,
@@ -567,11 +568,12 @@ public class HeadlessOrderWatchTests : IDisposable
             apiKeys.GetAllKeysAsync().Returns(_ => Task.FromResult(keyList));
 
             Orders.LiveOrderStreamProviders.Returns(_ => _live.ToArray());
+            _subscribeSucceeds = subscribeSucceeds;
             Orders.SubscribeOrderUpdatesAsync(Arg.Any<string>()).Returns(ci =>
             {
                 var name = ci.Arg<string>();
                 Subscribed.Add(name);
-                if (subscribeSucceeds) _live.Add(name);
+                if (_subscribeSucceeds) _live.Add(name);
                 return Task.CompletedTask;
             });
 
@@ -595,6 +597,9 @@ public class HeadlessOrderWatchTests : IDisposable
 
         /// <summary>Pretend the venue's stream is already hooked.</summary>
         public void MarkLive(string provider) => _live.Add(provider);
+
+        /// <summary>The venue's socket comes up, so a later subscribe now takes.</summary>
+        public void StreamComesUp() => _subscribeSucceeds = true;
 
         public Task PollAsync() => Watch.PollOnceAsync(CancellationToken.None);
 
@@ -775,36 +780,40 @@ public class HeadlessOrderWatchTests : IDisposable
     }
 
     [Fact]
-    public async Task A_venue_with_no_order_stream_is_reported_ONCE_and_never_watched()
+    public async Task A_venue_that_never_streams_is_told_to_the_user_ONCE()
     {
-        // MEASURED against the real Gemini sandbox, 2026-09-07: SupportsOrderEventStreaming is
-        // false, OrderUpdateStream is a dead subject, and subscribing to it SUCCEEDS. Without
-        // this the watch logged "now watching fills on Gemini", recorded it healthy, and watched
-        // nothing — the silent non-coverage this phase exists to prevent, produced by the phase
-        // itself. It is a permanent limitation, not a failing feed, so it is said once rather
-        // than escalated every three polls until the user learns to ignore the channel.
-        using var h = new WatchHarness(openOrders: OneOpenOrder());
-        h.Trading.SupportsOrderEventStreaming.Returns(false);
+        // MEASURED 2026-09-07. Gemini, Kraken Futures and Schwab return a dead subject and say so
+        // with a constant false; Alpaca's flag is LIVE — false until its trade socket connects,
+        // true after. An earlier fix read the capability once at subscribe time and refused
+        // permanently, which was right for the first three and wrong for Alpaca.
+        //
+        // Coverage is now "are events flowing NOW", so both land in the dead-feed tracker — which
+        // latches, so this is said once rather than every minute, and clears itself if the venue
+        // starts streaming.
+        using var h = new WatchHarness(openOrders: OneOpenOrder(), subscribeSucceeds: false);
 
-        for (int i = 0; i < 5; i++) await h.PollAsync();
+        for (int i = 0; i < 6; i++) await h.PollAsync();
 
-        Assert.Empty(h.Subscribed);
         var said = Assert.Single(h.Presenter.Spoken);
-        Assert.Contains("no order-update stream", said);
-        Assert.DoesNotContain("Order monitoring stopped", said);
+        Assert.Contains("Order monitoring stopped for Binance", said);
+        Assert.Contains("no order stream at all", said);
     }
 
     [Fact]
-    public async Task A_streaming_venue_is_still_watched_normally()
+    public async Task A_venue_whose_stream_comes_up_LATE_is_watched_once_it_does()
     {
-        // The control: the check above must not turn every venue into an unwatchable one.
-        using var h = new WatchHarness(openOrders: OneOpenOrder());
-        h.Trading.SupportsOrderEventStreaming.Returns(true);
+        // Alpaca's shape. The first poll finds nothing streaming; the socket connects; the next
+        // poll must cover it rather than having written it off forever.
+        using var h = new WatchHarness(openOrders: OneOpenOrder(), subscribeSucceeds: false);
 
         await h.PollAsync();
+        Assert.Empty(h.Presenter.Spoken);          // one quiet failure, nothing said yet
 
-        Assert.Equal(new[] { "Binance" }, h.Subscribed.ToArray());
-        Assert.Empty(h.Presenter.Spoken);
+        h.StreamComesUp();
+        await h.PollAsync();
+
+        Assert.Contains("Binance", h.Subscribed);
+        Assert.Empty(h.Presenter.Spoken);          // never escalated
     }
 
     [Fact]

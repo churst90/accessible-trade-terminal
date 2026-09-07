@@ -137,13 +137,45 @@ namespace AccessibleTrader.Core.Services
         /// both call sites.
         /// </para>
         /// </summary>
-        private static Dictionary<string, string> CredentialFor(ApiKeyConfig key) => new()
+        /// <remarks>Internal rather than private so the vocabulary and the POLARITY can be
+        /// pinned as the pure function they are. The end-to-end "it reaches Configure" property
+        /// needs a real DataService and is tested once; asserting the mapping through six of
+        /// those made every case pay for a plugin scan and a real app-data directory, which is
+        /// process-wide state and raced the bUnit tests.</remarks>
+        internal static Dictionary<string, string> CredentialFor(ApiKeyConfig key)
         {
-            { "ApiKey", key.ApiKey },
-            { "ApiSecret", key.ApiSecret ?? "" },
-            { "Passphrase", key.Passphrase ?? "" },
-            { "Environment", key.Environment ?? "" },
-        };
+            // "Paper" is this app's word for "not the real venue". Plugins spell the same fact
+            // differently — Gemini, Kraken Futures, Tradier, Alpaca and Oanda read "Environment";
+            // BINANCE READS "Testnet" AND NOTHING ELSE. Only a unit test had ever supplied that
+            // key, so a Binance profile marked Paper kept _isTestnet = false and signed against
+            // LIVE BINANCE, which is the dangerous direction: the user believes they are on the
+            // testnet and they are on the real exchange with real money.
+            //
+            // Both spellings are sent, derived from the one fact, for exactly the reason
+            // GeneralOrderService.NormaliseTrigger sends both spellings of a stop trigger: a
+            // field that means the same thing as another field will be filled in inconsistently
+            // forever unless one place makes them agree.
+            // ── The polarity is FAIL-SAFE, and it has to be ──────────────────────────
+            // Anything that is not explicitly "Live" is treated as the practice environment,
+            // rather than "anything that is not Paper is live". Legacy profiles stored before
+            // this field existed carry an EMPTY environment, and under the other polarity every
+            // one of them would have been handed to its plugin as a live-money credential. The
+            // cost of being wrong is not symmetric: a live order placed on a practice account is
+            // an inconvenience, and a practice order placed on a live account is money.
+            bool live = string.Equals(key.Environment, "Live", StringComparison.OrdinalIgnoreCase);
+
+            return new()
+            {
+                { "ApiKey", key.ApiKey },
+                { "ApiSecret", key.ApiSecret ?? "" },
+                { "Passphrase", key.Passphrase ?? "" },
+                // NORMALISED to exactly one of two words, never the empty string a legacy profile
+                // holds: five plugins compare this against a literal and an unrecognised value
+                // sends most of them live.
+                { "Environment", live ? "Live" : "Paper" },
+                { "Testnet", live ? "false" : "true" },
+            };
+        }
 
 
         /// <summary>

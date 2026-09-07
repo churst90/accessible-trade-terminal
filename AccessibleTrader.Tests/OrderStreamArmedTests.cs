@@ -288,6 +288,7 @@ namespace AccessibleTrader.Tests
             var bus = new SpyEventBus();
             var stream = new Subject<OrderUpdate>();
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            // A CONSTANT false, as Gemini, Kraken Futures and Schwab declare it.
             ((ITradingProvider)tpSub).SupportsOrderEventStreaming.Returns(false);
             ((ITradingProvider)tpSub).OrderUpdateStream.Returns(stream);
 
@@ -303,12 +304,10 @@ namespace AccessibleTrader.Tests
 
             await orders.SubscribeOrderUpdatesAsync("Gemini");
 
+            // The SUBSCRIPTION may exist — it is cheap, and for a venue whose flag is dynamic
+            // (Alpaca: false until its trade socket connects) it has to, or a late-arriving
+            // stream could never be picked up. What must NOT exist is the claim of COVERAGE.
             Assert.Empty(orders.LiveOrderStreamProviders);
-
-            // And nothing is listening, so a push from a stream that will never push anyway
-            // reaches no one — the honest state, rather than a subscription that looks alive.
-            stream.OnNext(Fill("never-arrives"));
-            Assert.Empty(bus.Log.OfType<OrderFilledEvent>());
         }
 
         [Fact]

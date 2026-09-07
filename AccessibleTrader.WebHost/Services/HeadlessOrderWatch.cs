@@ -144,23 +144,6 @@ namespace AccessibleTrader.WebHost.Services
                     continue;
                 }
 
-                // A venue that CANNOT stream is not a failing venue, it is a venue with a
-                // different coverage story — and saying "order monitoring stopped for Gemini"
-                // every three minutes about a limitation that will never change is how a
-                // warning becomes noise. Said once, then left alone.
-                if (await CannotStreamAsync(data, name))
-                {
-                    if (_noStreamReported.Add(name))
-                    {
-                        string text = $"{name} has no order-update stream, so fills there cannot be "
-                                    + "watched with the browser closed. Orders you place from the terminal "
-                                    + "are still followed while it is open.";
-                        _logger.LogInformation("{Text}", text);
-                        Announce(text);
-                    }
-                    continue;
-                }
-
                 bool? hasWork = await HasOpenWorkAsync(data, name);
                 if (hasWork == null)
                 {
@@ -196,6 +179,16 @@ namespace AccessibleTrader.WebHost.Services
                 // is actually hooked afterwards, not whether the call returned. A provider that
                 // is not a trading provider, or whose stream was already dead, leaves the set
                 // unchanged and must escalate rather than be assumed covered.
+                //
+                // LiveOrderStreamProviders answers "are events flowing NOW", so a venue that
+                // cannot stream at all (Gemini, Kraken Futures, Schwab: a constant false) and one
+                // whose socket is merely not up yet (Alpaca: false until its trade websocket
+                // connects) both land here — and the dead-feed tracker below is already the right
+                // shape for both. It latches, so the user is told ONCE after three failed polls
+                // rather than every minute, and it clears itself the moment the venue starts
+                // streaming. An earlier attempt at this read the capability once at subscribe
+                // time and called it permanent, which is exactly the mistake of treating a
+                // dynamic fact as a static one.
                 if (orders.LiveOrderStreamProviders.Contains(name, StringComparer.OrdinalIgnoreCase))
                 {
                     _logger.LogInformation("Headless order watch is now watching fills on {Provider}.", name);
@@ -231,33 +224,6 @@ namespace AccessibleTrader.WebHost.Services
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-        }
-
-        /// <summary>Venues already reported as unwatchable, so the limitation is said once.</summary>
-        private readonly HashSet<string> _noStreamReported = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// True when the venue declares it has no order-update stream at all.
-        ///
-        /// <para>
-        /// Gemini, Schwab and Tradier return a dead subject from <c>OrderUpdateStream</c> and say
-        /// so with <c>SupportsOrderEventStreaming = false</c>. Subscribing to one succeeds and
-        /// emits nothing forever — measured against the real Gemini sandbox, 2026-09-07 — so
-        /// without this check the watch would log "now watching fills on Gemini", record it as
-        /// healthy, and watch nothing. <b>That is the silent non-coverage this whole phase
-        /// exists to prevent, produced by the phase itself.</b>
-        /// </para>
-        /// </summary>
-        internal static async Task<bool> CannotStreamAsync(IDataService data, string providerName)
-        {
-            try
-            {
-                var provider = await data.GetProviderAsync(providerName);
-                // Not a trading provider at all is a different question, answered by
-                // HasOpenWorkAsync; only an explicit "I do not stream" counts here.
-                return provider is ITradingProvider tp && !tp.SupportsOrderEventStreaming;
-            }
-            catch { return false; }   // unreadable is a dead feed, not a permanent limitation
         }
 
         /// <summary>
@@ -303,7 +269,9 @@ namespace AccessibleTrader.WebHost.Services
             if (_deadStreams.NoteFailure(provider) is not int n) return;
 
             string text = $"Order monitoring stopped for {provider}: {why} on "
-                        + $"{n} checks in a row. Fills, stops and take-profits on {provider} are not being watched.";
+                        + $"{n} checks in a row. Fills, stops and take-profits on {provider} are not being watched. "
+                        + "Some venues have no order stream at all — orders you place from the terminal "
+                        + "are still followed while it is open.";
             _logger.LogWarning("{Text}", text);
             Announce(text);
         }

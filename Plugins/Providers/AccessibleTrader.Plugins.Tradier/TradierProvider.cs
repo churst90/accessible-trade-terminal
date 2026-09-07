@@ -110,7 +110,18 @@ namespace AccessibleTrader.Plugins.Tradier
             if (config.TryGetValue("ApiKey", out var key)) _accessToken ??= key; // Accept either name
             if (config.TryGetValue("AccountId", out var acct)) _accountId = acct;
 
-            if (config.TryGetValue("Environment", out var env) && env.Equals("sandbox", StringComparison.OrdinalIgnoreCase))
+            // ── "Paper", not "sandbox" — and the difference was every Tradier order ──────
+            // This compared against the literal "sandbox". The host's Environment field is a
+            // TWO-OPTION dropdown offering only "Paper" and "Live" (ApiKeysModal), so the value
+            // this looked for could never be produced: _isSandbox stayed false and EVERY Tradier
+            // profile signed against the LIVE broker, including one the user had explicitly
+            // marked Paper. Measured 2026-09-07.
+            //
+            // The polarity is now the fleet's safe one, matching Alpaca and Oanda: anything that
+            // is not explicitly "Live" is the practice environment. "sandbox" is still honoured
+            // so an externally-supplied config keeps working.
+            if (config.TryGetValue("Environment", out var env)
+                && !env.Equals("Live", StringComparison.OrdinalIgnoreCase))
             {
                 _isSandbox = true;
                 _baseUrl = "https://sandbox.tradier.com/v1";

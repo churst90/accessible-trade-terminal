@@ -66,51 +66,67 @@ namespace AccessibleTrader.Tests
             Provider: "Gemini", Nickname: "gem", ApiKey: "k", ApiSecret: "s",
             Environment: environment, IsActive: true);
 
+        // ── The mapping, as the pure function it is ──────────────────────────
+        //
+        // These used to drive a real DataService through InitializeAsync — six times — which
+        // scans for plugins and creates the REAL app-data directory. That is process-wide state,
+        // and it raced the bUnit Settings tests into intermittent failure: the full suite lost
+        // between one and three of them per run while every one passed in isolation. The
+        // end-to-end property (the dictionary really reaches Configure) is worth exactly one
+        // test; the vocabulary and the polarity are arithmetic.
+
         [Theory]
-        [InlineData("Paper")]
-        [InlineData("Live")]
-        public async Task The_stored_Environment_reaches_the_provider(string environment)
+        [InlineData("Paper", "Paper", "true")]
+        [InlineData("Live",  "Live",  "false")]
+        // Anything that is not explicitly Live is PRACTICE. Legacy profiles predate the field and
+        // carry an empty string; under the other polarity every one of them would have been
+        // handed to its plugin as a live-money credential.
+        [InlineData("",      "Paper", "true")]
+        [InlineData(null,    "Paper", "true")]
+        [InlineData("sandbox", "Paper", "true")]
+        [InlineData("nonsense", "Paper", "true")]
+        public void The_environment_is_normalised_and_spelled_every_way_the_fleet_reads_it(
+            string? stored, string expectedEnvironment, string expectedTestnet)
         {
-            var (data, captured) = Build(Key(environment));
+            var c = DataService.CredentialFor(Key(stored!));
+
+            // Five plugins compare this against a literal to choose their HOST. An unrecognised
+            // value — including the empty string a legacy profile holds — sends most of them live.
+            Assert.Equal(expectedEnvironment, c["Environment"]);
+            // And Binance reads a different key entirely. Only a unit test had ever supplied it,
+            // so a Binance profile marked Paper signed against the LIVE exchange.
+            Assert.Equal(expectedTestnet, c["Testnet"]);
+        }
+
+        [Fact]
+        public void The_credential_itself_is_carried()
+        {
+            // The control: a dictionary full of environment flags and no key would satisfy every
+            // assertion above and be useless.
+            var c = DataService.CredentialFor(Key("Paper"));
+
+            Assert.Equal("k", c["ApiKey"]);
+            Assert.Equal("s", c["ApiSecret"]);
+        }
+
+        // ── And the end-to-end property, ONCE ────────────────────────────────
+
+        [Fact]
+        public async Task The_credential_reaches_the_provider_at_all()
+        {
+            // The original defect was not a wrong value, it was a field that never arrived:
+            // neither place that built this dictionary put Environment in it. That is what this
+            // one test guards, and it is the only one here that needs a real DataService.
+            var (data, captured) = Build(Key("Paper"));
             await data.InitializeAsync(Substitute.For<IPluginLoaderService>());
 
             await data.ConfigureStoredKeyProvidersAsync();
 
             var config = captured();
             Assert.NotNull(config);
-            Assert.True(config!.TryGetValue("Environment", out var sent),
-                "The provider was configured without an Environment. Gemini, Kraken Futures, "
-              + "Tradier, Alpaca and Oanda all read this key to choose which HOST to sign "
-              + "against, so its absence sends a sandbox key to the live venue — which reads to "
-              + "the user as 'no key'.");
-            Assert.Equal(environment, sent);
-        }
-
-        [Fact]
-        public async Task The_credential_itself_still_arrives()
-        {
-            // The control. A Configure call carrying an Environment and no key would satisfy the
-            // assertion above and be useless.
-            var (data, captured) = Build(Key("Paper"));
-            await data.InitializeAsync(Substitute.For<IPluginLoaderService>());
-
-            await data.ConfigureStoredKeyProvidersAsync();
-
-            Assert.Equal("k", captured()!["ApiKey"]);
-            Assert.Equal("s", captured()!["ApiSecret"]);
-        }
-
-        [Fact]
-        public async Task A_profile_with_no_Environment_recorded_does_not_crash_the_configure()
-        {
-            // Profiles predate the field. An empty string is the honest answer — every plugin
-            // that reads it compares against a known word and falls to its own default.
-            var (data, captured) = Build(Key(null!));
-            await data.InitializeAsync(Substitute.For<IPluginLoaderService>());
-
-            await data.ConfigureStoredKeyProvidersAsync();
-
-            Assert.Equal("", captured()!["Environment"]);
+            Assert.Equal("Paper", config!["Environment"]);
+            Assert.Equal("true", config["Testnet"]);
+            Assert.Equal("k", config["ApiKey"]);
         }
     }
 }
