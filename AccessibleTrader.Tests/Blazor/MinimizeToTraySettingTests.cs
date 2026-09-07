@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using Bunit;
@@ -96,7 +98,7 @@ public class MinimizeToTraySettingTests
     /// button is about to mean something different, and nothing else on screen would say so.
     /// </summary>
     [Fact]
-    public void Turning_it_on_says_what_closing_the_window_will_now_do()
+    public async Task Turning_it_on_says_what_closing_the_window_will_now_do()
     {
         using var h = new BlazorTestHarness();
         PretendWindowsDesktop(h);
@@ -104,7 +106,12 @@ public class MinimizeToTraySettingTests
         var spokenLines = new List<string>();
         h.EventBus.Subscribe<FeedbackRequestEvent>(e => spokenLines.Add(e.Message));
 
-        cut.Find("input#s-minimize-to-tray").Change(true);
+        // ChangeAsync, awaited — never the sync Change(). The modal opens through a fire-and-forget
+        // InvokeAsync(ShowAsync), and while that sits in the renderer's dispatcher queue the sync
+        // Change() returns before the handler has run. On a two-core box the queue is usually
+        // empty by then; pinned to ONE core (taskset -c 0) these three tests failed 3 of 3 times,
+        // and CI is a two-core runner that sometimes behaves like one. Found 2026-09-07.
+        await cut.Find("input#s-minimize-to-tray").ChangeAsync(new ChangeEventArgs { Value = true });
 
         var spoken = spokenLines.Last();
         Assert.Contains("Minimize to tray on", spoken);
@@ -114,7 +121,7 @@ public class MinimizeToTraySettingTests
     }
 
     [Fact]
-    public void Turning_it_off_says_that_closing_the_window_quits()
+    public async Task Turning_it_off_says_that_closing_the_window_quits()
     {
         using var h = new BlazorTestHarness();
         PretendWindowsDesktop(h);
@@ -124,7 +131,7 @@ public class MinimizeToTraySettingTests
         var spokenLines = new List<string>();
         h.EventBus.Subscribe<FeedbackRequestEvent>(e => spokenLines.Add(e.Message));
 
-        cut.Find("input#s-minimize-to-tray").Change(false);
+        await cut.Find("input#s-minimize-to-tray").ChangeAsync(new ChangeEventArgs { Value = false });
 
         var spoken = spokenLines.Last();
         Assert.Contains("Minimize to tray off", spoken);
@@ -137,18 +144,23 @@ public class MinimizeToTraySettingTests
     /// changed what the close button does.
     /// </summary>
     [Fact]
-    public void The_value_is_written_on_save_and_not_before()
+    public async Task The_value_is_written_on_save_and_not_before()
     {
         using var h = new BlazorTestHarness();
         PretendWindowsDesktop(h);
         var cut = OpenSettings(h);
 
-        cut.Find("input#s-minimize-to-tray").Change(true);
+        // ChangeAsync, awaited — never the sync Change(). The modal opens through a fire-and-forget
+        // InvokeAsync(ShowAsync), and while that sits in the renderer's dispatcher queue the sync
+        // Change() returns before the handler has run. On a two-core box the queue is usually
+        // empty by then; pinned to ONE core (taskset -c 0) these three tests failed 3 of 3 times,
+        // and CI is a two-core runner that sometimes behaves like one. Found 2026-09-07.
+        await cut.Find("input#s-minimize-to-tray").ChangeAsync(new ChangeEventArgs { Value = true });
 
         h.SettingsManager.DidNotReceive().SetSetting(
             DesktopWindowSettings.MinimizeToTrayKey, Arg.Any<JToken>());
 
-        cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").Click();
+        await cut.FindAll("button").First(b => b.TextContent.Trim() == "Save").ClickAsync(new MouseEventArgs());
 
         h.SettingsManager.Received().SetSetting(
             DesktopWindowSettings.MinimizeToTrayKey,

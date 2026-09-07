@@ -78,8 +78,14 @@ orders and then sends `gtc` on every market-entry bracket; OANDA never reads
 legs carry `BUY`/`SELL` where the venue's vocabulary is `BUY_TO_OPEN`… . Full list with lines in
 the audit document.
 
-**Not this pass's doing:** `MinimizeToTraySettingTests` (two rows) failed once in a full run and
-pass in isolation and in the next full run — a bUnit ordering flake, noted, not chased.
+**And a race in a test from the previous pass, found because CI went red on this commit and
+then red again on a rerun.** Three `MinimizeToTraySettingTests` rows failed on the CI runner and
+pass on this box — until pinned to ONE core (`taskset -c 0`), where they failed 3 of 3 times with
+no provider test in the process. The mechanism: the Settings modal opens through a fire-and-forget
+`InvokeAsync(ShowAsync)`, and while that sits in the renderer's dispatcher queue bUnit's
+synchronous `Change()` returns before the handler has run, so the speech list is empty and the
+Save never sees the switch. The tests now `await ChangeAsync` / `ClickAsync` (the rule from
+2026-09-04, applied to a checkbox this time). Green 3 of 3 pinned to one core afterwards.
 
 ### Measured against a real venue — the Gemini sandbox, and what it found (2026-09-07)
 
