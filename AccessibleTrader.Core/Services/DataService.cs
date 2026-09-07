@@ -107,17 +107,44 @@ namespace AccessibleTrader.Core.Services
             if (provider == null) return;
 
             var key = await _apiKeyService.GetKeyForProviderAsync(providerName, marketType).ConfigureAwait(false);
-            if (key != null)
-            {
-                var config = new Dictionary<string, string>
-                {
-                    { "ApiKey", key.ApiKey },
-                    { "ApiSecret", key.ApiSecret },
-                    { "Passphrase", key.Passphrase }
-                };
-                provider.Configure(config);
-            }
+            if (key != null) provider.Configure(CredentialFor(key));
         }
+
+        /// <summary>
+        /// The session credential as a provider sees it.
+        ///
+        /// <para>
+        /// <b><see cref="ApiKeyConfig.Environment"/> is part of the credential, not a label on
+        /// it.</b> Five plugins read <c>"Environment"</c> out of this dictionary to choose which
+        /// HOST they sign against — Gemini (<c>api.sandbox.gemini.com</c>), Kraken Futures (demo),
+        /// Tradier (<c>sandbox.tradier.com</c>), Alpaca (live vs paper) and Oanda (practice vs
+        /// live) — and until 2026-09-06 neither of the two places that build this dictionary put
+        /// it in. Every one of those plugins therefore saw no Environment at all and fell to its
+        /// default:
+        /// </para>
+        /// <list type="bullet">
+        ///   <item>Gemini and Kraken Futures defaulted to LIVE, so a profile marked Paper signed
+        ///   its sandbox key against the live venue. The venue does not know that key, so the
+        ///   terminal reported "no key" and reconnected — the reported symptom, and one that
+        ///   looks like a broken key rather than a wrong host.</item>
+        ///   <item>Alpaca defaulted to paper, so a LIVE profile quietly traded on paper.</item>
+        ///   <item><b>Tradier defaulted to LIVE, so a profile marked sandbox would have placed
+        ///   real orders at a real broker.</b> That is the one that fails dangerous.</item>
+        /// </list>
+        /// <para>
+        /// A field the user sets in the API-keys dialog and nothing downstream ever receives is
+        /// the same defect as the provider-name drift of 2026-08-31, one field over. One builder,
+        /// both call sites.
+        /// </para>
+        /// </summary>
+        private static Dictionary<string, string> CredentialFor(ApiKeyConfig key) => new()
+        {
+            { "ApiKey", key.ApiKey },
+            { "ApiSecret", key.ApiSecret ?? "" },
+            { "Passphrase", key.Passphrase ?? "" },
+            { "Environment", key.Environment ?? "" },
+        };
+
 
         /// <summary>
         /// Configure every provider that has an active stored key, directly from the
@@ -163,12 +190,7 @@ namespace AccessibleTrader.Core.Services
                 if (provider.IsConfigured) continue;
                 try
                 {
-                    provider.Configure(new Dictionary<string, string>
-                    {
-                        { "ApiKey", k.ApiKey },
-                        { "ApiSecret", k.ApiSecret ?? "" },
-                        { "Passphrase", k.Passphrase ?? "" }
-                    });
+                    provider.Configure(CredentialFor(k));
                     _logger.LogInformation("Configured provider {Provider} from stored key '{Nickname}'.", k.Provider, k.Nickname);
                 }
                 catch (Exception ex)

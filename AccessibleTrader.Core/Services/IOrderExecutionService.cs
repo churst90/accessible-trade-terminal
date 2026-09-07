@@ -69,6 +69,22 @@ namespace AccessibleTrader.Core.Services
         Task<bool> SupportsOcoPairsAsync(string provider);
 
         /// <summary>
+        /// Whether the NAMED VENUE could place a linked OCO pair — asked of the real exchange
+        /// even when paper mode would reroute the order to the simulator.
+        ///
+        /// <para>
+        /// <see cref="SupportsOcoPairsAsync"/> answers "can this be placed right now", and in
+        /// paper mode that is always yes, because the paper broker enforces pairing itself. That
+        /// makes it the wrong question for a CONTROL: it offered an OCO panel on every venue in
+        /// the world as long as paper mode was on, so a trader could rehearse a workflow for
+        /// weeks and find it missing the day they went live. Paper trading here is rehearsal for
+        /// live, and a control that exists only in rehearsal teaches a motion that cannot be
+        /// performed on stage.
+        /// </para>
+        /// </summary>
+        Task<bool> VenueSupportsOcoPairsAsync(string provider) => Task.FromResult(false);
+
+        /// <summary>
         /// Places a same-side/same-quantity OCO pair: LIMIT at
         /// <paramref name="limitPrice"/> + STOP triggered at
         /// <paramref name="stopTriggerPrice"/>. Native on exchanges that support

@@ -4,6 +4,99 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Order safety — the stop that opened a short, and four more found under it (2026-09-06)
+
+**Reported from paper trading: "I set a stop on my long and it switched the position to a sell
+and cancelled the order."** It did, and the account file proved every step of it.
+
+**The stop was not a protective order.** `TradingDashboardModal.CommitProtectiveAsync` — the
+stop/take-profit editor in the positions table — built its order without `ReduceOnly`. A sell stop
+resting under a long is protection only while the long exists; fire it when the position is
+already closed, or for more than remains after a partial, and it does not protect anything, **it
+opens a short**. The paper broker has guarded exactly this since the bracket work ("a sell with no
+position became a short"), and the guard runs on reduce-only orders ONLY. The legs attached at
+entry set the flag. This editor never did. One rule, two call sites, applied at one of them —
+the shape that let N08/N09 survive the 2026-08-29 campaign. Confirmed in the reporter's own
+`paper_account.json`: every bracket leg `"ReduceOnly": true`, the hand-set stop `false`.
+
+**The "arbitrary stop way below the current price" was a real order, from five weeks earlier.**
+The account's history carried a long opened 2026-08-04 at 64,245, and its bracket stop was still
+resting. `ProtectiveOrderFor` finds a symbol's stop by matching SYMBOL and order type — nothing
+ties it to the position in front of it — so a stop from August was displayed as the stop for a
+position opened that morning at 79,800, and the edit field prefilled from it. **A position going
+flat now retires its protective orders** (`CancelProtectionFor`), with a spoken reason rather than
+a stop that silently vanishes. It is the rule the two lines above the call already state for
+margin mode: *left behind, it would silently re-margin the next unrelated trade in the same
+symbol.* A stop describes that position too. Reduce-only orders only — a resting ENTRY in the same
+symbol is not protection and survives; a PARTIAL close keeps its stop.
+
+**"It closed the order when I tried changing it."** The editor cancelled the old stop FIRST and
+then placed the new one, so a refused replacement left the position naked and said nothing about
+it. Now it places first and retires the old one only on success — and a refusal says what
+protection still stands, because "order rejected" alone does not answer the question the trader
+actually has. The old ordering reasoned that two stops are worse than none; that inverted the
+moment the replacement could be refused, and again once both are reduce-only (whichever fires
+first closes the position and the broker cancels the other).
+
+**A fix that would have broken two live venues, caught by sabotage.** The level had been passed as
+`StopLoss` on a `StopMarket` order — "attach a bracket to this stop". The obvious correction is
+`TriggerPrice`, the documented field. It is also wrong on its own: **Kraken and Coinbase read
+`signal.StopLoss` and ignore `TriggerPrice` entirely**, so those two venues would have received a
+stop with no price at all. Gemini and Binance futures prefer `TriggerPrice`. The fleet disagrees,
+and the paper broker's own `TriggerPrice ?? StopLoss` fallback is why none of it is visible in
+paper trading. Reconciled once, centrally, in `GeneralOrderService.NormaliseTrigger` — never
+inventing a trigger, never overwriting one, and an identity function on entries, because an
+entry's `StopLoss` is a bracket to attach after the fill and copying it would turn a market buy
+into a stop order.
+
+**And the Gemini "no key" loop, which was never about the key.** `GeminiProvider.Configure` reads
+`"Environment"` to choose between `api.gemini.com` and `api.sandbox.gemini.com`. Neither place
+that builds the credential dictionary ever put the field in, so a profile marked Paper signed its
+sandbox key against the LIVE venue — which has never heard of it. Five plugins read this field and
+each defaulted differently: Gemini and Kraken Futures to live (sandbox keys refused), Alpaca to
+paper (a live profile quietly trading on paper), and **Tradier to live — a profile marked sandbox
+would have placed real orders at a real broker.** One builder, both call sites. Same family as the
+provider-name drift of 2026-08-31: a field the API-keys dialog collects and nothing downstream
+receives.
+
+**The OCO panel stops promising what the venue cannot do.** It was gated on
+`SupportsOcoPairsAsync`, which asks "can this be placed right now" — and in paper mode the answer
+is yes for every venue on earth, because the paper broker enforces the pairing itself. So the
+panel appeared against Bitstamp, Coinbase, anything, as long as paper mode was on. Paper trading
+here is REHEARSAL FOR LIVE, and a control that exists only in rehearsal teaches a motion that
+cannot be performed on stage; for a trader navigating by button list and remembered position,
+finding mid-trade that a panel used for weeks has silently vanished is worse than never having had
+it. Consistency between paper and live is the accessibility property. The panel now needs both
+answers — the effective broker can place it, AND `VenueSupportsOcoPairsAsync` says the exchange
+behind the chart could, asked of the real provider rather than through paper's rerouting.
+
+**A guard that had been inspecting one of three call sites.**
+`DashboardCapabilityGatingTests` took `FirstOrDefault` of the lines setting `ReduceOnly`, so a
+second `TradeSignal` built anywhere in the file went unchecked. Widened to every occurrence, it
+immediately surfaced a THIRD site — the Close position button — which had made the identical
+deliberate exemption for the identical reason ("a plain sell 1.0 closes 0.4 and OPENS A 0.6
+SHORT") and had never actually been inspected by the guard. Both exemptions now carry a
+`protective:` marker, so the exemption is a decision somebody wrote down rather than a line that
+happened not to match, and a companion test pins that the protective order really is reduce-only.
+
+**Eleven sabotages, each red, each restored.** One of them came back GREEN and was worth more than
+the ten that did not: the trigger-field test could not tell `TriggerPrice` from `StopLoss`, because
+the paper broker treats them identically — which is precisely why the plugin disagreement had
+survived. The replacement asserts what arrives at the PLUGIN boundary.
+
+**One existing test failed, correctly.**
+`A_bracket_leg_left_behind_by_a_manual_close_is_cancelled_not_filled` guards the reduce-only check
+at TRIGGER time; retiring the legs at close time makes that scenario unreachable, and its collector
+(subscribed after the close) missed the cancellation. The property holds more strongly — an order
+that does not exist cannot reverse anything — so the collector moved rather than the assertion
+relaxing, and one assertion was SHARPENED: "no fill at all" also caught the user's own exit, and
+now reads "no fill of a protective LEG". Removing both guards still turns it red.
+
+**Not verified:** none of this has run against a live venue. The plugin-boundary tests assert what
+a substitute receives, not what Kraken or Coinbase do with it. `CommitProtectiveAsync`'s
+place-then-cancel ordering has no test — it is a Razor component method and would need bUnit — so
+it is reasoned, not measured.
+
 ### Background monitoring, Phase 2 — order fills with the browser closed, and the streams that were never hooked (2026-09-06)
 
 **A stop-loss triggering overnight said nothing. On every head, in every mode, browser or no

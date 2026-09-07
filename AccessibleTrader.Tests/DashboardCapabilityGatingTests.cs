@@ -90,12 +90,56 @@ namespace AccessibleTrader.Tests
             // sit on the same line in the TradeSignal initialiser.
             foreach (string field in new[] { "MarginType:", "ReduceOnly:", "PostOnly:" })
             {
-                var line = src.Split('\n').FirstOrDefault(l => l.Contains(field, StringComparison.Ordinal));
-                Assert.True(line != null, $"Could not find the {field} argument in the TradeSignal build.");
-                Assert.True(line!.Contains("Can(", StringComparison.Ordinal),
-                    $"{field} is set without a capability gate, so it is sent to providers that "
-                  + $"ignore it. The order then goes out looking like the one that was asked for: {line.Trim()}");
+                // EVERY occurrence, not the first one. This used to take FirstOrDefault, which
+                // meant a second TradeSignal built anywhere in the file was unchecked — and the
+                // dashboard now builds two (the entry ticket, and the protective order the
+                // positions table places). A guard that inspects one of two call sites is the
+                // shape that let N08/N09 survive the 2026-08-29 campaign.
+                var lines = src.Split('\n')
+                    .Where(l => l.Contains(field, StringComparison.Ordinal))
+                    .ToList();
+                Assert.True(lines.Count > 0, $"Could not find the {field} argument in any TradeSignal build.");
+
+                foreach (var line in lines)
+                {
+                    // A PROTECTIVE order is exempt, and says so on the line. Reduce-only is part
+                    // of what such an order IS, not a preference about it: gating it would mean
+                    // omitting it on venues that honour it, which manufactures exactly the
+                    // stop-reverses-the-position defect reported on 2026-09-06. The marker is
+                    // required so the exemption is a decision somebody wrote down rather than a
+                    // line that happened not to match.
+                    if (line.Contains("protective:", StringComparison.Ordinal)) continue;
+
+                    Assert.True(line.Contains("Can(", StringComparison.Ordinal),
+                        $"{field} is set without a capability gate, so it is sent to providers that "
+                      + $"ignore it. The order then goes out looking like the one that was asked for: {line.Trim()}");
+                }
             }
+        }
+
+        /// <summary>
+        /// The other half of the exemption above: the protective order MUST be reduce-only.
+        ///
+        /// <para>
+        /// Without the flag it is not a protective order at all — it is a plain stop resting under
+        /// a position, and when it fires with the position already closed it OPENS THE OPPOSITE
+        /// ONE. Reported from paper trading 2026-09-06 as "setting a stop switches my long to a
+        /// sell". The behaviour is pinned end-to-end in <c>HandSetProtectiveOrderTests</c>; this
+        /// pins that the dashboard still asks for it, because the exemption above would otherwise
+        /// let it be deleted silently.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void TheProtectiveOrderIsReduceOnly()
+        {
+            var line = Dashboard().Split('\n')
+                .FirstOrDefault(l => l.Contains("protective:", StringComparison.Ordinal));
+
+            Assert.True(line != null,
+                "The protective TradeSignal no longer carries its 'protective:' marker, so the "
+              + "capability-gate exemption above no longer applies to it — and a gated "
+              + "ReduceOnly is an ungated reversal on any venue that honours the flag.");
+            Assert.Contains("ReduceOnly: true", line!, StringComparison.Ordinal);
         }
 
         [Fact]

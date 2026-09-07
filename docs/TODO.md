@@ -117,6 +117,93 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-06, THIRTY-FIRST pass — ORDER SAFETY, from a real bug
+> report: a hand-set stop on a long that OPENED A SHORT, and four more found underneath it.**
+> See CHANGES `[Unreleased]`. Suite **7,034** (was 7,012). What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **READ THE USER'S ACTUAL STATE FILE.** Four exchanges of speculation about where "63,000"
+>   came from were settled in one minute by reading `paper_account.json`: a long opened
+>   2026-08-04 at 64,245 whose bracket stop was STILL RESTING five weeks later, displayed as the
+>   stop for a position opened that morning at 79,800. The same file proved the reduce-only flag
+>   was false on the hand-set order and true on every bracket leg. **When a user reports state,
+>   go and read the state.**
+> - **A guard applied at one of its call sites is the guard's most common failure.** The broker
+>   already refused a leg that would reverse a position — for reduce-only orders only, and the
+>   positions-table editor never set the flag. Third time this genre has appeared (N08/N09, the
+>   hosted-vs-local monitor pause, now this). **Grep for the OTHER callers of a rule before
+>   believing it is enforced.**
+> - **Widening a scan guard finds things.** `DashboardCapabilityGatingTests` inspected only the
+>   FIRST `ReduceOnly:` line; every-occurrence immediately surfaced a third call site nobody had
+>   ever checked. **`FirstOrDefault` in a guard is a guard over one example.**
+> - **The obvious fix can be the wrong one — check the CONSUMERS.** Moving the stop level to
+>   `TriggerPrice` (the documented field) would have broken Kraken and Coinbase, which read
+>   `StopLoss` and nothing else. Found only because the sabotage came back GREEN and forced a
+>   look at the plugin fleet. **"Read the CALLER before changing a return value" — same lesson,
+>   one field over.**
+> - **A GREEN sabotage is worth more than a red one.** The trigger test could not distinguish the
+>   two spellings because the paper broker treats them identically — which is exactly why the
+>   disagreement had survived unnoticed. A simulator's tolerance is a place bugs hide.
+> - **PAPER TRADING CANNOT SHOW THREE OF THESE FIVE.** The trigger disagreement is masked by the
+>   broker's fallback, the Environment bug only bites a real venue, and reduce-only matters most
+>   where a venue honours it. **The safety net has a ceiling, and it is worth saying out loud to
+>   anyone testing on paper before going live.**
+> - **An existing test failing is information, not an obstacle.** Retiring legs at close time made
+>   a trigger-time guard's scenario unreachable. The fix was to move the collector and SHARPEN the
+>   over-broad assertion ("no fill at all" also caught the user's own exit), then prove the test
+>   still catches the original defect. **Never relax an assertion to make a change fit.**
+>
+> ### 2. DECISIONS MADE, recorded so they are not re-litigated
+>
+> - **A protective order is reduce-only BY DEFINITION and is never capability-gated.** Both
+>   answers are unsafe and they are not equally unsafe: sending a flag a venue ignores leaves the
+>   risk where it was; omitting it on a venue that honours it MANUFACTURES the risk. Marked
+>   `protective:` in source so the gating guard's exemption is explicit.
+> - **Place, THEN cancel.** Only retire existing protection once the replacement exists.
+> - **Flat retires protection; a partial close does not, and a pending ENTRY never does.**
+> - **A control is gated on what the VENUE can do, not on what the effective broker can do.**
+>   The OCO panel was shown for every venue while paper mode was on, because the paper broker
+>   enforces pairing itself. Paper is rehearsal for live; a control that exists only in rehearsal
+>   teaches a motion that cannot be performed on stage, and for a screen-reader user a panel that
+>   silently vanishes on the day they go live is worse than one that was never offered.
+> - **Stop levels are judged against the CURRENT PRICE, not the entry.** Entry-relative would
+>   forbid a breakeven or profit-locking stop, which is standard risk management — and would allow
+>   a stop that fires the instant it is placed. Cody asked for entry-relative and then described
+>   "below the entry/current price"; the current-price rule is what shipped.
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **Nothing has run against a live venue.** The plugin-boundary tests assert what a SUBSTITUTE
+>   receives. What Kraken and Coinbase do with the normalised signal is unmeasured.
+> - **`CommitProtectiveAsync`'s place-then-cancel ordering has no test** — a Razor component
+>   method needing bUnit. Reasoned, not measured.
+> - **The Tradier sandbox default is the scariest thing found and is untested**: before this pass a
+>   profile marked sandbox routed to the LIVE broker. Worth a second pair of eyes before anyone
+>   points this at a funded account.
+>
+> ### 4. NEXT
+>
+> - **THE TOOLBAR DROPDOWNS DO NOT SURVIVE A RESTORE, and it is a two-sources-of-truth defect.**
+>   The chart's identity lives in `WorkspaceState.Identity` and IS restored; the market / provider
+>   / asset selection lives in `MarketOrchestrator.Selected*`, which is `AddScoped` (per circuit),
+>   holds plain in-memory fields, and has exactly two writers — the toolbar's own dropdown
+>   handlers and `WatchlistModal`. **Nothing seeds it from a restored workspace**, so the chart
+>   comes back as Bitstamp BTC/USDT and the dropdowns come back at their defaults. They agree only
+>   while the user drives from the toolbar and diverge the moment anything else sets the chart.
+>   Fix = make the identity the source and the dropdowns a view of it. **Open question before
+>   writing it: one selection per circuit (today) or one per TAB?** Today's model already leaves
+>   the dropdowns describing the previous tab after a switch, which is likely the same root.
+> - **Phase 3 of the background monitor** — new bars, and the alerts the monitor still cannot
+>   watch. See the thirtieth pass block below. Splitting it 3a (condition-tree/indicator alerts,
+>   cheap, closes a stale refusal) before 3b (new bars, needs live feeds) is the recommendation.
+> - **Verification over features.** Three monitor phases and now five order fixes are on `main`
+>   unreleased and unmeasured against reality. A session with Orca running, a paper order resting
+>   and a testnet key would falsify more than the next feature would add.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-06, THIRTIETH pass — BACKGROUND MONITOR **PHASE 2**:
 > order fills with the browser closed — and the discovery that the streams they arrive on had
 > NEVER BEEN HOOKED, in any head, browser open or closed.** See CHANGES `[Unreleased]` and

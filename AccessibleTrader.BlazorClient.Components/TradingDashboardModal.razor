@@ -1165,7 +1165,14 @@
         string fromChart = (Store.State.Identity.Market ?? "").Contains('|')
             ? Store.State.Identity.Market!.Split('|')[1] : "";
         _subType = _subTypes.Contains(fromChart) ? fromChart : (_subTypes.FirstOrDefault() ?? "");
-        _supportsOco    = supported && await OrderService.SupportsOcoPairsAsync(provider);
+        // BOTH questions, and they are different ones. "Can it be placed" is true for every
+        // venue while paper mode is on, because the paper broker enforces the pairing itself —
+        // so on its own it offered this panel everywhere and taught a workflow that vanishes on
+        // the day you go live. "Can the VENUE do it" is what makes paper a rehearsal for
+        // something real. See IOrderExecutionService.VenueSupportsOcoPairsAsync.
+        _supportsOco    = supported
+                       && await OrderService.SupportsOcoPairsAsync(provider)
+                       && await OrderService.VenueSupportsOcoPairsAsync(provider);
         _maxLeverage    = supported ? await OrderService.GetMaxLeverageAsync(provider) : 1.0;
         _leverage       = Can(ProviderCapabilities.Leverage) ? Math.Min(_leverage, _maxLeverage) : 1.0;
 
@@ -1337,10 +1344,29 @@
         string provider = row.Account.ProviderName;
 
         var existing = ProtectiveOrderFor(row, level);
-        if (existing != null)
-            await OrderService.CancelOrderAsync(provider, existing.Id, p.Symbol);
 
         // A protective order closes the position, so it is the opposite side and the same quantity.
+        //
+        // ── REDUCE-ONLY, and it is the whole difference between a stop and a REVERSAL ──────
+        // Without this flag the order below is not a protective stop at all; it is a plain sell
+        // stop that happens to sit under a long. Fire it when the position is already closed —
+        // or for more than is still held after a partial — and it does not protect anything, it
+        // OPENS A SHORT. PaperTradingProvider has guarded exactly this since the bracket work
+        // ("a sell with no position became a short", PaperTradingProvider.cs), but the guard runs
+        // on ReduceOnly orders only, and the legs attached at entry set it while THIS editor
+        // never did. One rule, two call sites, fixed at one of them.
+        //
+        // ── The level is a TRIGGER, not a bracket ─────────────────────────────────────────
+        // It used to be passed as StopLoss/TakeProfit, which on an order of type StopMarket means
+        // "attach a protective stop to this stop" — a bracket on a bracket, at the same price.
+        //
+        // TriggerPrice is the documented field, and it is NOT enough on its own: the plugin fleet
+        // disagrees about which field to read. Gemini and Binance futures fall back
+        // (TriggerPrice ?? StopLoss); KRAKEN AND COINBASE READ StopLoss AND NOTHING ELSE, so
+        // sending only TriggerPrice would reach those two venues with no stop price at all. That
+        // is reconciled once, centrally, in GeneralOrderService.NormaliseTrigger — which is why
+        // this line sets the documented field and nothing else. The paper broker has its own
+        // fallback, so none of that disagreement is visible in paper trading.
         var exitSide = isLong ? OrderSide.Sell : OrderSide.Buy;
         var signal = new TradeSignal(
             Symbol: p.Symbol,
@@ -1348,17 +1374,48 @@
             Quantity: Math.Abs(p.Quantity),
             Type: level == ProtectiveLevel.StopLoss ? OrderType.StopMarket : OrderType.TakeProfitMarket,
             Price: null,
-            StopLoss: level == ProtectiveLevel.StopLoss ? check.Value : null,
-            TakeProfit: level == ProtectiveLevel.TakeProfit ? check.Value : null);
+            TriggerPrice: check.Value,
+            ReduceOnly: true);   // protective: NEVER capability-gated — see the note below
 
+        // ReduceOnly above is deliberately NOT wrapped in Can(ProviderCapabilities.ReduceOnly),
+        // which is the rule every field on the ENTRY ticket follows. The gate exists so a flag a
+        // venue ignores is not sent as though it were honoured — but here both answers are unsafe
+        // and they are not equally unsafe: sending the flag to a venue that ignores it leaves the
+        // reversal risk exactly where it already was, while OMITTING it on a venue that DOES
+        // honour it manufactures that risk. A protective order is reduce-only by definition; the
+        // flag is part of what the order IS, not a preference about it.
+        //
+        // What this does NOT do is promise the guarantee holds everywhere. On a venue with no
+        // reduce-only support the terminal cannot stop a stop from reversing a position that
+        // closed behind its back, and nothing here pretends otherwise.
+
+        // ── Place, THEN cancel — the order of these two lines is a safety property ─────────
+        // It used to be the other way round, reasoning that two stops on one position is worse
+        // than none for the seconds it takes to notice. That reasoning inverted the moment the
+        // replacement could be REFUSED: the old stop was already gone, so a rejected edit left
+        // the position naked and said nothing about it. And it inverted again with ReduceOnly
+        // above — two reduce-only stops are self-correcting, because whichever fires first
+        // closes the position and the broker cancels the other as protecting nothing, while
+        // zero stops is silent and permanent. So: only retire the old protection once the new
+        // protection exists.
         var placement = await OrderService.PlaceOrderAsync(provider, signal);
+
+        if (placement.Succeeded && existing != null)
+            await OrderService.CancelOrderAsync(provider, existing.Id, p.Symbol);
 
         _editing = null;
         await LoadAccountDataAsync();
 
         EventBus.Publish(placement.Succeeded
             ? new FeedbackRequestEvent(FeedbackType.StateChange, check.Message)
-            : new FeedbackRequestEvent(FeedbackType.Error, placement.FailureMessage!, true));
+            // Say what still stands, not only what failed: after a refusal the user needs to know
+            // whether they are protected, and "order rejected" alone does not answer that.
+            : new FeedbackRequestEvent(FeedbackType.Error,
+                placement.FailureMessage + (existing != null
+                    ? $" Your existing {(level == ProtectiveLevel.StopLoss ? "stop loss" : "take profit")} "
+                      + $"at {PriceFormatter.FormatPrice(existing.Price)} is still in place."
+                    : " This position has no " + (level == ProtectiveLevel.StopLoss ? "stop loss." : "take profit.")),
+                true));
         StateHasChanged();
     }
 
@@ -2105,7 +2162,10 @@
             subType = id.Market!.Split('|')[1];
 
         // ReduceOnly is UNCONDITIONAL here, and is not gated on the capability flag
-        // the way the ticket's checkbox is. `p` is a snapshot from a timer-refreshed
+        // the way the ticket's checkbox is. (The 'protective:' marker on the line is what
+        // exempts it from DashboardCapabilityGatingTests, which checks EVERY ReduceOnly in this
+        // file since 2026-09-06 — it used to check only the first one, so this deliberate
+        // exemption had never actually been inspected by it.) `p` is a snapshot from a timer-refreshed
         // list: hold 1.0 BTC with a stop, let the stop fire down to 0.4, press Close
         // on the stale row, and a plain sell 1.0 closes 0.4 and OPENS A 0.6 SHORT —
         // while the user hears "Closing BTC/USDT. Sell 1.0." A button called Close
@@ -2122,7 +2182,7 @@
             Symbol: p.Symbol, Side: side, Quantity: Math.Abs(p.Quantity),
             Type: limitPrice is null ? OrderType.Market : OrderType.Limit,
             Price: limitPrice,
-            SubType: subType, ReduceOnly: true);
+            SubType: subType, ReduceOnly: true);   // protective: NEVER capability-gated — see above
 
         OrderPlacement placement;
         try

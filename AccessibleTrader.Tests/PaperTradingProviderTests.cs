@@ -825,24 +825,35 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task A_bracket_leg_left_behind_by_a_manual_close_is_cancelled_not_filled()
         {
-            // Closing from the dashboard does not cancel the legs. Before reduce-only,
-            // the stop later fired a sell with no position and OPENED A SHORT, then
-            // cancelled its own target and announced "stop loss hit" for a trade it
-            // had just created.
+            // Before reduce-only, the stop left behind by a manual close later fired a sell
+            // with no position and OPENED A SHORT, then cancelled its own target and announced
+            // "stop loss hit" for a trade it had just created. That guard — the reduce-only
+            // check at trigger time — is what this test protects, and it is unchanged.
+            //
+            // WHEN the leg is retired moved on 2026-09-06: a position going flat now cancels its
+            // protective orders there and then (CancelProtectionFor), instead of leaving them to
+            // be refused if and when the price reaches them. Strictly stronger — an order that
+            // does not exist cannot reverse anything, and it can no longer be displayed as the
+            // stop belonging to some LATER position in the same symbol, which is the defect that
+            // prompted the change. So the collector starts before the close rather than after
+            // it; subscribing afterwards now misses the cancellation entirely.
             var paper = Make(out var store);
             store.EmitState(StateWith(Btc, 99, 101, 98, 100));
             await paper.PlaceOrderAsync(
                 new TradeSignal(Btc, OrderSide.Buy, 1.0, StopLoss: 90, TakeProfit: 110));
 
+            var updates = Collect(paper);
             await paper.PlaceOrderAsync(new TradeSignal(Btc, OrderSide.Sell, 1.0));   // closed by hand
             Assert.Empty(await paper.GetPositionsAsync());
 
-            var updates = Collect(paper);
             store.EmitState(StateWith(Btc, 95, 96, 85, 88));      // the stop level is touched
 
             Assert.Empty(await paper.GetPositionsAsync());        // no short was opened
             Assert.Contains(updates, u => u.Status == OrderStatus.Cancelled);
-            Assert.DoesNotContain(updates, u => u.Status == OrderStatus.Filled);
+            // A LEG must never execute. The close itself is a fill and is not one — the flags
+            // are what distinguish "the user's exit filled" from "the abandoned stop fired".
+            Assert.DoesNotContain(updates, u =>
+                u.Status == OrderStatus.Filled && (u.StopTriggered || u.TakeProfitTriggered));
             Assert.Empty(await paper.GetOpenOrdersAsync(Btc));    // the target went too
         }
 

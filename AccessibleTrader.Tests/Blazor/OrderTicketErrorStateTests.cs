@@ -47,7 +47,12 @@ public sealed class OrderTicketErrorStateTests
         });
         h.OrderService.SupportsTradingAsync(default!).ReturnsForAnyArgs(true);
         h.OrderService.GetCapabilitiesAsync(default!).ReturnsForAnyArgs(ProviderCapabilities.None);
+        // BOTH questions since 2026-09-07: "can it be placed" (true for every venue while paper
+        // mode is on, because the paper broker enforces the pairing itself) AND "can the VENUE
+        // do it". The panel needs both, so a harness that stubs only the first would render a
+        // panel the real dialog now hides.
         h.OrderService.SupportsOcoPairsAsync(default!).ReturnsForAnyArgs(oco);
+        h.OrderService.VenueSupportsOcoPairsAsync(default!).ReturnsForAnyArgs(oco);
         h.OrderService.GetMaxLeverageAsync(default!).ReturnsForAnyArgs(1.0);
         h.OrderService.GetBalancesAsync(default!).ReturnsForAnyArgs(ProviderResult<List<Balance>>.Ok(new List<Balance>()));
         h.OrderService.GetPositionsAsync(default!).ReturnsForAnyArgs(ProviderResult<List<Position>>.Ok(new List<Position>()));
@@ -205,5 +210,28 @@ public sealed class OrderTicketErrorStateTests
 
         var place = cut.FindAll("button").First(b => b.TextContent.Contains("Place OCO pair"));
         GatedButtonAssert.IsRefusedBecause(cut, place, "OCO quantity above zero");
+    }
+
+    /// <summary>
+    /// <b>Paper mode must not offer a control the venue cannot honour.</b>
+    ///
+    /// <para>
+    /// <c>SupportsOcoPairsAsync</c> asks "can this be placed right now", and in paper mode the
+    /// answer is yes for every venue on earth — the paper broker enforces the pairing itself. So
+    /// on its own it showed the OCO panel against Bitstamp, Coinbase, anything, and a trader
+    /// could rehearse a workflow for weeks and find it gone the day they went live. Reported
+    /// 2026-09-06: "the oco order field is always shown it seems".
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_OCO_panel_is_hidden_when_the_VENUE_cannot_pair_even_though_paper_could()
+    {
+        var h = TradableHarness(oco: true);
+        // Paper can place it; the exchange behind the chart cannot.
+        h.OrderService.VenueSupportsOcoPairsAsync(default!).ReturnsForAnyArgs(false);
+
+        var cut = OpenTicket(h);
+
+        Assert.Empty(cut.FindAll("#oco-qty"));
     }
 }

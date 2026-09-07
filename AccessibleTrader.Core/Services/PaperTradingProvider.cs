@@ -508,9 +508,24 @@ namespace AccessibleTrader.Core.Services
                         signal.Side == OrderSide.Buy, t, spot);
                     if (!check.Ok)
                     {
+                        // The RULE is the same for an entry and for a protective exit — a sell
+                        // stop above the market fires on the next tick either way, which is how
+                        // the simulator mints money. The EXPLANATION is not: telling someone
+                        // adjusting the stop on an open position to "use a market order to sell
+                        // here" is advice about an order they are not placing, and it reads as
+                        // the terminal having misunderstood which side they are on. So a
+                        // reduce-only stop is refused in the language of protection.
+                        string why = signal.ReduceOnly
+                            ? $"That {(signal.Side == OrderSide.Buy ? "buy" : "sell")} stop is on the wrong "
+                              + $"side of the market price of {Accessibility.SpeechPriceFormatter.FormatPrice(spot)}, so it "
+                              + "would trigger immediately and close the position at once. A stop protecting "
+                              + $"a {(signal.Side == OrderSide.Buy ? "short" : "long")} has to sit "
+                              + $"{(signal.Side == OrderSide.Buy ? "above" : "below")} the current price, not "
+                              + "your entry — the market has moved since you opened."
+                            : check.Message;
                         Emit(NewId(), symbol, signal.Side, 0, 0, signal.Quantity,
-                            OrderStatus.Rejected, true, false, reason: check.Message);
-                        return "ORDER_FAILED:" + check.Message;
+                            OrderStatus.Rejected, true, false, reason: why);
+                        return "ORDER_FAILED:" + why;
                     }
                 }
 
@@ -524,12 +539,20 @@ namespace AccessibleTrader.Core.Services
                 // size with no stop on it. The legs cannot be placed yet (there is no
                 // position to protect), so the spec rides along until the entry fills.
                 //
-                // StopLoss is ambiguous here: for a stop entry with no explicit
-                // TriggerPrice it was already consumed above as the entry trigger, and
-                // reusing it as a protective leg would put the stop exactly at the entry.
-                bool stopLossIsEntryTrigger =
-                    isStop && signal.TriggerPrice == null && signal.StopLoss != null;
-                var bracket = BracketFrom(signal, stopLossIsEntryTrigger);
+                // StopLoss is ambiguous here: on a STOP order it is the order's own trigger,
+                // never a protective leg to attach to it. Reusing it as a leg would put a stop
+                // on a stop, at the same price.
+                //
+                // The condition used to be `TriggerPrice == null && StopLoss != null`, which was
+                // right only while the two fields were never both set. GeneralOrderService now
+                // normalises them to agree — because Kraken and Coinbase read StopLoss and
+                // nothing else — so on a stop order they are BOTH populated and the old test
+                // fell through to "attach a bracket". The rule does not depend on which field
+                // was filled in: on a stop-type order the level is the trigger, full stop. Same
+                // for a take-profit order and TakeProfit.
+                var bracket = BracketFrom(signal,
+                    stopLossIsEntryTrigger: isStop,
+                    takeProfitIsEntryTrigger: signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit);
 
                 Rest(new PaperOrder(oid, symbol, signal.Side, signal.Type, signal.Quantity, price, trigger, isStop, isTp,
                     ocoGroupId: signal.OcoGroupId, reduceOnly: signal.ReduceOnly, bracket: bracket,
@@ -543,14 +566,18 @@ namespace AccessibleTrader.Core.Services
         /// Reads the protective fields off a signal, or null when it carries none.
         /// </summary>
         /// <param name="stopLossIsEntryTrigger">
-        /// True when <c>StopLoss</c> was already spent as the entry's own trigger, so it
+        /// True when <c>StopLoss</c> was already spent as the order's own trigger, so it
         /// must not also become a protective leg.
         /// </param>
-        private static BracketSpec? BracketFrom(TradeSignal signal, bool stopLossIsEntryTrigger)
+        /// <param name="takeProfitIsEntryTrigger">
+        /// The same for <c>TakeProfit</c> on a take-profit-type order.
+        /// </param>
+        private static BracketSpec? BracketFrom(TradeSignal signal, bool stopLossIsEntryTrigger,
+            bool takeProfitIsEntryTrigger = false)
         {
             var spec = new BracketSpec(
                 stopLossIsEntryTrigger ? null : signal.StopLoss,
-                signal.TakeProfit,
+                takeProfitIsEntryTrigger ? null : signal.TakeProfit,
                 signal.TrailStopMode, signal.TrailStopValue,
                 signal.TrailTpMode, signal.TrailTpValue, signal.TrailTpActivation,
                 signal.OcoGroupId);
@@ -684,6 +711,51 @@ namespace AccessibleTrader.Core.Services
         /// <summary>One-cancels-other: after <paramref name="filled"/> executes (or is
         /// cancelled), every other open order sharing its OcoGroupId is cancelled with
         /// its own Cancelled update. Caller holds _lock.</summary>
+        /// <summary>
+        /// The position went flat: retire the stops and targets that were protecting it.
+        ///
+        /// <para>
+        /// <b>A protective order outlives the position it was attached to, and then attaches
+        /// itself to the next one.</b> Reported 2026-09-06 from a real paper account: a stop set
+        /// in AUGUST, under a position closed weeks earlier, was still resting — and because the
+        /// positions table finds a symbol's stop by matching SYMBOL and order type, it was
+        /// displayed as the stop for a position opened that morning at a completely different
+        /// price. The user saw a stop "way below the current price" that they had never set for
+        /// that trade, and editing it edited the old order.
+        /// </para>
+        ///
+        /// <para>
+        /// It is the same rule as the two lines above this call: the margin mode "described THAT
+        /// position" and is removed so it cannot silently re-margin the next unrelated trade in
+        /// the same symbol. A stop describes that position too. Left behind it is worse than
+        /// stale — it is a live sell order resting under a position that no longer exists.
+        /// </para>
+        ///
+        /// <para>
+        /// Only REDUCE-ONLY orders are retired, and that is the whole discrimination: those are
+        /// the ones that exist to protect a position. A resting stop ENTRY, or a limit order
+        /// waiting to open a new trade in the same symbol, is not protection and must survive —
+        /// cancelling a user's pending entry because an unrelated position closed would be its
+        /// own defect. Caller holds <c>_lock</c>.
+        /// </para>
+        /// </summary>
+        private void CancelProtectionFor(string symbol)
+        {
+            var orphans = _open
+                .Where(o => o.ReduceOnly
+                         && string.Equals(o.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var o in orphans)
+            {
+                _open.Remove(o);
+                // The reason is spoken by the order-event layer, so it says what happened and
+                // why rather than leaving a stop to disappear without explanation.
+                Emit(o.Id, o.Symbol, o.Side, 0, 0, o.Quantity, OrderStatus.Cancelled, o.IsStop, o.IsTp,
+                    reason: "the position it was protecting is closed");
+            }
+        }
+
         private void CancelOcoSiblings(PaperOrder filled)
         {
             if (filled.OcoGroupId == null) return;
@@ -1730,6 +1802,8 @@ namespace AccessibleTrader.Core.Services
                 // The mode described THAT position. Left behind, it would silently
                 // re-margin the next unrelated trade in the same symbol.
                 _marginMode.Remove(symbol);
+                // And so did the protective orders. Same sentence, same reason.
+                CancelProtectionFor(symbol);
                 return realized;
             }
             double avg;

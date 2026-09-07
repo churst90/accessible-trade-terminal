@@ -351,9 +351,24 @@ namespace AccessibleTrader.Core.Services
             //    enforcement both work. Generate from a deterministic-ish source
             //    (random GUID — UI strategies don't need server-side reproducibility,
             //    they just need *some* unique tag for the dedup gate to operate on).
-            var signal = providedSignal.ClientOid is null
-                ? providedSignal with { ClientOid = "atc-" + Guid.NewGuid().ToString("N").Substring(0, 16) }
-                : providedSignal;
+            // ── 2a. ONE trigger, spelled every way the fleet reads it ──────────────
+            // TradeSignal carries a stop order's trigger in TWO fields and the twelve provider
+            // plugins do not agree on which to read. Gemini and Binance futures fall back
+            // (TriggerPrice ?? StopLoss); KRAKEN AND COINBASE READ StopLoss AND NOTHING ELSE, so
+            // a signal carrying only TriggerPrice reaches them with no stop price at all and
+            // rests an order the venue prices itself. The paper broker has its own fallback, so
+            // NONE of this is visible in paper trading — the one place it would be caught.
+            //
+            // Normalising here rather than at each caller is deliberate: this is the single
+            // chokepoint every order passes through, and the alternative is remembering the same
+            // rule in the dashboard editor, the ticket, the quick-trade path and every strategy.
+            // A field that means the same thing as another field is a field that will be filled
+            // in inconsistently forever unless one place makes them agree.
+            var normalised = NormaliseTrigger(providedSignal);
+
+            var signal = normalised.ClientOid is null
+                ? normalised with { ClientOid = "atc-" + Guid.NewGuid().ToString("N").Substring(0, 16) }
+                : normalised;
 
             // ── 3. Dedup gate. A second Submit of the same order inside the dedup
             //    window is treated as a probable double-fire (screen-reader
@@ -808,6 +823,41 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
+        /// <summary>
+        /// Makes a stop/take-profit order's trigger readable however a plugin spells it.
+        ///
+        /// <para>
+        /// For a STOP-type order the trigger may arrive as <c>TriggerPrice</c> (the documented
+        /// field) or as <c>StopLoss</c> (what several callers and two plugins use); for a
+        /// TAKE-PROFIT-type order, as <c>TriggerPrice</c> or <c>TakeProfit</c>. Whichever is
+        /// present is copied into the other, so Kraken and Coinbase — which read only the
+        /// protective field — and Gemini and Binance — which prefer <c>TriggerPrice</c> — receive
+        /// the same number.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>It never invents a trigger and never overwrites one.</b> If both are already set
+        /// the signal passes through untouched, disagreement included: two different numbers are
+        /// a caller bug, and silently picking one would hide it. On any non-stop order this is
+        /// the identity function — an ENTRY's <c>StopLoss</c> is a bracket to attach after the
+        /// fill, and copying it into <c>TriggerPrice</c> would turn a market entry into a stop.
+        /// </para>
+        /// </summary>
+        internal static TradeSignal NormaliseTrigger(TradeSignal s)
+        {
+            if (IsStopType(s.Type))
+                return s.TriggerPrice.HasValue
+                    ? (s.StopLoss.HasValue ? s : s with { StopLoss = s.TriggerPrice })
+                    : (s.StopLoss.HasValue ? s with { TriggerPrice = s.StopLoss } : s);
+
+            if (IsTakeProfitType(s.Type))
+                return s.TriggerPrice.HasValue
+                    ? (s.TakeProfit.HasValue ? s : s with { TakeProfit = s.TriggerPrice })
+                    : (s.TakeProfit.HasValue ? s with { TriggerPrice = s.TakeProfit } : s);
+
+            return s;
+        }
+
         private static bool IsStopType(OrderType t) =>
             t == OrderType.StopMarket || t == OrderType.StopLimit;
 
@@ -818,6 +868,17 @@ namespace AccessibleTrader.Core.Services
         {
             var tp = await GetTradingProviderAsync(providerName).ConfigureAwait(false);
             return tp is IPaperTradingProvider or Sdk.Plugins.IOcoTradingProvider;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> VenueSupportsOcoPairsAsync(string providerName)
+        {
+            // GetProviderAsync, NOT GetTradingProviderAsync: the latter reroutes to the paper
+            // broker whenever paper mode is on, which is exactly the answer this method exists
+            // to avoid. The question is what the EXCHANGE can do, whether or not the next order
+            // is going to reach it.
+            var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
+            return provider is Sdk.Plugins.IOcoTradingProvider;
         }
 
         public async Task<(bool Ok, string Message)> PlaceOcoPairAsync(string providerName, string symbol,
