@@ -142,8 +142,10 @@ namespace AccessibleTrader.Plugins.KrakenFutures
             if (config.TryGetValue("ApiSecret", out var s)) _apiSecret = s;
             // A Paper profile routes to the demo venue, which is a real environment
             // with its own keys — not a simulation we run.
-            if (config.TryGetValue("Environment", out var e))
-                _useDemo = string.Equals(e, "Paper", StringComparison.OrdinalIgnoreCase);
+            // ProviderConfigKeys polarity: anything not explicitly Live is practice — and with
+            // the demo venue gone, practice means REFUSE (see Host). The old compare branched on
+            // "Paper", so a missing environment signed against the live venue.
+            _useDemo = !ProviderConfigKeys.IsLive(config);
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
@@ -365,10 +367,21 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 ("size", signal.Quantity.ToString(CultureInfo.InvariantCulture)),
             };
 
-            if (signal.Price is > 0) args.Add(("limitPrice", signal.Price.Value.ToString(CultureInfo.InvariantCulture)));
-            if (signal.TriggerPrice is > 0) args.Add(("stopPrice", signal.TriggerPrice.Value.ToString(CultureInfo.InvariantCulture)));
-            else if (signal.StopLoss is > 0 && signal.Type is OrderType.StopMarket or OrderType.StopLimit)
-                args.Add(("stopPrice", signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture)));
+            // A limit price belongs on limit-type orders only. It used to be attached whenever
+            // Price was set — on a `mkt`, and on a StopMarket, which the venue then read as a
+            // stop-LIMIT because both stop types map to `stp` and only limitPrice tells them apart.
+            if (signal.Price is > 0 && signal.Type is OrderType.Limit or OrderType.StopLimit or OrderType.TakeProfitLimit)
+                args.Add(("limitPrice", signal.Price.Value.ToString(CultureInfo.InvariantCulture)));
+            // The SDK contract: `TriggerPrice ?? StopLoss` for a stop, `?? TakeProfit` for a
+            // take-profit. The TakeProfit fallback was missing until 2026-09-07.
+            double? trigger = signal.Type switch
+            {
+                OrderType.StopMarket or OrderType.StopLimit             => signal.TriggerPrice ?? signal.StopLoss,
+                OrderType.TakeProfitMarket or OrderType.TakeProfitLimit => signal.TriggerPrice ?? signal.TakeProfit,
+                _                                                       => null,
+            };
+            if (trigger is > 0) args.Add(("stopPrice", trigger.Value.ToString(CultureInfo.InvariantCulture)));
+            if (!string.IsNullOrEmpty(signal.ClientOid)) args.Add(("cliOrdId", signal.ClientOid));
 
             if (signal.ReduceOnly) args.Add(("reduceOnly", "true"));
             // Kraken Futures expresses post-only as its own order type rather than a
@@ -378,9 +391,17 @@ namespace AccessibleTrader.Plugins.KrakenFutures
                 args.RemoveAll(a => a.Item1 == "orderType");
                 args.Insert(0, ("orderType", "post"));
             }
-            if (!string.IsNullOrEmpty(signal.TimeInForce) &&
+            // Immediate-or-cancel is an ORDER TYPE at this venue (`ioc`), not a flag. Until
+            // 2026-09-07 it was sent as `triggerSignal=last` — which is the trigger price SOURCE
+            // for stop orders, a different field entirely — so an IOC limit rested as a plain
+            // `lmt` carrying a meaningless triggerSignal. The wrong value in the wrong field.
+            if (signal.Type == OrderType.Limit && !signal.PostOnly &&
+                !string.IsNullOrEmpty(signal.TimeInForce) &&
                 signal.TimeInForce.Equals("IOC", StringComparison.OrdinalIgnoreCase))
-                args.Add(("triggerSignal", "last"));
+            {
+                args.RemoveAll(a => a.Item1 == "orderType");
+                args.Insert(0, ("orderType", "ioc"));
+            }
 
             try
             {

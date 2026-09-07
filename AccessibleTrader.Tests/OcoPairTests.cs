@@ -179,7 +179,8 @@ namespace AccessibleTrader.Tests
         private static AccessibleTrader.Plugins.Binance.BinanceProvider NewBinance(FakeHttpMessageHandler handler)
         {
             var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
-            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s" });
+            // Environment=Live: since 2026-09-07 a config with no environment is the TESTNET (fail-safe polarity).
+            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "k", ["ApiSecret"] = "s", ["Environment"] = "Live" });
             HttpClientSwap.ReplaceAll(p, handler);
             return p;
         }

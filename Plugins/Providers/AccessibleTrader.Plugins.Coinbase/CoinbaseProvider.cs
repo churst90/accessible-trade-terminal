@@ -611,25 +611,29 @@ namespace AccessibleTrader.Plugins.Coinbase
                     // was already right — but none of these carried a culture, so on a
                     // comma-decimal machine every size and price on the wire read "0,04000000".
                     // Same defect class as Bitstamp's F2, one field short of it.
+                    // The SDK contract: a stop's trigger is `TriggerPrice ?? StopLoss`. Until
+                    // 2026-09-07 only StopLoss was read, so a stop carrying the canonical field alone
+                    // was refused as "Unsupported order type".
+                    double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
                     JObject orderConfig;
                     if (signal.Type == OrderType.Market)
                         orderConfig = new JObject { ["market_market_ioc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture) } };
                     else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
                         orderConfig = new JObject { ["limit_limit_gtc"] = new JObject { ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture), ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture), ["post_only"] = false } };
-                    else if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
+                    else if (signal.Type == OrderType.StopMarket && stopTrigger.HasValue)
                     {
                         orderConfig = new JObject
                         {
                             ["stop_limit_stop_limit_gtc"] = new JObject
                             {
                                 ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
-                                ["limit_price"] = (signal.StopLoss.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)).ToString("F8", CultureInfo.InvariantCulture),
-                                ["stop_price"] = signal.StopLoss.Value.ToString("F8", CultureInfo.InvariantCulture),
+                                ["limit_price"] = (stopTrigger.Value * (signal.Side == OrderSide.Buy ? 1.05 : 0.95)).ToString("F8", CultureInfo.InvariantCulture),
+                                ["stop_price"] = stopTrigger.Value.ToString("F8", CultureInfo.InvariantCulture),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };
                     }
-                    else if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
+                    else if (signal.Type == OrderType.StopLimit && stopTrigger.HasValue && signal.Price.HasValue)
                     {
                         orderConfig = new JObject
                         {
@@ -637,7 +641,7 @@ namespace AccessibleTrader.Plugins.Coinbase
                             {
                                 ["base_size"] = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
                                 ["limit_price"] = signal.Price.Value.ToString("F8", CultureInfo.InvariantCulture),
-                                ["stop_price"] = signal.StopLoss.Value.ToString("F8", CultureInfo.InvariantCulture),
+                                ["stop_price"] = stopTrigger.Value.ToString("F8", CultureInfo.InvariantCulture),
                                 ["stop_direction"] = signal.Side == OrderSide.Buy ? "STOP_DIRECTION_STOP_UP" : "STOP_DIRECTION_STOP_DOWN"
                             }
                         };
@@ -659,6 +663,18 @@ namespace AccessibleTrader.Plugins.Coinbase
                     var respStr  = await response.Content.ReadAsStringAsync();
                     if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{respStr}";
                     var json = JObject.Parse(respStr);
+                    // Coinbase answers HTTP 200 for a REJECTED order: the verdict is `success`, and
+                    // the reason sits in error_response. Until 2026-09-07 only the status was read,
+                    // and the missing success_response became "ORDER_SUBMITTED" — an insufficient-
+                    // funds rejection announced as a placed order. Body first, then status.
+                    if (json["success"]?.Type == JTokenType.Boolean && json["success"]!.Value<bool>() == false)
+                    {
+                        var err = json["error_response"];
+                        string reason = err?["message"]?.ToString();
+                        if (string.IsNullOrWhiteSpace(reason)) reason = err?["error"]?.ToString() ?? "";
+                        if (string.IsNullOrWhiteSpace(reason)) reason = "Coinbase rejected the order without saying why";
+                        return $"ORDER_FAILED:{reason}";
+                    }
                     return json["success_response"]?["order_id"]?.ToString() ?? "ORDER_SUBMITTED";
                 });
             }

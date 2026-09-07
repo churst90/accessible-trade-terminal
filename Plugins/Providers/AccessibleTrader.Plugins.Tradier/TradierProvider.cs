@@ -14,7 +14,7 @@ namespace AccessibleTrader.Plugins.Tradier
     /// Tradier provider — US stocks and options trading.
     /// REST API + HTTP SSE streaming for real-time data.
     /// </summary>
-    public class TradierProvider : BaseMarketDataProvider, ITradingProvider
+    public class TradierProvider : BaseMarketDataProvider, ITradingProvider, IOrderDryRunProvider
     {
         private readonly HttpClient _httpClient;
         private readonly HttpClient _streamClient;
@@ -120,12 +120,12 @@ namespace AccessibleTrader.Plugins.Tradier
             // The polarity is now the fleet's safe one, matching Alpaca and Oanda: anything that
             // is not explicitly "Live" is the practice environment. "sandbox" is still honoured
             // so an externally-supplied config keeps working.
-            if (config.TryGetValue("Environment", out var env)
-                && !env.Equals("Live", StringComparison.OrdinalIgnoreCase))
-            {
-                _isSandbox = true;
-                _baseUrl = "https://sandbox.tradier.com/v1";
-            }
+            // Now the contract itself (ProviderConfigKeys.IsLive), both branches, so a later
+            // Configure can switch back and a MISSING environment is the sandbox — the field's
+            // default used to be the live URL.
+            bool live = ProviderConfigKeys.IsLive(config);
+            _isSandbox = !live;
+            _baseUrl = live ? "https://api.tradier.com/v1" : "https://sandbox.tradier.com/v1";
 
             if (IsConfigured)
             {
@@ -985,6 +985,167 @@ namespace AccessibleTrader.Plugins.Tradier
             return root.Length > 0 ? root : null;
         }
 
+        /// <summary>
+        /// The order form for a signal — bracket (OTO/OTOCO) or plain, equity or option — as ONE
+        /// builder shared by <see cref="PlaceOrderAsync"/> and <see cref="DryRunOrderAsync"/>, so
+        /// what the venue previews is exactly what it would be asked to place. Reads positions for
+        /// an option order (open-vs-close vocabulary), which is why it is async. Returns the form,
+        /// or the ORDER_FAILED sentinel explaining why none could be built.
+        /// </summary>
+        private async Task<(Dictionary<string, string>? Post, string? Error)> BuildOrderPayloadAsync(TradeSignal signal)
+        {
+            bool isOption = string.Equals(signal.SubType, "Options", StringComparison.OrdinalIgnoreCase);
+
+            // Entry with protective legs → Tradier's native advanced classes
+            // (exchange-side linking, not attach-after-fill): OTO for entry+one
+            // leg, OTOCO for entry+both (the exits are an OCO pair). Before
+            // 2026-07-22 SL/TP on equity entries were SILENTLY DROPPED here;
+            // option entries were refused until 2026-08-23 — the venue takes
+            // the same indexed-leg classes with option_symbol + open/close sides.
+            if (signal.Type is OrderType.Market or OrderType.Limit
+                && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
+            {
+                return BuildBracketPayload(signal, isOption);
+            }
+
+            // Tradier's option side vocabulary is positional: buy_to_open /
+            // buy_to_close / sell_to_open / sell_to_close — the bare
+            // "buy"/"sell" this branch used to send is equity vocabulary the
+            // venue refuses on class=option. Open-versus-close depends on the
+            // position, so look it up; guessing turns "close my long call"
+            // into a naked short. If the read fails, refuse loudly instead.
+            string side;
+            if (isOption)
+            {
+                double held;
+                try
+                {
+                    held = (await GetPositionsAsync())
+                        .FirstOrDefault(pos => string.Equals(pos.Symbol, signal.Symbol,
+                            StringComparison.OrdinalIgnoreCase))
+                        ?.Quantity ?? 0;
+                }
+                catch (Exception ex)
+                {
+                    _errorStream.OnNext($"Tradier option order: positions read failed ({ex.GetType().Name})");
+                    return (null, "ORDER_FAILED:could not read positions to tell whether this option order "
+                         + "opens or closes a position. Check the connection and place the order again");
+                }
+                side = signal.Side == OrderSide.Buy
+                    ? (held < 0 ? "buy_to_close" : "buy_to_open")
+                    : (held > 0 ? "sell_to_close" : "sell_to_open");
+            }
+            else
+            {
+                side = signal.Side == OrderSide.Buy ? "buy" : "sell";
+            }
+
+            var postData = new Dictionary<string, string>
+            {
+                ["class"] = isOption ? "option" : "equity",
+                // Tradier REJECTS gtc on market orders (only day/pre/post are
+                // valid there); resting limit/stop orders keep gtc so they
+                // don't expire at the session close.
+                ["duration"] = signal.Type == OrderType.Market ? "day" : "gtc",
+                ["side"] = side,
+                ["quantity"] = WholeShareQuantityOrNull(signal.Quantity)!
+            };
+
+            if (isOption)
+            {
+                postData["option_symbol"] = signal.Symbol;
+                // The option-order contract wants the underlying alongside the
+                // OCC contract; omit it only when the tail doesn't scan.
+                if (UnderlyingFromOccSymbol(signal.Symbol) is string underlying)
+                    postData["symbol"] = underlying;
+            }
+            else
+                postData["symbol"] = signal.Symbol;
+
+            switch (signal.Type)
+            {
+                case OrderType.Market:
+                    postData["type"] = "market";
+                    break;
+                case OrderType.Limit when signal.Price.HasValue:
+                    postData["type"] = "limit";
+                    postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
+                    break;
+                // `TriggerPrice ?? StopLoss` — the SDK contract, and what the take-profit
+                // arm below already did. Until 2026-09-07 the stop arms read StopLoss only.
+                case OrderType.StopMarket when (signal.TriggerPrice ?? signal.StopLoss) is double stopPx:
+                    postData["type"] = "stop";
+                    postData["stop"] = stopPx.ToString(CultureInfo.InvariantCulture);
+                    break;
+                case OrderType.StopLimit when (signal.TriggerPrice ?? signal.StopLoss) is double stopTrig && signal.Price.HasValue:
+                    postData["type"] = "stop_limit";
+                    postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
+                    postData["stop"] = stopTrig.ToString(CultureInfo.InvariantCulture);
+                    break;
+                case OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
+                    when (signal.TriggerPrice ?? signal.TakeProfit ?? signal.Price) is double tpPx:
+                    // Equities have no distinct TP type — a resting limit at the
+                    // target IS the take profit.
+                    postData["type"] = "limit";
+                    postData["price"] = tpPx.ToString(CultureInfo.InvariantCulture);
+                    break;
+                default:
+                    return (null, "ORDER_FAILED:Unsupported order type");
+            }
+            return (postData, null);
+        }
+
+        /// <summary>POST one order form and read the id (or the sentinel) out of the reply.
+        /// No limiter wrapper: the callers hold the slot.</summary>
+        private async Task<string> PostOrderAsync(Dictionary<string, string> postData)
+        {
+            var content = new FormUrlEncodedContent(postData);
+            var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
+            var respStr = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                return $"ORDER_FAILED:{respStr}";
+
+            var json = JObject.Parse(respStr);
+            if (json["errors"] != null)
+                return $"ORDER_FAILED:{json["errors"]}";
+
+            return json["order"]?["id"]?.ToString() ?? "ORDER_SUBMITTED";
+        }
+
+        /// <summary>
+        /// Tradier's <c>preview=true</c>: the venue validates the order form and prices it
+        /// (cost, commission, margin) without placing it. The same form as a real order plus one
+        /// flag. Unused anywhere in this repo before 2026-09-07 — it is the cheapest way to settle
+        /// what the venue accepts, on the free sandbox, with no order resting anywhere.
+        /// </summary>
+        public async Task<OrderDryRunResult> DryRunOrderAsync(TradeSignal signal)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Tradier: not connected, so the venue cannot be asked.");
+            if (WholeShareQuantityOrNull(signal.Quantity) is null)
+                return new OrderDryRunResult(false,
+                    $"Tradier trades whole shares only; {signal.Quantity.ToString(CultureInfo.InvariantCulture)} is not a whole number of shares");
+
+            return await _rateLimiter.ExecuteOnceAsync(async () =>
+            {
+                var (postData, buildError) = await BuildOrderPayloadAsync(signal);
+                if (postData is null) return new OrderDryRunResult(false, buildError!);
+                postData["preview"] = "true";
+
+                var content = new FormUrlEncodedContent(postData);
+                var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
+                var respStr = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode) return new OrderDryRunResult(false, respStr);
+                var json = JObject.Parse(respStr);
+                if (json["errors"] != null) return new OrderDryRunResult(false, json["errors"]!.ToString());
+                var order = json["order"];
+                bool ok = string.Equals(order?["status"]?.ToString(), "ok", StringComparison.OrdinalIgnoreCase);
+                return new OrderDryRunResult(ok, ok
+                    ? $"Tradier validated the order (nothing was placed): cost {order?["cost"]}, commission {order?["commission"]}"
+                    : respStr);
+            });
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -996,115 +1157,9 @@ namespace AccessibleTrader.Plugins.Tradier
             {
                 return await _rateLimiter.ExecuteOnceAsync(async () =>
                 {
-                    bool isOption = string.Equals(signal.SubType, "Options", StringComparison.OrdinalIgnoreCase);
-
-                    // Entry with protective legs → Tradier's native advanced classes
-                    // (exchange-side linking, not attach-after-fill): OTO for entry+one
-                    // leg, OTOCO for entry+both (the exits are an OCO pair). Before
-                    // 2026-07-22 SL/TP on equity entries were SILENTLY DROPPED here;
-                    // option entries were refused until 2026-08-23 — the venue takes
-                    // the same indexed-leg classes with option_symbol + open/close sides.
-                    if (signal.Type is OrderType.Market or OrderType.Limit
-                        && (signal.StopLoss is > 0 || signal.TakeProfit is > 0))
-                    {
-                        return await PlaceBracketAsync(signal, isOption);
-                    }
-
-                    // Tradier's option side vocabulary is positional: buy_to_open /
-                    // buy_to_close / sell_to_open / sell_to_close — the bare
-                    // "buy"/"sell" this branch used to send is equity vocabulary the
-                    // venue refuses on class=option. Open-versus-close depends on the
-                    // position, so look it up; guessing turns "close my long call"
-                    // into a naked short. If the read fails, refuse loudly instead.
-                    string side;
-                    if (isOption)
-                    {
-                        double held;
-                        try
-                        {
-                            held = (await GetPositionsAsync())
-                                .FirstOrDefault(pos => string.Equals(pos.Symbol, signal.Symbol,
-                                    StringComparison.OrdinalIgnoreCase))
-                                ?.Quantity ?? 0;
-                        }
-                        catch (Exception ex)
-                        {
-                            _errorStream.OnNext($"Tradier option order: positions read failed ({ex.GetType().Name})");
-                            return "ORDER_FAILED:could not read positions to tell whether this option order "
-                                 + "opens or closes a position. Check the connection and place the order again";
-                        }
-                        side = signal.Side == OrderSide.Buy
-                            ? (held < 0 ? "buy_to_close" : "buy_to_open")
-                            : (held > 0 ? "sell_to_close" : "sell_to_open");
-                    }
-                    else
-                    {
-                        side = signal.Side == OrderSide.Buy ? "buy" : "sell";
-                    }
-
-                    var postData = new Dictionary<string, string>
-                    {
-                        ["class"] = isOption ? "option" : "equity",
-                        // Tradier REJECTS gtc on market orders (only day/pre/post are
-                        // valid there); resting limit/stop orders keep gtc so they
-                        // don't expire at the session close.
-                        ["duration"] = signal.Type == OrderType.Market ? "day" : "gtc",
-                        ["side"] = side,
-                        ["quantity"] = WholeShareQuantityOrNull(signal.Quantity)!
-                    };
-
-                    if (isOption)
-                    {
-                        postData["option_symbol"] = signal.Symbol;
-                        // The option-order contract wants the underlying alongside the
-                        // OCC contract; omit it only when the tail doesn't scan.
-                        if (UnderlyingFromOccSymbol(signal.Symbol) is string underlying)
-                            postData["symbol"] = underlying;
-                    }
-                    else
-                        postData["symbol"] = signal.Symbol;
-
-                    switch (signal.Type)
-                    {
-                        case OrderType.Market:
-                            postData["type"] = "market";
-                            break;
-                        case OrderType.Limit when signal.Price.HasValue:
-                            postData["type"] = "limit";
-                            postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
-                            break;
-                        case OrderType.StopMarket when signal.StopLoss.HasValue:
-                            postData["type"] = "stop";
-                            postData["stop"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-                            break;
-                        case OrderType.StopLimit when signal.StopLoss.HasValue && signal.Price.HasValue:
-                            postData["type"] = "stop_limit";
-                            postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
-                            postData["stop"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-                            break;
-                        case OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
-                            when (signal.TriggerPrice ?? signal.TakeProfit ?? signal.Price) is double tpPx:
-                            // Equities have no distinct TP type — a resting limit at the
-                            // target IS the take profit.
-                            postData["type"] = "limit";
-                            postData["price"] = tpPx.ToString(CultureInfo.InvariantCulture);
-                            break;
-                        default:
-                            return "ORDER_FAILED:Unsupported order type";
-                    }
-
-                    var content = new FormUrlEncodedContent(postData);
-                    var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
-                    var respStr = await response.Content.ReadAsStringAsync();
-
-                    if (!response.IsSuccessStatusCode)
-                        return $"ORDER_FAILED:{respStr}";
-
-                    var json = JObject.Parse(respStr);
-                    if (json["errors"] != null)
-                        return $"ORDER_FAILED:{json["errors"]}";
-
-                    return json["order"]?["id"]?.ToString() ?? "ORDER_SUBMITTED";
+                    var (postData, buildError) = await BuildOrderPayloadAsync(signal);
+                    if (postData is null) return buildError!;
+                    return await PostOrderAsync(postData);
                 });
             }
             catch (Exception ex) { _errorStream.OnNext($"Tradier order error: {ex.GetType().Name}"); return $"ORDER_FAILED:{ex.GetType().Name}"; }
@@ -1118,7 +1173,7 @@ namespace AccessibleTrader.Plugins.Tradier
         /// protection exists even if this terminal dies right after submit. Options
         /// take the same classes with option_symbol and the open/close vocabulary.
         /// </summary>
-        private async Task<string> PlaceBracketAsync(TradeSignal signal, bool isOption)
+        private static (Dictionary<string, string>? Post, string? Error) BuildBracketPayload(TradeSignal signal, bool isOption)
         {
             // A bracket IS an opening trade — protection on a position being
             // entered — so the option position effect is fixed by shape: the entry
@@ -1149,9 +1204,9 @@ namespace AccessibleTrader.Plugins.Tradier
             if (isOption)
             {
                 if (UnderlyingFromOccSymbol(signal.Symbol) is not string underlying)
-                    return "ORDER_FAILED:cannot read the underlying out of option symbol "
+                    return (null, "ORDER_FAILED:cannot read the underlying out of option symbol "
                          + $"{signal.Symbol}, so a bracket cannot be built. Place the option "
-                         + "order on its own, then set the stop or target on the position";
+                         + "order on its own, then set the stop or target on the position");
                 p["symbol"] = underlying;
                 p["option_symbol"] = signal.Symbol;
             }
@@ -1179,17 +1234,7 @@ namespace AccessibleTrader.Plugins.Tradier
                 p[$"stop[{leg}]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
             }
 
-            // No limiter wrapper here on purpose: the only caller is PlaceOrderAsync,
-            // from inside its ExecuteOnceAsync lambda, so the rate slot is already
-            // held and the no-retry rule (see RateLimiter.ExecuteOnceAsync) already
-            // covers this POST. Wrapping it again would double-charge the budget.
-            var content = new FormUrlEncodedContent(p);
-            var response = await _httpClient.PostAsync($"{_baseUrl}/accounts/{_accountId}/orders", content);
-            var respStr = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode) return $"ORDER_FAILED:{respStr}";
-            var json = JObject.Parse(respStr);
-            if (json["errors"] != null) return $"ORDER_FAILED:{json["errors"]}";
-            return json["order"]?["id"]?.ToString() ?? "ORDER_SUBMITTED";
+            return (p, null);
         }
 
         public async Task<bool> CancelOrderAsync(string orderId, string symbol)

@@ -726,6 +726,14 @@ namespace AccessibleTrader.Plugins.Schwab
                 // Controlled exception — message is our own string, safe to surface.
                 return $"ORDER_FAILED:{ex.Message}";
             }
+            catch (HttpRequestException ex)
+            {
+                // The venue's reason is in the exception message (SendWithAuthCoreAsync puts the
+                // response body there). Until 2026-09-07 only the TYPE NAME reached the sentinel,
+                // so "insufficient buying power" was spoken as "HttpRequestException".
+                _errorStream.OnNext($"Schwab order error: {ex.Message}");
+                return $"ORDER_FAILED:{ex.Message}";
+            }
             catch (Exception ex)
             {
                 _errorStream.OnNext($"Schwab order error: {ex.GetType().Name}");
@@ -932,6 +940,11 @@ namespace AccessibleTrader.Plugins.Schwab
                 OrderLegCollection = new List<SchwabOrderLeg> { leg },
             };
 
+            // The SDK contract: a stop's trigger is `TriggerPrice ?? StopLoss`, a take-profit's
+            // `TriggerPrice ?? TakeProfit`. Until 2026-09-07 only StopLoss was read and the
+            // take-profit types were refused outright.
+            double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+            double? tpTrigger   = signal.TriggerPrice ?? signal.TakeProfit;
             switch (signal.Type)
             {
                 case OrderType.Market:
@@ -943,15 +956,23 @@ namespace AccessibleTrader.Plugins.Schwab
                     order.Price = Wire(signal.Price.Value);
                     break;
 
-                case OrderType.StopMarket when signal.StopLoss.HasValue:
+                case OrderType.StopMarket when stopTrigger.HasValue:
                     order.OrderType = "STOP";
-                    order.StopPrice = Wire(signal.StopLoss.Value);
+                    order.StopPrice = Wire(stopTrigger.Value);
                     break;
 
-                case OrderType.StopLimit when signal.Price.HasValue && signal.StopLoss.HasValue:
+                case OrderType.StopLimit when signal.Price.HasValue && stopTrigger.HasValue:
                     order.OrderType = "STOP_LIMIT";
                     order.Price     = Wire(signal.Price.Value);
-                    order.StopPrice = Wire(signal.StopLoss.Value);
+                    order.StopPrice = Wire(stopTrigger.Value);
+                    break;
+
+                case OrderType.TakeProfitMarket or OrderType.TakeProfitLimit when tpTrigger.HasValue:
+                    // Equities have no distinct take-profit type at this broker: a resting
+                    // LIMIT at the target IS the take-profit — the same order the bracket
+                    // builder's own exit leg is. Tradier does exactly this.
+                    order.OrderType = "LIMIT";
+                    order.Price = Wire(signal.Type == OrderType.TakeProfitLimit ? (signal.Price ?? tpTrigger.Value) : tpTrigger.Value);
                     break;
 
                 default:

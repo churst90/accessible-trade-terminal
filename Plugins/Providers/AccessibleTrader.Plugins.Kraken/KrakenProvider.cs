@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace AccessibleTrader.Plugins.Kraken
 {
-    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider
+    public class KrakenProvider : BaseMarketDataProvider, ITradingProvider, IOrderBookProvider, IWalletProvider, IWithdrawalProvider, IOrderDryRunProvider
     {
         private readonly HttpClient _httpClient;
         private string? _apiKey;
@@ -810,6 +810,110 @@ namespace AccessibleTrader.Plugins.Kraken
             });
         }
 
+        /// <summary>
+        /// The AddOrder payload for a signal — ONE builder, shared by <see cref="PlaceOrderAsync"/>
+        /// and <see cref="DryRunOrderAsync"/>, so that what the venue validates is byte-for-byte
+        /// what it would be asked to place (plus the validate flag). Returns the payload, or the
+        /// ORDER_FAILED sentinel explaining why none could be built.
+        /// </summary>
+        private (Dictionary<string, string>? Post, string? Error) BuildAddOrderPayload(TradeSignal signal)
+        {
+            var pair = FormatRestPair(signal.Symbol);
+            var postData = new Dictionary<string, string>
+            {
+                ["pair"]      = pair,
+                ["type"]      = signal.Side == OrderSide.Buy ? "buy" : "sell",
+                ["volume"]    = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
+                ["ordertype"] = MapToKrakenOrderType(signal.Type)
+            };
+
+            // The trigger of a stop / take-profit order arrives as TriggerPrice (canonical)
+            // or as StopLoss / TakeProfit (the legacy spelling); the SDK contract is
+            // `TriggerPrice ?? StopLoss`. Until 2026-09-07 this plugin read ONLY the legacy
+            // field — TriggerPrice appeared nowhere in the file — so a caller using the
+            // canonical one sent `ordertype=stop-loss` with NO price at all, and the venue's
+            // rejection was the first anyone heard of it. A missing trigger is refused HERE,
+            // in words, rather than left for the venue.
+            static string Px(double v) => v.ToString(CultureInfo.InvariantCulture);
+            double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+            double? tpTrigger   = signal.TriggerPrice ?? signal.TakeProfit;
+            switch (signal.Type)
+            {
+                case OrderType.Limit:
+                    if (signal.Price is not > 0) return (null, "ORDER_FAILED:a limit order needs a limit price");
+                    postData["price"] = Px(signal.Price.Value);
+                    break;
+                case OrderType.StopMarket:
+                    if (stopTrigger is not > 0) return (null, "ORDER_FAILED:a stop order needs a trigger price");
+                    postData["price"] = Px(stopTrigger.Value);
+                    break;
+                case OrderType.StopLimit:
+                    if (stopTrigger is not > 0 || signal.Price is not > 0)
+                        return (null, "ORDER_FAILED:a stop-limit order needs both a trigger price and a limit price");
+                    postData["price"]  = Px(stopTrigger.Value);
+                    postData["price2"] = Px(signal.Price.Value);
+                    break;
+                case OrderType.TakeProfitMarket:
+                    if (tpTrigger is not > 0) return (null, "ORDER_FAILED:a take-profit order needs a trigger price");
+                    postData["price"] = Px(tpTrigger.Value);
+                    break;
+                case OrderType.TakeProfitLimit:
+                    if (tpTrigger is not > 0 || signal.Price is not > 0)
+                        return (null, "ORDER_FAILED:a take-profit-limit order needs both a trigger price and a limit price");
+                    postData["price"]  = Px(tpTrigger.Value);
+                    postData["price2"] = Px(signal.Price.Value);
+                    break;
+            }
+
+            if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
+                postData["leverage"] = ((int)Math.Clamp(signal.Leverage.Value, 2, MaxLeverage)).ToString();
+
+            // Close-on-trigger order for SL/TP. Kraken's close[] slot holds
+            // exactly ONE order — when both are requested the STOP wins
+            // (safety over profit) and SupportsSimultaneousStopAndTarget=false
+            // lets the order service tell the user the TP was not attached.
+            // On a STOP or TAKE-PROFIT order type StopLoss/TakeProfit IS the trigger
+            // (consumed above), so legs attach on ENTRIES only — and a Limit entry is an
+            // entry: until 2026-09-07 only Market entries got their close[] leg, and a
+            // limit buy with a stop rested naked with no message.
+            bool isEntry = signal.Type is OrderType.Market or OrderType.Limit;
+            if (signal.StopLoss.HasValue && isEntry)
+            {
+                postData["close[ordertype]"] = "stop-loss";
+                postData["close[price]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            else if (signal.TakeProfit.HasValue && isEntry)
+            {
+                postData["close[ordertype]"] = "take-profit";
+                postData["close[price]"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (!string.IsNullOrEmpty(signal.ClientOid))
+                postData["cl_ord_id"] = signal.ClientOid;
+            return (postData, null);
+        }
+
+        /// <summary>
+        /// Kraken's <c>AddOrder</c> with <c>validate=true</c>: the venue runs its full validation
+        /// over the real payload and places nothing. The reply carries the venue's own description
+        /// of the order (<c>result.descr.order</c>) and NO txid. Nothing in this repo used it before
+        /// 2026-09-07; it is the only way to check an order against live Kraken without placing it.
+        /// </summary>
+        public async Task<OrderDryRunResult> DryRunOrderAsync(TradeSignal signal)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Kraken: no API key configured, so the venue cannot be asked.");
+            var (postData, error) = BuildAddOrderPayload(signal);
+            if (postData is null) return new OrderDryRunResult(false, error!);
+            postData["validate"] = "true";
+
+            var result = await _privateRateLimiter.ExecuteOnceAsync(() => PostPrivateAsync("/0/private/AddOrder", postData));
+            var json = JObject.Parse(result);
+            if (json["error"] is JArray errors && errors.Count > 0)
+                return new OrderDryRunResult(false, string.Join(", ", errors));
+            string descr = json["result"]?["descr"]?["order"]?.ToString() ?? "";
+            return new OrderDryRunResult(true, descr.Length > 0 ? descr : "Kraken validated the order (nothing was placed)");
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -817,56 +921,8 @@ namespace AccessibleTrader.Plugins.Kraken
             {
                 return await _privateRateLimiter.ExecuteOnceAsync(async () =>
                 {
-                    var pair = FormatRestPair(signal.Symbol);
-                    var postData = new Dictionary<string, string>
-                    {
-                        ["pair"]      = pair,
-                        ["type"]      = signal.Side == OrderSide.Buy ? "buy" : "sell",
-                        ["volume"]    = signal.Quantity.ToString("F8", CultureInfo.InvariantCulture),
-                        ["ordertype"] = MapToKrakenOrderType(signal.Type)
-                    };
-
-                    if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        postData["price"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
-
-                    if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
-                        postData["price"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-
-                    if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
-                    {
-                        postData["price"]  = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-                        postData["price2"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
-                    }
-
-                    if (signal.Type == OrderType.TakeProfitMarket && signal.TakeProfit.HasValue)
-                        postData["price"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
-
-                    if (signal.Type == OrderType.TakeProfitLimit && signal.TakeProfit.HasValue && signal.Price.HasValue)
-                    {
-                        postData["price"]  = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
-                        postData["price2"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture);
-                    }
-
-                    if (signal.Leverage.HasValue && signal.Leverage.Value > 1)
-                        postData["leverage"] = ((int)Math.Clamp(signal.Leverage.Value, 2, MaxLeverage)).ToString();
-
-                    // Close-on-trigger order for SL/TP. Kraken's close[] slot holds
-                    // exactly ONE order — when both are requested the STOP wins
-                    // (safety over profit) and SupportsSimultaneousStopAndTarget=false
-                    // lets the order service tell the user the TP was not attached.
-                    if (signal.StopLoss.HasValue && signal.Type == OrderType.Market)
-                    {
-                        postData["close[ordertype]"] = "stop-loss";
-                        postData["close[price]"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture);
-                    }
-                    else if (signal.TakeProfit.HasValue && signal.Type == OrderType.Market)
-                    {
-                        postData["close[ordertype]"] = "take-profit";
-                        postData["close[price]"] = signal.TakeProfit.Value.ToString(CultureInfo.InvariantCulture);
-                    }
-
-                    if (!string.IsNullOrEmpty(signal.ClientOid))
-                        postData["cl_ord_id"] = signal.ClientOid;
+                    var (postData, buildError) = BuildAddOrderPayload(signal);
+                    if (postData is null) return buildError!;
 
                     var result = await PostPrivateAsync("/0/private/AddOrder", postData);
                     var json = JObject.Parse(result);

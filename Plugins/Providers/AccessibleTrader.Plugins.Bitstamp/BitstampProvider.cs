@@ -651,6 +651,15 @@ namespace AccessibleTrader.Plugins.Bitstamp
                     // from btcusd — while this line posted the order to /api/v2/buy/btcusdt/,
                     // a pair Bitstamp does not list. This is the call-site half of the bug
                     // GetCanonicalSymbol was added to fix.
+                    // Bitstamp's REST API has market and limit orders only. Until 2026-09-07 a
+                    // stop or take-profit TYPE fell through to the limit endpoint with no price
+                    // and the venue's error was what the user heard — or, worse, the venue's
+                    // acceptance of a price-less limit at the market. Refuse here, in words.
+                    if (signal.Type is not (OrderType.Market or OrderType.Limit))
+                        return $"ORDER_FAILED:Bitstamp does not support {signal.Type} orders — it offers market and limit only";
+                    if (signal.Type == OrderType.Limit && signal.Price is not > 0)
+                        return "ORDER_FAILED:a limit order needs a limit price";
+
                     var pair   = ToBitstampPair(signal.Symbol);
                     bool isMkt = signal.Type == OrderType.Market;
                     string endpoint = signal.Side == OrderSide.Buy

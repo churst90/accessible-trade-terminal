@@ -132,13 +132,14 @@ namespace AccessibleTrader.Plugins.Oanda
             if (config.TryGetValue("ApiKey", out var key)) _accessToken ??= key;
             if (config.TryGetValue("AccountId", out var acct)) _accountId = acct;
 
-            if (config.TryGetValue("Environment", out var env))
             {
                 // BOTH branches, not just live: the else half was missing, so once
                 // switched to live a later practice config silently kept the LIVE
                 // urls — the mirror image of Binance's case-sensitive testnet
                 // compare, in the direction that trades real money by accident.
-                bool live = env.Equals("live", StringComparison.OrdinalIgnoreCase);
+                // The compare itself is now the contract's (ProviderConfigKeys.IsLive):
+                // a missing environment is practice.
+                bool live = ProviderConfigKeys.IsLive(config);
                 _isPractice = !live;
                 _restUrl    = live ? "https://api-fxtrade.oanda.com/v3"    : "https://api-fxpractice.oanda.com/v3";
                 _streamUrl  = live ? "https://stream-fxtrade.oanda.com/v3" : "https://stream-fxpractice.oanda.com/v3";
@@ -810,6 +811,13 @@ namespace AccessibleTrader.Plugins.Oanda
 
                     JObject orderRequest;
 
+                    // The SDK contract: `TriggerPrice ?? StopLoss` for a stop, `?? TakeProfit`
+                    // for a take-profit. Until 2026-09-07 only StopLoss was read, and both
+                    // take-profit types were refused although the venue has MARKET_IF_TOUCHED
+                    // (which this plugin already reads BACK as TakeProfitMarket).
+                    double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+                    double? tpTrigger   = signal.TriggerPrice ?? signal.TakeProfit;
+
                     switch (signal.Type)
                     {
                         case OrderType.Market:
@@ -833,25 +841,51 @@ namespace AccessibleTrader.Plugins.Oanda
                             };
                             break;
 
-                        case OrderType.StopMarket when signal.StopLoss.HasValue:
+                        case OrderType.StopMarket when stopTrigger.HasValue:
                             orderRequest = new JObject
                             {
                                 ["type"] = "STOP",
                                 ["instrument"] = instrument,
                                 ["units"] = units.ToString(CultureInfo.InvariantCulture),
-                                ["price"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture),
+                                ["price"] = stopTrigger.Value.ToString(CultureInfo.InvariantCulture),
                                 ["timeInForce"] = "GTC"
                             };
                             break;
 
-                        case OrderType.StopLimit when signal.StopLoss.HasValue && signal.Price.HasValue:
+                        case OrderType.StopLimit when stopTrigger.HasValue && signal.Price.HasValue:
                             orderRequest = new JObject
                             {
                                 ["type"] = "STOP",
                                 ["instrument"] = instrument,
                                 ["units"] = units.ToString(CultureInfo.InvariantCulture),
-                                ["price"] = signal.StopLoss.Value.ToString(CultureInfo.InvariantCulture),
+                                ["price"] = stopTrigger.Value.ToString(CultureInfo.InvariantCulture),
                                 ["priceBound"] = signal.Price.Value.ToString(CultureInfo.InvariantCulture),
+                                ["timeInForce"] = "GTC"
+                            };
+                            break;
+
+                        case OrderType.TakeProfitMarket when tpTrigger.HasValue:
+                            // v20's if-touched order: fills at market once the price touches the
+                            // level. UNVERIFIED against the practice venue as of 2026-09-07; the
+                            // shape mirrors the STOP arm and the venue's published schema.
+                            orderRequest = new JObject
+                            {
+                                ["type"] = "MARKET_IF_TOUCHED",
+                                ["instrument"] = instrument,
+                                ["units"] = units.ToString(CultureInfo.InvariantCulture),
+                                ["price"] = tpTrigger.Value.ToString(CultureInfo.InvariantCulture),
+                                ["timeInForce"] = "GTC"
+                            };
+                            break;
+
+                        case OrderType.TakeProfitLimit when tpTrigger.HasValue:
+                            // A resting limit at the target is the take-profit-limit.
+                            orderRequest = new JObject
+                            {
+                                ["type"] = "LIMIT",
+                                ["instrument"] = instrument,
+                                ["units"] = units.ToString(CultureInfo.InvariantCulture),
+                                ["price"] = (signal.Price ?? tpTrigger.Value).ToString(CultureInfo.InvariantCulture),
                                 ["timeInForce"] = "GTC"
                             };
                             break;

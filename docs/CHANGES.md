@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The provider conformance suite — 33 red rows on its first run, and what they forced (2026-09-07)
+
+**`docs/PROVIDER_CONFORMANCE_SCOPE.md` §4 said the suite did not exist. It does now.**
+`AccessibleTrader.Tests/ProviderOrderConformanceTests.cs` states each property once and runs it
+across fourteen venue rigs (`ProviderOrderConformanceRigs.cs`: every trading plugin, with Binance
+and MEXC split into their spot and futures branches). A rig knows how to fake its venue's
+transport and how to decode the order the plugin sent into a venue-neutral `WireOrder`; the
+theories never see a venue vocabulary. **A capability a venue lacks is asserted as a refusal
+before any request, never skipped.** Signals go to the plugin DIRECTLY, without the service's
+`NormaliseTrigger` in front, because the SDK says a plugin should read `TriggerPrice ?? StopLoss`
+and a strategy plugin or script gets no normaliser. 148 rows; an anti-vacuity fact proves the rig
+list equals the roster's trading providers.
+
+**Before any plugin was touched, 33 of 141 rows were red.** Every red was a defect predicted by
+the line-by-line audit written the same day (`docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md`, all
+twelve plugins, line-cited); none was a rig mistake. The suite is green now. What it forced:
+
+| Plugin | What the suite caught | Fix |
+|---|---|---|
+| **Alpaca** | a `TakeProfitMarket` / `TakeProfitLimit` had NO branch and fell through to `type=market` — an immediate market order; a `StopMarket` with only the canonical `TriggerPrice` degraded to `market` the same way | a `switch` that refuses a missing price in words; take-profits rest as a LIMIT at the target (the same order Alpaca's own bracket leg is) |
+| **Coinbase** | an HTTP 200 `{"success":false,…}` rejection became `ORDER_SUBMITTED` — the status-blind class closed fleet-wide on 2026-08-31, still open here | body first, then status |
+| **Binance futures** | a stop with BOTH trigger spellings (which is what the app's normaliser sends) placed the entry AND a second reduce-only stop at the same price; same for take-profits | the "is this field the entry's own trigger" guard is decided by order TYPE, not by whether `TriggerPrice` is null |
+| **Interactive Brokers** | the same duplicate take-profit child; a stop with only `TriggerPrice` went out as `STP` with no `auxPrice` | same guard fix; `TriggerPrice ?? StopLoss` |
+| **Kraken spot** | `TriggerPrice` was never read anywhere — a stop went out as `ordertype=stop-loss` with no price; a take-profit likewise; a LIMIT entry's `close[]` leg was dropped (Market entries only) | one trigger read per order type; missing prices refused; legs on Limit entries too |
+| **Kraken Futures** | `TimeInForce=IOC` was sent as `triggerSignal=last` — the trigger price SOURCE for stops, a different field entirely; a take-profit never read `TakeProfit`; a `limitPrice` rode on market and stop-market orders whenever `Price` was set | `orderType=ioc`; the type-aware trigger read; `limitPrice` on limit types only; `cliOrdId` now sent |
+| **OANDA, Schwab, Tradier** | stops read `StopLoss` only — a canonical-field stop was refused as "Unsupported order type"; take-profit types refused outright on OANDA and Schwab | `TriggerPrice ?? StopLoss`; Schwab take-profits rest as a LIMIT (as Tradier already did); OANDA `TakeProfitMarket` → `MARKET_IF_TOUCHED` (**unverified against the practice venue**), `TakeProfitLimit` → `LIMIT` |
+| **Bitstamp** | a stop or take-profit TYPE left as a price-less limit order and was reported as placed | refused in words before any request |
+| **Schwab** | a venue rejection was spoken as "HttpRequestException" | the message (which carries the body) reaches the sentinel |
+
+**`ProviderConfigKeys` is now adopted by every plugin with a practice host** — Alpaca, Binance,
+Gemini, Kraken Futures, OANDA, Tradier — through `ProviderConfigKeys.IsLive`, both branches, so
+the Tradier patch of the previous pass is now the contract. **The polarity is the contract's:
+a `Configure` with NO environment is practice.** Gemini and Kraken Futures used to branch on
+`"Paper"` (missing → live), Tradier's field default was the live URL, Binance read only `Testnet`
+(missing → mainnet). Four older test rigs that configured with keys only and expected the live
+host now say `Environment=Live` (`BrokerPlacementParityTests`, `OcoPairTests`,
+`ProviderTradingReadSilenceTests`). A third-party host that never sends the key now lands on the
+practice venue, which is the direction the cost asymmetry wants.
+
+**Venues with NO practice environment — Bitstamp, Coinbase, IBKR, Kraken spot, MEXC, Schwab —
+still route a Paper credential to the live host.** That is pinned BY NAME in the suite so the
+list cannot grow unnoticed; shrinking it (refuse, as Kraken Futures now does) is a decision for
+Cody, recorded in the audit document, because legacy profiles carry no environment and would all
+refuse.
+
+**`IOrderDryRunProvider` (new, SDK).** Kraken spot's `AddOrder validate=true`, Binance spot's
+`POST /api/v3/order/test` and Tradier's `preview=true` — the venues' own validation of a real
+payload, nothing placed, no sandbox needed — were unused by any plugin. All three are wired, and
+in each plugin the placement path was refactored to share ONE payload builder with the dry run
+(`BuildAddOrderPayload`, `BuildSpotOrderParams`, `BuildOrderPayloadAsync`), so what the venue
+validates is byte-for-byte what it would be asked to place plus the flag. The conformance suite
+asserts exactly that: identical decoded order, the flag present once on the dry run and never on
+the placement, and a rejection reported as not-accepted rather than thrown. **No dry run has been
+sent to a real venue yet** — the Tradier sandbox is free and the obvious first target; the stored
+Kraken key is LIVE and `validate=true` places nothing, but a defect that dropped the flag would
+place a real order, so that run waits for Cody.
+
+**Two corrections to the scope document, both measured.** The Kraken Futures demo is DEAD:
+`demo-futures.kraken.com` answers every path with a 301 to a marketing page, the plugin has
+refused Paper profiles since `ce77da2a` (2026-08-05), and yesterday's "✅ full demo environment"
+and roadmap item 4 were wrong. And Binance's SPOT testnet returns HTTP 451 from here. Also, "five
+plugins have no test file" was true of file names and misleading in spirit —
+`BrokerPlacementParityTests` already pinned Binance, Bitstamp, Oanda, Gemini and Kraken Futures
+placements; what was missing was one property asserted uniformly across all twelve, which is
+exactly what found the 33.
+
+**Left UNVERIFIED, on purpose, each cheap to settle with a dry run:** Schwab sends
+`duration: "GTC"` on every bracket where the published enum says `GOOD_TILL_CANCEL`, and
+`BrokerParityTests` PINS the spelling; Tradier's code says the venue rejects `gtc` on market
+orders and then sends `gtc` on every market-entry bracket; OANDA never reads
+`orderCancelTransaction`, so an instantly-cancelled order returns its create id; Schwab option
+legs carry `BUY`/`SELL` where the venue's vocabulary is `BUY_TO_OPEN`… . Full list with lines in
+the audit document.
+
+**Not this pass's doing:** `MinimizeToTraySettingTests` (two rows) failed once in a full run and
+pass in isolation and in the next full run — a bUnit ordering flake, noted, not chased.
+
 ### Measured against a real venue — the Gemini sandbox, and what it found (2026-09-07)
 
 **Everything before this was reasoned. This was run.** The stored Gemini sandbox credential was

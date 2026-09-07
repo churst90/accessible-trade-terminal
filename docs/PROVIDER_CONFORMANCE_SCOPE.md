@@ -82,6 +82,11 @@ uses it.
 
 ## 4. The thing that would actually stop this — a provider conformance suite
 
+> **BUILT later the same day** — `AccessibleTrader.Tests/ProviderOrderConformanceTests.cs` and
+> `ProviderOrderConformanceRigs.cs`. 33 of 141 rows were red on the first run; see
+> `docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md` for the list and `docs/CHANGES.md` for the fixes.
+> The section below is left as the design it was.
+
 **This is the recommended next piece of work, and it needs no keys, no accounts, no VPN.**
 
 Every defect above except one is a **payload-construction** bug: the wrong value in the wrong
@@ -124,9 +129,9 @@ Two supporting pieces worth building with it:
 | Tradier | `sandbox.tradier.com` | ✅ reachable, free signup. **Only usable at all as of today's fix** |
 | Coinbase | `api-public.sandbox.exchange.coinbase.com` | ✅ reachable |
 | OANDA | `api-fxpractice.oanda.com` | ✅ reachable (401 = needs a key) |
-| Kraken **Futures** | `demo-futures.kraken.com` | ✅ full demo environment |
+| Kraken **Futures** | `demo-futures.kraken.com` | ❌ **DEAD — corrected 2026-09-07 (later the same day).** Every path 301s to a marketing page; the plugin has refused Paper profiles since `ce77da2a` (2026-08-05). The original row here said "✅ full demo environment" and was wrong. |
 | Kraken **spot** | UAT **by request only** — contact their API team | ❌ not self-serve. Use `validate=true` instead |
-| Binance | futures testnet API answers, but **account creation is geo-blocked** to binance.us, which has no futures testnet | ❌ unavailable without a VPN; registering from a restricted location is a terms problem, not a technical one |
+| Binance | futures testnet API answers (`testnet.binancefuture.com` → 200); the SPOT testnet returns **HTTP 451** from here; **account creation is geo-blocked** to binance.us, which has no futures testnet | ❌ unavailable without a VPN; registering from a restricted location is a terms problem, not a technical one |
 
 **The consequence worth carrying forward: no venue reachable from this machine delivers a live
 order stream.** That is the foundation of background monitor Phases 1–3 (`HeadlessSession`,
@@ -139,6 +144,11 @@ Gemini and Alpaca could not reach.
 
 ## 6. Suggested order of work
 
+> **Status, end of 2026-09-07:** 1 DONE (the suite), 2 DONE (`ProviderConfigKeys.IsLive` in the six
+> plugins with a practice host), 3 DONE in code and UNMEASURED at any venue (`IOrderDryRunProvider`
+> on Kraken spot, Binance spot, Tradier), 4 VOID — the demo is dead; see `docs/TODO.md` for the
+> replacement order.
+
 1. **The conformance suite** (§4). No credentials. Retires eight of nine known defect classes and
    covers the five plugins with no tests at all.
 2. **Adopt `ProviderConfigKeys` across the twelve plugins.** Mechanical, and it turns the Tradier
@@ -150,8 +160,8 @@ Gemini and Alpaca could not reach.
 
 ## 7. What this document does NOT claim
 
-- The conformance suite does not exist yet. Section 4 is a design, not a record.
-- No plugin has been read line-by-line against its venue's published API docs. The nine defects
+- ~~The conformance suite does not exist yet. Section 4 is a design, not a record.~~ Built later the same day.
+- ~~No plugin has been read line-by-line~~ Every plugin was read line by line later the same day against the SDK contract (`docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md`) — but still NOT against each venue's published API docs; the audit marks what it could not verify. The nine defects
   were found by measurement and by accident, not by an audit, so **the true count is unknown and
   is certainly higher.**
 - Nothing has FILLED at a real venue. Gemini's sandbox book is empty; Alpaca was not driven to a

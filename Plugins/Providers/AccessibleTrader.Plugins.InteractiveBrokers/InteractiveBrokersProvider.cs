@@ -635,16 +635,27 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                         ["tif"]       = "GTC"
                     };
 
-                    if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                        orderBody["price"] = signal.Price.Value;
-
-                    if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
-                        orderBody["auxPrice"] = signal.StopLoss.Value;
-
-                    if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
+                    // The SDK contract: a stop's trigger is `TriggerPrice ?? StopLoss`. Until
+                    // 2026-09-07 only StopLoss was read here (the TP branch below already read
+                    // TriggerPrice first), so a StopMarket carrying only the canonical field went to
+                    // the gateway as `STP` with NO auxPrice. Missing prices are refused in words
+                    // rather than sent for the gateway to reject.
+                    double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+                    if (signal.Type == OrderType.Limit)
                     {
-                        orderBody["price"]    = signal.Price.Value;
-                        orderBody["auxPrice"] = signal.StopLoss.Value;
+                        if (signal.Price is not double limitPx) return "ORDER_FAILED:a limit order needs a limit price";
+                        orderBody["price"] = limitPx;
+                    }
+
+                    if (signal.Type is OrderType.StopMarket or OrderType.StopLimit)
+                    {
+                        if (stopTrigger is not double stopPx) return "ORDER_FAILED:a stop order needs a trigger price";
+                        orderBody["auxPrice"] = stopPx;
+                        if (signal.Type == OrderType.StopLimit)
+                        {
+                            if (signal.Price is not double stopLimitPx) return "ORDER_FAILED:a stop-limit order needs a limit price";
+                            orderBody["price"] = stopLimitPx;
+                        }
                     }
 
                     // If-touched orders (MIT/LIT) need the TRIGGER in auxPrice, and
@@ -671,10 +682,13 @@ namespace AccessibleTrader.Plugins.InteractiveBrokers
                     // StopLoss/TakeProfit field is the entry's own trigger (already
                     // consumed above), not a leg — attaching it again would rest a
                     // second order at the same price.
-                    bool slIsEntryTrigger = signal.Type is OrderType.StopMarket or OrderType.StopLimit
-                                            && signal.StopLoss.HasValue;
-                    bool tpIsEntryTrigger = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit
-                                            && signal.TriggerPrice == null && signal.TakeProfit.HasValue;
+                    // Decided by ORDER TYPE alone. The old TP guard also required TriggerPrice to be
+                    // null — but GeneralOrderService.NormaliseTrigger fills BOTH spellings before any
+                    // signal reaches a plugin, so with the canonical field set the guard was false and
+                    // a second LMT child rested at the entry's own trigger. The contract says that on
+                    // a stop / take-profit order type the matching field IS the trigger, always.
+                    bool slIsEntryTrigger = signal.Type is OrderType.StopMarket or OrderType.StopLimit;
+                    bool tpIsEntryTrigger = signal.Type is OrderType.TakeProfitMarket or OrderType.TakeProfitLimit;
                     bool attachSl = signal.StopLoss is > 0 && !slIsEntryTrigger;
                     bool attachTp = signal.TakeProfit is > 0 && !tpIsEntryTrigger;
 

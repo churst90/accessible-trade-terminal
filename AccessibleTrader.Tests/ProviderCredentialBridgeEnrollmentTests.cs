@@ -55,6 +55,14 @@ namespace AccessibleTrader.Tests
             "WebHostIntegration",       // the factories that boot Program.cs
             "PluginBridgeScope",        // the snapshot/restore helper itself
             "HostedWebHostFixture",     // holds a factory and a PluginBridgeScope
+
+            // The provider conformance rigs (ProviderOrderConformanceRigs.cs) construct every
+            // trading provider with Configure()-supplied credentials; their one consumer,
+            // ProviderOrderConformanceTests, wears the collection attribute.
+            "WireOrder", "OrderRig", "OrderRigs", "AlpacaRig", "BinanceRigBase", "BinanceSpotRig",
+            "BinanceFuturesRig", "BitstampRig", "CoinbaseRig", "GeminiRig", "IbkrRig", "KrakenRig",
+            "KrakenFuturesRig", "MexcRigBase", "MexcSpotRig", "MexcFuturesRig", "OandaRig",
+            "SchwabRig", "TradierRig",
         };
 
         private sealed record ScannedFile(string Path, string Stripped, IReadOnlyList<string> DeclaredNames, string? OffenceReason);

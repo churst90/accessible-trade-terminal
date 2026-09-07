@@ -20,7 +20,7 @@ namespace AccessibleTrader.Plugins.Binance
     /// the order book (REST + live), the user-data order stream, and full trading
     /// (balances, positions, open orders, place/cancel, leverage, protective TP/SL).
     /// </summary>
-    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider
+    public class BinanceProvider : BaseMarketDataProvider, IProviderPlugin, ITradingProvider, IOrderBookProvider, IOcoTradingProvider, IOrderDryRunProvider
     {
         // ── Endpoints (mainnet / testnet) ─────────────────────────────────────
         private string SpotRest => _isTestnet ? "https://testnet.binance.vision"     : "https://api.binance.com";
@@ -133,7 +133,18 @@ namespace AccessibleTrader.Plugins.Binance
             // .NET's bool.ToString() arrives as "True", and the old case-sensitive
             // compare silently left testnet OFF — orders the user believed were
             // paper went to the real book.
-            if (config.TryGetValue("Testnet",   out var tn))     _isTestnet = bool.TryParse(tn, out var b) && b;
+            // ProviderConfigKeys.Environment is the contract's key; "Testnet" is the same fact in
+            // this plugin's older spelling, and the host derives it from Environment so the two
+            // cannot disagree. Environment wins when present; Testnet alone is still honoured for
+            // a config that predates the contract; NEITHER present means practice — the fail-safe
+            // polarity. Until 2026-09-07 Environment was not read at all here, so a Paper profile
+            // (which never carried Testnet) signed against LIVE Binance.
+            if (config.ContainsKey(ProviderConfigKeys.Environment))
+                _isTestnet = !ProviderConfigKeys.IsLive(config);
+            else if (config.TryGetValue("Testnet", out var tn))
+                _isTestnet = bool.TryParse(tn, out var b) && b;
+            else
+                _isTestnet = true;
         }
 
         // Sign-time credential checkout. Prefers the PluginHostServices.ApiKeys
@@ -847,6 +858,82 @@ namespace AccessibleTrader.Plugins.Binance
             }
         }
 
+        /// <summary>
+        /// The spot order parameters for a signal — ONE builder shared by <see cref="PlaceOrderAsync"/>
+        /// and <see cref="DryRunOrderAsync"/>, so what <c>/api/v3/order/test</c> validates is exactly
+        /// what <c>/api/v3/order</c> would be sent.
+        /// </summary>
+        private static (Dictionary<string, string>? Params, string? Error) BuildSpotOrderParams(TradeSignal signal, string symbol, string side)
+        {
+            var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
+            // Standalone stop/TP order types trigger at TriggerPrice;
+            // fall back to StopLoss/TakeProfit for older callers.
+            double? trig = signal.TriggerPrice
+                ?? (signal.Type is OrderType.StopMarket or OrderType.StopLimit ? signal.StopLoss : signal.TakeProfit);
+            switch (signal.Type)
+            {
+                case OrderType.Market:
+                    p["type"] = "MARKET"; p["quantity"] = Fmt(signal.Quantity);
+                    break;
+                case OrderType.Limit when signal.Price.HasValue:
+                    p["quantity"] = Fmt(signal.Quantity); p["price"] = Fmt(signal.Price.Value);
+                    if (signal.PostOnly) { p["type"] = "LIMIT_MAKER"; }                 // spot maker-only
+                    else { p["type"] = "LIMIT"; p["timeInForce"] = SpotTif(signal); }
+                    break;
+                case OrderType.StopMarket when trig.HasValue:
+                    p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
+                    p["stopPrice"] = Fmt(trig.Value);
+                    break;
+                case OrderType.StopLimit when trig.HasValue && signal.Price.HasValue:
+                    p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
+                    p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
+                    p["timeInForce"] = SpotTif(signal);
+                    break;
+                case OrderType.TakeProfitMarket when trig.HasValue:
+                    p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
+                    p["stopPrice"] = Fmt(trig.Value);
+                    break;
+                case OrderType.TakeProfitLimit when trig.HasValue && signal.Price.HasValue:
+                    p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
+                    p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
+                    p["timeInForce"] = SpotTif(signal);
+                    break;
+                default:
+                    return (null, "ORDER_FAILED:Unsupported order type");
+            }
+            if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
+            return (p, null);
+        }
+
+        /// <summary>
+        /// Binance spot's <c>POST /api/v3/order/test</c>: the same signed parameters as a real
+        /// order, validated by the venue (symbol filters, balance, precision), nothing placed.
+        /// USD-M futures has no equivalent endpoint, so a Futures signal cannot be dry-run and
+        /// this throws rather than pretend. Unused anywhere in this repo before 2026-09-07.
+        /// </summary>
+        public async Task<OrderDryRunResult> DryRunOrderAsync(TradeSignal signal)
+        {
+            if (!IsConnected) throw new InvalidOperationException("Binance: no API key configured, so the venue cannot be asked.");
+            if (string.Equals(signal.SubType, "Futures", StringComparison.OrdinalIgnoreCase))
+                throw new NotSupportedException("Binance USD-M futures has no order test endpoint; only spot orders can be dry-run.");
+
+            var symbol = CleanSymbol(signal.Symbol);
+            string side = signal.Side == OrderSide.Buy ? "BUY" : "SELL";
+            var (p, error) = BuildSpotOrderParams(signal, symbol, side);
+            if (p is null) return new OrderDryRunResult(false, error!);
+
+            try
+            {
+                await _rateLimiter.ExecuteOnceAsync(() => SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order/test", p));
+                return new OrderDryRunResult(true, "Binance validated the order (nothing was placed)");
+            }
+            catch (HttpRequestException ex)
+            {
+                // The venue answered and said no — that is a verdict, not a transport failure.
+                return new OrderDryRunResult(false, ex.Message);
+            }
+        }
+
         public async Task<string> PlaceOrderAsync(TradeSignal signal)
         {
             if (!IsConnected) return "PROVIDER_NOT_CONFIGURED";
@@ -910,7 +997,9 @@ namespace AccessibleTrader.Plugins.Binance
                         {
                             if (signal.Price.HasValue) p["price"] = Fmt(signal.Price.Value);
                             bool isStopOrTp = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
-                            double? futTrig = signal.TriggerPrice ?? signal.StopLoss ?? signal.TakeProfit;
+                            double? futTrig = futType is "STOP_MARKET" or "STOP"
+                                ? signal.TriggerPrice ?? signal.StopLoss
+                                : signal.TriggerPrice ?? signal.TakeProfit;
                             if (isStopOrTp && futTrig.HasValue) p["stopPrice"] = Fmt(futTrig.Value);
                             p["timeInForce"] = ResolveTif(signal);
                         }
@@ -934,10 +1023,13 @@ namespace AccessibleTrader.Plugins.Binance
                         // TriggerPrice ?? StopLoss ?? TakeProfit, so on a stop/TP entry
                         // one of those is the entry price, not a protective level, and
                         // attaching it would place an exit exactly at the entry.
-                        bool isStopOrTpEntry = futType is "STOP_MARKET" or "STOP" or "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
-                        bool slIsEntryTrigger = isStopOrTpEntry && signal.TriggerPrice == null && signal.StopLoss.HasValue;
-                        bool tpIsEntryTrigger = isStopOrTpEntry && signal.TriggerPrice == null
-                                                && !signal.StopLoss.HasValue && signal.TakeProfit.HasValue;
+                        // Decided by ORDER TYPE alone. The old guards also required TriggerPrice
+                        // to be null — but GeneralOrderService.NormaliseTrigger fills BOTH
+                        // spellings before any signal reaches a plugin, so with the canonical
+                        // field set the guard was false and a SECOND reduce-only stop went out at
+                        // the entry's own trigger. Found by the conformance suite on 2026-09-07.
+                        bool slIsEntryTrigger = futType is "STOP_MARKET" or "STOP";
+                        bool tpIsEntryTrigger = futType is "TAKE_PROFIT_MARKET" or "TAKE_PROFIT";
 
                         string exitSide = side == "BUY" ? "SELL" : "BUY";
                         if (signal.TakeProfit.HasValue && !tpIsEntryTrigger)
@@ -957,43 +1049,8 @@ namespace AccessibleTrader.Plugins.Binance
                     }
                     else
                     {
-                        var p = new Dictionary<string, string> { ["symbol"] = symbol, ["side"] = side };
-                        // Standalone stop/TP order types trigger at TriggerPrice;
-                        // fall back to StopLoss/TakeProfit for older callers.
-                        double? trig = signal.TriggerPrice
-                            ?? (signal.Type is OrderType.StopMarket or OrderType.StopLimit ? signal.StopLoss : signal.TakeProfit);
-                        switch (signal.Type)
-                        {
-                            case OrderType.Market:
-                                p["type"] = "MARKET"; p["quantity"] = Fmt(signal.Quantity);
-                                break;
-                            case OrderType.Limit when signal.Price.HasValue:
-                                p["quantity"] = Fmt(signal.Quantity); p["price"] = Fmt(signal.Price.Value);
-                                if (signal.PostOnly) { p["type"] = "LIMIT_MAKER"; }                 // spot maker-only
-                                else { p["type"] = "LIMIT"; p["timeInForce"] = SpotTif(signal); }
-                                break;
-                            case OrderType.StopMarket when trig.HasValue:
-                                p["type"] = "STOP_LOSS"; p["quantity"] = Fmt(signal.Quantity);
-                                p["stopPrice"] = Fmt(trig.Value);
-                                break;
-                            case OrderType.StopLimit when trig.HasValue && signal.Price.HasValue:
-                                p["type"] = "STOP_LOSS_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
-                                p["timeInForce"] = SpotTif(signal);
-                                break;
-                            case OrderType.TakeProfitMarket when trig.HasValue:
-                                p["type"] = "TAKE_PROFIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["stopPrice"] = Fmt(trig.Value);
-                                break;
-                            case OrderType.TakeProfitLimit when trig.HasValue && signal.Price.HasValue:
-                                p["type"] = "TAKE_PROFIT_LIMIT"; p["quantity"] = Fmt(signal.Quantity);
-                                p["price"] = Fmt(signal.Price.Value); p["stopPrice"] = Fmt(trig.Value);
-                                p["timeInForce"] = SpotTif(signal);
-                                break;
-                            default:
-                                return "ORDER_FAILED:Unsupported order type";
-                        }
-                        if (!string.IsNullOrEmpty(signal.ClientOid)) p["newClientOrderId"] = signal.ClientOid!;
+                        var (p, buildError) = BuildSpotOrderParams(signal, symbol, side);
+                        if (p is null) return buildError!;
 
                         string body = await SignedRequestAsync(HttpMethod.Post, SpotRest, "/api/v3/order", p);
                         return ParseOrderId(body);

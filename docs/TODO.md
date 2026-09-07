@@ -117,6 +117,66 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-07, THIRTY-FOURTH pass — THE CONFORMANCE SUITE EXISTS, and
+> it was 33-red before a single plugin was touched.** Suite ~7,195. Two documents carry this pass:
+> `docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md` (all twelve plugins read line by line, every
+> defect cited) and `AccessibleTrader.Tests/ProviderOrderConformanceTests.cs` (the properties).
+>
+> ### 1. DURABLE, from this pass
+>
+> - **State a property ONCE and run it across every venue.** Thirty-three rows went red on the
+>   first run, against plugins that already had per-venue placement tests. Per-venue tests pin
+>   what a plugin does; a cross-venue property says what it MUST do, and the difference was
+>   eight plugins reading a trigger from one field only, two duplicating a leg, one sending a
+>   take-profit as a market order, one reporting an HTTP-200 rejection as placed.
+> - **A skipped row cannot go red.** Where a venue lacks a capability the suite asserts the
+>   REFUSAL — that is how Bitstamp's price-less "stop" was found.
+> - **The normaliser is the belt; the plugin's own read is the braces.** Signals are handed to
+>   plugins DIRECTLY in the suite. Strategy plugins and scripts get no normaliser.
+> - **Decide "is this field the entry's own trigger" by ORDER TYPE, never by whether the other
+>   spelling is null** — because the chokepoint fills both spellings, that guard is always
+>   false in production. Binance futures and IBKR both placed a second order at the entry's
+>   own price.
+> - **A dry run must share the placement's payload builder or it validates nothing.** Three
+>   plugins were refactored so one builder feeds both; the suite asserts the payloads match.
+> - **Re-measure a venue claim before building on it.** The scope doc's "✅ full demo" for Kraken
+>   Futures was a 301 to a marketing page, and a commit from August already said so.
+>
+> ### 2. DECISIONS MADE
+>
+> - **`Configure` with no `Environment` is PRACTICE**, in every plugin with a practice host.
+>   Older test rigs that assumed "no environment = live" now say `Environment=Live`.
+> - **Equity take-profits rest as a LIMIT at the target** (Alpaca, Schwab; Tradier already did).
+>   OANDA gets `MARKET_IF_TOUCHED` — unverified against fxpractice.
+> - **Venues with no practice environment keep routing a Paper credential live, pinned BY NAME**
+>   (`Venues_that_route_a_Paper_credential_to_the_live_host_are_exactly_these`). Refusing
+>   instead is Cody's call: legacy profiles carry no environment and would all refuse.
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **No dry run has been sent to a real venue.** The code is wired and unit-proven only.
+> - **Schwab's `duration: "GTC"`** (published enum: `GOOD_TILL_CANCEL`) — if wrong, every
+>   bracketed Schwab order fails, and `BrokerParityTests:165` pins the wrong spelling.
+> - **Tradier's `gtc` on a market-entry bracket** contradicts the plugin's own comment.
+> - **OANDA `orderCancelTransaction`** unread; **Schwab option instructions** `BUY`/`SELL`.
+> - Alpaca fractional-share orders may need `time_in_force=day`; sub-1e-4 quantities
+>   serialise as `1E-05` on Alpaca/Bitstamp/MEXC spot (measured in .NET, unmeasured at venues).
+>
+> ### 4. NEXT — in this order
+>
+> 1. **Send the dry runs to real venues.** Tradier sandbox first (free signup, `preview=true`):
+>    it settles the `gtc`-on-market question and proves the bracket form. Then Kraken
+>    `validate=true` with the stored key — **only with Cody's go-ahead: the key is LIVE**.
+> 2. **Decide the Paper-on-a-venue-with-no-practice-environment policy** (refuse vs. route live).
+> 3. **Settle the Schwab `GTC` spelling** — Schwab's `/previewOrder` exists and is unwired; or
+>    read the published enum and fix the pinning test.
+> 4. **The order stream.** Kraken Futures' demo is GONE; Alpaca paper is the only reachable
+>    venue with a push channel, and its flag is dynamic. Drive Alpaca paper to a real fill.
+> 5. Only then, background monitor Phase 3.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-07, THIRTY-THIRD pass — THE PROVIDER LAYER, DIAGNOSED.
 > Nine defects across eight venues are ONE class of bug, and the fix that would retire it needs
 > no credentials at all.** See `docs/PROVIDER_CONFORMANCE_SCOPE.md` — read that FIRST, it is the

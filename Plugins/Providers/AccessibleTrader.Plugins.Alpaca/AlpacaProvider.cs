@@ -74,7 +74,10 @@ namespace AccessibleTrader.Plugins.Alpaca
         // The stream sends completed one-shot bars (T=="b", per-minute), each
         // carrying its period's TOTAL volume — cumulative-bar semantics.
         public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle => AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
-        public override ProviderEnvironment Environment { get; } = ProviderEnvironment.Paper;
+        // Derived from the host in use, not a constant: it used to say Paper while signing
+        // against api.alpaca.markets.
+        public override ProviderEnvironment Environment =>
+            _tradingBaseUrl.Contains("paper", StringComparison.Ordinal) ? ProviderEnvironment.Paper : ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 10000;
         public override ProviderCapabilities Capabilities => ProviderCapabilities.L2 | ProviderCapabilities.Brackets;
 
@@ -128,8 +131,13 @@ namespace AccessibleTrader.Plugins.Alpaca
             }
             if (config.TryGetValue("ApiSecret", out var secret)) _apiSecret = secret;
 
-            if (config.TryGetValue("Environment", out var env) && env == "Live")
-                _tradingBaseUrl = "https://api.alpaca.markets/v2";
+            // ProviderConfigKeys is the contract: branch on Live, treat everything else — an
+            // unrecognised value, a legacy profile's empty string, a missing key — as practice.
+            // The old compare was `env == "Live"`: case-sensitive, and ONE-WAY, so once an
+            // instance had seen Live a later practice Configure kept the live host.
+            _tradingBaseUrl = ProviderConfigKeys.IsLive(config)
+                ? "https://api.alpaca.markets/v2"
+                : "https://paper-api.alpaca.markets/v2";
 
             // NOTE: phase 4 Track B removed the DefaultRequestHeaders injection
             // that used to live here. Headers are now applied per-request via
@@ -764,26 +772,49 @@ namespace AccessibleTrader.Plugins.Alpaca
                         ["time_in_force"] = "gtc"
                     };
 
-                    // Determine order type
-                    if (signal.Type == OrderType.StopMarket && signal.StopLoss.HasValue)
+                    // ── Order type. Until 2026-09-07 this was an if/else chain whose ELSE was
+                    //    "market": a StopMarket whose StopLoss was null (only the canonical
+                    //    TriggerPrice set), a StopLimit missing either price, and BOTH take-profit
+                    //    types — which had no branch at all — went to the venue as an immediate
+                    //    market order. A stop that fills now, or a take-profit that sells at the
+                    //    market this instant, is the same class of defect as MEXC's type 5. Every
+                    //    branch now refuses in words when its price is missing, and the trigger is
+                    //    read the way the SDK contract says: `TriggerPrice ?? StopLoss`.
+                    double? stopTrigger = signal.TriggerPrice ?? signal.StopLoss;
+                    double? tpTrigger   = signal.TriggerPrice ?? signal.TakeProfit;
+                    switch (signal.Type)
                     {
-                        body["type"] = "stop";
-                        body["stop_price"] = signal.StopLoss.Value;
-                    }
-                    else if (signal.Type == OrderType.StopLimit && signal.StopLoss.HasValue && signal.Price.HasValue)
-                    {
-                        body["type"] = "stop_limit";
-                        body["stop_price"] = signal.StopLoss.Value;
-                        body["limit_price"] = signal.Price.Value;
-                    }
-                    else if (signal.Type == OrderType.Limit && signal.Price.HasValue)
-                    {
-                        body["type"] = "limit";
-                        body["limit_price"] = signal.Price.Value;
-                    }
-                    else
-                    {
-                        body["type"] = "market";
+                        case OrderType.Market:
+                            body["type"] = "market";
+                            break;
+                        case OrderType.Limit:
+                            if (signal.Price is not double limitPx) return "ORDER_FAILED:a limit order needs a limit price";
+                            body["type"] = "limit";
+                            body["limit_price"] = limitPx;
+                            break;
+                        case OrderType.StopMarket:
+                            if (stopTrigger is not double stopPx) return "ORDER_FAILED:a stop order needs a trigger price";
+                            body["type"] = "stop";
+                            body["stop_price"] = stopPx;
+                            break;
+                        case OrderType.StopLimit:
+                            if (stopTrigger is not double stopTrig || signal.Price is not double stopLimitPx)
+                                return "ORDER_FAILED:a stop-limit order needs both a trigger price and a limit price";
+                            body["type"] = "stop_limit";
+                            body["stop_price"] = stopTrig;
+                            body["limit_price"] = stopLimitPx;
+                            break;
+                        case OrderType.TakeProfitMarket:
+                        case OrderType.TakeProfitLimit:
+                            // Alpaca has no if-touched order type. The take-profit of an equity
+                            // position is a resting LIMIT at the target — exactly the order its own
+                            // bracket's take_profit leg is — and never a market order.
+                            if (tpTrigger is not double tpPx) return "ORDER_FAILED:a take-profit order needs a trigger price";
+                            body["type"] = "limit";
+                            body["limit_price"] = signal.Type == OrderType.TakeProfitLimit ? (signal.Price ?? tpPx) : tpPx;
+                            break;
+                        default:
+                            return "ORDER_FAILED:Unsupported order type";
                     }
 
                     ApplyProtectiveLegs(body, signal);

@@ -430,7 +430,8 @@ namespace AccessibleTrader.Tests
         public async Task KrakenFutures_an_unexplained_gateway_refusal_throws_with_the_status()
         {
             using var p = new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
-            p.Configure(SymbolListHarness.Credentials());
+            var creds = SymbolListHarness.Credentials(); creds["Environment"] = "Live"; // no environment = practice = the dead demo, since 2026-09-07
+            p.Configure(creds);
             SymbolListHarness.SwapEveryHttpClient(p, AllRoutes("""{"message":"bad gateway"}""", HttpStatusCode.BadGateway));
 
             var ex = await Assert.ThrowsAsync<HttpRequestException>(() => p.GetBalancesAsync());
@@ -448,7 +449,8 @@ namespace AccessibleTrader.Tests
             // service maps to "fix your key", not "venue down") must survive the
             // status check that was added in front of it.
             using var p = new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
-            p.Configure(SymbolListHarness.Credentials());
+            var creds = SymbolListHarness.Credentials(); creds["Environment"] = "Live"; // no environment = practice = the dead demo, since 2026-09-07
+            p.Configure(creds);
             SymbolListHarness.SwapEveryHttpClient(p,
                 AllRoutes("""{"result":"error","error":"authenticationError"}""", HttpStatusCode.Unauthorized));
 

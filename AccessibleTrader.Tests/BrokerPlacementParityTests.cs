@@ -67,7 +67,7 @@ namespace AccessibleTrader.Tests
         private static AccessibleTrader.Plugins.Binance.BinanceProvider Binance(FakeHttpMessageHandler h)
         {
             var p = new AccessibleTrader.Plugins.Binance.BinanceProvider();
-            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "bk", ["ApiSecret"] = "bs" });
+            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "bk", ["ApiSecret"] = "bs", ["Environment"] = "Live" });
             // The REST client is the lazy Http property's backing field, not the
             // `_httpClient`/`_http` names the other providers use.
             SwapField(p, "_httpField", new HttpClient(h));
@@ -335,7 +335,7 @@ namespace AccessibleTrader.Tests
         private static AccessibleTrader.Plugins.Gemini.GeminiProvider Gemini(FakeHttpMessageHandler h)
         {
             var p = new AccessibleTrader.Plugins.Gemini.GeminiProvider();
-            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "gk", ["ApiSecret"] = "gs" });
+            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "gk", ["ApiSecret"] = "gs", ["Environment"] = "Live" });
             SwapField(p, "_http", new HttpClient(h));
             return p;
         }
@@ -392,7 +392,7 @@ namespace AccessibleTrader.Tests
         private static AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider KrakenFutures(FakeHttpMessageHandler h)
         {
             var p = new AccessibleTrader.Plugins.KrakenFutures.KrakenFuturesProvider();
-            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "kfk", ["ApiSecret"] = KfSecret });
+            p.Configure(new Dictionary<string, string> { ["ApiKey"] = "kfk", ["ApiSecret"] = KfSecret, ["Environment"] = "Live" });
             SwapField(p, "_http", new HttpClient(h));
             return p;
         }

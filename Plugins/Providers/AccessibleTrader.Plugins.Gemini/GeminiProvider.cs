@@ -126,8 +126,9 @@ namespace AccessibleTrader.Plugins.Gemini
             if (config.TryGetValue("ApiSecret", out var s)) _apiSecret = s;
             // A Paper profile routes to the sandbox, which is a real environment
             // with its own keys — not a simulation we run.
-            if (config.TryGetValue("Environment", out var e))
-                _useSandbox = string.Equals(e, "Paper", StringComparison.OrdinalIgnoreCase);
+            // ProviderConfigKeys polarity: anything not explicitly Live is the sandbox. The old
+            // compare branched on "Paper", so a MISSING environment meant live.
+            _useSandbox = !ProviderConfigKeys.IsLive(config);
         }
 
         public override async Task<(bool IsValid, string Message)> ValidateApiKeyAsync()
