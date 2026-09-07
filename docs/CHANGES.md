@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### SCOPE ONLY — order routing safety: the key switcher that does not switch (2026-09-07)
+
+`docs/ORDER_ROUTING_SAFETY_SCOPE.md`, written for Cody's three asks (a Paper key must never route
+live; a live order must be unmistakable; a dropdown to choose the key; Schwab's preview endpoint).
+Nothing implemented. Reading for it found that the dashboard's "Switch API Key" dropdown already
+exists and changes only a stored flag and an announcement — the provider keeps the host it was
+given at startup, and both checkout adapters hand plugins the FIRST stored key for the provider
+regardless of environment or activation. A Paper-labelled key on one of the six venues with no
+practice environment therefore gets no live review and signs against the live venue. The design
+(one credential-in-use per provider, a chokepoint refusal, a dashboard that speaks "real money",
+Schwab `previewOrder` as a dry run) and the two decisions it needs are in the document.
+
 ### The provider conformance suite — 33 red rows on its first run, and what they forced (2026-09-07)
 
 **`docs/PROVIDER_CONFORMANCE_SCOPE.md` §4 said the suite did not exist. It does now.**

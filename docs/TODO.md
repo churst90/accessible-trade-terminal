@@ -117,6 +117,46 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-07, THIRTY-FIFTH pass — SCOPE ONLY: order routing safety.
+> Cody's three asks, read into the code and written up in `docs/ORDER_ROUTING_SAFETY_SCOPE.md`.
+> NOTHING IMPLEMENTED.** Read that document first; it is the work order.
+>
+> ### 1. WHAT WAS FOUND (by reading, line-cited; nothing measured at a venue)
+>
+> - **The dashboard's "Switch API Key" dropdown already exists and does not switch the key.**
+>   It flips `IsActive` and speaks; the provider is never reconfigured, and
+>   `ConfigureStoredKeyProvidersAsync` skips any provider that is already configured (seven
+>   plugins say `IsConfigured => true` always).
+> - **The key that SIGNS is chosen environment-blind** — both checkout adapters use
+>   `GetKeyForProviderAsync`, which returns the first stored profile matching MarketType. The
+>   HOST was fixed at startup by the first ACTIVE key. Host and signature can come from
+>   different profiles.
+> - **A Paper-labelled key on a venue with no practice environment gets NO live review** and is
+>   signed against the live venue: the review gate keys off the key's label. Six venues.
+> - `GeneralOrderService` has no view of the credential at all, so it cannot enforce the rule
+>   today.
+> - Paper/live is shown (banners, Mode cell) and not spoken; there is no LIVE status badge.
+>
+> ### 2. THE DESIGN (D1–D4 in the scope doc)
+>
+> D1 one credential-in-use per provider, recorded by `DataService`, read by the checkout adapters
+> and reconfigured on demand; one active key per provider. D2 the chokepoint refusal: Paper key +
+> provider reporting Live → refuse in words (`HasPracticeEnvironment` on the SDK, replacing the
+> suite's by-name pin). D3 the dashboard: the switcher becomes the choice of record, speaks
+> "LIVE … real money" / "paper … sandbox" on change and on open, fail-safe review gate
+> (`!= "Paper"`), a LIVE status badge. D4 Schwab `previewOrder` as `IOrderDryRunProvider`.
+>
+> ### 3. NEXT — in this order
+>
+> 1. D4 (an hour, no dependencies; it is the instrument for the `GTC` question).
+> 2. D1, then D2 with its red-then-green test, then D3.
+> 3. Run the dry runs for real: Tradier sandbox; Kraken and Schwab with Cody present.
+>
+> ### 4. DECISIONS FOR CODY
+>
+> One active key per provider (recommended)? And: legacy profiles with an empty environment will
+> be REFUSED on the six no-practice venues until re-saved as Live — intended, but it will surprise.
+
 > **START HERE (current as of 2026-09-07, THIRTY-FOURTH pass — THE CONFORMANCE SUITE EXISTS, and
 > it was 33-red before a single plugin was touched.** Suite ~7,195. Two documents carry this pass:
 > `docs/PROVIDER_PLACEMENT_AUDIT_2026-09-07.md` (all twelve plugins read line by line, every
