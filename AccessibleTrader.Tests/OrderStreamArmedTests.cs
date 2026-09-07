@@ -174,8 +174,10 @@ namespace AccessibleTrader.Tests
             var good = new Subject<OrderUpdate>();
 
             var badSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)badSub).SupportsOrderEventStreaming.Returns(true);
             ((ITradingProvider)badSub).OrderUpdateStream.Returns(_ => throw new InvalidOperationException("socket refused"));
             var goodSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)goodSub).SupportsOrderEventStreaming.Returns(true);
             ((ITradingProvider)goodSub).OrderUpdateStream.Returns(good);
 
             var data = Substitute.For<IDataService>();
@@ -241,6 +243,7 @@ namespace AccessibleTrader.Tests
             var current = first;
 
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).SupportsOrderEventStreaming.Returns(true);
             ((ITradingProvider)tpSub).OrderUpdateStream.Returns(_ => current);
 
             var data = Substitute.For<IDataService>();
@@ -271,6 +274,44 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public async Task A_venue_that_declares_NO_order_stream_is_never_recorded_as_subscribed()
+        {
+            // MEASURED against the real Gemini sandbox on 2026-09-07: SupportsOrderEventStreaming
+            // is false, OrderUpdateStream is a dead subject, and subscribing to it SUCCEEDS —
+            // silently, forever. LiveOrderStreamProviders is what the headless watch and
+            // CircuitOrderCoverage both read to decide who is covering a venue's fills, so a
+            // provider recorded there while emitting nothing is coverage that does not exist.
+            //
+            // Schwab and Tradier declare the same. Their fills are resolved by the order POLLER,
+            // which watches the orders this terminal placed — a genuinely different guarantee,
+            // and the caller has to be able to see the difference.
+            var bus = new SpyEventBus();
+            var stream = new Subject<OrderUpdate>();
+            var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).SupportsOrderEventStreaming.Returns(false);
+            ((ITradingProvider)tpSub).OrderUpdateStream.Returns(stream);
+
+            var data = Substitute.For<IDataService>();
+            data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tpSub));
+            var paper = Substitute.For<IPaperTradingProvider>();
+            paper.OrderUpdateStream.Returns(new Subject<OrderUpdate>());
+
+            var orders = new GeneralOrderService(
+                data, Substitute.For<IGlobalErrorCoordinator>(),
+                NullLogger<GeneralOrderService>.Instance, bus, paper,
+                Substitute.For<ISettingsManager>(), new DemoPolicy(isDemo: false), new QuickTradeEquity());
+
+            await orders.SubscribeOrderUpdatesAsync("Gemini");
+
+            Assert.Empty(orders.LiveOrderStreamProviders);
+
+            // And nothing is listening, so a push from a stream that will never push anyway
+            // reaches no one — the honest state, rather than a subscription that looks alive.
+            stream.OnNext(Fill("never-arrives"));
+            Assert.Empty(bus.Log.OfType<OrderFilledEvent>());
+        }
+
+        [Fact]
         public async Task A_stream_that_completes_is_forgotten_too()
         {
             // A venue that closes the channel cleanly leaves the user exactly as uncovered as
@@ -278,6 +319,7 @@ namespace AccessibleTrader.Tests
             var bus = new SpyEventBus();
             var stream = new Subject<OrderUpdate>();
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).SupportsOrderEventStreaming.Returns(true);
             ((ITradingProvider)tpSub).OrderUpdateStream.Returns(stream);
             var data = Substitute.For<IDataService>();
             data.GetProviderAsync(Arg.Any<string>()).Returns(_ => Task.FromResult<IMarketDataProvider?>(tpSub));
@@ -303,6 +345,7 @@ namespace AccessibleTrader.Tests
             // exact silent non-coverage the phase is about.
             var bus = new SpyEventBus();
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
+            ((ITradingProvider)tpSub).SupportsOrderEventStreaming.Returns(true);
             ((ITradingProvider)tpSub).OrderUpdateStream.Returns(
                 Observable.Throw<OrderUpdate>(new IOException("already down")));
             var data = Substitute.For<IDataService>();

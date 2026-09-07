@@ -160,6 +160,32 @@ namespace AccessibleTrader.Core.Services
             set { if (_demo.IsDemo && !_demo.IsTimeframeAllowed(value)) return; _selectedTimeframe = value; _pipelineUpdated.OnNext(Unit.Default); }
         }
 
+        /// <summary>
+        /// Point the toolbar's dropdowns at the chart currently on screen.
+        ///
+        /// <para>
+        /// Getting this wrong is worse than cosmetic, and the dialog's own note says why:
+        /// pressing Load would load the symbol named in the dropdown rather than the one being
+        /// looked at. Only non-empty fields are adopted — a partially-populated identity must not
+        /// blank a dropdown that is currently right.
+        /// </para>
+        /// </summary>
+        private void AdoptIdentityIntoToolbar(Sdk.Models.ChartIdentity identity)
+        {
+            if (!string.IsNullOrEmpty(identity.Provider))  _selectedProvider  = identity.Provider;
+            if (!string.IsNullOrEmpty(identity.Symbol))    _selectedSymbol    = identity.Symbol;
+            if (!string.IsNullOrEmpty(identity.Timeframe)) _selectedTimeframe = identity.Timeframe;
+            if (!string.IsNullOrEmpty(identity.Market))    _selectedSubType   = identity.Market;
+            if (!string.IsNullOrEmpty(identity.Symbol))    _dataManager.Identity = identity;
+
+            // Cheap, immediate correction so the toolbar stops lying before any await.
+            _pipelineUpdated.OnNext(Unit.Default);
+        }
+
+        /// <summary>The identity the toolbar was last pointed at, so an unchanged one costs nothing.</summary>
+        private Sdk.Models.ChartIdentity _lastAdoptedIdentity;
+        private readonly IDisposable? _identitySub;
+
         public IReadOnlyList<string> AvailableMarkets => _availableMarkets;
         public IReadOnlyList<string> AvailableAnalyticsTypes => _availableAnalyticsTypes;
         public IReadOnlyList<string> AvailableProviders => _availableProviders;
@@ -222,6 +248,40 @@ namespace AccessibleTrader.Core.Services
                 });
             });
 
+            // ── The toolbar follows the CHART, not only the tab-switch action ────────────
+            //
+            // The sync below runs on TabSwitchedEvent, which WorkspaceStore publishes only for a
+            // SwitchTabAction or AddTabAction that actually changed state. A restored session
+            // reaches neither: a single-tab restore sets the identity with SetIdentityAction and
+            // dispatches no switch at all, and a multi-tab restore whose saved active tab is
+            // index 0 switches 0 -> 0, which is not a change. So the chart came back as the
+            // symbol you had chosen and the dropdowns came back at their defaults — reported
+            // 2026-09-07: "if I restore a tab with BTC/USDT on Bitstamp, the dropdowns should
+            // remember the chart that was originally selected".
+            //
+            // Watching the IDENTITY instead covers both, and covers every other way a chart can
+            // change underneath the toolbar (a workspace load, a watchlist jump). It is not
+            // "every state emission": only a genuine identity change adopts, so a selection the
+            // user is part-way through making — provider chosen, symbol not yet — is left alone,
+            // because choosing in a dropdown does not move the chart until Load.
+            _identitySub = _store.StateStream.Subscribe(st =>
+            {
+                var id = st.Identity;
+                if (id.Equals(_lastAdoptedIdentity)) return;
+                _lastAdoptedIdentity = id;
+                if (string.IsNullOrEmpty(id.Symbol) && string.IsNullOrEmpty(id.Provider)) return;
+
+                AdoptIdentityIntoToolbar(id);
+                if (!string.IsNullOrEmpty(id.Provider))
+                {
+                    Task.Run(async () =>
+                    {
+                        try { await SyncMarketToProviderAsync(id).ConfigureAwait(false); }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Toolbar identity sync failed: {ex.Message}"); }
+                    });
+                }
+            });
+
             _tabSwitchedSub = _eventBus.Subscribe<TabSwitchedEvent>(e =>
             {
                 var state = _store.State;
@@ -240,14 +300,7 @@ namespace AccessibleTrader.Core.Services
                 // wrong is worse than cosmetic: pressing Load would have loaded the symbol named in
                 // the dropdown rather than the one on screen.
                 var switchIdentity = state.Identity;
-                if (!string.IsNullOrEmpty(switchIdentity.Provider))  _selectedProvider  = switchIdentity.Provider;
-                if (!string.IsNullOrEmpty(switchIdentity.Symbol))    _selectedSymbol    = switchIdentity.Symbol;
-                if (!string.IsNullOrEmpty(switchIdentity.Timeframe)) _selectedTimeframe = switchIdentity.Timeframe;
-                if (!string.IsNullOrEmpty(switchIdentity.Market))    _selectedSubType   = switchIdentity.Market;
-                if (!string.IsNullOrEmpty(switchIdentity.Symbol))    _dataManager.Identity = switchIdentity;
-
-                // Cheap, immediate correction so the toolbar stops lying before any await.
-                _pipelineUpdated.OnNext(Unit.Default);
+                AdoptIdentityIntoToolbar(switchIdentity);
 
                 // The market name and the option lists need a provider lookup, so they are async —
                 // but still unconditional, because a list that cannot render the new symbol leaves
@@ -810,6 +863,7 @@ namespace AccessibleTrader.Core.Services
         public void Dispose()
         {
             _tabSwitchedSub?.Dispose();
+            _identitySub?.Dispose();
             _apiKeysChangedSub?.Dispose();
             _tabSwitchCts.Cancel();
             _tabSwitchCts.Dispose();

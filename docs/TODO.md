@@ -117,6 +117,68 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-07, THIRTY-SECOND pass — THE FIRST MEASUREMENT AGAINST A
+> REAL VENUE. The Gemini sandbox proved the credential fix end to end, and found a defect in the
+> PREVIOUS DAY'S work that unit tests could not.** See CHANGES `[Unreleased]`. Suite **7,042**
+> (was 7,035). What is worth carrying forward:
+>
+> ### 1. DURABLE, from this pass
+>
+> - **ONE REAL VENUE FOUND WHAT 7,000 TESTS COULD NOT.** Gemini declares
+>   `SupportsOrderEventStreaming = false`; its `OrderUpdateStream` is a dead subject and
+>   SUBSCRIBING TO IT SUCCEEDS. Phase 2's watch would have logged "now watching fills on Gemini",
+>   recorded it healthy, and watched nothing — the silent non-coverage that phase exists to
+>   prevent, produced by that phase. **"Assert the artifact" is only as good as the artifact you
+>   pick:** the check asked *is it in the subscribed set* when the honest question was *can an
+>   event ever arrive*.
+> - **A simulator's TOLERANCE is where bugs hide.** The paper broker accepts a trigger in either
+>   field and subscribes to any stream. Both of the fleet-level defects found this week were
+>   invisible in paper trading for exactly that reason. **Where the simulator is more forgiving
+>   than the venue, it is not a test surface.**
+> - **A guard at one of its entrances is not a guard.** Fifth instance this week. The toolbar sync
+>   existed and ran on `TabSwitchedEvent`; a restore dispatches no tab switch (single-tab) or
+>   switches 0 to 0 (multi-tab), so it walked straight around it. **Grep for the ENTRANCES, not
+>   just the rule.**
+> - **A permanent limitation is not a dead feed.** A venue that can never stream must be said ONCE,
+>   not escalated every three polls — an escalation that repeats forever trains the user to ignore
+>   the channel that reports the real thing.
+>
+> ### 2. DECISIONS MADE
+>
+> - **The toolbar follows the IDENTITY, not the tab-switch action.** Each tab's dropdowns are a
+>   VIEW of that tab's chart rather than a second memory that can drift. Adoption requires a
+>   genuine identity change (so a half-made selection survives) and a blank identity never wipes a
+>   dropdown.
+> - **`LiveOrderStreamProviders` means "events can arrive", not "a subscribe call returned".**
+>
+> ### 3. NOT VERIFIED HERE
+>
+> - **Gemini exercised a NARROW slice**: spot only, no leverage, no shorting, no market orders, no
+>   stop-market, no take-profit, no streaming. Good evidence for credentials, transport, symbols
+>   and trigger normalisation. **NO evidence for margin/liquidation, the protective-order path, or
+>   the live order stream Phase 2 is built on.**
+> - The Gemini sandbox's own market is dead — flat synthetic candles, an empty book — so no fill
+>   could be obtained by market order. **Nothing has FILLED at a real venue.**
+>
+> ### 4. NEXT
+>
+> - **BINANCE TESTNET is the highest-value next measurement, and it is not close.** It is the only
+>   freely available venue that exercises, in one place: FUTURES and margin (so liquidation prices,
+>   margin modes, and SHORTS — none of which Gemini has); a real ORDER STREAM
+>   (`SupportsOrderEventStreaming = true`), which is the entire foundation of background monitor
+>   Phases 1–3 and has never been measured against anything; `StopMarket` and `TakeProfit` order
+>   types, so the protective-order path fixed on 2026-09-06 can actually be exercised; native OCO,
+>   so the newly-gated panel has something real behind it; and a LIQUID book, so orders actually
+>   FILL. Every one of those is a hole Gemini could not touch.
+> - **Decide what the positions-table stop editor does on a venue with no stop-market** (Gemini,
+>   measured): refuse in the venue's own words, or fall back to stop-limit.
+> - **Phase 3 of the background monitor** — see the thirtieth pass block. Still recommended AFTER
+>   a streaming venue has been measured, since Phase 2's foundation is now known to be unverified
+>   in a way that a real venue exposed within minutes.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-06, THIRTY-FIRST pass — ORDER SAFETY, from a real bug
 > report: a hand-set stop on a long that OPENED A SHORT, and four more found underneath it.**
 > See CHANGES `[Unreleased]`. Suite **7,034** (was 7,012). What is worth carrying forward:

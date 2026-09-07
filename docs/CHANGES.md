@@ -4,6 +4,72 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Measured against a real venue — the Gemini sandbox, and what it found (2026-09-07)
+
+**Everything before this was reasoned. This was run.** The stored Gemini sandbox credential was
+used to drive the REAL `GeminiProvider` plugin against `api.sandbox.gemini.com`, exercising the
+whole trading surface. Two of the things it proved could not have been learned any other way.
+
+| Checked | Result |
+|---|---|
+| `Environment` routing | ✅ *"API key validated against the sandbox"* — the credential fix of 2026-09-06, proved end to end rather than reasoned |
+| Symbols / candles / balances / open orders | ✅ 392 symbols; a funded sandbox account |
+| Limit order, place and cancel | ✅ |
+| Trigger spelled `TriggerPrice` only, `StopLoss` only, or BOTH | ✅ **all three accepted identically** — `NormaliseTrigger`'s output is what the venue wants |
+| `StopMarket`, `TakeProfitMarket` | ❌ **refused by name** — Gemini offers limit and stop-limit only |
+| Market order | ❌ the sandbox book is empty, so the plugin's IOC emulation finds no liquidity |
+| Candles on the sandbox | ⚠️ flat synthetic bars, zero volume — the sandbox has its own dead market |
+
+**THE PRODUCT GAP: the positions table's stop/target editor cannot work on Gemini at all.** It
+builds an `OrderType.StopMarket`, and that venue refuses the type outright. Not a regression — the
+editor has never worked there — but it is now measured rather than suspected, and it needs a
+decision: refuse clearly with the venue's own words, or fall back to a stop-LIMIT on venues that
+have no stop-market.
+
+**AND A DEFECT IN THE PREVIOUS DAY'S WORK, found by the same run.** Gemini declares
+`SupportsOrderEventStreaming = false`: its `OrderUpdateStream` is a dead subject, and
+**subscribing to it succeeds and emits nothing, forever.** Phase 2's `HeadlessOrderWatch` would
+have logged "now watching fills on Gemini", recorded the venue healthy, and watched nothing — the
+exact silent non-coverage that phase was written to prevent, produced by that phase. The "assert
+the artifact" check asked *is it in the subscribed set* when the honest question was *can an event
+ever arrive*. Schwab and Tradier declare the same.
+
+Fixed in two places. `GeneralOrderService.SubscribeOrderUpdatesAsync` no longer records a
+subscription it cannot honour, so `LiveOrderStreamProviders` — which the headless watch AND
+`CircuitOrderCoverage` both read — stays honest. And the watch reports the limitation **once**
+("Gemini has no order-update stream, so fills there cannot be watched with the browser closed")
+instead of escalating a dead feed every three minutes about something that will never change.
+Their fills are still resolved by the order poller, which follows the orders this terminal placed.
+
+**What one venue does and does not generalise.** Gemini exercised a narrow slice: spot only, no
+leverage, no shorting, no market orders, no stop-market, no take-profit, no streaming. It is good
+evidence for the credential/`Environment` plumbing, the signing and transport layer, symbol
+handling and the trigger normalisation — all shared-shape problems. It is NO evidence at all for
+margin and liquidation, the protective-order path, or the live order stream that Phase 2 is built
+on. A venue with futures and real streaming is the next thing worth measuring.
+
+### The toolbar dropdowns follow the chart, including after a restore (2026-09-07)
+
+Reported: "if I restore a tab with BTC/USDT on Bitstamp, the market / provider / asset dropdowns
+should remember the chart that was originally selected." They did not — two sources of truth for
+what you are looking at. `WorkspaceState.Identity` is saved and restored; `MarketOrchestrator`'s
+`Selected*` is per-circuit in-memory state whose only writers were the dropdowns themselves and
+the watchlist.
+
+**A sync already existed, and the restore path walked around it.** It ran on `TabSwitchedEvent`,
+which `WorkspaceStore` publishes only for a `SwitchTabAction`/`AddTabAction` that actually CHANGED
+state — and a restore reaches neither: a single-tab restore sets the identity and dispatches no
+switch at all, and a multi-tab restore whose saved active tab is index 0 switches 0 to 0, which is
+not a change. Same shape as everything else this week: the guard existed, at one of its entrances.
+
+The toolbar now follows the IDENTITY, which covers restore, workspace loads and watchlist jumps in
+one place, and makes each tab's dropdowns a VIEW of that tab's chart rather than a second memory
+that can drift from it. Two hazards, both pinned: a genuine identity change is required to adopt,
+so a selection the user is part-way through making is not clobbered (choosing in a dropdown does
+not move the chart until Load), and a blank identity never wipes a dropdown that is currently
+right. Why it is not merely cosmetic is written on the sync itself: pressing Load would otherwise
+load the symbol named in the dropdown rather than the one being looked at.
+
 ### Order safety — the stop that opened a short, and four more found under it (2026-09-06)
 
 **Reported from paper trading: "I set a stop on my long and it switched the position to a sell

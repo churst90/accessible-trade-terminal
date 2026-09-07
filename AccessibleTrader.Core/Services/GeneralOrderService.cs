@@ -150,6 +150,26 @@ namespace AccessibleTrader.Core.Services
             var provider = await _dataService.GetProviderAsync(providerName).ConfigureAwait(false);
             if (provider is not ITradingProvider tp) return;
 
+            // ── A venue with no order stream must not LOOK subscribed ─────────────
+            // Providers whose OrderUpdateStream is a dead subject declare
+            // SupportsOrderEventStreaming = false (Gemini, Schwab, Tradier). Subscribing to
+            // one succeeds, emits nothing, ever, and — because LiveOrderStreamProviders is
+            // what the headless watch and CircuitOrderCoverage both read — makes this service
+            // claim coverage it does not have. Measured against the real Gemini sandbox on
+            // 2026-09-07: the subscription is accepted and no fill ever arrives.
+            //
+            // Their fills are resolved by the order POLLER instead, which watches the orders
+            // this terminal placed. That is a real difference in what can be covered and the
+            // caller has to be able to see it, so the set stays honest and empty here.
+            if (!tp.SupportsOrderEventStreaming)
+            {
+                _logger.LogInformation(
+                    "{Provider} has no order-update stream; fills there are resolved by polling the "
+                  + "orders this terminal placed, and cannot be watched with no session open.",
+                    providerName);
+                return;
+            }
+
             // ── The stream has to be able to DIE, and say so ──────────────────────
             // It could not before: the subscription went into the dictionary and stayed
             // there for the life of the service whatever happened to it. A broker socket

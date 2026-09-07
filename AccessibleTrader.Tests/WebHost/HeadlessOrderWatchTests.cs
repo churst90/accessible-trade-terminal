@@ -544,6 +544,10 @@ public class HeadlessOrderWatchTests : IDisposable
         {
             var tpSub = Substitute.For<IMarketDataProvider, ITradingProvider>();
             Trading = (ITradingProvider)tpSub;
+            // NSubstitute intercepts the default interface member and would answer FALSE, which
+            // would make every watch test exercise the "cannot stream" path instead of the one
+            // it is about. Pin the real-world default.
+            Trading.SupportsOrderEventStreaming.Returns(true);
             if (accountFailure != null)
             {
                 Trading.GetOpenOrdersAsync().Returns<Task<List<OpenOrder>>>(_ => throw accountFailure);
@@ -768,6 +772,39 @@ public class HeadlessOrderWatchTests : IDisposable
 
         Assert.NotEmpty(h.Presenter.Spoken);
         Assert.Equal(0, h.Presenter.SoundsPlayed);
+    }
+
+    [Fact]
+    public async Task A_venue_with_no_order_stream_is_reported_ONCE_and_never_watched()
+    {
+        // MEASURED against the real Gemini sandbox, 2026-09-07: SupportsOrderEventStreaming is
+        // false, OrderUpdateStream is a dead subject, and subscribing to it SUCCEEDS. Without
+        // this the watch logged "now watching fills on Gemini", recorded it healthy, and watched
+        // nothing — the silent non-coverage this phase exists to prevent, produced by the phase
+        // itself. It is a permanent limitation, not a failing feed, so it is said once rather
+        // than escalated every three polls until the user learns to ignore the channel.
+        using var h = new WatchHarness(openOrders: OneOpenOrder());
+        h.Trading.SupportsOrderEventStreaming.Returns(false);
+
+        for (int i = 0; i < 5; i++) await h.PollAsync();
+
+        Assert.Empty(h.Subscribed);
+        var said = Assert.Single(h.Presenter.Spoken);
+        Assert.Contains("no order-update stream", said);
+        Assert.DoesNotContain("Order monitoring stopped", said);
+    }
+
+    [Fact]
+    public async Task A_streaming_venue_is_still_watched_normally()
+    {
+        // The control: the check above must not turn every venue into an unwatchable one.
+        using var h = new WatchHarness(openOrders: OneOpenOrder());
+        h.Trading.SupportsOrderEventStreaming.Returns(true);
+
+        await h.PollAsync();
+
+        Assert.Equal(new[] { "Binance" }, h.Subscribed.ToArray());
+        Assert.Empty(h.Presenter.Spoken);
     }
 
     [Fact]

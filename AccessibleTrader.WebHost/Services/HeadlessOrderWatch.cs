@@ -144,6 +144,23 @@ namespace AccessibleTrader.WebHost.Services
                     continue;
                 }
 
+                // A venue that CANNOT stream is not a failing venue, it is a venue with a
+                // different coverage story — and saying "order monitoring stopped for Gemini"
+                // every three minutes about a limitation that will never change is how a
+                // warning becomes noise. Said once, then left alone.
+                if (await CannotStreamAsync(data, name))
+                {
+                    if (_noStreamReported.Add(name))
+                    {
+                        string text = $"{name} has no order-update stream, so fills there cannot be "
+                                    + "watched with the browser closed. Orders you place from the terminal "
+                                    + "are still followed while it is open.";
+                        _logger.LogInformation("{Text}", text);
+                        Announce(text);
+                    }
+                    continue;
+                }
+
                 bool? hasWork = await HasOpenWorkAsync(data, name);
                 if (hasWork == null)
                 {
@@ -214,6 +231,33 @@ namespace AccessibleTrader.WebHost.Services
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        /// <summary>Venues already reported as unwatchable, so the limitation is said once.</summary>
+        private readonly HashSet<string> _noStreamReported = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// True when the venue declares it has no order-update stream at all.
+        ///
+        /// <para>
+        /// Gemini, Schwab and Tradier return a dead subject from <c>OrderUpdateStream</c> and say
+        /// so with <c>SupportsOrderEventStreaming = false</c>. Subscribing to one succeeds and
+        /// emits nothing forever — measured against the real Gemini sandbox, 2026-09-07 — so
+        /// without this check the watch would log "now watching fills on Gemini", record it as
+        /// healthy, and watch nothing. <b>That is the silent non-coverage this whole phase
+        /// exists to prevent, produced by the phase itself.</b>
+        /// </para>
+        /// </summary>
+        internal static async Task<bool> CannotStreamAsync(IDataService data, string providerName)
+        {
+            try
+            {
+                var provider = await data.GetProviderAsync(providerName);
+                // Not a trading provider at all is a different question, answered by
+                // HasOpenWorkAsync; only an explicit "I do not stream" counts here.
+                return provider is ITradingProvider tp && !tp.SupportsOrderEventStreaming;
+            }
+            catch { return false; }   // unreadable is a dead feed, not a permanent limitation
         }
 
         /// <summary>
