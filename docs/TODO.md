@@ -117,6 +117,62 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3 IS
+> SCOPED, and the new-bar feature turned out to reach ONE chart.)** Suite **7,227**.
+> `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order — **nothing in its §3 is built.**
+> Cody's direction, 2026-09-08: **finish the background monitor before returning to the provider
+> / API-key work.** The venue dry runs and the Alpaca order stream (the previous block's NEXT 1
+> and 2) are DEFERRED, not dropped.
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A ✅ in a feature table is a claim about a SUBSCRIBER until someone traces the PUBLISHER.**
+>   Third time now: the alert pipeline that could not fire, Phase 2's order streams with no
+>   production caller, and now new bars. The table said "browser open ✅"; the truth is the
+>   FOCUSED chart only, in every head.
+> - **A subscriber with a mask, a comment and no producer looks MORE deliberate than a missing
+>   one, not less.** `HeadlessSession.cs:214-224` carries `DesktopNotificationCategories.NewBars`
+>   and a paragraph explaining the mask; nothing headless can publish `NewBarEvent` at all.
+> - **A refusal list can be honest about the EFFECT and wrong about the REASON**, and the reason
+>   is what decides whether it can shrink. Four of `BackgroundWatchability`'s five entries are one
+>   cause: the evaluator is handed `WorkspaceState.Initial`, which has no `Data` and no
+>   `ActiveSeries`.
+> - **Check whether the state a service composes by hand is the state its collaborator reads.**
+>   `WorkspaceState` is a SINGLE-CHART record, which is why "just drive the real store headless"
+>   is rejected in the scope: one store is one chart, and the monitor watches N symbols.
+> - **Write the pinning tests before the fix and make them go RED when it lands.** The four added
+>   here pass today and describe the CURRENT reach; that is the line the work has to cross.
+>   A positive control sits beside each negative, or the negative is vacuous.
+>
+> ### 2. NEXT — in this order (from `BACKGROUND_MONITOR_PHASE3_SCOPE.md` §4)
+>
+> 1. **D3 — background-tab bar closes with the browser OPEN.** Independently shippable, no
+>    lifetime work, fixes a live in-session defect. Every announcement must NAME its symbol.
+> 2. **D1 + D2 — headless new bars**, with the announcement rate gated harder than in-session.
+> 3. **D4 — populate the headless state and shrink `WhyUnwatchable` IN THE SAME COMMIT.** Its
+>    wording is user-facing: the alerts modal tells the user at creation time what cannot be
+>    watched.
+> 4. Then back to the deferred venue dry runs and the Alpaca order stream.
+>
+> ### 3. DECISIONS NEEDED FROM CODY (scope §5)
+>
+> 1. Headless new-bar rate limit: **minimum timeframe** (recommended, default 15 m, settable) or
+>    a digest?
+> 2. Background-tab bar closes: **toast + earcon, speech opt-in** (recommended), or speech?
+> 3. Does D4 ship inside Phase 3 or as its own pass?
+>
+> ### 4. NOT VERIFIED HERE
+>
+> - Nothing was heard. All four new tests are unit tests. Three phases deep, no headless
+>   delivery has been heard through `spd-say` with Orca running.
+> - `docs/BACKGROUND_MONITOR_SCOPE.md` §6's list is untouched: Windows toast, macOS commands,
+>   minimize-to-tray, the tray icon with a screen reader, Phase 2's live exchange socket.
+> - Phase 3 will raise the per-poll request rate (warmup-many bars per watched symbol). Phase 2's
+>   "within published limits on paper, never measured against a real venue" caveat is inherited.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-07, THIRTY-SIXTH pass — ORDER ROUTING SAFETY IS BUILT.
 > One credential per provider, a refusal at the chokepoint, and a dashboard that says "real
 > money".** Suite **7,223**. `docs/ORDER_ROUTING_SAFETY_SCOPE.md` D1–D4 are all done; that

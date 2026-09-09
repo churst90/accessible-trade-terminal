@@ -108,12 +108,29 @@ public class HeadlessSessionTests : IDisposable
 
         /// <param name="alerts">The user's saved alert list.</param>
         /// <param name="bars">Close prices for the two bars every fetch returns, oldest first.</param>
-        public Harness(IEnumerable<AlertDefinition> alerts, (double Prev, double Last) bars)
+        /// <param name="advancingBars">
+        /// When true, the clock MOVES: fetch N returns two bars at hours N and N+1, so a bar
+        /// genuinely closes between polls. Only the FIRST fetch shows the <c>Prev</c> close —
+        /// after that both bars sit at <c>Last</c>, which is what a market that crossed once and
+        /// stayed there actually looks like. Feeding the crossing pair on every fetch instead
+        /// would be fabricating a fresh crossing per poll, and an alert firing five times for
+        /// five real crossings is correct behaviour, not a defect.
+        /// The default (false) returns the identical pair every time, which is what the
+        /// crossing-dedup tests need. Nothing can claim "N bars closed" against a provider that
+        /// keeps handing back the same two timestamps.
+        /// </param>
+        public Harness(IEnumerable<AlertDefinition> alerts, (double Prev, double Last) bars,
+                       bool advancingBars = false)
         {
+            int fetches = 0;
             var provider = Substitute.For<IMarketDataProvider>();
             provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(_ =>
-                (new List<Ohlcv> { Bar(bars.Prev, 0), Bar(bars.Last, 1) },
-                 new List<(long, double)>()));
+            {
+                int shift = advancingBars ? fetches++ : 0;
+                double prev = shift == 0 ? bars.Prev : bars.Last;
+                return (new List<Ohlcv> { Bar(prev, shift), Bar(bars.Last, shift + 1) },
+                        new List<(long, double)>());
+            });
 
             var data = Substitute.For<IDataService>();
             data.GetProviderAsync(Arg.Any<string>()).Returns(provider);
@@ -366,5 +383,39 @@ public class HeadlessSessionTests : IDisposable
 
         Assert.Empty(h.Presenter.Spoken);
         Assert.Empty(h.PublishedHeadless);
+    }
+
+    // ── Phase 3 groundwork: the new-bar subscriber that nothing can reach ────
+    //
+    // HeadlessSession force-creates a DesktopNotificationService carrying
+    // DesktopNotificationCategories.NewBars. That is a SUBSCRIBER. The only publisher of
+    // NewBarEvent anywhere is WorkspaceStore.Dispatch, gated on an UpdateDataAction with
+    // IsInitialLoad:false — and the headless monitor never dispatches into a store at all: it
+    // fetches three bars straight off the provider and evaluates against WorkspaceState.Initial.
+    //
+    // So the headless new-bar toast is wired to an event that cannot occur headless. This is the
+    // same shape as Phase 2's headline (a method with tests and no production caller), one layer
+    // up: a subscriber with a mask, a comment, and no producer. Pinned here so Phase 3 has a
+    // red-to-green line to work against rather than a claim.
+
+    [Fact]
+    public async Task No_NewBarEvent_is_published_headless_however_many_bars_close()
+    {
+        // advancingBars: each poll's fetch returns bars one hour later than the last, so five
+        // polls really are four bar closes. Against the default fixed pair this test would be
+        // asserting that no bar closed — which is true and proves nothing.
+        // The price crosses once and stays above, so the four later closes are bar closes and
+        // nothing else: no alert to fire, and — the point of the test — no NewBarEvent either.
+        using var h = new Harness(new[] { PriceAlert("BTC/USD", 100) }, (99, 101), advancingBars: true);
+        var newBars = new List<NewBarEvent>();
+        h.Session.Get<IEventBus>().Subscribe<NewBarEvent>(newBars.Add);
+
+        for (int poll = 0; poll < 5; poll++) await h.PollAsync();
+
+        Assert.Empty(newBars);
+
+        // The negative is only meaningful because the poll DID work: the alert crossed and was
+        // delivered. Without this line the test would pass against a monitor that did nothing.
+        Assert.Single(h.Presenter.Spoken);
     }
 }

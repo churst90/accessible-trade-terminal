@@ -1,6 +1,8 @@
 # Background monitoring — the expansion, scoped
 
-**Status: PHASES 0, 1 AND 2 ARE BUILT (2026-09-06). Phase 3 is scope only.** Written 2026-09-06 from a
+**Status: PHASES 0, 1 AND 2 ARE BUILT (2026-09-06). Phase 3 is SCOPED IN ITS OWN DOCUMENT —
+`docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` (2026-09-08), which supersedes §4's Phase 3 section
+below and corrects row 4 of the table in §1.** Written 2026-09-06 from a
 reading of the code as it stands at `4702a00f`. Every "today" statement below carries the file and line it was read from,
 so a later reader can check whether it is still true rather than trusting the date.
 
@@ -62,6 +64,16 @@ it and the circuit would otherwise both speak through the same Orca and double e
 > `HeadlessOrderWatch` keeps them hooked with no browser attached. Row 3 now reads: **browser
 > open — in-session speech and earcon for every venue the circuit hooked; browser closed —
 > `HeadlessOrderAnnouncer`, sound, toast and speech.** Row 4 remains Phase 3.
+
+> **ROW 4 IS ALSO NARROWER THAN IT LOOKS — MEASURED 2026-09-08.** Its "browser open ✅" is the
+> FOCUSED chart only. The one publisher of `NewBarEvent` is `WorkspaceStore.cs:231`; the only
+> live dispatcher into it is `DataManager.OnFocusedFeedUpdated`; and `MarketFeedHub.cs:194-198`
+> raises `FocusedFeedUpdated` only for the focused feed. So the up-to-8 non-focused tabs
+> `BackgroundTabFeedService` keeps LIVE close their bars in silence, browser open or not. And
+> the headless `DesktopNotificationService(NewBars)` at `HeadlessSession.cs:214-224` is a
+> subscriber to an event nothing publishes headless. Both are pinned by passing tests
+> (`NewBarReachTests`, and the Phase 3 section of `HeadlessSessionTests`) written to go RED when
+> Phase 3 lands. See `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` §1.
 
 ## 2. The delivery matrix is the other half, and it is in worse shape
 
@@ -272,6 +284,12 @@ when the browser is closed"; that is the switch this feature rides on. The Setti
 what it covers.
 
 ### Phase 3 — new bars, and the alerts the monitor cannot watch today
+
+> **SUPERSEDED 2026-09-08 by `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md`.** Two of the three
+> bullets below describe the problem wrongly: new bars are not a browser-closed gap (they are
+> focused-chart-only in every head), and "Phase 1 gives the headless scope the whole indicator
+> pipeline" is true of the DI scope and false of the data path — the pipeline is fed by a store
+> that headless never writes to. Kept here as written for the record.
 
 - New bars need live feeds for the watched symbols. `Core/Services/Feeds/BackgroundTabFeedService`
   already has a cap on concurrent live background feeds — reuse it rather than inventing a second

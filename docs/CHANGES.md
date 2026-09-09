@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Background monitor Phase 3, SCOPED — and the new-bar feature measured down to one chart (2026-09-08)
+
+`docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order. **Nothing in its section 3 is
+built.** Suite **7,227** (was 7,223): four new tests, all passing, all written to go RED when
+Phase 3 lands — they pin the current reach so the work has a line to cross rather than a claim
+to repeat.
+
+**The new-bar feature reaches ONE chart, and that is true with the browser OPEN.**
+`docs/BACKGROUND_MONITOR_SCOPE.md`'s table put a ✅ against "new bars, browser open". That was a
+claim about a subscriber; nothing had measured the publisher. There is exactly one publisher of
+`NewBarEvent` in the codebase (`WorkspaceStore.cs:231`, gated on a non-initial
+`UpdateDataAction`), the only live path into it is `DataManager.OnFocusedFeedUpdated`, and
+`MarketFeedHub.cs:194-198` raises `FocusedFeedUpdated` only when the feed IS the focused one.
+Meanwhile `BackgroundTabFeedService` deliberately keeps up to 8 non-focused tabs on live
+subscriptions. **Their bars close in silence.** A user who opened four charts to watch four
+markets is told about bar closes on one of them. Same shape as the row-3 correction Phase 2
+forced: a ✅ that described a subscriber rather than a delivery.
+
+**And the headless new-bar subscriber is wired to an event that cannot occur headless.**
+`HeadlessSession.cs:214-224` force-creates a `DesktopNotificationService` carrying
+`DesktopNotificationCategories.NewBars`, with a comment explaining the mask — but the headless
+monitor never dispatches into a store at all, so nothing can ever publish to it. Phase 2's
+headline one layer up: *a method with tests and no production caller is a feature that does not
+exist*; here, **a subscriber with a mask, a comment, and no producer.** The mask made it look
+deliberate.
+
+**Four of the five watchability refusals are one cause.** `LocalBackgroundMonitor.cs:160` hands
+the evaluator `WorkspaceState.Initial`, which has no `Data` and no `ActiveSeries`. Condition
+trees, indicator targets, POC and trend/zone conditions each fail on exactly that
+(`AlertEvaluator.cs:126`, `:181`, `:319`, `:335`). `BackgroundWatchability` is honest about the
+effect and wrong about the reason — and the reason is what decides whether the list can shrink.
+Two more on the same line: the fetch is `Limit: 3` (an EMA(200) needs 200) and `previousValues`
+is a fresh empty dictionary every poll, so indicator crossovers would read `NaN` forever.
+
+**The design that follows.** `IIndicatorEngine.CalculateAsync` is store-free, while
+`WorkspaceState` is a single-chart record — so "drive the real store headless" would mean one
+store per watched symbol or rotating one store's focus symbol by symbol, and is rejected in the
+scope for that reason. The monitor composes the state the evaluator needs instead. A bar close
+becomes something the monitor OBSERVES (this poll's newest timestamp is later than last poll's)
+rather than an event it has to receive.
+
+New tests: `AccessibleTrader.Tests/NewBarReachTests.cs` (3, including the positive control that
+stops the negative being vacuous) and one in `AccessibleTrader.Tests/WebHost/HeadlessSessionTests.cs`.
+
+Three decisions are open for Cody in §5 of the scope: how to rate-limit headless new bars
+(recommendation: user-settable minimum timeframe, default 15 m), whether background-tab bar
+closes speak or only toast (recommendation: toast + earcon, speech opt-in), and whether the
+watchability work ships inside Phase 3 or as its own pass.
+
 ### Order routing safety, IMPLEMENTED — one credential per provider, a refusal at the chokepoint, and a dashboard that says "real money" (2026-09-07)
 
 `docs/ORDER_ROUTING_SAFETY_SCOPE.md` D1–D4, built. Suite **7,223** (was 7,215 before this pass
