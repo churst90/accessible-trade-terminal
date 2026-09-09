@@ -200,29 +200,24 @@ namespace AccessibleTrader.WebHost.Services
                 _logger.LogWarning(ex, "Headless session could not start order announcements.");
             }
 
-            // New bars, per-category opt-in, exactly as in a circuit — but NOT alerts, and
-            // NOT order fills. See DesktopNotificationCategories for why the mask and not a
-            // settings check, and HeadlessOrderAnnouncer for why fills left this instance:
-            // this service cannot ask CircuitOrderCoverage anything, so it would toast a fill
-            // an open browser session was already announcing.
-            try
-            {
-                // Constructed by hand rather than through ActivatorUtilities: the class has two
-                // constructors that differ only by the mask, and "whichever one the reflection
-                // matcher liked best" is not a thing to leave to chance when the wrong answer is
-                // a silent double toast.
-                _subscribers.Add(new DesktopNotificationService(
-                    sp.GetRequiredService<IEventBus>(),
-                    sp.GetRequiredService<IWorkspaceStore>(),
-                    sp.GetRequiredService<ISettingsManager>(),
-                    sp.GetRequiredService<IDesktopNotifier>(),
-                    DesktopNotificationCategories.NewBars,
-                    sp.GetService<ILogger<DesktopNotificationService>>()));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Headless session could not start desktop toasts for fills and new bars.");
-            }
+            // ── NO DesktopNotificationService HERE, and the reason is worth the paragraph ──
+            //
+            // Until 2026-09-08 one was built here carrying DesktopNotificationCategories.NewBars,
+            // with a comment explaining the mask. It was a SUBSCRIBER WITH NO PRODUCER. The only
+            // publisher of NewBarEvent in the codebase is WorkspaceStore's live-data path, and
+            // nothing headless dispatches into a store — the monitor fetches bars straight off
+            // the provider and evaluates them as method arguments. Five polls, five bar closes,
+            // zero events. The mask made it look deliberate; it was dead wiring.
+            // (Phase 3 F2, docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md.)
+            //
+            // Headless bar closes are now LocalBackgroundMonitor's, OBSERVED rather than
+            // received: it already re-fetches every watched chart once a minute, so "the newest
+            // bar is later than the one I saw last time" is the whole test. It delivers them
+            // through IDesktopAlertPresenter under its own opt-in, exactly as it delivers alerts
+            // — which makes all three headless event classes consistent at last: Alerts (Phase 1),
+            // OrderFills (Phase 2) and now NewBars are each owned by the component that can ask
+            // whether a browser is already saying it. A DesktopNotificationService in this scope
+            // would be a second owner for every one of them.
 
             _logger.LogInformation(
                 "Headless session started ({Count} long-lived subscriber(s)). Alerts keep evaluating with no browser attached.",

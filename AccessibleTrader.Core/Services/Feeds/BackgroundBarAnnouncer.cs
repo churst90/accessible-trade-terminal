@@ -160,7 +160,11 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// out of the state of a DIFFERENT chart, and none of them things a user wants recited
         /// about a tab they are not on.</para>
         /// </summary>
-        internal static string BackgroundSentence(ChartIdentity identity, Ohlcv closed, Ohlcv opened)
+        /// <remarks>PUBLIC because the headless monitor in the WebHost project speaks the same
+        /// sentence for a bar that closed with no browser attached. A background tab and a
+        /// browser-closed chart are the same news; two spellings of it would be a defect nobody
+        /// would notice until they read a journal.</remarks>
+        public static string BackgroundSentence(ChartIdentity identity, Ohlcv closed, Ohlcv opened)
         {
             int barSeconds = TimeframeUtility.ToSeconds(identity.Timeframe ?? "");
             if (barSeconds <= 0)

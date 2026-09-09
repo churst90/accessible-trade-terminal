@@ -126,6 +126,27 @@
                     detail, which will interrupt what you are reading on the chart you are on.
                 </span>
             </div>
+            @* The floor for bar closes announced with NO browser open. Default 1 minute — every
+               timeframe announces — because the switch above is already the opt-in; this is the
+               escape hatch for someone who wants bar closes but not one a minute. Cody,
+               2026-09-08. New bars ONLY: alerts and trade events are never gated by it. *@
+            <div class="modal-row">
+                <label for="s-bg-bar-floor">Shortest timeframe to announce when the browser is closed</label>
+                <select id="s-bg-bar-floor"
+                        value="@_headlessBarFloor"
+                        @onchange="OnBarFloorChanged">
+                    @foreach (var tf in HeadlessBarFloors)
+                    {
+                        <option value="@tf.Key">@tf.Value</option>
+                    }
+                </select>
+            </div>
+            <div class="modal-row">
+                <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
+                    Charts shorter than this stay silent while the browser is closed. The default,
+                    1 minute, announces every timeframe.
+                </span>
+            </div>
         </fieldset>
     }
 
@@ -368,6 +389,31 @@
     // the whole background route (toast, earcon, speech) — see that class for why the gate is a
     // settings key and not another WorkspaceState field.
     private bool _speakBackgroundBars;
+    // The browser-closed floor. A STRING timeframe rather than a number of seconds, because that
+    // is what the chart, the alert and the tab all call it, and a settings file a user may open
+    // should say "15m" and not "900".
+    private string _headlessBarFloor = "1m";
+
+    /// <summary>
+    /// Commits the floor. A method rather than an inline lambda: the fallback literal needs a
+    /// pair of double quotes, and those cannot appear inside a double-quoted Razor attribute.
+    /// </summary>
+    private void OnBarFloorChanged(ChangeEventArgs e) =>
+        Commit(() => _headlessBarFloor = string.IsNullOrWhiteSpace(e.Value?.ToString())
+            ? "1m"
+            : e.Value!.ToString()!);
+
+    /// <summary>The offered floors, coarsest last. Keyed by the timeframe string the rest of the
+    /// app uses; the label is what the control reads aloud.</summary>
+    private static readonly IReadOnlyList<KeyValuePair<string, string>> HeadlessBarFloors = new[]
+    {
+        new KeyValuePair<string, string>("1m",  "1 minute (announce every timeframe)"),
+        new KeyValuePair<string, string>("5m",  "5 minutes"),
+        new KeyValuePair<string, string>("15m", "15 minutes"),
+        new KeyValuePair<string, string>("1h",  "1 hour"),
+        new KeyValuePair<string, string>("4h",  "4 hours"),
+        new KeyValuePair<string, string>("1d",  "1 day"),
+    };
 
     protected override void OnInitialized() => Load();
 
@@ -408,6 +454,7 @@
         _notifyFills  = Settings.GetSetting(SettingsKeys.DesktopNotifyOrderFills)?.ToObject<bool>() ?? false;
         _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
         _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
+        _headlessBarFloor = Settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString() ?? "1m";
     }
 
     /// <summary>
@@ -458,6 +505,7 @@
         Settings.SetSetting(SettingsKeys.DesktopNotifyOrderFills, Newtonsoft.Json.Linq.JToken.FromObject(_notifyFills));
         Settings.SetSetting(SettingsKeys.DesktopNotifyNewBars, Newtonsoft.Json.Linq.JToken.FromObject(_notifyBars));
         Settings.SetSetting(SettingsKeys.SpeakBackgroundTabBars, Newtonsoft.Json.Linq.JToken.FromObject(_speakBackgroundBars));
+        Settings.SetSetting(SettingsKeys.HeadlessNewBarMinTimeframe, Newtonsoft.Json.Linq.JToken.FromObject(_headlessBarFloor));
         App.Save();
     }
 

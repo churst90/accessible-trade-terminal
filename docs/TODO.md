@@ -117,8 +117,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3:
-> SCOPED, and D3 BUILT. The new-bar feature turned out to reach ONE chart.)** Suite **7,237**.
+> **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3 IS
+> BUILT. D1, D2 and D3 are done; the new-bar feature had reached ONE chart.)** Suite **7,255**.
 > `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order — **nothing in its §3 is built.**
 > Cody's direction, 2026-09-08: **finish the background monitor before returning to the provider
 > / API-key work.** The venue dry runs and the Alpaca order stream (the previous block's NEXT 1
@@ -151,9 +151,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    `BackgroundBarClosedEvent`; toast and earcon by default, speech opt-in. The Settings label
 >    "New bars on the current chart" was true before it and false after, and now reads "on any
 >    open chart". `SettingsWiringAuditTests` caught the new key with no control before I did.
-> 2. **D1 + D2 — headless new bars**, with the announcement rate gated harder than in-session.
-> 3. **THEN, as its own pass: D4** — populate the headless state and shrink `WhyUnwatchable`
->    IN THE SAME COMMIT. Its wording is user-facing: the alerts modal tells the user at creation
+> 2. ~~**D1 + D2 — headless new bars.**~~ **DONE 2026-09-08**, suite 7,255. The monitor
+>    OBSERVES bar closes (newest timestamp advanced) rather than receiving an event; the watch
+>    list is the user's saved TABS capped at the existing 8-feed budget; seed on first sighting;
+>    one announcement however many bars were missed; floor `notifications.newBars.minTimeframe`
+>    default `1m`. The dead headless `NewBars` subscriber is gone.
+> 3. **NEXT — D4, as its own pass** (Cody's decision §5.3): populate the headless state
+>    (`WorkspaceState.Initial` today = no `Data`, no `ActiveSeries`), raise the fetch above
+>    `Limit: 3` via `IBacktestWarmupAnalyzer`, persist `previousValues` per watch key, compute
+>    `ActiveSeries` through the store-free `IIndicatorEngine`, and **shrink `WhyUnwatchable` IN
+>    THE SAME COMMIT.** Its wording is user-facing: the alerts modal tells the user at creation
 >    time what cannot be watched.
 > 4. Then back to the deferred venue dry runs and the Alpaca order stream.
 >

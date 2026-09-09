@@ -206,7 +206,11 @@ namespace AccessibleTrader.Core.Services.Notifications
         /// timeframe. Both routes now speak the same sentence by construction rather than by two
         /// people remembering to.</para>
         /// </summary>
-        internal static string NewBarTitle(string symbol, string timeframe)
+        /// <remarks>PUBLIC, unlike its siblings: three routes now speak this sentence — the
+        /// focused chart, a live background tab, and the headless monitor in the WebHost project
+        /// — and one shared vocabulary is the only thing that keeps them agreeing word for word
+        /// as any of them changes.</remarks>
+        public static string NewBarTitle(string symbol, string timeframe)
         {
             string what = string.Join(" ", new[] { symbol, timeframe }.Where(s => !string.IsNullOrWhiteSpace(s)));
             return what.Length == 0 ? "Bar closed" : $"{what}: bar closed";
@@ -220,7 +224,8 @@ namespace AccessibleTrader.Core.Services.Notifications
         /// The body, from the bar length rather than the whole workspace. <paramref name="barSeconds"/>
         /// is what decides the clock unit, and a background tab knows its own timeframe.
         /// </summary>
-        internal static string NewBarBody(int barSeconds, Ohlcv closed)
+        /// <inheritdoc cref="NewBarTitle(string, string)" path="/remarks"/>
+        public static string NewBarBody(int barSeconds, Ohlcv closed)
         {
             string stamp = SpeechTimeFormatter.FormatBarClock(closed.Date, barSeconds);
             string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";

@@ -2,6 +2,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Core.Services.Notifications;
+using AccessibleTrader.Core.Services.Workspace;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Sdk.Plugins;
@@ -105,6 +106,8 @@ public class HeadlessSessionTests : IDisposable
         public readonly List<AlertFiredEvent> PublishedHeadless = new();
 
         private readonly ServiceProvider _root;
+        private IReadOnlyList<(string Name, DateTime LastWriteUtc)> _sessionSlots = Array.Empty<(string, DateTime)>();
+        private WorkspaceConfiguration? _savedSession;
 
         /// <param name="alerts">The user's saved alert list.</param>
         /// <param name="bars">Close prices for the two bars every fetch returns, oldest first.</param>
@@ -119,14 +122,20 @@ public class HeadlessSessionTests : IDisposable
         /// crossing-dedup tests need. Nothing can claim "N bars closed" against a provider that
         /// keeps handing back the same two timestamps.
         /// </param>
+        /// <param name="barsPerFetch">
+        /// How many bars the clock jumps between fetches when <paramref name="advancingBars"/>
+        /// is set. More than one is a poll that was MISSED — a laptop asleep, a provider down —
+        /// and is the only way to test that catching up announces once rather than once per
+        /// skipped bar.
+        /// </param>
         public Harness(IEnumerable<AlertDefinition> alerts, (double Prev, double Last) bars,
-                       bool advancingBars = false)
+                       bool advancingBars = false, int barsPerFetch = 1)
         {
             int fetches = 0;
             var provider = Substitute.For<IMarketDataProvider>();
             provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(_ =>
             {
-                int shift = advancingBars ? fetches++ : 0;
+                int shift = advancingBars ? fetches++ * barsPerFetch : 0;
                 double prev = shift == 0 ? bars.Prev : bars.Last;
                 return (new List<Ohlcv> { Bar(prev, shift), Bar(bars.Last, shift + 1) },
                         new List<(long, double)>());
@@ -137,6 +146,10 @@ public class HeadlessSessionTests : IDisposable
 
             var library = Substitute.For<IWorkspaceLibraryService>();
             library.LoadAlerts().Returns(_ => alerts.ToList());
+            // The saved session the monitor reads its bar-close watch list from. Empty unless a
+            // test calls OpenTabs — so every pre-Phase-3 test keeps its exact previous behaviour.
+            library.GetAllProfilesWithTimes().Returns(_ => _sessionSlots);
+            library.LoadProfile(Arg.Any<string>()).Returns(_ => _savedSession);
 
             var settings = Substitute.For<ISettingsManager>();
             // The monitor's own opt-in, ON.
@@ -164,6 +177,29 @@ public class HeadlessSessionTests : IDisposable
                 Session, new DemoPolicy(isDemo: false), Recent, new AlertSnooze(),
                 Presenter, NullLogger<LocalBackgroundMonitor>.Instance);
         }
+
+        /// <summary>
+        /// Pretend the user had these charts open when they closed the browser. Also turns the
+        /// bar-close category ON — the monitor's opt-in is not enough, and a test that left it
+        /// off would pass against a monitor that never looked.
+        /// </summary>
+        public void OpenTabs(params (string Symbol, string Timeframe)[] tabs)
+        {
+            _savedSession = new WorkspaceConfiguration
+            {
+                Tabs = tabs.Select(t => new TabConfiguration
+                {
+                    Market = "Spot", Provider = "Bitstamp", Symbol = t.Symbol, Timeframe = t.Timeframe
+                }).ToList()
+            };
+            _sessionSlots = new[] { (SessionAutosaveService.LastSessionProfileName + "abc", DateTime.UtcNow) };
+            Session.Get<ISettingsManager>().GetSetting(SettingsKeys.DesktopNotifyNewBars)
+                .Returns(JToken.FromObject(true));
+        }
+
+        public void SetBarFloor(string timeframe) =>
+            Session.Get<ISettingsManager>().GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)
+                .Returns(JToken.FromObject(timeframe));
 
         /// <summary>Subscribe to the long-lived session's bus the way a headless subscriber does.</summary>
         public void WatchHeadlessBus() =>
@@ -397,6 +433,206 @@ public class HeadlessSessionTests : IDisposable
     // same shape as Phase 2's headline (a method with tests and no production caller), one layer
     // up: a subscriber with a mask, a comment, and no producer. Pinned here so Phase 3 has a
     // red-to-green line to work against rather than a claim.
+
+    // ── Phase 3 D1/D2: bar closes with the browser closed ───────────────────
+
+    [Fact]
+    public async Task A_bar_closing_on_a_saved_tab_is_announced_with_no_browser_open()
+    {
+        // The headline of the phase. advancingBars means the clock really moves between polls.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+
+        await h.PollAsync();           // seeds — announces nothing
+        Assert.Empty(h.Presenter.Spoken);
+
+        await h.PollAsync();           // a bar has closed since
+
+        Assert.Single(h.Presenter.Spoken);
+        Assert.Contains("BTC/USD", h.Presenter.Spoken[0]);
+        Assert.Single(h.Presenter.Toasts);
+        Assert.Equal(1, h.Presenter.SoundsPlayed);
+    }
+
+    [Fact]
+    public async Task The_first_sighting_of_a_chart_announces_nothing()
+    {
+        // Without the seed, starting the terminal announces a bar close on every watched chart
+        // at once — bars that closed while it was not running, presented as news.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"), ("ETH/USD", "1h"));
+
+        await h.PollAsync();
+
+        Assert.Empty(h.Presenter.Spoken);
+        Assert.Empty(h.Presenter.Toasts);
+    }
+
+    [Fact]
+    public async Task Each_poll_that_closes_a_bar_announces_exactly_once()
+    {
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+
+        await h.PollAsync();                                   // seed
+        for (int i = 0; i < 5; i++) await h.PollAsync();       // five polls, one bar each
+
+        Assert.Equal(5, h.Presenter.Spoken.Count);
+    }
+
+    [Fact]
+    public async Task Catching_up_after_MISSED_polls_announces_once_not_once_per_skipped_bar()
+    {
+        // A laptop asleep, or a provider down for ten minutes: the clock jumps six bars between
+        // two polls. The newest bar is the only one still true, and six announcements arriving
+        // together would be worse than the silence they follow.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101),
+                                  advancingBars: true, barsPerFetch: 6);
+        h.OpenTabs(("BTC/USD", "1h"));
+
+        await h.PollAsync();     // seed
+        await h.PollAsync();     // six bars have closed since
+
+        Assert.Single(h.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task Without_the_new_bar_switch_nothing_is_announced()
+    {
+        // The category switch is the gate; the timeframe floor is only the escape hatch. A test
+        // that never turned the switch on would pass against a monitor that ignored it.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+        h.Session.Get<ISettingsManager>().GetSetting(SettingsKeys.DesktopNotifyNewBars)
+            .Returns((JToken?)null);      // the shipped default: off
+
+        await h.PollAsync();
+        await h.PollAsync();
+
+        Assert.Empty(h.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task A_timeframe_below_the_floor_is_silent_and_one_above_it_is_not()
+    {
+        // Written as a PAIR against ONE floor. A test that only showed the silence would pass
+        // against a monitor that had stopped announcing anything at all.
+        using var quiet = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        quiet.OpenTabs(("BTC/USD", "1m"));
+        quiet.SetBarFloor("15m");
+        await quiet.PollAsync();
+        await quiet.PollAsync();
+        Assert.Empty(quiet.Presenter.Spoken);
+
+        using var loud = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        loud.OpenTabs(("BTC/USD", "1h"));
+        loud.SetBarFloor("15m");
+        await loud.PollAsync();
+        await loud.PollAsync();
+        Assert.Single(loud.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task The_default_floor_announces_a_one_minute_chart()
+    {
+        // Cody, 2026-09-08: the default is 1 minute — every timeframe announces. A bare settings
+        // substitute returns null here, which IS the shipped default, so this pins the decision
+        // rather than a fixture.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1m"));
+
+        await h.PollAsync();
+        await h.PollAsync();
+
+        Assert.Single(h.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task A_symbol_an_open_circuit_covers_is_not_announced_headless()
+    {
+        // The doubling hazard, third phase running. With a browser open on BTC, the focused
+        // chart publishes NewBarEvent and BackgroundBarAnnouncer covers the other live tabs.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+        using var _ = OpenCircuit("c1", "btc/usd");
+
+        await h.PollAsync();
+        await h.PollAsync();
+
+        Assert.Empty(h.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task A_chart_with_an_alert_AND_a_tab_costs_one_fetch_and_does_both()
+    {
+        // One request per chart, however many reasons there are to want it — and neither reason
+        // may cancel the other. Before MergeTargets, taking the bar watch would have dropped the
+        // alert list silently.
+        using var h = new Harness(new[] { PriceAlert("BTC/USD", 100) }, (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+
+        await h.PollAsync();     // seeds the bar watch; the alert crosses here
+        await h.PollAsync();     // a bar closes
+
+        // The crossing spoke once (it does not re-cross), and the bar close spoke once.
+        Assert.Equal(2, h.Presenter.Spoken.Count);
+        Assert.Contains(h.Presenter.Spoken, t => t.Contains("crossed above"));
+        Assert.Contains(h.Presenter.Spoken, t => t.Contains("close"));
+    }
+
+    // ── The pure helpers ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Bar_close_watches_come_from_the_saved_tabs_deduped_and_capped()
+    {
+        var cfg = new WorkspaceConfiguration
+        {
+            Tabs = Enumerable.Range(0, 12)
+                .Select(i => new TabConfiguration
+                {
+                    Market = "Spot", Provider = "Bitstamp", Symbol = $"SYM{i}/USD", Timeframe = "1h"
+                })
+                // the same chart twice, in two tabs
+                .Concat(new[] { new TabConfiguration
+                {
+                    Market = "Spot", Provider = "Bitstamp", Symbol = "SYM0/USD", Timeframe = "1h"
+                } })
+                .ToList()
+        };
+
+        var watches = LocalBackgroundMonitor.DeriveBarCloseWatches(cfg);
+
+        // Capped at the SAME budget BackgroundTabFeedService uses, not a second number.
+        Assert.Equal(AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds,
+                     watches.Count);
+        Assert.Equal(watches.Count, watches.Select(w => LocalBackgroundMonitor.WatchKey(w)).Distinct().Count());
+    }
+
+    [Fact]
+    public void A_tab_with_no_symbol_or_provider_is_not_a_watch()
+    {
+        var cfg = new WorkspaceConfiguration
+        {
+            Tabs = new()
+            {
+                new TabConfiguration { Provider = "Bitstamp", Symbol = "", Timeframe = "1h" },
+                new TabConfiguration { Provider = "", Symbol = "BTC/USD", Timeframe = "1h" },
+            }
+        };
+
+        Assert.Empty(LocalBackgroundMonitor.DeriveBarCloseWatches(cfg));
+    }
+
+    [Theory]
+    [InlineData("1m", "1m", true)]     // the default floor lets everything through
+    [InlineData("1m", "15m", false)]
+    [InlineData("1h", "15m", true)]
+    [InlineData("15m", "15m", true)]   // the floor itself clears it
+    [InlineData("1h", "", true)]       // no floor set
+    [InlineData("1h", "nonsense", true)]  // an unparseable floor is not a mute switch
+    [InlineData("weird", "15m", true)]    // nor is an unparseable timeframe
+    public void The_timeframe_floor_is_a_floor_not_a_gate(string tf, string floor, bool expected)
+        => Assert.Equal(expected, LocalBackgroundMonitor.ClearsTimeframeFloor(tf, floor));
 
     [Fact]
     public async Task No_NewBarEvent_is_published_headless_however_many_bars_close()

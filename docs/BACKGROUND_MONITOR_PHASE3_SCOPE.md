@@ -1,6 +1,7 @@
 # Background monitor Phase 3 — new bars, and the alerts nothing can watch
 
-**Status: SCOPE. Nothing in section 3 is built.** Written 2026-09-08 against `9a0d5940`,
+**Status: PHASE 3 IS BUILT — D1, D2 and D3 are done (2026-09-08). D4 is a separate pass by
+Cody's decision (§5.3) and is the only item outstanding.** Written 2026-09-08 against `9a0d5940`,
 suite 7,223 + 4 (the measurements in section 1 are committed tests, not readings).
 
 Phase 3 is the last phase of `docs/BACKGROUND_MONITOR_SCOPE.md`. Phases 0, 1 and 2 are on
@@ -50,6 +51,12 @@ described a subscriber rather than a delivery.
 > `TheFeedHub_raises_FocusedFeedUpdated_for_the_focused_feed_only`.
 
 ### F2. The headless new-bar subscriber is wired to an event that cannot occur headless
+
+> **CLOSED 2026-09-08.** The dead `DesktopNotificationService(NewBars)` is gone from
+> `HeadlessSession`; `LocalBackgroundMonitor` owns headless bar closes and delivers them through
+> `IDesktopAlertPresenter` under its own opt-in. All three headless event classes are now
+> consistent — Alerts (Phase 1), OrderFills (Phase 2), NewBars (Phase 3) — each owned by the
+> component that can ask whether a browser is already saying it.
 
 `HeadlessSession.cs:214-224` force-creates a `DesktopNotificationService` carrying
 `DesktopNotificationCategories.NewBars`, with a comment explaining the mask. It is a
@@ -145,7 +152,22 @@ coverage asked at delivery time, and **headless REPORTS, it never ACTS**.
 
 ## 3. The work
 
-### D1. A bar close the monitor can see, per watched symbol
+### D1. A bar close the monitor can see, per watched symbol — **DONE 2026-09-08**
+
+> **BUILT.** `LocalBackgroundMonitor` keeps the newest seen bar timestamp per
+> (provider, market, symbol, timeframe) and announces when it advances. First sighting SEEDS;
+> a catch-up after missed polls announces ONCE however many bars were skipped.
+>
+> **The watch list is the user's saved TABS, not the alert list** — an alert is a question about
+> a price, a chart is what the user chose to watch, and a user with no alerts still has tabs
+> open. Read from the newest `__last-session__` autosave slot. **Capped at
+> `BackgroundTabFeedService.MaxLiveBackgroundFeeds` (8), reusing that budget** rather than
+> inventing a second one, as this document required. Alert watches and bar-close watches are
+> merged so a chart with both costs ONE fetch — and the merge keeps the alert watch, because
+> taking the bar watch would silently drop every alert on that chart.
+>
+> Routing is the Phase 1 rule unchanged: a symbol an open circuit covers belongs to that
+> circuit, where the focused chart publishes `NewBarEvent` and D3 covers the other live tabs.
 
 The monitor polls every 60 s and re-fetches. A new bar is "the newest bar's timestamp is later
 than the newest one I saw last poll for this symbol+timeframe" — no event, no store. Keep the
@@ -157,7 +179,12 @@ across polls today.
 - Missing a poll must not announce N bars. One announcement per symbol per poll, naming the
   bar that closed.
 
-### D2. A minimum-timeframe floor for headless new bars
+### D2. A minimum-timeframe floor for headless new bars — **DONE 2026-09-08**
+
+> **BUILT.** `notifications.newBars.minTimeframe`, default `"1m"` — every timeframe announces.
+> The gate is the existing opt-in category switch; this is the escape hatch. An unparseable
+> floor, or an unparseable timeframe, lets the announcement THROUGH: a typo in a setting must
+> not be a mute switch the user cannot see. Control added to Alerts → Delivery.
 
 **DECIDED (§5.1): a user-settable minimum timeframe, defaulting to 1 minute** — every
 timeframe announces unless the user raises the floor. The suppression that stops a

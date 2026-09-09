@@ -1,5 +1,9 @@
+using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Feeds;
+using AccessibleTrader.Core.Services.Notifications;
+using AccessibleTrader.Core.Services.Workspace;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 
@@ -126,15 +130,30 @@ namespace AccessibleTrader.WebHost.Services
             // The routing rule that replaced "stand down while a circuit is open". A symbol an
             // open browser session already watches belongs to that session; everything else is
             // ours. See CircuitAlertCoverage for why this is not a pause.
-            var watches = OwnedWatches(DeriveWatches(alerts), CircuitAlertCoverage.CoveredSymbols());
-            if (watches.Count == 0) return;
+            var covered = CircuitAlertCoverage.CoveredSymbols();
+            var watches = OwnedWatches(DeriveWatches(alerts), covered);
+
+            // Bar closes (Phase 3 D1). Same routing rule as alerts: a symbol an open browser
+            // already covers belongs to that browser — in-session the focused chart publishes
+            // NewBarEvent and BackgroundBarAnnouncer covers the other live tabs, so announcing
+            // here too would be the doubling this phase's predecessors were built to avoid.
+            var barWatches = WatchBarCloses(settings)
+                ? OwnedWatches(DeriveBarCloseWatches(LoadLastSession(services)), covered)
+                    .Where(w => ClearsTimeframeFloor(w.Timeframe, TimeframeFloor(settings)))
+                    .ToList()
+                : new List<Watch>();
+
+            // One fetch per chart, however many reasons there are to want it. A symbol carrying
+            // an alert AND sitting in an open tab is two reasons and must stay one request.
+            var targets = MergeTargets(watches, barWatches);
+            if (targets.Count == 0) return;
 
             // Serialised with the order watch's identical preamble — two loops on one scope
             // means one non-thread-safe IDataService. See HeadlessSession.EnsureDataReadyAsync.
             await _session.EnsureDataReadyAsync();
             var data = services.GetRequiredService<IDataService>();
 
-            foreach (var watch in watches)
+            foreach (var (watch, watchBarCloses) in targets)
             {
                 ct.ThrowIfCancellationRequested();
                 var provider = await data.GetProviderAsync(watch.Provider);
@@ -156,6 +175,13 @@ namespace AccessibleTrader.WebHost.Services
                 }
                 NoteFeedRecovered(watch.Symbol);
                 if (bars.Count < 2) continue;
+
+                // Bar closes FIRST, and outside the alert path: a chart with no alerts on it is
+                // the ordinary case for this half, and burying it under an alert loop that runs
+                // zero times is how it would come to depend on something unrelated.
+                if (watchBarCloses) NoteBarClose(watch, bars);
+
+                if (watch.Alerts.Count == 0) continue;
 
                 var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
                 var fired = _evaluator.EvaluateAlerts(
@@ -243,6 +269,88 @@ namespace AccessibleTrader.WebHost.Services
         public sealed record Watch(string Provider, string Symbol, string Timeframe,
             IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot");
 
+        // ── Bar closes with the browser closed (Phase 3 D1/D2) ───────────────
+        //
+        // A bar close is not an event this process can RECEIVE headless. The only publisher of
+        // NewBarEvent is the workspace store's live-data path, and nothing headless dispatches
+        // into a store — which is why HeadlessSession's NewBars subscriber sat there with a
+        // mask, a comment and no producer until 2026-09-08. So the monitor OBSERVES it instead:
+        // it already re-fetches every watched symbol once a minute, and "the newest bar is later
+        // than the newest one I saw last time" is the whole test.
+        //
+        // Newest seen bar per (provider, symbol, timeframe, market). Instance state, so it
+        // survives polls exactly as the persistent evaluator does.
+        private readonly Dictionary<string, DateTime> _lastBarSeen = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Stable key for a watch — the same tuple <see cref="DeriveWatches"/> groups by.</summary>
+        internal static string WatchKey(Watch w) =>
+            $"{w.Provider}|{w.Market}|{w.Symbol}|{w.Timeframe}".ToLowerInvariant();
+
+        /// <summary>
+        /// The charts to watch for bar closes: <b>the tabs the user had open</b>, from the most
+        /// recent autosaved session.
+        ///
+        /// <para>Deliberately NOT the alert list. An alert is a question about a price; a chart
+        /// is what the user chose to watch, and "close the browser and still get new-bar
+        /// notifications" is a statement about charts. A user with no alerts at all still has
+        /// tabs open.</para>
+        ///
+        /// <para><b>Capped at <see cref="BackgroundTabFeedService.MaxLiveBackgroundFeeds"/>,
+        /// reusing that budget rather than inventing a second one.</b> Eight is already the
+        /// answer this codebase gives to "how many background charts do we keep current", and
+        /// two different numbers for one idea is how they drift apart. Past the cap the tabs are
+        /// simply not watched, and that is logged, because silence must never read as coverage.</para>
+        /// </summary>
+        internal static IReadOnlyList<Watch> DeriveBarCloseWatches(WorkspaceConfiguration? session)
+        {
+            if (session?.Tabs == null || session.Tabs.Count == 0) return Array.Empty<Watch>();
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<Watch>();
+            foreach (var tab in session.Tabs)
+            {
+                if (string.IsNullOrWhiteSpace(tab.Symbol) || string.IsNullOrWhiteSpace(tab.Provider))
+                    continue;
+
+                var w = new Watch(
+                    tab.Provider.Trim(),
+                    tab.Symbol.Trim(),
+                    string.IsNullOrWhiteSpace(tab.Timeframe) ? "1h" : tab.Timeframe.Trim(),
+                    Array.Empty<AlertDefinition>(),
+                    string.IsNullOrWhiteSpace(tab.Market) ? "Spot" : tab.Market.Trim());
+
+                // Two tabs on the same chart are one watch. Duplicates would fetch twice and
+                // announce twice — and the second announcement would be indistinguishable from
+                // the bug this whole phase exists to fix.
+                if (!seen.Add(WatchKey(w))) continue;
+                result.Add(w);
+                if (result.Count >= BackgroundTabFeedService.MaxLiveBackgroundFeeds) break;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Whether a timeframe clears the user's floor.
+        ///
+        /// <para>Default "1m" — every timeframe announces. <b>Cody, 2026-09-08.</b> The gate that
+        /// stops a one-minute chart being a toast a minute is the opt-in category switch
+        /// (<see cref="SettingsKeys.DesktopNotifyNewBars"/>, default off); this is the escape
+        /// hatch for someone who wants bar closes but not every minute of them.</para>
+        ///
+        /// <para>An unparseable floor lets everything through rather than silencing everything:
+        /// a typo in a setting must not be a mute switch the user cannot see.</para>
+        /// </summary>
+        internal static bool ClearsTimeframeFloor(string timeframe, string? floor)
+        {
+            int floorSeconds = TimeframeUtility.ToSeconds(floor ?? "");
+            if (floorSeconds <= 0) return true;
+            int barSeconds = TimeframeUtility.ToSeconds(timeframe ?? "");
+            // An unknown timeframe is announced: it is a chart the user opened, and refusing to
+            // speak about it because this process cannot parse its name is the wrong direction.
+            if (barSeconds <= 0) return true;
+            return barSeconds >= floorSeconds;
+        }
+
         /// <summary>
         /// Why background evaluation cannot watch an active alert, or null when it
         /// can — see <see cref="AccessibleTrader.Core.Services.Alerts.BackgroundWatchability"/>,
@@ -326,6 +434,125 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────
+
+        // ── Bar closes with the browser closed (Phase 3 D1/D2) ───────────────
+
+        /// <summary>
+        /// Merges the alert watches and the bar-close watches into one fetch list.
+        /// <b>One request per chart, however many reasons there are to want it.</b>
+        /// </summary>
+        internal static IReadOnlyList<(Watch Watch, bool WatchBarCloses)> MergeTargets(
+            IEnumerable<Watch> alertWatches, IEnumerable<Watch> barWatches)
+        {
+            var byKey = new Dictionary<string, (Watch Watch, bool Bars)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var w in alertWatches) byKey[WatchKey(w)] = (w, false);
+            foreach (var w in barWatches)
+            {
+                // Keep the ALERT watch when both exist — it is the one carrying the alert list.
+                // Taking the bar watch instead would silently drop every alert on that chart,
+                // which is the kind of loss that shows up as "my alert stopped working" weeks
+                // later with nothing in a log.
+                if (byKey.TryGetValue(WatchKey(w), out var existing))
+                    byKey[WatchKey(w)] = (existing.Watch, true);
+                else
+                    byKey[WatchKey(w)] = (w, true);
+            }
+            return byKey.Values.ToList();
+        }
+
+        /// <summary>Whether the user asked for bar-close notifications at all (opt-in, default off).</summary>
+        private static bool WatchBarCloses(ISettingsManager settings)
+        {
+            try { return settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false; }
+            catch { return false; }
+        }
+
+        private static string? TimeframeFloor(ISettingsManager settings)
+        {
+            try { return settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString(); }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// The most recently autosaved session — the tabs the user had open when they last had
+        /// a browser attached. Returns null when nothing has been saved, which is the ordinary
+        /// state on a fresh install and not an error.
+        /// </summary>
+        private WorkspaceConfiguration? LoadLastSession(IServiceProvider services)
+        {
+            try
+            {
+                var library = services.GetRequiredService<IWorkspaceLibraryService>();
+                var newest = library.GetAllProfilesWithTimes()
+                    .Where(p => p.Name.StartsWith(SessionAutosaveService.LastSessionProfileName, StringComparison.Ordinal))
+                    .OrderByDescending(p => p.LastWriteUtc)
+                    .Select(p => p.Name)
+                    .FirstOrDefault();
+                return newest == null ? null : library.LoadProfile(newest);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not read the last saved session; no bar closes will be watched.");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// One announcement per chart per poll, and none on the first sighting.
+        ///
+        /// <para><b>The seed matters.</b> Without it, starting the terminal announces a bar close
+        /// on every watched chart at once — bars that closed while it was not running, presented
+        /// as news. And a poll that was missed (a laptop asleep, a provider down for ten minutes)
+        /// must not produce ten announcements when it comes back: the newest bar is the only one
+        /// that is still true, so exactly one is spoken however many were skipped.</para>
+        /// </summary>
+        private void NoteBarClose(Watch watch, IReadOnlyList<Ohlcv> bars)
+        {
+            var newest = bars[^1].Date;
+            string key = WatchKey(watch);
+
+            lock (_lastBarSeen)
+            {
+                if (!_lastBarSeen.TryGetValue(key, out var previous))
+                {
+                    _lastBarSeen[key] = newest;   // seed only
+                    return;
+                }
+                if (newest <= previous) return;   // nothing closed since last poll
+                _lastBarSeen[key] = newest;
+            }
+
+            // The bar that CLOSED is the one before the newly opened newest bar.
+            AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1]);
+        }
+
+        private void AnnounceBarClose(Watch watch, Ohlcv closed, Ohlcv opened)
+        {
+            string title = DesktopNotificationService.NewBarTitle(watch.Symbol, watch.Timeframe);
+            string sentence = BackgroundBarAnnouncer.BackgroundSentence(
+                new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
+                closed, opened);
+
+            _logger.LogInformation("Background bar close: {Sentence}", sentence);
+
+            // Sound, toast and speech are THIS monitor's, for the same reason the alert delivery
+            // above is: routing them through the headless DesktopNotificationService would put an
+            // already-opted-in delivery behind a second switch, and give two owners one event.
+            // The headless session is built WITHOUT the NewBars category for exactly this reason
+            // — see HeadlessSession.
+            try
+            {
+                _presenter.PlayNotificationSound();
+                _presenter.Notify(title, DesktopNotificationService.NewBarBody(
+                    TimeframeUtility.ToSeconds(watch.Timeframe) is int bs && bs > 0 ? bs : 86400, closed),
+                    urgent: false);
+                _presenter.Speak(sentence);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background bar-close announcement failed for {Symbol}.", watch.Symbol);
+            }
+        }
 
         private void Deliver(AlertFired fired, string watchedSymbol)
         {

@@ -150,6 +150,14 @@ namespace AccessibleTrader.Core.Services
         // Cody, 2026-09-08.
         public const string SpeakBackgroundTabBars = "notifications.backgroundTabBars.speak";
 
+        // The shortest timeframe whose bar closes are announced with the BROWSER CLOSED.
+        // Default "1m" — i.e. every timeframe announces. Cody, 2026-09-08: the suppression that
+        // stops a one-minute chart becoming a toast a minute is DesktopNotifyNewBars above,
+        // which is opt-in; a user who has turned that on has asked for bar closes, so this floor
+        // is the escape hatch and not the gate. NEW BARS ONLY — it must never gate an alert or a
+        // trade event, which are per-occurrence and carry their own switches.
+        public const string HeadlessNewBarMinTimeframe = "notifications.newBars.minTimeframe";
+
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";
         public const string EmailPort          = "alerts.email.port";

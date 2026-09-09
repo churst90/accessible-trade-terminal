@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Phase 3 D1 + D2, BUILT — new bars with the browser closed; PHASE 3 IS COMPLETE (2026-09-08)
+
+Suite **7,255** (was 7,237). With D3 this closes "new bar notifications" from Cody's goal
+statement, and `docs/BACKGROUND_MONITOR_SCOPE.md`'s row 4.
+
+**A bar close is not something this process can RECEIVE headless, so the monitor OBSERVES it.**
+The only publisher of `NewBarEvent` is the workspace store's live-data path, and nothing headless
+dispatches into a store. The monitor already re-fetches every watched chart once a minute, so
+"the newest bar is later than the one I saw last time" is the whole test — no store, no event, no
+second pipeline.
+
+**The watch list is the user's saved TABS, not the alert list.** An alert is a question about a
+price; a chart is what the user chose to watch, and a user with no alerts at all still has tabs
+open. Read from the newest `__last-session__` autosave slot. **Capped at
+`BackgroundTabFeedService.MaxLiveBackgroundFeeds` (8), reusing that budget** rather than inventing
+a second number for one idea. Alert watches and bar-close watches merge so a chart with both costs
+one fetch — and the merge keeps the ALERT watch, because taking the other would have dropped every
+alert on that chart silently.
+
+**Two things the seed and the catch-up rule protect.** Without the seed, starting the terminal
+announces a bar close on every watched chart at once — bars that closed while it was not running,
+presented as news. And when six bars close between two polls (a laptop asleep, a provider down),
+exactly one announcement is made: the newest bar is the only one still true.
+
+**The floor, per Cody's decision: `notifications.newBars.minTimeframe`, default `1m` — every
+timeframe announces.** The gate is the existing opt-in category switch
+(`notifications.desktop.newBars`, default off); this is the escape hatch for someone who wants bar
+closes but not one a minute. An unparseable floor, or an unparseable timeframe, lets the
+announcement through — a typo in a setting must not be a mute switch the user cannot see. It gates
+NEW BARS ONLY, never alerts or trade events.
+
+**The dead subscriber F2 found is gone.** `HeadlessSession` no longer builds a
+`DesktopNotificationService` carrying the `NewBars` mask — it was a subscriber with a mask, a
+comment and no producer. All three headless event classes are now consistent: Alerts (Phase 1),
+OrderFills (Phase 2) and NewBars (Phase 3), each owned by the component that can ask whether a
+browser is already saying it.
+
+Twelve new tests; five sabotages (seed, floor, category switch, circuit coverage, the merge), each
+red, each restored. One of my own tests was renamed on inspection: it claimed to prove that missed
+polls announce once while actually advancing one bar per poll, so the harness gained a
+`barsPerFetch` and a test that genuinely skips.
+
+**Not verified:** nothing has been heard. No bar close has reached `spd-say` with Orca running,
+and reading the saved session adds one profile read per poll, unmeasured against a large workspace.
+
 ### Phase 3 D3, BUILT — bars closing on charts you have open but are not looking at (2026-09-08)
 
 Suite **7,237** (was 7,227). Closes F1 of `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md`: the entire
