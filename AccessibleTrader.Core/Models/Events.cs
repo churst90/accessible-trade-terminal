@@ -348,6 +348,25 @@ namespace AccessibleTrader.Core.Models
     // ── Live Bar Events ───────────────────────────────────────────────────────
     /// <summary>Fired when a live bar finalizes and a new one opens. ClosedBar = completed candle.</summary>
     public record NewBarEvent(Ohlcv ClosedBar, Ohlcv NewBar);
+
+    /// <summary>
+    /// A bar closed on a chart the user has open but is NOT looking at — a live background tab.
+    ///
+    /// <para>Distinct from <see cref="NewBarEvent"/> on purpose, and the difference is not
+    /// cosmetic. <see cref="NewBarEvent"/> carries no identity because it is always about the
+    /// focused chart, and its subscribers read the rest of the story out of
+    /// <c>WorkspaceStore.State</c> — Heikin-Ashi, candle patterns, chart formations. None of
+    /// that is true here: the state describes a different chart entirely, so this event carries
+    /// its own <see cref="ChartIdentity"/> and its consumers must name the symbol they are
+    /// talking about.</para>
+    ///
+    /// <para>Publishing <see cref="NewBarEvent"/> for a background tab instead would have been
+    /// the smaller diff and the wrong one: every existing subscriber would have described the
+    /// focused chart's state while announcing another chart's bar, and the speech route would
+    /// have fired unconditionally — a bar close on a chart you are not looking at interrupting
+    /// the one you are. Cody, 2026-09-08: toast and earcon by default, speech opt-in.</para>
+    /// </summary>
+    public record BackgroundBarClosedEvent(ChartIdentity Identity, Ohlcv ClosedBar, Ohlcv NewBar);
     /// <summary>Fired on every intra-bar tick (same bar count, last bar updated in place).</summary>
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 

@@ -604,6 +604,11 @@ namespace AccessibleTrader.BlazorClient
                 AccessibleTrader.Core.Services.Workspace.SessionAutosaveService>();
             services.AddSingleton<AccessibleTrader.Core.Services.Feeds.IBackgroundTabFeedService,
                 AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService>();
+            // Bars closing on those live background tabs. Registered next to the service that
+            // makes them live, because it is the only reason this class has anything to say.
+            // MUST be force-created (see AppStartupService): a subscriber nobody resolves is a
+            // subscriber that never subscribes.
+            services.AddSingleton<AccessibleTrader.Core.Services.Feeds.BackgroundBarAnnouncer>();
             services.AddSingleton<AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService,
                                   AccessibleTrader.Core.Services.Workspace.BackgroundMonitoringService>();
 

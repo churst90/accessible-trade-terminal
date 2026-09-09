@@ -25,8 +25,16 @@ namespace AccessibleTrader.Tests
     ///
     /// <para>That matters because <c>BackgroundTabFeedService</c> deliberately keeps up to
     /// <c>MaxLiveBackgroundFeeds</c> (8) non-focused tabs on live subscriptions. Those feeds
-    /// tick, their buffers grow, their bars close — and nothing announces it. A user who opened
-    /// four charts to watch four markets is told about bar closes on one of them.</para>
+    /// tick, their buffers grow, their bars close — and nothing announced it. A user who opened
+    /// four charts to watch four markets was told about bar closes on one of them.</para>
+    ///
+    /// <para><b>CLOSED 2026-09-08 by Phase 3 D3</b> — see <c>BackgroundBarAnnouncerTests</c>.
+    /// The fix was NOT to widen <see cref="NewBarEvent"/>'s reach, so every assertion below
+    /// still holds and must keep holding: that event carries no identity and its subscribers
+    /// read the rest out of the focused chart's state, so a background feed publishing one would
+    /// describe the wrong chart. Background tabs announce through
+    /// <c>BackgroundBarClosedEvent</c>, which names its own symbol. These tests are now the
+    /// guard on that boundary rather than a record of a gap.</para>
     ///
     /// <para>Each test below is written as a PAIR — the focused case and the background case —
     /// because a test that exercises only the working state proves nothing about the state that

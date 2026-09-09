@@ -157,16 +157,42 @@ across polls today.
 - Missing a poll must not announce N bars. One announcement per symbol per poll, naming the
   bar that closed.
 
-### D2. Gate new-bar announcements harder headless than in-session
+### D2. A minimum-timeframe floor for headless new bars
 
-Carried from the scope document and unchanged: a one-minute chart is a toast a minute, and the
-MATE daemon queues them. Decide between a **minimum timeframe** and a **digest**; see section 5.
+**DECIDED (§5.1): a user-settable minimum timeframe, defaulting to 1 minute** — every
+timeframe announces unless the user raises the floor. The suppression that stops a
+one-minute chart becoming a toast a minute is the CATEGORY switch
+(`notifications.desktop.newBars`, default false), which already exists; this floor is the
+escape hatch for a user who wants bar closes but not every minute of them.
+
+**The floor applies to new-bar announcements ONLY.** It must not gate alerts or trade
+events — those are per-occurrence, they already have their own switches, and Cody's
+framing is explicit that with the browser closed the terminal should behave like the
+terminal.
+
 `DesktopNotificationCategories.NewBars` already exists on the headless
 `DesktopNotificationService` and stays the delivery switch — but note that once D1 exists the
 monitor could deliver through `IDesktopAlertPresenter` the way it delivers alerts. **One owner
 only.** Pick one and write down why, the way Phase 1 wrote down the alert mask.
 
-### D3. Close F1 — background tabs, browser OPEN
+### D3. Close F1 — background tabs, browser OPEN — **DONE 2026-09-08**
+
+> **BUILT.** `IMarketFeedHub.BackgroundFeedUpdated` is the exact complement of
+> `FocusedFeedUpdated`, so a handler on each sees every update once;
+> `BackgroundBarAnnouncer` (Core/Services/Feeds) owns the whole background route and publishes
+> `BackgroundBarClosedEvent`, which carries its own `ChartIdentity`. Toast rides the existing
+> `notifications.desktop.newBars` switch; the earcon is unconditional within that; speech is
+> `notifications.backgroundTabBars.speak`, default off. Eligibility is
+> `IBackgroundTabFeedService.LiveBackgroundFeeds` membership asked at announcement time — a
+> leased monitor or split-view feed is not a tab the user opened. Force-created in
+> `AppStartupService` step 4a, because a subscriber nobody resolves never subscribes.
+> Ten tests in `BackgroundBarAnnouncerTests`; four sabotages, each red, each restored.
+>
+> **Two things found while building it.** The Settings label read *"New bars on the current
+> chart"* — true before this and false after, so it now reads *"on any open chart"*: a control
+> that names its scope is making a claim about it. And `SettingsWiringAuditTests` caught the new
+> key with no control in any dialog before I did — the guard worked.
+
 
 Separate from headless and independently shippable. A live background feed that closes a bar
 currently announces nothing to anyone. The fix is not to make `FocusedFeedUpdated` fire for
@@ -215,26 +241,44 @@ Phase 1: two subscribers = a lost utterance; two sessions = a doubled one. Phase
 2. **D1 + D2** (headless new bars) — the phase's headline.
 3. **D4** (watchability) — the largest, and the one whose blast radius reaches the alerts UI.
 
-D4 could be split out entirely if Phase 3 needs to ship sooner; D1–D3 close the goal statement's
-"new bar notifications" and D4 closes "alerts" more completely than Phase 1 did.
+**DECIDED 2026-09-08 (§5.3): D4 is NOT part of Phase 3.** Phase 3 is D1, D2 and D3. D4 follows as
+its own pass and closes "alerts" more completely than Phase 1 did.
 
 ---
 
-## 5. Decisions this needs from Cody
+## 5. Decisions — MADE (Cody, 2026-09-08)
 
-1. **How should headless new bars be rate-limited?** A minimum timeframe (e.g. nothing under
-   15 m announces headless) is predictable and explainable; a digest ("4 bars closed on 3
-   symbols") is complete but arrives late and reads awkwardly. **Recommendation: minimum
-   timeframe, user-settable, defaulting to 15 m** — it is the option a user can reason about
-   before it happens.
-2. **Should D3 (background-tab bar closes, browser open) announce by speech, or toast only?**
-   Speech is the terminal's primary channel, but a bar close on a chart you are not looking at
-   interrupting the chart you are is the kind of thing that gets a feature turned off.
-   **Recommendation: toast + earcon by default, speech opt-in.**
-3. **Does D4 ship in Phase 3 or as its own pass?** It is the item most likely to double the
-   session count.
+### 5.1 Headless new-bar rate limit: a minimum timeframe, **defaulting to 1 minute**
 
----
+A user-settable floor. **The default is 1 m — i.e. every timeframe announces.** The setting
+exists so a user who finds a 1-minute chart too chatty can raise it to 5 m or 15 m; it does not
+suppress anything out of the box.
+
+**This reverses this document's own recommendation (15 m), and the original scope's instruction
+to "gate new-bar toasts harder headless than in-session" — and on inspection there is no tension
+to resolve, because the gating already exists one level up.** `notifications.desktop.newBars`
+defaults to **false** (`DesktopNotificationService.cs:120`, `?? false`): new-bar toasts are
+already opt-in, and `AnnounceNewBars` gates the in-session speech separately. A user who has
+turned new-bar notifications ON has asked for bar closes; defaulting the floor to "all of them"
+is what that request means. The floor is the escape hatch for the MATE-daemon case, not the
+default posture.
+
+**Cody's framing, and it is broader than the toast:** *"all time frames will announce new bars.
+new bars, narration on new bars, alerts, etc, trade events and so forth"* — with the browser
+closed, the terminal should behave like the terminal. The floor applies to **new-bar
+announcements only**; it must NOT gate alerts or trade events, which are per-occurrence and
+already have their own switches.
+
+### 5.2 Background-tab bar closes (browser open): **toast + earcon, speech opt-in**
+
+As recommended. A bar close on a chart you are not looking at must not interrupt the chart you
+are. Every announcement names its symbol (D3).
+
+### 5.3 D4 ships as **its own pass after Phase 3**
+
+As recommended. Phase 3 = D1, D2, D3 and closes "new bar notifications" from the goal statement.
+D4 (populate the headless state, shrink `WhyUnwatchable`) follows as a separate pass, because it
+is the largest item and it reaches the alerts modal's user-facing wording.
 
 ## 6. What Phase 3 will NOT prove
 

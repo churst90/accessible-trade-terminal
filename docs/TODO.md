@@ -117,8 +117,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3 IS
-> SCOPED, and the new-bar feature turned out to reach ONE chart.)** Suite **7,227**.
+> **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3:
+> SCOPED, and D3 BUILT. The new-bar feature turned out to reach ONE chart.)** Suite **7,237**.
 > `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order — **nothing in its §3 is built.**
 > Cody's direction, 2026-09-08: **finish the background monitor before returning to the provider
 > / API-key work.** The venue dry runs and the Alpaca order stream (the previous block's NEXT 1
@@ -146,20 +146,28 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### 2. NEXT — in this order (from `BACKGROUND_MONITOR_PHASE3_SCOPE.md` §4)
 >
-> 1. **D3 — background-tab bar closes with the browser OPEN.** Independently shippable, no
->    lifetime work, fixes a live in-session defect. Every announcement must NAME its symbol.
+> 1. ~~**D3 — background-tab bar closes with the browser OPEN.**~~ **DONE 2026-09-08**, suite
+>    7,237. `BackgroundBarAnnouncer` + `IMarketFeedHub.BackgroundFeedUpdated` +
+>    `BackgroundBarClosedEvent`; toast and earcon by default, speech opt-in. The Settings label
+>    "New bars on the current chart" was true before it and false after, and now reads "on any
+>    open chart". `SettingsWiringAuditTests` caught the new key with no control before I did.
 > 2. **D1 + D2 — headless new bars**, with the announcement rate gated harder than in-session.
-> 3. **D4 — populate the headless state and shrink `WhyUnwatchable` IN THE SAME COMMIT.** Its
->    wording is user-facing: the alerts modal tells the user at creation time what cannot be
->    watched.
+> 3. **THEN, as its own pass: D4** — populate the headless state and shrink `WhyUnwatchable`
+>    IN THE SAME COMMIT. Its wording is user-facing: the alerts modal tells the user at creation
+>    time what cannot be watched.
 > 4. Then back to the deferred venue dry runs and the Alpaca order stream.
 >
-> ### 3. DECISIONS NEEDED FROM CODY (scope §5)
+> ### 3. DECISIONS — MADE (Cody, 2026-09-08; scope §5)
 >
-> 1. Headless new-bar rate limit: **minimum timeframe** (recommended, default 15 m, settable) or
->    a digest?
-> 2. Background-tab bar closes: **toast + earcon, speech opt-in** (recommended), or speech?
-> 3. Does D4 ship inside Phase 3 or as its own pass?
+> 1. **Headless new bars: a user-settable minimum-timeframe floor, DEFAULT 1 MINUTE** — every
+>    timeframe announces unless the user raises it. This reverses the scope's own 15 m
+>    recommendation, and there is no tension: `notifications.desktop.newBars` already defaults
+>    FALSE, so the category is opt-in and the floor is the escape hatch, not the gate. **The floor
+>    applies to NEW BARS ONLY — never to alerts or trade events.** Cody: *"with the browser
+>    closed... new bars, narration on new bars, alerts, etc, trade events and so forth."*
+> 2. **Background-tab bar closes: toast + earcon, speech OPT-IN.** A bar close on a chart you are
+>    not looking at must not interrupt the one you are.
+> 3. **D4 is its own pass AFTER Phase 3.** Phase 3 = D1 + D2 + D3.
 >
 > ### 4. NOT VERIFIED HERE
 >

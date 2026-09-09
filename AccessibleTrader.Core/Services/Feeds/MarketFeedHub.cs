@@ -33,6 +33,26 @@ namespace AccessibleTrader.Core.Services.Feeds
         event Action<ChartFeed, FeedUpdateKind>? FocusedFeedUpdated;
 
         /// <summary>
+        /// Raised for buffer changes on every feed that is NOT the focused one — the exact
+        /// complement of <see cref="FocusedFeedUpdated"/>, so a handler on each sees every
+        /// update once.
+        ///
+        /// <para><b>Why this exists.</b> Until 2026-09-08 the hub raised nothing at all for a
+        /// non-focused feed, and <c>DataManager</c> — the only thing that turns a live tick into
+        /// a store dispatch, and therefore into the codebase's only <c>NewBarEvent</c> — binds
+        /// the FOCUSED feed by design. Meanwhile <see cref="BackgroundTabFeedService"/>
+        /// deliberately keeps up to eight non-focused tabs on live subscriptions. Their bars
+        /// closed in silence: a user with four charts open was told about bar closes on one of
+        /// them. See docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §1 F1.</para>
+        ///
+        /// <para><b>This is not a widening of <see cref="FocusedFeedUpdated"/>.</b> That event's
+        /// contract is correct and load-bearing — binding a background feed's bars to the store
+        /// would file the wrong symbol's data under the focused chart's identity. This is a
+        /// separate signal for consumers that can name the symbol they are talking about.</para>
+        /// </summary>
+        event Action<ChartFeed, FeedUpdateKind>? BackgroundFeedUpdated;
+
+        /// <summary>
         /// Pins a feed against eviction while a consumer (background monitor, split
         /// view, hosted evaluator) depends on it. Dispose the lease to release.
         /// </summary>
@@ -124,6 +144,7 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         public ChartFeed? FocusedFeed => _focused;
         public event Action<ChartFeed, FeedUpdateKind>? FocusedFeedUpdated;
+        public event Action<ChartFeed, FeedUpdateKind>? BackgroundFeedUpdated;
 
         public MarketFeedHub(IDataOrchestrator orchestrator, IDataService dataService, DemoPolicy demo,
             ILoggerFactory loggerFactory, IGlobalErrorCoordinator? errorCoordinator = null)
@@ -193,8 +214,14 @@ namespace AccessibleTrader.Core.Services.Feeds
 
         private void OnFeedUpdated(ChartFeed feed, FeedUpdateKind kind)
         {
+            // Exactly one of the two fires, so a consumer on each sees every update once and a
+            // consumer on both sees it twice on purpose. Read _focused ONCE: focus can move on
+            // another thread between the test and the raise, and testing it twice could send an
+            // update down both arms or neither.
             if (ReferenceEquals(feed, _focused))
                 FocusedFeedUpdated?.Invoke(feed, kind);
+            else
+                BackgroundFeedUpdated?.Invoke(feed, kind);
         }
 
         // ── Per-feed live subscriptions (Phase B) ────────────────────────────

@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Phase 3 D3, BUILT — bars closing on charts you have open but are not looking at (2026-09-08)
+
+Suite **7,237** (was 7,227). Closes F1 of `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md`: the entire
+new-bar feature reached one chart, the focused one, while `BackgroundTabFeedService` deliberately
+keeps up to eight non-focused tabs on live subscriptions. **Their bars closed in silence** —
+browser open, nothing headless about it.
+
+`IMarketFeedHub.BackgroundFeedUpdated` is the exact complement of `FocusedFeedUpdated`, so a
+handler on each sees every update once. **`FocusedFeedUpdated` was not widened**, deliberately:
+its contract is load-bearing, and binding a background feed's bars to the store would file the
+wrong symbol's data under the focused chart's identity. `BackgroundBarAnnouncer` owns the whole
+background route and publishes `BackgroundBarClosedEvent`, which carries its own `ChartIdentity`
+— because `NewBarEvent` carries none (it is always about the focused chart) and its subscribers
+fill in Heikin-Ashi, candle patterns and chart formations from the store, every one of which
+would have described the wrong chart.
+
+**Delivery, per Cody's decision: toast and earcon by default, speech opt-in.** A bar close on a
+chart you are not looking at, spoken over the chart you are reading, is how a useful feature gets
+switched off for good. Toast rides the existing `notifications.desktop.newBars` switch; speech is
+`notifications.backgroundTabBars.speak`, default off, on the Event channel and never interrupting
+— so Shift+F2 silences it with everything else on that tier.
+
+**Eligibility is TAB membership, not liveness.** Only feeds `IBackgroundTabFeedService` made live
+are announced, asked at announcement time: the hub also holds leased feeds belonging to monitors,
+evaluators and split views, and those are not charts the user opened.
+
+**The Settings label was made true again.** It read *"New bars on the current chart"* — accurate
+before this change and wrong after it. It now reads *"New bars on any open chart"*. A control that
+names its scope is making a claim about it.
+
+**A guard caught the gap before I did:** `SettingsWiringAuditTests` failed the new settings key
+for having no control in any dialog. Setting added to Alerts → Delivery with its own explanatory
+line.
+
+Ten new tests (`BackgroundBarAnnouncerTests`), including the speech switch written as a PAIR —
+off and on — because a bare NSubstitute `ISettingsManager` returns the default for everything and
+a test that only exercises the default proves nothing about the branch. Four sabotages (eligibility
+check, LiveAppend filter, speech opt-in, playback guard), each red, each restored.
+
+**Not verified:** nothing was heard. No earcon has been played and no sentence spoken through a
+real screen reader on this route.
+
 ### Background monitor Phase 3, SCOPED — and the new-bar feature measured down to one chart (2026-09-08)
 
 `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order. **Nothing in its section 3 is

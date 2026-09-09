@@ -92,8 +92,12 @@
                        checked="@_notifyFills"
                        @onchange="e => Commit(() => _notifyFills = e.Value is bool b ? b : _notifyFills)" />
             </div>
+            @* The label said "on the current chart" until 2026-09-08, and it was true: bars
+               closing on a live BACKGROUND tab announced nowhere at all. Phase 3 D3 fixed that,
+               so this switch now covers every open chart and the label has to say so — a
+               control that names its scope is making a claim about it. *@
             <div class="modal-row">
-                <label for="s-notify-bars">New bars on the current chart</label>
+                <label for="s-notify-bars">New bars on any open chart</label>
                 <input id="s-notify-bars" type="checkbox"
                        checked="@_notifyBars"
                        @onchange="e => Commit(() => _notifyBars = e.Value is bool b ? b : _notifyBars)" />
@@ -101,7 +105,25 @@
             <div class="modal-row">
                 <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
                     New bars are one notification per bar close — on a one-minute chart that is one a minute.
-                    Meant for hourly and daily charts.
+                    Meant for hourly and daily charts. Covers charts you have open in other tabs as
+                    well as the one you are looking at.
+                </span>
+            </div>
+            @* Speech for background tabs only. Separate from the toast because it is the one
+               that can interrupt: a bar closing on a chart you are NOT looking at, spoken over
+               the chart you ARE reading, is how a useful feature gets switched off for good.
+               Cody, 2026-09-08: toast and earcon by default, speech opt-in. The focused chart's
+               own bar-close speech is unaffected — that lives under Narration. *@
+            <div class="modal-row">
+                <label for="s-speak-bg-bars">Also speak bar closes from other tabs</label>
+                <input id="s-speak-bg-bars" type="checkbox"
+                       checked="@_speakBackgroundBars"
+                       @onchange="e => Commit(() => _speakBackgroundBars = e.Value is bool b ? b : _speakBackgroundBars)" />
+            </div>
+            <div class="modal-row">
+                <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
+                    Off by default. Bar closes on other tabs always play an earcon; this adds spoken
+                    detail, which will interrupt what you are reading on the chart you are on.
                 </span>
             </div>
         </fieldset>
@@ -342,6 +364,10 @@
     private bool _notifyAlerts;
     private bool _notifyFills;
     private bool _notifyBars;
+    // Speech for bar closes on live BACKGROUND tabs. Read by BackgroundBarAnnouncer, which owns
+    // the whole background route (toast, earcon, speech) — see that class for why the gate is a
+    // settings key and not another WorkspaceState field.
+    private bool _speakBackgroundBars;
 
     protected override void OnInitialized() => Load();
 
@@ -381,6 +407,7 @@
         _notifyAlerts = Settings.GetSetting(SettingsKeys.DesktopNotifyAlerts)?.ToObject<bool>() ?? false;
         _notifyFills  = Settings.GetSetting(SettingsKeys.DesktopNotifyOrderFills)?.ToObject<bool>() ?? false;
         _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
+        _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
     }
 
     /// <summary>
@@ -430,6 +457,7 @@
         Settings.SetSetting(SettingsKeys.DesktopNotifyAlerts, Newtonsoft.Json.Linq.JToken.FromObject(_notifyAlerts));
         Settings.SetSetting(SettingsKeys.DesktopNotifyOrderFills, Newtonsoft.Json.Linq.JToken.FromObject(_notifyFills));
         Settings.SetSetting(SettingsKeys.DesktopNotifyNewBars, Newtonsoft.Json.Linq.JToken.FromObject(_notifyBars));
+        Settings.SetSetting(SettingsKeys.SpeakBackgroundTabBars, Newtonsoft.Json.Linq.JToken.FromObject(_speakBackgroundBars));
         App.Save();
     }
 

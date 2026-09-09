@@ -161,6 +161,16 @@ namespace AccessibleTrader.Core.Services
             _services.GetRequiredService<IHistoryBufferCoordinator>();
             _services.GetRequiredService<IAccessibilityFeedbackCoordinator>();
 
+            // 4a. Bars closing on a LIVE BACKGROUND TAB — a chart the user has open but is not
+            //     looking at. Resolved here for the same reason 4b below is Start()ed here: the
+            //     class subscribes in its constructor, so a subscriber nobody resolves is a
+            //     subscriber that never subscribes. Until 2026-09-08 nothing announced these at
+            //     all — the only NewBarEvent publisher is the store's live path, and that binds
+            //     the FOCUSED feed, so a user with four charts open heard bar closes on one.
+            //     GetService, not GetRequiredService: an older host composition that never
+            //     registered it should lose this announcement, not fail to start.
+            _services.GetService<Feeds.BackgroundBarAnnouncer>();
+
             // 4b. In-session alerts. Start() is what creates the StateStream subscription
             //     that evaluates alerts as the chart ticks — without it the alert pipeline
             //     is fully built, fully tested, and never armed: a price alert set while

@@ -103,7 +103,13 @@ namespace AccessibleTrader.Core.Services.Notifications
             if (Owns(DesktopNotificationCategories.Alerts))
                 _subs.Add(bus.Subscribe<AlertFiredEvent>(OnAlertFired));
             if (Owns(DesktopNotificationCategories.NewBars))
+            {
                 _subs.Add(bus.Subscribe<NewBarEvent>(OnNewBar));
+                // A bar closing on a live BACKGROUND tab rides the same category and the same
+                // user switch — it is the same kind of news about a different chart, and asking
+                // the user to find two checkboxes for one idea would be the wrong seam.
+                _subs.Add(bus.Subscribe<BackgroundBarClosedEvent>(OnBackgroundBarClosed));
+            }
             if (Owns(DesktopNotificationCategories.OrderFills))
             {
                 _subs.Add(bus.Subscribe<OrderFilledEvent>(e => OnFill("Order filled", e.Order)));
@@ -133,6 +139,37 @@ namespace AccessibleTrader.Core.Services.Notifications
             Send(NewBarTitle(state), NewBarBody(state, e.ClosedBar));
         }
 
+        /// <summary>
+        /// A bar closed on a chart the user has open but is not looking at.
+        ///
+        /// <para>The title names the event's OWN symbol and timeframe, never the store's: the
+        /// store is describing a different chart, and a toast that said "BTC/USD 1h: bar closed"
+        /// for an ETH bar close would be worse than silence. It is the one thing that must not
+        /// be copied from <see cref="OnNewBar"/>.</para>
+        /// </summary>
+        private void OnBackgroundBarClosed(BackgroundBarClosedEvent e)
+        {
+            if (!_notifier.IsAvailable || !Enabled(SettingsKeys.DesktopNotifyNewBars)) return;
+            if (_store.State.IsPlaying) return;
+
+            int barSeconds = TimeframeUtility.ToSeconds(e.Identity.Timeframe ?? "");
+            if (barSeconds <= 0) barSeconds = BarSecondsFromDates(e.ClosedBar, e.NewBar);
+
+            Send(NewBarTitle(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""),
+                 NewBarBody(barSeconds, e.ClosedBar));
+        }
+
+        /// <summary>
+        /// Bar length from two adjacent bars, for the case where the identity carries no usable
+        /// timeframe string. Mirrors <c>PlaybackNarration.BarSeconds</c>'s fallback; a daily
+        /// default is the safe one, because it prints a DATE rather than a misleading clock time.
+        /// </summary>
+        private static int BarSecondsFromDates(Ohlcv closed, Ohlcv opened)
+        {
+            double gap = (opened.Date - closed.Date).TotalSeconds;
+            return gap > 0 ? (int)gap : 86400;
+        }
+
         private void OnFill(string prefix, Sdk.Trading.OrderUpdate order)
         {
             if (!_notifier.IsAvailable || !Enabled(SettingsKeys.DesktopNotifyOrderFills)) return;
@@ -153,19 +190,38 @@ namespace AccessibleTrader.Core.Services.Notifications
             => string.IsNullOrWhiteSpace(alertName) ? "Alert" : $"Alert: {alertName.Trim()}";
 
         internal static string NewBarTitle(WorkspaceState state)
+            => NewBarTitle(
+                !string.IsNullOrWhiteSpace(state.SymbolDisplayName)
+                    ? state.SymbolDisplayName
+                    : state.Identity.Symbol ?? "",
+                state.Identity.Timeframe ?? "");
+
+        /// <summary>
+        /// The title, from the two things it actually needs.
+        ///
+        /// <para>Taking a <see cref="WorkspaceState"/> made this unusable from the one caller
+        /// that has no state to give it: a bar closing on a LIVE BACKGROUND TAB is about a chart
+        /// the store is not describing. Same shape as the Phase 0 lesson — the reachable half of
+        /// the problem was the DECISION, and the decision only ever needed a symbol and a
+        /// timeframe. Both routes now speak the same sentence by construction rather than by two
+        /// people remembering to.</para>
+        /// </summary>
+        internal static string NewBarTitle(string symbol, string timeframe)
         {
-            string symbol = !string.IsNullOrWhiteSpace(state.SymbolDisplayName)
-                ? state.SymbolDisplayName
-                : state.Identity.Symbol ?? "";
-            string tf = state.Identity.Timeframe ?? "";
-            string what = string.Join(" ", new[] { symbol, tf }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            string what = string.Join(" ", new[] { symbol, timeframe }.Where(s => !string.IsNullOrWhiteSpace(s)));
             return what.Length == 0 ? "Bar closed" : $"{what}: bar closed";
         }
 
         /// <summary>"Close 1,234.5 at 09:31." — the new-bar announcement's own clock rule: time of day intraday, the date on a daily chart.</summary>
         internal static string NewBarBody(WorkspaceState state, Ohlcv closed)
+            => NewBarBody(PlaybackNarration.BarSeconds(state), closed);
+
+        /// <summary>
+        /// The body, from the bar length rather than the whole workspace. <paramref name="barSeconds"/>
+        /// is what decides the clock unit, and a background tab knows its own timeframe.
+        /// </summary>
+        internal static string NewBarBody(int barSeconds, Ohlcv closed)
         {
-            int barSeconds = PlaybackNarration.BarSeconds(state);
             string stamp = SpeechTimeFormatter.FormatBarClock(closed.Date, barSeconds);
             string when = barSeconds < 86400 ? $" at {stamp}" : $" on {stamp}";
             return $"Close {SpeechPriceFormatter.FormatPrice(closed.Close)}{when}.";

@@ -143,6 +143,13 @@ namespace AccessibleTrader.Core.Services
         public const string DesktopNotifyNewBars    = "notifications.desktop.newBars";
         public const string DesktopNotifyOrderFills = "notifications.desktop.orderFills";
 
+        // ── Bars closing on a LIVE BACKGROUND TAB (a chart you have open, not the one you are
+        // looking at). Toast and earcon ride the switches above and the earcon tier; SPEECH is
+        // its own opt-in and defaults FALSE, because a bar close on a chart you are not looking
+        // at interrupting the chart you ARE is how a feature gets switched off for good.
+        // Cody, 2026-09-08.
+        public const string SpeakBackgroundTabBars = "notifications.backgroundTabBars.speak";
+
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";
         public const string EmailPort          = "alerts.email.port";
