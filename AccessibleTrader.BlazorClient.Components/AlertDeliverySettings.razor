@@ -73,25 +73,24 @@
            Mac user, which was a wrong answer to a real question. *@
         <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
             <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Desktop notifications</legend>
-            <div class="modal-row">
-                <span style="flex:1;">
-                    Show these as system notifications while the terminal is open, so they reach
-                    you when another window has focus. Speech in the terminal is unchanged.
-                    Delivered by @Notifier.Describe().
-                </span>
-            </div>
+            @* One checkbox, its name, one sentence (Cody, 2026-09-11). The delivery mechanism
+               is still named once, from the live plan — see the note above on why. *@
             <div class="modal-row">
                 <label for="s-notify-alerts">Alerts that fire</label>
                 <input id="s-notify-alerts" type="checkbox"
+                       aria-describedby="s-notify-alerts-hint"
                        checked="@_notifyAlerts"
                        @onchange="e => Commit(() => _notifyAlerts = e.Value is bool b ? b : _notifyAlerts)" />
             </div>
+            <p id="s-notify-alerts-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification when an alert fires.</p>
             <div class="modal-row">
                 <label for="s-notify-fills">Order fills, stops and take-profits</label>
                 <input id="s-notify-fills" type="checkbox"
+                       aria-describedby="s-notify-fills-hint"
                        checked="@_notifyFills"
                        @onchange="e => Commit(() => _notifyFills = e.Value is bool b ? b : _notifyFills)" />
             </div>
+            <p id="s-notify-fills-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification for fills, stops, take-profits, cancels and rejections.</p>
             @* The label said "on the current chart" until 2026-09-08, and it was true: bars
                closing on a live BACKGROUND tab announced nowhere at all. Phase 3 D3 fixed that,
                so this switch now covers every open chart and the label has to say so — a
@@ -99,16 +98,11 @@
             <div class="modal-row">
                 <label for="s-notify-bars">New bars on any open chart</label>
                 <input id="s-notify-bars" type="checkbox"
+                       aria-describedby="s-notify-bars-hint"
                        checked="@_notifyBars"
                        @onchange="e => Commit(() => _notifyBars = e.Value is bool b ? b : _notifyBars)" />
             </div>
-            <div class="modal-row">
-                <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
-                    New bars are one notification per bar close — on a one-minute chart that is one a minute.
-                    Meant for hourly and daily charts. Covers charts you have open in other tabs as
-                    well as the one you are looking at.
-                </span>
-            </div>
+            <p id="s-notify-bars-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification each time a bar closes on any open chart, on that chart's own timeframe, with the browser open or closed.</p>
             @* Speech for background tabs only. Separate from the toast because it is the one
                that can interrupt: a bar closing on a chart you are NOT looking at, spoken over
                the chart you ARE reading, is how a useful feature gets switched off for good.
@@ -117,22 +111,19 @@
             <div class="modal-row">
                 <label for="s-speak-bg-bars">Also speak bar closes from other tabs</label>
                 <input id="s-speak-bg-bars" type="checkbox"
+                       aria-describedby="s-speak-bg-bars-hint"
                        checked="@_speakBackgroundBars"
                        @onchange="e => Commit(() => _speakBackgroundBars = e.Value is bool b ? b : _speakBackgroundBars)" />
             </div>
-            <div class="modal-row">
-                <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
-                    Off by default. Bar closes on other tabs always play an earcon; this adds spoken
-                    detail, which will interrupt what you are reading on the chart you are on.
-                </span>
-            </div>
+            <p id="s-speak-bg-bars-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Speaks bar closes from tabs you are not looking at, over whatever you are reading.</p>
             @* The floor for bar closes announced with NO browser open. Default 1 minute — every
                timeframe announces — because the switch above is already the opt-in; this is the
                escape hatch for someone who wants bar closes but not one a minute. Cody,
                2026-09-08. New bars ONLY: alerts and trade events are never gated by it. *@
             <div class="modal-row">
-                <label for="s-bg-bar-floor">Shortest timeframe to announce when the browser is closed</label>
+                <label for="s-bg-bar-floor">Shortest timeframe to announce</label>
                 <select id="s-bg-bar-floor"
+                        aria-describedby="s-bg-bar-floor-hint"
                         value="@_headlessBarFloor"
                         @onchange="OnBarFloorChanged">
                     @foreach (var tf in HeadlessBarFloors)
@@ -141,12 +132,8 @@
                     }
                 </select>
             </div>
-            <div class="modal-row">
-                <span style="flex:1; font-size:0.85rem; color:var(--text-muted,#666);">
-                    Charts shorter than this stay silent while the browser is closed. The default,
-                    1 minute, announces every timeframe.
-                </span>
-            </div>
+            <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent. 1 minute announces every chart.</p>
+            <p style="margin:0; color:var(--text-muted); font-size:0.9em;">Delivered by @Notifier.Describe().</p>
         </fieldset>
     }
 
@@ -203,7 +190,7 @@
         </div>
         <div class="modal-row">
             <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
-                Sends a sample alert using current values (saved on Close).
+                Sends a sample alert with the values above.
             </span>
             <button @onclick="TestEmailAsync"
                     aria-label="Send test email alert">Send test</button>
@@ -243,7 +230,7 @@
         </div>
         <div class="modal-row">
             <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
-                Sends a sample alert using current values (saved on Close).
+                Sends a sample alert with the values above.
             </span>
             <button @onclick="TestTelegramAsync"
                     aria-label="Send test Telegram alert">Send test</button>
@@ -261,11 +248,8 @@
         <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Webhook (Discord / Slack / custom)</legend>
 
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
-            Sends alerts as a JSON POST to any HTTPS endpoint. Add one or more named
-            webhooks — a Discord webhook URL (Server Settings, Integrations, Webhooks) or a
-            Slack incoming-webhook URL — and give each a Name (e.g. "BTC channel"). Each
-            alert then routes to the webhook whose name you pick in the Alerts dialog, so
-            BTC alerts land in your BTC channel and KAS alerts in your KAS channel.
+            Posts alerts as JSON to named HTTPS endpoints, such as a Discord or Slack webhook
+            URL. Each alert picks a webhook by name in the alert form.
         </p>
 
         @for (int i = 0; i < _webhooks.Count; i++)
@@ -321,10 +305,7 @@
     <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
         <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Strategy setup alerts</legend>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">
-            When on, confirmed and armed strategy setups are delivered through the
-            same channels as alerts — email, Telegram, and (optionally) a webhook —
-            so your Discord channel hears "Long setup — gold" with the trade plan
-            even when you're away from the terminal.
+            Sends confirmed and armed strategy setups through the same channels as alerts.
         </p>
         <div class="modal-row">
             <label for="s-setup-alerts">Send setups to alerts</label>

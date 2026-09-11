@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### The quality pass over the narration coherence pass — volume reads at the close, and the headless bar close that was switched off (2026-09-11, later)
+### The quality pass over the narration coherence pass — volume reads at the close, and the headless bar close that was switched off, then proved (2026-09-11, later)
 
-Suite **7,276** (was 7,265). Three items from Cody, reviewing the previous batch.
+Suite **7,280** (was 7,265). Three items from Cody reviewing the previous batch, then two more.
 
 **N on a volume pane now does something: the closed bar's volume is the last clause of the
 bar-close ladder.** The previous pass made the switch *say* "Volume has no signals to narrate";
@@ -34,6 +34,32 @@ shut, silence. The headless watch list, floor and observer all work — and all 
 Cody's settings file. The switch is "New bars on any open chart" under Alerts (Alt+J). The General
 tab's "Keep monitoring when the browser is closed" hint now says so, because that is where a user
 looks when the browser is closed and they hear nothing.
+
+**Then Cody checked every desktop-notification box, closed the browser, and still heard nothing
+— so the headless path was run HERE, on the real venue, and it works.** With no browser attached
+the server logged `Background bar close: BTCUSDT 1m: close 77403.49 at 15:24` and three more, one
+per minute, through spd-say and notify-send. The bar close follows the chart's own timeframe
+string (the tab's `1m` goes straight to the provider); the floor list is only a minimum. Two
+structural delays were found in the hand-off and closed, each proven by sabotage:
+
+- **A covered chart was dropped from the watch list, so the monitor met it for the first time
+  when the browser closed — and a first sighting only seeds.** The earliest possible announcement
+  was the SECOND bar to close after the hand-off. Every saved tab is now observed on every poll
+  (one Limit-3 fetch a minute per tab) and only the owned ones are announced, so the seed is warm
+  when the chart becomes ours.
+- **Coverage was released in `OnCircuitClosedAsync`, which for a dropped connection runs after
+  Blazor's three-minute `DisconnectedCircuitRetentionPeriod`.** A circuit with no connection cannot
+  reach the user by any route. `WebHostBrowserCircuitHandler` now hands its symbols and venues to
+  the headless side in `OnConnectionDownAsync` and takes them back in `OnConnectionUpAsync`. A
+  reconnect after a blip may hear one bar close twice; this project prefers that to silence.
+
+What could not be established: why Cody's own server said nothing. When this box was checked there
+was **no server process at all**, so the most likely answer is that it was not running.
+
+**The Alerts dialog's desktop-notification block is a checkbox, a name and one sentence each
+(Cody).** The intro paragraph is gone; each switch carries an `aria-describedby` hint; the floor's
+label is "Shortest timeframe to announce"; two "(saved on Close)" claims that have been false since
+2026-09-04 (the panel commits on change) are corrected.
 
 **The General tab is shorter.** Fourteen hint paragraphs cut to a sentence or two each; two
 paragraphs on headless monitoring became one, and the touch-toolbar aside was folded into its

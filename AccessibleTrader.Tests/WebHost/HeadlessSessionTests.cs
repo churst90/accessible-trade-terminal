@@ -34,6 +34,7 @@ namespace AccessibleTrader.Tests.WebHost;
 /// that exercised only the browser-closed state would prove nothing about the state that breaks.
 /// </para>
 /// </summary>
+[Collection("CircuitCoverage")]
 public class HeadlessSessionTests : IDisposable
 {
     public HeadlessSessionTests() => CircuitAlertCoverage.ResetForTests();
@@ -560,6 +561,28 @@ public class HeadlessSessionTests : IDisposable
         await h.PollAsync();
 
         Assert.Empty(h.Presenter.Spoken);
+    }
+
+    [Fact]
+    public async Task A_covered_chart_is_still_observed_so_the_first_close_after_the_browser_goes_is_announced()
+    {
+        // Cody, 2026-09-11: three tabs, a 1-minute chart, browser closed, nothing. Until this
+        // test a covered chart was dropped from the watch list, so the monitor met it for the
+        // first time when the browser closed — and a first sighting only seeds. The earliest
+        // possible announcement was the SECOND bar to close after the hand-off.
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+        var circuit = OpenCircuit("c1", "btc/usd");
+
+        await h.PollAsync();           // browser open: seeds silently
+        await h.PollAsync();           // browser open, a bar closed: the browser's to say
+        Assert.Empty(h.Presenter.Spoken);
+
+        circuit.Dispose();             // the browser is gone
+        await h.PollAsync();           // a bar closed since the last look: OURS, and said NOW
+
+        Assert.Single(h.Presenter.Spoken);
+        Assert.Contains("BTC/USD", h.Presenter.Spoken[0]);
     }
 
     [Fact]

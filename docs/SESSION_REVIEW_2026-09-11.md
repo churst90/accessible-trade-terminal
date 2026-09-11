@@ -260,7 +260,7 @@ Recorded because they are the kind of thing that makes a green suite meaningless
 
 ## 11. Addendum, later on 2026-09-11 — Cody's review of this batch
 
-Three items came back from Cody after reading the above. Suite **7,265 → 7,276**.
+Three items came back from Cody after reading the above. Suite **7,265 → 7,280**.
 
 **§5c was the wrong answer.** Cody: a bar-type series under N should be *read* at each bar close
 as part of the ladder, not told it has nothing to say — "I may be doing dishes but still want to
@@ -283,4 +283,30 @@ changed: the default. Whether it should be on by default is Cody's call (§3 of 
 
 **Correction to §5a:** the pattern switches are on the General tab (Analysis), not Speech.
 
-**Still not heard.** Nothing in this addendum has been through a screen reader either.
+**Then, with every box checked, still nothing — so it was run here.** The server was started on
+this box with no browser attached (`ASPNETCORE_ENVIRONMENT=Development`, the Debug build, Cody's
+own settings and saved tabs). Log, verbatim:
+
+```
+Background bar close: BTCUSDT 1m: close 77403.49 at 15:24. New bar: open 77403.48.
+Browser circuit closed (0 active).
+Background bar close: BTCUSDT 1m: close 77392.44 at 15:25. New bar: open 77398.71.
+Background bar close: BTCUSDT 1m: close 77403.46 at 15:26. New bar: open 77403.45.
+Background bar close: BTCUSDT 1m: close 77407.70 at 15:27. New bar: open 77407.70.
+```
+
+Cody opened a browser on that instance mid-run and closed it again; the closes after "circuit
+closed" are headless. (The 15:24 one was announced while the circuit was open — the poll had
+snapshotted coverage before the circuit registered, a one-time startup race; noted, not fixed.)
+**This is the first headless delivery ever observed in four phases of the background monitor.**
+
+Two delays in the hand-off were found and closed — the covered chart that was never observed, and
+coverage released three minutes late on a dropped connection. `HeadlessSessionTests` (+1) and
+`CircuitCoverageHandoffTests` (+3) pin them; both sabotaged red.
+
+**Not established:** why Cody's own server was silent. There was no server process on the box
+when checked. **Cody's next ask — the indicator narration ladder with the browser closed — is D4**
+(`docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md`), and it is now the top NEXT item.
+
+**Still not heard by the author.** Cody may have heard the run above; nothing else in this addendum
+has been through a screen reader.

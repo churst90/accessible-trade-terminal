@@ -212,6 +212,20 @@ namespace AccessibleTrader.WebHost.Services
                 _logger.LogDebug(ex, "On-screen symbol tracking could not start for this circuit.");
             }
 
+            RegisterCoverage(circuit.Id);
+        }
+
+        /// <summary>The id the coverage registrations are filed under; kept so a reconnect can re-file them.</summary>
+        private string? _coverageCircuitId;
+
+        /// <summary>
+        /// Claims this circuit's symbols and venues for in-browser announcement, so the headless
+        /// monitors leave them alone. Called when the circuit opens and again when a dropped
+        /// connection comes back; see <see cref="ReleaseCoverage"/> for the other half.
+        /// </summary>
+        internal void RegisterCoverage(string circuitId)
+        {
+            _coverageCircuitId = circuitId;
             // The LOCAL desktop's version of the same rule (HostMode.Full has one user, so the
             // per-user keying above never engages there — nothing sets _userKey with accounts
             // off). Registered as a CALLBACK rather than a snapshot because coverage includes
@@ -220,12 +234,12 @@ namespace AccessibleTrader.WebHost.Services
             try
             {
                 var store = _scope.GetService<IWorkspaceStore>();
-                if (store != null)
+                if (store != null && _coverage == null)
                 {
                     var monitoring = _scope.GetService<
                         AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService>();
                     _coverage = CircuitAlertCoverage.Register(
-                        circuit.Id, () => CoveredSymbols(store, monitoring));
+                        circuitId, () => CoveredSymbols(store, monitoring));
                 }
             }
             catch (Exception ex)
@@ -242,8 +256,8 @@ namespace AccessibleTrader.WebHost.Services
             try
             {
                 var orders = _scope.GetService<AccessibleTrader.Core.Services.IOrderExecutionService>();
-                if (orders != null)
-                    _orderCoverage = CircuitOrderCoverage.Register(circuit.Id, () =>
+                if (orders != null && _orderCoverage == null)
+                    _orderCoverage = CircuitOrderCoverage.Register(circuitId, () =>
                         // …plus PAPER, always. The paper broker's stream is subscribed for the
                         // order service's whole lifetime rather than hooked on demand, so it never
                         // appears in LiveOrderStreamProviders — and the paper ACCOUNT is shared
@@ -259,6 +273,49 @@ namespace AccessibleTrader.WebHost.Services
                 // circuit announces — a duplicate. Failing the other way is silence.
                 _logger.LogDebug(ex, "Order-coverage registration could not start for this circuit.");
             }
+        }
+
+        /// <summary>Hands this circuit's symbols and venues back to the headless monitors.</summary>
+        internal void ReleaseCoverage()
+        {
+            _coverage?.Dispose();
+            _coverage = null;
+
+            _orderCoverage?.Dispose();
+            _orderCoverage = null;
+        }
+
+        internal bool HoldsCoverage => _coverage != null || _orderCoverage != null;
+
+        // ── THE HAND-OFF HAPPENS WHEN THE CONNECTION DROPS, NOT WHEN THE CIRCUIT DIES ────────
+        //
+        // Closing the browser tab does not close the circuit. Blazor keeps a disconnected
+        // circuit for DisconnectedCircuitRetentionPeriod (three minutes by default) in case the
+        // client comes back, and OnCircuitClosedAsync — where coverage used to be released —
+        // runs only when that expires. For those three minutes this circuit went on claiming
+        // BTCUSDT while its speech went into a live region nobody would ever render, and the
+        // headless monitor, correctly, said nothing about a chart a browser "covered". Cody,
+        // 2026-09-11: three tabs, a 1-minute chart, browser closed, no notification.
+        //
+        // A circuit with no connection cannot reach the user by any route, so the headless side
+        // owns everything the instant the connection is down, and takes it back the instant
+        // the connection is up. A reconnect after a network blip may therefore hear one bar
+        // close twice — once from spd-say, once in the browser — which is the failure mode
+        // this project prefers to silence, every time.
+
+        public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken cancellationToken)
+        {
+            ReleaseCoverage();
+            return base.OnConnectionDownAsync(circuit, cancellationToken);
+        }
+
+        public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken cancellationToken)
+        {
+            // Also runs for the FIRST connection, right after OnCircuitOpenedAsync has already
+            // registered — RegisterCoverage is idempotent for that reason.
+            var id = _coverageCircuitId ?? circuit?.Id;
+            if (id != null) RegisterCoverage(id);
+            return base.OnConnectionUpAsync(circuit, cancellationToken);
         }
 
         /// <summary>
@@ -288,11 +345,7 @@ namespace AccessibleTrader.WebHost.Services
             _symbolWatch?.Dispose();
             _symbolWatch = null;
 
-            _coverage?.Dispose();
-            _coverage = null;
-
-            _orderCoverage?.Dispose();
-            _orderCoverage = null;
+            ReleaseCoverage();
 
             if (_userKey != null)
             {

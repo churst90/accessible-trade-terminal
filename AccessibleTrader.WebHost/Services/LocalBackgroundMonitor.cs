@@ -137,11 +137,22 @@ namespace AccessibleTrader.WebHost.Services
             // already covers belongs to that browser — in-session the focused chart publishes
             // NewBarEvent and BackgroundBarAnnouncer covers the other live tabs, so announcing
             // here too would be the doubling this phase's predecessors were built to avoid.
+            //
+            // OBSERVED whether or not a browser covers them; ANNOUNCED only when owned. Until
+            // 2026-09-11 a covered chart was dropped from the list entirely, so the moment the
+            // browser closed the monitor met the chart for the first time — and a first sighting
+            // only seeds. Cody, three tabs, a 1-minute chart, browser shut: the earliest possible
+            // announcement was the SECOND bar to close after the hand-off, on top of the circuit
+            // retention period the hand-off itself waits for. Watching the timestamp while the
+            // browser is open costs one Limit-3 fetch a minute per saved tab and means the seed
+            // is already warm when the chart becomes ours.
             var barWatches = WatchBarCloses(settings)
-                ? OwnedWatches(DeriveBarCloseWatches(LoadLastSession(services)), covered)
+                ? DeriveBarCloseWatches(LoadLastSession(services))
                     .Where(w => ClearsTimeframeFloor(w.Timeframe, TimeframeFloor(settings)))
                     .ToList()
                 : new List<Watch>();
+            var announceKeys = OwnedWatches(barWatches, covered)
+                .Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             // One fetch per chart, however many reasons there are to want it. A symbol carrying
             // an alert AND sitting in an open tab is two reasons and must stay one request.
@@ -179,7 +190,7 @@ namespace AccessibleTrader.WebHost.Services
                 // Bar closes FIRST, and outside the alert path: a chart with no alerts on it is
                 // the ordinary case for this half, and burying it under an alert loop that runs
                 // zero times is how it would come to depend on something unrelated.
-                if (watchBarCloses) NoteBarClose(watch, bars);
+                if (watchBarCloses) NoteBarClose(watch, bars, announce: announceKeys.Contains(WatchKey(watch)));
 
                 if (watch.Alerts.Count == 0) continue;
 
@@ -506,7 +517,11 @@ namespace AccessibleTrader.WebHost.Services
         /// must not produce ten announcements when it comes back: the newest bar is the only one
         /// that is still true, so exactly one is spoken however many were skipped.</para>
         /// </summary>
-        private void NoteBarClose(Watch watch, IReadOnlyList<Ohlcv> bars)
+        /// <param name="announce">
+        /// False while a browser covers this chart: the timestamp is still tracked so the seed is
+        /// warm at hand-off, but the browser is the one saying it.
+        /// </param>
+        private void NoteBarClose(Watch watch, IReadOnlyList<Ohlcv> bars, bool announce = true)
         {
             var newest = bars[^1].Date;
             string key = WatchKey(watch);
@@ -521,6 +536,7 @@ namespace AccessibleTrader.WebHost.Services
                 if (newest <= previous) return;   // nothing closed since last poll
                 _lastBarSeen[key] = newest;
             }
+            if (!announce) return;
 
             // The bar that CLOSED is the one before the newly opened newest bar.
             AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1]);

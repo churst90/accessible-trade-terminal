@@ -119,7 +119,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 > **START HERE (current as of 2026-09-11 (later), THIRTY-NINTH pass — THE QUALITY PASS OVER THE
 > NARRATION COHERENCE PASS. Volume reads at the close; the headless bar close was switched off.)**
-> Suite **7,276**. `docs/SESSION_REVIEW_2026-09-11.md` §11 is the addendum.
+> Suite **7,280**. `docs/SESSION_REVIEW_2026-09-11.md` §11 is the addendum. **The headless bar
+> close was RUN on the real venue from this box and delivered four closes, one a minute** — the
+> first headless delivery ever observed. Two hand-off delays found and closed.
 >
 > ### 1. DURABLE, from this pass
 >
@@ -139,15 +141,39 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   The headless new-bar path works and was gated by `notifications.desktop.newBars` (default
 >   off, absent from Cody's file). The General tab hint for headless monitoring now names the
 >   switch and where it lives.
+> - **RUN IT.** Four phases of background monitor were reasoned about; one four-minute run of
+>   the real server with no browser (`dotnet bin/Debug/net10.0/AccessibleTrader.WebHost.dll`,
+>   log to a file, grep `Background bar close`) settled more than any of them. When the user says
+>   "it does not work" and the tests say it does, start the program.
+> - **A covered chart must still be OBSERVED.** Dropping it from the watch list made the
+>   hand-off cost a whole bar (first sighting only seeds). Observe everything, announce what is
+>   owned.
+> - **Coverage is a property of the CONNECTION, not the circuit.** Blazor keeps a disconnected
+>   circuit for three minutes; a circuit with no connection reaches nobody. Release in
+>   `OnConnectionDownAsync`, re-register in `OnConnectionUpAsync` (idempotent — it also fires for
+>   the first connection).
 > - **The ladder's prefix dedupe eats a reading.** `ScanUtterance.Compose` strips "{series}: "
 >   from a clause that follows another about the same series, so a reading built that way arrives
 >   as a bare number behind a crossing. A reading carries its name without the colon.
 >
 > ### 2. NEXT — in this order
 >
-> 1. **HEAR IT.** Still nothing heard: N on the real volume pane and a 1-minute close; the
->    headless close with the switch ON and the browser shut; a background tab's bar close.
-> 2. **Background monitor D4** (unchanged — see the block below).
+> 1. **Background monitor D4 — the narration ladder with the browser closed. CODY ASKED FOR IT
+>    2026-09-11:** *"I also want the narration ladder to also be spoken when the browser is
+>    closed too."* Scope is in `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` (D4). The concrete
+>    shape, from this pass's reading: (a) the saved tab carries its `Series` configs, including
+>    which are `IsAutoNarrated` and their components' N selection; (b) the monitor's `Limit: 3`
+>    fetch is nowhere near enough history — raise it per tab via `IBacktestWarmupAnalyzer`;
+>    (c) compute the narrated series through the store-free `IIndicatorEngine.CalculateAsync`;
+>    (d) the scan itself — `AutoNarrationService.ScanSeriesForChanges` and its tracking
+>    dictionaries — is an instance method bound to `IWorkspaceStore` and `RedrawEvent`, and is
+>    the refactor: lift the per-series scan into a store-free core the headless side can call
+>    with (series, bars, lastClosedIndex) and its own persisted tracking state per watch key;
+>    (e) compose with `BackgroundBarAnnouncer.BackgroundSentence` so headless and in-browser
+>    closes read the same; (f) the volume READING (this pass) comes for free once (d) exists.
+>    Dedupe rule unchanged: the browser covers what it covers.
+> 2. **HEAR IT** — N on the real volume pane and a 1-minute close in the browser; the forming
+>    formation sentence; a background tab's earcon.
 > 3. Then the deferred venue dry runs and the Alpaca order stream.
 >
 > ### 3. OPEN QUESTIONS FOR CODY
@@ -155,6 +181,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > - **Should `notifications.desktop.newBars` default ON?** Cody expected bar closes with the
 >   browser closed to just work. Today it is opt-in under Alerts (Alt+J). Turning it on by default
 >   means a toast a minute per 1-minute tab for anyone running the monitor.
+> - **Why was Cody's own server silent?** No process was running when this box was checked. If
+>   it was started with `dotnet run` and a build ran underneath it, the rebuilt DLLs can take the
+>   process down; a headless run from the built DLL announced fine. Worth confirming how it was
+>   launched and whether it was still up when the browser closed.
 > - Should a plain LINE off the price pane (OBV) also read its value, or keep "add a level"?
 >
 > ### 4. NOT VERIFIED HERE
