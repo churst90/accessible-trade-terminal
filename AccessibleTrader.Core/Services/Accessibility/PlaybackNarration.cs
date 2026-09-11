@@ -342,7 +342,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         ///
         /// <para>
         /// <b>Which series.</b> Those flagged <see cref="ChartSeries.IsAutoNarrated"/> — N, or
-        /// Ctrl+Alt+Shift+N — AND inside the plan that is currently sounding. One mental model
+        /// N — AND inside the plan that is currently sounding. One mental model
         /// holds everywhere then: <b>N picks WHAT may speak, the Narration tab picks WHEN, and
         /// the scope you played picks WHICH OF THEM.</b> The earlier design scanned every active
         /// visible series, which would have made playback the one place in the terminal where a

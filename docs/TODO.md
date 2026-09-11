@@ -117,6 +117,67 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-11, THIRTY-EIGHTH pass — THE NARRATION COHERENCE PASS.
+> Phase 3 is DONE; five questions from Cody, four of which were one idea.)** Suite **7,265**.
+> **`docs/SESSION_REVIEW_2026-09-11.md` is the whole session in one document — written for a
+> reviewer (Fable) coming to it cold. Read that first.**
+>
+> ### 1. DURABLE, from this pass
+>
+> - **"There is nothing here for you" is a SENTENCE — not silence, and not an alarm.** Three
+>   instances in one pass: narration on a Volume histogram (silence), the 0 key on a pane with no
+>   neutral (alarm), and the headless new-bar subscriber with no producer (silence). The repo
+>   already had the right shape in `BackgroundWatchability`; two new predicates follow it.
+> - **A switch that names an outcome is a promise.** `IsAutoNarrated` on a series with no
+>   signal-shaped components set a flag nothing could act on. `SeriesNarrationScope`'s own doc
+>   already said *"Nothing lands in a state where narration is 'on' and silent"* — and that was
+>   exactly the state.
+> - **A refusal that fully explains itself in speech does not need an earcon that pierces a
+>   mute.** Error earcons ignore Shift+F3 by design (the silent-failure rule). That policy is
+>   right; classifying a routine "not applicable here" as an Error was not. `Boundary` was already
+>   the answer twenty lines away in the same file for the anchor nudge.
+> - **Separate the ABILITY from the OCCASION.** One switch governed both "can a pattern be named"
+>   and "does the terminal comment on the forming bar", so the user could not have the first
+>   without the second. Speech tab = what can be said; Narration tab = when it speaks unprompted.
+> - **A removed keybinding leaves claims behind.** Ten comments named Ctrl+Alt+Shift+N as the live
+>   way to set the per-series flag. A comment naming a key that no longer exists teaches the next
+>   reader to stop trusting comments.
+> - **Check your own fixtures.** Four defects were found in tests written THIS session — a harness
+>   returning the same two bars while a test claimed five closes, data fabricating five crossings,
+>   a test named for a case it did not exercise, and an assertion comparing a value to itself.
+>
+> ### 2. NEXT — in this order
+>
+> 1. **HEAR IT.** Four phases of background monitor and a narration pass, none of it heard. A
+>    session with Orca running — a background tab closing a bar, a headless close with the browser
+>    shut, a forming double top, N on a volume pane — would be worth more than the next feature.
+> 2. **Background monitor D4** (its own pass, Cody's decision): populate the headless state
+>    (`WorkspaceState.Initial` = no `Data`, no `ActiveSeries`, so four of five `WhyUnwatchable`
+>    refusals are self-inflicted), raise `Limit: 3` via `IBacktestWarmupAnalyzer`, persist
+>    `previousValues` per watch key, compute `ActiveSeries` through the store-free
+>    `IIndicatorEngine`, and **shrink `WhyUnwatchable` IN THE SAME COMMIT** — its wording is
+>    user-facing.
+> 3. Then the deferred venue dry runs (Tradier sandbox first) and the Alpaca order stream.
+>
+> ### 3. OPEN QUESTIONS FOR CODY
+>
+> - **Should a volume pane narrate something of its own** (a spike detector), or is "add a level
+>   and its crossings speak" the right answer? This pass made the switch honest, not capable.
+> - **D3 depends on "Keep background tabs live"** (Settings → General, default OFF). Should the
+>   new-bar switch say so, or should turning on new-bar notifications imply it?
+>
+> ### 4. NOT VERIFIED HERE
+>
+> - Nothing was heard. See `docs/SESSION_REVIEW_2026-09-11.md` §8 for the full list.
+> - The MAUI head was not compiled on this box; two Razor components changed.
+> - The forming-formation route is a NEW caller of `ChartPatternCache` on an intra-bar path,
+>   unprofiled.
+> - **The accessibility agents did not review this session's UI changes** — the
+>   `accessibility-agents:accessibility-lead` subagent is not registered in this environment.
+>
+> **CLAIM, NOT RECORD:** a NEXT item repeated from a previous block is a claim. Check the
+> commit before believing it.
+
 > **START HERE (current as of 2026-09-08, THIRTY-SEVENTH pass — BACKGROUND MONITOR PHASE 3 IS
 > BUILT. D1, D2 and D3 are done; the new-bar feature had reached ONE chart.)** Suite **7,255**.
 > `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` is the work order — **nothing in its §3 is built.**

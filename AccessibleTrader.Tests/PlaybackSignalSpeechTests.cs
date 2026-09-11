@@ -17,7 +17,7 @@ namespace AccessibleTrader.Tests
     /// answer: "hearing signals also… not RSI crossings or anything like that. So not everything
     /// spoken, just important events." What speaks is therefore <c>ScanUtterance.TierSignal</c>
     /// and nothing below it: marker components carrying a <c>SignalSpeechTemplate</c>, on series
-    /// the user flagged with Ctrl+Alt+Shift+N, plus a chart pattern that resolves on the bar.
+    /// the user flagged with N, plus a chart pattern that resolves on the bar.
     /// </para>
     ///
     /// <para>

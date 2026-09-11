@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
 
 namespace AccessibleTrader.Core.Services.Workspace.Reducers
 {
@@ -329,9 +330,27 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 if (string.IsNullOrEmpty(compName))
                 {
                     updated.IsAutoNarrated = !updated.IsAutoNarrated;
-                    msg = updated.IsAutoNarrated
+                    if (!updated.IsAutoNarrated)
+                    {
+                        msg = $"{updated.FriendlyName}, narration off";
+                        return updated;
+                    }
+
+                    // ── "NARRATING" IS A PROMISE, AND ON SOME SERIES IT CANNOT BE KEPT ──────
+                    //
+                    // Narration is signal-shaped: markers, oscillator zones, overlay and level
+                    // crossings. A Volume histogram has none of those, so this switch went on,
+                    // the scan ran on every bar, and nothing was ever found. Cody, 2026-09-11:
+                    // "I have narration on for volume but don't hear it."
+                    //
+                    // The user cannot tell silence that means "the market did nothing" from
+                    // silence that means "this can never speak". Saying so here is the same fix
+                    // the COMPONENT branch below already carries for its own dead-end case, and
+                    // the same one BackgroundWatchability makes for alerts that could never fire.
+                    string? nothing = SeriesNarrationScope.WhyNothingToNarrate(updated);
+                    msg = nothing == null
                         ? $"{updated.FriendlyName}, narrating"
-                        : $"{updated.FriendlyName}, narration off";
+                        : $"{updated.FriendlyName}, narrating. {nothing}";
                     return updated;
                 }
 

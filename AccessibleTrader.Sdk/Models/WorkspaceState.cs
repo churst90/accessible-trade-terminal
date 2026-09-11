@@ -215,7 +215,7 @@ namespace AccessibleTrader.Sdk.Models
         //
         // Both default TRUE, unlike DescribeChartPatterns, and deliberately: ON reproduces
         // exactly what shipped, and everything either of them lets through is ALREADY behind
-        // an opt-in — the per-series Ctrl+Alt+Shift+N flag for signals, DescribeChartPatterns
+        // an opt-in — the per-series N flag for signals, DescribeChartPatterns
         // for the pattern outcomes. A default of false would have silenced playback's time
         // landmarks, which have spoken since 2026-09-02, to prevent speech that the existing
         // opt-ins prevent anyway. Mirrors AppSettings.NarrateSignalsOnBarClose /

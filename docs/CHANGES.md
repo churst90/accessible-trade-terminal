@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The narration coherence pass — ability vs occasion, the switch that lied, and the alarm that pierced a mute (2026-09-11)
+
+Suite **7,265** (was 7,255). Five questions from Cody; four of them turned out to be one idea:
+**"there is nothing here for you" is a sentence — not silence, and not an alarm.**
+See `docs/SESSION_REVIEW_2026-09-11.md` for the whole session in one place.
+
+**Ability and occasion are two switches now.** "Describe candle patterns" and "Describe chart
+patterns" (Speech tab) decide whether a pattern is ever NAMED — arrow keys, bar-close sentence,
+detail summary. They were also, accidentally, the only switch over the LIVE intra-bar commentary,
+so wanting pattern names while arrowing signed you up for a running commentary on the forming bar.
+Two new Narration-tab switches govern only the unprompted half: `narration.formingCandlePatterns`
+(default **ON** — it is what shipped) and `narration.formingChartPatterns` (default **OFF** — a new
+occasion for speech is asked for, never imposed). Both halves are required: nothing narrates a
+pattern the user told the terminal not to name.
+
+**Chart formations are spoken while they form.** Candle patterns on the live bar have been spoken
+since 2026-04; formations were spoken when you arrowed onto them and again when they resolved, but
+never while building — the moment a trader watching for a double top actually wants. The new route
+inherits `AsOf` (no lookahead — it never announces a break before it happens), `ByDominance` capped
+at ONE because it arrives unbidden, and `Identity` rather than `Key` so a scroll-back that shifts
+every bar index does not re-announce the same shape. The memory is per FORMATION, not per bar.
+
+**"Narrating" is a promise, and on a Volume histogram it could not be kept.** Narration is
+signal-shaped — markers, oscillator zones, overlay and level crossings. A histogram has none, so
+the flag went on, the scan ran every bar, and nothing was ever found. The user cannot tell silence
+that means "the market did nothing" from silence that means "this can never speak".
+`SeriesNarrationScope.WhyNothingToNarrate` now answers it and the toggle says so — **and it names
+the way out, which works**: level crossings narrate on any non-price pane, so "press 0 to add a
+reference level and its crossings will speak" is advice that pays off. On the price pane the advice
+is omitted, because level crossings are skipped there. This does NOT make volume narrate by itself;
+what changed is that the switch stopped lying.
+
+**The 0 key was the one sound you could not mute.** Pressing it on a pane that declares no neutral
+published `FeedbackType.Error`, and error earcons deliberately ignore Shift+F3 (the silent-failure
+rule, so a FAILURE can never be inaudible). But nothing failed — and the effect was that a routine
+"not applicable on this pane" pierced a mute the user had deliberately set, on every pane they
+explored. Now `Boundary`, matching the same file's own precedent for the anchor nudge twenty lines
+up. The policy was right; the classification was wrong.
+
+**Ctrl+Alt+Shift+N is retired.** One command had two bindings; the chord was kept for one release
+as "the one that works with focus outside the chart", which is a case where the user cannot see
+which series they are toggling either. Removed from the profile and Help — and **every comment
+naming it as the live way to set the per-series flag was updated to say N** (ten files), because a
+comment naming a removed keybinding is a stale claim. An existing test asserting the chord was kept
+had its assertion inverted, which is the stronger guard.
+
+Ten new tests; five sabotages, each red, each restored.
+
+**Not verified:** nothing was heard. No forming-formation sentence, no narratability message and no
+earcon on this route has reached a real screen reader. The forming-pattern route is a NEW caller of
+`ChartPatternCache` on an intra-bar path and has not been profiled.
+
 ### Phase 3 D1 + D2, BUILT — new bars with the browser closed; PHASE 3 IS COMPLETE (2026-09-08)
 
 Suite **7,255** (was 7,237). With D3 this closes "new bar notifications" from Cody's goal

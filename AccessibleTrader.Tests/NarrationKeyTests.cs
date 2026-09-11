@@ -21,6 +21,11 @@ namespace AccessibleTrader.Tests;
 /// resolved its target differently — always the SERIES, never the component under the cursor —
 /// so "M muted the component but N narrated the whole series" was the shipped behaviour.
 /// </para>
+///
+/// <para>
+/// The chord was retired on 2026-09-11 and N is now the only binding. See
+/// <c>NarrationAbilityVsOccasionTests</c> for the guard that keeps it that way.
+/// </para>
 /// </summary>
 public class NarrationKeyTests
 {
@@ -32,8 +37,12 @@ public class NarrationKeyTests
         Assert.Equal(SystemCommand.ToggleNarration,
             mgr.GetCommand("N", shift: false, ctrl: false, alt: false));
 
-        // The chord is KEPT, not replaced: it is the one that works with focus outside the chart.
-        Assert.Equal(SystemCommand.ToggleNarration,
+        // The chord is GONE as of 2026-09-11 (Cody). It was kept for one release as "the one
+        // that works with focus outside the chart", and that turned out to be a reason to keep a
+        // key nobody pressed: narration is a CHART object's switch, so the case it served —
+        // toggling while focus sits in the order ticket — is one where the user cannot see which
+        // series they are toggling either. Two bindings for one command is also two rows in Help.
+        Assert.Equal(SystemCommand.None,
             mgr.GetCommand("N", shift: true, ctrl: true, alt: true));
     }
 

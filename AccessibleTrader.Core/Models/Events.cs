@@ -20,7 +20,7 @@ namespace AccessibleTrader.Core.Models
     /// on which the user last moved through. Same shape and the same resolution rule as
     /// <see cref="ToggleMuteEvent"/> and <see cref="ToggleHideEvent"/>, which is the point:
     /// hide, mute and narrate are the three switches on a chart object, and before 2026-09-04
-    /// two of them were a letter and the third was Ctrl+Alt+Shift+N and series-only.
+    /// two of them were a letter and the third was a four-key chord and series-only.
     /// </summary>
     public record ToggleNarrationEvent(string Scope = "AUTO", string? SeriesId = null);
 

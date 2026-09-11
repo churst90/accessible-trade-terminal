@@ -355,8 +355,14 @@ namespace AccessibleTrader.Core.Services
             s.Add(new(SystemCommand.ToggleIndicatorAudio, "M"));
             // N joins H and M (Cody, 2026-09-04). Hide, mute and narrate are the three switches
             // on a chart object; two of them were a single letter and the third was a four-key
-            // chord, which is why nobody could remember it was there. Ctrl+Alt+Shift+N is KEPT
-            // below — it is the one that works with focus outside the chart.
+            // chord, which is why nobody could remember it was there.
+            //
+            // The chord is GONE as of 2026-09-11 (Cody). It was kept for one release as "the one
+            // that works with focus outside the chart", and that turned out to be a reason to
+            // keep a key nobody presses: narration is a CHART object's switch, so the case it
+            // served — toggling narration while focus is in the order ticket — is one where the
+            // user cannot see which series they are toggling either. Two bindings for one
+            // command is also two rows in Help and two things to hold in your head.
             s.Add(new(SystemCommand.ToggleNarration, "N"));
             s.Add(new(SystemCommand.AddReferenceLevel, "0"));
             s.Add(new(SystemCommand.OpenProperties, "P"));
@@ -492,8 +498,8 @@ namespace AccessibleTrader.Core.Services
             // Detail summary: Alt+Shift+D speaks full candle pattern analysis for the current bar.
             // Moved with the drawing tools (it was the other Ctrl+Shift+letter chord).
             s.Add(new(SystemCommand.DetailedPointSummary, "D", Alt: true, Shift: true));
-            // Narration toggle: Ctrl+Alt+Shift+N enables/disables auto-narration for the focused series.
-            s.Add(new(SystemCommand.ToggleNarration, "N", Ctrl: true, Alt: true, Shift: true)); // Ctrl+Alt+Shift+N
+            // Ctrl+Alt+Shift+N was here until 2026-09-11. See the N binding in the chart-scoped
+            // block for why it went; N alone is the narration toggle now.
 
             // Keyboard nudge for drawing anchors. SHIFT+ARROW, changed from Alt+Shift+Arrow on
             // 2026-09-03: Alt+Shift+Arrow is Orca's table-cell navigation, so on the machine this

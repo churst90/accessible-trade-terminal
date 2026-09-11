@@ -406,10 +406,28 @@ namespace AccessibleTrader.Core.Services.Input
                         out string levelReason, out bool levelRefused);
                     if (level == null)
                     {
-                        // "Already marked" is information; "no neutral is declared here" is a
-                        // refusal. Speaking both as errors taught the user to distrust the key.
+                        // BOTH outcomes are information, and the refusal is NOT an error.
+                        //
+                        // "Already marked" was reclassified first; the refusal ("nothing on this
+                        // pane declares a neutral line") stayed an Error until 2026-09-11, and
+                        // that was wrong for a reason bigger than tone. Error earcons are the one
+                        // sound that deliberately ignores Shift+F3 — the silent-failure rule, so a
+                        // FAILURE can never be inaudible. Pressing 0 on a pane with no neutral is
+                        // not a failure: nothing broke, nothing was lost, and the sentence that
+                        // follows explains it completely. Making it an error meant the only thing
+                        // that could pierce a mute the user had deliberately set was a routine
+                        // "not applicable here" — and exploring a chart with several panes buzzed
+                        // on every one of them. Cody reported exactly that.
+                        //
+                        // Boundary for the refusal, matching this file's own precedent twenty
+                        // lines up for the anchor nudge: "the key was understood and has nowhere
+                        // to go. Error would play the failure earcon and speak on the channel F2
+                        // cannot mute, for a keypress that failed nothing." The 0 key was the
+                        // one refusal that had not been brought into line with it.
+                        // Info for "already marked" — a fact about today that changes when the
+                        // level is removed, not a wall.
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            levelRefused ? FeedbackType.Error : FeedbackType.Info, levelReason, true));
+                            levelRefused ? FeedbackType.Boundary : FeedbackType.Info, levelReason, true));
                         return;
                     }
 

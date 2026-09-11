@@ -624,7 +624,7 @@
                Both switches here default ON, which is the opposite of the opt-in rule the
                visual-accessibility and pattern-description settings follow, and the reason is
                that neither of them lets anything new through on its own: signals come only from
-               series the user flagged with Ctrl+Alt+Shift+N, and the playback switch's ON state
+               series the user flagged with N, and the playback switch's ON state
                is exactly what shipped in 2.5.0. What is new is the ability to turn either OFF. *@
             <div role="tabpanel" id="tabpanel-narration"
                  aria-labelledby="tab-narration"
@@ -651,6 +651,43 @@
                         the General tab.
                     </p>
 
+                    @* ── ABILITY vs OCCASION (Cody, 2026-09-11) ────────────────────────────
+                       The two "Describe ... patterns" switches on the General tab decide whether
+                       a pattern is ever NAMED — on the arrow keys, in the bar-close sentence, in
+                       the detail summary. These two decide whether the terminal comments on the
+                       bar STILL FORMING, unprompted. They were one switch until now, so wanting
+                       pattern names while arrowing meant accepting a running commentary too.
+                       Both halves are required: nothing narrates a pattern the user has told the
+                       terminal not to name. *@
+                    <div class="modal-row">
+                        <label for="s-narrate-forming-candles">Narrate candle patterns as they form</label>
+                        <input id="s-narrate-forming-candles" type="checkbox"
+                               aria-describedby="s-narrate-forming-candles-hint"
+                               checked="@_narrateFormingCandles"
+                               @onchange="e => _narrateFormingCandles = e.Value is bool b ? b : _narrateFormingCandles" />
+                    </div>
+                    <p id="s-narrate-forming-candles-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Speaks the shape of the bar currently forming as it changes — "hammer
+                        forming", "bullish engulfing forming". On by default. Needs "Describe
+                        candle patterns" on the General tab, and narration on for the candle
+                        series. Turn this off to keep pattern names on the arrow keys without the
+                        live commentary.
+                    </p>
+
+                    <div class="modal-row">
+                        <label for="s-narrate-forming-charts">Narrate chart formations as they form</label>
+                        <input id="s-narrate-forming-charts" type="checkbox"
+                               aria-describedby="s-narrate-forming-charts-hint"
+                               checked="@_narrateFormingCharts"
+                               @onchange="e => _narrateFormingCharts = e.Value is bool b ? b : _narrateFormingCharts" />
+                    </div>
+                    <p id="s-narrate-forming-charts-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
+                        Speaks a double top, head and shoulders, triangle or flag while it is still
+                        building, with the level that would confirm it. Off by default, because it
+                        is a new occasion for the terminal to speak. Each formation is announced
+                        once, not once a bar. Needs "Describe chart patterns" on the General tab.
+                    </p>
+
                     <div class="modal-row">
                         <label for="s-narrate-signals">Narrate signals on bar close</label>
                         <input id="s-narrate-signals" type="checkbox"
@@ -659,10 +696,9 @@
                                @onchange="e => _narrateSignals = e.Value is bool b ? b : Store.State.NarrateSignalsOnBarClose" />
                     </div>
                     <p id="s-narrate-signals-hint" style="margin:-6px 0 10px; color:var(--text-muted); font-size:0.9em;">
-                        N on a series (or Control Alt Shift N from anywhere) chooses which speak,
-                        and N on a component narrows it to the components you picked; this switch
-                        is the master for all of them. Off means no indicator narrates on a bar
-                        close, whatever is flagged.
+                        N on a series chooses which speak, and N on a component narrows it to the
+                        components you picked; this switch is the master for all of them. Off
+                        means no indicator narrates on a bar close, whatever is flagged.
                     </p>
 
                     <div class="modal-row">
@@ -1284,6 +1320,8 @@
         new("Event mute includes order outcomes", "Speech", "s-mute-includes-orders", "silence mute stop take profit shift fills"),
         new("Announce new bars", "Narration", "s-announce-bars", "live candle close narration"),
         new("Narrate signals on bar close", "Narration", "s-narrate-signals", "narration indicator signal auto master switch"),
+        new("Narrate candle patterns as they form", "Narration", "s-narrate-forming-candles", "narration candle pattern forming live intra-bar hammer engulfing doji"),
+        new("Narrate chart formations as they form", "Narration", "s-narrate-forming-charts", "narration chart pattern formation forming live double top head shoulders triangle flag"),
         new("Narrate during playback", "Narration", "s-narrate-playback", "narration playback signal speech space master"),
         new("Speak time landmarks during playback", "Narration", "s-playback-landmarks", "narration playback landmark date hour time calendar boundary"),
         new("Sonification enabled", "Sonification", "s-sonif-enabled", "tones audio sound music"),
@@ -1540,6 +1578,10 @@
     private bool _paperTradingModeInitial;
     private bool _bgMonitoring;
     private bool _liveBgTabs;
+    // The Narration tab's two "as they form" switches. Defaults here match AppSettings' own
+    // (candles ON, charts OFF) so a dialog opened before Load runs never shows the wrong state.
+    private bool _narrateFormingCandles = true;
+    private bool _narrateFormingCharts;
     private bool _resumeSession;
     private int  _bgPollSeconds = 30;
     private bool _brailleEnabled;
@@ -1849,6 +1891,11 @@
         _bgMonitoring  = App.BackgroundMonitoring;
         _bgPollSeconds = App.MonitorPollSeconds;
         _liveBgTabs    = App.LiveBackgroundTabs;
+        // AppSettings-backed rather than WorkspaceState-backed: they gate one service's
+        // unprompted speech and nothing pure needs to read them, so the state record (and the
+        // script-sandbox wire format it is projected through) stays untouched.
+        _narrateFormingCandles = App.NarrateFormingCandlePatterns;
+        _narrateFormingCharts  = App.NarrateFormingChartPatterns;
         _resumeSession = App.ResumeLastSession;
         _paperTradingModeInitial = _paperTradingMode;
         _brailleEnabled = App.BrailleEnabled;
@@ -2113,6 +2160,8 @@
         App.BackgroundMonitoring    = _bgMonitoring;
         App.MonitorPollSeconds      = _bgPollSeconds;
         App.LiveBackgroundTabs      = _liveBgTabs;
+        App.NarrateFormingCandlePatterns = _narrateFormingCandles;
+        App.NarrateFormingChartPatterns  = _narrateFormingCharts;
         App.ResumeLastSession       = _resumeSession;
         Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
         Settings.SetSetting(AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayKey,

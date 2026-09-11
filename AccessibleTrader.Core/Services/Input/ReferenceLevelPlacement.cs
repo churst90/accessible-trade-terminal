@@ -144,9 +144,16 @@ namespace AccessibleTrader.Core.Services.Input
         /// null when nothing declares one. Only consulted off the price pane.
         /// </param>
         /// <param name="isRefusal">
-        /// True when nothing was placed <i>and</i> that is a refusal the user should hear as an
-        /// error. False for "there is already one there", which is information, not a failure —
-        /// the two used to be the same return value and so were spoken in the same alarmed voice.
+        /// True when nothing was placed because nothing ever could be here — this pane declares no
+        /// neutral, so the key will refuse on it every time. False for "there is already one
+        /// there", which is a fact about today and will change when the level is removed.
+        ///
+        /// <para><b>Neither is an error.</b> It said "should hear as an error" until 2026-09-11,
+        /// and the error earcon is the one sound that ignores Shift+F3 (the silent-failure rule),
+        /// so a routine "not applicable on this pane" was the only thing that could pierce a mute
+        /// the user had deliberately set. The caller now speaks a refusal as <c>Boundary</c> —
+        /// the key was understood and has nowhere to go, the same classification the anchor nudge
+        /// already used — and "already marked" as <c>Info</c>.</para>
         /// </param>
         public static LevelConfig? For(string? pane, double cursorPrice,
             IEnumerable<LevelConfig>? existing, double? paneNeutral,

@@ -133,7 +133,7 @@ namespace AccessibleTrader.Tests
         public void NarrateSignalsOnBarClose_DefaultsOn()
         {
             // ON is what shipped: the narrator only ever speaks about series the user flagged
-            // with Ctrl+Alt+Shift+N, so a default of OFF would silence a channel the user had
+            // with N, so a default of OFF would silence a channel the user had
             // already opted into, per series, by hand.
             Assert.True(WorkspaceState.Initial.NarrateSignalsOnBarClose);
             Assert.True(WorkspaceState.Initial.NarrateDuringPlayback);

@@ -92,10 +92,38 @@ namespace AccessibleTrader.Core.Services
         /// <summary>
         /// Master switch over the bar-close narrator (<c>AutoNarrationService</c>). Default ON,
         /// because it changes nothing on its own: the narrator only ever scans series the user
-        /// flagged with Ctrl+Alt+Shift+N, so on a chart with none flagged this switch has nothing
-        /// to gate. Ctrl+Alt+Shift+N picks WHAT speaks; this says WHETHER any of it does.
+        /// flagged with N, so on a chart with none flagged this switch has nothing
+        /// to gate. N picks WHAT speaks; this says WHETHER any of it does.
         /// </summary>
         public const string NarrateSignalsOnBarClose = "narration.signalsOnBarClose";
+
+        // ── ABILITY vs WHEN IT SPEAKS (Cody, 2026-09-11) ─────────────────────
+        //
+        // "Describe candle patterns" and "Describe chart patterns" live on the Speech tab and
+        // are the ABILITY: they decide whether a pattern is ever named — on the arrow keys, in
+        // the bar-close suffix, in the detail summary. That was also, accidentally, the only
+        // switch over the LIVE intra-bar commentary, so a user who wanted pattern names while
+        // arrowing over the chart had no way to refuse a running commentary on the forming bar.
+        //
+        // These two are the WHEN: they govern only the unprompted, intra-bar half, and they
+        // require the ability above. "I may want to hear the patterns as I arrow over them but
+        // maybe not during narration" — which is exactly the split the Narration tab exists for.
+
+        /// <summary>
+        /// Speak the candle pattern on the bar that is still FORMING, as it changes.
+        /// <b>Default ON</b> — it is what shipped, and what is new here is the ability to turn it
+        /// off without also losing pattern names on the arrow keys.
+        /// </summary>
+        public const string NarrateFormingCandlePatterns = "narration.formingCandlePatterns";
+
+        /// <summary>
+        /// Speak a chart FORMATION — double top, head and shoulders, triangle, flag — while it is
+        /// still forming on the live bar, with the level that would confirm it.
+        /// <b>Default OFF.</b> It is a new occasion for speech rather than a clause on one the
+        /// user already opted into, and the standing rule here is that continuous speech is
+        /// asked for rather than imposed. Same call as DescribeChartPatterns' own default.
+        /// </summary>
+        public const string NarrateFormingChartPatterns = "narration.formingChartPatterns";
 
         /// <summary>
         /// Whether playback speaks at all beyond its own start/pause/stop/speed confirmations —

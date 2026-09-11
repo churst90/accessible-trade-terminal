@@ -40,6 +40,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         // Optional so the many existing constructions keep working; DI supplies it. Gives the
         // Shift+F1 summary the selected drawing anchor — the one read-without-move the nudge has.
         private readonly IDrawingInteractionManager? _drawings;
+        // Optional for the same reason. Carries the two NARRATION-tab switches that decide
+        // whether the forming bar is commented on; the Speech-tab "describe" switches stay on
+        // WorkspaceState because the pure formatters need them. Null means "not supplied", and
+        // every read below falls back to the SHIPPED default rather than to false — a bare
+        // substitute answering false to an opt-OUT setting is how a feature silently inverts.
+        private readonly IAppSettings? _appSettings;
         private readonly CompositeDisposable _subscriptions = new();
 
         // The bar-close narrator. Held so the new-bar sentence can be composed INTO its
@@ -47,6 +53,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IAutoNarrationService _autoNarration;
 
         private WorkspaceState _previousState;
+
+        // The formation last announced as FORMING, by Identity rather than Key: a scroll-back
+        // prepends bars and shifts every index, and the user must not be told about the same
+        // double top again because its array position moved. Reset when a bar closes, the same
+        // way the candle pattern memory is.
+        private (ChartPatternKind, DateTime, DateTime)? _lastFormingPattern;
 
         // True from a playback start until the sequencer's first NavigateAction lands. That
         // first move is a jump to the plan's start bar, not a step through time, so it must not
@@ -103,10 +115,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             IAutoNarrationService autoNarration,
             Trading.IQuickTradeService? quickTrade = null,
             ILogger<AccessibilityFeedbackCoordinator>? logger = null,
-            IDrawingInteractionManager? drawings = null)
+            IDrawingInteractionManager? drawings = null,
+            IAppSettings? appSettings = null)
         {
             _logger = logger;
             _drawings = drawings;
+            _appSettings = appSettings;
             _store = store;
             _navManager = navManager;
             _speechRouter = speechRouter;
@@ -653,6 +667,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;
             _lastAnnouncedType    = CandleType.Normal;
+            // NOT reset: the forming-formation memory is per FORMATION, not per bar. A double
+            // top spans dozens of bars, and clearing this at every close would re-announce the
+            // same shape on every one of them — the noise that makes a feature get switched off.
+            // It clears when the formation resolves or ages out of the cache.
             _lastPatternAnnouncement = DateTime.UtcNow;
         }
 
@@ -660,12 +678,38 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Called on every intra-bar tick. Runs pattern recognition and announces
         /// when a new pattern is detected, subject to a debounce window.
         /// </summary>
+        /// <summary>
+        /// Whether the forming CANDLE pattern is commented on. Default ON — see
+        /// <see cref="SettingsKeys.NarrateFormingCandlePatterns"/>.
+        /// </summary>
+        private bool NarrateFormingCandles => _appSettings?.NarrateFormingCandlePatterns ?? true;
+
+        /// <summary>
+        /// Whether a forming chart FORMATION is announced on the live bar. Default OFF.
+        /// </summary>
+        private bool NarrateFormingCharts => _appSettings?.NarrateFormingChartPatterns ?? false;
+
         private void OnIntraBarUpdate(IntraBarUpdateEvent e)
         {
             var state = _store.State;
             if (!state.AnnounceNewBars) return; // speech mute handled by the Event channel
-            if (!state.DescribeCandlePatterns) return; // this method speaks nothing else
             if (state.IsPlaying) return;
+
+            // ── ABILITY vs OCCASION (Cody, 2026-09-11) ────────────────────────────────
+            //
+            // Until now this method was gated on DescribeCandlePatterns alone, which is the
+            // SPEECH-tab switch governing whether a candle pattern is ever NAMED — on the arrow
+            // keys, in the bar-close suffix, in Alt+Shift+D. So a user who wanted pattern names
+            // while arrowing over the chart was also signed up for a running commentary on the
+            // bar currently forming, with no way to separate them. The Narration tab exists for
+            // exactly this distinction: the Speech tab says WHAT CAN BE SAID, Narration says
+            // WHEN THE TERMINAL SPEAKS UNPROMPTED.
+            //
+            // Both are required. Narrating a pattern the user has told us not to name would be
+            // the switch lying in the other direction.
+            bool candles = state.DescribeCandlePatterns && NarrateFormingCandles;
+            bool charts  = state.DescribeChartPatterns  && NarrateFormingCharts;
+            if (!candles && !charts) return;
 
             // Per-user feedback (2026-04-09): intra-bar pattern updates were firing in
             // real time regardless of auto-narration state, which breaks the convention
@@ -674,12 +718,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // only on AnnounceNewBars — that's a single event-at-close notification,
             // not continuous narration. Intra-bar "still forming" updates, however,
             // are continuous and must respect the Candles series' IsAutoNarrated flag.
-            var candles = state.ActiveSeries.FirstOrDefault(s => s.Id == state.PrimarySeriesId)
-                       ?? state.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles);
-            if (candles == null || !candles.IsAutoNarrated) return;
+            var candleSeries = state.ActiveSeries.FirstOrDefault(s => s.Id == state.PrimarySeriesId)
+                            ?? state.ActiveSeries.FirstOrDefault(s => s.Id == CoreSeriesIds.Candles);
+            if (candleSeries == null || !candleSeries.IsAutoNarrated) return;
 
-            // Debounce: don't announce more often than PatternDebounce.
+            // Debounce: don't announce more often than PatternDebounce. Shared by both halves on
+            // purpose — they describe the same forming bar, and two independent debounces would
+            // let the pair interleave into a commentary twice as dense as either switch promised.
             if (DateTime.UtcNow - _lastPatternAnnouncement < PatternDebounce) return;
+
+            // The forming FORMATION, and it is the half that was missing. Candle patterns on the
+            // live bar have been spoken since 2026-04; chart formations were spoken only once
+            // they RESOLVED (OnNewBar's outcome clause) or when the user arrowed onto them. So
+            // the two halves of "what shape is this" behaved differently for no reason the user
+            // could see. Cody, 2026-09-11: "in progress chart patterns should also be spoken
+            // like in progress candle patterns".
+            if (charts && AnnounceFormingChartPattern(state)) return;
+            if (!candles) return;
 
             // The forming bar is not in state.Data yet, so the trend context is the stored history
             // with the live bar appended — otherwise hammer-vs-hanging-man on the bar being watched
@@ -726,6 +781,70 @@ namespace AccessibleTrader.Core.Services.Accessibility
             for (int i = data.Count - 1; i >= Math.Max(0, data.Count - 3); i--)
                 if (data[i].Date == closed.Date) return i;
             return data.Count - 1;
+        }
+
+        /// <summary>
+        /// Announces a chart FORMATION that has become knowable on the live bar, once per
+        /// formation. Returns true when something was said.
+        ///
+        /// <para>
+        /// <b>The missing half.</b> A candle pattern on the forming bar has been spoken since
+        /// 2026-04. A chart formation was spoken when the user ARROWED onto it, and again when it
+        /// RESOLVED at a bar close — but never while it was building, which is the moment a
+        /// trader watching for a double top actually wants. Cody, 2026-09-11.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Three rules it inherits rather than invents.</b> <c>AsOf</c> projects the formation
+        /// back to what was knowable AT this bar, so a shape whose eventual break is already in
+        /// the record does not announce that break before it happens — the no-lookahead rule.
+        /// <c>ByDominance</c> and a cap of one pick which formation speaks when several overlap,
+        /// the same ranking the arrow keys use; one rather than the navigation route's two,
+        /// because this arrives unbidden while the user is doing something else.
+        /// <c>Identity</c> rather than <c>Key</c> is what makes "have I said this already"
+        /// survive a scroll-back that shifts every bar index.
+        /// </para>
+        ///
+        /// <para>
+        /// It speaks only formations that are still FORMING. One that has already resolved is the
+        /// bar-close route's story, and saying it here too would be the doubling every one of
+        /// these routes has had to be taught not to do.
+        /// </para>
+        /// </summary>
+        private bool AnnounceFormingChartPattern(WorkspaceState state)
+        {
+            var data = state.Data;
+            if (data == null || data.Count == 0) return false;
+
+            // The live bar is the last one the store holds; the formation is described as it
+            // stands there.
+            int liveIndex = data.Count - 1;
+
+            IReadOnlyList<ChartPattern> all;
+            try { all = _patternCache.For(state.Identity, data); }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "Forming chart-pattern scan failed.");
+                return false;
+            }
+            if (all.Count == 0) return false;
+
+            var candidate = ChartPatternNarrator.ByDominance(
+                    all.Where(p => p.KnownAtIndex <= liveIndex && liveIndex < p.ResolvesAt))
+                .Select(p => ChartPatternNarrator.AsOf(p, liveIndex))
+                .FirstOrDefault(p => p.State == ChartPatternState.Forming);
+
+            if (candidate == null) return false;
+            if (_lastFormingPattern == candidate.Identity) return false;
+
+            string sentence = ChartPatternNarrator.DescribeEntry(
+                candidate, liveIndex, SpeechPriceFormatter.FormatPrice);
+            if (string.IsNullOrWhiteSpace(sentence)) return false;
+
+            _lastFormingPattern = candidate.Identity;
+            _lastPatternAnnouncement = DateTime.UtcNow;
+            _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
+            return true;
         }
 
         /// <summary>

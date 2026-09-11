@@ -49,5 +49,61 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public static bool ComponentNarrates(ChartSeries series, ComponentConfig component)
             => SeriesNarrates(series)
                && (!HasComponentSelection(series) || component.IsAutoNarrated);
+
+        /// <summary>
+        /// Why turning narration on for this series will produce no speech, or null when it will.
+        ///
+        /// <para><b>The defect this closes, reported by Cody 2026-09-11:</b> <i>"I have narration
+        /// on for volume but don't hear it."</i> Narration is SIGNAL-shaped — it announces marker
+        /// components (dots, arrows, crosses), oscillator zone transitions and crossovers, overlay
+        /// crosses and level crosses. A Volume histogram has none of those, so
+        /// <c>IsAutoNarrated</c> was set, the scan ran on every bar, and nothing was ever found.
+        /// The switch said "narrating" and meant it; there was simply nothing to narrate.</para>
+        ///
+        /// <para><b>Why that is a defect and not a limitation.</b> The user cannot tell silence
+        /// that means "the market did nothing" from silence that means "this can never speak".
+        /// The first is information; the second is a dead control. This class's own doc already
+        /// commits to the rule — <i>"Nothing lands in a state where narration is 'on' and
+        /// silent"</i> — and a series with no narratable content was exactly that state. It is the
+        /// same shape as <c>BackgroundWatchability</c>, which exists so an alert that could never
+        /// fire says so at the moment it is created rather than by never firing.</para>
+        ///
+        /// <para><b>And it names the way out.</b> A level crossing IS narratable on any non-price
+        /// pane (see <c>AutoNarrationService.ScanLevelCrosses</c>), so a volume pane with a
+        /// reference level on it narrates perfectly well. The sentence says so, because a refusal
+        /// that does not tell you what would work is half an answer.</para>
+        /// </summary>
+        public static string? WhyNothingToNarrate(ChartSeries series)
+        {
+            // A drawing is not an indicator and never narrates; that is not a surprise worth a
+            // sentence, and the toggle is not offered on one.
+            if (series.IsDrawing) return null;
+
+            bool hasMarker    = series.Components.Any(c => IsMarkerDisplay(c.DisplayType) && !c.UsesGradientSpeech);
+            bool hasOscillator= series.Components.Any(c => c.DisplayType == ComponentDisplayType.Oscillator);
+            // Level crossings only speak off the price pane — on Main they are the overlay-cross
+            // path's job, which needs a line to cross against.
+            bool isPricePane  = string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase);
+            bool hasLevels    = series.Levels.Any(l => l.IsVisible);
+            // An overlay on the price pane crosses PRICE, which always exists.
+            bool hasOverlay   = isPricePane && series.Components.Any(c =>
+                                    c.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
+                                                  or ComponentDisplayType.Area);
+
+            if (hasMarker || hasOscillator || hasOverlay || (!isPricePane && hasLevels)) return null;
+
+            return isPricePane
+                ? $"{series.FriendlyName} has no signals to narrate."
+                : $"{series.FriendlyName} has no signals to narrate. Press 0 to add a reference level and its crossings will speak.";
+        }
+
+        private static bool IsMarkerDisplay(ComponentDisplayType dt) => dt switch
+        {
+            ComponentDisplayType.Dot or ComponentDisplayType.Arrow
+            or ComponentDisplayType.Diamond or ComponentDisplayType.TriangleUp
+            or ComponentDisplayType.TriangleDown or ComponentDisplayType.Square
+            or ComponentDisplayType.Cross or ComponentDisplayType.ZeroDot => true,
+            _ => false
+        };
     }
 }

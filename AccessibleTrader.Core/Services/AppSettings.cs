@@ -76,6 +76,8 @@ namespace AccessibleTrader.Core.Services
         bool ShowChartPatternVisuals { get; set; }
 
         // Narration (Settings → Narration) — the unprompted speech channel.
+        bool NarrateFormingCandlePatterns { get; set; }
+        bool NarrateFormingChartPatterns { get; set; }
         bool NarrateSignalsOnBarClose { get; set; }
         bool NarrateDuringPlayback { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
@@ -285,10 +287,31 @@ namespace AccessibleTrader.Core.Services
         /// <summary>
         /// Master switch over the bar-close narrator. Default ON, and that is not the same
         /// decision as <see cref="DescribeChartPatterns"/>'s default OFF: the narrator speaks
-        /// only about series the user has already opted in per-series with Ctrl+Alt+Shift+N, so
+        /// only about series the user has already opted in per-series with N, so
         /// ON adds nothing to a chart where nothing is flagged. It exists so the whole channel
         /// can be silenced in one place without un-flagging every series one at a time.
         /// </summary>
+        /// <summary>
+        /// Speak the candle pattern on the still-forming bar. Default ON — see
+        /// <see cref="SettingsKeys.NarrateFormingCandlePatterns"/> for why the ability and the
+        /// occasion are two switches.
+        /// </summary>
+        public bool NarrateFormingCandlePatterns
+        {
+            get => GetBool(SettingsKeys.NarrateFormingCandlePatterns, def: true);
+            set => Set(SettingsKeys.NarrateFormingCandlePatterns, value);
+        }
+
+        /// <summary>
+        /// Speak a chart formation while it is still forming, with the level that would confirm
+        /// it. Default OFF: a new occasion for speech is opted into, never imposed.
+        /// </summary>
+        public bool NarrateFormingChartPatterns
+        {
+            get => GetBool(SettingsKeys.NarrateFormingChartPatterns, def: false);
+            set => Set(SettingsKeys.NarrateFormingChartPatterns, value);
+        }
+
         public bool NarrateSignalsOnBarClose
         {
             get => GetBool(SettingsKeys.NarrateSignalsOnBarClose, def: true);

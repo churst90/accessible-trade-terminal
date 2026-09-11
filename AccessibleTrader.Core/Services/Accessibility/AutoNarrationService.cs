@@ -457,7 +457,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (!state.IsSpeechEnabled) return null;
 
             // The Narration tab's master switch. It sits ABOVE the per-series flag, not instead
-            // of it: Ctrl+Alt+Shift+N picks WHICH series speak, this says whether any of them
+            // of it: N picks WHICH series speak, this says whether any of them
             // do. Default ON, so on a chart with nothing flagged it gates nothing — what it buys
             // is one place to silence the whole channel without un-flagging six series and
             // having to remember which six they were.
