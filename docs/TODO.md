@@ -117,6 +117,53 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-11 (later), THIRTY-NINTH pass — THE QUALITY PASS OVER THE
+> NARRATION COHERENCE PASS. Volume reads at the close; the headless bar close was switched off.)**
+> Suite **7,276**. `docs/SESSION_REVIEW_2026-09-11.md` §11 is the addendum.
+>
+> ### 1. DURABLE, from this pass
+>
+> - **A fixture that does not match production proves the fixture.** The previous pass modelled
+>   Volume as a `Histogram`; production declares a `Bar`; `PrimaryReading` accepted Line and
+>   Histogram only. The "press 0 and its crossings will speak" advice was proved green and could
+>   never work on the real series. When a test stands in for a shipped indicator, build it from
+>   the provider's declared shape (`CoreIndicatorProvider`), not from memory.
+> - **"Nothing to narrate" was the wrong answer for a quantity-per-bar series.** A bar or
+>   histogram IS its value; the reading at the close is the news. A line is a level; the news
+>   about a level is what crossed it. `SeriesNarrationScope.ReadingComponent` is the one place
+>   that decides, and the N confirmation and the ladder both consult it.
+> - **Bar-close narration and playback narration are two occasions.** The reading is added below
+>   the `isBarClose` return in the scan and playback never reaches the scan; playback's own route
+>   (`PlaybackNarration.SignalStepFor`) walks marker components with a template and nothing else.
+> - **An opt-in switch that is off is not a defect, but the place the user looks must say so.**
+>   The headless new-bar path works and was gated by `notifications.desktop.newBars` (default
+>   off, absent from Cody's file). The General tab hint for headless monitoring now names the
+>   switch and where it lives.
+> - **The ladder's prefix dedupe eats a reading.** `ScanUtterance.Compose` strips "{series}: "
+>   from a clause that follows another about the same series, so a reading built that way arrives
+>   as a bare number behind a crossing. A reading carries its name without the colon.
+>
+> ### 2. NEXT — in this order
+>
+> 1. **HEAR IT.** Still nothing heard: N on the real volume pane and a 1-minute close; the
+>    headless close with the switch ON and the browser shut; a background tab's bar close.
+> 2. **Background monitor D4** (unchanged — see the block below).
+> 3. Then the deferred venue dry runs and the Alpaca order stream.
+>
+> ### 3. OPEN QUESTIONS FOR CODY
+>
+> - **Should `notifications.desktop.newBars` default ON?** Cody expected bar closes with the
+>   browser closed to just work. Today it is opt-in under Alerts (Alt+J). Turning it on by default
+>   means a toast a minute per 1-minute tab for anyone running the monitor.
+> - Should a plain LINE off the price pane (OBV) also read its value, or keep "add a level"?
+>
+> ### 4. NOT VERIFIED HERE
+>
+> - Nothing was heard. MAUI not compiled here (`SettingsModal.razor` changed — hint text only).
+> - The accessibility agents did not review the General tab rewrite (text-only; ids, labels and
+>   `aria-describedby` bindings unchanged; `SettingsLanguageTests`, `FormControlNameSweepTests`
+>   and `LandmarkContractTests` green).
+
 > **START HERE (current as of 2026-09-11, THIRTY-EIGHTH pass — THE NARRATION COHERENCE PASS.
 > Phase 3 is DONE; five questions from Cody, four of which were one idea.)** Suite **7,265**.
 > **`docs/SESSION_REVIEW_2026-09-11.md` is the whole session in one document — written for a

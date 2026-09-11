@@ -222,6 +222,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             public const int TierApproach = 5;
             /// <summary>Oscillator zone changes and crossovers — the most repetitive commentary.</summary>
             public const int TierOscillator = 6;
+            /// <summary>
+            /// The plain value of a series that narrates by reading rather than by signal — a
+            /// volume bar at the close. Last, because it is said on EVERY bar: it is the thing
+            /// the cap should drop first when a bar has real news, and the thing that fills the
+            /// silence when it does not. See <see cref="SeriesNarrationScope.ReadingComponent"/>.
+            /// </summary>
+            public const int TierReading = 7;
 
             /// <summary>
             /// Ceiling on clauses in one utterance, matching the cap
@@ -571,6 +578,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1e. The indicator crossing one of its OWN declared levels (RSI 70, MACD zero).
             ScanLevelCrosses(series, toIndex, utterance);
 
+            // 1f. The reading itself, for a series with nothing signal-shaped to say. A volume
+            // pane under N used to set a flag nothing acted on; now the closed bar's value is the
+            // last clause of the ladder. Bar close only — this branch is below the isBarClose
+            // return above on purpose, and playback never reaches this service's scan at all.
+            ReadValueAtClose(series, toIndex, utterance);
+
             // 2. Oscillator zone transitions.
 
             var indexedState = state with { CurrentDataIndex = toIndex };
@@ -613,6 +626,38 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 _lastOscState[oscKey] = (oscContext.Zone, oscContext.Crossover);
             }
+        }
+
+        // ── The reading at the close ─────────────────────────────────────────────
+
+        /// <summary>
+        /// "Volume: 12,345." on the bar close, for a series whose narratable content is a
+        /// bar-type component and nothing else. Cody, 2026-09-11: <i>"I may be doing dishes but
+        /// still want to keep an ear on the volume, so hearing everything if narrated in the
+        /// ladder is valuable."</i> The component is chosen by
+        /// <see cref="SeriesNarrationScope.ReadingComponent"/>, which is also what the N-key
+        /// confirmation consults, so the toggle and the ladder cannot disagree about whether a
+        /// series reads.
+        /// </summary>
+        private static void ReadValueAtClose(ChartSeries series, int barIndex, ScanUtterance utterance)
+        {
+            var comp = SeriesNarrationScope.ReadingComponent(series);
+            if (comp == null) return;
+
+            var data = series.GetComponentData(comp.Name);
+            if (data == null || barIndex < 0 || barIndex >= data.Length) return;
+            double val = data[barIndex];
+            if (double.IsNaN(val)) return;
+
+            // Spoken form: "1.2 million", never "1.2M" — a screen reader reads the letter.
+            //
+            // No colon after the name on purpose. ScanUtterance.Compose drops a "{series}: "
+            // prefix from a clause that follows another clause about the same series, so behind
+            // "Volume: crossed above level 1, 100500." a reading built the same way would arrive
+            // as a bare "101,000." — a number with nothing to say what it is. A reading is the
+            // one clause whose whole content is its name and a value; it keeps both.
+            utterance.Add(ScanUtterance.TierReading, series.FriendlyName, $"{series.Id}:reading",
+                          $"{series.FriendlyName} {QuantityFormatter.FormatSpoken(val)}");
         }
 
         // ── Price crossing a plain overlay line ──────────────────────────────────
@@ -736,8 +781,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (IsMarkerDisplayType(comp.DisplayType)) continue;
 
                 if (comp.DisplayType == ComponentDisplayType.Oscillator) return comp;
+                // Line, histogram OR bar. The real Volume component is a Bar (CoreIndicatorProvider),
+                // and until 2026-09-11 this accepted only Line and Histogram — so a level placed on a
+                // volume pane could never be crossed by anything, while the N-key message was
+                // advising exactly that. The test that "proved" the advice modelled volume as a
+                // histogram. Match production, not the fixture.
                 if (fallback == null &&
-                    (comp.DisplayType == ComponentDisplayType.Line || comp.DisplayType == ComponentDisplayType.Histogram))
+                    (comp.DisplayType == ComponentDisplayType.Line || SeriesNarrationScope.IsReadingDisplay(comp.DisplayType)))
                     fallback = comp;
             }
             return fallback;

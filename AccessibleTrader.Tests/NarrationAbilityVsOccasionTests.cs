@@ -43,32 +43,86 @@ namespace AccessibleTrader.Tests
         }
 
         // ── Narratability: "narrating" is a promise ──────────────────────────
+        //
+        // Until 2026-09-11 these modelled Volume as a HISTOGRAM. The real Volume component is a
+        // BAR (CoreIndicatorProvider, DisplayType = ComponentDisplayType.Bar), and the narrator's
+        // PrimaryReading accepted only Line and Histogram — so "press 0 and its crossings will
+        // speak" was advice a fixture had proved and production could not keep. Match production.
 
         [Fact]
-        public void AVolumeHistogram_reportsThatItHasNothingToNarrate()
+        public void AVolumeBar_narratesByReadingItsValueAtEachClose()
         {
-            // Cody: "I have narration on for volume but don't hear it." Narration is
-            // signal-shaped; a histogram has no signals. The switch was telling the truth about
-            // itself and nothing about the outcome.
-            var volume = Series("Volume", "Volume", Comp("Volume", ComponentDisplayType.Histogram));
+            // Cody: "pressing n should enable narration which is spoken on new bar closes as part
+            // of the indicator ladder ... I may be doing dishes but still want to keep an ear on
+            // the volume." A bar is a quantity per bar; its value at the close IS the news.
+            var volume = Series("Volume", "Volume", Comp("Volume", ComponentDisplayType.Bar));
 
-            string? why = SeriesNarrationScope.WhyNothingToNarrate(volume);
+            var reading = SeriesNarrationScope.ReadingComponent(volume);
+
+            Assert.NotNull(reading);
+            Assert.Equal("Volume", reading!.Name);
+            // ...so there is nothing to apologise for.
+            Assert.Null(SeriesNarrationScope.WhyNothingToNarrate(volume));
+        }
+
+        [Fact]
+        public void AHistogram_readsToo_andALineDoesNot()
+        {
+            Assert.NotNull(SeriesNarrationScope.ReadingComponent(
+                Series("Delta", "Delta", Comp("Delta", ComponentDisplayType.Histogram))));
+            // A line is a level; the news about a level is what crossed it.
+            Assert.Null(SeriesNarrationScope.ReadingComponent(
+                Series("OBV", "OBV", Comp("OBV", ComponentDisplayType.Line))));
+        }
+
+        [Fact]
+        public void ASeriesWithSignals_doesNotAlsoReadItsHistogram()
+        {
+            // Cipher B prints a WT histogram next to its dots. A running value under a signal
+            // ladder is the wall of speech the tiers exist to prevent: signals win, reading off.
+            var cipher = Series("CipherB", "CipherB",
+                Comp("WT Histogram", ComponentDisplayType.Histogram),
+                Comp("Buy", ComponentDisplayType.Dot));
+
+            Assert.Null(SeriesNarrationScope.ReadingComponent(cipher));
+        }
+
+        [Fact]
+        public void TheNSelection_isHonouredByTheReading()
+        {
+            var s = Series("Two", "Two",
+                Comp("A", ComponentDisplayType.Bar),
+                Comp("B", ComponentDisplayType.Bar));
+            s.Components[1].IsAutoNarrated = true;   // N on B only
+
+            Assert.Equal("B", SeriesNarrationScope.ReadingComponent(s)!.Name);
+
+            s.Components[1].IsVisible = false;        // ...and a hidden one is not read
+            Assert.Null(SeriesNarrationScope.ReadingComponent(s));
+        }
+
+        [Fact]
+        public void APlainLineOffThePricePane_reportsThatItHasNothingToNarrate_andNamesTheWayOut()
+        {
+            // The case that remains a dead switch: a line in its own pane with no level to cross.
+            var obv = Series("OBV", "OBV", Comp("OBV", ComponentDisplayType.Line));
+
+            string? why = SeriesNarrationScope.WhyNothingToNarrate(obv);
 
             Assert.NotNull(why);
-            // And it names the way out rather than just refusing.
             Assert.Contains("reference level", why, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
-        public void TheSameVolumePane_withAReferenceLevel_hasSomethingToNarrate()
+        public void TheSameLine_withAReferenceLevel_hasSomethingToNarrate()
         {
             // The negative half, and the one that proves the sentence is not simply always
             // returned. Level crossings DO narrate off the price pane — so the advice the
             // message gives actually works.
-            var volume = Series("Volume", "Volume", Comp("Volume", ComponentDisplayType.Histogram));
-            volume.Levels.Add(new LevelConfig { Name = "Level 1", Value = 1000, IsVisible = true });
+            var obv = Series("OBV", "OBV", Comp("OBV", ComponentDisplayType.Line));
+            obv.Levels.Add(new LevelConfig { Name = "Level 1", Value = 1000, IsVisible = true });
 
-            Assert.Null(SeriesNarrationScope.WhyNothingToNarrate(volume));
+            Assert.Null(SeriesNarrationScope.WhyNothingToNarrate(obv));
         }
 
         [Fact]
@@ -92,13 +146,14 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void APricePaneSeriesWithNothingNarratable_doesNotAdviseAddingALevel()
+        public void ASeriesWithNoReadableComponent_isNotAdvisedToAddALevel()
         {
-            // Level crossings are skipped on the price pane (the overlay path owns it), so
-            // telling the user to press 0 there would be advice that does not work.
-            var blob = Series("Blob", "Main", Comp("Blob", ComponentDisplayType.Histogram));
+            // A level crossing needs a value to compare with the level. A pane holding only a
+            // cloud has none, so "press 0" there would be advice that does not work — the exact
+            // defect the Bar/Histogram mismatch above was.
+            var cloud = Series("Cloud", "Cloud", Comp("Cloud", ComponentDisplayType.Cloud));
 
-            string? why = SeriesNarrationScope.WhyNothingToNarrate(blob);
+            string? why = SeriesNarrationScope.WhyNothingToNarrate(cloud);
 
             Assert.NotNull(why);
             Assert.DoesNotContain("reference level", why, StringComparison.OrdinalIgnoreCase);

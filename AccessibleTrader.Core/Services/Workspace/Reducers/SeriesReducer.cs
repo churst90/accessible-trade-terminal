@@ -347,10 +347,17 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                     // silence that means "this can never speak". Saying so here is the same fix
                     // the COMPONENT branch below already carries for its own dead-end case, and
                     // the same one BackgroundWatchability makes for alerts that could never fire.
+                    //
+                    // And a series that narrates by READING (a volume bar) says so, because
+                    // "narrating" on its own promises signals and this one delivers a number
+                    // at every close instead — Cody, 2026-09-11. Bar close only, never in
+                    // playback; see SeriesNarrationScope.ReadingComponent.
                     string? nothing = SeriesNarrationScope.WhyNothingToNarrate(updated);
-                    msg = nothing == null
-                        ? $"{updated.FriendlyName}, narrating"
-                        : $"{updated.FriendlyName}, narrating. {nothing}";
+                    msg = nothing != null
+                        ? $"{updated.FriendlyName}, narrating. {nothing}"
+                        : SeriesNarrationScope.ReadingComponent(updated) != null
+                            ? $"{updated.FriendlyName}, narrating. Value read at each bar close."
+                            : $"{updated.FriendlyName}, narrating";
                     return updated;
                 }
 

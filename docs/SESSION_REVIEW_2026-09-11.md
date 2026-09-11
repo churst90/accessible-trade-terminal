@@ -126,8 +126,8 @@ by Cody's decision.
 
 ### 5a. The split (Cody's design, adopted as proposed)
 
-The two **Speech**-tab switches — "Describe candle patterns", "Describe chart patterns" — are the
-**ABILITY**: whether a pattern is ever *named*, on the arrow keys, in the bar-close sentence, in
+The two "Describe candle patterns" / "Describe chart patterns" switches (General tab, under
+Analysis — this document originally said "Speech tab", which was wrong) are the **ABILITY**: whether a pattern is ever *named*, on the arrow keys, in the bar-close sentence, in
 Alt+Shift+D. That was *also*, accidentally, the only switch over the **live intra-bar
 commentary**, so wanting pattern names while arrowing signed you up for a running commentary on
 the forming bar with no way to separate them.
@@ -255,3 +255,32 @@ Recorded because they are the kind of thing that makes a green suite meaningless
 - A test named "missed polls announce once" advanced exactly one bar per poll. Renamed, and
   `barsPerFetch` added so one genuinely skips.
 - One assertion compared a value **to itself**. Replaced with real assertions.
+
+---
+
+## 11. Addendum, later on 2026-09-11 — Cody's review of this batch
+
+Three items came back from Cody after reading the above. Suite **7,265 → 7,276**.
+
+**§5c was the wrong answer.** Cody: a bar-type series under N should be *read* at each bar close
+as part of the ladder, not told it has nothing to say — "I may be doing dishes but still want to
+keep an ear on the volume." Playback is a different occasion and speaks signals only.
+`SeriesNarrationScope.ReadingComponent` is the predicate; `AutoNarrationService.ReadValueAtClose`
+adds the clause at tier 7, bar close only. `VolumeReadingNarrationTests` runs the real
+coordinator + narrator wiring: one utterance, close first, reading last; nothing on an intra-bar
+tick; `PlaybackNarration.SignalsForStep` null on every bar for a narrated Volume.
+
+**§5c's "the way out works" was also false, and the fixture was why.** Production Volume is a
+`ComponentDisplayType.Bar`; §5c's tests used `Histogram`; `PrimaryReading` accepted Line and
+Histogram only. So a level on a volume pane could never be crossed by anything. Fixed in
+`PrimaryReading`, proven by sabotage (reverting it turns exactly one test red), and the advice is
+now given only where a readable component exists.
+
+**The headless bar close Cody could not hear was switched off, not broken.** His settings file has
+no `notifications.desktop.newBars`; the default is off; the switch is "New bars on any open
+chart" under Alerts (Alt+J). The General tab hint for headless monitoring now names it. Not
+changed: the default. Whether it should be on by default is Cody's call (§3 of the TODO block).
+
+**Correction to §5a:** the pattern switches are on the General tab (Analysis), not Speech.
+
+**Still not heard.** Nothing in this addendum has been through a screen reader either.

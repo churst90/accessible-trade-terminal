@@ -51,14 +51,52 @@ namespace AccessibleTrader.Core.Services.Accessibility
                && (!HasComponentSelection(series) || component.IsAutoNarrated);
 
         /// <summary>
+        /// The component whose value is READ OUT at each bar close, or null when the series
+        /// narrates by signal instead.
+        ///
+        /// <para><b>Cody, 2026-09-11:</b> <i>"pressing N should enable narration which is spoken
+        /// on new bar closes as part of the indicator ladder ... I may be doing dishes but still
+        /// want to keep an ear on the volume."</i> Narration is signal-shaped — markers,
+        /// oscillator zones, overlay and level crossings — and a Volume pane has none of those,
+        /// so until this pass N on it set a flag nothing could act on. The pass before this one
+        /// made the switch say so; this one makes it do something.</para>
+        ///
+        /// <para><b>The rule.</b> A bar or histogram is a quantity per bar — volume, delta, on
+        /// balance volume — and its value at the close IS the news. A line is a level, and the
+        /// news about a level is what crossed it. So a series whose only narratable content is a
+        /// bar-type component reads that value once per bar close; a series with markers or an
+        /// oscillator keeps narrating its signals and reads nothing, because a running value
+        /// under a signal ladder is the wall of speech the tiers exist to prevent. Bar-close
+        /// ONLY: the reading never appears on an intra-bar tick and never in playback, which
+        /// speaks signals and nothing else (<c>PlaybackNarration.SignalStepFor</c>).</para>
+        ///
+        /// <para>Honours the N selection the way every scan site does: a component the user
+        /// deselected is not read. Levels do not change the answer — a level on a volume pane
+        /// adds its crossings on top of the reading rather than replacing it.</para>
+        /// </summary>
+        public static ComponentConfig? ReadingComponent(ChartSeries series)
+        {
+            if (series.IsDrawing) return null;
+            if (series.Components.Any(c => IsMarkerDisplay(c.DisplayType) && !c.UsesGradientSpeech)) return null;
+            if (series.Components.Any(c => c.DisplayType == ComponentDisplayType.Oscillator)) return null;
+
+            return series.Components.FirstOrDefault(c =>
+                IsReadingDisplay(c.DisplayType)
+                && c.IsVisible && !c.IsMuted && !c.IsZoneLine && !c.UsesGradientSpeech
+                && (!HasComponentSelection(series) || c.IsAutoNarrated));
+        }
+
+        /// <summary>
         /// Why turning narration on for this series will produce no speech, or null when it will.
         ///
         /// <para><b>The defect this closes, reported by Cody 2026-09-11:</b> <i>"I have narration
         /// on for volume but don't hear it."</i> Narration is SIGNAL-shaped — it announces marker
         /// components (dots, arrows, crosses), oscillator zone transitions and crossovers, overlay
-        /// crosses and level crosses. A Volume histogram has none of those, so
-        /// <c>IsAutoNarrated</c> was set, the scan ran on every bar, and nothing was ever found.
-        /// The switch said "narrating" and meant it; there was simply nothing to narrate.</para>
+        /// crosses and level crosses — and until <see cref="ReadingComponent"/> a Volume pane had
+        /// none of those, so <c>IsAutoNarrated</c> was set, the scan ran on every bar, and nothing
+        /// was ever found. Volume now reads its value instead; what remains here is the plain
+        /// LINE off the price pane with no level to cross — an OBV, say — where the switch would
+        /// still be a promise nothing keeps.</para>
         ///
         /// <para><b>Why that is a defect and not a limitation.</b> The user cannot tell silence
         /// that means "the market did nothing" from silence that means "this can never speak".
@@ -68,16 +106,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// same shape as <c>BackgroundWatchability</c>, which exists so an alert that could never
         /// fire says so at the moment it is created rather than by never firing.</para>
         ///
-        /// <para><b>And it names the way out.</b> A level crossing IS narratable on any non-price
-        /// pane (see <c>AutoNarrationService.ScanLevelCrosses</c>), so a volume pane with a
-        /// reference level on it narrates perfectly well. The sentence says so, because a refusal
-        /// that does not tell you what would work is half an answer.</para>
+        /// <para><b>And it names the way out, only where the way out works.</b> A level crossing
+        /// is narratable on any non-price pane (<c>AutoNarrationService.ScanLevelCrosses</c>), but
+        /// only against a component that has a reading — a line, bar or histogram. The advice to
+        /// press 0 is given only when both hold, because a refusal that names a way out which
+        /// does not work is worse than one that names none.</para>
         /// </summary>
         public static string? WhyNothingToNarrate(ChartSeries series)
         {
             // A drawing is not an indicator and never narrates; that is not a surprise worth a
             // sentence, and the toggle is not offered on one.
             if (series.IsDrawing) return null;
+            if (ReadingComponent(series) != null) return null;
 
             bool hasMarker    = series.Components.Any(c => IsMarkerDisplay(c.DisplayType) && !c.UsesGradientSpeech);
             bool hasOscillator= series.Components.Any(c => c.DisplayType == ComponentDisplayType.Oscillator);
@@ -85,17 +125,24 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // path's job, which needs a line to cross against.
             bool isPricePane  = string.Equals(series.Pane, "Main", StringComparison.OrdinalIgnoreCase);
             bool hasLevels    = series.Levels.Any(l => l.IsVisible);
+            // ...and only against a component that has a value to compare with the level.
+            bool hasReading   = series.Components.Any(c => c.IsVisible && !c.IsZoneLine
+                                    && (c.DisplayType == ComponentDisplayType.Line || IsReadingDisplay(c.DisplayType)));
             // An overlay on the price pane crosses PRICE, which always exists.
             bool hasOverlay   = isPricePane && series.Components.Any(c =>
                                     c.DisplayType is ComponentDisplayType.Line or ComponentDisplayType.StepLine
                                                   or ComponentDisplayType.Area);
 
-            if (hasMarker || hasOscillator || hasOverlay || (!isPricePane && hasLevels)) return null;
+            if (hasMarker || hasOscillator || hasOverlay || (!isPricePane && hasLevels && hasReading)) return null;
 
-            return isPricePane
-                ? $"{series.FriendlyName} has no signals to narrate."
-                : $"{series.FriendlyName} has no signals to narrate. Press 0 to add a reference level and its crossings will speak.";
+            return !isPricePane && hasReading
+                ? $"{series.FriendlyName} has no signals to narrate. Press 0 to add a reference level and its crossings will speak."
+                : $"{series.FriendlyName} has no signals to narrate.";
         }
+
+        /// <summary>A quantity per bar: volume, delta, a histogram. See <see cref="ReadingComponent"/>.</summary>
+        public static bool IsReadingDisplay(ComponentDisplayType dt)
+            => dt is ComponentDisplayType.Bar or ComponentDisplayType.Histogram;
 
         private static bool IsMarkerDisplay(ComponentDisplayType dt) => dt switch
         {

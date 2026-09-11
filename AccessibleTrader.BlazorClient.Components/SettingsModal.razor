@@ -130,7 +130,7 @@
                                    checked="@_paperTradingMode"
                                    @onchange="e => _paperTradingMode = e.Value is bool b ? b : _paperTradingMode" />
                         </div>
-                        <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. Nothing reaches a broker and no money moves.</p>
+                        <p id="s-paper-trading-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Orders are simulated against live prices. No money moves.</p>
 
                     }
                     @* Two established, genuinely different ways to size a trade. The terminal
@@ -148,16 +148,13 @@
                     <p id="s-quick-sizing-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
                         @if (_quickSizingMode == 0)
                         {
-                            <text><strong>Position value.</strong> 0.5% of a $100,000 account buys $500 worth, whatever the stop is —
-                            the way an exchange order ticket works. Your stop then decides what you stand to lose: 1% away risks $5,
-                            20% away risks $100.</text>
+                            <text><strong>Position value.</strong> 0.5% of a $100,000 account buys $500 worth, whatever the stop is.
+                            The stop then decides what you can lose.</text>
                         }
                         else
                         {
                             <text><strong>Risk at the stop.</strong> 0.5% of a $100,000 account means you lose $500 if the stop is hit,
-                            so the position grows as the stop tightens — a stop $700 below a $64,000 entry buys 0.714 BTC, a $45,700
-                            position. This is what the "1% rule" of risk management refers to, and it makes every trade's downside
-                            identical. It can ask for more than a cash account holds.</text>
+                            so a tighter stop buys a bigger position. The "1% rule". Can exceed a cash balance.</text>
                         }
                     </p>
 
@@ -198,9 +195,8 @@
                         }
                     </div>
                     <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                        Erases the balance, every open position and working order, and the whole
-                        trade history, returning the account to @Paper.StartingBalance.ToString("N0").
-                        There is no undo. You are asked to confirm before anything is erased.
+                        Erases the balance, positions, orders and trade history, returning the
+                        account to @Paper.StartingBalance.ToString("N0"). No undo; you are asked to confirm first.
                     </p>
                 </fieldset>
 
@@ -254,13 +250,10 @@
                         }
                     </div>
                     <p style="margin:-8px 0 4px; color:var(--text-muted); font-size:0.9em;">
-                        <strong>Warning:</strong> all personalization and settings will be lost and
-                        the terminal will be reset to factory defaults. This erases
-                        @ResetErasedText. There is no undo.
+                        <strong>Warning:</strong> erases @ResetErasedText. No undo.
                     </p>
                     <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
-                        Kept: @ResetSurvivesText. Restart the terminal afterwards so every part of
-                        it re-reads the defaults.
+                        Kept: @ResetSurvivesText. Restart the terminal afterwards.
                     </p>
                 </fieldset>
 
@@ -284,7 +277,7 @@
                                    @onchange="OnBgPollChanged" />
                             <span style="color:var(--text-muted);">seconds</span>
                         </div>
-                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">How often the tabs you are not looking at are re-checked. Minimum 10 seconds.</p>
+                        <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">How often other tabs are re-checked. Minimum 10 seconds.</p>
 
                         <div class="modal-row">
                             <label for="s-bg-live-tabs">Live-stream other tabs</label>
@@ -293,9 +286,9 @@
                                    @onchange="OnLiveBgTabsChanged" />
                         </div>
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Keeps other tabs tick-fresh so switching to one is instant. Only on
-                            exchanges that support it, and only the first
-                            @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs.
+                            Other tabs stay tick-fresh and announce their bar closes. Exchanges that
+                            support it, first
+                            @AccessibleTrader.Core.Services.Feeds.BackgroundTabFeedService.MaxLiveBackgroundFeeds tabs only.
                         </p>
                         <div class="modal-row">
                             <span style="flex:1; font-size:0.85rem; color:var(--text-muted);">
@@ -316,33 +309,22 @@
                                        checked="@_bgLocalMonitor"
                                        @onchange="e => _bgLocalMonitor = e.Value is bool b && b" />
                             </div>
+                            @* The dependency is said here because this is where a user looks when
+                               "the browser is closed and I hear nothing": bar closes, unlike alerts
+                               and fills, are also behind their own category switch on the Alerts
+                               dialog (Alt+J), which defaults off. Cody, 2026-09-11: three tabs, a
+                               1-minute chart, browser closed, silence — the switch was off. *@
                             <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                                Alerts that name a symbol and provider keep evaluating on this
-                                machine with no browser open — spoken through your screen reader, shown as a
-                                desktop notification, with a sound (replace it at
-                                sounds/alert.wav in the app data folder). Checks once a minute.
-                                With a browser session open it watches the symbols that session is
-                                not already watching, so an alert on a symbol you have no tab open
-                                for is still covered. Advanced condition-tree alerts stay
-                                session-only.
-                            </p>
-                            <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                                Your orders are watched too. On every exchange you have an active
-                                API key for and something open — a resting order or a position —
-                                fills, stops, take-profits, cancels and rejections are announced
-                                the same way with no browser open, including for orders this
-                                terminal did not place. If a venue stops answering you are told
-                                that its orders are no longer being watched, and told again when
-                                it recovers. Nothing is ever placed, cancelled or adjusted for
-                                you: with nobody watching, the terminal only reports.
+                                Alerts, order fills and bar closes keep being announced on this
+                                machine with no browser open: spoken, as a desktop notification,
+                                with a sound. Bar closes also need "New bars on any open chart"
+                                turned on under Alerts (Alt+J). Nothing is ever placed or cancelled
+                                for you.
                             </p>
                         }
                         <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                            Each background tab keeps its own symbol's alerts and strategies live and
-                            announces them by name — earcons and speech only. The chart you are viewing
-                            keeps full sonification, playback, and navigation audio to itself. Every
-                            data check runs inside each provider's own rate limit, so open as many
-                            tabs as you like; slower refresh, never refusal.
+                            Background tabs announce their alerts and strategies by name, with earcons
+                            and speech only. Every check stays inside each provider's rate limit.
                         </p>
                     </fieldset>
                 }
@@ -363,12 +345,9 @@
                                    @onchange="OnMinimizeToTrayChanged" />
                         </div>
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Off by default. With it on, closing the window hides the terminal to
-                            the notification area instead of quitting, so alerts, fills and feeds
-                            keep running and keep announcing. The tray icon's menu — reachable
-                            with the Applications key or Shift+F10 once it has focus — offers
-                            Restore and Quit, so there is always a way out that does not need the
-                            window.
+                            Closing the window hides the terminal to the tray instead of quitting,
+                            so alerts, fills and feeds keep announcing. The tray icon's menu
+                            (Shift+F10) offers Restore and Quit.
                         </p>
                     </fieldset>
                 }
@@ -386,12 +365,8 @@
                             <option value="show">Always show</option>
                             <option value="hide">Never show</option>
                         </select>
-                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for navigating by touch.</p>
+                    <p style="margin:2px 0 12px; color:var(--text-muted); font-size:0.9em;">A row of large buttons under the chart for touch. If it appears on a desktop where it should not, choose Never.</p>
                     </div>
-                    <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
-                        Automatic detection can misfire on some desktop input setups — if the
-                        touch toolbar appears where it shouldn't, set this to Never.
-                    </p>
                 </fieldset>
 
                 @* ── Drawing ─────────────────────────────────────────────────── *@
@@ -406,9 +381,8 @@
                                @onchange="OnMarketStructureDefaultChanged" />
                     </div>
                     <p style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        Off by default, so a new chart is just candles, volume and price. Affects
-                        charts loaded from now on; charts already open are untouched, and you can
-                        always add or remove the indicator per chart.
+                        Off by default. Affects charts loaded from now on; add or remove it per
+                        chart at any time.
                     </p>
 
                     @* The two pattern switches live TOGETHER, and here rather than on Speech or
@@ -433,12 +407,9 @@
                                @onchange="e => _describeCandlePatterns = e.Value is bool b ? b : Store.State.DescribeCandlePatterns" />
                     </div>
                     <p id="s-candle-patterns-hint" style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        On by default. One- to three-bar shapes — engulfing, harami, doji, hammer,
-                        morning star, three white soldiers — named on the bar that closes, on the
-                        live bar as it forms, and on every bar you arrow onto. Off removes the
-                        pattern clause from the new-bar announcement, silences the forming one, and
-                        leaves the arrow keys reading "Bullish" or "Bearish" and the prices. The
-                        detail key (Alt+Shift+D) always names the pattern: it is you asking.
+                        On by default. Engulfing, harami, doji, hammer and the rest, named on the
+                        closing bar, the forming bar and every bar you arrow onto. Alt+Shift+D
+                        always names the pattern.
                     </p>
 
                     <div class="modal-row">
@@ -449,11 +420,9 @@
                                @onchange="e => _describeChartPatterns = e.Value is bool b ? b : Store.State.DescribeChartPatterns" />
                     </div>
                     <p id="s-chart-patterns-hint" style="color:var(--text-muted); font-size:0.9em; margin:4px 0 0 0;">
-                        Off by default — it adds narration to the arrow keys, which you press
-                        constantly, so it is opted into rather than imposed. Multi-bar formations:
-                        double top, head and shoulders, triangle, flag. Ones still forming are read
-                        with the level that would confirm them; completed ones close the loop.
-                        Nothing is ever called bullish or bearish.
+                        Off by default. Double top, head and shoulders, triangle, flag. Forming ones
+                        are read with the level that would confirm them. Never called bullish or
+                        bearish.
                     </p>
                 </fieldset>
 

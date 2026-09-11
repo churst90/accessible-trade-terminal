@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The quality pass over the narration coherence pass — volume reads at the close, and the headless bar close that was switched off (2026-09-11, later)
+
+Suite **7,276** (was 7,265). Three items from Cody, reviewing the previous batch.
+
+**N on a volume pane now does something: the closed bar's volume is the last clause of the
+bar-close ladder.** The previous pass made the switch *say* "Volume has no signals to narrate";
+Cody's answer was that a bar-type series should be read, not apologised for — *"I may be doing
+dishes but still want to keep an ear on the volume."* The rule, in
+`SeriesNarrationScope.ReadingComponent`: a series whose only narratable content is a bar or
+histogram reads that value once per bar close ("Volume 100,000", "Volume 5 million" — a word, never
+a letter); a series with markers or an oscillator keeps narrating signals and reads nothing. It is
+tier 7 of the one utterance, so on a bar with real news it is the first clause the cap drops.
+**Bar close only** — never on an intra-bar tick, and never in playback, which speaks signals and
+nothing else (`PlaybackNarration.SignalStepFor` considers marker components alone). The N
+confirmation now says "Volume, narrating. Value read at each bar close."
+
+**The previous pass's "way out" did not work, and its test was the reason nobody noticed.** The
+real Volume component is a `Bar` (`CoreIndicatorProvider`), and the narrator's `PrimaryReading`
+accepted only `Line` and `Histogram` — so "press 0 to add a reference level and its crossings will
+speak" was advice that a level on a volume pane could never keep. The test that "proved" it had
+modelled Volume as a histogram. `PrimaryReading` now accepts a bar; the advice is only given where
+a readable component exists (a pane holding only a cloud gets the plain refusal); and the tests
+model the shipped shape. **A fixture that does not match production proves the fixture.**
+
+**Bar closes with the browser closed were off, not broken.** Three tabs, a 1-minute chart, browser
+shut, silence. The headless watch list, floor and observer all work — and all sit behind
+`notifications.desktop.newBars`, an opt-in category switch that defaults off and was absent from
+Cody's settings file. The switch is "New bars on any open chart" under Alerts (Alt+J). The General
+tab's "Keep monitoring when the browser is closed" hint now says so, because that is where a user
+looks when the browser is closed and they hear nothing.
+
+**The General tab is shorter.** Fourteen hint paragraphs cut to a sentence or two each; two
+paragraphs on headless monitoring became one, and the touch-toolbar aside was folded into its
+hint. Same controls, same ids, same labels; `SettingsLanguageTests` still counts 35 hints.
+
+**One correction to the entry below:** the two "Describe … patterns" switches live on the
+**General** tab under Analysis, not the Speech tab. The Narration tab's own help text had it right.
+
 ### The narration coherence pass — ability vs occasion, the switch that lied, and the alarm that pierced a mute (2026-09-11)
 
 Suite **7,265** (was 7,255). Five questions from Cody; four of them turned out to be one idea:
@@ -11,7 +49,7 @@ Suite **7,265** (was 7,255). Five questions from Cody; four of them turned out t
 See `docs/SESSION_REVIEW_2026-09-11.md` for the whole session in one place.
 
 **Ability and occasion are two switches now.** "Describe candle patterns" and "Describe chart
-patterns" (Speech tab) decide whether a pattern is ever NAMED — arrow keys, bar-close sentence,
+patterns" (General tab, Analysis — corrected above) decide whether a pattern is ever NAMED — arrow keys, bar-close sentence,
 detail summary. They were also, accidentally, the only switch over the LIVE intra-bar commentary,
 so wanting pattern names while arrowing signed you up for a running commentary on the forming bar.
 Two new Narration-tab switches govern only the unprompted half: `narration.formingCandlePatterns`
