@@ -117,6 +117,69 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-11 (later still), FORTIETH pass — THE NARRATION LADDER
+> WITH THE BROWSER CLOSED, and the announcement Orca heard twice.)** Suite **7,312**.
+> `docs/SESSION_REVIEW_2026-09-11.md` §12 is the addendum. Phase 3 D4's narration half is DONE;
+> its alert half is not.
+>
+> ### 1. DURABLE, from this pass
+>
+> - **Lift, do not copy.** The scan that had to run headless was a set of private methods on a
+>   store-bound service with its memory in that service's fields. A second copy would have been a
+>   second place every rule must be added — the exact shape that lost five switches across a
+>   restart before. `NarrationScanner` is the one scan; `AutoNarrationService` and
+>   `HeadlessChartNarrator` are two callers. Every pre-existing narration test stayed green
+>   through the lift, which is the proof.
+> - **A scanner that remembers by INDEX needs a buffer, not a window.** A fresh `Limit: N` fetch
+>   a minute shifts every index by one; the 20-bar look-back would re-announce what it just said,
+>   the seed would drift off its bar. Merge (append newer, REPLACE held — the closed bar's final
+>   volume is the reading), trim past twice what is needed, and tell the scanner by how much.
+> - **The toast IS the speech where the screen reader reads it.** Toast then `PresentMessage` was
+>   every headless announcement twice on Cody's desktop. One rule (`DesktopAnnouncement`) for all
+>   four delivery sites; the body carries the whole sentence; a switch exists for a desktop whose
+>   screen reader does not read notifications. A test double that predates the rule keeps hearing
+>   both channels, so the old delivery tests keep meaning what they meant.
+> - **Never `git checkout --` in a sabotage harness — and for a NEW file it does not even
+>   revert, it FAILS, and the sabotage stays in place for the next run.** Rule 4 of the standing
+>   memory already said the first half; I had not re-read it. `cp` to scratch, `cp` back, `touch`,
+>   diff at the end. Two of four sabotages had to be re-run.
+> - **The floor gates what its doc says it gates.** The timeframe floor is "new-bar
+>   announcements only"; the ladder answers to the narration switches, as in-session.
+>
+> ### 2. NEXT — in this order
+>
+> 1. **HEAR IT.** Browser closed, a saved tab with N on Volume and on an EMA: one utterance per
+>    close, ladder behind the sentence, ONCE. Then with the New-bars switch off: the ladder alone,
+>    led by the symbol. Then an order fill and an alert with the browser closed — once each.
+> 2. **The alert half of D4** (`docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` D4 items 1–6): the
+>    narrator now builds exactly the populated state the evaluator needs; hand it over, and
+>    shrink `WhyUnwatchable` in the same commit.
+> 3. Hosted gating of background alerts — see the open question below, then the deferred venue
+>    dry runs and the Alpaca order stream.
+>
+> ### 3. OPEN QUESTIONS FOR CODY
+>
+> - **Hosted: how far does "gate background alerts" go?** You said the paper-only website should
+>   not offer background alerts and their settings. The desktop-notification panel and the local
+>   monitor are already hidden there. Still live on hosted: the server-side `HostedAlertMonitor`
+>   (evaluates every user's saved alerts after their browser closes, delivering by email /
+>   Telegram / webhook / Web Push) and the "Browser notifications" Web Push panel. Gate both? And
+>   email / Telegram / webhooks, which also deliver with the browser open?
+> - **Does Orca read `notify-send` toasts on every desktop you use?** The default now assumes it
+>   does wherever Orca is the speech route. If a machine goes quiet, the new switch under Alerts →
+>   Desktop notifications brings direct speech back.
+> - The three from the previous block stand: `notifications.desktop.newBars` default; why your
+>   own server was silent; a plain LINE off the price pane.
+>
+> ### 4. NOT VERIFIED HERE
+>
+> - Nothing was heard. MAUI not compiled here (`AlertDeliverySettings.razor` gained one checkbox
+>   row mirroring its neighbours; `SettingsModal.razor` hint text only).
+> - The accessibility agents did not review the new checkbox row (the subagent is not registered
+>   in this environment). Ids, label-for, and `aria-describedby` follow the row above it
+>   exactly; `FormControlNameSweepTests` and `SettingsLanguageTests` are green.
+> - `ToastIsSpoken` on macOS and Windows rests on the plan's earlier, unverified claims.
+
 > **START HERE (current as of 2026-09-11 (later), THIRTY-NINTH pass — THE QUALITY PASS OVER THE
 > NARRATION COHERENCE PASS. Volume reads at the close; the headless bar close was switched off.)**
 > Suite **7,280**. `docs/SESSION_REVIEW_2026-09-11.md` §11 is the addendum. **The headless bar

@@ -1,7 +1,9 @@
 # Background monitor Phase 3 — new bars, and the alerts nothing can watch
 
-**Status: PHASE 3 IS BUILT — D1, D2 and D3 are done (2026-09-08). D4 is a separate pass by
-Cody's decision (§5.3) and is the only item outstanding.** Written 2026-09-08 against `9a0d5940`,
+**Status: PHASE 3 IS BUILT — D1, D2 and D3 are done (2026-09-08). D4's NARRATION half — the
+ladder with the browser closed — landed 2026-09-11 (`HeadlessChartNarrator`, `NarrationScanner`;
+see `docs/SESSION_REVIEW_2026-09-11.md` §12). D4's ALERT half (populate the evaluator's state,
+shrink `WhyUnwatchable`) is the only item outstanding.** Written 2026-09-08 against `9a0d5940`,
 suite 7,223 + 4 (the measurements in section 1 are committed tests, not readings).
 
 Phase 3 is the last phase of `docs/BACKGROUND_MONITOR_SCOPE.md`. Phases 0, 1 and 2 are on
@@ -233,6 +235,15 @@ chart the user is not looking at. Phase 1's lesson applies verbatim: `AlertEvalu
 two producers is a field the other silently omits.*
 
 ### D4. Populate the state, and shrink `WhyUnwatchable` in the same commit
+
+> **2026-09-11: the narration ladder half of D4 is DONE** (Cody's ask that day). Design (B) as
+> recommended below, for narration: `HeadlessChartNarrator` composes a per-chart state — warmup
+> -deep bars in a merged buffer, the tab's narrated series recomputed through `IIndicatorEngine`
+> — and runs the store-free `NarrationScanner`. The fetch is the providers' stability window on
+> first sighting (asked of the providers directly rather than through `IBacktestWarmupAnalyzer`,
+> which is strategy-spec-shaped) and three bars a minute after. The items numbered 1–6 below
+> remain for ALERTS; the narrator now builds exactly the state item 4 asks for, so the alert half
+> is smaller than it was.
 
 1. Fetch warmup-many bars instead of 3, via `IBacktestWarmupAnalyzer` over the indicators the
    symbol's alerts reference. Cap it; a headless poll is not a chart load.

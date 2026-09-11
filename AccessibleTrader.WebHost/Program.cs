@@ -102,7 +102,8 @@ builder.Services.AddSingleton(new WebHostDemoMode(demoMode));
 var hostMode = accountsEnabled ? HostMode.Hosted
              : demoMode        ? HostMode.Demo
              :                    HostMode.Full;
-builder.Services.AddSingleton(new DemoPolicy(hostMode));
+var demoPolicy = new DemoPolicy(hostMode);
+builder.Services.AddSingleton(demoPolicy);
 // The withdrawal release gate, injected rather than read off a static so the markup that
 // depends on it can be rendered both ways in tests. Shipped == closed for 2.4.0.
 builder.Services.AddSingleton(AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.Shipped);
@@ -186,13 +187,21 @@ if (hostMode == HostMode.Hosted)
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Push.IPasswordResetRequestNotifier,
                                   AccessibleTrader.WebHost.Services.Push.OwnerPushResetRequestNotifier>();
 
-    builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
-        new AccessibleTrader.WebHost.Services.HostedAlertMonitor(
-            sp.GetRequiredService<IServiceScopeFactory>(),
-            sp.GetRequiredService<DemoPolicy>(),
-            usersRoot,
-            sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.HostedAlertMonitor>>(),
-            sp.GetRequiredService<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>()));
+    // GATED 2026-09-11 (Cody): the hosted terminal is paper-only, and alerts evaluated after the
+    // browser closes are not useful there. DemoPolicy.AllowBackgroundAlerts is false for every
+    // mode but Full, so this never registers today; it stays behind the policy rather than being
+    // deleted so a future hosted tier can turn it back on in one place. The Web Push plumbing
+    // above stays: the owner's password-reset notification rides it.
+    if (demoPolicy.AllowBackgroundAlerts)
+    {
+        builder.Services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
+            new AccessibleTrader.WebHost.Services.HostedAlertMonitor(
+                sp.GetRequiredService<IServiceScopeFactory>(),
+                sp.GetRequiredService<DemoPolicy>(),
+                usersRoot,
+                sp.GetRequiredService<ILogger<AccessibleTrader.WebHost.Services.HostedAlertMonitor>>(),
+                sp.GetRequiredService<AccessibleTrader.WebHost.Services.Push.HostedWebPushSender>()));
+    }
 }
 
 // Abuse guard for the public hosted endpoint — the strategy doc names a rate-limiter a

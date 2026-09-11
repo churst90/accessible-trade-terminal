@@ -59,6 +59,7 @@ namespace AccessibleTrader.WebHost.Services
         private readonly IDesktopAlertPresenter _presenter;
         private readonly ILogger<HeadlessOrderAnnouncer>? _logger;
         private readonly Func<string?, bool> _isCovered;
+        private readonly Func<bool> _speakBesideToast;
         private readonly List<IDisposable> _subs = new();
 
         /// <param name="isCovered">
@@ -67,15 +68,22 @@ namespace AccessibleTrader.WebHost.Services
         /// is the only way the doubling hazard is actually proved. Defaults to
         /// <see cref="CircuitOrderCoverage.IsCovered"/>.
         /// </param>
+        /// <param name="speakBesideToast">
+        /// The user's "also speak directly" switch, read at delivery time. Null means off — the
+        /// toast is the spoken route wherever the desktop's screen reader reads it
+        /// (<see cref="DesktopAnnouncement"/>).
+        /// </param>
         public HeadlessOrderAnnouncer(
             IEventBus bus,
             IDesktopAlertPresenter presenter,
             ILogger<HeadlessOrderAnnouncer>? logger = null,
-            Func<string?, bool>? isCovered = null)
+            Func<string?, bool>? isCovered = null,
+            Func<bool>? speakBesideToast = null)
         {
             _presenter = presenter;
             _logger = logger;
             _isCovered = isCovered ?? CircuitOrderCoverage.IsCovered;
+            _speakBesideToast = speakBesideToast ?? (() => false);
 
             // The money events, in the wording the in-session pipeline uses. Every one of
             // these is something that happened to the user's money while they were not
@@ -139,21 +147,12 @@ namespace AccessibleTrader.WebHost.Services
             // toast and the speech; a desktop with no notification daemon must still get the
             // speech. Wrapping all three together would let the first broken channel take the
             // other two down with it — and the last of the three is the one a blind user actually
-            // depends on.
-            Try(() => _presenter.PlayNotificationSound(), "sound");
-            Try(() => _presenter.Notify(title, ToastBody(title, speech), urgent: false), "toast");
-            Try(() => _presenter.Speak(speech), "speech");
-        }
-
-        private void Try(Action deliver, string what)
-        {
-            try { deliver(); }
-            catch (Exception ex)
-            {
-                // And never out to the bus: one broken channel must not cost every other
-                // subscriber the event.
-                _logger?.LogWarning(ex, "Headless order announcement could not deliver the {Channel}.", what);
-            }
+            // depends on. Speech runs only where the toast does not already reach the screen
+            // reader — see DesktopAnnouncement for the doubling this closes.
+            bool speakToo;
+            try { speakToo = _speakBesideToast(); } catch { speakToo = false; }
+            DesktopAnnouncement.Present(_presenter, speakToo, title, ToastBody(title, speech), speech,
+                urgent: false, withSound: true, _logger);
         }
 
         /// <summary>

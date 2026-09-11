@@ -413,9 +413,11 @@ public class LocalBackgroundMonitorTests
         string source = File.ReadAllText(Path.Combine(
             dir!.FullName, "AccessibleTrader.WebHost", "Services", "LocalBackgroundMonitor.cs"));
 
-        // Vacuity floor: the right file, and one that still delivers something.
+        // Vacuity floor: the right file, and one that still delivers something. Delivery goes
+        // through DesktopAnnouncement.Present since 2026-09-11 (one rule for toast-versus-speech
+        // shared with the order announcer), and the presenter is what it hands over.
         Assert.Contains("class LocalBackgroundMonitor", source, StringComparison.Ordinal);
-        Assert.Contains("_presenter.Speak", source, StringComparison.Ordinal);
+        Assert.Contains("DesktopAnnouncement.Present(_presenter", source, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
         // The CALL, not the word. Widened from "FindOnPath" on 2026-09-06: the class comment now

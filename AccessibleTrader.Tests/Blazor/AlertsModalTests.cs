@@ -48,6 +48,10 @@ public class AlertsModalTests
         IEventBus bus = new EventBus();
         ctx.Services.AddSingleton<IAlertOrchestrator>(orch);
         ctx.Services.AddSingleton(bus);
+        // The modal asks the host policy whether background alerts exist at all before it says
+        // "background monitoring cannot watch it" (hosted gating, 2026-09-11). Full mode here, so
+        // the caveat tests keep their meaning.
+        ctx.Services.AddSingleton(new DemoPolicy(isDemo: false));
 
         // AlertsModal now injects IWorkspaceStore (current-symbol default) and
         // ISettingsManager (webhook-target dropdown). Provide substitutes with a

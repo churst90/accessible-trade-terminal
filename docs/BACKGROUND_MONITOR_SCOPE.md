@@ -65,6 +65,12 @@ it and the circuit would otherwise both speak through the same Orca and double e
 > open — in-session speech and earcon for every venue the circuit hooked; browser closed —
 > `HeadlessOrderAnnouncer`, sound, toast and speech.** Row 4 remains Phase 3.
 
+> **ROW 4 CLOSED 2026-09-08 (Phase 3 D1–D3) and the NARRATION LADDER FOLLOWED 2026-09-11 (D4,
+> narration half).** With the browser closed the monitor observes bar closes on every saved tab and
+> speaks the bar-close sentence with the ladder — EMA crosses, level crosses, markers, the volume
+> reading — behind it, as one utterance, through the same `NarrationScanner` the focused chart
+> uses. See `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md`. The original finding, kept for the record:
+
 > **ROW 4 IS ALSO NARROWER THAN IT LOOKS — MEASURED 2026-09-08.** Its "browser open ✅" is the
 > FOCUSED chart only. The one publisher of `NewBarEvent` is `WorkspaceStore.cs:231`; the only
 > live dispatcher into it is `DataManager.OnFocusedFeedUpdated`; and `MarketFeedHub.cs:194-198`

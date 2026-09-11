@@ -202,6 +202,14 @@ namespace AccessibleTrader.Core.Services
         public bool AllowAiAnalyst        => Mode == HostMode.Full;   // external-LLM cost; desktop / tiered
         public bool AllowStrategies       => Mode == HostMode.Full;   // experimental auto-trading — local/desktop power feature
         public bool AllowBackgroundMonitoring => Mode == HostMode.Full; // multi-workspace background eval: N polling loops + N indicator recomputes is a desktop power feature; hosted stays single-workspace by design
+        // Alerts evaluated and delivered AFTER the browser closes — the local desktop monitor, the
+        // hosted server-side monitor, Web Push — and the settings that exist only for them.
+        // Cody, 2026-09-11: "for the web terminal hosted version where paper trading is only
+        // available, background alerts and related settings should be gated because they wouldn't
+        // be useful for the website when the browser is closed." A paper trade does not need to
+        // wake anyone. Email / Telegram / webhook delivery is NOT under this flag: those channels
+        // also carry alerts fired while the browser is open.
+        public bool AllowBackgroundAlerts => Mode == HostMode.Full;
 
         // On a server, a user-supplied webhook URL or SMTP host/port is an SSRF
         // primitive: "deliver my alert to https://169.254.169.254/…" or "connect

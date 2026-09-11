@@ -310,3 +310,57 @@ when checked. **Cody's next ask — the indicator narration ladder with the brow
 
 **Still not heard by the author.** Cody may have heard the run above; nothing else in this addendum
 has been through a screen reader.
+
+## 12. Addendum, later still on 2026-09-11 — the ladder with the browser closed, and the announcement heard twice
+
+Suite **7,280 → 7,312**. Cody's next two asks, both from listening to the headless run in §11.
+
+**"I also want the narration ladder to also be spoken when the browser is closed too."** Built as
+Phase 3 D4's narration half. The scan was LIFTED out of `AutoNarrationService` into a store-free
+`NarrationScanner` (its tracking dictionaries went with it; `ScanUtterance` is its own file), and
+the service is now the thin in-session half. `HeadlessChartNarrator` holds one saved chart's
+narrated series — rebuilt through `SeriesManagementService.MaterializeSaved`, the body of
+`RestoreSeriesFromSaved` minus the dispatch, so the name is derived and the N selection, levels and
+current component defaults are what a load would give — keeps a bounded bar BUFFER (first fetch is
+the providers' stability window plus the scanner's look-back, then three bars a minute, merged:
+newer bars append, held bars are replaced so the reading at the close is the closed bar's FINAL
+volume), recomputes through `IIndicatorEngine` each poll and runs the same scanner. The monitor
+composes it behind the bar-close sentence as one utterance, or speaks it alone led by the symbol
+when the New-bars category is off. Gated by the Narration master switch and N, not by the toast
+switch or the timeframe floor. Ownership unchanged: observed while a browser covers the chart,
+spoken from the first close after it goes.
+
+Why a buffer and not a window: the scanner remembers markers by INDEX. A fresh window every
+minute shifts every index by one and the 20-bar look-back re-announces what it just said. The
+buffer is trimmed past twice what is needed and the scanner is told (`ShiftIndices`); sabotaging
+that out made the reading go silent, because the seed stayed at 99 while the closed bar moved to 48.
+
+**"When the browser is closed orca reads the notification twice."** It did: `notify-send` toast,
+then Orca `PresentMessage` with the same sentence, and Orca presents notifications itself. Now
+`DesktopDeliveryPlan.ToastIsSpoken` says whether the toast reaches the screen reader on its own
+(Linux: Orca is the speech route; macOS and Windows: the plan already claimed VoiceOver and
+Narrator read it) and `DesktopAnnouncement.Present` — used by the alert monitor, the bar-close and
+narration announcements, the monitor's self-reports and `HeadlessOrderAnnouncer` — speaks only
+where it does not. The toast body now carries the whole sentence, ladder included. A new switch
+under Alerts → Desktop notifications, "Also speak announcements aloud, not only through the
+notification" (default off), is the way back for a desktop whose screen reader does not read them.
+The interface default (`ToastIsSpoken => false`) keeps every pre-existing test double hearing
+both channels, so the old delivery tests keep their meaning.
+
+**A harness defect of my own, worth recording.** The first sabotage script restored with
+`git checkout --`. For the NEW narrator file that command fails outright and the sabotage STAYED
+IN PLACE for the next run; for the two MODIFIED files it reverted them to HEAD and discarded the
+session's edits. Rule 4 of the standing sabotage memory already said "never `git checkout --`";
+I had not re-read it. The four sabotages were re-run from file copies: (a) merge without replace —
+4 red, (b) trim without the shift — red, (c) ladder without ownership — 6 red, (d) speech beside
+every toast — red; the files diffed byte-identical to their backups afterwards.
+
+**Not verified here.** Nothing heard. The MAUI head not compiled (two Razor files changed: a new
+checkbox row in `AlertDeliverySettings.razor` mirroring its neighbours' ids, labels and
+`aria-describedby`; hint text in `SettingsModal.razor`). The accessibility agents are not
+registered in this environment. Whether Orca reads a `notify-send` toast on desktops other than
+Cody's MATE is assumed from his report, not measured; the switch exists for the case where it does
+not. macOS and Windows `ToastIsSpoken` rest on the plan's own earlier claims, unverified there as
+before. The alert half of D4 — shrinking `WhyUnwatchable` by giving the evaluator a populated
+state — is NOT done; the narrator now computes exactly the state it would need, so it is a
+smaller step than it was.

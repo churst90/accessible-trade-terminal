@@ -49,6 +49,72 @@ namespace AccessibleTrader.WebHost.Services
         /// the same ladder the in-session speech manager uses — <c>say</c> on macOS, SAPI on
         /// Windows.</summary>
         void Speak(string text);
+
+        /// <summary>
+        /// Whether a toast raised through <see cref="Notify"/> is read aloud by the desktop's
+        /// screen reader on its own, so that <see cref="Speak"/> of the same text would be heard
+        /// twice. See <see cref="DesktopDeliveryPlan.ToastIsSpoken"/> for the per-desktop rule and
+        /// <see cref="DesktopAnnouncement"/> for the one place that applies it. Defaults to false
+        /// so a test double that records both channels keeps recording both.
+        /// </summary>
+        bool ToastIsSpoken => false;
+    }
+
+    /// <summary>
+    /// <b>The one rule for sound, toast and speech with no browser attached</b>, shared by the
+    /// alert monitor, the bar-close announcer and the order announcer so they cannot drift.
+    ///
+    /// <para>Until 2026-09-11 each of them raised the toast and then spoke the same sentence, and
+    /// on a desktop whose screen reader reads notifications (Cody's: MATE + Orca) every
+    /// announcement arrived twice. Now: the toast goes out whenever there is a toast tool; the
+    /// sentence is spoken as well ONLY when the toast does not already reach the screen reader
+    /// (<see cref="IDesktopAlertPresenter.ToastIsSpoken"/>) or the user has asked for both
+    /// (<see cref="SettingsKeys.DesktopSpeakBesideToast"/>, for a desktop where the notification
+    /// daemon is not one the screen reader presents). With no toast tool at all, speech is the only
+    /// channel and always runs.</para>
+    ///
+    /// <para>Because the toast can now be the ONLY spoken route, its body carries the whole
+    /// sentence — including the narration ladder on a bar close — not a shortened visual form.
+    /// Three separate attempts, not one: a machine with no audio player must still get the toast,
+    /// and a broken toast must not take speech down with it.</para>
+    /// </summary>
+    public static class DesktopAnnouncement
+    {
+        /// <summary>The user's "also speak directly" switch, default off.</summary>
+        public static bool SpeakBesideToast(ISettingsManager? settings)
+        {
+            try { return settings?.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? false; }
+            catch { return false; }
+        }
+
+        /// <summary>Whether <see cref="IDesktopAlertPresenter.Speak"/> should run after the toast.</summary>
+        public static bool ShouldSpeak(IDesktopAlertPresenter presenter, bool speakBesideToast)
+            => speakBesideToast || !(presenter.CanNotify && presenter.ToastIsSpoken);
+
+        /// <summary>Sound (optional), toast, and speech under the rule above. Each channel is its own
+        /// attempt; a failure is logged and the next channel still runs.</summary>
+        /// <param name="toastBody">What the notification shows under <paramref name="title"/>. A
+        /// screen reader that reads the toast reads the title and then this, so a body that
+        /// repeats the title would be heard twice — see <c>HeadlessOrderAnnouncer.ToastBody</c>.</param>
+        /// <param name="speech">The whole sentence, for the direct speech route.</param>
+        public static void Present(
+            IDesktopAlertPresenter presenter, bool speakBesideToast,
+            string title, string toastBody, string speech, bool urgent, bool withSound, ILogger? logger)
+        {
+            if (withSound) Try(() => presenter.PlayNotificationSound(), "sound", logger);
+            Try(() => presenter.Notify(title, toastBody, urgent), "toast", logger);
+            if (ShouldSpeak(presenter, speakBesideToast))
+                Try(() => presenter.Speak(speech), "speech", logger);
+        }
+
+        private static void Try(Action deliver, string channel, ILogger? logger)
+        {
+            try { deliver(); }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Desktop announcement could not deliver the {Channel}.", channel);
+            }
+        }
     }
 
     /// <summary>
@@ -113,6 +179,8 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         public bool CanNotify => _plan.CanNotify;
+
+        public bool ToastIsSpoken => _plan.ToastIsSpoken;
 
         public void Notify(string title, string text, bool urgent)
             => Run(_plan.ToastCommand(title, text, urgent));

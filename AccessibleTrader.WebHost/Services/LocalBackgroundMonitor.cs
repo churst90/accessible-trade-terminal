@@ -5,6 +5,8 @@ using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Notifications;
 using AccessibleTrader.Core.Services.Workspace;
 using AccessibleTrader.Sdk.Alerts;
+using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Plugins;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.WebHost.Services
@@ -48,6 +50,11 @@ namespace AccessibleTrader.WebHost.Services
     /// where the ordinary in-session subscribers (email, Telegram, webhooks, the
     /// journal) pick it up unchanged.
     ///
+    /// Since 2026-09-11 (Phase 3 D4) it also speaks the NARRATION LADDER for the
+    /// saved tabs' series flagged with N — the same scan the focused chart runs,
+    /// through <see cref="HeadlessChartNarrator"/> — composed into the bar-close
+    /// sentence as one utterance, exactly as in-session.
+    ///
     /// Opt-in: Settings → General → "Keep monitoring when the browser is closed"
     /// (monitoring.backgroundLocal, default off). Read per poll, so toggling
     /// takes effect without a restart.
@@ -56,6 +63,11 @@ namespace AccessibleTrader.WebHost.Services
     {
         public const string SettingKey = "monitoring.backgroundLocal";
         public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
+
+        /// <summary>The narrowest fetch a poll ever makes: the forming bar, the one that just
+        /// closed, and one more. Alerts read the last two; the bar-close observer reads the
+        /// newest date.</summary>
+        internal const int MinFetch = 3;
 
         private readonly HeadlessSession _session;
         private readonly DemoPolicy _demo;
@@ -73,6 +85,11 @@ namespace AccessibleTrader.WebHost.Services
         // on every subsequent poll.
         private readonly AlertEvaluator _evaluator = new(
             new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer());
+
+        /// <summary>The user's "also speak directly" switch, read once per poll so every delivery
+        /// in that poll — alerts, bar closes, the monitor's own reports — applies the same rule.
+        /// See <see cref="DesktopAnnouncement"/>.</summary>
+        private bool _speakBesideToast;
 
         public LocalBackgroundMonitor(
             HeadlessSession session,
@@ -123,6 +140,7 @@ namespace AccessibleTrader.WebHost.Services
             var services = _session.Services;
             var settings = services.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
+            _speakBesideToast = DesktopAnnouncement.SpeakBesideToast(settings);
 
             var alerts = services.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
             WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts));
@@ -132,6 +150,15 @@ namespace AccessibleTrader.WebHost.Services
             // ours. See CircuitAlertCoverage for why this is not a pause.
             var covered = CircuitAlertCoverage.CoveredSymbols();
             var watches = OwnedWatches(DeriveWatches(alerts), covered);
+
+            // The saved tabs are read for two reasons that answer to two different switches:
+            // bar closes (the New-bars category, opt-in) and the narration ladder (the Narration
+            // tab's master switch, default on, over the per-series N flag). Either one is a
+            // reason to know which charts the user had open.
+            bool barClosesOn = WatchBarCloses(settings);
+            bool narrationOn = NarrateOnBarClose(settings);
+            var session = barClosesOn || narrationOn ? LoadLastSession(services) : null;
+            var tabWatches = DeriveBarCloseWatches(session);
 
             // Bar closes (Phase 3 D1). Same routing rule as alerts: a symbol an open browser
             // already covers belongs to that browser — in-session the focused chart publishes
@@ -144,19 +171,31 @@ namespace AccessibleTrader.WebHost.Services
             // only seeds. Cody, three tabs, a 1-minute chart, browser shut: the earliest possible
             // announcement was the SECOND bar to close after the hand-off, on top of the circuit
             // retention period the hand-off itself waits for. Watching the timestamp while the
-            // browser is open costs one Limit-3 fetch a minute per saved tab and means the seed
+            // browser is open costs one small fetch a minute per saved tab and means the seed
             // is already warm when the chart becomes ours.
-            var barWatches = WatchBarCloses(settings)
-                ? DeriveBarCloseWatches(LoadLastSession(services))
-                    .Where(w => ClearsTimeframeFloor(w.Timeframe, TimeframeFloor(settings)))
-                    .ToList()
+            var barWatches = barClosesOn
+                ? tabWatches.Where(w => ClearsTimeframeFloor(w.Timeframe, TimeframeFloor(settings))).ToList()
                 : new List<Watch>();
             var announceKeys = OwnedWatches(barWatches, covered)
                 .Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+            // The narration ladder (Phase 3 D4). Cody, 2026-09-11: "I also want the narration
+            // ladder to also be spoken when the browser is closed too." Same ownership rule, and
+            // observed-while-covered for the same reason as the bar close above. NOT behind the
+            // timeframe floor: in-session the ladder answers to the narration switches and not
+            // to the new-bar toast, and a user who flagged a 1-minute volume pane with N asked
+            // for a reading a minute. The floor stays what its doc says it is — new-bar
+            // announcements only.
+            var narrationWatches = narrationOn
+                ? tabWatches.Where(w => HeadlessNarration.HasNarratedSeries(w.Series)).ToList()
+                : new List<Watch>();
+            var narrateKeys = OwnedWatches(narrationWatches, covered)
+                .Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            ForgetNarratorsNotIn(narrationWatches);
+
             // One fetch per chart, however many reasons there are to want it. A symbol carrying
             // an alert AND sitting in an open tab is two reasons and must stay one request.
-            var targets = MergeTargets(watches, barWatches);
+            var targets = MergeTargets(watches, barWatches, narrationWatches);
             if (targets.Count == 0) return;
 
             // Serialised with the order watch's identical preamble — two loops on one scope
@@ -164,33 +203,54 @@ namespace AccessibleTrader.WebHost.Services
             await _session.EnsureDataReadyAsync();
             var data = services.GetRequiredService<IDataService>();
 
-            foreach (var (watch, watchBarCloses) in targets)
+            foreach (var target in targets)
             {
                 ct.ThrowIfCancellationRequested();
+                var watch = target.Watch;
                 var provider = await data.GetProviderAsync(watch.Provider);
                 if (provider == null) continue;
 
-                List<Ohlcv> bars;
-                try
-                {
-                    var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
-                        watch.Market, watch.Symbol, watch.Timeframe, Limit: 3));
-                    bars = ohlcv;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Background fetch failed for {Symbol} on {Provider}.",
-                        watch.Symbol, watch.Provider);
-                    NoteFeedFailure(watch.Symbol, watch.Provider);
-                    continue;
-                }
+                // The narrator, when this chart has anything under N, decides how deep the fetch
+                // is: the indicators' warmup on a cold buffer, MinFetch once it is warm.
+                var narrator = target.Narrate ? GetNarrator(services, watch) : null;
+                int limit = Math.Max(MinFetch, narrator?.FetchLimit ?? MinFetch);
+
+                var bars = await FetchAsync(provider, watch, limit);
+                if (bars == null) continue;
                 NoteFeedRecovered(watch.Symbol);
                 if (bars.Count < 2) continue;
+
+                // The ladder is OBSERVED on every poll the chart is narrated — covered or not —
+                // so its memory of what has already been said is warm at hand-off. Whether it is
+                // SPOKEN is decided below, by ownership.
+                string? ladder = null;
+                if (narrator != null)
+                {
+                    var observed = await narrator.ObserveAsync(bars, isFullHistory: limit >= narrator.BarsNeeded, ct);
+                    if (observed.NeedsMoreHistory)
+                    {
+                        // A poll was missed for longer than the catch-up window covers: ask once
+                        // for the full window, then let the narrator decide whether to re-seed.
+                        var more = await FetchAsync(provider, watch, narrator.BarsNeeded);
+                        if (more != null && more.Count >= 2)
+                        {
+                            bars = more;
+                            observed = await narrator.ObserveAsync(bars, isFullHistory: true, ct);
+                        }
+                    }
+                    ladder = observed.Narration;
+                }
 
                 // Bar closes FIRST, and outside the alert path: a chart with no alerts on it is
                 // the ordinary case for this half, and burying it under an alert loop that runs
                 // zero times is how it would come to depend on something unrelated.
-                if (watchBarCloses) NoteBarClose(watch, bars, announce: announceKeys.Contains(WatchKey(watch)));
+                bool closed = target.WatchBarCloses && NoteBarClose(watch, bars);
+                bool speakLadder = ladder != null && narrateKeys.Contains(WatchKey(watch));
+
+                if (closed && announceKeys.Contains(WatchKey(watch)))
+                    AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1], speakLadder ? ladder : null);
+                else if (speakLadder)
+                    AnnounceNarration(watch, ladder!);
 
                 if (watch.Alerts.Count == 0) continue;
 
@@ -200,6 +260,24 @@ namespace AccessibleTrader.WebHost.Services
                     new Dictionary<string, double>()).ToList();
 
                 foreach (var f in fired) Deliver(f, watch.Symbol);
+            }
+        }
+
+        /// <summary>One fetch, with the dead-feed bookkeeping. Null on failure.</summary>
+        private async Task<List<Ohlcv>?> FetchAsync(IMarketDataProvider provider, Watch watch, int limit)
+        {
+            try
+            {
+                var (ohlcv, _) = await provider.FetchOhlcvAsync(new MarketDataRequest(
+                    watch.Market, watch.Symbol, watch.Timeframe, Limit: limit));
+                return ohlcv;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Background fetch failed for {Symbol} on {Provider}.",
+                    watch.Symbol, watch.Provider);
+                NoteFeedFailure(watch.Symbol, watch.Provider);
+                return null;
             }
         }
 
@@ -251,10 +329,8 @@ namespace AccessibleTrader.WebHost.Services
         /// put a fake row in the tray's list.
         /// </summary>
         private void Announce(string text)
-        {
-            _presenter.Notify("Alert monitoring", text, urgent: true);
-            _presenter.Speak(text);
-        }
+            => DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+                "Alert monitoring", text, text, urgent: true, withSound: false, _logger);
 
         // Warn once per distinct set, not once per poll: the monitor polls every
         // minute for as long as the app runs, and a warning that repeats forever
@@ -277,8 +353,14 @@ namespace AccessibleTrader.WebHost.Services
 
         // ── Watch derivation (pure; unit-tested) ─────────────────────────────
 
+        /// <param name="Series">The saved tab's series configs, when the watch came from a tab —
+        /// the narration ladder is built from the ones flagged with N. Null for an alert watch.</param>
         public sealed record Watch(string Provider, string Symbol, string Timeframe,
-            IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot");
+            IReadOnlyList<AlertDefinition> Alerts, string Market = "Spot",
+            IReadOnlyList<SeriesConfig>? Series = null);
+
+        /// <summary>One chart to fetch this poll, and the reasons it is wanted.</summary>
+        internal sealed record Target(Watch Watch, bool WatchBarCloses, bool Narrate);
 
         // ── Bar closes with the browser closed (Phase 3 D1/D2) ───────────────
         //
@@ -328,7 +410,8 @@ namespace AccessibleTrader.WebHost.Services
                     tab.Symbol.Trim(),
                     string.IsNullOrWhiteSpace(tab.Timeframe) ? "1h" : tab.Timeframe.Trim(),
                     Array.Empty<AlertDefinition>(),
-                    string.IsNullOrWhiteSpace(tab.Market) ? "Spot" : tab.Market.Trim());
+                    string.IsNullOrWhiteSpace(tab.Market) ? "Spot" : tab.Market.Trim(),
+                    tab.Series);
 
                 // Two tabs on the same chart are one watch. Duplicates would fetch twice and
                 // announce twice — and the second announcement would be indistinguishable from
@@ -444,8 +527,6 @@ namespace AccessibleTrader.WebHost.Services
                     v.Timeframe.ToLowerInvariant(), v.Market.ToLowerInvariant());
         }
 
-        // ── Delivery: sound → toast → speech ─────────────────────────────────
-
         // ── Bar closes with the browser closed (Phase 3 D1/D2) ───────────────
 
         /// <summary>
@@ -454,19 +535,34 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         internal static IReadOnlyList<(Watch Watch, bool WatchBarCloses)> MergeTargets(
             IEnumerable<Watch> alertWatches, IEnumerable<Watch> barWatches)
+            => MergeTargets(alertWatches, barWatches, Array.Empty<Watch>())
+                .Select(t => (t.Watch, t.WatchBarCloses)).ToList();
+
+        /// <summary>
+        /// Three reasons to want a chart — its alerts, its bar closes, its narration ladder —
+        /// merged into one fetch per chart.
+        /// </summary>
+        internal static IReadOnlyList<Target> MergeTargets(
+            IEnumerable<Watch> alertWatches, IEnumerable<Watch> barWatches, IEnumerable<Watch> narrationWatches)
         {
-            var byKey = new Dictionary<string, (Watch Watch, bool Bars)>(StringComparer.OrdinalIgnoreCase);
-            foreach (var w in alertWatches) byKey[WatchKey(w)] = (w, false);
+            var byKey = new Dictionary<string, Target>(StringComparer.OrdinalIgnoreCase);
+            foreach (var w in alertWatches) byKey[WatchKey(w)] = new Target(w, false, false);
             foreach (var w in barWatches)
             {
                 // Keep the ALERT watch when both exist — it is the one carrying the alert list.
                 // Taking the bar watch instead would silently drop every alert on that chart,
                 // which is the kind of loss that shows up as "my alert stopped working" weeks
-                // later with nothing in a log.
-                if (byKey.TryGetValue(WatchKey(w), out var existing))
-                    byKey[WatchKey(w)] = (existing.Watch, true);
-                else
-                    byKey[WatchKey(w)] = (w, true);
+                // later with nothing in a log. The tab's SERIES ride along either way, because
+                // the alert watch never carries any.
+                byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
+                    ? existing with { Watch = existing.Watch with { Series = w.Series }, WatchBarCloses = true }
+                    : new Target(w, true, false);
+            }
+            foreach (var w in narrationWatches)
+            {
+                byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
+                    ? existing with { Watch = existing.Watch with { Series = w.Series }, Narrate = true }
+                    : new Target(w, false, true);
             }
             return byKey.Values.ToList();
         }
@@ -476,6 +572,15 @@ namespace AccessibleTrader.WebHost.Services
         {
             try { return settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false; }
             catch { return false; }
+        }
+
+        /// <summary>The Narration tab's master switch — default ON, as it is in-session
+        /// (<c>AppSettings.NarrateSignalsOnBarClose</c>). N picks WHICH series speak; this says
+        /// whether any of them do.</summary>
+        private static bool NarrateOnBarClose(ISettingsManager settings)
+        {
+            try { return settings.GetSetting(SettingsKeys.NarrateSignalsOnBarClose)?.ToObject<bool>() ?? true; }
+            catch { return true; }
         }
 
         private static string? TimeframeFloor(ISettingsManager settings)
@@ -509,19 +614,19 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         /// <summary>
-        /// One announcement per chart per poll, and none on the first sighting.
+        /// One announcement per chart per poll, and none on the first sighting. Returns whether
+        /// a bar closed since the last poll; the caller decides whether that is announced.
         ///
         /// <para><b>The seed matters.</b> Without it, starting the terminal announces a bar close
         /// on every watched chart at once — bars that closed while it was not running, presented
         /// as news. And a poll that was missed (a laptop asleep, a provider down for ten minutes)
         /// must not produce ten announcements when it comes back: the newest bar is the only one
         /// that is still true, so exactly one is spoken however many were skipped.</para>
+        ///
+        /// <para>Tracked while a browser covers the chart too, so the seed is warm at hand-off;
+        /// the browser is the one saying it until then.</para>
         /// </summary>
-        /// <param name="announce">
-        /// False while a browser covers this chart: the timestamp is still tracked so the seed is
-        /// warm at hand-off, but the browser is the one saying it.
-        /// </param>
-        private void NoteBarClose(Watch watch, IReadOnlyList<Ohlcv> bars, bool announce = true)
+        private bool NoteBarClose(Watch watch, IReadOnlyList<Ohlcv> bars)
         {
             var newest = bars[^1].Date;
             string key = WatchKey(watch);
@@ -531,44 +636,116 @@ namespace AccessibleTrader.WebHost.Services
                 if (!_lastBarSeen.TryGetValue(key, out var previous))
                 {
                     _lastBarSeen[key] = newest;   // seed only
-                    return;
+                    return false;
                 }
-                if (newest <= previous) return;   // nothing closed since last poll
+                if (newest <= previous) return false;   // nothing closed since last poll
                 _lastBarSeen[key] = newest;
             }
-            if (!announce) return;
-
-            // The bar that CLOSED is the one before the newly opened newest bar.
-            AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1]);
+            return true;
         }
 
-        private void AnnounceBarClose(Watch watch, Ohlcv closed, Ohlcv opened)
+        /// <summary>
+        /// The bar-close sentence, with the narration ladder behind it when there is one — ONE
+        /// utterance, as in-session, where the coordinator defers the new-bar sentence to the
+        /// narrator so the two are spoken together or not at all.
+        /// </summary>
+        private void AnnounceBarClose(Watch watch, Ohlcv closed, Ohlcv opened, string? ladder)
         {
             string title = DesktopNotificationService.NewBarTitle(watch.Symbol, watch.Timeframe);
             string sentence = BackgroundBarAnnouncer.BackgroundSentence(
                 new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
                 closed, opened);
+            if (ladder != null) sentence = sentence + " " + ladder;
 
             _logger.LogInformation("Background bar close: {Sentence}", sentence);
 
             // Sound, toast and speech are THIS monitor's, for the same reason the alert delivery
-            // above is: routing them through the headless DesktopNotificationService would put an
+            // below is: routing them through the headless DesktopNotificationService would put an
             // already-opted-in delivery behind a second switch, and give two owners one event.
             // The headless session is built WITHOUT the NewBars category for exactly this reason
-            // — see HeadlessSession.
+            // — see HeadlessSession. The toast body IS the sentence: on a desktop whose screen
+            // reader reads notifications, the toast is the spoken route (DesktopAnnouncement).
+            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+                title, sentence, sentence, urgent: false, withSound: true, _logger);
+        }
+
+        /// <summary>
+        /// The ladder on its own — the New-bars category is off, or the chart is below its floor,
+        /// but something under N had news at this close. Led by the symbol, because everything
+        /// this monitor says is about a chart the user is not looking at; the bar-close sentence
+        /// normally supplies that lead and here there is none.
+        /// </summary>
+        private void AnnounceNarration(Watch watch, string ladder)
+        {
+            string title = $"{watch.Symbol} {watch.Timeframe}";
+            string text = $"{title}: {ladder}";
+            _logger.LogInformation("Background narration: {Text}", text);
+            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+                title, text, text, urgent: false, withSound: false, _logger);
+        }
+
+        // ── The narration ladder (Phase 3 D4) ────────────────────────────────
+
+        /// <summary>
+        /// One narrator per watched chart, kept for as long as the saved tab's narrated series
+        /// stay the same. Keyed on the watch; the signature says whether the saved configs
+        /// changed underneath it (N pressed on something, a parameter edited) — in which case it
+        /// is rebuilt and re-seeded. A save that changed NOTHING the ladder reads keeps the
+        /// narrator and its warm memory, which is what makes the hand-off from an open browser
+        /// announce the first close after it rather than the second.
+        /// </summary>
+        private readonly Dictionary<string, (string Signature, HeadlessChartNarrator Narrator)> _narrators
+            = new(StringComparer.OrdinalIgnoreCase);
+        private bool _warnedNoNarration;
+
+        private HeadlessChartNarrator? GetNarrator(IServiceProvider services, Watch watch)
+        {
+            string key = WatchKey(watch);
+            var saved = watch.Series ?? Array.Empty<SeriesConfig>();
+            string signature = HeadlessNarration.Signature(saved);
+
+            if (_narrators.TryGetValue(key, out var held) && held.Signature == signature)
+                return held.Narrator;
+
+            var factory = services.GetService<HeadlessNarration>();
+            if (factory == null)
+            {
+                if (!_warnedNoNarration)
+                {
+                    _warnedNoNarration = true;
+                    _logger.LogWarning("Headless narration is not registered in this host; the narration ladder will not be spoken with the browser closed.");
+                }
+                return null;
+            }
+
             try
             {
-                _presenter.PlayNotificationSound();
-                _presenter.Notify(title, DesktopNotificationService.NewBarBody(
-                    TimeframeUtility.ToSeconds(watch.Timeframe) is int bs && bs > 0 ? bs : 86400, closed),
-                    urgent: false);
-                _presenter.Speak(sentence);
+                var narrator = factory.Create(
+                    new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved);
+                _narrators[key] = (signature, narrator);
+                _logger.LogInformation(
+                    "Headless narration watching {Symbol} {Timeframe}: {Count} narrated series, {Bars} bars of history.",
+                    watch.Symbol, watch.Timeframe, narrator.NarratedSeries.Count, narrator.BarsNeeded);
+                return narrator;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Background bar-close announcement failed for {Symbol}.", watch.Symbol);
+                _logger.LogWarning(ex, "Headless narration could not be built for {Symbol} {Timeframe}.",
+                    watch.Symbol, watch.Timeframe);
+                return null;
             }
         }
+
+        /// <summary>A tab that closed, or lost its last N flag, is forgotten — its memory would
+        /// otherwise sit in the dictionary for the life of the process.</summary>
+        private void ForgetNarratorsNotIn(IEnumerable<Watch> narrationWatches)
+        {
+            var keep = narrationWatches.Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in _narrators.Keys.Where(k => !keep.Contains(k)).ToList())
+                _narrators.Remove(key);
+        }
+
+        // ── Delivery: sound → toast → speech ─────────────────────────────────
 
         private void Deliver(AlertFired fired, string watchedSymbol)
         {
@@ -594,9 +771,8 @@ namespace AccessibleTrader.WebHost.Services
             // put an already-opted-in delivery behind notifications.desktop.alerts, which
             // defaults off, and silently un-ship the feature. The headless service is built
             // without the Alerts category for exactly this reason.
-            _presenter.PlayNotificationSound();
-            _presenter.Notify("Trading alert", text, urgent: false);
-            _presenter.Speak(text);
+            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+                "Trading alert", text, text, urgent: false, withSound: true, _logger);
 
             // And then publish it on the long-lived session's bus, so the ordinary in-session
             // subscribers see a background alert for the first time: AlertDeliveryService's

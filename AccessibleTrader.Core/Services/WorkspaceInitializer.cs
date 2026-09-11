@@ -605,7 +605,10 @@ namespace AccessibleTrader.Core.Services
         ///   <item>Adds any CloudFill definitions that are in the current metadata but missing from the saved config.</item>
         /// </list>
         /// </summary>
-        private static void MigrateSeriesConfig(SeriesConfig config, List<IndicatorMetadata> allMeta)
+        /// <remarks>Public because the background monitor restores a saved tab's series with the
+        /// browser closed (<c>HeadlessChartNarrator</c>) and must migrate the same way this
+        /// restore does — a saved "Candle Body" is "body" in both places or in neither.</remarks>
+        public static void MigrateSeriesConfig(SeriesConfig config, List<IndicatorMetadata> allMeta)
         {
             // Phase 5 (2026-04-09): rename legacy Candles/Price component names to the
             // new snake_case machine names introduced in Phase 2. Old workspaces saved

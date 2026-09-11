@@ -312,7 +312,7 @@ namespace AccessibleTrader.Core.Services
         /// would find nothing to disagree about and name them both by ordinal.
         /// </para>
         /// </summary>
-        private static IReadOnlyDictionary<string, object> ParameterSetOf(SeriesConfig config)
+        public static IReadOnlyDictionary<string, object> ParameterSetOf(SeriesConfig config)
         {
             var merged = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
             foreach (var kv in config.Parameters) merged[kv.Key] = kv.Value;
@@ -372,15 +372,7 @@ namespace AccessibleTrader.Core.Services
 
         public void RegisterSeriesFromConfig(SeriesConfig config)
         {
-            // Use the saved config directly — preserves colors, levels, parameters.
-            // Drawing rehydrates from the persisted anchors; the component arrays
-            // start empty and IndicatorOrchestrator recomputes them from the
-            // anchors as soon as chart data is available (its IsDrawing branch).
-            var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id })
-            {
-                IsProfile = ProfileAnchoring.IsProfileCode(config.IndicatorCode),
-                Drawing = config.Drawing
-            };
+            var series = MaterializeVerbatim(config);
             _store.Dispatch(new AddSeriesAction(series));
             // No PersistWorkspace here — restoring from a saved profile must not overwrite it.
 
@@ -401,6 +393,62 @@ namespace AccessibleTrader.Core.Services
                 return;
             }
 
+            var siblings = SiblingParameterSets(config.IndicatorCode, exceptSeriesId: config.Id);
+            var freshSeries = MaterializeSaved(config, meta, _modelFactory, siblings, _indicatorEngine, _indicatorPrefs);
+
+            _store.Dispatch(new AddSeriesAction(freshSeries));
+
+            // Same as an add: the cohort is re-named against its new size, so the EMA restored
+            // first — alone at the time, called "EMA" — becomes "EMA 20" when the second one
+            // lands. A load restores series one at a time, so this runs once per series of the
+            // cohort; RenameCohort dispatches only when a name actually changed.
+            RenameCohort(config.IndicatorCode, meta);
+
+            // No PersistWorkspace — restoring must not overwrite the saved profile.
+            _eventBus.Publish(new IndicatorUpdatedEvent(config.Id));
+        }
+
+        /// <summary>
+        /// A saved config as a series, EXACTLY as saved: colours, levels, parameters, anchors.
+        /// The component arrays start empty; whoever owns the data recomputes them.
+        /// </summary>
+        public static ChartSeries MaterializeVerbatim(SeriesConfig config)
+        {
+            // Drawing rehydrates from the persisted anchors; the component arrays
+            // start empty and IndicatorOrchestrator recomputes them from the
+            // anchors as soon as chart data is available (its IsDrawing branch).
+            return new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id })
+            {
+                IsProfile = ProfileAnchoring.IsProfileCode(config.IndicatorCode),
+                Drawing = config.Drawing
+            };
+        }
+
+        /// <summary>
+        /// <b>The series a saved indicator config restores to, with no store involved.</b>
+        ///
+        /// <para>This is the body of <see cref="RestoreSeriesFromSaved"/> minus the dispatch:
+        /// the three-layer rebuild through the factory, the derived name, the five user
+        /// switches, the levels. It is static and store-free because the background monitor
+        /// restores a saved tab's series WITH THE BROWSER CLOSED (<c>HeadlessChartNarrator</c>)
+        /// and there is no store there to dispatch into — and because a second hand-written copy
+        /// of this list is exactly how narration, mute and "announce across series" each got lost
+        /// across a restart before (see the comment on the five switches below). One list, two
+        /// callers.</para>
+        /// </summary>
+        /// <param name="siblings">The parameter sets of the OTHER instances of the same indicator
+        /// on the chart, for the derived name. Empty when this one is alone.</param>
+        /// <param name="ordinal">This instance's 1-based position in its cohort, used only when the
+        /// name falls back to an ordinal. Zero means "the one just added".</param>
+        public static ChartSeries MaterializeSaved(
+            SeriesConfig config,
+            IndicatorMetadata meta,
+            IIndicatorModelFactory modelFactory,
+            IReadOnlyList<IReadOnlyDictionary<string, object>> siblings,
+            Indicators.IIndicatorEngine indicatorEngine,
+            IIndicatorPreferencesService indicatorPrefs,
+            int ordinal = 0)
+        {
             // Convert saved parameters to the factory's tuple list format. Both dictionaries:
             // restoring only the numeric half would silently reset every string parameter
             // (comparison symbol, MA type, pivot period, threshold mode) to its metadata
@@ -423,15 +471,14 @@ namespace AccessibleTrader.Core.Services
             // indicator's name; it owns the parameters the name is computed from. An indicator's
             // name is never user-typed (the Properties rename box is for drawings, which take the
             // meta == null path above), so there is nothing here to preserve.
-            var siblings = SiblingParameterSets(config.IndicatorCode, exceptSeriesId: config.Id);
-            string instanceName = IndicatorInstanceName.For(meta, ParameterSetOf(config), siblings);
+            string instanceName = IndicatorInstanceName.For(meta, ParameterSetOf(config), siblings, ordinal);
 
             // Build fresh series through the factory (3-layer merge):
             //   Layer 1: current provider metadata defaults (waveforms, colors, envelope types)
             //   Layer 2: saved component state (visibility/mute/volume/FreqMultiplier only)
             //   Layer 3: IIndicatorPreferencesService preferences (applied inside factory)
             // Pass the saved ID so pane ratios and other ID-keyed state remain valid.
-            var freshSeries = _modelFactory.CreateSeriesFromMetadata(
+            var freshSeries = modelFactory.CreateSeriesFromMetadata(
                 meta,
                 instanceName,
                 config.Pane,
@@ -487,19 +534,11 @@ namespace AccessibleTrader.Core.Services
             {
                 // Backward-compat: old workspace save with no Levels → inject provider defaults
                 // and apply any global type-defaults from IndicatorPreferencesService.
-                InjectDefaultLevels(freshSeries, config.IndicatorCode.ToUpperInvariant(), freshSeries.Config.Parameters ?? new());
+                InjectDefaultLevels(freshSeries, config.IndicatorCode.ToUpperInvariant(),
+                    freshSeries.Config.Parameters ?? new(), indicatorEngine, indicatorPrefs);
             }
 
-            _store.Dispatch(new AddSeriesAction(freshSeries));
-
-            // Same as an add: the cohort is re-named against its new size, so the EMA restored
-            // first — alone at the time, called "EMA" — becomes "EMA 20" when the second one
-            // lands. A load restores series one at a time, so this runs once per series of the
-            // cohort; RenameCohort dispatches only when a name actually changed.
-            RenameCohort(config.IndicatorCode, meta);
-
-            // No PersistWorkspace — restoring must not overwrite the saved profile.
-            _eventBus.Publish(new IndicatorUpdatedEvent(config.Id));
+            return freshSeries;
         }
 
         private static bool IsCoreCode(string code) =>
@@ -556,8 +595,12 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         private void InjectDefaultLevels(ChartSeries series, string codeUp, Dictionary<string, double> parameters)
+            => InjectDefaultLevels(series, codeUp, parameters, _indicatorEngine, _indicatorPrefs);
+
+        private static void InjectDefaultLevels(ChartSeries series, string codeUp, Dictionary<string, double> parameters,
+            Indicators.IIndicatorEngine indicatorEngine, IIndicatorPreferencesService indicatorPrefs)
         {
-            var provider = _indicatorEngine.GetProvider(codeUp);
+            var provider = indicatorEngine.GetProvider(codeUp);
             IReadOnlyList<LevelDescriptor> defaults =
                 provider != null ? provider.GetDefaultLevels(codeUp) : System.Array.Empty<LevelDescriptor>();
 
@@ -586,7 +629,7 @@ namespace AccessibleTrader.Core.Services
             }
 
             // Layer 3: apply saved level preferences (user overrides) on top of provider defaults.
-            var savedLevelPrefs = _indicatorPrefs.GetLevelPreferences(codeUp);
+            var savedLevelPrefs = indicatorPrefs.GetLevelPreferences(codeUp);
             foreach (var lp in savedLevelPrefs)
             {
                 var target = series.Levels.FirstOrDefault(l => l.Name == lp.Name);

@@ -4,6 +4,78 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The narration ladder with the browser closed, and the announcement Orca heard twice (2026-09-11, fortieth pass)
+
+Suite **7,312** (was 7,280). Two asks from Cody, both from the same afternoon of listening.
+
+**The narration ladder is spoken with the browser closed — Phase 3 D4.** Cody: *"I also want the
+narration ladder to also be spoken when the browser is closed too."* Until now the whole scan —
+markers, zone-line breaks, touches and approaches, cloud transitions, EMA crosses, level crosses,
+the volume reading, oscillator zones — lived as private methods on `AutoNarrationService`, bound
+to the focused chart's store and to `RedrawEvent`, with its memory of what had already been said
+in that service's fields. Nothing headless has a store. So the scan was LIFTED, not copied:
+`NarrationScanner` is the store-free core (seed, forget, scan, and the tracking dictionaries),
+`ScanUtterance` is its own file, and `AutoNarrationService` is now the thin in-session half that
+answers the store-shaped questions — is the chart ready, which bar closed, is the master switch
+on, what did the coordinator defer. Every existing narration test is unchanged and green, which
+is the proof the lift preserved behaviour.
+
+On the headless side, `HeadlessChartNarrator` is one saved chart's ladder: the tab's series
+flagged with N are rebuilt exactly as a workspace load rebuilds them (`MaterializeSaved`, the
+body of `RestoreSeriesFromSaved` minus the dispatch — derived name, current component defaults,
+the saved N selection, saved or default levels), enough bars are held to compute them (the
+providers' own stability windows plus the scanner's 20-bar look-back, clamped 50–500), each poll
+recomputes the narrated series through the store-free `IIndicatorEngine` and the production
+mapper, and the same scanner runs over the result. `LocalBackgroundMonitor` fetches the full
+window on the first sighting and three bars a minute afterwards, and the narrator MERGES — newer
+bars append, held bars are replaced — so the reading at the close is the closed bar's final
+volume and the scanner's indices keep meaning the same bars. When the buffer passes twice what
+is needed the front is trimmed and the scanner is told by how much (`ShiftIndices`); without
+that the seed and the announced-marker set would drift off their bars.
+
+What reaches the desktop: the bar-close sentence with the ladder behind it, ONE utterance, as
+in-session ("BTC/USD 1h: close 100.00 at 03:00. New bar: open 100.00. Volume 100,000."). With
+the New-bars category off, the ladder alone, led by the symbol. Gated by the Narration tab's
+master switch (default on) and the per-series N flag — not by the New-bars toast and not by the
+timeframe floor, which stay what their docs say they are. Ownership is unchanged: a chart an open
+browser covers is OBSERVED (so the memory is warm) and not spoken; the first close after the
+browser goes is announced. Sixteen new tests pin it (`HeadlessChartNarratorTests`,
+`HeadlessNarrationTests`), the four sharpest sabotaged red: the merge that does not replace the
+closed bar reads the partial volume; the trim without the shift goes silent; the ladder without
+the ownership check speaks over an open browser; speech beside every toast doubles.
+
+**"When the browser is closed orca reads the notification twice."** It did. The monitor raised a
+`notify-send` toast and then called Orca's `PresentMessage` with the same sentence, and Orca
+presents desktop notifications itself. The rule that was already written down for Windows — the
+toast is the path that reaches a screen reader, SAPI is the fallback — is now the rule for every
+desktop, in one place: `DesktopDeliveryPlan.ToastIsSpoken` (Linux: Orca is the speech route;
+macOS and Windows: the plan already claimed VoiceOver and Narrator read the toast) and
+`DesktopAnnouncement.Present`, which the alert monitor, the bar-close announcer, the monitor's
+own reports and `HeadlessOrderAnnouncer` all go through. Where the toast is spoken by the screen
+reader, the sentence is not spoken again; the toast body now carries the whole sentence, ladder
+included. For a desktop whose screen reader does NOT read notifications there is a new switch
+under Alerts (Alt+J) → Desktop notifications: "Also speak announcements aloud, not only through
+the notification" (`notifications.desktop.speakBesideToast`, default off). A test double that
+predates the rule keeps hearing both channels — the interface default is false — so every
+delivery test written before today keeps its meaning.
+
+**Also:** `WorkspaceInitializer.MigrateSeriesConfig` is public (the headless restore migrates the
+same way a load does); the General tab's headless hint names the ladder and says the notification
+is what the screen reader reads.
+
+**Hosted: background alerts and their settings are gated (second commit).** Cody: *"for the web
+terminal hosted version where paper trading is only available, background alerts and related
+settings should be gated because they wouldn't be useful for the website when the browser is
+closed."* `DemoPolicy.AllowBackgroundAlerts` (Full only) now gates the server-side
+`HostedAlertMonitor` registration, the "Browser notifications" Web Push panel, the desktop
+notifications panel, and the alerts modal's "background and server-side monitoring cannot watch
+it" caveat. Kept behind the policy rather than deleted, so a future hosted tier turns it back on in
+one place. Deliberately NOT gated: email, Telegram and webhook delivery, which also carry alerts
+fired while the browser is open; the Web Push plumbing itself, which the owner's password-reset
+notification rides. Whether those should go too is an open question in `docs/TODO.md`.
+
+**Not heard by the author** — see `docs/SESSION_REVIEW_2026-09-11.md` §12.
+
 ### The quality pass over the narration coherence pass — volume reads at the close, and the headless bar close that was switched off, then proved (2026-09-11, later)
 
 Suite **7,280** (was 7,265). Three items from Cody reviewing the previous batch, then two more.

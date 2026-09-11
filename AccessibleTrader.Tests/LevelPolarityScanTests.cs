@@ -206,7 +206,10 @@ namespace AccessibleTrader.Tests
 
             // Vacuity check. A rename or a folder move could empty the sweep, and an empty sweep
             // passes silently — the failure mode this repo has already been bitten by twice.
-            Assert.Contains(announcers, a => a.EndsWith("AutoNarrationService.cs", StringComparison.Ordinal));
+            // The scan itself moved out of AutoNarrationService into the store-free NarrationScanner
+            // on 2026-09-11 (so the ladder can run with the browser closed); the level claims went
+            // with it and the floor follows them.
+            Assert.Contains(announcers, a => a.EndsWith("NarrationScanner.cs", StringComparison.Ordinal));
             Assert.Contains(announcers, a => a.EndsWith("NavigationFeedbackManager.cs", StringComparison.Ordinal));
 
             Assert.True(missing.Count == 0,

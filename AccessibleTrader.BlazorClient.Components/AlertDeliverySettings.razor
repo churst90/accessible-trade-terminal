@@ -38,7 +38,11 @@
 
 <div class="alert-delivery-settings">
 
-    @if (Demo.IsHosted)
+    @* GATED 2026-09-11 (Cody): on the paper-only hosted terminal, alerts that arrive after the
+       browser closes are not useful, so neither is the panel that subscribes to them.
+       DemoPolicy.AllowBackgroundAlerts is false on hosted, so this does not render there today;
+       the markup stays so a future hosted tier can turn it back on in one place. *@
+    @if (Demo.IsHosted && Demo.AllowBackgroundAlerts)
     {
         @* ── Browser notifications (hosted Web Push) ─────────────── *@
         <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
@@ -57,7 +61,7 @@
         </fieldset>
     }
 
-    @if (Notifier.IsAvailable)
+    @if (Notifier.IsAvailable && Demo.AllowBackgroundAlerts)
     {
         @* ── Desktop notifications (the OS toast) ────────────────────────
            Shown only where a toast can be delivered. On the local WebHost that is whatever
@@ -133,6 +137,19 @@
                 </select>
             </div>
             <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent. 1 minute announces every chart.</p>
+            @* With the browser closed, the notification is what the screen reader reads — Orca,
+               VoiceOver and Narrator all present desktop notifications — so speaking the same
+               sentence as well was every announcement heard twice (Cody, 2026-09-11: "orca reads
+               the notification twice"). The direct speech is now OFF on top of a notification and
+               this is the way back for a desktop whose screen reader does not read them. *@
+            <div class="modal-row">
+                <label for="s-speak-beside-toast">Also speak announcements aloud, not only through the notification</label>
+                <input id="s-speak-beside-toast" type="checkbox"
+                       aria-describedby="s-speak-beside-toast-hint"
+                       checked="@_speakBesideToast"
+                       @onchange="e => Commit(() => _speakBesideToast = e.Value is bool b ? b : _speakBesideToast)" />
+            </div>
+            <p id="s-speak-beside-toast-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, your screen reader reads each notification as it appears. Turn this on only if it does not, and the sentence will be spoken directly as well.</p>
             <p style="margin:0; color:var(--text-muted); font-size:0.9em;">Delivered by @Notifier.Describe().</p>
         </fieldset>
     }
@@ -370,6 +387,7 @@
     // the whole background route (toast, earcon, speech) — see that class for why the gate is a
     // settings key and not another WorkspaceState field.
     private bool _speakBackgroundBars;
+    private bool _speakBesideToast;
     // The browser-closed floor. A STRING timeframe rather than a number of seconds, because that
     // is what the chart, the alert and the tab all call it, and a settings file a user may open
     // should say "15m" and not "900".
@@ -436,6 +454,7 @@
         _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
         _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
         _headlessBarFloor = Settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString() ?? "1m";
+        _speakBesideToast = Settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? false;
     }
 
     /// <summary>
@@ -487,6 +506,7 @@
         Settings.SetSetting(SettingsKeys.DesktopNotifyNewBars, Newtonsoft.Json.Linq.JToken.FromObject(_notifyBars));
         Settings.SetSetting(SettingsKeys.SpeakBackgroundTabBars, Newtonsoft.Json.Linq.JToken.FromObject(_speakBackgroundBars));
         Settings.SetSetting(SettingsKeys.HeadlessNewBarMinTimeframe, Newtonsoft.Json.Linq.JToken.FromObject(_headlessBarFloor));
+        Settings.SetSetting(SettingsKeys.DesktopSpeakBesideToast, Newtonsoft.Json.Linq.JToken.FromObject(_speakBesideToast));
         App.Save();
     }
 

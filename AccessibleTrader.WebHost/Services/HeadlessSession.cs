@@ -187,10 +187,14 @@ namespace AccessibleTrader.WebHost.Services
             try
             {
                 if (sp.GetService<IDesktopAlertPresenter>() is { } presenter)
+                {
+                    var settings = sp.GetService<ISettingsManager>();
                     _subscribers.Add(new HeadlessOrderAnnouncer(
                         sp.GetRequiredService<IEventBus>(),
                         presenter,
-                        sp.GetService<ILogger<HeadlessOrderAnnouncer>>()));
+                        sp.GetService<ILogger<HeadlessOrderAnnouncer>>(),
+                        speakBesideToast: () => DesktopAnnouncement.SpeakBesideToast(settings)));
+                }
                 else
                     _logger.LogInformation(
                         "Headless session has no desktop presenter; order events will not be announced.");

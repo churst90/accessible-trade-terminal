@@ -591,6 +591,11 @@ namespace AccessibleTrader.WebHost
             services.AddScoped<CandlePatternThresholds>();
             services.AddScoped<ISdkCandlePatternAnalyzer, SdkCandlePatternAnalyzer>();
             services.AddScoped<IIndicatorContextAnalyzer, IndicatorContextAnalyzer>();
+            // The narration ladder with the browser closed: rebuilds a saved tab's narrated
+            // series and runs the same scan the focused chart runs, from the headless scope
+            // (LocalBackgroundMonitor). Scoped so it shares the headless session's indicator
+            // stack and plugin registry.
+            services.AddScoped<AccessibleTrader.Core.Services.Accessibility.HeadlessNarration>();
 
             services.AddScoped<IBarDetailService, BarDetailService>();
             services.AddScoped<IAlertEvaluator, AlertEvaluator>();
