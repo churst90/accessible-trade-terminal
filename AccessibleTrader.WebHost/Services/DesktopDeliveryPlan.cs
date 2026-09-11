@@ -78,29 +78,6 @@ namespace AccessibleTrader.WebHost.Services
         public bool CanSpeak => Speech != SpeechKind.None;
         public bool CanPlaySound => Sound != SoundKind.None;
 
-        /// <summary>
-        /// <b>Whether the toast reaches the screen reader on its own</b> — in which case speaking
-        /// the same sentence as well is every announcement heard twice.
-        ///
-        /// <para>Cody, 2026-09-11, browser closed, Orca running: <i>"it seems like orca reads the
-        /// notification twice. seems like once through orca directly when it reads the
-        /// notification..."</i> The monitor raised a <c>notify-send</c> toast AND called Orca's
-        /// <c>PresentMessage</c> with the same text; Orca presents desktop notifications itself, so
-        /// it read both. The rule that was already written down for Windows — "the toast is the path
-        /// that reaches a screen reader; SAPI is the spoken fallback" — is the rule for every desktop:
-        /// on Linux, Orca reads notifications when Orca is the speech route (which is what
-        /// <see cref="SpeechKind.Orca"/> means here); on macOS the plan's own description says
-        /// VoiceOver announces the toast; on Windows it says Narrator, NVDA and JAWS read it. Speech
-        /// on top of the toast stays available as an opt-in
-        /// (<c>SettingsKeys.DesktopSpeakBesideToast</c>) for a desktop where that is not true.</para>
-        /// </summary>
-        public bool ToastIsSpoken => CanNotify && Os switch
-        {
-            DesktopOs.Linux => Speech == SpeechKind.Orca,
-            DesktopOs.MacOS => true,
-            DesktopOs.Windows => true,
-            _ => false,
-        };
 
         /// <summary>The OS this process is on, mapped onto the three desktops that have a
         /// delivery path. Anything else is <see cref="DesktopOs.Unknown"/> and delivers nothing,

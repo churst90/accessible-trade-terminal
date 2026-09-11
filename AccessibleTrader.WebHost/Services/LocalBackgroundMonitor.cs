@@ -86,11 +86,6 @@ namespace AccessibleTrader.WebHost.Services
         private readonly AlertEvaluator _evaluator = new(
             new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer());
 
-        /// <summary>The user's "also speak directly" switch, read once per poll so every delivery
-        /// in that poll — alerts, bar closes, the monitor's own reports — applies the same rule.
-        /// See <see cref="DesktopAnnouncement"/>.</summary>
-        private bool _speakBesideToast;
-
         public LocalBackgroundMonitor(
             HeadlessSession session,
             DemoPolicy demo,
@@ -140,7 +135,6 @@ namespace AccessibleTrader.WebHost.Services
             var services = _session.Services;
             var settings = services.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
-            _speakBesideToast = DesktopAnnouncement.SpeakBesideToast(settings);
 
             var alerts = services.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
             WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts));
@@ -329,7 +323,7 @@ namespace AccessibleTrader.WebHost.Services
         /// put a fake row in the tray's list.
         /// </summary>
         private void Announce(string text)
-            => DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+            => DesktopAnnouncement.Present(_presenter,
                 "Alert monitoring", text, text, urgent: true, withSound: false, _logger);
 
         // Warn once per distinct set, not once per poll: the monitor polls every
@@ -663,9 +657,9 @@ namespace AccessibleTrader.WebHost.Services
             // below is: routing them through the headless DesktopNotificationService would put an
             // already-opted-in delivery behind a second switch, and give two owners one event.
             // The headless session is built WITHOUT the NewBars category for exactly this reason
-            // — see HeadlessSession. The toast body IS the sentence: on a desktop whose screen
-            // reader reads notifications, the toast is the spoken route (DesktopAnnouncement).
-            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+            // — see HeadlessSession. The toast body IS the sentence: the notification is the one
+            // path for the words, and the screen reader reads it (DesktopAnnouncement).
+            DesktopAnnouncement.Present(_presenter,
                 title, sentence, sentence, urgent: false, withSound: true, _logger);
         }
 
@@ -680,7 +674,7 @@ namespace AccessibleTrader.WebHost.Services
             string title = $"{watch.Symbol} {watch.Timeframe}";
             string text = $"{title}: {ladder}";
             _logger.LogInformation("Background narration: {Text}", text);
-            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+            DesktopAnnouncement.Present(_presenter,
                 title, text, text, urgent: false, withSound: false, _logger);
         }
 
@@ -771,7 +765,7 @@ namespace AccessibleTrader.WebHost.Services
             // put an already-opted-in delivery behind notifications.desktop.alerts, which
             // defaults off, and silently un-ship the feature. The headless service is built
             // without the Alerts category for exactly this reason.
-            DesktopAnnouncement.Present(_presenter, _speakBesideToast,
+            DesktopAnnouncement.Present(_presenter,
                 "Trading alert", text, text, urgent: false, withSound: true, _logger);
 
             // And then publish it on the long-lived session's bus, so the ordinary in-session

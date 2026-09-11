@@ -313,7 +313,7 @@ has been through a screen reader.
 
 ## 12. Addendum, later still on 2026-09-11 — the ladder with the browser closed, and the announcement heard twice
 
-Suite **7,280 → 7,312**. Cody's next two asks, both from listening to the headless run in §11.
+Suite **7,280 → 7,305**. Cody's next two asks, both from listening to the headless run in §11.
 
 **"I also want the narration ladder to also be spoken when the browser is closed too."** Built as
 Phase 3 D4's narration half. The scan was LIFTED out of `AutoNarrationService` into a store-free
@@ -335,19 +335,19 @@ minute shifts every index by one and the 20-bar look-back re-announces what it j
 buffer is trimmed past twice what is needed and the scanner is told (`ShiftIndices`); sabotaging
 that out made the reading go silent, because the seed stayed at 99 while the closed bar moved to 48.
 
-**"When the browser is closed orca reads the notification twice."** It did: `notify-send` toast,
-then Orca `PresentMessage` with the same sentence, and Orca presents notifications itself. Now
-`DesktopDeliveryPlan.ToastIsSpoken` says whether the toast reaches the screen reader on its own
-(Linux: Orca is the speech route; macOS and Windows: the plan already claimed VoiceOver and
-Narrator read it) and `DesktopAnnouncement.Present` — used by the alert monitor, the bar-close and
-narration announcements, the monitor's self-reports and `HeadlessOrderAnnouncer` — speaks only
-where it does not. The toast body now carries the whole sentence, ladder included. The switch under
-Alerts → Desktop notifications, "Also speak announcements aloud, not only through the
-notification", defaults ON after Cody's second report ("I don't hear orca read any notification";
-the MATE daemon shows the toast, confirmed on the D-Bus) — OFF is the way to stop a doubling where
-the screen reader does read toasts.
-The interface default (`ToastIsSpoken => false`) keeps every pre-existing test double hearing
-both channels, so the old delivery tests keep their meaning.
+**"When the browser is closed orca reads the notification twice."** Three turns in one afternoon,
+recorded because the sequence is the lesson. (1) First fix: speak only where the plan guesses the
+screen reader reads toasts (`ToastIsSpoken`: Linux with Orca as the speech route, macOS, Windows).
+(2) Cody: *"I don't hear orca read any notification"* — so I flipped the default to speech-as-well,
+on the rule that a guess about the desktop must not choose silence. Measured meanwhile: the MATE
+notification daemon receives the toast (Notify call captured on the session bus with
+`dbus-monitor`). (3) Cody, having now seen and heard the popup: *"now it is reading double … Pick
+the best path, orca/speech dispatcher or notification but not both … If someone doesn't need
+speech they shouldn't hear it."* Final rule, `DesktopAnnouncement.Present`: the NOTIFICATION is
+the one path wherever the machine has a notification tool; direct speech only where it has none.
+`ToastIsSpoken` and the "also speak" switch are gone. The reasoning he gave is the durable one: a
+notification is read by whatever screen reader is present and by nobody otherwise, while the direct
+route either reaches only Orca or, through spd-say, reaches everyone.
 
 **A harness defect of my own, worth recording.** The first sabotage script restored with
 `git checkout --`. For the NEW narrator file that command fails outright and the sabotage STAYED
@@ -357,9 +357,9 @@ I had not re-read it. The four sabotages were re-run from file copies: (a) merge
 4 red, (b) trim without the shift — red, (c) ladder without ownership — 6 red, (d) speech beside
 every toast — red; the files diffed byte-identical to their backups afterwards.
 
-**Not verified here.** Nothing heard. The MAUI head not compiled (two Razor files changed: a new
-checkbox row in `AlertDeliverySettings.razor` mirroring its neighbours' ids, labels and
-`aria-describedby`; hint text in `SettingsModal.razor`). The accessibility agents are not
+**Not verified here.** Heard by Cody (the notification, read once, after the final rule); not by
+me. The MAUI head not compiled (Razor changes: hosted gating in `AlertDeliverySettings.razor` and
+`AlertsModal.razor`; hint text in `SettingsModal.razor`). The accessibility agents are not
 registered in this environment. Whether Orca reads a `notify-send` toast on desktops other than
 Cody's MATE is assumed from his report, not measured; the switch exists for the case where it does
 not. macOS and Windows `ToastIsSpoken` rest on the plan's own earlier claims, unverified there as

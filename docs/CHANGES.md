@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### The narration ladder with the browser closed, and the announcement Orca heard twice (2026-09-11, fortieth pass)
 
-Suite **7,312** (was 7,280). Two asks from Cody, both from the same afternoon of listening.
+Suite **7,305** (was 7,280). Two asks from Cody, both from the same afternoon of listening.
 
 **The narration ladder is spoken with the browser closed — Phase 3 D4.** Cody: *"I also want the
 narration ladder to also be spoken when the browser is closed too."* Until now the whole scan —
@@ -46,23 +46,18 @@ the ownership check speaks over an open browser; speech beside every toast doubl
 
 **"When the browser is closed orca reads the notification twice."** It did. The monitor raised a
 `notify-send` toast and then called Orca's `PresentMessage` with the same sentence, and Orca
-presents desktop notifications itself. The rule that was already written down for Windows — the
-toast is the path that reaches a screen reader, SAPI is the fallback — is now the rule for every
-desktop, in one place: `DesktopDeliveryPlan.ToastIsSpoken` (Linux: Orca is the speech route;
-macOS and Windows: the plan already claimed VoiceOver and Narrator read the toast) and
-`DesktopAnnouncement.Present`, which the alert monitor, the bar-close announcer, the monitor's
-own reports and `HeadlessOrderAnnouncer` all go through. Where the toast is spoken by the screen
-reader, the sentence is not spoken again; the toast body now carries the whole sentence, ladder
-included. **Then Cody listened again: "I don't hear orca read any notification."** On his MATE desktop the
-toast is SHOWN (confirmed on the D-Bus — the MATE daemon received the test notification) and NOT
-read by Orca, so the default that trusted the plan's guess would have turned every headless
-announcement into silence. The switch under Alerts (Alt+J) → Desktop notifications, "Also speak
-announcements aloud, not only through the notification" (`notifications.desktop.speakBesideToast`),
-therefore defaults **ON**: notification and speech both, and OFF is the way to stop a doubling on a
-desktop whose screen reader really does read every toast. What the first report's second voice
-was is still open. A test double that
-predates the rule keeps hearing both channels — the interface default is false — so every
-delivery test written before today keeps its meaning.
+presents MATE notifications itself (confirmed the same evening: the MATE daemon receives the toast
+— captured on the session bus — and Cody hears it read). His decision: *"Pick the best path,
+orca/speech dispatcher or notification but not both … If someone doesn't need speech they
+shouldn't hear it."* The NOTIFICATION is that path, for every headless delivery — alerts, bar
+closes, the narration ladder, the monitor's own reports, order events — through one rule,
+`DesktopAnnouncement.Present`: a screen reader reads it, a sighted user sees it, a machine with no
+screen reader hears nothing, which direct speech could not promise (the Orca route reaches only
+Orca; the spd-say fallback talks to everyone). Direct speech now runs only on a machine with no
+notification tool at all. The toast body carries the whole sentence, ladder included. This went
+through two wrong turns in one afternoon — first "speak only where the plan guesses the screen
+reader reads toasts", then "speak as well, default on" after a mis-heard test — and both are in
+`docs/SESSION_REVIEW_2026-09-11.md` §12; the switch they introduced is gone.
 
 **Also:** `WorkspaceInitializer.MigrateSeriesConfig` is public (the headless restore migrates the
 same way a load does); the General tab's headless hint names the ladder and says the notification

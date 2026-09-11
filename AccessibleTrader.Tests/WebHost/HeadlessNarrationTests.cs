@@ -33,8 +33,8 @@ namespace AccessibleTrader.Tests.WebHost;
 ///
 /// <para>
 /// The second half pins the doubling Cody reported the same day — <i>"orca reads the
-/// notification twice"</i> — through the same poll: where the screen reader reads the toast,
-/// the monitor no longer speaks on top of it.
+/// notification twice"</i> — through the same poll: on a machine with a notification tool the
+/// notification is the whole announcement and nothing is spoken directly.
 /// </para>
 /// </summary>
 [Collection("CircuitCoverage")]
@@ -50,12 +50,14 @@ public sealed class HeadlessNarrationTests : IDisposable
         public readonly List<(string Title, string Text, bool Urgent)> Toasts = new();
         public readonly List<string> Spoken = new();
         public int SoundsPlayed;
-        public bool ToastIsSpokenByScreenReader;
+        /// <summary>Whether this machine has a notification tool. False by default so the
+        /// existing "exactly one delivery" assertions read the sentence off <see cref="Spoken"/>;
+        /// the doubling tests set it and read the toast instead.</summary>
+        public bool HasNotificationTool;
 
         public string Describe() => "spy";
         public string DescribeToast() => "spy toast";
-        public bool CanNotify => true;
-        public bool ToastIsSpoken => ToastIsSpokenByScreenReader;
+        public bool CanNotify => HasNotificationTool;
         public void PlayNotificationSound() => SoundsPlayed++;
         public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
         public void Speak(string text) => Spoken.Add(text);
@@ -143,8 +145,6 @@ public sealed class HeadlessNarrationTests : IDisposable
             _settings.GetSetting(SettingsKeys.DesktopNotifyNewBars).Returns(JToken.FromObject(on));
         public void NarrationMaster(bool on) =>
             _settings.GetSetting(SettingsKeys.NarrateSignalsOnBarClose).Returns(JToken.FromObject(on));
-        public void SpeakBesideToast(bool on) =>
-            _settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast).Returns(JToken.FromObject(on));
         public void BarFloor(string tf) =>
             _settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe).Returns(JToken.FromObject(tf));
 
@@ -324,12 +324,13 @@ public sealed class HeadlessNarrationTests : IDisposable
     // ── The doubling: "orca reads the notification twice" ─────────────────────
 
     [Fact]
-    public async Task With_direct_speech_switched_off_where_the_screen_reader_reads_the_toast_the_monitor_does_not_speak_as_well()
+    public async Task On_a_machine_with_a_notification_tool_the_notification_is_the_whole_announcement_and_nothing_is_spoken()
     {
+        // Cody, 2026-09-11: "Pick the best path, orca/speech dispatcher or notification but not
+        // both." Orca reads the MATE notification; speaking as well was every announcement twice.
         using var h = new Harness(new[] { SavedVolume() });
         h.NewBarToasts(true);
-        h.Presenter.ToastIsSpokenByScreenReader = true;
-        h.SpeakBesideToast(false);
+        h.Presenter.HasNotificationTool = true;
 
         await h.PollAsync();
         h.CloseABar();
@@ -337,41 +338,25 @@ public sealed class HeadlessNarrationTests : IDisposable
 
         Assert.Empty(h.Presenter.Spoken);
         var toast = Assert.Single(h.Presenter.Toasts);
-        // The toast is now the whole announcement, ladder included.
         Assert.Contains("close 100.00", toast.Text, StringComparison.Ordinal);
         Assert.Contains("Volume 100,000", toast.Text, StringComparison.Ordinal);
         Assert.Equal(1, h.Presenter.SoundsPlayed);
     }
 
     [Fact]
-    public async Task By_DEFAULT_the_monitor_speaks_even_where_the_plan_thinks_the_toast_is_read()
+    public async Task On_a_machine_with_no_notification_tool_the_sentence_is_spoken_instead()
     {
-        // Cody's MATE + Orca: the plan says Orca is the speech route, so it guesses the toast is
-        // read; it is not ("I don't hear orca read any notification"). The default keeps speech.
+        // Direct speech is the fallback for the machine that cannot show a notification at all —
+        // never a second voice beside one.
         using var h = new Harness(new[] { SavedVolume() });
         h.NewBarToasts(true);
-        h.Presenter.ToastIsSpokenByScreenReader = true;
+        h.Presenter.HasNotificationTool = false;
 
         await h.PollAsync();
         h.CloseABar();
         await h.PollAsync();
 
-        Assert.Single(h.Presenter.Spoken);
-        Assert.Single(h.Presenter.Toasts);
-    }
-
-    [Fact]
-    public async Task Where_the_screen_reader_does_NOT_read_the_toast_the_monitor_speaks_as_before()
-    {
-        using var h = new Harness(new[] { SavedVolume() });
-        h.NewBarToasts(true);
-        h.Presenter.ToastIsSpokenByScreenReader = false;
-
-        await h.PollAsync();
-        h.CloseABar();
-        await h.PollAsync();
-
-        Assert.Single(h.Presenter.Spoken);
-        Assert.Single(h.Presenter.Toasts);
+        string one = Assert.Single(h.Presenter.Spoken);
+        Assert.Contains("Volume 100,000", one, StringComparison.Ordinal);
     }
 }

@@ -47,7 +47,12 @@ public class HeadlessOrderWatchTests : IDisposable
 
         public string Describe() => "spy";
         public string DescribeToast() => "spy toast";
-        public bool CanNotify => true;
+        // A machine with NO notification tool, deliberately: since 2026-09-11 the notification is
+        // the one path for the words and direct speech runs only where there is none
+        // (DesktopAnnouncement). Every assertion on Spoken below is about "exactly one delivery",
+        // which is a fact about owners and not about channels; the spy is the machine on which
+        // that delivery arrives as speech. HeadlessNarrationTests covers the other machine.
+        public bool CanNotify => false;
         public void PlayNotificationSound() => SoundsPlayed++;
         public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
         public void Speak(string text) => Spoken.Add(text);
@@ -331,7 +336,7 @@ public class HeadlessOrderWatchTests : IDisposable
     {
         public string Describe() => "throwing";
         public string DescribeToast() => "throwing";
-        public bool CanNotify => true;
+        public bool CanNotify => false;   // no notification tool: see SpyPresenter
         public void PlayNotificationSound() => throw new InvalidOperationException("no audio device");
         public void Notify(string title, string text, bool urgent) => throw new InvalidOperationException();
         public void Speak(string text) => throw new InvalidOperationException();
@@ -343,7 +348,7 @@ public class HeadlessOrderWatchTests : IDisposable
         public readonly List<string> Spoken = new();
         public string Describe() => "half";
         public string DescribeToast() => "half";
-        public bool CanNotify => true;
+        public bool CanNotify => false;   // no notification tool: see SpyPresenter
         public void PlayNotificationSound() => throw new InvalidOperationException("no audio device");
         public void Notify(string title, string text, bool urgent) => throw new InvalidOperationException("no daemon");
         public void Speak(string text) => Spoken.Add(text);

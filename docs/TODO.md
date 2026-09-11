@@ -118,7 +118,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 ### What to do next, and why that order
 
 > **START HERE (current as of 2026-09-11 (later still), FORTIETH pass — THE NARRATION LADDER
-> WITH THE BROWSER CLOSED, and the announcement Orca heard twice.)** Suite **7,312**.
+> WITH THE BROWSER CLOSED, and the announcement Orca heard twice.)** Suite **7,305**.
 > `docs/SESSION_REVIEW_2026-09-11.md` §12 is the addendum. Phase 3 D4's narration half is DONE;
 > its alert half is not.
 >
@@ -134,13 +134,14 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   a minute shifts every index by one; the 20-bar look-back would re-announce what it just said,
 >   the seed would drift off its bar. Merge (append newer, REPLACE held — the closed bar's final
 >   volume is the reading), trim past twice what is needed, and tell the scanner by how much.
-> - **Do not let a guess about the desktop choose silence.** The doubling fix first shipped
->   assuming Orca reads every MATE toast, so it stopped speaking where a toast was shown; an hour
->   later Cody: *"I don't hear orca read any notification."* The toast is shown (MATE daemon
->   received it on the D-Bus) and not read. One rule (`DesktopAnnouncement`) for all four delivery
->   sites, the body carries the whole sentence, and direct speech defaults ON — the switch turns
->   it OFF where a screen reader really does read toasts. The second voice in the first report is
->   still unexplained (open question).
+> - **ONE path for a headless announcement: the notification.** Cody: *"Pick the best path,
+>   orca/speech dispatcher or notification but not both … If someone doesn't need speech they
+>   shouldn't hear it."* A notification is read by whatever screen reader is present and by nobody
+>   otherwise; direct speech either reaches only Orca or, via spd-say, everyone. One rule
+>   (`DesktopAnnouncement`) for all four delivery sites; the body carries the whole sentence;
+>   speech only on a machine with no notification tool. It took three turns to land there —
+>   guess-the-desktop, then speak-as-well — and the lesson is to ask which CHANNEL the user
+>   wants before choosing a default about their desktop.
 > - **Never `git checkout --` in a sabotage harness — and for a NEW file it does not even
 >   revert, it FAILS, and the sabotage stays in place for the next run.** Rule 4 of the standing
 >   memory already said the first half; I had not re-read it. `cp` to scratch, `cp` back, `touch`,
@@ -167,23 +168,18 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   (evaluates every user's saved alerts after their browser closes, delivering by email /
 >   Telegram / webhook / Web Push) and the "Browser notifications" Web Push panel. Gate both? And
 >   email / Telegram / webhooks, which also deliver with the browser open?
-> - **What was the second voice?** You first heard each headless announcement twice, then
->   confirmed Orca does not read the MATE notification. The monitor speaks each announcement once
->   (one `PresentMessage` per event, logged once). Candidates: a browser circuit still within its
->   retention window speaking the same close; Orca's own "notification" presentation being on for
->   some app names; or spd-say and Orca both being reached. When it recurs, note whether both
->   voices are your Orca voice.
 > - The three from the previous block stand: `notifications.desktop.newBars` default; why your
 >   own server was silent; a plain LINE off the price pane.
 >
 > ### 4. NOT VERIFIED HERE
 >
-> - Nothing was heard. MAUI not compiled here (`AlertDeliverySettings.razor` gained one checkbox
->   row mirroring its neighbours; `SettingsModal.razor` hint text only).
-> - The accessibility agents did not review the new checkbox row (the subagent is not registered
->   in this environment). Ids, label-for, and `aria-describedby` follow the row above it
->   exactly; `FormControlNameSweepTests` and `SettingsLanguageTests` are green.
-> - `ToastIsSpoken` on macOS and Windows rests on the plan's earlier, unverified claims.
+> - Heard by Cody: the headless notification, read once by Orca, after the final rule. Not heard
+>   by the author. MAUI not compiled here (`AlertDeliverySettings.razor` and `AlertsModal.razor`
+>   gating; `SettingsModal.razor` hint text).
+> - The accessibility agents did not review this pass (the subagent is not registered in this
+>   environment); no new controls were added in the end.
+> - On macOS and Windows the notification-only rule rests on the plan's earlier, unverified claim
+>   that VoiceOver and Narrator read the toast.
 
 > **START HERE (current as of 2026-09-11 (later), THIRTY-NINTH pass — THE QUALITY PASS OVER THE
 > NARRATION COHERENCE PASS. Volume reads at the close; the headless bar close was switched off.)**

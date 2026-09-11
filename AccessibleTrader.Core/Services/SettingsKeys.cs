@@ -186,18 +186,6 @@ namespace AccessibleTrader.Core.Services
         // trade event, which are per-occurrence and carry their own switches.
         public const string HeadlessNewBarMinTimeframe = "notifications.newBars.minTimeframe";
 
-        // ── Speak headless announcements DIRECTLY as well as raising the toast ──────
-        // With no browser open the monitor raised a desktop notification AND spoke the same
-        // sentence, and on a desktop where the screen reader reads notifications itself (Orca on
-        // Linux, VoiceOver, Narrator) that is every announcement heard twice. Cody, 2026-09-11:
-        // "when the browser is closed orca reads the notification twice" — and then, an hour
-        // later: "I don't hear orca read any notification". So the plan's guess about which
-        // desktops read toasts (DesktopDeliveryPlan.ToastIsSpoken) is NOT trusted on its own:
-        // this switch defaults TRUE (speech as well as the toast — silence is the failure a blind
-        // user cannot detect), and turning it OFF is how to stop a doubling on a desktop whose
-        // screen reader really does read every notification.
-        public const string DesktopSpeakBesideToast = "notifications.desktop.speakBesideToast";
-
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";
         public const string EmailPort          = "alerts.email.port";

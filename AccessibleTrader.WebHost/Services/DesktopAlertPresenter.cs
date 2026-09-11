@@ -49,71 +49,45 @@ namespace AccessibleTrader.WebHost.Services
         /// the same ladder the in-session speech manager uses — <c>say</c> on macOS, SAPI on
         /// Windows.</summary>
         void Speak(string text);
-
-        /// <summary>
-        /// Whether a toast raised through <see cref="Notify"/> is read aloud by the desktop's
-        /// screen reader on its own, so that <see cref="Speak"/> of the same text would be heard
-        /// twice. See <see cref="DesktopDeliveryPlan.ToastIsSpoken"/> for the per-desktop rule and
-        /// <see cref="DesktopAnnouncement"/> for the one place that applies it. Defaults to false
-        /// so a test double that records both channels keeps recording both.
-        /// </summary>
-        bool ToastIsSpoken => false;
     }
 
     /// <summary>
-    /// <b>The one rule for sound, toast and speech with no browser attached</b>, shared by the
-    /// alert monitor, the bar-close announcer and the order announcer so they cannot drift.
+    /// <b>ONE path for an announcement with no browser attached</b>, shared by the alert monitor,
+    /// the bar-close and narration announcements, the monitor's own reports and the order
+    /// announcer so they cannot drift.
     ///
-    /// <para>Until 2026-09-11 each of them raised the toast and then spoke the same sentence, and
-    /// on a desktop whose screen reader reads notifications (Cody's: MATE + Orca) every
-    /// announcement arrived twice. Now: the toast goes out whenever there is a toast tool; the
-    /// sentence is spoken as well ONLY when the toast does not already reach the screen reader
-    /// (<see cref="IDesktopAlertPresenter.ToastIsSpoken"/>) or the user has asked for both
-    /// (<see cref="SettingsKeys.DesktopSpeakBesideToast"/>, which is the DEFAULT — see
-    /// <see cref="SpeakBesideToast"/> for why the plan's per-desktop guess is not trusted on its
-    /// own). With no toast tool at all, speech is the only channel and always runs.</para>
+    /// <para><b>Cody, 2026-09-11, the decision:</b> <i>"Pick the best path, orca/speech dispatcher
+    /// or notification but not both … If someone doesn't need speech they shouldn't hear it."</i>
+    /// The desktop NOTIFICATION is that path. A screen reader presents it (Orca reads a MATE
+    /// notification and says so; VoiceOver and Narrator read theirs), a sighted user sees it, and
+    /// a machine with no screen reader stays silent — which direct speech cannot promise: the
+    /// Orca route reaches only Orca, and the spd-say fallback talks to everyone. Speaking as well
+    /// as notifying was every announcement heard twice on his desktop. So: sound, then the toast;
+    /// direct speech runs ONLY on a machine that has no notification tool at all, where the toast
+    /// would otherwise be nothing.</para>
     ///
-    /// <para>Because the toast can now be the ONLY spoken route, its body carries the whole
-    /// sentence — including the narration ladder on a bar close — not a shortened visual form.
-    /// Three separate attempts, not one: a machine with no audio player must still get the toast,
-    /// and a broken toast must not take speech down with it.</para>
+    /// <para>Because the toast is the whole announcement, its body carries the whole sentence —
+    /// the narration ladder on a bar close included — not a shortened visual form. Each channel is
+    /// its own attempt: a machine with no audio player must still get the toast.</para>
     /// </summary>
     public static class DesktopAnnouncement
     {
-        /// <summary>
-        /// The user's "also speak directly" switch — <b>default ON</b>.
-        ///
-        /// <para>It shipped default-off for about an hour on 2026-09-11, on the reading that Orca
-        /// reads every MATE notification. Cody, same afternoon, listening: <i>"I don't hear orca
-        /// read any notification, if it did it would say 'notification'"</i>. So on his desktop the
-        /// toast is SHOWN and NOT spoken, and a default that trusted <see cref="IDesktopAlertPresenter.ToastIsSpoken"/>
-        /// would have turned every headless announcement into silence — the one failure this
-        /// monitor exists to prevent. The safe default for a blind user is speech; the switch is
-        /// the way to stop a doubling on a desktop whose screen reader DOES read toasts.</para>
-        /// </summary>
-        public static bool SpeakBesideToast(ISettingsManager? settings)
-        {
-            try { return settings?.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? true; }
-            catch { return true; }
-        }
+        /// <summary>Direct speech runs only where there is no notification tool to carry the text.</summary>
+        public static bool ShouldSpeak(IDesktopAlertPresenter presenter) => !presenter.CanNotify;
 
-        /// <summary>Whether <see cref="IDesktopAlertPresenter.Speak"/> should run after the toast.</summary>
-        public static bool ShouldSpeak(IDesktopAlertPresenter presenter, bool speakBesideToast)
-            => speakBesideToast || !(presenter.CanNotify && presenter.ToastIsSpoken);
-
-        /// <summary>Sound (optional), toast, and speech under the rule above. Each channel is its own
-        /// attempt; a failure is logged and the next channel still runs.</summary>
         /// <param name="toastBody">What the notification shows under <paramref name="title"/>. A
-        /// screen reader that reads the toast reads the title and then this, so a body that
-        /// repeats the title would be heard twice — see <c>HeadlessOrderAnnouncer.ToastBody</c>.</param>
-        /// <param name="speech">The whole sentence, for the direct speech route.</param>
+        /// screen reader reads the title and then this, so a body that repeats the title would be
+        /// heard twice — see <c>HeadlessOrderAnnouncer.ToastBody</c>.</param>
+        /// <param name="speech">The whole sentence, for the no-toast-tool fallback.</param>
         public static void Present(
-            IDesktopAlertPresenter presenter, bool speakBesideToast,
+            IDesktopAlertPresenter presenter,
             string title, string toastBody, string speech, bool urgent, bool withSound, ILogger? logger)
         {
             if (withSound) Try(() => presenter.PlayNotificationSound(), "sound", logger);
+            // Always attempted: a presenter with no toast tool makes this a no-op, and asking
+            // first would be a second copy of the same question.
             Try(() => presenter.Notify(title, toastBody, urgent), "toast", logger);
-            if (ShouldSpeak(presenter, speakBesideToast))
+            if (ShouldSpeak(presenter))
                 Try(() => presenter.Speak(speech), "speech", logger);
         }
 
@@ -189,8 +163,6 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         public bool CanNotify => _plan.CanNotify;
-
-        public bool ToastIsSpoken => _plan.ToastIsSpoken;
 
         public void Notify(string title, string text, bool urgent)
             => Run(_plan.ToastCommand(title, text, urgent));

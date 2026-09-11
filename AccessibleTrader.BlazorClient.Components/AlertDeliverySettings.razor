@@ -137,19 +137,6 @@
                 </select>
             </div>
             <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent. 1 minute announces every chart.</p>
-            @* With the browser closed the monitor shows a notification AND speaks the sentence.
-               On a desktop whose screen reader reads every notification itself that is each
-               announcement twice; on Cody's MATE + Orca it is not (2026-09-11: "I don't hear orca
-               read any notification"). Default ON — silence is the failure a blind user cannot
-               detect — and OFF is the way to stop a doubling where it happens. *@
-            <div class="modal-row">
-                <label for="s-speak-beside-toast">Also speak announcements aloud, not only through the notification</label>
-                <input id="s-speak-beside-toast" type="checkbox"
-                       aria-describedby="s-speak-beside-toast-hint"
-                       checked="@_speakBesideToast"
-                       @onchange="e => Commit(() => _speakBesideToast = e.Value is bool b ? b : _speakBesideToast)" />
-            </div>
-            <p id="s-speak-beside-toast-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, each announcement is shown as a notification and spoken. Turn this off if your screen reader already reads every notification and you hear announcements twice.</p>
             <p style="margin:0; color:var(--text-muted); font-size:0.9em;">Delivered by @Notifier.Describe().</p>
         </fieldset>
     }
@@ -387,7 +374,6 @@
     // the whole background route (toast, earcon, speech) — see that class for why the gate is a
     // settings key and not another WorkspaceState field.
     private bool _speakBackgroundBars;
-    private bool _speakBesideToast;
     // The browser-closed floor. A STRING timeframe rather than a number of seconds, because that
     // is what the chart, the alert and the tab all call it, and a settings file a user may open
     // should say "15m" and not "900".
@@ -454,7 +440,6 @@
         _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
         _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
         _headlessBarFloor = Settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString() ?? "1m";
-        _speakBesideToast = Settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? true;
     }
 
     /// <summary>
@@ -506,7 +491,6 @@
         Settings.SetSetting(SettingsKeys.DesktopNotifyNewBars, Newtonsoft.Json.Linq.JToken.FromObject(_notifyBars));
         Settings.SetSetting(SettingsKeys.SpeakBackgroundTabBars, Newtonsoft.Json.Linq.JToken.FromObject(_speakBackgroundBars));
         Settings.SetSetting(SettingsKeys.HeadlessNewBarMinTimeframe, Newtonsoft.Json.Linq.JToken.FromObject(_headlessBarFloor));
-        Settings.SetSetting(SettingsKeys.DesktopSpeakBesideToast, Newtonsoft.Json.Linq.JToken.FromObject(_speakBesideToast));
         App.Save();
     }
 
