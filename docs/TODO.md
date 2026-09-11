@@ -134,11 +134,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   a minute shifts every index by one; the 20-bar look-back would re-announce what it just said,
 >   the seed would drift off its bar. Merge (append newer, REPLACE held — the closed bar's final
 >   volume is the reading), trim past twice what is needed, and tell the scanner by how much.
-> - **The toast IS the speech where the screen reader reads it.** Toast then `PresentMessage` was
->   every headless announcement twice on Cody's desktop. One rule (`DesktopAnnouncement`) for all
->   four delivery sites; the body carries the whole sentence; a switch exists for a desktop whose
->   screen reader does not read notifications. A test double that predates the rule keeps hearing
->   both channels, so the old delivery tests keep meaning what they meant.
+> - **Do not let a guess about the desktop choose silence.** The doubling fix first shipped
+>   assuming Orca reads every MATE toast, so it stopped speaking where a toast was shown; an hour
+>   later Cody: *"I don't hear orca read any notification."* The toast is shown (MATE daemon
+>   received it on the D-Bus) and not read. One rule (`DesktopAnnouncement`) for all four delivery
+>   sites, the body carries the whole sentence, and direct speech defaults ON — the switch turns
+>   it OFF where a screen reader really does read toasts. The second voice in the first report is
+>   still unexplained (open question).
 > - **Never `git checkout --` in a sabotage harness — and for a NEW file it does not even
 >   revert, it FAILS, and the sabotage stays in place for the next run.** Rule 4 of the standing
 >   memory already said the first half; I had not re-read it. `cp` to scratch, `cp` back, `touch`,
@@ -165,9 +167,12 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >   (evaluates every user's saved alerts after their browser closes, delivering by email /
 >   Telegram / webhook / Web Push) and the "Browser notifications" Web Push panel. Gate both? And
 >   email / Telegram / webhooks, which also deliver with the browser open?
-> - **Does Orca read `notify-send` toasts on every desktop you use?** The default now assumes it
->   does wherever Orca is the speech route. If a machine goes quiet, the new switch under Alerts →
->   Desktop notifications brings direct speech back.
+> - **What was the second voice?** You first heard each headless announcement twice, then
+>   confirmed Orca does not read the MATE notification. The monitor speaks each announcement once
+>   (one `PresentMessage` per event, logged once). Candidates: a browser circuit still within its
+>   retention window speaking the same close; Orca's own "notification" presentation being on for
+>   some app names; or spd-say and Orca both being reached. When it recurs, note whether both
+>   voices are your Orca voice.
 > - The three from the previous block stand: `notifications.desktop.newBars` default; why your
 >   own server was silent; a plain LINE off the price pane.
 >

@@ -69,9 +69,9 @@ namespace AccessibleTrader.WebHost.Services
     /// announcement arrived twice. Now: the toast goes out whenever there is a toast tool; the
     /// sentence is spoken as well ONLY when the toast does not already reach the screen reader
     /// (<see cref="IDesktopAlertPresenter.ToastIsSpoken"/>) or the user has asked for both
-    /// (<see cref="SettingsKeys.DesktopSpeakBesideToast"/>, for a desktop where the notification
-    /// daemon is not one the screen reader presents). With no toast tool at all, speech is the only
-    /// channel and always runs.</para>
+    /// (<see cref="SettingsKeys.DesktopSpeakBesideToast"/>, which is the DEFAULT — see
+    /// <see cref="SpeakBesideToast"/> for why the plan's per-desktop guess is not trusted on its
+    /// own). With no toast tool at all, speech is the only channel and always runs.</para>
     ///
     /// <para>Because the toast can now be the ONLY spoken route, its body carries the whole
     /// sentence — including the narration ladder on a bar close — not a shortened visual form.
@@ -80,11 +80,21 @@ namespace AccessibleTrader.WebHost.Services
     /// </summary>
     public static class DesktopAnnouncement
     {
-        /// <summary>The user's "also speak directly" switch, default off.</summary>
+        /// <summary>
+        /// The user's "also speak directly" switch — <b>default ON</b>.
+        ///
+        /// <para>It shipped default-off for about an hour on 2026-09-11, on the reading that Orca
+        /// reads every MATE notification. Cody, same afternoon, listening: <i>"I don't hear orca
+        /// read any notification, if it did it would say 'notification'"</i>. So on his desktop the
+        /// toast is SHOWN and NOT spoken, and a default that trusted <see cref="IDesktopAlertPresenter.ToastIsSpoken"/>
+        /// would have turned every headless announcement into silence — the one failure this
+        /// monitor exists to prevent. The safe default for a blind user is speech; the switch is
+        /// the way to stop a doubling on a desktop whose screen reader DOES read toasts.</para>
+        /// </summary>
         public static bool SpeakBesideToast(ISettingsManager? settings)
         {
-            try { return settings?.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? false; }
-            catch { return false; }
+            try { return settings?.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? true; }
+            catch { return true; }
         }
 
         /// <summary>Whether <see cref="IDesktopAlertPresenter.Speak"/> should run after the toast.</summary>

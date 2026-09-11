@@ -144,14 +144,19 @@ public sealed class DesktopAnnouncementTests
     }
 
     [Fact]
-    public void The_setting_reads_false_when_absent_and_true_when_set()
+    public void The_setting_defaults_to_SPEECH_when_absent_and_can_be_switched_off()
     {
+        // Default ON. It shipped default-off for an hour on the reading that Orca reads every
+        // MATE notification; Cody, listening: "I don't hear orca read any notification". A
+        // default that trusts the plan's guess turns every headless announcement into silence
+        // on a desktop where the guess is wrong, and silence is the failure this monitor exists
+        // to prevent.
         var settings = NSubstitute.Substitute.For<ISettingsManager>();
-        Assert.False(DesktopAnnouncement.SpeakBesideToast(settings));
-        Assert.False(DesktopAnnouncement.SpeakBesideToast(null));
+        Assert.True(DesktopAnnouncement.SpeakBesideToast(settings));
+        Assert.True(DesktopAnnouncement.SpeakBesideToast(null));
 
         settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast)
-            .Returns(Newtonsoft.Json.Linq.JToken.FromObject(true));
-        Assert.True(DesktopAnnouncement.SpeakBesideToast(settings));
+            .Returns(Newtonsoft.Json.Linq.JToken.FromObject(false));
+        Assert.False(DesktopAnnouncement.SpeakBesideToast(settings));
     }
 }

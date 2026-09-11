@@ -341,9 +341,11 @@ then Orca `PresentMessage` with the same sentence, and Orca presents notificatio
 (Linux: Orca is the speech route; macOS and Windows: the plan already claimed VoiceOver and
 Narrator read it) and `DesktopAnnouncement.Present` — used by the alert monitor, the bar-close and
 narration announcements, the monitor's self-reports and `HeadlessOrderAnnouncer` — speaks only
-where it does not. The toast body now carries the whole sentence, ladder included. A new switch
-under Alerts → Desktop notifications, "Also speak announcements aloud, not only through the
-notification" (default off), is the way back for a desktop whose screen reader does not read them.
+where it does not. The toast body now carries the whole sentence, ladder included. The switch under
+Alerts → Desktop notifications, "Also speak announcements aloud, not only through the
+notification", defaults ON after Cody's second report ("I don't hear orca read any notification";
+the MATE daemon shows the toast, confirmed on the D-Bus) — OFF is the way to stop a doubling where
+the screen reader does read toasts.
 The interface default (`ToastIsSpoken => false`) keeps every pre-existing test double hearing
 both channels, so the old delivery tests keep their meaning.
 

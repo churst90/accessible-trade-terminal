@@ -137,11 +137,11 @@
                 </select>
             </div>
             <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent. 1 minute announces every chart.</p>
-            @* With the browser closed, the notification is what the screen reader reads — Orca,
-               VoiceOver and Narrator all present desktop notifications — so speaking the same
-               sentence as well was every announcement heard twice (Cody, 2026-09-11: "orca reads
-               the notification twice"). The direct speech is now OFF on top of a notification and
-               this is the way back for a desktop whose screen reader does not read them. *@
+            @* With the browser closed the monitor shows a notification AND speaks the sentence.
+               On a desktop whose screen reader reads every notification itself that is each
+               announcement twice; on Cody's MATE + Orca it is not (2026-09-11: "I don't hear orca
+               read any notification"). Default ON — silence is the failure a blind user cannot
+               detect — and OFF is the way to stop a doubling where it happens. *@
             <div class="modal-row">
                 <label for="s-speak-beside-toast">Also speak announcements aloud, not only through the notification</label>
                 <input id="s-speak-beside-toast" type="checkbox"
@@ -149,7 +149,7 @@
                        checked="@_speakBesideToast"
                        @onchange="e => Commit(() => _speakBesideToast = e.Value is bool b ? b : _speakBesideToast)" />
             </div>
-            <p id="s-speak-beside-toast-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, your screen reader reads each notification as it appears. Turn this on only if it does not, and the sentence will be spoken directly as well.</p>
+            <p id="s-speak-beside-toast-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, each announcement is shown as a notification and spoken. Turn this off if your screen reader already reads every notification and you hear announcements twice.</p>
             <p style="margin:0; color:var(--text-muted); font-size:0.9em;">Delivered by @Notifier.Describe().</p>
         </fieldset>
     }
@@ -454,7 +454,7 @@
         _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
         _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
         _headlessBarFloor = Settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString() ?? "1m";
-        _speakBesideToast = Settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? false;
+        _speakBesideToast = Settings.GetSetting(SettingsKeys.DesktopSpeakBesideToast)?.ToObject<bool>() ?? true;
     }
 
     /// <summary>

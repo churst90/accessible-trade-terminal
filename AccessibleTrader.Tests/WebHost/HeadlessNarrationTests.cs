@@ -324,11 +324,12 @@ public sealed class HeadlessNarrationTests : IDisposable
     // ── The doubling: "orca reads the notification twice" ─────────────────────
 
     [Fact]
-    public async Task Where_the_screen_reader_reads_the_toast_the_monitor_does_not_speak_as_well()
+    public async Task With_direct_speech_switched_off_where_the_screen_reader_reads_the_toast_the_monitor_does_not_speak_as_well()
     {
         using var h = new Harness(new[] { SavedVolume() });
         h.NewBarToasts(true);
         h.Presenter.ToastIsSpokenByScreenReader = true;
+        h.SpeakBesideToast(false);
 
         await h.PollAsync();
         h.CloseABar();
@@ -343,12 +344,13 @@ public sealed class HeadlessNarrationTests : IDisposable
     }
 
     [Fact]
-    public async Task Unless_the_user_asked_to_be_spoken_to_as_well()
+    public async Task By_DEFAULT_the_monitor_speaks_even_where_the_plan_thinks_the_toast_is_read()
     {
+        // Cody's MATE + Orca: the plan says Orca is the speech route, so it guesses the toast is
+        // read; it is not ("I don't hear orca read any notification"). The default keeps speech.
         using var h = new Harness(new[] { SavedVolume() });
         h.NewBarToasts(true);
         h.Presenter.ToastIsSpokenByScreenReader = true;
-        h.SpeakBesideToast(true);
 
         await h.PollAsync();
         h.CloseABar();

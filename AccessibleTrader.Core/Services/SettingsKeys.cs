@@ -190,10 +190,12 @@ namespace AccessibleTrader.Core.Services
         // With no browser open the monitor raised a desktop notification AND spoke the same
         // sentence, and on a desktop where the screen reader reads notifications itself (Orca on
         // Linux, VoiceOver, Narrator) that is every announcement heard twice. Cody, 2026-09-11:
-        // "when the browser is closed orca reads the notification twice". So where the toast IS
-        // the spoken route (DesktopDeliveryPlan.ToastIsSpoken) the monitor no longer speaks on
-        // top of it. This switch, default FALSE, is for a desktop whose screen reader does NOT
-        // read notifications — the toast still shows, and the sentence is spoken as well.
+        // "when the browser is closed orca reads the notification twice" — and then, an hour
+        // later: "I don't hear orca read any notification". So the plan's guess about which
+        // desktops read toasts (DesktopDeliveryPlan.ToastIsSpoken) is NOT trusted on its own:
+        // this switch defaults TRUE (speech as well as the toast — silence is the failure a blind
+        // user cannot detect), and turning it OFF is how to stop a doubling on a desktop whose
+        // screen reader really does read every notification.
         public const string DesktopSpeakBesideToast = "notifications.desktop.speakBesideToast";
 
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────

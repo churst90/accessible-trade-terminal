@@ -69,9 +69,9 @@ namespace AccessibleTrader.WebHost.Services
         /// <see cref="CircuitOrderCoverage.IsCovered"/>.
         /// </param>
         /// <param name="speakBesideToast">
-        /// The user's "also speak directly" switch, read at delivery time. Null means off — the
-        /// toast is the spoken route wherever the desktop's screen reader reads it
-        /// (<see cref="DesktopAnnouncement"/>).
+        /// The user's "also speak directly" switch, read at delivery time. Null means ON — speech
+        /// is the safe default; the switch exists to stop a doubling where the screen reader reads
+        /// the toast too (<see cref="DesktopAnnouncement"/>).
         /// </param>
         public HeadlessOrderAnnouncer(
             IEventBus bus,
@@ -83,7 +83,7 @@ namespace AccessibleTrader.WebHost.Services
             _presenter = presenter;
             _logger = logger;
             _isCovered = isCovered ?? CircuitOrderCoverage.IsCovered;
-            _speakBesideToast = speakBesideToast ?? (() => false);
+            _speakBesideToast = speakBesideToast ?? (() => true);
 
             // The money events, in the wording the in-session pipeline uses. Every one of
             // these is something that happened to the user's money while they were not
@@ -150,7 +150,7 @@ namespace AccessibleTrader.WebHost.Services
             // depends on. Speech runs only where the toast does not already reach the screen
             // reader — see DesktopAnnouncement for the doubling this closes.
             bool speakToo;
-            try { speakToo = _speakBesideToast(); } catch { speakToo = false; }
+            try { speakToo = _speakBesideToast(); } catch { speakToo = true; }
             DesktopAnnouncement.Present(_presenter, speakToo, title, ToastBody(title, speech), speech,
                 urgent: false, withSound: true, _logger);
         }

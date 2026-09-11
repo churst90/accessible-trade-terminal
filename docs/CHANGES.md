@@ -53,9 +53,14 @@ macOS and Windows: the plan already claimed VoiceOver and Narrator read the toas
 `DesktopAnnouncement.Present`, which the alert monitor, the bar-close announcer, the monitor's
 own reports and `HeadlessOrderAnnouncer` all go through. Where the toast is spoken by the screen
 reader, the sentence is not spoken again; the toast body now carries the whole sentence, ladder
-included. For a desktop whose screen reader does NOT read notifications there is a new switch
-under Alerts (Alt+J) → Desktop notifications: "Also speak announcements aloud, not only through
-the notification" (`notifications.desktop.speakBesideToast`, default off). A test double that
+included. **Then Cody listened again: "I don't hear orca read any notification."** On his MATE desktop the
+toast is SHOWN (confirmed on the D-Bus — the MATE daemon received the test notification) and NOT
+read by Orca, so the default that trusted the plan's guess would have turned every headless
+announcement into silence. The switch under Alerts (Alt+J) → Desktop notifications, "Also speak
+announcements aloud, not only through the notification" (`notifications.desktop.speakBesideToast`),
+therefore defaults **ON**: notification and speech both, and OFF is the way to stop a doubling on a
+desktop whose screen reader really does read every toast. What the first report's second voice
+was is still open. A test double that
 predates the rule keeps hearing both channels — the interface default is false — so every
 delivery test written before today keeps its meaning.
 
