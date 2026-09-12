@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Ctrl+Left/Right skips to band crossings on ADX, and narration says which band you entered (2026-09-12, fifty-first pass)
+
+Suite **7,613** (was 7,599). Two reports from Cody, both on ADX.
+
+**1. "Ctrl left/right seems to move along every point on each component, not just notable crosses."**
+
+Two separate causes, and both had to go.
+
+**It walked bar by bar** because the "is this a sparse marker" test was *does the array contain any
+NaN*. Nearly every indicator has a warmup — ADX's first fourteen bars are NaN because a
+fourteen-period average of anything needs fourteen bars — so ADX read as a sparse marker, fell to
+the marker jump, and that jump lands on the next bar that has a value. Which is every bar, one at a
+time, on the one key whose entire purpose is to skip. The test is now DENSITY, not presence:
+between its first real value and its last, a line has a value on nearly every bar and a marker has
+one on almost none, so "fewer than half the bars in its own span" separates them by a wide margin
+in both directions and still reads a feed with a few missing bars as a line.
+
+**And it had nothing to aim at** because the threshold jump read exactly three lines — an
+overbought, an oversold, and the midline between them — and *required* the first two, answering
+"No crossing in view" when either was missing. ADX's Developing / Strong / Very Strong are band
+edges, not extremes, so the classifier fell past every branch to the no-dedicated-rule case. Now
+every visible line that carries meaning is a candidate: a role, or a declared band label. Ctrl+Left
+and Ctrl+Right on ADX jump to where it crosses 20, 25 and 50 and say which band they landed in —
+"very strong trend at 14:00". An unlabelled line of role None is still not a destination, because
+jumping to a line the key cannot describe on arrival is the bar-by-bar walk wearing a better name.
+
+The same generalisation retired the last two special cases in that method. The midline earned its
+place the same way in the 47th pass — RSI declared a Midpoint at 50, drew it, chimed on it, and
+Ctrl+Left/Right could not reach it.
+
+**2. "When narration is on, should it speak the zones as price crosses into them?"**
+
+It already spoke the LINE — `ScanLevelCrosses` has said "crossed above overbought, 70" since the
+narration routes were built — and on RSI that is the right sentence, because the number is what the
+reader has calibrated against. It is the wrong sentence for a band edge: *"ADX: crossed above
+strong, 25"* names the line you passed, where *"ADX: strong trend"* names where you now are, which
+is the entire content of an indicator that measures trend strength and nothing else. Narration
+reads the band labels now and keeps the older wording everywhere else.
+
+Narration also honours `SubscribedLevelNames` now, which the audio layer and the spoken zone word
+already did — so on a pane like Aroon's, where two scales share an axis, the other scale's line is
+no longer narrated as a crossing that happened.
+
+**Tests.** `BandCrossingNavigationTests` (9) and `BandZoneNarrationTests` (5). Five sabotages red:
+the sparse test back to "any NaN", band edges dropped as targets, the jump naming the line instead
+of the band, narration back to naming the line, and narration ignoring the subscription.
+
+
 ### A level says what it is, what it means, and whose it is — and the area fill becomes real (2026-09-12, fiftieth pass)
 
 Suite **7,599** (was 7,585). Cody asked four design questions and made four calls; this is those

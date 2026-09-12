@@ -108,10 +108,8 @@ namespace AccessibleTrader.Core.Services.Input
                         // who had a specific oscillator component in focus. Instead, announce
                         // the absence explicitly so the user knows why Ctrl+L/R is a no-op here.
                         var compData = focusedSeries.GetComponentData(focusedComp.Name);
-                        bool hasNaN = compData != null && compData.Any(double.IsNaN);
-                        if (compData != null && compData.Length > 0 && hasNaN && compData.Any(v => !double.IsNaN(v)))
+                        if (compData != null && IsSparseSignal(compData))
                         {
-                            // Mixed NaN / non-NaN values — treat as sparse marker.
                             DoSparseSignalJump(focusedSeries, focusedComp, current, jumpRight);
                         }
                         else
@@ -177,6 +175,16 @@ namespace AccessibleTrader.Core.Services.Input
             bool hasOB = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Overbought);
             bool hasOS = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Oversold);
             if (hasOB && hasOS) return CrossingType.ThresholdLevel;
+
+            // A BAND EDGE IS A TARGET. ADX's lines are Developing / Strong / Very Strong and
+            // Choppiness's are Trending / Ranging: none is an extreme, so none has a role, so
+            // this method used to fall past all three branches and answer "Trendline" — the
+            // no-dedicated-rule case. On an indicator whose whole message is which band you are
+            // in, that left the key with nothing to aim at. Since 2026-09-12 those lines declare
+            // what their two sides MEAN, and a line that means something is worth jumping to.
+            bool hasBand = seriesLevels.Any(l => !string.IsNullOrWhiteSpace(l.AboveLabel)
+                                              || !string.IsNullOrWhiteSpace(l.BelowLabel));
+            if (hasBand) return CrossingType.ThresholdLevel;
 
             bool hasZero = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Neutral);
             if (hasZero) return CrossingType.ZeroLine;
@@ -250,14 +258,6 @@ namespace AccessibleTrader.Core.Services.Input
 
         private void DoThresholdCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
-            // Switched-off lines are not targets — see the note in Classify.
-            var obEntry = focusedSeries.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Overbought);
-            var osEntry = focusedSeries.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Oversold);
-            double obLevel = obEntry?.Value ?? double.NaN;
-            double osLevel = osEntry?.Value ?? double.NaN;
-
-            if (double.IsNaN(obLevel) || double.IsNaN(osLevel)) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
-
             var primaryComp = focusedSeries.Components.FirstOrDefault(c =>
                 c.Role != ComponentRole.Level && c.DisplayType != ComponentDisplayType.Level && c.IsVisible);
             if (primaryComp == null) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
@@ -265,26 +265,55 @@ namespace AccessibleTrader.Core.Services.Input
             var seriesData = focusedSeries.GetComponentData(primaryComp.Name);
             if (seriesData == null || seriesData.Length < 2) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
 
-            int obFound = ScanThresholdCrossing(seriesData, current, jumpRight, obLevel, aboveIsZone: true,  out string obMsg);
-            int osFound = ScanThresholdCrossing(seriesData, current, jumpRight, osLevel, aboveIsZone: false, out string osMsg);
-
-            // THE MIDLINE IS A TARGET TOO.
+            // EVERY LINE THAT MEANS SOMETHING IS A TARGET.
             //
-            // A bounded oscillator went straight to the OB/OS branch and nothing here ever looked
-            // at the line between them, so RSI's Midpoint at 50 — declared by the provider, drawn
-            // on the chart, with an earcon that fires when price crosses it — could not be reached
-            // by Ctrl+Left or Ctrl+Right. Crossing 50 is the momentum event a trader is usually
-            // looking for on an RSI; the two extremes are the rarer ones.
-            var midEntry = NeutralLevel(focusedSeries);
-            int midFound = -1; string midMsg = string.Empty;
-            if (midEntry != null)
+            // This used to read exactly three: an overbought, an oversold, and the midline between
+            // them — and it REQUIRED the first two, returning "No crossing in view" when either was
+            // missing. So ADX, whose three lines are band edges rather than extremes, had nothing
+            // here to aim at even after it learned to say what its bands mean.
+            //
+            // The midline earned its place the same way in an earlier pass: RSI declared a
+            // Midpoint at 50, drew it, chimed on it, and Ctrl+Left/Right could not reach it.
+            // Crossing 50 is the momentum event an RSI reader is usually looking for. Generalising
+            // once more is the same fix with the special cases removed.
+            var candidates = new List<(int Index, string Message)>();
+            foreach (var level in focusedSeries.Levels)
             {
-                midFound = ScanSignCrossing(seriesData, current, jumpRight, midEntry.Value);
-                midMsg   = $"{midEntry.Name} cross";
+                // Switched-off lines are not targets — see the note in Classify.
+                if (!level.IsVisible) continue;
+
+                switch (level.EffectiveRole)
+                {
+                    case LevelRole.Overbought:
+                        candidates.Add((ScanThresholdCrossing(seriesData, current, jumpRight, level.Value,
+                            aboveIsZone: true, out string obMsg), obMsg));
+                        break;
+                    case LevelRole.Oversold:
+                        candidates.Add((ScanThresholdCrossing(seriesData, current, jumpRight, level.Value,
+                            aboveIsZone: false, out string osMsg), osMsg));
+                        break;
+                    case LevelRole.Neutral:
+                        candidates.Add((ScanSignCrossing(seriesData, current, jumpRight, level.Value),
+                            $"{level.Name} cross"));
+                        break;
+                    default:
+                        // A band edge, and only when it says what its sides mean — an unlabelled
+                        // line of role None is decoration, and jumping to it would give the key a
+                        // destination it cannot describe on arrival.
+                        if (string.IsNullOrWhiteSpace(level.AboveLabel) && string.IsNullOrWhiteSpace(level.BelowLabel))
+                            break;
+                        int bandIdx = ScanSignCrossing(seriesData, current, jumpRight, level.Value);
+                        if (bandIdx < 0) break;
+                        // Name the zone ENTERED, not the line passed: "very strong trend" tells
+                        // you where you now are, which is the thing the band was declared to say.
+                        string? entered = seriesData[bandIdx] >= level.Value ? level.AboveLabel : level.BelowLabel;
+                        candidates.Add((bandIdx, string.IsNullOrWhiteSpace(entered) ? $"{level.Name} cross" : entered!));
+                        break;
+                }
             }
 
             int found = -1; string crossMsg = string.Empty;
-            foreach (var (idx, msg) in new[] { (obFound, obMsg), (osFound, osMsg), (midFound, midMsg) })
+            foreach (var (idx, msg) in candidates)
             {
                 if (idx < 0) continue;
                 // Nearest wins in the direction of travel — the same rule the two-way version
@@ -508,6 +537,46 @@ namespace AccessibleTrader.Core.Services.Input
             string? name = focusedSeries?.FriendlyName;
             if (string.IsNullOrWhiteSpace(name)) name = focusedSeries?.Name ?? "This series";
             return $"{name} has no crossings to jump to. Draw a trend line and this key finds where price crosses it.";
+        }
+
+        /// <summary>
+        /// Whether a component's data is a SPARSE SIGNAL — a marker that fires on a handful of
+        /// bars — rather than a continuous line.
+        ///
+        /// <para>
+        /// This used to be "does the array contain any NaN", and it could not tell the two apart.
+        /// Nearly every indicator has a warmup: ADX's first fourteen bars are NaN because a
+        /// fourteen-period average of anything needs fourteen bars. So ADX looked sparse, fell to
+        /// the marker jump, and Ctrl+Left/Right walked to THE NEXT BAR — every bar, one at a time,
+        /// on a key whose whole purpose is to skip to something worth hearing. Cody: <i>"when I
+        /// add adx, ctrl left/right seems to move along every point on each component, not just
+        /// notable crosses."</i>
+        /// </para>
+        ///
+        /// <para>
+        /// The distinction is DENSITY, not presence. Between its first real value and its last, a
+        /// line has a value on nearly every bar and a marker has one on almost none. A half
+        /// threshold separates them by a wide margin in both directions and tolerates a feed with
+        /// a few missing bars, which an "any interior gap" test would misread as sparse.
+        /// </para>
+        /// </summary>
+        internal static bool IsSparseSignal(double[]? data)
+        {
+            if (data == null || data.Length == 0) return false;
+
+            int first = -1, last = -1, populated = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                if (double.IsNaN(data[i])) continue;
+                if (first < 0) first = i;
+                last = i;
+                populated++;
+            }
+
+            if (first < 0) return false;          // nothing at all: not a marker, just empty
+            int span = last - first + 1;
+            if (span <= 1) return true;           // a single firing IS the sparse case
+            return populated * 2 < span;          // fewer than half the bars in its own span
         }
 
         // ── Static scan primitives (also used by CrossingNavigationTests via reflection) ─

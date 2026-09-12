@@ -687,27 +687,59 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double val = data[barIndex];
             if (double.IsNaN(val)) return;
 
+            // Three phrasings, because three things can be true of a line you just crossed.
+            //
+            // A BAND EDGE says where you now ARE — "strong trend" — because that is what the
+            // declaration is for and it is the whole message of an indicator like ADX. Cody, on
+            // hearing the band words land in the cursor readout: "when narration is on, should it
+            // speak the zones as price crosses into them?" Yes, and this is where.
+            //
+            // Anything else keeps the older wording, which names the LINE and its value: on RSI,
+            // "crossed above overbought, 70" is the useful sentence, because the number is the
+            // thing the reader has calibrated against.
+            var entered = new List<string>();
             var above = new List<string>();
             var below = new List<string>();
 
             foreach (var level in series.Levels)
             {
                 if (!level.IsVisible) continue;
+                if (!SubscribesToLevel(comp, level.Name)) continue;
                 string key = $"{series.Id}:{comp.Name}:{level.Name}";
                 bool nowAbove = val > level.Value;
 
                 if (_lastAboveLevel.TryGetValue(key, out bool wasAbove) && wasAbove != nowAbove)
-                    (nowAbove ? above : below).Add(LevelPhrase(level));
+                {
+                    string? band = nowAbove ? level.AboveLabel : level.BelowLabel;
+                    if (!string.IsNullOrWhiteSpace(band)) entered.Add(band!);
+                    else (nowAbove ? above : below).Add(LevelPhrase(level));
+                }
 
                 _lastAboveLevel[key] = nowAbove;
             }
 
+            if (entered.Count > 0)
+                utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
+                              $"{series.FriendlyName}: {string.Join(", ", entered)}.");
             if (above.Count > 0)
                 utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
                               $"{series.FriendlyName}: crossed above {string.Join(", ", above)}.");
             if (below.Count > 0)
                 utterance.Add(ScanUtterance.TierOscillator, series.FriendlyName, $"{series.Id}:levels",
                               $"{series.FriendlyName}: crossed below {string.Join(", ", below)}.");
+        }
+
+        /// <summary>
+        /// Whether this component answers to that level, using the subscription list the audio
+        /// layer and the spoken zone word both honour. On a pane like Aroon's — Up and Down about
+        /// 50, the Oscillator about zero — narrating a line that belongs to a different scale
+        /// would be a crossing that did not happen.
+        /// </summary>
+        private static bool SubscribesToLevel(ComponentConfig comp, string levelName)
+        {
+            if (comp.SubscribedLevelNames is not { } subs) return true;
+            if (subs.Count == 0) return false;
+            return subs.Contains(levelName, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>"overbought, 70" — or just "zero", where the name already IS the number.</summary>

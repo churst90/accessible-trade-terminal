@@ -117,6 +117,37 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-12 (late night), FIFTY-FIRST pass — CTRL+LEFT/RIGHT SKIPS TO
+> BAND CROSSINGS ON ADX, AND NARRATION SAYS WHICH BAND YOU ENTERED.)** Suite **7,613**, 0 failing.
+> Still no release cut. Full entry in `docs/CHANGES.md`.
+>
+> Two reports from Cody, both on ADX, and the first had TWO causes:
+> 1. **It walked bar by bar** — the "is this a sparse marker" test was *does the array contain any
+>    NaN*, and every indicator has a warmup. ADX's first fourteen bars are NaN, so it read as a
+>    marker and the marker jump lands on the next bar with a value. Now DENSITY: fewer than half
+>    the bars in its own span.
+> 2. **It had nothing to aim at** — the threshold jump read exactly an overbought, an oversold and
+>    the midline, and REQUIRED the first two. ADX's lines are band edges. Every visible line that
+>    carries meaning (a role, or a declared band label) is a candidate now, and the jump names the
+>    band it landed in. An unlabelled role-None line is still not a destination.
+> 3. **Narration speaks the band entered** ("ADX: strong trend") instead of the line passed, and
+>    keeps the older "crossed above overbought, 70" wording where no label is declared — the
+>    number is what an RSI reader calibrates against. Narration honours `SubscribedLevelNames` now.
+>
+> ### NEXT
+>
+> 1. **Hear it.** Nothing from the 48th–51st has been heard. ADX is the best first listen: add it,
+>    press Ctrl+Right and it should SKIP to a band crossing and name the band. Then turn narration
+>    on and let a bar close across 25.
+> 2. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, unchanged.
+> 3. **Navigation still does not honour `SubscribedLevelNames`.** Speech, audio and now narration
+>    do. On Aroon, Ctrl+Left/Right from the Oscillator can still target the Midpoint that belongs
+>    to Up/Down. Four lookups in `IndicatorCrossingEngine`, same shape as the `IsVisible` filter.
+> 4. **`ComponentRoleMapper`'s name registry** — the last by-name guesser in this area.
+> 5. **Cipher B's Money Flow Wave** is declared `Histogram` while its comment describes the filled
+>    wave it used to be; it is the one component that wants `IsAreaFill = true`. Ask first.
+> 6. **Stochastic's %K is role None and its %D is role Signal.** Folds into item 4.
+
 > **START HERE (current as of 2026-09-12 (night), FIFTIETH pass — A LEVEL SAYS WHAT IT IS, WHAT IT
 > MEANS AND WHOSE IT IS; THE AREA FILL BECOMES REAL; LEVELS GET THEIR OWN PROPERTIES TAB.)**
 > Suite **7,599**, 0 failing. Still no release cut. Full entry in `docs/CHANGES.md`.
