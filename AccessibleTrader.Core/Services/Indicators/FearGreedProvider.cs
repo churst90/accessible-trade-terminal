@@ -57,6 +57,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Name        = "Fear and Greed Index",
                 Category    = "Sentiment",
                 DefaultPane = "Pane_FEAR_GREED",
+                RangeMin = 0, RangeMax = 100,
                 Description = "Crypto Fear and Greed Index (cross-series). Fetches the daily 0-100 " +
                               "sentiment composite and forward-fills onto the active chart. Below 20 " +
                               "= extreme fear (historically near bottoms). Above 80 = extreme greed " +

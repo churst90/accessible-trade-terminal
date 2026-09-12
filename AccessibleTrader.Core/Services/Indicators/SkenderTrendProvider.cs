@@ -200,7 +200,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Adx", Name = "ADX", Category = "Trend", DefaultPane = "Pane_Adx",
+                Code = "Adx", Name = "ADX", Category = "Trend", DefaultPane = "Pane_Adx", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -236,7 +236,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Chop", Name = "Choppiness Index", Category = "Trend", DefaultPane = "Pane_Chop",
+                Code = "Chop", Name = "Choppiness Index", Category = "Trend", DefaultPane = "Pane_Chop", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -251,7 +251,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Stc", Name = "STC", Category = "Trend", DefaultPane = "Pane_Stc",
+                Code = "Stc", Name = "STC", Category = "Trend", DefaultPane = "Pane_Stc", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

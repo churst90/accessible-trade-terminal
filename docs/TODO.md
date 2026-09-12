@@ -117,6 +117,26 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-12, FORTY-SEVENTH pass — BOUNDED INDICATORS KEEP THEIR
+> NATURAL AXIS AT EVERY ZOOM.)** Suite **7,472**, 0 failing.
+>
+> Cody, after hearing the 46th pass: RSI sonified correctly but reported "22 to 83, not 0 to
+> 100". That was auto-fit; he asked for declared bounds "as long as nothing else breaks or
+> changes mechanically or visually". Entry in `docs/CHANGES.md`. `IndicatorMetadata.RangeMin`/
+> `RangeMax` → factory copies onto `SeriesConfig` → `ViewportRangeCalculator` floors the pane
+> axis to the bounds, no buffer; Cipher B's by-name ±100 floor is now the same rule. Fourteen
+> indicators declare; MACD and every unbounded one keep auto-fit. `DeclaredBoundsTests` (31),
+> two sabotages red (7, 7). **The visual change is deliberate and named in CHANGES**: the
+> fourteen are drawn on their full axis, which is what the pitch follows.
+>
+> ### NEXT
+>
+> 1. **Hear it** — RSI should announce "0 to 100" and RSI 70 should be the same note at any zoom;
+>    Cipher B should sound exactly as before. Not heard.
+> 2. Hurst (0–1), Vortex (around 1), CCI (unbounded but conventionally ±100…±300) were left
+>    auto-fit deliberately — declare only if Cody wants a fixed axis for them.
+> 3. Items 2–3 of the 46th pass below still stand (Compare-ratio pane, cohort pane name).
+
 > **START HERE (current as of 2026-09-11 (night), FORTY-SIXTH pass — EVERY OSCILLATOR HAS A
 > PANE OF ITS OWN; RSI IS NO LONGER FLAT BESIDE MACD.)** Suite **7,441** after both commits, 0 failing. Nothing in
 > this pass was HEARD — see NEXT item 1.

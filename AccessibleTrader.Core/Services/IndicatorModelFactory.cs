@@ -145,7 +145,11 @@ namespace AccessibleTrader.Core.Services
                 Name = instanceName, 
                 FriendlyName = instanceName, 
                 IndicatorCode = meta.Code, 
-                Pane = pane
+                Pane = pane,
+                // The indicator's natural bounds, so its pane axis — and therefore its pitch —
+                // never shrinks inside them. See IndicatorMetadata.RangeMin.
+                RangeMin = meta.RangeMin,
+                RangeMax = meta.RangeMax,
             };
 
             ApplyParameters(config, parameters);

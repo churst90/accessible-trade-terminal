@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Cmo", Name = "CMO", Category = "Oscillators", DefaultPane = "Pane_Cmo",
+                Code = "Cmo", Name = "CMO", Category = "Oscillators", DefaultPane = "Pane_Cmo", RangeMin = -100, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -213,7 +213,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "ConnorsRsi", Name = "Connors RSI", Category = "Oscillators", DefaultPane = "Pane_ConnorsRsi",
+                Code = "ConnorsRsi", Name = "Connors RSI", Category = "Oscillators", DefaultPane = "Pane_ConnorsRsi", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -229,7 +229,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Aroon", Name = "Aroon", Category = "Trend", DefaultPane = "Pane_Aroon",
+                Code = "Aroon", Name = "Aroon", Category = "Trend", DefaultPane = "Pane_Aroon", RangeMin = -100, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

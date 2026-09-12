@@ -82,7 +82,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new IndicatorMetadata
             {
-                Code = "Rsi", Name = "RSI", Category = "Oscillators", DefaultPane = "Pane_Rsi",
+                Code = "Rsi", Name = "RSI", Category = "Oscillators", DefaultPane = "Pane_Rsi", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -98,7 +98,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Stoch", Name = "Stochastic", Category = "Oscillators", DefaultPane = "Pane_Stoch",
+                Code = "Stoch", Name = "Stochastic", Category = "Oscillators", DefaultPane = "Pane_Stoch", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -127,7 +127,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "StochRsi", Name = "Stoch RSI", Category = "Oscillators", DefaultPane = "Pane_StochRsi",
+                Code = "StochRsi", Name = "Stoch RSI", Category = "Oscillators", DefaultPane = "Pane_StochRsi", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -147,7 +147,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "UltOsc", Name = "Ultimate Oscillator", Category = "Oscillators", DefaultPane = "Pane_UltOsc",
+                Code = "UltOsc", Name = "Ultimate Oscillator", Category = "Oscillators", DefaultPane = "Pane_UltOsc", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -164,7 +164,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "WilliamsR", Name = "Williams %R", Category = "Oscillators", DefaultPane = "Pane_WilliamsR",
+                Code = "WilliamsR", Name = "Williams %R", Category = "Oscillators", DefaultPane = "Pane_WilliamsR", RangeMin = -100, RangeMax = 0,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -179,7 +179,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Mfi", Name = "MFI", Category = "Oscillators", DefaultPane = "Pane_Mfi",
+                Code = "Mfi", Name = "MFI", Category = "Oscillators", DefaultPane = "Pane_Mfi", RangeMin = 0, RangeMax = 100,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

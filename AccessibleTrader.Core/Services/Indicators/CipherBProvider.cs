@@ -116,6 +116,9 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Name        = "Cipher B",
                 Category    = "Multi-Signal",
                 DefaultPane = "Pane_CIPHER_B",
+                // The wave trend lives in ±100 and the OB/OS levels sit at ±53/±60; the axis
+                // never shrinks inside this. Was a by-name floor in ViewportRangeCalculator.
+                RangeMin = -100, RangeMax = 100,
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // ── Anchor Waves — hidden lines, visual carried by Anchor Fill cloud ──

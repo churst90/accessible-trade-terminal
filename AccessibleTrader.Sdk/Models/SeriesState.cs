@@ -70,12 +70,15 @@ namespace AccessibleTrader.Sdk.Models
         /// <summary>Horizontal zone bands centred on a carry-forward level value. Visual-only — not navigable or audible.</summary>
         public List<ZoneBandConfig> ZoneBands { get; set; } = new();
 
-        // ── Per-series pane range overrides (analytics provider hints) ────────────
+        // ── Per-series pane range bounds ─────────────────────────────────────────
         /// <summary>
-        /// Hard lower bound for this series's pane auto-scale. When set, ViewportRangeCalculator
-        /// clamps the pane's min to this value, so a bounded metric like FNG always shows 0–100
-        /// even if current data is 10–90. Populated from SymbolRenderHints.RangeMin on analytics
-        /// loads. Null = use data-driven auto-scale (default for OHLCV and unbounded metrics).
+        /// Lower bound for this series's pane axis. Two sources: an analytics load writes
+        /// <c>SymbolRenderHints.RangeMin</c> onto the price series (and on the Main pane the
+        /// calculator treats the pair as hard bounds, so FNG shows 0–100 even when the data is
+        /// 10–90); the model factory copies <c>IndicatorMetadata.RangeMin</c> onto every indicator
+        /// series that declares its natural bounds (RSI 0–100), and on an indicator pane the
+        /// calculator makes the axis cover AT LEAST the pair, with no buffer, so a value always
+        /// sits — and sounds — at the same place whatever the zoom. Null = data-driven auto-fit.
         /// </summary>
         public double? RangeMin { get; set; }
 

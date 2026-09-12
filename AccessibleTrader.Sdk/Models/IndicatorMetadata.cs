@@ -280,6 +280,33 @@ namespace AccessibleTrader.Sdk.Models
         public List<ZoneBandConfig> DefaultZoneBands { get; set; } = new();
         public string DefaultPane { get; set; } = "Main";
 
+        /// <summary>
+        /// The NATURAL BOUNDS of the indicator's values, when it has them — RSI is 0–100 by
+        /// construction, Williams %R is −100–0, Cipher B's wave trend lives in ±100. Declare both
+        /// or neither.
+        ///
+        /// <para>
+        /// When declared, the indicator's pane axis covers <i>at least</i> this range, with no
+        /// buffer — the way every charting package draws RSI on a fixed 0–100 — instead of
+        /// auto-fitting the visible values. For a sighted user that is the familiar picture; for
+        /// a listener it is the difference between RSI 70 being the same note on every chart at
+        /// every zoom and a note that drifts with whatever else is in the window. Cody,
+        /// 2026-09-12: <i>"if the declared bounds rule will make the sonification more precise no
+        /// matter the zoom level, yes."</i> Values outside the bounds still expand the axis, so a
+        /// mis-declared bound never hides data.
+        /// </para>
+        ///
+        /// <para>
+        /// Leave null for anything unbounded — MACD, ATR, OBV, CCI — which keeps auto-fit. Copied
+        /// onto <c>SeriesConfig.RangeMin</c>/<c>RangeMax</c> by the model factory; read by
+        /// <c>ViewportRangeCalculator</c>.
+        /// </para>
+        /// </summary>
+        public double? RangeMin { get; set; }
+
+        /// <summary>The upper natural bound. See <see cref="RangeMin"/>.</summary>
+        public double? RangeMax { get; set; }
+
         public override string ToString() => Name;
     }
 

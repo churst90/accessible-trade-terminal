@@ -81,10 +81,23 @@ namespace AccessibleTrader.Core.Services
             // Range key = pane name for main-area components; "PaneName/SubPaneName" for sub-pane components.
             var accum = new Dictionary<string, (double Min, double Max, bool HasData)>(StringComparer.Ordinal);
 
+            // ── Declared bounds per pane ──────────────────────────────────
+            // A series carrying its indicator's natural bounds (RSI 0–100, Cipher B ±100) pins
+            // the pane's axis to cover at least that range. Two bounded series in one pane (two
+            // RSIs) take the union. See IndicatorMetadata.RangeMin for why.
+            var declaredBounds = new Dictionary<string, (double Min, double Max)>(StringComparer.Ordinal);
+
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
                 if (paneName == "Main") continue;
+
+                if (s.Config.RangeMin is double bMin && s.Config.RangeMax is double bMax && bMin < bMax)
+                {
+                    declaredBounds[paneName] = declaredBounds.TryGetValue(paneName, out var cur)
+                        ? (Math.Min(cur.Min, bMin), Math.Max(cur.Max, bMax))
+                        : (bMin, bMax);
+                }
 
                 // ── Component data ranges ─────────────────────────────────────
                 foreach (var comp in s.Components)
@@ -158,18 +171,23 @@ namespace AccessibleTrader.Core.Services
                 bool isSubPane = key.IndexOf('/') >= 0;
                 string basePaneName = isSubPane ? key.Substring(0, key.IndexOf('/')) : key;
 
+                // Bounds apply to the pane's main area; a sub-pane strip is its own axis.
+                var bounds = isSubPane ? null : BoundsFor(basePaneName, declaredBounds);
+
                 if (!hasData)
                 {
-                    paneRanges[key] = EmptyPaneRange(key);
+                    paneRanges[key] = bounds ?? EmptyPaneRange(key);
                     continue;
                 }
 
-                if (basePaneName == "Pane_CIPHER_B" && !isSubPane)
+                if (bounds is { } b)
                 {
-                    // Fixed ±100 floor keeps OB/OS levels (±53/±60) clearly visible.
-                    rMin = Math.Min(rMin, -100.0);
-                    rMax = Math.Max(rMax,  100.0);
-                    paneRanges[key] = (rMin, rMax);
+                    // The axis covers AT LEAST the declared bounds and carries no buffer, so RSI
+                    // reads 0 to 100 and RSI 70 is the same pitch on every chart at every zoom.
+                    // A value beyond the bounds still expands the axis — a mis-declared bound can
+                    // never hide data. This is exactly what Cipher B's ±100 floor did before the
+                    // bounds were declarable; it is now one rule for every bounded indicator.
+                    paneRanges[key] = (Math.Min(rMin, b.Min), Math.Max(rMax, b.Max));
                 }
                 else
                 {
@@ -189,15 +207,32 @@ namespace AccessibleTrader.Core.Services
         }
     
         /// <summary>
-        /// The range an indicator pane has before it has any data: 0–100, the bounded-oscillator
-        /// convention, or ±100 for Cipher B whose OB/OS levels sit at ±53/±60. A sub-pane key
+        /// The bounds a pane's axis must cover: what its series DECLARE
+        /// (<see cref="SeriesConfig.RangeMin"/>/<c>RangeMax</c>, copied from the indicator's
+        /// metadata), else the one implicit bound kept for a series built without metadata.
+        /// </summary>
+        private static (double Min, double Max)? BoundsFor(string paneName, IReadOnlyDictionary<string, (double Min, double Max)> declared) =>
+            declared.TryGetValue(paneName, out var b) ? b : ImplicitBounds(paneName);
+
+        /// <summary>
+        /// Cipher B's ±100 floor, by pane name. Its provider now declares the same bounds on its
+        /// metadata, so every series the factory builds gets them that way; this survives only so
+        /// that a Cipher B series assembled by hand — a test fixture, an old snapshot — keeps the
+        /// axis it always had. Nothing else has an implicit bound.
+        /// </summary>
+        private static (double Min, double Max)? ImplicitBounds(string paneName) =>
+            paneName == "Pane_CIPHER_B" ? (-100.0, 100.0) : null;
+
+        /// <summary>
+        /// The range an indicator pane has before it has any data: its implicit bounds if it has
+        /// any (Cipher B ±100), else 0–100, the bounded-oscillator convention. A sub-pane key
         /// ("Pane_CIPHER_B/MF") takes the plain default.
         /// </summary>
         public static (double Min, double Max) EmptyPaneRange(string rangeKey)
         {
             int slash = rangeKey.IndexOf('/');
             string basePane = slash >= 0 ? rangeKey.Substring(0, slash) : rangeKey;
-            return basePane == "Pane_CIPHER_B" && slash < 0 ? (-100.0, 100.0) : (0.0, 100.0);
+            return (slash < 0 ? ImplicitBounds(basePane) : null) ?? (0.0, 100.0);
         }
 
         /// <summary>

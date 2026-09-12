@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A bounded indicator's axis covers its natural bounds at every zoom (2026-09-12, forty-seventh pass)
+
+Suite **7,472** (was 7,441). Cody, the morning after every oscillator got its own pane: *"the rsi
+sonifies correctly but it reports a pane range from 22 to like 80 something, not 0 to 100 … the
+macd seems to have an unusual range too, maybe that's just me?"* Not him: the auto-fit. An
+indicator pane's range was the lowest and highest visible value, stretched to the visible levels,
+plus 10% — so RSI 70 was a different note in every window, and the announced axis was whatever
+the window held. MACD's range was the same rule over its three components and is correct as
+auto-fit goes; it is unchanged here. Cody: *"if the declared bounds rule will make the
+sonification more precise no matter the zoom level, yes, have each indicator declare its bounds,
+as long as nothing else breaks or changes mechanically or visually."*
+
+**What changed.**
+- **`IndicatorMetadata.RangeMin`/`RangeMax`** — an indicator's natural bounds, declared on the
+  metadata. Fourteen declare them: RSI, Stochastic, Stoch RSI, Ultimate Oscillator, MFI, ADX,
+  Choppiness, STC, Connors RSI and Fear & Greed at 0–100; Williams %R at −100–0; CMO, Aroon and
+  Cipher B at ±100. Unbounded indicators (MACD, ATR, OBV, CCI, the overlays) declare nothing and
+  keep auto-fit.
+- **The model factory copies the bounds onto `SeriesConfig.RangeMin`/`RangeMax`** — the field an
+  analytics load already used for the price series — so a workspace saved before bounds existed
+  gets them from current metadata on restore, in the browser and headless alike.
+- **`ViewportRangeCalculator` makes a bounded pane's axis cover AT LEAST the bounds, with no
+  buffer.** RSI reads 0 to 100; RSI 70 is the same pitch on every chart at every zoom. A value
+  beyond the bounds still expands the axis, so a mis-declared bound can never hide data. Two
+  bounded series in one pane take the union. A sub-pane strip is its own axis and takes none.
+- **Cipher B's by-name ±100 floor became this rule.** Its provider declares ±100; the by-name
+  floor survives only as the implicit bound for a Cipher B series assembled without metadata (a
+  fixture, an old snapshot), so its axis is byte-for-byte what it was.
+
+**What this changes visually, and deliberately.** The fourteen bounded indicators are now drawn
+against their full natural axis rather than auto-fitted, which is how every charting package
+draws them and is what the pitch follows — what you hear and what a sighted person sees stay the
+same picture. Nothing else moves: the Main pane, Volume, every unbounded indicator and every
+sub-pane keep exactly the ranges they had (`Macd_KeepsAutoFit`, `CipherB_KeepsItsPlusMinusHundredFloor`).
+
+**Guards** — `DeclaredBoundsTests` (31): the bounded family as a pinned specification, both-or-
+neither and ordered across the fleet, every default level inside its bounds, the axis identical
+across two windows over different stretches of RSI, and the two "nothing else changes" pins. Two
+sabotages proven red: the calculator ignoring declared bounds (7 red) and the factory not copying
+them (7 red).
+
 ### A missing pane range no longer falls back to the price range (2026-09-11, forty-sixth pass, second commit)
 
 Suite **7,441** (was 7,433). §5 of `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` — the latent defect

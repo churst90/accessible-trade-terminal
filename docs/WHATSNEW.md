@@ -71,6 +71,13 @@ copies of the same indicator still share a pane, because they are on the same sc
 Down walks one more pane per oscillator than before — that is the trade, and it is the honest
 one. The Add Indicator dialog now says whether an indicator joins the price pane or gets its own.
 
+**Bounded indicators now keep their full scale at every zoom.** RSI reads 0 to 100 whatever is
+on screen, and RSI 70 is the same note on every chart at every zoom level — before, the pane
+fitted itself to whatever was visible, so the same value sounded different from window to window
+and the announced axis was "22 to 83". Fourteen indicators declare their natural bounds
+(Stochastic, MFI, ADX, Williams %R, CMO, Aroon, Cipher B and the rest); anything unbounded, like
+MACD or ATR, still fits to the visible values as before.
+
 **Smaller things you may notice:**
 
 - The tray's silence item now says what it actually silences — "Silence alerts and bar closes"
