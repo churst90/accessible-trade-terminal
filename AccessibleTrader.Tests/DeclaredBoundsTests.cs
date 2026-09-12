@@ -49,7 +49,25 @@ public sealed class DeclaredBoundsTests
         new object[] { "Stc", 0.0, 100.0 },        new object[] { "Cmo", -100.0, 100.0 },
         new object[] { "ConnorsRsi", 0.0, 100.0 }, new object[] { "Aroon", -100.0, 100.0 },
         new object[] { "CIPHER_B", -100.0, 100.0 }, new object[] { "FEAR_GREED", 0.0, 100.0 },
+        // 2026-09-12: three more that are bounded by construction and were not saying so.
+        new object[] { "Cmf", -1.0, 1.0 },          new object[] { "CIPHER_C", -100.0, 100.0 },
+        new object[] { "PULSE", 0.0, 100.0 },
     };
+
+    /// <summary>
+    /// The one-sided family: a floor and no ceiling. A true range, a standard deviation, a
+    /// volatility and a drawdown depth are all ≥ 0 by construction and unbounded above, so a PAIR
+    /// would be a lie at the top — which is why "declare both or neither" left them unable to
+    /// state the true half either.
+    /// </summary>
+    [Theory]
+    [InlineData("Atr")] [InlineData("StdDev")] [InlineData("Hv")] [InlineData("UlcerIndex")]
+    public void TheFlooredFamily_DeclaresItsFloorAndNoCeiling(string code)
+    {
+        var meta = RealMeta(code);
+        Assert.Equal(0.0, meta.RangeMin);
+        Assert.Null(meta.RangeMax);
+    }
 
     [Theory]
     [MemberData(nameof(BoundedFamily))]
@@ -62,7 +80,7 @@ public sealed class DeclaredBoundsTests
 
     /// <summary>Unbounded indicators stay unbounded — declaring a bound for MACD would be a lie that hides data.</summary>
     [Theory]
-    [InlineData("Macd")] [InlineData("Atr")] [InlineData("Obv")] [InlineData("Cci")] [InlineData("Ema")]
+    [InlineData("Macd")] [InlineData("Obv")] [InlineData("Cci")] [InlineData("Ema")]
     public void UnboundedIndicators_DeclareNothing(string code)
     {
         var meta = RealMeta(code);
@@ -70,16 +88,24 @@ public sealed class DeclaredBoundsTests
         Assert.Null(meta.RangeMax);
     }
 
-    /// <summary>A half-declared or inverted bound is a typo; the fleet may not carry one.</summary>
+    /// <summary>
+    /// An inverted pair, or a ceiling with no floor, is a typo; the fleet may not carry one.
+    ///
+    /// <para>
+    /// A FLOOR with no ceiling is legal (see the one-sided family above). A ceiling with no floor
+    /// is not: nothing in this repo has a top and no bottom, so allowing it would make a dropped
+    /// <c>RangeMin</c> indistinguishable from a deliberate declaration.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void EveryDeclaredBound_IsAPairInOrder()
+    public void EveryDeclaredBound_IsAPairInOrderOrAFloorAlone()
     {
         var bad = IndicatorProviderFixture.AllProviders().SelectMany(p => p.GetIndicators())
-            .Where(m => m.RangeMin.HasValue != m.RangeMax.HasValue
-                     || (m.RangeMin.HasValue && m.RangeMin.Value >= m.RangeMax!.Value))
+            .Where(m => (m.RangeMax.HasValue && !m.RangeMin.HasValue)
+                     || (m.RangeMin.HasValue && m.RangeMax.HasValue && m.RangeMin.Value >= m.RangeMax.Value))
             .Select(m => $"{m.Code}: RangeMin={m.RangeMin?.ToString() ?? "null"} RangeMax={m.RangeMax?.ToString() ?? "null"}")
             .ToList();
-        Assert.True(bad.Count == 0, "Declare both bounds or neither, min below max:\n  " + string.Join("\n  ", bad));
+        Assert.True(bad.Count == 0, "A pair in order, or a floor alone:\n  " + string.Join("\n  ", bad));
     }
 
     /// <summary>A default level outside the declared bounds means one of the two is wrong.</summary>
@@ -127,6 +153,35 @@ public sealed class DeclaredBoundsTests
 
     private static double[] Ramp(int n, double from, double to) =>
         Enumerable.Range(0, n).Select(i => from + (to - from) * i / Math.Max(1, n - 1)).ToArray();
+
+    /// <summary>
+    /// A declared floor holds the axis at zero even when the data dips below it — which is the
+    /// case that separates the declaration from the inference it replaced. The old rule clamped to
+    /// zero only when the pane's own minimum was already non-negative, so one rounding-noise
+    /// negative anywhere in the window turned the clamp off and ATR's axis went below zero: a
+    /// distance reading as less than no distance, and a pitch floor that moved with the window.
+    /// </summary>
+    [Fact]
+    public void ADeclaredFloor_HoldsTheAxisAtZero_EvenWhenTheDataDipsBelowIt()
+    {
+        var atr = Built("Atr", new[] { -0.0001, 40.0, 80.0, 120.0 });
+        var range = new ViewportRangeCalculator().Calculate(StateWith(4, atr)).PaneRanges[atr.Pane];
+        Assert.Equal(0.0, range.Min);
+        Assert.True(range.Max > 120.0, "the top still auto-fits with its buffer");
+    }
+
+    /// <summary>
+    /// And it is a FLOOR, not a bound: it does not pin the top, and it does not pin the bottom to
+    /// zero when the data sits well above it. An ATR window of 40–120 reads 40-ish to 120-ish,
+    /// not 0 to 120 — declaring the floor must not flatten every volatility chart.
+    /// </summary>
+    [Fact]
+    public void ADeclaredFloor_DoesNotDragTheAxisDownToIt()
+    {
+        var atr = Built("Atr", new[] { 40.0, 80.0, 120.0 });
+        var range = new ViewportRangeCalculator().Calculate(StateWith(3, atr)).PaneRanges[atr.Pane];
+        Assert.True(range.Min > 30.0, $"expected the axis to stay near the data, got {range.Min}");
+    }
 
     /// <summary>Cody's report, as a number: RSI visible 25…78 must read 0 to 100, not 20 to 83.</summary>
     [Fact]

@@ -45,6 +45,23 @@ namespace AccessibleTrader.Core.Services
         private double[]? _crossPaneAnchorPolarity;
         private double[]? _crossPaneTbdDistribution;
 
+        /// <summary>
+        /// One axis typeface for the process.
+        ///
+        /// <para>
+        /// It used to be constructed per renderer and never disposed, and the hosted head builds a
+        /// renderer per Blazor circuit — so every browser connection leaked a native SkTypeface for
+        /// the life of the process. It cannot be disposed here either: <see cref="Dispose"/> is
+        /// deliberately empty because an in-flight frame can still be holding the font (see the
+        /// long note on that method), and the same reasoning applies to the face the font is built
+        /// from. A typeface is immutable and shareable, which is what makes "one for the process"
+        /// both correct and the answer to the leak.
+        /// </para>
+        /// </summary>
+        private static readonly SKTypeface AxisTypeface =
+            SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+            ?? SKTypeface.Default;
+
         public ChartRenderer(ThemeService theme, IStylingService styling, IPaneLayoutService paneLayout, ILogger<ChartRenderer> logger, IAppLogger appLogger)
         {
             _theme = theme;
@@ -53,8 +70,7 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
             _appLogger = appLogger;
             
-            var typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-            _textFont = new SKFont(typeface, _theme.Current.AxisFontSize);
+            _textFont = new SKFont(AxisTypeface, _theme.Current.AxisFontSize);
 
             _layers = new List<IRenderLayer>
             {
@@ -193,6 +209,37 @@ namespace AccessibleTrader.Core.Services
                         mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.15f);
                     }
                 }
+
+                // FINAL FIT, and it is not redundant with the rebalance above.
+                //
+                // That block hands the indicator panes whatever the main pane is not using, then
+                // re-raises the main pane to its 15% floor — WITHOUT re-checking that everything
+                // still fits. When the floor engages, it takes its share from a total that had
+                // already been spent, and the sum exceeds the canvas by exactly that much. The
+                // renderer lays panes out top-down by accumulating heights, so the whole overflow
+                // lands on the LAST indicator pane, which is drawn underneath the x-axis strip.
+                //
+                // Nine panes on a 300px canvas is the demonstration: main 42 + eight at the 30px
+                // crowded floor is 282 against 280 available, and the bottom pane loses the
+                // difference plus the strip's own height — about half of it. That is not exotic
+                // any more: since every oscillator got a pane of its own (2026-09-11) a chart with
+                // eight indicators is an ordinary chart, and Alt+PageDown walks to a pane that is
+                // not on the screen.
+                //
+                // The main pane is at its floor by this point, so the indicators are what gives.
+                // No floor on this pass: at some density the panes genuinely do not fit, and the
+                // honest answer is every pane equally small, not one pane invisible.
+                if (indicatorSeries.Any() && mainPaneHeight + usedByIndicators > totalPaneHeight)
+                {
+                    float excess = mainPaneHeight + usedByIndicators - totalPaneHeight;
+                    if (usedByIndicators > excess)
+                    {
+                        float fit = (usedByIndicators - excess) / usedByIndicators;
+                        for (int pi = 0; pi < indHeights.Length; pi++) indHeights[pi] *= fit;
+                        usedByIndicators = indHeights.Sum();
+                    }
+                }
+
                 float currentY = 0;
 
                 double mainMin = viewportRange.Min;
@@ -428,28 +475,21 @@ namespace AccessibleTrader.Core.Services
 
         private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density)
         {
-            // Round-number anchors. Old algorithm labeled at fixed fractions (0,
-            // 0.25, 0.5, 0.75, 1.0) of the raw min/max, producing labels like
-            // "76227.38" on a 64k-80k BTC view — accurate but useless; traders
-            // read in round thousands. Now we pick a nice-number step with the
-            // same algorithm BackgroundLayer uses for gridlines, then emit
-            // labels at the step boundaries. Label positions align exactly with
-            // major gridlines so the chart reads as a coherent grid, not a grid
-            // + an unrelated label track.
+            // Round-number anchors. The old algorithm labelled at fixed fractions (0, 0.25, 0.5,
+            // 0.75, 1.0) of the raw min/max, producing labels like "76227.38" on a 64k–80k BTC
+            // view — accurate but useless; traders read in round thousands.
+            //
+            // The step is now ChartMath's, and it is a whole multiple of the GRIDLINE step, so a
+            // label always lands on a line. This file used to run its own copy of the nice-number
+            // algorithm against a different target (range/5, where BackgroundLayer used range/7)
+            // and the comment here claimed they aligned. On a pane of range 20 the grid stepped
+            // by 2 and the labels by 5, so 5 and 15 floated between lines. See ChartMath.NiceStep.
             double range = max - min;
             if (range <= 0 || double.IsNaN(range) || double.IsInfinity(range)) return;
 
-            // Pick target label density by pane height. Small indicator panes
-            // (<100px tall) want ~3 labels; full-size panes want ~5.
-            int targetLabelCount = rect.Height < 100 * density ? 3 : 5;
-            double roughStep = range / targetLabelCount;
-            double stepMag = Math.Pow(10, Math.Floor(Math.Log10(roughStep)));
-            double stepFrac = roughStep / stepMag;
-            double niceStep;
-            if (stepFrac < 1.5) niceStep = 1 * stepMag;
-            else if (stepFrac < 3.5) niceStep = 2 * stepMag;
-            else if (stepFrac < 7.5) niceStep = 5 * stepMag;
-            else niceStep = 10 * stepMag;
+            double niceStep = ChartMath.LabelStep(
+                range, ChartMath.TargetLabelCount(rect.Height, density), ChartMath.GridStep(range));
+            if (niceStep <= 0) return;
 
             float minLabelSpacing = _textFont.Size + (4 * density);
             float lastLabelY = float.MaxValue;
@@ -461,7 +501,7 @@ namespace AccessibleTrader.Core.Services
                 float y = ChartMath.MapY(v, rect.Top, rect.Bottom, min, max, isLogScale);
                 if (Math.Abs(y - lastLabelY) < minLabelSpacing) continue;
                 lastLabelY = y;
-                string label = FormatAxisValue(v, range);
+                string label = ChartMath.FormatAxisValue(v, range);
                 float lx = rect.Left + (3 * density);
                 float textY = Math.Clamp(y + (4 * density),
                     rect.Top + _textFont.Size + (6 * density),
@@ -511,32 +551,6 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        // Range-aware axis label formatter. A flat F2/F4 choice collapses to
-        // "0.0000" for assets whose visible range is tiny (e.g. early KAS ticks
-        // around $0.00003). Pick decimal count from the range magnitude so
-        // labels always carry ~2 significant digits beyond the range scale.
-        private static string FormatAxisValue(double val, double range)
-        {
-            double absRange = Math.Abs(range);
-            int decimals;
-            if (absRange == 0 || double.IsNaN(absRange) || double.IsInfinity(absRange))
-                decimals = 2;
-            else
-                decimals = Math.Clamp(2 - (int)Math.Floor(Math.Log10(absRange)), 2, 10);
-
-            string text = val.ToString("F" + decimals);
-
-            // "-0.00". A value a hair below zero — a rounding residue from the axis-step
-            // arithmetic, not a real negative — formats with a minus sign that survives the
-            // rounding to zero. On a price axis that reads as a data error, and it is exactly
-            // the kind of detail that makes a careful reader distrust every other number on
-            // screen. Strip the sign when nothing is left of the magnitude.
-            if (text.Length > 1 && text[0] == '-' && text.AsSpan(1).IndexOfAnyExcept('0', '.', ',') < 0)
-                text = text[1..];
-
-            return text;
-        }
-
         private void RenderXAxis(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, float itemWidth, float density)
         {
             if (!visibleData.Any()) return;
@@ -554,24 +568,8 @@ namespace AccessibleTrader.Core.Services
             // Plus a date-boundary tick: when two adjacent labels straddle midnight
             // on a 2-60 day chart, the later one forces the date prefix so the user
             // always sees where one day ends and the next begins.
-            var span = visibleData[^1].Date - visibleData[0].Date;
-            string primaryFormat;
-            bool markDateBoundaries;
-            if (span.TotalDays < 2)
-            {
-                primaryFormat = "HH:mm";
-                markDateBoundaries = true;   // still surface the date at midnight
-            }
-            else if (span.TotalDays < 60)
-            {
-                primaryFormat = "MM/dd";
-                markDateBoundaries = false;
-            }
-            else
-            {
-                primaryFormat = "MMM d";
-                markDateBoundaries = false;
-            }
+            var (primaryFormat, markDateBoundaries) =
+                ChartMath.XAxisFormat(visibleData[^1].Date - visibleData[0].Date);
 
             int labelCount = 5;
             float step = rect.Width / labelCount;
@@ -604,19 +602,9 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        /// <summary>
-        /// The crosshair, and the indicator readings beside it.
-        ///
-        /// <para><paramref name="localIndex"/> is VIEWPORT-LOCAL — it indexes
-        /// <paramref name="visibleData"/> and positions the vertical line. Component arrays are
-        /// ABSOLUTE, indexed <c>ViewportStart + i</c> everywhere else in the renderer, which is
-        /// why <paramref name="viewportStart"/> has to come in too: the indicator pane's
-        /// crosshair label used to read <c>data[localIndex]</c> straight, so panning back to
-        /// bar 500 and putting the cursor on bar 560 drew the RSI line and its numeric label
-        /// from <c>rsi[60]</c> — a value from five hundred bars ago — and rendered it as the
-        /// current reading. The earlier upper-bound clamp fix in this method corrected the
-        /// local index's BOUND, not the local-versus-absolute indexing.</para>
-        /// </summary>
+        // (An orphaned second <summary> sat here — RenderCrosshair's, left behind when that method
+        // moved above this one. Two doc comments on one member: the compiler takes the last and
+        // silently drops the first, so the tooltip described a method that was not this one.)
         /// <summary>
         /// The first non-NaN component reading in an indicator pane at the cursor's bar, or
         /// null when nothing in the pane has a value there.
@@ -688,7 +676,7 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, indPaint);
 
                 // Y-value label at the right edge of the pane (matches RenderYAxis style)
-                string label = FormatAxisValue(val.Value, paneMax - paneMin);
+                string label = ChartMath.FormatAxisValue(val.Value, paneMax - paneMin);
                 float labelW = _textFont.MeasureText(label);
                 float labelH = _textFont.Size + (4 * density);
                 float lx = paneRect.Right + (2 * density);
@@ -1153,11 +1141,14 @@ namespace AccessibleTrader.Core.Services
         /// <c>_textFont</c> per-frame <c>using</c> locals threaded through the draw helpers.
         /// Then this type owns no native state and the question cannot arise. That is a
         /// fourteen-site change on the render path with no way to verify the output visually
-        /// from here, so it is recorded rather than rushed — see docs/TODO.md. It would also
-        /// close two adjacent defects this change does NOT: the leaked <c>SKTypeface</c> in the
-        /// constructor, and <c>AIAnalystService</c> calling <c>Render</c> with
-        /// <c>density: 1.0f</c> on this same shared instance, which can retune the font size
-        /// underneath a browser frame drawing at a different density.</para>
+        /// from here, so it is recorded rather than rushed — see docs/TODO.md.</para>
+        ///
+        /// <para><b>The two adjacent defects named here are CLOSED (2026-09-12).</b> The
+        /// constructor's leaked <c>SKTypeface</c> is now one static shared face; and
+        /// <c>AIAnalystService</c> no longer renders its snapshot through this shared instance —
+        /// it builds one of its own, so it can neither retune this font's size underneath a
+        /// browser frame drawing at a different density nor publish an 800×480 layout to the
+        /// <c>IPaneLayoutService</c> that every pointer-to-bar mapping reads.</para>
         /// </summary>
         public void Dispose() { }
     }

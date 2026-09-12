@@ -50,9 +50,11 @@ public sealed class BinanceVisionOiProvider : IIndicatorProvider
             Parameters = new List<IndicatorParameterMetadata>(),
             Components = new List<IndicatorComponentMetadata>
             {
-                new() { Name = CompOi, DisplayName = "Open Interest (USDT)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
-                new() { Name = CompOiDeltaPct, DisplayName = "ΔOI %", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
-                new() { Name = CompOiDeltaZ, DisplayName = "ΔOI Z (14)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
+                // Open interest is a level with a floor at zero; the two deltas are centred on zero.
+                // All three say so rather than inheriting the display type's 0.0.
+                new() { Name = CompOi, DisplayName = "Open Interest (USDT)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
+                new() { Name = CompOiDeltaPct, DisplayName = "ΔOI %", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
+                new() { Name = CompOiDeltaZ, DisplayName = "ΔOI Z (14)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
                 new() { Name = CompPriceOiAlign, DisplayName = "Price/OI Align", DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal },
             }
         }

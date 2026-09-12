@@ -34,16 +34,19 @@ namespace AccessibleTrader.WebHost.Services
     /// ── Why there is no second switch ─────────────────────────────────────────
     /// Delivery here rides on the ONE opt-in the user actually set,
     /// <c>monitoring.backgroundLocal</c> ("Keep monitoring when the browser is closed"),
-    /// checked by the watch that arms the streams. It is deliberately NOT also gated on
-    /// <c>notifications.desktop.orderFills</c>, which defaults OFF and exists to decide
-    /// whether a toast interrupts you while you are sitting at the machine. Putting an
-    /// already-opted-in delivery behind a second switch nobody set is how Phase 1 nearly
-    /// un-shipped the alert toast — <b>a switch inherited from another caller is a policy
-    /// nobody wrote down.</b> For the same reason the headless
-    /// <see cref="DesktopNotificationService"/> is built WITHOUT the
-    /// <see cref="DesktopNotificationCategories.OrderFills"/> category: it cannot ask
-    /// <see cref="CircuitOrderCoverage"/> anything, so it would toast fills a circuit was
-    /// already announcing.
+    /// checked by the watch that arms the streams. It is deliberately not ALSO gated on a
+    /// notification switch: those decide whether a notification interrupts you while you are
+    /// sitting at the machine, and putting an already-opted-in delivery behind a second switch
+    /// nobody set is how Phase 1 nearly un-shipped the alert toast — <b>a switch inherited from
+    /// another caller is a policy nobody wrote down.</b>
+    ///
+    /// <para>
+    /// This paragraph named <c>notifications.desktop.orderFills</c> and a headless
+    /// <c>DesktopNotificationService</c> "built WITHOUT the OrderFills category" until
+    /// 2026-09-12. The key was retired on 09-11 when the three notification switches became one
+    /// (it survives as a Legacy constant, read only by the migration), and that service was
+    /// deleted on 09-08. The rule above is unchanged; only the two names were fiction.
+    /// </para>
     /// </para>
     ///
     /// <para>

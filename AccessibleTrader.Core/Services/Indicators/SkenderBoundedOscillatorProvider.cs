@@ -92,7 +92,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = "Rsi", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9C27B0",
                             DefaultThickness = 1.5f, DefaultTriggerBoundaryClick = true,
-                            DefaultNoiseAmount = 0f,
+                            DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -119,10 +119,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // twice and heard two voices playing the same value. SignalCatalog.Refresh
                     // built the same id twice and TryAdd silently swallowed the second.
                     new() { Name = "Oscillator", DisplayName = "%K", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "Signal", DisplayName = "%D", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -139,10 +139,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "StochRsi", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00B8D4",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                     new() { Name = "Signal",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#E65100",
-                            DefaultNoiseAmount = 0f, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -158,7 +158,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Ultimate", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f, DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -173,7 +173,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "WilliamsR", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#26C6DA",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f, DefaultReferenceLevel = -50.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
@@ -190,7 +190,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                     new() { Name = "Mfi", DisplayType = ComponentDisplayType.Oscillator,
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
                             DefaultColorSource = ColorSource.Value, DefaultTriggerBoundaryClick = true,
-                            DefaultNoiseAmount = 0f, ColorBaseline = 50.0 },
+                            DefaultNoiseAmount = 0f, ColorBaseline = 50.0, DefaultReferenceLevel = 50.0 },
                 },
             },
             new IndicatorMetadata
@@ -204,7 +204,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Cci", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC",
-                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f,
+                            DefaultTriggerBoundaryClick = true, DefaultNoiseAmount = 0f, DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },

@@ -109,8 +109,10 @@ builder.Services.AddSingleton(demoPolicy);
 builder.Services.AddSingleton(AccessibleTrader.Core.Services.Trading.WithdrawalReleasePolicy.Shipped);
 
 // Local background monitoring (HostMode.Full only): the server process outlives
-// the browser tab, so alerts keep evaluating — heard through Orca/spd-say +
-// notify-send + a notification sound. Registered only for Full because the
+// the browser tab, so alerts keep evaluating — delivered as a NOTIFICATION plus a
+// sound, which is the one headless channel (speech went with the browser; the
+// event's subject decides the channel, and with no browser nothing is focused).
+// Registered only for Full because the
 // singleton needs the singleton path service (hosted swaps it per-user), and
 // because on hosted/demo the server has no speakers that reach the user anyway.
 if (hostMode == HostMode.Full)
@@ -269,6 +271,19 @@ if (accountsEnabled)
     builder.Services.AddHostedAccounts(accountsDataRoot);
 
 var app = builder.Build();
+
+// ONE LINE NAMING EVERY CAPABILITY THIS PROCESS HAS.
+//
+// A HostMode gate lands with no runtime signal of its own. When the hosted alert monitor
+// stopped being constructed on 2026-09-11, the only proof it had stopped was grepping the
+// journal for a line that was no longer there — an ABSENCE, which is the weakest evidence
+// there is, and exactly the shape of check "assert the artifact, not the incantation" exists
+// to refuse. It is also what the public feature page keeps getting wrong, because a sentence
+// about what the app does has no way to ask the build.
+//
+// So the process says what it can do, in full, at startup. Reflected off DemoPolicy, so a flag
+// added tomorrow is in this line tomorrow. See CapabilityManifest.
+app.Logger.LogInformation("{Capabilities}", AccessibleTrader.Core.Services.CapabilityManifest.StartupLine(demoPolicy));
 
 // Plugin host-services bridge: hand plugins the host's secure storage (today the only
 // consumer is Schwab's OAuth refresh token). Full mode ONLY — the bridge is a process-wide

@@ -38,6 +38,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             RemoveSeriesAction a             => RemoveSeries(state, a.SeriesId),
             AddLevelAction a                 => AddLevel(state, a.SeriesId, a.Level),
             RemoveLevelAction a              => RemoveLevel(state, a.SeriesId, a.LevelName),
+            SetLevelAudibleAction a          => SetLevelAudible(state, a.SeriesId, a.LevelName, a.Audible),
             UpdateSeriesAction a             => state with { ActiveSeries = a.Series },
             UpdateSeriesDataAction a         => state with {
                 ActiveSeries = state.ActiveSeries.Select(s =>
@@ -118,6 +119,27 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 .ToList();
             if (doomed.Count == 0) return state;
             foreach (var l in doomed) updated.Levels.Remove(l);
+
+            return state with {
+                ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()
+            };
+        }
+
+        /// <summary>
+        /// Switches a level on or off, cloning the target for the same reason <see cref="AddLevel"/>
+        /// does. Visibility and the crossing earcon move together — see
+        /// <see cref="SetLevelAudibleAction"/> for why they are one switch from the keyboard.
+        /// </summary>
+        private static WorkspaceState SetLevelAudible(WorkspaceState state, string seriesId, string levelName, bool audible)
+        {
+            var target = state.ActiveSeries.FirstOrDefault(s => s.Id == seriesId);
+            if (target == null) return state;
+
+            var updated = target.Clone();
+            var hit = updated.Levels.FirstOrDefault(l => string.Equals(l.Name, levelName, StringComparison.OrdinalIgnoreCase));
+            if (hit == null) return state;
+            hit.IsVisible = audible;
+            hit.PlayEarcon = audible;
 
             return state with {
                 ActiveSeries = state.ActiveSeries.Select(s => s.Id == seriesId ? updated : s).ToImmutableList()

@@ -772,7 +772,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// follow the transform.
         /// </para>
         /// </summary>
-        private static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
+        internal static float ResolveMarkerY(RenderContext ctx, ComponentConfig comp, int i, double val)
         {
             if (comp.MarkerAnchor == MarkerAnchor.Value || i < 0 || i >= ctx.Data.Count)
                 return ChartMath.MapY(val, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);

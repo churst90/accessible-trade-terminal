@@ -140,13 +140,11 @@ namespace AccessibleTrader.Tests.Mocks
         public float GetDefaultThickness(ComponentDisplayType type) => 1.0f; 
         public ComponentDisplayType GetDisplayType(string indicatorCode, string componentName = "") => ComponentDisplayType.Line; 
         public string GetPane(string indicatorCode) => "Main"; 
-        public string GetCategory(string indicatorCode) => "Other"; 
         public double GetBullishFrequency(string indicatorCode) => 440; 
         public double GetBearishFrequency(string indicatorCode) => 220; 
         public ComponentRole GetComponentRole(string indicatorCode, string componentName) => ComponentRole.PriceAction;
         public SonificationProfile GetSonificationProfile(ComponentDisplayType type, ComponentRole role, string strategy) => new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, false, "Sustain");
         public ColorSource GetColorSource(string indicatorCode, string componentName) => ColorSource.Value;
-        public double? GetReferenceLevel(string indicatorCode, string componentName, ComponentDisplayType type) => null;
         public List<(string Name, double Value)> GetLevelComponents(string indicatorCode) => new List<(string Name, double Value)>();
         public bool GetIsAreaFill(string indicatorCode, string componentName, ComponentDisplayType type) => false;
         public bool GetUsePolarityColoring(string indicatorCode, string componentName, ComponentDisplayType type) => false;

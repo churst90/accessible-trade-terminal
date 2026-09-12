@@ -15,8 +15,6 @@ namespace AccessibleTrader.Core.Services
         ComponentRole GetComponentRole(string indicatorCode, string componentName);
         ColorSource GetColorSource(string indicatorCode, string componentName);
         string GetPane(string indicatorCode);
-        string GetCategory(string indicatorCode);
-        double? GetReferenceLevel(string indicatorCode, string componentName, ComponentDisplayType displayType);
         List<(string Name, double Value)> GetLevelComponents(string indicatorCode);
         bool GetIsAreaFill(string indicatorCode, string componentName, ComponentDisplayType displayType);
         bool GetUsePolarityColoring(string indicatorCode, string componentName, ComponentDisplayType displayType);
@@ -100,7 +98,6 @@ namespace AccessibleTrader.Core.Services
         }
 
         public string GetPane(string indicatorCode) => _paneService.GetPane(indicatorCode);
-        public string GetCategory(string indicatorCode) => _paneService.GetCategory(indicatorCode);
 
         public SonificationProfile GetSonificationProfile(ComponentDisplayType displayType, ComponentRole role = ComponentRole.None, string componentName = "")
         {
@@ -159,25 +156,6 @@ namespace AccessibleTrader.Core.Services
 
         public string GetSpeechTemplate(string indicatorCode, string componentName, ComponentDisplayType displayType)
             => "{name}, {type}, {value}";
-
-        public double? GetReferenceLevel(string indicatorCode, string componentName, ComponentDisplayType displayType)
-        {
-            // Skender indicators are reflection-generated — their component metadata has no static
-            // DefaultReferenceLevel field to set. These hard-codes provide the correct midpoint for
-            // above/below audio waveform splitting and amplitude mapping on those indicators.
-            // Custom providers (Cipher A/B/SR) declare DefaultReferenceLevel in metadata instead.
-            string code = indicatorCode.ToUpper();
-            if (code.Contains("RSI"))   return 50;
-            if (code.Contains("MACD"))  return 0;
-            if (code.Contains("STOCH")) return 50;
-            // Williams %R runs -100..0, so its midline is -50 and zero is the CEILING. Left
-            // unset it fell through to the oscillator type default of 0, which put the
-            // above/below waveform split at a bound the value only touches at an extreme — and,
-            // once the 0 key started reading this field, would have marked the top of the pane
-            // as its neutral.
-            if (code.Contains("WILLIAMS")) return -50;
-            return null;
-        }
 
         public List<(string Name, double Value)> GetLevelComponents(string indicatorCode)
             => new();

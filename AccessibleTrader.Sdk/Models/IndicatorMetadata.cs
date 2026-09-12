@@ -282,8 +282,16 @@ namespace AccessibleTrader.Sdk.Models
 
         /// <summary>
         /// The NATURAL BOUNDS of the indicator's values, when it has them — RSI is 0–100 by
-        /// construction, Williams %R is −100–0, Cipher B's wave trend lives in ±100. Declare both
-        /// or neither.
+        /// construction, Williams %R is −100–0, Cipher B's wave trend lives in ±100.
+        ///
+        /// <para>
+        /// <b>Or declare <see cref="RangeMin"/> alone</b>, as a one-sided FLOOR, for a quantity
+        /// with a bottom and no top: ATR, standard deviation, historical volatility and the Ulcer
+        /// Index are all ≥ 0 by construction and unbounded above. The axis then auto-fits as
+        /// usual, except that the buffer may not drag it below the floor. Never
+        /// <c>RangeMax</c> alone — nothing in this repo has a ceiling and no floor, and allowing
+        /// it would make a typo indistinguishable from a declaration.
+        /// </para>
         ///
         /// <para>
         /// When declared, the indicator's pane axis covers <i>at least</i> this range, with no

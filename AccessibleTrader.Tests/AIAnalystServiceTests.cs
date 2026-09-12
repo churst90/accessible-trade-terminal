@@ -68,9 +68,16 @@ namespace AccessibleTrader.Tests
         {
             var store = new MockWorkspaceStore();
             var bus = new SpyEventBus();
-            // Renderer null: CaptureChartSnapshot's catch-all treats a renderer failure as
-            // "continue without screenshot", which is exactly the non-fatal path under test.
-            var svc = new AIAnalystService(keys, store, renderer: null!, providers, bus);
+            // The service builds its OWN renderer now — it must not draw the snapshot through
+            // the one the chart is using, which would retune that renderer's axis font from the
+            // snapshot's density and publish the snapshot's pane layout to the service every
+            // pointer-to-bar mapping reads. So it is handed the renderer's ingredients instead,
+            // and CaptureChartSnapshot's catch-all still covers a render that fails.
+            var settings = NSubstitute.Substitute.For<ISettingsManager>();
+            var svc = new AIAnalystService(keys, store, new ThemeService(settings),
+                new StylingService(new ComponentRoleMapper(),
+                    new Core.Services.Audio.SonificationProfileProvider(), new PaneAssignmentService()),
+                providers, NSubstitute.Substitute.For<AccessibleTrader.Sdk.Logging.IAppLogger>(), bus);
             return (svc, store, bus);
         }
 
@@ -334,19 +341,49 @@ namespace AccessibleTrader.Tests
             Assert.Contains("\"Line\"=71.5000", p.LastUserMessage);
         }
 
+        /// <summary>
+        /// A chart with no bars has no snapshot to take, and the analysis still goes out — the
+        /// text is the deliverable and the screenshot is an extra.
+        ///
+        /// <para>
+        /// This test used to force the failure by handing the service a NULL renderer and leaning
+        /// on <c>CaptureChartSnapshot</c>'s catch-all. That stopped being possible on 2026-09-12,
+        /// when the service started building its own renderer — it no longer draws the snapshot
+        /// through the instance the chart is using, which was retuning that renderer's axis font
+        /// from the snapshot's density and publishing an 800×480 pane layout to the service every
+        /// pointer-to-bar mapping reads. So the non-fatal path is exercised through the real
+        /// guard instead: no data, no image, analysis unaffected.
+        /// </para>
+        /// </summary>
         [Fact]
-        public async Task AnalyseAsync_SnapshotFailure_IsNonFatal_AnalysisContinuesWithoutImage()
+        public async Task AnalyseAsync_WithNothingToSnapshot_IsNonFatal_AnalysisContinuesWithoutImage()
         {
-            // renderer is null in this harness, so the snapshot path throws internally;
-            // the analysis must still go out, just without a screenshot.
             var p = new FakeLLMProvider("Claude");
             var (svc, store, _) = Build(Keys("Claude"), p);
-            store.EmitState(StateWithBars(5));
+            store.EmitState(StateWithBars(0) with { Identity = new ChartIdentity("Spot", "TestProvider", "BTC/USD", "1m") });
 
             var result = await svc.AnalyseAsync();
 
             Assert.Equal("analysis from Claude", result);
             Assert.Null(p.LastImage);
+        }
+
+        /// <summary>
+        /// And when there IS a chart, the snapshot reaches the model. The old harness could never
+        /// say this — its renderer was null — so "the AI can see the chart" was untested for as
+        /// long as the feature has existed.
+        /// </summary>
+        [Fact]
+        public async Task AnalyseAsync_WithAChart_SendsTheSnapshot()
+        {
+            var p = new FakeLLMProvider("Claude");
+            var (svc, store, _) = Build(Keys("Claude"), p);
+            store.EmitState(StateWithBars(30));
+
+            await svc.AnalyseAsync();
+
+            Assert.NotNull(p.LastImage);
+            Assert.True(p.LastImage!.Length > 100, "the snapshot is too small to be a chart");
         }
     }
 }

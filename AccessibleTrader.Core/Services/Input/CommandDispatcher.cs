@@ -374,11 +374,18 @@ namespace AccessibleTrader.Core.Services.Input
 
                     // WHAT the pane's neutral is comes from the components, not from a guess.
                     // ComponentConfig.ReferenceLevel is the value a component swings about — the
-                    // same field the audio layer splits its above/below waveforms on — and the
-                    // factory populates it for the whole provider fleet (RSI 50, Stochastic 50,
-                    // MACD 0, Williams %R -50, 0 for oscillator and zero-area types). Prefer the
-                    // component the cursor is actually on; a Cipher B pane holds components with
-                    // different neutrals and the one in focus is the one being asked about.
+                    // same field the audio layer splits its above/below waveforms on — and every
+                    // component in the fleet DECLARES it (DeclaredNeutralTests).
+                    //
+                    // This comment used to end "0 for oscillator and zero-area types", which was
+                    // true of the code and was the rule that produced the defect: MFI, the
+                    // Ultimate Oscillator, Choppiness and STC declared nothing, took that default,
+                    // and this key offered to put a line called "Zero" on the floor of their
+                    // 0–100 panes. A stated fallback is a stated wrong answer whenever it fires.
+                    //
+                    // Prefer the component the cursor is actually on; a Cipher B pane holds
+                    // components with different neutrals and the one in focus is the one being
+                    // asked about.
                     double? paneNeutral = null;
                     int compIdx = _store.State.FocusedComponentIndex;
                     if (compIdx >= 0 && compIdx < focused.Components.Count)
@@ -398,6 +405,26 @@ namespace AccessibleTrader.Core.Services.Input
                         _store.Dispatch(new RemoveLevelAction(focusedId, doomed.Name));
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
                             $"{doomed.Name} removed.", true));
+                        return;
+                    }
+
+                    // The pane's own midline, if it declares one, is what the key OPERATES —
+                    // not a reason for it to decline. Before 2026-09-12 this was the outcome on
+                    // every indicator that declares a midline, which is most of the ones anyone
+                    // presses 0 on: "Midpoint already marks 50.00 on this pane", and nothing
+                    // happened. Cody: "pressing it now doesn't seem to do much of anything."
+                    //
+                    // Now it switches the line off and on — the dashed line and its crossing
+                    // earcon together, because from the keyboard they are one idea. It comes
+                    // after FindRemovable so that a line you added yourself is still removed by
+                    // a second press rather than being left behind switched off.
+                    var toggleable = ReferenceLevelPlacement.FindToggleable(focused.Levels, focused.Pane);
+                    if (toggleable != null)
+                    {
+                        bool nowAudible = !ReferenceLevelPlacement.IsAudible(toggleable);
+                        _store.Dispatch(new SetLevelAudibleAction(focusedId, toggleable.Name, nowAudible));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
+                            ReferenceLevelPlacement.ToggleReason(toggleable, nowAudible), true));
                         return;
                     }
 

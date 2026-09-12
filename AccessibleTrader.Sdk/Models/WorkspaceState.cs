@@ -390,6 +390,25 @@ namespace AccessibleTrader.Sdk.Models
     /// </para>
     /// </summary>
     public record RemoveLevelAction(string SeriesId, string LevelName) : WorkspaceAction;
+
+    /// <summary>
+    /// Turns a reference level on or off — both halves of it at once.
+    ///
+    /// <para>
+    /// A level is two things to this app: a dashed line on the pane, and a sound when the value
+    /// crosses it. <see cref="LevelConfig.IsVisible"/> and <see cref="LevelConfig.PlayEarcon"/> are
+    /// separate fields because the Properties dialog lets them be set separately, but from the
+    /// keyboard they are one idea — "is this line switched on" — and moving them together is what
+    /// makes the 0 key a toggle rather than a dialog.
+    /// </para>
+    ///
+    /// <para>
+    /// The target state travels IN the action rather than being computed in the reducer, so the
+    /// sentence the user hears and the state they end up in cannot disagree: the caller decides
+    /// once, says it, and dispatches it.
+    /// </para>
+    /// </summary>
+    public record SetLevelAudibleAction(string SeriesId, string LevelName, bool Audible) : WorkspaceAction;
     public record UpdateSeriesAction(ImmutableList<ChartSeries> Series) : WorkspaceAction;
     public record UpdateSeriesDataAction(string SeriesId, SeriesDataBuffer Data) : WorkspaceAction;
     /// <summary>

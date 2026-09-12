@@ -112,6 +112,18 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
         return OwnPaneKey(indicatorCode);
     }
 
+    /// <summary>
+    /// Guesses a category from the indicator's code, for the NO-METADATA path only.
+    ///
+    /// <para>
+    /// Every registered indicator declares <c>IndicatorMetadata.Category</c> and
+    /// <see cref="PaneFor"/> reads that; this is reached by <see cref="GetPane"/>, which is what
+    /// answers for a series built without metadata. It is a substring guesser and it should not
+    /// grow: the whole direction of travel is that a fact about an indicator is DECLARED once,
+    /// not inferred at each call site (see IndicatorMetadata.RangeMin and
+    /// DefaultReferenceLevel, both of which replaced by-name guessers in this same area).
+    /// </para>
+    /// </summary>
     public string GetCategory(string indicatorCode)
     {
         string c = indicatorCode.ToLower();
@@ -141,7 +153,11 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
 
         // Volume
         if (c.Contains("volume") || c.Contains("obv") || c.Contains("chaikin") || c.Contains("mfi") || 
-            c.Contains("ad") || c.Contains("eom") || c.Contains("vwap"))
+            // "adl", not "ad". Two letters matched any code containing them anywhere —
+            // "spread", "cad", "adaptive" — and the Accumulation/Distribution Line is the
+            // only thing this row was ever for. Dormant because Trend and Momentum are
+            // tested first and catch "adx", which is exactly how a wrong rule survives.
+            c.Contains("adl") || c.Contains("eom") || c.Contains("vwap"))
             return "Volume";
 
         // EMA Fill, Spider Lines, and Ichimoku overlays on the main price pane

@@ -38,7 +38,8 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new IndicatorMetadata
             {
-                Code = "Atr", Name = "ATR", Category = "Volatility", DefaultPane = "Pane_Atr",
+                // A true range is a distance, so ATR has a floor at zero and no ceiling.
+                Code = "Atr", Name = "ATR", Category = "Volatility", DefaultPane = "Pane_Atr", RangeMin = 0,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -51,7 +52,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "StdDev", Name = "Std Dev", Category = "Volatility", DefaultPane = "Pane_StdDev",
+                Code = "StdDev", Name = "Std Dev", Category = "Volatility", DefaultPane = "Pane_StdDev", RangeMin = 0,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -80,7 +81,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Hv", Name = "Historical Volatility", Category = "Volatility", DefaultPane = "Pane_Hv",
+                Code = "Hv", Name = "Historical Volatility", Category = "Volatility", DefaultPane = "Pane_Hv", RangeMin = 0,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -93,7 +94,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "UlcerIndex", Name = "Ulcer Index", Category = "Volatility", DefaultPane = "Pane_UlcerIndex",
+                Code = "UlcerIndex", Name = "Ulcer Index", Category = "Volatility", DefaultPane = "Pane_UlcerIndex", RangeMin = 0,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -102,7 +103,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     // UlcerIndexResult exposes "UI"; the declared "UlcerIndex" was its only component.
+                    // The Ulcer Index is a depth-of-drawdown measure: zero IS its floor and the
+                    // quiet state, not a midline it swings about. Declared rather than inherited
+                    // so that "0 here is deliberate" is written down.
                     new() { Name = "UI", DisplayName = "Ulcer Index", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#EF5350",
+                            DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "{name}. {value:F2}." },
                 },
             },

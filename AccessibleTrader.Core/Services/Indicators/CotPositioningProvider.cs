@@ -154,6 +154,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultAmplitudeMapping = AmplitudeMapping.None,
                             DefaultPlaybackLayer = PlaybackLayer.Background,
                             DefaultUsePolarityColoring = true,
+                            DefaultReferenceLevel = 0.0,   // net positioning is signed: zero is flat
                             SpeechTemplate = "Net {value:F1} percent of open interest.",
                             IsVisible = false },
 

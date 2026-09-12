@@ -59,10 +59,16 @@ namespace AccessibleTrader.Core.Services
                 }
             }
 
-            // Hint-driven range clamp: if any main-pane series declares RangeMin/RangeMax
-            // (from SymbolRenderHints on an analytics load), use those as hard bounds.
-            // This keeps bounded metrics like FNG fixed at 0–100 even when current data
-            // is a subset of the range. Applied before the buffer expansion below.
+            // Hint-driven range clamp: if any main-pane series declares RangeMin/RangeMax,
+            // use those as hard bounds. This keeps bounded metrics like FNG fixed at 0–100 even
+            // when current data is a subset of the range. Applied before the buffer expansion.
+            //
+            // TWO sources, and the note here named only one until 2026-09-12: SymbolRenderHints
+            // on an analytics load, AND the indicator's own declared bounds, which the model
+            // factory copies onto SeriesConfig. The two are also treated DIFFERENTLY — a
+            // Main-pane series with bounds HARD-CLAMPS the axis here, where an indicator pane
+            // treats them as a floor the axis must cover. No Main-pane indicator declares bounds
+            // today, so the difference is dormant; if one ever does, this is where it bites.
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
@@ -87,6 +93,20 @@ namespace AccessibleTrader.Core.Services
             // RSIs) take the union. See IndicatorMetadata.RangeMin for why.
             var declaredBounds = new Dictionary<string, (double Min, double Max)>(StringComparer.Ordinal);
 
+            // ── Declared FLOORS per pane ──────────────────────────────────
+            // A one-sided declaration: RangeMin with no RangeMax. ATR, historical volatility,
+            // the Ulcer Index and standard deviation are ≥ 0 by construction but have no ceiling,
+            // so a PAIR would be a lie at the top — and "declare both or neither" therefore meant
+            // they could not say the true half either. The top still auto-fits; the floor says the
+            // buffer may not drag the axis below it.
+            //
+            // The else-branch below has always applied the same clamp, INFERRED from whether this
+            // window's data happened to be positive. That is a fact about the window, not about
+            // the indicator: it is right for ATR and it is equally right for a genuinely signed
+            // series that is simply above zero at this zoom, where it is wrong. Declaring it makes
+            // the two cases different things instead of the same accident.
+            var declaredFloors = new Dictionary<string, double>(StringComparer.Ordinal);
+
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
@@ -97,6 +117,13 @@ namespace AccessibleTrader.Core.Services
                     declaredBounds[paneName] = declaredBounds.TryGetValue(paneName, out var cur)
                         ? (Math.Min(cur.Min, bMin), Math.Max(cur.Max, bMax))
                         : (bMin, bMax);
+                }
+                else if (s.Config.RangeMin is double floor && s.Config.RangeMax == null)
+                {
+                    // Two floored series in one pane take the LOWER floor, for the same reason
+                    // two bounded series take the union: the axis has to hold both.
+                    declaredFloors[paneName] = declaredFloors.TryGetValue(paneName, out var curFloor)
+                        ? Math.Min(curFloor, floor) : floor;
                 }
 
                 // ── Component data ranges ─────────────────────────────────────
@@ -197,8 +224,15 @@ namespace AccessibleTrader.Core.Services
                     double bufferPct = isSubPane ? 0.15 : 0.10;
                     if (pRange < 0.000001) { rMin -= 1.0; rMax += 1.0; }
                     else { rMin -= pRange * bufferPct; rMax += pRange * bufferPct; }
-                    // Don't let the buffer push an always-positive pane (e.g. Volume) negative.
-                    if (rMin < 0 && originalMin >= 0) rMin = 0.0;
+                    // A DECLARED floor wins: the indicator said where its axis bottoms out and
+                    // that answer does not depend on what is in the window.
+                    if (!isSubPane && declaredFloors.TryGetValue(basePaneName, out double declaredFloor))
+                    {
+                        if (rMin < declaredFloor) rMin = declaredFloor;
+                    }
+                    // Otherwise, infer it: don't let the buffer push an always-positive pane
+                    // (e.g. Volume) negative.
+                    else if (rMin < 0 && originalMin >= 0) rMin = 0.0;
                     paneRanges[key] = (rMin, rMax);
                 }
             }

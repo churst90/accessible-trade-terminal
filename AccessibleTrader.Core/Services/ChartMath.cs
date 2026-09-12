@@ -8,6 +8,121 @@ namespace AccessibleTrader.Core.Services
     /// </summary>
     public static class ChartMath
     {
+        // ── The vertical axis: one set of steps for the grid and the labels ─────────────
+        //
+        // These were two copies of the same "nice number" algorithm in two files —
+        // BackgroundLayer aiming for ~7 gridlines, ChartRenderer.RenderYAxis aiming for ~5
+        // labels — and the second one's comment promised "Label positions align exactly with
+        // major gridlines so the chart reads as a coherent grid, not a grid + an unrelated label
+        // track". They did not. Take a pane of range 20: the grid rounds 20/7 = 2.86 down to a
+        // step of 2, the labels round 20/5 = 4 up to a step of 5, and the labels at 5 and 15 sit
+        // on no line at all. Any range in roughly 17.5–24.5 × 10^k does it, which includes a
+        // 20,000-dollar window on a BTC chart. Nobody listening to this app can hear it and
+        // everybody looking at it sees it.
+        //
+        // So the label step is now DERIVED from the gridline step — a whole multiple of it —
+        // which makes alignment structural rather than a coincidence that held for most ranges.
+
+        /// <summary>
+        /// The 1–2–5–10 step closest to <paramref name="range"/> divided into
+        /// <paramref name="targetCount"/> parts. Returns 0 for a degenerate range, which both
+        /// callers treat as "draw nothing".
+        /// </summary>
+        public static double NiceStep(double range, int targetCount)
+        {
+            if (targetCount <= 0) return 0;
+            if (range <= 0 || double.IsNaN(range) || double.IsInfinity(range)) return 0;
+
+            double rough = range / targetCount;
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(rough)));
+            double fraction = rough / magnitude;
+            if (fraction < 1.5) return 1 * magnitude;
+            if (fraction < 3.5) return 2 * magnitude;
+            if (fraction < 7.5) return 5 * magnitude;
+            return 10 * magnitude;
+        }
+
+        /// <summary>How many labels a pane of this height wants. Small indicator panes want fewer.</summary>
+        public static int TargetLabelCount(float paneHeightPx, float density)
+            => paneHeightPx < 100 * density ? 3 : 5;
+
+        /// <summary>The gridline step for a pane. About seven lines across the pane.</summary>
+        public static double GridStep(double range) => NiceStep(range, 7);
+
+        /// <summary>
+        /// The step between axis LABELS: always a whole multiple of the gridline step, so every
+        /// label lands on a line.
+        ///
+        /// <para>
+        /// The multiple is chosen to get as close to <paramref name="targetLabelCount"/> labels as
+        /// a whole multiple allows, and is never less than one — a label step finer than the grid
+        /// would put labels between lines, which is the defect read backwards.
+        /// </para>
+        /// </summary>
+        public static double LabelStep(double range, int targetLabelCount, double gridStep)
+        {
+            if (gridStep <= 0 || range <= 0 || targetLabelCount <= 0) return gridStep;
+            double wanted = range / targetLabelCount;
+            int multiple = (int)Math.Round(wanted / gridStep, MidpointRounding.AwayFromZero);
+            return Math.Max(1, multiple) * gridStep;
+        }
+
+        /// <summary>
+        /// True when <paramref name="value"/> falls on a label — the test a renderer uses to draw
+        /// that gridline brighter. Tolerance is relative to the step, because the axis walks by
+        /// repeated addition and the residue grows with the number of steps taken.
+        /// </summary>
+        public static bool IsOnLabel(double value, double labelStep)
+        {
+            if (labelStep <= 0) return false;
+            double ratio = value / labelStep;
+            return Math.Abs(ratio - Math.Round(ratio)) < 1e-6;
+        }
+
+        /// <summary>
+        /// Range-aware axis label text. A flat F2/F4 choice collapses to "0.0000" for assets whose
+        /// visible range is tiny — early KAS ticks around $0.00003 — so the decimal count comes
+        /// from the range's magnitude and always carries about two significant digits beyond it.
+        ///
+        /// <para>
+        /// "−0.00" is stripped to "0.00". A value a hair below zero is a rounding residue from the
+        /// axis-step arithmetic, not a real negative, and the minus sign survives the rounding. On
+        /// a price axis that reads as a data error — exactly the kind of detail that makes a
+        /// careful reader distrust every other number on screen.
+        /// </para>
+        /// </summary>
+        public static string FormatAxisValue(double value, double range)
+        {
+            double absRange = Math.Abs(range);
+            int decimals = (absRange == 0 || double.IsNaN(absRange) || double.IsInfinity(absRange))
+                ? 2
+                : Math.Clamp(2 - (int)Math.Floor(Math.Log10(absRange)), 2, 10);
+
+            string text = value.ToString("F" + decimals);
+
+            if (text.Length > 1 && text[0] == '-' && text.AsSpan(1).IndexOfAnyExcept('0', '.', ',') < 0)
+                text = text[1..];
+
+            return text;
+        }
+
+        /// <summary>
+        /// The date format the x axis uses for a visible span, and whether it should call out
+        /// midnight.
+        ///
+        /// <para>
+        /// A 6h chart showing "06:00 06:00 06:00 06:00 06:00" tells the reader nothing — every bar
+        /// is at a multiple of 6h UTC. Under two days is intraday and wants the clock; two to
+        /// sixty days is a swing view and wants the date; beyond that, the month.
+        /// </para>
+        /// </summary>
+        public static (string Format, bool MarkDateBoundaries) XAxisFormat(TimeSpan span)
+        {
+            if (span.TotalDays < 2) return ("HH:mm", true);
+            if (span.TotalDays < 60) return ("MM/dd", false);
+            return ("MMM d", false);
+        }
+
         /// <summary>
         /// Calculates the min/max range for a specific series within a viewport.
         /// </summary>

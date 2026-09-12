@@ -230,8 +230,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     // VortexResult exposes Pvi/Nvi; "Vip"/"Vim" matched nothing and both lines
                     // rendered empty.
-                    new() { Name = "Pvi", DisplayName = "VI+", DefaultColorHex = "#26A69A", SpeechTemplate = "{name}. {value:F2}." },
-                    new() { Name = "Nvi", DisplayName = "VI-", DefaultColorHex = "#EF5350", SpeechTemplate = "{name}. {value:F2}." },
+                    // Vortex has no hard bound, but it has a very definite midline: VI+ and VI- are
+                    // ratios that both oscillate about 1.0 and the signal IS their cross of it.
+                    // Left undeclared the pair read as unbounded lines with no neutral, so the
+                    // 0 key refused on the pane and the waveform never split.
+                    new() { Name = "Pvi", DisplayName = "VI+", DefaultColorHex = "#26A69A", DefaultReferenceLevel = 1.0, SpeechTemplate = "{name}. {value:F2}." },
+                    new() { Name = "Nvi", DisplayName = "VI-", DefaultColorHex = "#EF5350", DefaultReferenceLevel = 1.0, SpeechTemplate = "{name}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -246,6 +250,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     // ChopResult exposes "Chop"; the declared "ChopIndex" was its only component.
                     new() { Name = "Chop", DisplayName = "Choppiness", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9E9E9E",
+                            DefaultReferenceLevel = 50.0,
                             SpeechTemplate = "{name}. {value:F2}. {zone}." },
                 },
             },
@@ -262,7 +267,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Stc", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00BCD4",
-                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
+                            DefaultTriggerBoundaryClick = true, DefaultReferenceLevel = 50.0,
+                            SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
             new IndicatorMetadata

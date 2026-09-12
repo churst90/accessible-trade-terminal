@@ -4,6 +4,162 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The neutral is declared, the 0 key toggles it, and the axis labels sit on the gridlines (2026-09-12, forty-eighth pass)
+
+Suite **7,577** (was 7,472). Three threads from `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, plus a
+heavy rendering pass that found two defects nobody could hear.
+
+**1. A component's neutral is DECLARED, like its bounds.**
+
+`ComponentConfig.ReferenceLevel` is the value a component swings about: the audio layer splits its
+above/below waveforms there, the amplitude mapping measures deviation from it, and since 2026-09-06
+the `0` key marks it. It was resolved by a four-step chain whose second step was a substring match
+on the indicator's code — RSI→50, MACD→0, STOCH→50, WILLIAMS→−50 — and whose third was the display
+type's default of **0.0**.
+
+Steps 3 and 4 were a `??` chain with a *type default in the middle of it*. Because step 3 returns a
+non-null `0.0` for every Oscillator and ZeroArea component, step 4 could never run for the types its
+own comment named. And the four bounded oscillators whose codes contain none of the four magic
+words — **MFI, the Ultimate Oscillator, Choppiness, STC** — all took step 3 and got a neutral of 0
+on a 0–100 pane. Their waveform never flipped: every value is "above" a line they never visit. On
+UltOsc, Chop and STC the `0` key then offered to add a line named "Zero" at the very floor of the
+pane, which is the exact defect `ReferenceLevelPlacement` was created to retire. Connors RSI had
+the same shape one level out: bounds 0–100, and its only declared level was "Zero" at 0.
+
+- Every Oscillator and ZeroArea component in the fleet now sets `DefaultReferenceLevel` — 31 of
+  them across seven Skender providers, Pulse, COT and the three StrategyLab providers.
+- `StylingService.GetReferenceLevel` is **deleted**, along with the interface member. Its own
+  comment ("Skender indicators are reflection-generated — their component metadata has no static
+  `DefaultReferenceLevel` field to set") was false: they are hand-written lists.
+- Connors RSI declares Overbought 90 / **Midpoint 50** / Oversold 10 instead of "Zero" at 0.
+- Aroon shows why the neutral belongs to the COMPONENT: Up and Down run 0–100 about 50, the
+  Oscillator runs ±100 about zero, one pane, three components, two neutrals.
+- `DeclaredNeutralTests` (13). A neutral may not sit on a declared bound; a declared *level* whose
+  role is Neutral may not either; every swinging component declares. Sabotage: blank MFI's
+  declaration → red.
+
+**2. The `0` key toggles the pane's midline.**
+
+Cody: *"0 should toggle the visibility/earcons of the 0 line, pressing it now doesn't seem to do
+much of anything."* Both halves were true. On any indicator whose provider declares a midline —
+RSI, Stochastic, MFI, MACD, Cipher B, which is most of the ones anybody presses `0` on — the key's
+only outcome was the sentence *"Midpoint already marks 50.00 on this pane"*, every press, forever.
+The declared line was protected from being duplicated and that protection was the whole behaviour.
+
+It is now the thing the key operates. On: the dashed line is drawn and its crossing is heard. Off:
+neither. Visibility and the crossing earcon move together, because from the keyboard "is this line
+switched on" is one idea — `SetLevelAudibleAction` carries the target state so the sentence the user
+hears and the state they land in cannot disagree. A line **you** placed is still REMOVED by a second
+press rather than left behind switched off; for your own line, off and gone are the same wish, and
+removal is the only route the keyboard has ever had. A pane with no midline still gets one added; a
+pane that declares no neutral still refuses, as `Boundary`, not an error.
+`ZeroKeyTogglesTheMidlineTests` (20), driven through the real dispatcher. Two sabotages red (6, 2).
+
+**3. Three more declared bounds, and a one-sided floor.**
+
+CMF (±1 by construction), Cipher C (±100 — the cycle sine is Fisher-normalised and the lead sine is
+explicitly clamped) and Pulse (0–100) declare their bounds. And `RangeMin` may now be declared
+**alone**, as a floor with no ceiling: ATR, standard deviation, historical volatility and the Ulcer
+Index are ≥ 0 by construction and unbounded above, so "declare both or neither" had left them unable
+to state the true half either. The auto-fit branch has always applied the same clamp, *inferred*
+from whether this window's data happened to be positive — a fact about the window, not about the
+indicator. Declaring it makes the two cases different things instead of the same accident.
+
+Hurst, the Top/Bottom Detector and Vol Regime were looked at and deliberately left: each has one
+pane holding components with different natural ranges (Hurst 0–1 beside a −1/0/+1 regime code; a
+volatility RATIO beside a 0–1 percentile), and `RangeMin`/`RangeMax` are properties of the
+INDICATOR. Per-component bounds are the next declaration, if they are wanted.
+
+**4. Rendering — every axis label now sits on a gridline.**
+
+`ChartRenderer.RenderYAxis` promised it in a comment: *"Label positions align exactly with major
+gridlines so the chart reads as a coherent grid, not a grid + an unrelated label track."* It was
+not true, because the promise was made by one of **two copies** of the nice-number algorithm.
+`BackgroundLayer` divided the range by 7 for gridlines; `RenderYAxis` divided it by 5 for labels.
+On a pane of range 20 that is a grid stepping by 2 and labels stepping by 5, so the labels at 5 and
+15 sat on nothing at all. Roughly 17.5–24.5 × 10^k does it — which includes a 20,000-dollar window
+on a BTC chart. Measured across 1,910 range/pane-size combinations: **704 of them put a label
+between gridlines.**
+
+- One `ChartMath.NiceStep` / `GridStep` / `LabelStep` / `TargetLabelCount` / `IsOnLabel`, used by
+  both files. The label step is a whole multiple of the gridline step, so alignment is structural
+  rather than a coincidence that held for most ranges.
+- A gridline is drawn BRIGHT when it carries a label. That used to be "every fifth line", which was
+  a guess about where the labels were.
+- `FormatAxisValue` and the x-axis span format moved to `ChartMath` so they can be tested at all.
+
+**5. Rendering — with eight indicator panes, the bottom one was drawn under the x-axis strip.**
+
+The pane allocator hands the indicator panes whatever the price pane is not using, then re-raises
+the price pane to a 15% floor *without re-checking that it all still fits*. Panes are laid out
+top-down by accumulating heights, so the entire overflow landed on the last indicator pane. Nine
+panes on a 300px canvas: main 42 + eight at the 30px crowded floor is 282 against 280 available,
+and the bottom pane lost the difference plus the strip's own height — about half of it. Since every
+oscillator got a pane of its own (2026-09-11) eight indicators is an ordinary chart, so this was
+Alt+PageDown walking to a pane that was not on the screen. A final fit pass shares the shortfall
+across the indicator panes instead.
+
+**6. Rendering — the first tests that assert a pixel.**
+
+The Skia path carried about 190 test methods and not one asserted a colour, a position or a layout;
+`StandardRenderersSmokeTests` states the rule up front ("drew something / drew something DIFFERENT,
+never exact colours"). Nothing under `Core/Services/Rendering` had ever been mutated.
+`ChartAxisMathTests` (35) and `ChartFrameRenderingTests` (18) are the assertions a sighted reviewer
+makes at a glance, written down — the up candle is the theme's up colour, a doji reads as up, a
+volume bar follows the candle it sits under, a scrolled-back pane still reads the bars underneath
+it, a BelowBar marker clears the low, adjacent bodies leave a gap, the pane is outlined, the y-axis
+column has numbers in it, three panes divide at the quarters, no pane is squeezed out.
+
+**A mutation campaign over the rendering path**: 18 valid single-line mutants, **17 caught**. The
+one survivor is the minimum-label-spacing check in `RenderYAxis` (deleting it overlaps labels on a
+short pane, and nothing notices). A nineteenth mutant turned out to be unreachable — the candle
+phase-colour branch has no fixture, which is also worth knowing.
+
+**7. Two long-standing rendering defects from the review's §5.**
+
+- **`ChartRenderer` leaked an `SKTypeface` per instance.** The hosted head builds one per Blazor
+  circuit, so every browser connection leaked a native face for the life of the process. It is one
+  static shared face now — a typeface is immutable and shareable, and it cannot be disposed for the
+  same reason `Dispose()` is deliberately empty.
+- **`AIAnalystService` rendered its snapshot through the shared `ChartRenderer`.** Two defects one
+  line apart: `Render` writes the axis font size from its density argument, so a snapshot at
+  `density: 1.0f` retuned the font underneath a browser frame drawing at 2×; and `Render` ends by
+  publishing the pane layout to `IPaneLayoutService`, so an 800×480 snapshot replaced the live
+  chart's axis fractions with its own — and those fractions are what every pointer-to-bar mapping
+  subtracts. Click-to-select, the crosshair readout, Shift+click measurement and every drawing
+  anchor read the snapshot's geometry until the next live frame repaired it. The service builds its
+  own renderer with its own `PaneLayoutService` now.
+
+**8. The build says what it can do (`CapabilityManifest`).**
+
+Two recurring items from `patches/HOSTED-DEPLOY-NOTES.md` with one cause. The public feature page
+has gone false five times because a sentence about the app has no way to ask the build; and a
+`HostMode` gate lands with no runtime signal, so the only evidence the hosted alert monitor had
+stopped was grepping a journal for a line that was no longer there — an *absence*, the weakest
+evidence there is, and exactly the shape of check "assert the artifact, not the incantation" exists
+to refuse. `DemoPolicy` already IS the manifest: `CapabilityManifest` reflects over it, WebHost logs
+one startup line naming the mode and every flag (including the off ones), and `ToJson` gives a check
+outside the process something to compare a public claim against. Reflected, not listed — a
+hand-written list is a second place every flag has to be added, and this repo has found that defect
+four separate times. `CapabilityManifestTests` (10).
+
+**9. Comments that no longer matched the code**, swept in the same commits as the code they sit
+beside: `HeadlessOrderAnnouncer` naming a settings key retired on 09-11 and a service deleted on
+09-08; `HostedAlertMonitor` saying "per-user suppression" 70 lines above "per SYMBOL, not per user";
+`TrayController` promising speech with the browser closed when the channel is a notification;
+`HeadlessOrderWatch` saying "read per poll"; `Program.cs` naming Orca/spd-say; `IndicatorModelFactory`
+calling reference levels "visual-only" when they drive earcons, zone noise, the `0` key and the
+narrator; `ViewportRangeCalculator` naming one of the two sources of a declared bound;
+`ChartRenderer` carrying an orphaned second `<summary>` (the compiler takes the last and silently
+drops the first); `LevelConfig` claiming "~350 provider level declarations" where there are about
+sixty; `PaneAssignmentService.GetCategory` matching `Contains("ad")`, which matches any code with
+those two letters anywhere — tightened to `"adl"`, and the method is documented as the no-metadata
+path it is.
+
+**Not done, deliberately.** No release was cut. WHATSNEW still needs assembling from all of
+`[Unreleased]` before a tag — see the review doc §4.
+
+
 ### A bounded indicator's axis covers its natural bounds at every zoom (2026-09-12, forty-seventh pass)
 
 Suite **7,472** (was 7,441). Cody, the morning after every oscillator got its own pane: *"the rsi

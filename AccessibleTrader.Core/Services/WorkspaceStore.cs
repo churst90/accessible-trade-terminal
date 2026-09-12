@@ -318,6 +318,7 @@ namespace AccessibleTrader.Core.Services
                 // keypress was completely silent. ActionRoutingReachabilityTests now
                 // enumerates every WorkspaceAction subtype so there cannot be a fourth.
                 or AddSeriesAction or RemoveSeriesAction or AddLevelAction or RemoveLevelAction
+                or SetLevelAudibleAction
                 or UpdateSeriesAction or UpdateSeriesDataAction
                 or UpdateSeriesZoneBandsAction or UpdateSeriesParametersAction
                 // The DEFERRED bus, not the real one. SeriesReducer publishes announcements

@@ -49,26 +49,25 @@ namespace AccessibleTrader.Core.Services.Rendering
             using var gridMajor = new SKPaint { Color = _theme.GridLines.WithAlpha(160), StrokeWidth = 1 * ctx.Density };
 
             double range = ctx.Max - ctx.Min;
-            if (range > 0 && !double.IsNaN(range) && !double.IsInfinity(range))
+            double niceStep = ChartMath.GridStep(range);
+            if (niceStep > 0)
             {
-                double roughStep = range / 7.0;
-                double stepMag = Math.Pow(10, Math.Floor(Math.Log10(roughStep)));
-                double stepFrac = roughStep / stepMag;
-                double niceStep;
-                if (stepFrac < 1.5) niceStep = 1 * stepMag;
-                else if (stepFrac < 3.5) niceStep = 2 * stepMag;
-                else if (stepFrac < 7.5) niceStep = 5 * stepMag;
-                else niceStep = 10 * stepMag;
+                // A line is MAJOR when the y axis puts a label on it. That used to be "every
+                // fifth line", which was a guess about where the labels were: ChartRenderer
+                // computed its own step from a different target, so on a pane of range 20 the
+                // labels landed at 5 and 15 — between lines, never mind between a major and a
+                // minor one. Both files now take the step from ChartMath and the bright line is
+                // the labelled line by construction.
+                double labelStep = ChartMath.LabelStep(
+                    range, ChartMath.TargetLabelCount(ctx.PaneRect.Height, ctx.Density), niceStep);
 
                 double firstLine = Math.Ceiling(ctx.Min / niceStep) * niceStep;
                 int safety = 0;
                 for (double v = firstLine; v <= ctx.Max && safety < 200; v += niceStep, safety++)
                 {
                     float y = ChartMath.MapY(v, ctx.PaneRect.Top, ctx.PaneRect.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
-                    // Major line whenever v is an integer multiple of niceStep * 5.
-                    double idx = v / niceStep;
-                    bool isMajor = Math.Abs(Math.Round(idx / 5.0) * 5.0 - idx) < 0.0001;
-                    ctx.Canvas.DrawLine(ctx.PaneRect.Left, y, ctx.PaneRect.Right, y, isMajor ? gridMajor : gridMinor);
+                    ctx.Canvas.DrawLine(ctx.PaneRect.Left, y, ctx.PaneRect.Right, y,
+                        ChartMath.IsOnLabel(v, labelStep) ? gridMajor : gridMinor);
                 }
             }
             else

@@ -60,7 +60,7 @@ namespace AccessibleTrader.Sdk.Models
     public enum LevelRole
     {
         /// <summary>
-        /// Infer from the name, so that the ~350 provider level declarations and every workspace
+        /// Infer from the name, so that the roughly sixty provider level declarations and every workspace
         /// saved before this field existed keep their behaviour without being rewritten. See
         /// <see cref="LevelConfig.EffectiveRole"/> for the inference.
         /// </summary>

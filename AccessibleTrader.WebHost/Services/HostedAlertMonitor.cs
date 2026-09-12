@@ -19,9 +19,13 @@ namespace AccessibleTrader.WebHost.Services
     /// delivers through alert channels, not local speech — the server has no
     /// speakers that reach anyone.
     ///
-    /// Per-user suppression: while a user has a live circuit, their in-session
-    /// pipeline owns evaluation AND delivery — evaluating here too would send
-    /// every email twice. Bars are fetched ONCE per (provider, symbol,
+    /// Suppression is per SYMBOL, not per user — see the loop in PollOnceAsync,
+    /// which is where the rule and the reason for it are written down. (This
+    /// paragraph said "per-user" until 2026-09-12, describing the version that
+    /// skipped a whole user whenever any of their circuits was connected. That
+    /// left every symbol they did not have open unwatched, which is the defect
+    /// the per-symbol rule exists to fix. Two statements of one rule in one file,
+    /// and the wrong one came first.) Bars are fetched ONCE per (provider, symbol,
     /// timeframe) per poll and shared across users; hosted market data is
     /// server-seeded (users cannot add keys), so one data service serves all.
     /// Users can opt out via the "alerts.serverSide" setting (default ON — a

@@ -2,7 +2,10 @@ using System.Text;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Interfaces;
 using AccessibleTrader.Sdk.Models;
+using AccessibleTrader.Core.Services.Rendering;
+using AccessibleTrader.Sdk.Logging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SkiaSharp;
 
 namespace AccessibleTrader.Core.Services.AI;
@@ -27,6 +30,26 @@ public sealed class AIAnalystService : IAIAnalystService
 
     private readonly IApiKeyService      _apiKeyService;
     private readonly IWorkspaceStore     _store;
+    /// <summary>
+    /// The snapshot's OWN renderer, not the one the chart is drawing with.
+    ///
+    /// <para>
+    /// It used to be the injected instance — scoped per Blazor circuit in the hosted head, a
+    /// singleton in MAUI — which put two defects one line apart. <c>Render</c> writes the axis
+    /// font size from the density argument, so a snapshot at <c>density: 1.0f</c> retuned the
+    /// font underneath a browser frame drawing at 2×; and <c>Render</c> ends by publishing the
+    /// pane layout to <see cref="IPaneLayoutService"/>, so an 800×480 snapshot replaced the live
+    /// chart's axis fractions with its own — and those fractions are what every pointer-to-bar
+    /// mapping subtracts. Click-to-select, the crosshair readout, Shift+click measurement and
+    /// every drawing anchor read the snapshot's geometry until the next live frame repaired it.
+    /// </para>
+    ///
+    /// <para>
+    /// A private renderer with a private <see cref="PaneLayoutService"/> makes both impossible
+    /// rather than unlikely. It costs one small paint and one small font; the typeface is shared
+    /// statically.
+    /// </para>
+    /// </summary>
     private readonly ChartRenderer       _renderer;
     private readonly IEnumerable<ILLMProvider> _providers;
     private readonly IEventBus?          _eventBus;
@@ -35,14 +58,17 @@ public sealed class AIAnalystService : IAIAnalystService
     public AIAnalystService(
         IApiKeyService apiKeyService,
         IWorkspaceStore store,
-        ChartRenderer renderer,
+        ThemeService theme,
+        IStylingService styling,
         IEnumerable<ILLMProvider> providers,
+        IAppLogger appLogger,
         IEventBus? eventBus = null,
         ILogger<AIAnalystService>? logger = null)
     {
         _apiKeyService = apiKeyService;
         _store         = store;
-        _renderer      = renderer;
+        _renderer      = new ChartRenderer(theme, styling, new PaneLayoutService(),
+                                           NullLogger<ChartRenderer>.Instance, appLogger);
         _providers     = providers;
         _eventBus      = eventBus;
         _logger        = logger;

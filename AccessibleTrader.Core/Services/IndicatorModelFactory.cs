@@ -52,8 +52,9 @@ namespace AccessibleTrader.Core.Services
                 Thickness = _stylingService.GetDefaultThickness(type),
                 BaseFrequency = profile.BaseFrequency,
                 SpeechTemplate = _stylingService.GetSpeechTemplate(indicatorCode, componentName, type),
-                ReferenceLevel = _stylingService.GetReferenceLevel(indicatorCode, componentName, type)
-                                 ?? (type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null),
+                // No metadata on this path, so the display type is all there is to go on. Every
+                // component that HAS metadata declares its own — see CreateComponentConfigFromMeta.
+                ReferenceLevel = type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null,
                 IsAreaFill = _stylingService.GetIsAreaFill(indicatorCode, componentName, type),
                 UsePolarityColoring = _stylingService.GetUsePolarityColoring(indicatorCode, componentName, type),
                 ColorBaseline = _stylingService.GetColorBaseline(indicatorCode, componentName),
@@ -254,9 +255,13 @@ namespace AccessibleTrader.Core.Services
             foreach (var band in meta.DefaultZoneBands)
                 config.ZoneBands.Add(band.Clone());
 
-            // NOTE: Reference level lines (OB/OS/zero) are NOT injected here as ComponentConfig entries.
-            // They are visual-only and live in series.Levels (LevelConfig) via SeriesManagementService.InjectDefaultLevels.
-            // Adding them to config.Components would make them navigable and audible, which is wrong.
+            // NOTE: Reference level lines (OB/OS/zero) are NOT injected here as ComponentConfig
+            // entries. They live in series.Levels (LevelConfig) via
+            // SeriesManagementService.InjectDefaultLevels. Adding them to config.Components would
+            // make them NAVIGABLE and give them a voice of their own, which is wrong — they are
+            // not series. They are emphatically not "visual-only", which this note used to claim:
+            // a level drives its crossing earcon, its zone noise, the 0 key's toggle and the
+            // narrator's zone word. Everything about a level except arrowing onto it is audible.
 
             var data = new SeriesDataBuffer { SeriesId = id };
             var series = new ChartSeries(config, data)
@@ -353,15 +358,26 @@ namespace AccessibleTrader.Core.Services
 
                 // Speech template: provider metadata wins; fall through to StylingService generic default.
                 SpeechTemplate     = meta.SpeechTemplate ?? _stylingService.GetSpeechTemplate(indicatorCode, meta.Name, type),
-                // ReferenceLevel priority chain (highest → lowest):
-                //   1. Provider metadata DefaultReferenceLevel (e.g. CipherB MF at -80)
-                //   2. StylingService hard-code (RSI→50, MACD→0, STOCH→50)
-                //   3. Oscillator/ZeroArea type default (0.0) — enables above/below waveform split
-                //   4. Non-zero ColorBaseline fallback for histograms anchored away from zero
+                // The value this component swings about: the audio layer splits its above/below
+                // waveforms here, the amplitude mapping measures deviation from here, and the 0
+                // key marks it. It is DECLARED — DeclaredNeutralTests holds every Oscillator and
+                // ZeroArea component in the fleet to declaring one.
+                //
+                // There used to be four steps. Step 2 was a substring match on the indicator code
+                // in StylingService (RSI→50, MACD→0, STOCH→50, WILLIAMS→−50), and steps 3 and 4
+                // were a ?? chain with a TYPE DEFAULT in the middle of it: because step 3 returns
+                // a non-null 0.0 for every Oscillator and ZeroArea, step 4 could never run for the
+                // types its own comment named. MFI, the Ultimate Oscillator, Choppiness and STC
+                // contain none of the four magic words, so all four took step 3 and got a neutral
+                // of 0 on a 0–100 pane: a waveform that never flipped, and a 0 key that offered to
+                // put a line named "Zero" on the floor.
+                //
+                // What remains is the declaration, then the ColorBaseline a histogram may be
+                // anchored to, then the type default as the last resort for a component that
+                // declares neither.
                 ReferenceLevel     = meta.DefaultReferenceLevel
-                                     ?? _stylingService.GetReferenceLevel(indicatorCode, meta.Name, type)
-                                     ?? (type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null)
-                                     ?? (meta.ColorBaseline.HasValue && meta.ColorBaseline.Value != 0.0 ? meta.ColorBaseline : null),
+                                     ?? (meta.ColorBaseline.HasValue && meta.ColorBaseline.Value != 0.0 ? meta.ColorBaseline : null)
+                                     ?? (type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null),
                 IsAreaFill         = meta.DefaultIsAreaFill ?? _stylingService.GetIsAreaFill(indicatorCode, meta.Name, type),
                 UsePolarityColoring = meta.DefaultUsePolarityColoring ?? _stylingService.GetUsePolarityColoring(indicatorCode, meta.Name, type),
 

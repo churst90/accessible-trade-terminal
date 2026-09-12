@@ -117,6 +117,51 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-12 (evening), FORTY-EIGHTH pass — THE NEUTRAL IS DECLARED,
+> THE `0` KEY TOGGLES IT, AND EVERY AXIS LABEL SITS ON A GRIDLINE.)** Suite **7,577**, 0 failing.
+> No release was cut — Cody, mid-turn: *"hold off on the cutting of the release though."*
+>
+> Three threads from `docs/PRE_RELEASE_REVIEW_2026-09-12.md` plus a heavy rendering pass. Full
+> entry in `docs/CHANGES.md`.
+>
+> **What landed.** (1) Every Oscillator/ZeroArea component declares `DefaultReferenceLevel` (31
+> of them); `StylingService.GetReferenceLevel` and its interface member are DELETED. MFI, UltOsc,
+> Chop and STC had a neutral of 0 on a 0–100 pane — a waveform that never flipped — because a
+> `??` chain had a TYPE DEFAULT in the middle of it, which made the step after it unreachable for
+> the very types its comment named. Connors RSI's "Zero" at 0 is now "Midpoint" at 50.
+> (2) The `0` key TOGGLES the pane's declared midline (line + earcon together) instead of saying
+> "already marked" forever; your own line is still removed by a second press.
+> (3) CMF ±1, Cipher C ±100, Pulse 0–100 declare bounds; `RangeMin` may be declared ALONE as a
+> floor (ATR, StdDev, HV, Ulcer). (4) ONE `ChartMath.NiceStep` for the grid and the labels —
+> 704 of 1,910 range/pane combinations put a label between gridlines. (5) With eight indicator
+> panes the bottom one was drawn under the x-axis strip. (6) The first rendering tests that assert
+> a pixel, and a mutation campaign over the rendering path: 18 mutants, 17 caught.
+> (7) The `SKTypeface` leak and `AIAnalystService`'s shared-renderer snapshot are both closed.
+> (8) `CapabilityManifest` — one startup line naming every `DemoPolicy` flag.
+>
+> ### NEXT
+>
+> 1. **Hear it.** Press `0` on RSI: it should say "Midpoint at 50.00 hidden and silent", and again
+>    to bring it back. Press `0` on Choppiness (no declared levels): it should ADD "Midpoint at
+>    50.00", not "Zero". MFI and the Ultimate Oscillator should now flip their waveform at 50.
+>    None of this has been heard.
+> 2. **The release.** Everything in §4 of the review still applies: WHATSNEW's Unreleased section
+>    covers only the 09-11/09-12 passes and is missing order-routing safety, the conformance
+>    suite, monitor Phases 0–3, profiles, volume-at-close and now this pass. Assemble it from all
+>    of CHANGES `[Unreleased]`, then 2.10.0 (a minor: four defaults changed under the user).
+>    Tell the server agent BEFORE the tag.
+> 3. **The one surviving rendering mutant**: deleting the minimum-label-spacing check in
+>    `RenderYAxis` overlaps labels on a short pane and no test notices. Also, the candle
+>    phase-colour branch (`RenderCandles`'s `hasPhaseOverride`) has no fixture at all — a mutant
+>    aimed there could not be evaluated.
+> 4. **Per-component bounds.** Hurst, the Top/Bottom Detector and Vol Regime are each one pane
+>    holding components with different natural ranges, and `RangeMin`/`RangeMax` belong to the
+>    INDICATOR. They were left auto-fit on purpose; declaring per-component bounds is the fix if
+>    a fixed axis is wanted there.
+> 5. Items 2–3 of the 46th pass below still stand (Compare-ratio pane, cohort pane name).
+> 6. §3 of the review, after the tag: the MAUI head has no `LocalBackgroundMonitor`, and the
+>    two-tab alert lost-update (`TODO` below) is still open.
+
 > **START HERE (current as of 2026-09-12, FORTY-SEVENTH pass — BOUNDED INDICATORS KEEP THEIR
 > NATURAL AXIS AT EVERY ZOOM.)** Suite **7,472**, 0 failing.
 >
@@ -9827,12 +9872,13 @@ Two of these are "the feature does not work", not "the feature has a bug".
   tab A adds a 4th and saves 4, tab B deletes one and saves its stale 2 — tab A's new alert is gone
   with no error. `AtomicFile` makes the write crash-safe and does nothing about lost updates. Fix:
   reload-merge-write inside `SaveAlerts`, or a per-user singleton alert store. CONFIRMED. MEDIUM.
-- [ ] **Tray snooze suppresses *evaluation*, not just delivery, so crossings during a snooze are lost —
-  `LocalBackgroundMonitor.cs:124-125`.** `if (_snooze.IsActive) return;` fires before the fetch, so no
-  bars are examined for the whole snooze window. On timeframes at or below the snooze duration the
-  crossing bar has scrolled out of the 3-bar fetch by the time monitoring resumes and the alert never
-  fires — the user asked for quiet and got amnesia. Fix: keep evaluating, suppress only `Deliver` (and
-  optionally replay into `RecentAlertsBuffer`). CONFIRMED. MEDIUM.
+- [x] **Tray snooze suppresses *evaluation*, not just delivery, so crossings during a snooze are lost —
+  `LocalBackgroundMonitor.cs:124-125`.** `if (_snooze.IsActive) return;` fired before the fetch, so no
+  bars were examined for the whole snooze window. On timeframes at or below the snooze duration the
+  crossing bar had scrolled out of the 3-bar fetch by the time monitoring resumed and the alert never
+  fired — the user asked for quiet and got amnesia. **FIXED in the 43rd pass (2026-09-11) and this
+  entry was stale for a day: `LocalBackgroundMonitor.cs:174-187` now evaluates always and gates only
+  the speaking.** Ticked 2026-09-12 after re-reading the code.
 - [ ] **The VAPID private key is written in plaintext with default permissions and the VAPID subject is
   the maintainer's personal email — `VapidKeyService.cs:64` and `:15`.** `AtomicFile.WriteAllText` sets
   no file mode (no `UnixFileMode`/`chmod` call exists anywhere in the repo), so `vapid-keys.json` lands
@@ -9852,12 +9898,14 @@ Two of these are "the feature does not work", not "the feature has a bug".
   weekend all present as normal evaluation input; combined with the duplicate-fire finding a frozen
   pair straddling a threshold delivers indefinitely. Fix: skip (and past a threshold, report) a watch
   whose newest bar is older than N×timeframe. CONFIRMED. MEDIUM.
-- [ ] **Three load-bearing comments describe behaviour the code does not have.**
+- [ ] **Two load-bearing comments describe behaviour the code does not have.**
   `AlertEvaluator.cs:22-25` — "when null, tree alerts simply never fire (and log once via the try/catch
   above)": `TryEvaluateTree` returns `null` at `:95-96` without throwing, so nothing is logged and
-  nothing is announced. `HostedAlertMonitor.cs:42-45` — claims cross-poll crossing-edge state that does
-  not exist. `AlertEvaluator.cs:267` — claims transition semantics `EvaluateZone` does not implement.
-  CONFIRMED. LOW.
+  nothing is announced. `AlertEvaluator.cs:267` — claims transition semantics `EvaluateZone` does not
+  implement. CONFIRMED. LOW.
+  ~~`HostedAlertMonitor.cs:42-45` — claims cross-poll crossing-edge state that does not exist.~~
+  **No longer true (2026-09-12): `AlertEvaluator.cs:277` holds that state now, so the comment
+  describes the code.** The other two are unchecked since they were filed.
 - [ ] **(amends TODO:1281)** That entry says "Adding or deleting an alert produces no feedback and
   destroys focus"; `AlertsModal.razor:245-249` now publishes a `FeedbackRequestEvent` on add. Deleting
   (`:267-272`) still announces nothing and still drops focus to `<body>`. Narrow the item so the

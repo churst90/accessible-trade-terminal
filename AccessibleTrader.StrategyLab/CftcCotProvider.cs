@@ -53,8 +53,8 @@ public sealed class CftcCotProvider : IIndicatorProvider
             Parameters = new List<IndicatorParameterMetadata>(),
             Components = new List<IndicatorComponentMetadata>
             {
-                new() { Name = CompNetPctOi,   DisplayName = "Net Spec % OI",   DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
-                new() { Name = CompNetZ,       DisplayName = "Net Z (26w)",     DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
+                new() { Name = CompNetPctOi,   DisplayName = "Net Spec % OI",   DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
+                new() { Name = CompNetZ,       DisplayName = "Net Z (26w)",     DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
                 new() { Name = CompNetExtreme, DisplayName = "Net Extreme",     DisplayType = ComponentDisplayType.Dot,        Role = ComponentRole.Signal },
             }
         }

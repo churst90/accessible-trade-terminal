@@ -225,6 +225,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Name = "Pulse",
                 Category = "Oscillators",
                 DefaultPane = "Pane_PULSE",
+                // Fast Trigger, Anchor, MFI and ADX all share a 0–100 scale (see the file header).
+                // The extras that live on the same pane — CMF, the slope, the state codes — are
+                // small numbers that the axis still expands to cover, so declaring the oscillator
+                // scale costs them nothing and fixes the pitch of "MFI 80" at every zoom.
+                RangeMin = 0, RangeMax = 100,
                 Description = "Composite trigger / regime / volume / trend confluence with pre-filtered entry dots.",
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -308,6 +313,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                         DefaultColorHexSecondary = "#EF5350", // red below
                         DefaultColorSource = ColorSource.Value,
                         ColorBaseline = 50.0,
+                        DefaultReferenceLevel = 50.0,   // MFI runs 0..100 about 50, same as the ColorBaseline above
                         DefaultThickness = 1.5f,
                         DefaultNoiseAmount = 0.05f,
                         SubscribedLevelNames = Array.Empty<string>(),

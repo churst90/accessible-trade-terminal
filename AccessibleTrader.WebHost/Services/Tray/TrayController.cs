@@ -100,8 +100,12 @@ namespace AccessibleTrader.WebHost.Services.Tray
         {
             bool next = !_c.GetMonitoring();
             _c.SetMonitoring(next);
+            // What it actually does, not what an earlier version did. With the browser closed
+            // the monitor's channel is a NOTIFICATION, not speech (09-11: the subject of the
+            // event decides the channel, and nothing is focused when there is no browser), and
+            // the switch covers order fills as well as alerts.
             _platform.Speak(next
-                ? "Background monitoring on. Alerts will speak with the browser closed."
+                ? "Background monitoring on. Alerts and fills notify you with the browser closed."
                 : "Background monitoring off.");
         }
 

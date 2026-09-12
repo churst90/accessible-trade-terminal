@@ -68,7 +68,9 @@ namespace AccessibleTrader.WebHost.Services
     /// <para>
     /// Opt-in: the same switch as the alert monitor — Settings → General → "Keep monitoring
     /// when the browser is closed" (<see cref="LocalBackgroundMonitor.SettingKey"/>, default
-    /// off). Read per poll, so turning it off stops the account queries without a restart.
+    /// off). Re-read when RefreshSettings is called rather than on every poll, so turning it off
+    /// stops the account queries without a restart — but only once that call reaches it, which is
+    /// the distinction this note used to blur by saying "read per poll".
     /// </para>
     /// </summary>
     public sealed class HeadlessOrderWatch : BackgroundService

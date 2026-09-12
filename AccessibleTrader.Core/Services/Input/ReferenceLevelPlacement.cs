@@ -45,11 +45,12 @@ namespace AccessibleTrader.Core.Services.Input
     ///
     /// <para>
     /// The pane's neutral is not guessed here. It is <see cref="ComponentConfig.ReferenceLevel"/>,
-    /// which the indicator factory already populates for every component from provider metadata,
-    /// then <c>StylingService.GetReferenceLevel</c> (RSI→50, Stoch→50, MACD→0, Williams %R→−50),
-    /// then 0 for oscillator and zero-area display types. It is the field the audio layer already
-    /// splits above/below waveforms on, so "the line this component swings about" was declared
-    /// across the whole provider fleet before this key ever needed it.
+    /// which every component DECLARES through <c>IndicatorComponentMetadata.DefaultReferenceLevel</c>.
+    /// It is the field the audio layer already splits above/below waveforms on, so "the line this
+    /// component swings about" was stated across the whole provider fleet before this key needed
+    /// it. Until 2026-09-12 a component that declared nothing was answered for — by a substring
+    /// match on the indicator's code, then by the display type's 0.0 — and four bounded
+    /// oscillators were answered wrongly. See <c>DeclaredNeutralTests</c>.
     /// </para>
     /// </summary>
     public static class ReferenceLevelPlacement
@@ -97,6 +98,53 @@ namespace AccessibleTrader.Core.Services.Input
                 .OrderBy(l => Math.Abs(l.Value - target))
                 .FirstOrDefault();
         }
+
+        /// <summary>
+        /// The level the <c>0</c> key should TOGGLE instead of adding: the pane's own declared
+        /// midline.
+        ///
+        /// <para>
+        /// ── Why a toggle (2026-09-12) ──────────────────────────────────────────────
+        /// Cody: <i>"0 should toggle the visibility/earcons of the 0 line, pressing it now doesn't
+        /// seem to do much of anything."</i> He is right, and the reason is that the common case
+        /// was the refusal. On RSI, Stochastic, MFI — anything whose provider declares its
+        /// midline — pressing <c>0</c> said "Midpoint already marks 50.00 on this pane" and
+        /// changed nothing, every time, forever. The key had exactly one outcome on the
+        /// indicators people press it on, and that outcome was a sentence.
+        /// </para>
+        ///
+        /// <para>
+        /// So the declared midline stops being a reason to refuse and becomes the thing the key
+        /// operates. On, the line is drawn and its crossing is heard; off, it is neither. That is
+        /// the same promise the key already made where it added a level — "audible on crossing" —
+        /// now extended to the line that was there before you arrived.
+        /// </para>
+        ///
+        /// <para>
+        /// Only a PROVIDER's midline. One you added yourself is removed instead, by
+        /// <see cref="FindRemovable"/>, because for your own line "off" and "gone" are the same
+        /// wish and removing it is the only way the keyboard has ever had to take one back.
+        /// </para>
+        /// </summary>
+        public static LevelConfig? FindToggleable(IEnumerable<LevelConfig>? existing, string? pane)
+        {
+            if (existing == null || IsPricePane(pane)) return null;
+            return existing.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral && !l.IsUserDefined);
+        }
+
+        /// <summary>
+        /// Whether a level is switched ON, as one idea. Visibility and the crossing earcon are two
+        /// fields — Properties sets them separately — but a level that is drawn and silent is still
+        /// "on" to someone looking at it, and one that is hidden but chimes is still "on" to
+        /// someone listening. Either half counts, so a toggle from here always lands somewhere the
+        /// user can perceive.
+        /// </summary>
+        public static bool IsAudible(LevelConfig level) => level.IsVisible || level.PlayEarcon;
+
+        /// <summary>What to say when the key flips one. Says the value, because the name may not carry it.</summary>
+        public static string ToggleReason(LevelConfig level, bool nowAudible) => nowAudible
+            ? $"{level.Name} at {Format(level.Value)} shown, audible on crossing."
+            : $"{level.Name} at {Format(level.Value)} hidden and silent.";
 
         /// <summary>
         /// A name unique within the series, so the audio tracker and the saved level preferences —
@@ -167,6 +215,11 @@ namespace AccessibleTrader.Core.Services.Input
                 // MACD's Zero — has said where the meaningful constant is, and stacking a second
                 // line of our own on top of it would give the pane two lines at one value with two
                 // names, which the crossing earcons would then both report.
+                //
+                // The 0 KEY no longer reaches this branch: it asks FindToggleable first and flips
+                // the declared line rather than being told about it. This is for the Properties
+                // dialog's "Add level" button, which has checkboxes of its own for the line that
+                // is already there and so wants the refusal, not a toggle.
                 var declared = existing?.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral);
                 if (declared != null)
                 {

@@ -95,6 +95,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Name        = "Cipher C",
                 Category    = "Cycles",
                 DefaultPane = "Pane_CIPHER_C",
+                // The cycle sine is Fisher-normalised into ±100 and the lead sine is explicitly
+                // clamped to ±100 for display (see Calculate, "leadSineDisplay"). The dots ride
+                // those two lines. Declaring it pins the pitch of a cycle peak across zooms.
+                RangeMin = -100, RangeMax = 100,
                 Description = "Micro-cycle CONTEXT and cycle-failure detector — not an entry engine. " +
                               "Measures position within the 2-6 week swing (Ehlers cyber-cycle bandpass, " +
                               "Fisher-normalized, Hull RSI tiers). Cross-asset testing 2026-07: its " +

@@ -49,8 +49,8 @@ public sealed class BinanceVisionFundingProvider : IIndicatorProvider
             Parameters = new List<IndicatorParameterMetadata>(),
             Components = new List<IndicatorComponentMetadata>
             {
-                new() { Name = CompFunding, DisplayName = "Funding Rate", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
-                new() { Name = CompFundingZ, DisplayName = "Funding Z-Score (14)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal },
+                new() { Name = CompFunding, DisplayName = "Funding Rate", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
+                new() { Name = CompFundingZ, DisplayName = "Funding Z-Score (14)", DisplayType = ComponentDisplayType.Oscillator, Role = ComponentRole.Signal, DefaultReferenceLevel = 0.0 },
                 new() { Name = CompFundingExtreme, DisplayName = "Funding Extreme |Z|≥1.5", DisplayType = ComponentDisplayType.Dot, Role = ComponentRole.Signal },
             }
         }

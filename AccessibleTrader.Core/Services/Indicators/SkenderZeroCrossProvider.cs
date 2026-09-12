@@ -49,7 +49,16 @@ namespace AccessibleTrader.Core.Services.Indicators
             {
                 new("Midpoint", 50.0, "#888888", DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.7f),
             },
-            "MACD" or "MOM" or "ROC" or "DPO" or "PPO" or "TRIX" or "CHAIKINOSC" or "CMF" or "CONNORSRSI" => _zeroLevel,
+            // Connors RSI is an RSI: 0..100, midline 50. It was in the zero-crossing group and
+            // so declared "Zero" at 0 — a midline sitting on the floor of its own pane, a line it
+            // can never cross from below, and the one the 0 key protects as "already marked".
+            "CONNORSRSI" => new List<LevelDescriptor>
+            {
+                new("Overbought", 90.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
+                new("Oversold",   10.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+            },
+            "MACD" or "MOM" or "ROC" or "DPO" or "PPO" or "TRIX" or "CHAIKINOSC" or "CMF" => _zeroLevel,
             _ => new List<LevelDescriptor>(),
         };
 
@@ -73,11 +82,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // signal and the histogram alike, including across the cross that is the
                     // entire point of the indicator.
                     new() { Name = "Macd",      DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#00BCD4", DefaultThickness = 1.5f,
-                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:price}." },
+                            DefaultTriggerBoundaryClick = true, DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:price}." },
                     new() { Name = "Signal",    DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#FF9800", DefaultThickness = 1.5f,
-                            SpeechTemplate = "{name}. {type}. {value:price}." },
+                            DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:price}." },
                     new() { Name = "Histogram", DisplayType = ComponentDisplayType.Histogram, DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
-                            DefaultColorSource = ColorSource.Value, SpeechTemplate = "{name}. {type}. {value:price}. {zone}." },
+                            DefaultColorSource = ColorSource.Value, DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:price}. {zone}." },
                 },
             },
             new IndicatorMetadata
@@ -91,7 +100,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Momentum", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043",
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -106,10 +115,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "Momentum", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
-                    new() { Name = "Roc",      DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
+                    new() { Name = "Momentum", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043", DefaultReferenceLevel = 0.0 },
+                    new() { Name = "Roc",      DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043", DefaultReferenceLevel = 0.0 },
                     // Was "RocP", which RocResult does not expose; RocSma is its smoothed line.
-                    new() { Name = "RocSma",   DisplayName = "ROC SMA", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043" },
+                    new() { Name = "RocSma",   DisplayName = "ROC SMA", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF7043", DefaultReferenceLevel = 0.0 },
                 },
             },
             new IndicatorMetadata
@@ -128,7 +137,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Dpo", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#42A5F5",
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -142,7 +151,7 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "Cmo", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#FF9800",
-                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
+                            DefaultTriggerBoundaryClick = true, DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
             new IndicatorMetadata
@@ -157,10 +166,10 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "Ppo",       DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00BCD4" },
-                    new() { Name = "Signal",    DisplayType = ComponentDisplayType.Line,        DefaultColorHex = "#FF9800" },
+                    new() { Name = "Ppo",       DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#00BCD4", DefaultReferenceLevel = 0.0 },
+                    new() { Name = "Signal",    DisplayType = ComponentDisplayType.Line,        DefaultColorHex = "#FF9800", DefaultReferenceLevel = 0.0 },
                     new() { Name = "Histogram", DisplayType = ComponentDisplayType.Histogram,   DefaultColorHex = "#26A69A",
-                            DefaultColorHexSecondary = "#EF5350", DefaultColorSource = ColorSource.Value },
+                            DefaultColorHexSecondary = "#EF5350", DefaultColorSource = ColorSource.Value, DefaultReferenceLevel = 0.0 },
                 },
             },
             new IndicatorMetadata
@@ -176,8 +185,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
-                    new() { Name = "Trix",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC" },
-                    new() { Name = "Signal", DisplayType = ComponentDisplayType.Line,        DefaultColorHex = "#FF9800" },
+                    new() { Name = "Trix",   DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#AB47BC", DefaultReferenceLevel = 0.0 },
+                    new() { Name = "Signal", DisplayType = ComponentDisplayType.Line,        DefaultColorHex = "#FF9800", DefaultReferenceLevel = 0.0 },
                 },
             },
             new IndicatorMetadata
@@ -193,12 +202,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = "Oscillator", DisplayType = ComponentDisplayType.Histogram,
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
-                            DefaultColorSource = ColorSource.Value, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultColorSource = ColorSource.Value, DefaultReferenceLevel = 0.0,
+                            SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
             {
-                Code = "Cmf", Name = "CMF", Category = "Volume", DefaultPane = "Pane_Cmf",
+                // Chaikin Money Flow is a weighted average of a per-bar ratio that is itself
+                // bounded to ±1, so the indicator cannot leave ±1 by construction.
+                Code = "Cmf", Name = "CMF", Category = "Volume", DefaultPane = "Pane_Cmf", RangeMin = -1, RangeMax = 1,
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -208,7 +220,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 {
                     new() { Name = "Cmf", DisplayType = ComponentDisplayType.Histogram,
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
-                            DefaultColorSource = ColorSource.Value, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultColorSource = ColorSource.Value, DefaultReferenceLevel = 0.0,
+                            SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
             new IndicatorMetadata
@@ -224,7 +237,8 @@ namespace AccessibleTrader.Core.Services.Indicators
                 Components = new List<IndicatorComponentMetadata>
                 {
                     new() { Name = "ConnorsRsi", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#9C27B0",
-                            DefaultTriggerBoundaryClick = true, SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
+                            DefaultTriggerBoundaryClick = true, DefaultReferenceLevel = 50.0,
+                            SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
             new IndicatorMetadata
@@ -237,12 +251,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
+                    // Up and Down run 0..100 and swing about 50; the Oscillator is their difference
+                    // and runs -100..+100 about zero. One pane, three components, two different
+                    // neutrals — which is exactly why the neutral belongs to the COMPONENT.
                     new() { Name = "AroonUp",    DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#26A69A",
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                     new() { Name = "AroonDown",  DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#EF5350",
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                     new() { Name = "Oscillator", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#42A5F5",
-                            SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
         };
