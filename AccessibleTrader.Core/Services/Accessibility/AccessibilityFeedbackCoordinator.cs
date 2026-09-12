@@ -379,6 +379,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (state.PlaybackSpeed != _previousState.PlaybackSpeed)
             {
                 _speechRouter.Speak(PlaybackNarration.SpeedText(state.PlaybackSpeed));
+                // Persisting it is NOT this class's job: PreferencePersistenceService observes
+                // the store and writes every preference back, debounced, which is what keeps
+                // Shift+= held down from being one file write per keypress.
             }
             else if (state.IsPlaying && (playingToggled || scopeChanged))
             {

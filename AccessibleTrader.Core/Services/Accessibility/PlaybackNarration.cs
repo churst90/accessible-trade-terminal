@@ -431,6 +431,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     if (!string.IsNullOrWhiteSpace(clause))
                         candidates.Add((FireCount(data), order++, SignalClauseSpeech.ComponentName(comp), clause));
                 }
+
+                // ── A LEVEL CROSSING IS A DISCRETE SIGNAL ───────────────────────────────────
+                //
+                // Cody, 2026-09-12: "adx on playback narration says nothing." Correct, and it was
+                // by construction: this scan only ever looked at MARKER components carrying a
+                // signal template, and ADX has four plain lines and no markers. The rule it was
+                // built on — "playback speaks discrete signals only, because a line has a value on
+                // every bar" — is about DISCRETENESS, and a level crossing is as discrete as a
+                // marker gets. ADX crosses 25 a handful of times in five hundred bars.
+                //
+                // So the rule did not exclude it; the implementation did, by reading component
+                // TYPE where the rule is about event shape. Crossings join the same candidate
+                // list and go through the same rarity ranking and the same ceiling, so a chatty
+                // line loses to a rare marker on a bar where both fire — which is the machinery
+                // that keeps this from becoming the per-bar readout the rule forbids.
+                foreach (var (fires, component, clause) in LevelCrossClauses(series, componentFilter, barIndex))
+                    candidates.Add((fires, order++, component, clause));
             }
 
             if (candidates.Count == 0) return SignalStep.None;
@@ -465,6 +482,81 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return new SignalStep(
                 string.Join(" ", kept.Select(c => SignalClauseSpeech.WithComponentName(c.Clause, c.Component))),
                 kept[0].Fires);
+        }
+
+        /// <summary>
+        /// The level crossings that happened on this bar, with how often each one happens across
+        /// the whole chart so the ranking can treat a routine cross as routine.
+        ///
+        /// <para>
+        /// Honours everything the other readers of a level honour: a switched-off line is not an
+        /// event, and a component only answers to the levels it subscribes to. A line that
+        /// declares what its two sides MEAN says the band entered — "very strong trend" — which
+        /// is the whole content of an indicator like ADX; anything else names the line it crossed.
+        /// </para>
+        /// </summary>
+        private static IEnumerable<(int Fires, string Component, string Clause)> LevelCrossClauses(
+            ChartSeries series, int componentFilter, int barIndex)
+        {
+            if (barIndex < 1 || series.Levels.Count == 0) yield break;
+
+            for (int ci = 0; ci < series.Components.Count; ci++)
+            {
+                var comp = series.Components[ci];
+                if (componentFilter >= 0 && ci != componentFilter) continue;
+                if (!comp.IsVisible || comp.IsMuted) continue;
+                if (!SeriesNarrationScope.ComponentNarrates(series, comp)) continue;
+                // A marker's firing is its own signal; it has no continuous value to cross with.
+                if (AudioConstants.MarkerDisplayTypes.Contains(comp.DisplayType)) continue;
+
+                var data = series.GetComponentData(comp.Name);
+                if (data == null || barIndex >= data.Length) continue;
+                double now = data[barIndex], prev = data[barIndex - 1];
+                if (double.IsNaN(now) || double.IsNaN(prev)) continue;
+
+                foreach (var level in series.Levels)
+                {
+                    if (!level.IsVisible) continue;
+                    if (!Subscribes(comp, level.Name)) continue;
+
+                    bool nowAbove = now >= level.Value;
+                    if (nowAbove == (prev >= level.Value)) continue;
+
+                    string? band = nowAbove ? level.AboveLabel : level.BelowLabel;
+                    string clause = !string.IsNullOrWhiteSpace(band)
+                        ? band!
+                        : $"crossed {(nowAbove ? "above" : "below")} {level.Name.ToLowerInvariant()}";
+
+                    yield return (CrossCount(data, level.Value), SignalClauseSpeech.ComponentName(comp), clause);
+                }
+            }
+        }
+
+        /// <summary>
+        /// How many times a component crosses a value across the whole array — the rarity of that
+        /// crossing, counted the way <see cref="FireCount"/> counts a marker's firings and for the
+        /// same reason: over the whole array, so a bar ranks the same however playback reached it.
+        /// </summary>
+        internal static int CrossCount(double[] data, double level)
+        {
+            int crosses = 0;
+            bool? wasAbove = null;
+            foreach (double v in data)
+            {
+                if (double.IsNaN(v)) continue;
+                bool isAbove = v >= level;
+                if (wasAbove.HasValue && wasAbove.Value != isAbove) crosses++;
+                wasAbove = isAbove;
+            }
+            return crosses;
+        }
+
+        /// <summary>Whether a component answers to a level — the subscription list, as everywhere else.</summary>
+        private static bool Subscribes(ComponentConfig comp, string levelName)
+        {
+            if (comp.SubscribedLevelNames is not { } subs) return true;
+            if (subs.Count == 0) return false;
+            return subs.Contains(levelName, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

@@ -76,14 +76,16 @@ namespace AccessibleTrader.Core.Services
             string SpeechOrder, bool AnnounceNewBars, int WasapiLatency, int PanningGranularity,
             bool DescribeChartPatterns, bool DescribeCandlePatterns,
             bool NarrateSignalsOnBarClose, bool NarrateDuringPlayback,
-            bool SpeakPlaybackLandmarks = true, bool SpeakDateOnEveryBar = false);
+            bool SpeakPlaybackLandmarks = true, bool SpeakDateOnEveryBar = false,
+            float PlaybackSpeed = 1.0f);
 
         private static Prefs FromState(WorkspaceState s) => new(
             s.SpeakTimestamps, s.TimestampReadLocation, s.ReadColumnHeaders,
             s.SpeechOrder, s.AnnounceNewBars, s.WasapiLatency, s.PanningGranularity,
             s.DescribeChartPatterns, s.DescribeCandlePatterns,
             s.NarrateSignalsOnBarClose, s.NarrateDuringPlayback,
-            s.SpeakPlaybackLandmarks, s.SpeakDateOnEveryBar);
+            s.SpeakPlaybackLandmarks, s.SpeakDateOnEveryBar,
+            s.PlaybackSpeed);
 
         public void Initialize()
         {
@@ -108,6 +110,11 @@ namespace AccessibleTrader.Core.Services
                     NarrateDuringPlayback = _settings.NarrateDuringPlayback,
                     SpeakPlaybackLandmarks = _settings.SpeakPlaybackLandmarks,
                     SpeakDateOnEveryBar = _settings.SpeakDateOnEveryBar,
+                    // The speed a person can follow is a fact about the person, so it survives a
+                    // restart like every other preference here. It did not: it lived only on
+                    // WorkspaceState, whose Initial hard-codes 1.0, and the tab snapshot never
+                    // carried it either — so Shift+= was undone by every restart.
+                    PlaybackSpeed = _settings.PlaybackSpeed,
                 }));
             }
             catch (Exception ex)
@@ -139,6 +146,7 @@ namespace AccessibleTrader.Core.Services
                         _settings.NarrateDuringPlayback = p.NarrateDuringPlayback;
                         _settings.SpeakPlaybackLandmarks = p.SpeakPlaybackLandmarks;
                         _settings.SpeakDateOnEveryBar = p.SpeakDateOnEveryBar;
+                        _settings.PlaybackSpeed = p.PlaybackSpeed;
                         _settings.Save();
                     }
                     catch (Exception ex)

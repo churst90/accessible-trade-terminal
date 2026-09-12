@@ -80,6 +80,9 @@ namespace AccessibleTrader.Core.Services
         bool NarrateFormingChartPatterns { get; set; }
         bool NarrateSignalsOnBarClose { get; set; }
         bool NarrateDuringPlayback { get; set; }
+
+        /// <summary>The playback speed Shift+= / Shift+- set, remembered across restarts.</summary>
+        float PlaybackSpeed { get; set; }
         bool SpeakPlaybackLandmarks { get; set; }
 
         // Viewport
@@ -129,6 +132,7 @@ namespace AccessibleTrader.Core.Services
 
         private bool GetBool(string key, bool def = false) => _sm.GetSetting(key)?.ToObject<bool>() ?? def;
         private int GetInt(string key, int def) => _sm.GetSetting(key)?.ToObject<int>() ?? def;
+        private float GetFloat(string key, float def) => _sm.GetSetting(key)?.ToObject<float>() ?? def;
         private string GetString(string key, string def = "") => _sm.GetSetting(key)?.ToString() ?? def;
         private void Set<T>(string key, T value) where T : notnull => _sm.SetSetting(key, JToken.FromObject(value));
 
@@ -328,6 +332,29 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.NarrateDuringPlayback, def: true);
             set => Set(SettingsKeys.NarrateDuringPlayback, value);
+        }
+
+        /// <summary>
+        /// How fast playback runs, in bars per 100 ms at 1.0 — the speed Shift+= and Shift+- set.
+        ///
+        /// <para>
+        /// It is a PREFERENCE, not chart state, which is why it lives here rather than in the tab
+        /// snapshot. Cody, 2026-09-12: <i>"playback sonification speed using shift and - = doesn't
+        /// persist across browser restores."</i> It did not persist anywhere at all: the speed
+        /// lived only in <c>WorkspaceState</c>, whose <c>Initial</c> hard-codes 1.0, and the tab
+        /// configuration never carried it. Every restart put it back to 1x.
+        /// </para>
+        ///
+        /// <para>
+        /// Saved here rather than per tab because the speed a person can follow is a fact about
+        /// the person, not about the chart — a new tab should open at the speed they use, not at
+        /// the speed the app ships with.
+        /// </para>
+        /// </summary>
+        public float PlaybackSpeed
+        {
+            get => Math.Clamp(GetFloat(SettingsKeys.PlaybackSpeed, 1.0f), 0.1f, 10.0f);
+            set => Set(SettingsKeys.PlaybackSpeed, Math.Clamp(value, 0.1f, 10.0f));
         }
 
         /// <summary>

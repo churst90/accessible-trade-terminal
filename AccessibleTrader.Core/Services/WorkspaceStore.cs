@@ -327,7 +327,7 @@ namespace AccessibleTrader.Core.Services
                 => SeriesReducer.Reduce(state, action, _deferredBus),
 
             // ── Playback + accessibility + chart display ─────────────────────
-            AdjustPlaybackSpeedAction
+            AdjustPlaybackSpeedAction or SetPlaybackSpeedAction
                 or SetPlaybackAction or TogglePauseAction
                 or ToggleSpeechAction or ToggleSonificationAction
                 // Shift+F2 / Shift+F3: the reducer cases and their spoken

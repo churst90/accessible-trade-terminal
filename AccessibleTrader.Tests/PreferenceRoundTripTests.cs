@@ -105,14 +105,30 @@ public class PreferenceRoundTripTests
     /// <summary>
     /// A value guaranteed to differ from whatever the default was, so "it round-tripped" cannot be
     /// satisfied by the value simply never having changed.
+    ///
+    /// <para>
+    /// <b>It THROWS on a type it cannot flip, and that is the point.</b> This returned
+    /// <c>current</c> unchanged for anything outside bool/int/double/string, which made the whole
+    /// assertion vacuous for that preference: the "written" value and the seeded value were the
+    /// same value, so they matched whether or not the persistence service had ever heard of it.
+    /// A <c>float</c> preference added on 2026-09-12 walked straight through a green guard whose
+    /// entire purpose is to catch exactly that omission — the guard had the defect it was written
+    /// to prevent. Failing loudly on an unknown type means the next one is a compile-to-red, not
+    /// a silent pass.
+    /// </para>
     /// </summary>
     private static object? Flip(object? current, Type t)
     {
         if (t == typeof(bool)) return !(bool)(current ?? false);
         if (t == typeof(int)) return (int)(current ?? 0) + 7;
+        if (t == typeof(long)) return (long)(current ?? 0L) + 7L;
+        if (t == typeof(float)) return (float)(current ?? 0f) + 0.7f;
         if (t == typeof(double)) return (double)(current ?? 0d) + 7d;
         if (t == typeof(string)) return "roundtrip-probe";
-        return current;
+        throw new InvalidOperationException(
+            $"PreferenceRoundTripTests cannot produce a distinct value for a {t.Name} preference, "
+          + "so the round-trip assertion for it would compare a value with itself and pass "
+          + "regardless. Add the type here.");
     }
 
     /// <summary>

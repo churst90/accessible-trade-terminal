@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Playback speaks a band crossing, and the playback speed survives a restart (2026-09-12, fifty-second pass)
+
+Suite **7,625** (was 7,613). Cody confirmed the previous pass by ear — *"ctrl arrows work to jump
+to crossings now"*, the first thing heard in five passes — and reported two more.
+
+**1. "ADX on playback narration says nothing."**
+
+Correct, and by construction: the playback scan only ever looked at MARKER components carrying a
+signal template, and ADX has four plain lines and no markers.
+
+The rule playback was built on is *"a line has a value on every bar, and playback speaks discrete
+signals only"* — and that rule is about **discreteness**. A level crossing is as discrete as a
+marker gets: ADX crosses 25 a handful of times in five hundred bars. The rule did not exclude it;
+the implementation did, by reading component TYPE where the rule is about event shape. Crossings
+now join the same candidate list and go through the same rarity ranking, the same two-clause
+ceiling and the same rate limit as every marker — which is the machinery that keeps this from
+becoming the per-bar readout the rule forbids. A line that whipsaws across its level on most bars
+is ranked as the routine thing it is and loses to a rare marker on a bar where both fire.
+
+A crossing with a declared band label speaks the band entered ("very strong trend"); anything else
+names the line it crossed. Hidden lines and levels a component does not subscribe to are not
+events, as everywhere else. A warmup prefix is not a crossing either: treating NaN as "not above"
+would make the first real bar of every ADX manufacture a phantom "strong trend".
+
+**2. "Playback sonification speed using Shift+- and Shift+= doesn't persist across browser restores."**
+
+It persisted nowhere at all. The speed lived only on `WorkspaceState`, whose `Initial` hard-codes
+1.0, and the tab snapshot never carried it — so every restart undid it. It is a preference now, in
+settings, seeded into the store at startup and written back debounced by
+`PreferencePersistenceService` like every other preference. Saved globally rather than per tab
+because the speed a person can follow is a fact about the person: a new tab should open at the
+speed they use, not the speed the app ships with.
+
+**And the guard that should have caught this was vacuous.** `PreferenceRoundTripTests` derives the
+list of persisted preferences by reflection precisely so that an omission cannot be forgotten — but
+its `Flip` helper, which produces a distinctly non-default value, handled `bool`, `int`, `double`
+and `string` and **returned the value unchanged for anything else**. For a `float` preference the
+"written" value and the seeded value were the same value, so they matched whether or not the
+persistence service had ever heard of it: a guard with the exact defect it exists to prevent. It
+throws on an unknown type now, and with that one line repaired it immediately named `PlaybackSpeed`
+as unseeded. Two sibling generators in `AppSettingsTests` had the same shape — one fell through to
+a string for any unknown type, producing "cannot convert String to Single" instead of a clear
+failure — and both now go through one helper that throws.
+
+**Tests.** `PlaybackBandNarrationTests` (12). Five sabotages red: playback dropping level crossings,
+every bar counting as a crossing, NaN counted as a side of the line (twice, in the counter and in
+the scan), and the speed preference seeded but never written back.
+
+**Answered, not built.** Cody asked whether profile playback should announce entering the POC,
+value area, HVN and LVN. It should, on the same reasoning — those are crossings of three declared
+levels, not a per-bar value — and the ladder already narrates them at bar close through
+`ScanProfile`. It is not wired to playback in this pass because a profile's levels are recomputed
+as the profile rebuilds, so "how often does this cross" is not a fixed count the way it is for a
+static line, and the rarity ranking is what keeps playback quiet. Recorded in `docs/TODO.md`.
+
+
 ### Ctrl+Left/Right skips to band crossings on ADX, and narration says which band you entered (2026-09-12, fifty-first pass)
 
 Suite **7,613** (was 7,599). Two reports from Cody, both on ADX.

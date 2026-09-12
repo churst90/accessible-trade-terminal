@@ -135,6 +135,9 @@ namespace AccessibleTrader.Core.Services
         public const string NarrateDuringPlayback = "narration.duringPlayback";
         public const string SpeakPlaybackLandmarks = "narration.playbackLandmarks";
 
+        /// <summary>The playback speed Shift+= and Shift+- set. A preference, so it survives a restart.</summary>
+        public const string PlaybackSpeed = "playback.speed";
+
         /// <summary>
         /// Draw chart formations on the canvas. Appearance rather than speech: the audience is a
         /// low-vision or sighted viewer, since a blind user already has the whole formation by ear.

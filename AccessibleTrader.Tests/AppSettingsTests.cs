@@ -51,10 +51,7 @@ namespace AccessibleTrader.Tests
             // Write a distinct value through every settable property, read it back.
             foreach (var prop in typeof(IAppSettings).GetProperties().Where(p => p.CanWrite))
             {
-                object value = prop.PropertyType == typeof(bool) ? true
-                             : prop.PropertyType == typeof(int) ? 1234
-                             : prop.PropertyType == typeof(string) ? $"val_{prop.Name}"
-                             : throw new InvalidOperationException($"Unhandled type {prop.PropertyType} on {prop.Name}");
+                object value = Distinct(prop);
                 prop.SetValue(app, value);
                 Assert.Equal(value, prop.GetValue(app));
             }
@@ -71,10 +68,10 @@ namespace AccessibleTrader.Tests
             // if two properties shared a key, the count would fall short.
             foreach (var prop in props)
             {
-                object value = prop.PropertyType == typeof(bool) ? true
-                             : prop.PropertyType == typeof(int) ? 7
-                             : (object)"x";
-                prop.SetValue(app, value);
+                // Distinct() rather than a fall-through to "x": a silent string default here is
+                // what turned "cannot convert String to Single" into the failure mode instead of
+                // a clear one, and a type this test cannot represent must say so.
+                prop.SetValue(app, Distinct(prop));
             }
             Assert.Equal(props.Count, fake.Store.Count);
 
@@ -107,5 +104,25 @@ namespace AccessibleTrader.Tests
                 .ToList();
             Assert.Equal(keys.Count, keys.Distinct(StringComparer.Ordinal).Count());
         }
+        /// <summary>
+        /// A value distinct from any default, for whatever type the property is.
+        ///
+        /// <para>
+        /// Throws on a type it does not know, which is what made a <c>float</c> preference added
+        /// on 2026-09-12 turn this test red rather than slip through it. A clamped property needs
+        /// a value INSIDE its range — <c>PlaybackSpeed</c> is clamped to 0.1–10, so 1234 would be
+        /// written, clamped on the way out, and read back as something else entirely.
+        /// </para>
+        /// </summary>
+        private static object Distinct(System.Reflection.PropertyInfo prop)
+        {
+            if (prop.PropertyType == typeof(bool)) return true;
+            if (prop.PropertyType == typeof(int)) return 1234;
+            if (prop.PropertyType == typeof(float)) return 2.5f;
+            if (prop.PropertyType == typeof(double)) return 2.5d;
+            if (prop.PropertyType == typeof(string)) return $"val_{prop.Name}";
+            throw new InvalidOperationException($"Unhandled type {prop.PropertyType} on {prop.Name}");
+        }
+
     }
 }

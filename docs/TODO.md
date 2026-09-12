@@ -117,6 +117,46 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-13, FIFTY-SECOND pass — PLAYBACK SPEAKS A BAND CROSSING, AND
+> THE PLAYBACK SPEED SURVIVES A RESTART.)** Suite **7,625**, 0 failing. Still no release cut.
+> Full entry in `docs/CHANGES.md`.
+>
+> **HEARD AT LAST.** Cody confirmed the 51st pass by ear: *"ctrl arrows work to jump to crossings
+> now."* First thing heard in five passes.
+>
+> **Fixed.** (1) Playback said nothing on ADX because its scan read only MARKER components with a
+> signal template. The rule it was built on — "playback speaks discrete signals only" — is about
+> DISCRETENESS, and a level crossing is as discrete as a marker gets. Crossings now go through the
+> same rarity ranking, ceiling and rate limit, which is what keeps it from becoming a per-bar
+> readout. (2) The playback speed persisted NOWHERE — it lived on `WorkspaceState` only, whose
+> `Initial` hard-codes 1.0. It is a preference now, seeded and written back by
+> `PreferencePersistenceService`, saved globally because the speed a person can follow is a fact
+> about the person.
+>
+> **THE GUARD THAT SHOULD HAVE CAUGHT IT WAS VACUOUS.** `PreferenceRoundTripTests.Flip` handled
+> bool/int/double/string and returned the value UNCHANGED for anything else, so a `float`
+> preference compared a value with itself and passed regardless. It throws on an unknown type now,
+> and named `PlaybackSpeed` the moment it was repaired. Two sibling generators in
+> `AppSettingsTests` had the same shape. **Any test helper that "produces a distinct value" must
+> fail loudly on a type it cannot handle — a silent fall-through makes the assertion vacuous.**
+>
+> ### NEXT
+>
+> 1. **Profiles in playback.** Cody asked whether playback should announce entering the POC, value
+>    area, HVN and LVN. It should, by the same reasoning — those are crossings of declared levels,
+>    not per-bar values — and the ladder already narrates them at bar close via `ScanProfile`.
+>    NOT wired to playback yet because a profile's levels move as the profile rebuilds, so "how
+>    often does this cross" is not the fixed count the rarity ranking assumes. Needs either a
+>    recomputed count per bar or a declared rarity for a moving level. **Ask Cody how noisy a VPVR
+>    playback is in practice before choosing.**
+> 2. **Hear it.** Add ADX, flag it with N, press Space. It should now speak the band as playback
+>    crosses 25. Then Shift+= to change speed, restart, and confirm the speed came back.
+> 3. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, unchanged.
+> 4. **Navigation still does not honour `SubscribedLevelNames`.** Speech, audio, narration and now
+>    playback do; `IndicatorCrossingEngine` does not.
+> 5. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
+>    `IsAreaFill = true` (ask first — it is Cody's most-used indicator).
+
 > **START HERE (current as of 2026-09-12 (late night), FIFTY-FIRST pass — CTRL+LEFT/RIGHT SKIPS TO
 > BAND CROSSINGS ON ADX, AND NARRATION SAYS WHICH BAND YOU ENTERED.)** Suite **7,613**, 0 failing.
 > Still no release cut. Full entry in `docs/CHANGES.md`.

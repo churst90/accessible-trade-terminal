@@ -100,6 +100,12 @@ namespace AccessibleTrader.Tests
             // webhook routing map, and nothing can populate it — the Settings alerts tab only
             // exposes the single fallback webhook. The feature works and is unreachable.
             ["SetupWebhookMap"]    = "GAP: per-symbol webhook routes are honoured but have no editor yet",
+
+            // The KEYS are the control, and a better one than a slider would be: Shift+= and
+            // Shift+- change the speed while playback is running and the new speed is spoken, so
+            // the adjustment is made against the thing being adjusted. This audit asks whether a
+            // setting can be REACHED, and this one is reached the way a volume key is.
+            ["PlaybackSpeed"]      = "set by Shift+= / Shift+- during playback, which speaks the new speed",
         };
 
         [Fact]

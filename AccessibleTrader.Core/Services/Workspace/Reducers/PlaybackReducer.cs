@@ -14,6 +14,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
         {
             // Playback
             AdjustPlaybackSpeedAction a => state with { PlaybackSpeed = Math.Clamp(state.PlaybackSpeed + a.Delta, 0.1f, 10.0f) },
+            SetPlaybackSpeedAction a    => state with { PlaybackSpeed = Math.Clamp(a.Speed, 0.1f, 10.0f) },
             SetPlaybackAction a         => state with { IsPlaying = a.IsPlaying, PlaybackScope = a.Scope, IsPaused = false },
             TogglePauseAction           => state with { IsPaused = !state.IsPaused },
 

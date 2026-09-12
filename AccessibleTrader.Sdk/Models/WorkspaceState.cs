@@ -322,6 +322,13 @@ namespace AccessibleTrader.Sdk.Models
     /// <summary>Adjusts PanningGranularity by <paramref name="Delta"/> percentage points (e.g. +5 or -5).</summary>
     public record AdjustGranularityAction(int Delta) : WorkspaceAction;
     public record AdjustPlaybackSpeedAction(float Delta) : WorkspaceAction;
+
+    /// <summary>
+    /// Sets the playback speed outright, for restoring the saved preference at startup.
+    /// <see cref="AdjustPlaybackSpeedAction"/> is relative and cannot express "put it back to
+    /// what it was" without knowing where it is now.
+    /// </summary>
+    public record SetPlaybackSpeedAction(float Speed) : WorkspaceAction;
     public record ToggleSpeechAction() : WorkspaceAction;
     public record ToggleSonificationAction() : WorkspaceAction;
     public record ToggleEventSpeechAction() : WorkspaceAction;
