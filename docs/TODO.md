@@ -157,16 +157,24 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > 9. **MAUI**: `app.minimizeToTray` defaults ON, one shared reader, hiding announces itself, and
 >    `WindowVisibilityPresence` makes the focused chart notify while the window is hidden.
 >
+> ### HEARD, and confirmed by Cody 2026-09-11 (night)
+>
+> - The focused chart no longer notifies; the other open workspaces do. **The routing rule is
+>   confirmed working in the real terminal with Orca.**
+> - Closing the browser hands every workspace over to notifications. **The browser-closed
+>   transition is confirmed.**
+>
 > ### NEXT — in this order
 >
-> 1. **HEAR IT.** Nothing in this pass was heard. (a) With three tabs open, confirm the focused
->    chart's bar close no longer raises a MATE notification and the other two tabs' closes still
->    do. (b) Close the browser and listen for the farewell. (c) Turn "Keep monitoring when the
->    browser is closed" OFF, close the browser, and confirm the farewell says nothing is watched.
->    (d) Press Ctrl+Alt+Shift+M with each combination of the two monitoring switches.
->    (e) Tick and untick "Events you cannot see" from the tray and from Alt+J WITHOUT restarting,
->    and confirm the running monitor obeys — that is item 2 above, and it is the one that was
->    silently impossible before.
+> 1. **STILL NOT HEARD, and all of it is cheap.** (a) The farewell notification itself, when the
+>    last tab closes. (b) The same with "Keep monitoring when the browser is closed" turned OFF —
+>    it should say nothing is watched and name the switch. (c) Ctrl+Alt+Shift+M with each
+>    combination of the two monitoring switches. (d) Tick and untick "Events you cannot see" from
+>    the tray and from Alt+J **without restarting** — the headless monitor read settings.json
+>    exactly once before this pass, so this is the one that was silently impossible.
+>    (e) **A symbol-scoped alert on the focused chart of a RESUMED session, without pressing Load
+>    Chart first** — the forty-fourth pass found that path had been dropping them in-session
+>    entirely, and nobody had reported it because the browser-closed monitor was covering.
 > 2. **Load a MEXC chart three times and check the saved session file** — `Market` should stay
 >    `"Crypto|Spot"`. Cody's existing file heals on the first restore.
 > 3. **The MAUI head is UNVERIFIED.** It is not compiled on this box. `TrayIconService.cs` carries
