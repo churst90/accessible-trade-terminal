@@ -173,7 +173,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     config = new SeriesConfig
                     {
                         Id = $"alert-{code}", IndicatorCode = meta.Code, Name = meta.Name, FriendlyName = meta.Name,
-                        Pane = meta.DefaultPane ?? "Main", IsVisible = true, IsAutoNarrated = false,
+                        Pane = PaneAssignmentService.PaneFor(meta), IsVisible = true, IsAutoNarrated = false,
                     };
                     ApplyDefaultParameters(config, meta);
                 }

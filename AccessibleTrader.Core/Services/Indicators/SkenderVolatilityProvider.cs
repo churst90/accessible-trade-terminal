@@ -38,7 +38,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new IndicatorMetadata
             {
-                Code = "Atr", Name = "ATR", Category = "Volatility", DefaultPane = "Oscillator",
+                Code = "Atr", Name = "ATR", Category = "Volatility", DefaultPane = "Pane_Atr",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -51,7 +51,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "StdDev", Name = "Std Dev", Category = "Volatility", DefaultPane = "Oscillator",
+                Code = "StdDev", Name = "Std Dev", Category = "Volatility", DefaultPane = "Pane_StdDev",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -80,7 +80,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Hv", Name = "Historical Volatility", Category = "Volatility", DefaultPane = "Oscillator",
+                Code = "Hv", Name = "Historical Volatility", Category = "Volatility", DefaultPane = "Pane_Hv",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -93,7 +93,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "UlcerIndex", Name = "Ulcer Index", Category = "Volatility", DefaultPane = "Oscillator",
+                Code = "UlcerIndex", Name = "Ulcer Index", Category = "Volatility", DefaultPane = "Pane_UlcerIndex",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

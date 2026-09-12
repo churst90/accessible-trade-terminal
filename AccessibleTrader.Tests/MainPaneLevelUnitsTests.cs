@@ -33,10 +33,12 @@ namespace AccessibleTrader.Tests;
 /// </para>
 ///
 /// <para>
-/// Note that pane assignment is decided by <see cref="PaneAssignmentService"/> from the indicator
-/// <i>code</i> — <b>not</b> by the provider's own <c>DefaultPane</c> property, which several
-/// providers set to a value the assignment service never returns. Checking the property instead of
-/// the service would have quietly cleared exactly the provider under suspicion.
+/// The pane is read through <see cref="PaneAssignmentService.PaneFor"/> — <b>the resolver
+/// production uses</b>. Until 2026-09-11 this scanned <c>PaneAssignmentService.GetPane(code)</c>
+/// instead, on the stated belief that the code-based service decided the pane and the provider's
+/// <c>DefaultPane</c> did not. The belief was backwards: <c>DefaultPane</c> won at the creation
+/// site and the code-based fallback could never fire, so this guard was green about a pane the
+/// series never landed on — a guard aimed one method left of the code it protects.
 /// </para>
 /// </summary>
 public class MainPaneLevelUnitsTests
@@ -54,7 +56,6 @@ public class MainPaneLevelUnitsTests
     /// </summary>
     private static List<Scanned> Scan(out int total, out List<string> skipped)
     {
-        var panes = new PaneAssignmentService();
         var results = new List<Scanned>();
         skipped = new List<string>();
 
@@ -84,7 +85,7 @@ public class MainPaneLevelUnitsTests
                 try { levels = provider.GetDefaultLevels(meta.Code.ToUpperInvariant()); }
                 catch { continue; }
 
-                results.Add(new Scanned(t.Name, meta.Code, panes.GetPane(meta.Code), levels ?? new()));
+                results.Add(new Scanned(t.Name, meta.Code, PaneAssignmentService.PaneFor(meta), levels ?? new()));
             }
         }
 

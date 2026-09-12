@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Every oscillator has a pane of its own; RSI is no longer flat beside MACD (2026-09-11, forty-sixth pass)
+
+Suite **7,433** (was 7,407). Resolves `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` — Cody chose
+option A, one pane per non-overlay indicator.
+
+**The defect.** Cody: *"the RSI almost sounds flat, I still hear the texturing but the line is
+definitely not correct sounding … RSI sounds correct after I removed the MACD."* Thirty indicators
+(the diagnosis said 31; the grep had counted a comment) declared one shared `"Oscillator"` pane
+across five incompatible scale families. `ViewportRangeCalculator` computes ONE range per pane;
+MACD is a price difference (±800 on BTC) and RSI is bounded 0–100, so RSI's whole working span
+was about 2.5% of the pitch range. Pitch collapsed while grit, pan and per-bar volume — driven by
+other parameters — carried on, which is why it read as "flat but not broken". It hit playback,
+the drawn line, the hit tester and the Alt+Shift+/ pane description too, not just the arrow keys.
+
+**Why the fallback never fired.** The creation site read
+`meta.DefaultPane ?? _stylingService.GetPane(code)`, and `GetPane` would have given everything a
+pane of its own — but `DefaultPane` is a non-nullable string defaulting to `"Main"`, so the `??`
+was dead code for every indicator ever written. Two authorities for one decision, and the comment
+at the level-injection site described the dead one as the live one.
+
+**What changed.**
+- **Thirty providers now declare `Pane_<Code>`** (`Pane_Rsi`, `Pane_Macd`, `Pane_Obv` …) instead
+  of `"Oscillator"`. Two instances of one indicator (RSI 14 beside RSI 7) still share a pane,
+  because they are in the same units; two different indicators never do.
+- **One resolver, `PaneAssignmentService.PaneFor(meta)`**, decides the pane everywhere metadata
+  becomes a series: the Add path, the restore migration, the headless chart the background
+  monitor reads alerts from, and the dialog text. It returns the declared pane, except that the
+  retired `"Oscillator"` string and an empty declaration resolve to the indicator's own pane.
+  `GetPane(code)` remains for the one code-only path (the heatmap) and shares the own-pane key
+  shape with it.
+- **Saved workspaces heal on load.** `WorkspaceInitializer.MigrateSeriesConfig` now re-derives
+  the pane from current metadata — the same "derived, not restored" rule the series name already
+  follows. Nothing a user can do writes a series' pane (no dialog offers the choice), so the saved
+  string was only ever the metadata's answer at save time. Runs on both restore formats and on
+  the headless path, which calls the same migration. A drawing or an indicator whose provider is
+  gone keeps what it saved.
+- **The Add Indicator dialog says where the indicator will land** — "Main pane", "Volume pane",
+  or "its own pane" — from the same resolver. It used to print the raw `DefaultPane` string,
+  which would now have read "Pane_Rsi pane".
+- **`MainPaneLevelUnitsTests` is re-aimed** at `PaneFor`, the pane production actually uses. It
+  had been scanning `GetPane(code)` on the stated belief that the code-based service decided —
+  green about a pane the series never landed on.
+- The comment at the level-injection site that asserted the opposite of the code is corrected.
+
+**Guards** — `PaneAssignmentTests`, 26 tests, two sabotages proven red: the resolver returning
+the declaration verbatim with RSI and MACD back on the shared bucket (13 red, including the
+end-to-end range test that reproduces Cody's chart in numbers: RSI's span under 3% of a shared
+pane, its own pane otherwise), and the migration line deleted (4 red across both restore paths
+and the headless chart). The fleet invariant is stated once for every provider in Core and
+StrategyLab: **no pane other than Main and Volume holds two indicator codes**.
+
+**Not done here.** Two instances of the `Compare symbol (ratio)` indicator with different symbols
+share `"Compare ratio"` and can differ in scale (BTC/ETH ≈ 30, BTC/SOL ≈ 500) — the same class
+of bug, narrower, one code; recorded in TODO. Saved `PaneHeightRatios` keyed `"Oscillator"` are
+left in place — the renderer ignores a key no pane uses and the new panes take an equal share.
+Nothing in this pass was heard; Cody's RSI-beside-MACD chart is the check.
+
 ### A notification that fails is now heard; the ladder reaches other tabs; the monitor reports its own failures (2026-09-11, forty-fifth pass)
 
 Suite **7,407** (was 7,400). H8, H13 and Q3 from

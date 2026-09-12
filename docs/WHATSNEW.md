@@ -61,6 +61,16 @@ Closing the browser told you more than leaving it open. They match now.
 down, a bad key — it says so once, and says so again when it recovers. It used to fail quietly
 forever, which sounds exactly like a quiet market.
 
+**Every oscillator now has a pane of its own, and the RSI sounds like the RSI again.** If you
+had RSI and MACD on the same chart, the RSI had gone almost flat — you could still hear the
+texture but the line barely moved. Thirty indicators were sharing one pane, and a pane has one
+scale: MACD on Bitcoin swings by hundreds while RSI lives between 0 and 100, so the RSI was
+being drawn and played inside a sliver of MACD's range. Each of those indicators now gets its own
+pane with its own scale. Your saved workspaces heal themselves the next time they load; two
+copies of the same indicator still share a pane, because they are on the same scale. Alt+Page
+Down walks one more pane per oscillator than before — that is the trade, and it is the honest
+one. The Add Indicator dialog now says whether an indicator joins the price pane or gets its own.
+
 **Smaller things you may notice:**
 
 - The tray's silence item now says what it actually silences — "Silence alerts and bar closes"

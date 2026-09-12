@@ -117,31 +117,41 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **OPEN BUG, found 2026-09-11 (night) after the notification work — RSI IS INAUDIBLE NEXT TO
-> MACD, and 31 indicators share one pane.** Diagnosis:
-> `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md`. **Not a regression** — no audio or indicator file
-> was touched this session, and Cody confirmed background narration is not involved.
+> **START HERE (current as of 2026-09-11 (night), FORTY-SIXTH pass — EVERY OSCILLATOR HAS A
+> PANE OF ITS OWN; RSI IS NO LONGER FLAT BESIDE MACD.)** Suite **7,433**, 0 failing. Nothing in
+> this pass was HEARD — see NEXT item 1.
 >
-> Cody: *"the RSI almost sounds flat, I still hear the texturing but the line is definitely not
-> correct sounding"* … *"RSI sounds correct after I removed the MACD"*.
+> Cody chose option A of `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` ("assign one indicator per
+> pane that isn't an overlay. make it correct and robust"). Entry in `docs/CHANGES.md`.
 >
-> **Cause:** RSI and MACD both declare `DefaultPane = "Oscillator"`, and `meta.DefaultPane` WINS
-> over `PaneAssignmentService` at `SeriesManagementService.cs:246` — so they share one pane, one
-> range is computed across both, and RSI's 0–100 is compressed into ~2.5% of a range MACD's
-> price-difference values stretch to ±800 on BTC. Pitch collapses; grit, pan and volume are
-> unaffected, which is why it reads as "flat but not broken". **Thirty-one indicators declare that
-> same pane across five incompatible scale families — RSI beside OBV would be far worse.** It hits
-> playback and the DRAWN chart too, not just the arrow keys.
+> **What landed:** thirty providers declare `Pane_<Code>` instead of the shared `"Oscillator"`
+> (the diagnosis said 31 — the grep had counted a comment); `PaneAssignmentService.PaneFor(meta)`
+> is the ONE resolver at every site that turns metadata into a series (Add, restore migration,
+> headless alert chart, dialog text) — the old `meta.DefaultPane ?? GetPane(code)` was dead code,
+> because `DefaultPane` is a non-nullable string defaulting to "Main"; saved workspaces HEAL on
+> load because `MigrateSeriesConfig` re-derives the pane the way it already derives the name;
+> the Add Indicator dialog says "Main pane" / "Volume pane" / "its own pane" from the same
+> resolver; `MainPaneLevelUnitsTests` re-aimed at the resolver; the contradicting comment fixed.
+> `PaneAssignmentTests` (26) — two sabotages proven red (13 and 4). Fleet invariant: **no pane
+> other than Main and Volume holds two indicator codes.**
 >
-> **Two more defects found with it:** the comment at `SeriesManagementService.cs:588-594` asserts
-> the assignment service decides the pane, which line 246 contradicts; and
-> `MainPaneLevelUnitsTests.cs:87` scans `panes.GetPane(...)` — so that guard is green about a pane
-> the series never lands on.
+> ### NEXT
 >
-> **NEEDS CODY'S CALL before any fix** — every option changes what Alt+PageUp/PageDown traverse.
-> Four options with costs are in §6 of the diagnosis; the recommendation is one pane per indicator
-> plus a migration so existing workspaces heal, with a collision detector that SAYS so rather than
-> going quiet.
+> 1. **Hear it.** Cody's RSI-beside-MACD chart is the check: load the saved workspace, RSI should
+>    be in its own pane with full pitch range and Alt+Shift+/ should describe a 0–100 axis. Also
+>    confirm Alt+PageUp/PageDown now step through one pane per oscillator and that the pane is
+>    named by its indicator.
+> 2. **`Compare symbol (ratio)` with two different symbols shares one pane** (`"Compare ratio"`,
+>    one code, different scales — BTC/ETH ≈ 30, BTC/SOL ≈ 500). Same class as this bug, narrower;
+>    the per-code rule cannot see it because the scale depends on a PARAMETER. Either a pane key
+>    that includes the symbol, or the §6-D collision detector (announce when one series' span is
+>    under a tenth of its pane's). Not heard, not demonstrated.
+> 3. **A pane shared by a cohort is named by its key** — two RSIs in `Pane_Rsi` read as "Rsi"
+>    (`ChartPaneModel.Prettify`), while one RSI reads as the series name. Minor; the cohort's
+>    common name ("RSI") would be better. Not heard.
+> 4. §5 of the diagnosis — the audio sites fall back to the PRICE range when a pane key is
+>    missing — is addressed in its own commit after this one; if that commit is absent, it is the
+>    next item.
 
 > **START HERE (current as of 2026-09-11 (night), FORTY-THIRD pass — THE ROUTING POLICY IS
 > BUILT: the chart in front of you is spoken, everything else is a notification.)**

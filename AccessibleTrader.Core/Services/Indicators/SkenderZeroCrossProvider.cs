@@ -57,7 +57,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new IndicatorMetadata
             {
-                Code = "Macd", Name = "MACD", Category = "Trend", DefaultPane = "Oscillator",
+                Code = "Macd", Name = "MACD", Category = "Trend", DefaultPane = "Pane_Macd",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -82,7 +82,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Mom", Name = "Momentum", Category = "Oscillators", DefaultPane = "Oscillator",
+                Code = "Mom", Name = "Momentum", Category = "Oscillators", DefaultPane = "Pane_Mom",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -96,7 +96,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Roc", Name = "ROC", Category = "Oscillators", DefaultPane = "Oscillator",
+                Code = "Roc", Name = "ROC", Category = "Oscillators", DefaultPane = "Pane_Roc",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -114,7 +114,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Dpo", Name = "DPO", Category = "Oscillators", DefaultPane = "Oscillator",
+                Code = "Dpo", Name = "DPO", Category = "Oscillators", DefaultPane = "Pane_Dpo",
                 // The detrended price oscillator is centred by definition: bar j is compared with an
                 // SMA shifted back lookback/2 + 1 bars, which is an average of bars that include
                 // ones after j. Its final lookback/2 + 1 bars are therefore blank and a bar's value
@@ -133,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Cmo", Name = "CMO", Category = "Oscillators", DefaultPane = "Oscillator",
+                Code = "Cmo", Name = "CMO", Category = "Oscillators", DefaultPane = "Pane_Cmo",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -147,7 +147,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Ppo", Name = "PPO", Category = "Trend", DefaultPane = "Oscillator",
+                Code = "Ppo", Name = "PPO", Category = "Trend", DefaultPane = "Pane_Ppo",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -165,7 +165,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Trix", Name = "TRIX", Category = "Trend", DefaultPane = "Oscillator",
+                Code = "Trix", Name = "TRIX", Category = "Trend", DefaultPane = "Pane_Trix",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -182,7 +182,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "ChaikinOsc", Name = "Chaikin Oscillator", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "ChaikinOsc", Name = "Chaikin Oscillator", Category = "Volume", DefaultPane = "Pane_ChaikinOsc",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -198,7 +198,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Cmf", Name = "CMF", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "Cmf", Name = "CMF", Category = "Volume", DefaultPane = "Pane_Cmf",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -213,7 +213,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "ConnorsRsi", Name = "Connors RSI", Category = "Oscillators", DefaultPane = "Oscillator",
+                Code = "ConnorsRsi", Name = "Connors RSI", Category = "Oscillators", DefaultPane = "Pane_ConnorsRsi",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -229,7 +229,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Aroon", Name = "Aroon", Category = "Trend", DefaultPane = "Oscillator",
+                Code = "Aroon", Name = "Aroon", Category = "Trend", DefaultPane = "Pane_Aroon",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

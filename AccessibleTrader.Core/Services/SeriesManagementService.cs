@@ -243,7 +243,12 @@ namespace AccessibleTrader.Core.Services
             var siblings = SiblingParameterSets(indicatorCode, exceptSeriesId: restoreId);
             string instanceName = IndicatorInstanceName.For(meta, parameters, siblings);
 
-            string pane = meta.DefaultPane ?? _stylingService.GetPane(indicatorCode);
+            // ONE authority for the pane. This line used to read
+            // `meta.DefaultPane ?? _stylingService.GetPane(indicatorCode)`, and the fallback never
+            // fired — DefaultPane is a non-nullable string defaulting to "Main" — so thirty
+            // indicators declaring "Oscillator" all landed in one pane with one range, and RSI
+            // went pitch-flat beside MACD. See PaneAssignmentService.PaneFor.
+            string pane = PaneAssignmentService.PaneFor(meta);
 
             // Use the CORRECT factory path — CreateSeriesFromMetadata applies all Default* metadata
             // fields (colors, waveforms, envelope types, thicknesses) via CreateComponentConfigFromMeta.
@@ -586,11 +591,13 @@ namespace AccessibleTrader.Core.Services
         ///
         /// <para>
         /// <b>A default level must be in the units of the pane the indicator lands on</b>, and pane
-        /// assignment is decided by <see cref="PaneAssignmentService"/> from the indicator code —
-        /// not by the provider's own <c>DefaultPane</c>, which several providers set to a value the
-        /// assignment service never returns. A fixed constant can never be a price, so no indicator
-        /// that resolves to the "Main" pane may declare one; <c>MainPaneLevelUnitsTests</c> enforces
-        /// that across every provider. The consequence of getting it wrong is not cosmetic — the
+        /// assignment is decided by <see cref="PaneAssignmentService.PaneFor"/> from the provider's
+        /// own <c>DefaultPane</c>. (Until 2026-09-11 this paragraph claimed the opposite — that
+        /// the code-based <c>GetPane</c> decided and <c>DefaultPane</c> did not — and the guard
+        /// built on that claim was scanning a pane the series never landed on.) A fixed constant
+        /// can never be a price, so no indicator that resolves to the "Main" pane may declare one;
+        /// <c>MainPaneLevelUnitsTests</c> enforces that across every provider, through the same
+        /// resolver production uses. The consequence of getting it wrong is not cosmetic — the
         /// viewport expands the price range to reach any visible main-pane level.
         /// </para>
         /// </summary>

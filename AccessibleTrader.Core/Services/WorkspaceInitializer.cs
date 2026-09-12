@@ -608,6 +608,8 @@ namespace AccessibleTrader.Core.Services
         /// <list type="bullet">
         ///   <item>Removes any Cloud-type components (now rendered via CloudFills).</item>
         ///   <item>Adds any CloudFill definitions that are in the current metadata but missing from the saved config.</item>
+        ///   <item>Moves the series onto the pane the current metadata assigns it — in particular
+        ///   off the retired shared "Oscillator" pane and onto a pane of its own.</item>
         /// </list>
         /// </summary>
         /// <remarks>Public because the background monitor restores a saved tab's series with the
@@ -647,6 +649,17 @@ namespace AccessibleTrader.Core.Services
             var meta = allMeta.FirstOrDefault(m =>
                 m.Code.Equals(config.IndicatorCode, StringComparison.OrdinalIgnoreCase));
             if (meta == null) return;
+
+            // THE PANE IS DERIVED, NOT RESTORED — the same rule as the name (see MaterializeSaved).
+            //
+            // Until 2026-09-11 thirty indicators declared one shared "Oscillator" pane, so every
+            // workspace saved before then carries RSI and MACD on one pane with one range, and
+            // the RSI in it is pitch-flat. Nothing a user can do writes a series' pane — no dialog
+            // offers the choice, the only writer is the model factory copying the metadata's
+            // answer — so the saved string is the metadata's answer AS IT STOOD WHEN THE FILE WAS
+            // WRITTEN, and re-deriving it here is how a saved workspace heals without being
+            // re-built by hand. A drawing or core series never reaches this line (meta is null).
+            config.Pane = PaneAssignmentService.PaneFor(meta);
 
             foreach (var fill in meta.DefaultCloudFills)
             {

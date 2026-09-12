@@ -45,7 +45,7 @@ namespace AccessibleTrader.Core.Services.Indicators
         {
             new IndicatorMetadata
             {
-                Code = "Obv", Name = "OBV", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "Obv", Name = "OBV", Category = "Volume", DefaultPane = "Pane_Obv",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>(),
                 Components = new List<IndicatorComponentMetadata>
@@ -56,7 +56,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Adl", Name = "ADL", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "Adl", Name = "ADL", Category = "Volume", DefaultPane = "Pane_Adl",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -73,7 +73,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "Eom", Name = "EOM", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "Eom", Name = "EOM", Category = "Volume", DefaultPane = "Pane_Eom",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {
@@ -88,7 +88,7 @@ namespace AccessibleTrader.Core.Services.Indicators
             },
             new IndicatorMetadata
             {
-                Code = "ForceIndex", Name = "Force Index", Category = "Volume", DefaultPane = "Oscillator",
+                Code = "ForceIndex", Name = "Force Index", Category = "Volume", DefaultPane = "Pane_ForceIndex",
                 Causality = ComponentCausality.Causal,
                 Parameters = new List<IndicatorParameterMetadata>
                 {

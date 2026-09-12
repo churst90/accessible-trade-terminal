@@ -1,7 +1,16 @@
 # The shared "Oscillator" pane — why RSI went flat next to MACD
 
-**Status: DIAGNOSIS ONLY. Nothing was edited, no test written. The fix changes the pane model
-the user navigates, so it is Cody's call — options are in §6.**
+**Status: FIXED 2026-09-11 (forty-sixth pass). Cody chose option A — one pane per non-overlay
+indicator — "make it correct and robust". What landed: thirty providers (not 31; the grep had
+counted a comment) declare `Pane_<Code>`; `PaneAssignmentService.PaneFor(meta)` is the single
+resolver at every site that turns metadata into a series; `MigrateSeriesConfig` re-derives a
+saved series' pane so existing workspaces heal on load, in the browser and headless alike; the
+Add Indicator dialog names the pane it will land on; `MainPaneLevelUnitsTests` is re-aimed at the
+resolver; the contradicting comment in §4 is corrected. 26 guards in `PaneAssignmentTests`, two
+sabotages proven red. The fleet invariant: no pane other than Main and Volume holds two indicator
+codes. §5's latent fallback is addressed separately. Entry in `docs/CHANGES.md`.**
+
+*The text below is the diagnosis as written before the fix, kept as the record of the mechanism.*
 
 Reported by Cody, 2026-09-11 (night): *"the RSI when I look at it almost sounds flat, I still
 hear the texturing but the line is definitely not correct sounding"*, and then the decisive

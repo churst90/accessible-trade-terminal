@@ -72,7 +72,11 @@
                 <div id="indicator-description"
                      style="border-left:3px solid var(--accent-color); padding:6px 0 6px 12px; margin-bottom:12px;">
                     <strong>@meta.Name</strong>
-                    <span style="color:var(--text-muted);"> — @meta.Category@(string.IsNullOrEmpty(meta.DefaultPane) ? "" : $", {meta.DefaultPane} pane")</span>
+                    @* The pane it will LAND ON, from the same resolver that puts it there — not the
+                       raw DefaultPane string, which for thirty indicators used to read "Oscillator
+                       pane" and now names a machine key. Main and Volume are shared axes and are
+                       named; anything else is this indicator's own. *@
+                    <span style="color:var(--text-muted);"> — @meta.Category, @PaneDescription(meta)</span>
                     @if (!string.IsNullOrWhiteSpace(meta.Description))
                     {
                         <p style="margin:4px 0 0;">@meta.Description</p>
@@ -255,6 +259,17 @@
     /// Spoken as a live region on every keystroke, so a screen-reader user hears the list
     /// shrinking instead of typing into silence and discovering the result only on Tab.
     /// </summary>
+    /// <summary>
+    /// Where the indicator will land, in words: the shared price or volume axis by name, or
+    /// "its own pane". Read from the same resolver that decides it, so this can never say
+    /// "Oscillator pane" about a series going somewhere else.
+    /// </summary>
+    internal static string PaneDescription(IndicatorMetadata meta)
+    {
+        string pane = PaneAssignmentService.PaneFor(meta);
+        return PaneAssignmentService.IsSharedByDesign(pane) ? $"{pane} pane" : "its own pane";
+    }
+
     private string MatchSummary => _filteredIndicators.Count switch
     {
         0 => "No indicators match. Clear the search or pick another category.",

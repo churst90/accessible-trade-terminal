@@ -1,13 +1,87 @@
+using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Sdk.Interfaces;
+using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services;
 
 /// <summary>
-/// Maps indicator codes to their display pane and category.
-/// Extracted from StylingService.GetPane / GetCategory.
+/// Which pane a series lands on. A PANE IS A Y AXIS (see <see cref="ChartPaneModel"/>), so two
+/// series may share one only when they are in the same units — and that is the whole rule.
+///
+/// <para>
+/// <b>There is one authority for the decision: <see cref="PaneFor"/>.</b> Until 2026-09-11 there
+/// were two. The provider's <c>DefaultPane</c> was consulted first, and <see cref="GetPane"/> —
+/// which gives almost everything a pane of its own — was written as its fallback behind a
+/// <c>??</c> that could never fire, because <c>DefaultPane</c> is a non-nullable string
+/// defaulting to "Main". Thirty indicators declared the same <c>"Oscillator"</c> pane across
+/// five incompatible scale families, one range was computed over all of them, and Cody heard
+/// the result: <i>"the RSI almost sounds flat … RSI sounds correct after I removed the MACD"</i>.
+/// MACD is a price difference (±800 on BTC) and RSI is bounded 0–100, so RSI's whole working
+/// span was ~2.5% of the pitch range. See <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>.
+/// </para>
+///
+/// <para>
+/// Now every non-overlay indicator declares a pane of its own (<c>Pane_{Code}</c>), the only
+/// panes shared by more than one indicator code are the two whose units are fixed by
+/// definition — <see cref="ChartPaneModel.MainPaneKey"/> (price) and <see cref="VolumePane"/>
+/// — and <c>PaneAssignmentTests</c> holds that across the whole fleet, so a new provider that
+/// reintroduces a shared bucket goes red at build time naming both indicators.
+/// </para>
 /// </summary>
 public sealed class PaneAssignmentService : IPaneAssignmentService
 {
+    /// <summary>The pane volume series share. Its units are volume by definition.</summary>
+    public const string VolumePane = "Volume";
+
+    /// <summary>
+    /// The RETIRED shared bucket. No provider may declare it (the fleet guard says so); it
+    /// survives here only so that a workspace saved before 2026-09-11 still loads — a saved
+    /// series on this pane is moved to its own pane by <see cref="PaneFor"/> when
+    /// <c>WorkspaceInitializer.MigrateSeriesConfig</c> runs on restore.
+    /// </summary>
+    public const string RetiredSharedPane = "Oscillator";
+
+    /// <summary>
+    /// The panes shared BY DESIGN: every series in them is in the same units, so one range over
+    /// the whole pane is the right range for each of them. Anything else is one indicator's.
+    /// </summary>
+    public static bool IsSharedByDesign(string? pane) =>
+        string.Equals(pane, ChartPaneModel.MainPaneKey, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(pane, VolumePane, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The pane an indicator gets when nothing else shares its units. Two instances of the SAME
+    /// indicator (RSI 14 beside RSI 7) share it, because they are in the same units; two
+    /// different indicators never do. This is the one place the key's shape is written down —
+    /// <see cref="GetPane"/> and <see cref="PaneFor"/> both come here for it.
+    /// </summary>
+    public static string OwnPaneKey(string indicatorCode) =>
+        $"Pane_{(indicatorCode ?? string.Empty).Trim().Replace(" ", "_")}";
+
+    /// <summary>
+    /// <b>The pane a series created from this metadata lands on.</b> The declared
+    /// <c>DefaultPane</c>, except that the retired shared bucket — and an empty declaration —
+    /// resolve to the indicator's own pane. Every site that turns metadata into a series comes
+    /// through here: the Add Indicator path, the workspace restore migration, the headless
+    /// chart the background monitor reads alerts from, and the dialog text that tells the user
+    /// where the indicator will go.
+    /// </summary>
+    public static string PaneFor(IndicatorMetadata meta)
+    {
+        if (meta == null) throw new ArgumentNullException(nameof(meta));
+        string? declared = meta.DefaultPane?.Trim();
+        if (string.IsNullOrEmpty(declared)
+            || string.Equals(declared, RetiredSharedPane, StringComparison.OrdinalIgnoreCase))
+            return OwnPaneKey(meta.Code);
+        return declared;
+    }
+
+    /// <summary>
+    /// The pane for an indicator CODE with no metadata to hand — the heatmap and the other core
+    /// series registered by code alone. For an indicator that has metadata, <see cref="PaneFor"/>
+    /// is the answer; this agrees with it on the shape of an own pane but cannot see a declared
+    /// one (<c>Pane_CIPHER_B</c>, a My Data dataset's own name).
+    /// </summary>
     public string GetPane(string indicatorCode)
     {
         string cat  = GetCategory(indicatorCode);
@@ -34,8 +108,8 @@ public sealed class PaneAssignmentService : IPaneAssignmentService
         if (code == "CIPHER_A" || code == "CIPHERA") return "Main";
 
         if (cat == "Overlays" || code.Contains("PRICE") || code.Contains("CANDLES")) return "Main";
-        if (code.Contains("VOLUME")) return "Volume";
-        return $"Pane_{indicatorCode.Replace(" ", "_")}";
+        if (code.Contains("VOLUME")) return VolumePane;
+        return OwnPaneKey(indicatorCode);
     }
 
     public string GetCategory(string indicatorCode)
