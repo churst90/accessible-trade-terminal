@@ -1646,11 +1646,23 @@ there; navigate to the next point and press the **same** shortcut again to set t
 next; and so on until the shape is complete. Escape cancels a drawing in progress.
 
 Take a trendline (Alt+Shift+T) as the model. Arrow to the first point and press
-Alt+Shift+T — speech confirms "Trend line: anchor 1 set at {price}, {time}.
-Navigate to next point and press the shortcut again." Arrow to the second point,
-press it once more, and the line completes: "Trend line placed from {price} to
-{price}." Three-anchor tools — Fibonacci extension, Andrews' pitchfork,
-Risk/Reward — simply take a third press. Single-anchor tools — a horizontal price
+Alt+Shift+T — speech confirms "Trend line: first point at {price}, {time}. Navigate
+to the second point and press the shortcut again." Arrow to the second point, press
+it once more, and the line completes: "Trend line placed, second point at {price},
+from {price}." Three-point tools — Fibonacci extension, Andrews' pitchfork,
+Risk/Reward — simply take a third press.
+
+**Every tool names its own points rather than numbering them**, because the number
+is the one thing that cannot help you decide where to put it. The risk/reward tool
+(Alt+Shift+P) asks for the **entry**, then the **stop loss**, then the **take
+profit**; the measure tool (Alt+Shift+M) asks for the start and the end of the move.
+Tools that work something out say it on completion: the measure tool adds its
+distance, percentage and bar count, and the risk/reward tool its ratio — *"Risk to
+reward, 1 to 3.00."*
+
+Two chords are easy to confuse and are worth learning apart: **Alt+Shift+R is the
+rectangle**, **Alt+Shift+P is risk/reward**, and **Alt+Shift+M is the measure tool**,
+which takes two points and not three. Single-anchor tools — a horizontal price
 line, a vertical time marker, a text label, an anchored VWAP — finish on the first
 press, placing immediately at the cursor.
 

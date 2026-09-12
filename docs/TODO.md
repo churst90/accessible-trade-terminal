@@ -135,16 +135,24 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### NEXT
 >
-> 1. **Hear it.** Alt+Shift+R (risk/reward): it should ask for the entry, then the stop, then the
->    take profit, by name, and finish with the ratio. Alt+Shift+M (measure): two points, then the
->    distance and bar count. And confirm Add Indicator no longer lists a Drawings category.
+> 1. **Hear it.** Alt+Shift+P (risk/reward — NOT R, which is the rectangle): it should ask for the
+>    entry, then the stop, then the take profit, by name, and finish with the ratio. Alt+Shift+M
+>    (measure): two points, then the distance and bar count. And confirm Add Indicator no longer
+>    lists a Drawings category.
 > 2. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, unchanged. WHATSNEW still
 >    needs assembling from ALL of CHANGES `[Unreleased]`, which is now six passes deep.
 > 3. **Navigation still does not honour `SubscribedLevelNames`** — speech, audio, narration and
 >    playback all do; `IndicatorCrossingEngine` does not.
 > 4. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
 >    `IsAreaFill = true` (ask first).
-> 5. **The drawing anchor table is a good home for more.** `Channel` is listed with three points
+> 5. **Shortcut documentation is guarded by PAIRING now, not presence.**
+>    `check_doc_drift.py` only ever asked whether a chord appeared somewhere in SHORTCUTS.md, so a
+>    doc that named the risk/reward chord Alt+Shift+P and then described it as something else
+>    entirely would have passed. `DrawingShortcutDocParityTests` reads
+>    the live default profile and checks that no unit of text — table row, list item, blockquote
+>    line or prose paragraph — puts a chord next to the wrong tool's name, across all seven docs.
+>    **The same presence-vs-pairing gap almost certainly exists for the non-drawing chords.**
+> 6. **The drawing anchor table is a good home for more.** `Channel` is listed with three points
 >    but the state machine treats it as two-point; worth checking whether the third is reachable.
 
 > **START HERE (current as of 2026-09-13, FIFTY-SECOND pass — PLAYBACK SPEAKS A BAND CROSSING, AND

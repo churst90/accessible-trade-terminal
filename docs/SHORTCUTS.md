@@ -391,12 +391,12 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+Shift+E | Fibonacci extension | 3 (move start, move end, pullback) |
 | Alt+Shift+L | Text label | 1 |
 | Alt+Shift+R | Rectangle | 2 (opposite corners) |
-| Alt+Shift+M | Measure / range tool | 2 |
+| Alt+Shift+M | Measure / range tool | 2 (start and end of the move) |
 | Alt+Shift+A | Andrews' pitchfork | 3 |
 | Alt+Shift+G | Gann fan | 2 |
 | Alt+Shift+B | Gann box | 2 |
 | Alt+Shift+J | Angle / Fibonacci angle | 2 |
-| Alt+Shift+P | Risk/Reward tool | 2 (entry and stop loss) |
+| Alt+Shift+P | Risk/Reward tool | 3 (entry, stop loss, take profit) |
 | Alt+Shift+W | Anchored VWAP | 1 (the anchor bar) |
 
 | Key | Drawing Placement Action |

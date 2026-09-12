@@ -50,8 +50,9 @@ the point of taking it. Completion now reads *"Measure placed, end of the move a
 64,100. 800.00 (1.25%), 10 bars."*
 
 **A note on which tool is which.** The measure tool is **two** points — the distance between them.
-The three-point entry/stop/target tool is **Risk/Reward** (Alt+Shift+R). Naming the points is what
-makes the two tell themselves apart while you are placing them.
+The three-point entry/stop/target tool is **Risk/Reward** (**Alt+Shift+P** — Alt+Shift+R is the
+rectangle, and this entry said otherwise until it was corrected on 2026-09-13). Naming the points
+is what makes the two tell themselves apart while you are placing them.
 
 **3. Volume profiles and playback, documented rather than built.** Cody: *"don't worry about
 narrating profiles then, it just needs to be noted in the manual."* `docs/USER_MANUAL.md` now says
@@ -63,7 +64,34 @@ count is what the rarity ranking uses to keep playback from becoming a per-bar r
 The manual also documents the level-crossing narration added in the previous pass, and that
 drawings are placed with Alt+D rather than from Add Indicator.
 
-**Tests.** `DrawingAnchorVocabularyTests` (17) and `DrawingsAreNotIndicatorsTests` (18) — including
+**Correction, same day: this entry had the risk/reward chord wrong.** It said Alt+Shift+R, which
+is the **rectangle**; risk/reward is **Alt+Shift+P** and the measure tool is **Alt+Shift+M**. Cody
+caught it. The reference docs — SHORTCUTS, the manual and the quickstart — were all correct; the
+error was in this changelog and in a TODO note, written by hand alongside the feature.
+
+**The guard that existed could not have caught it.** `check_doc_drift.py` asserts that each
+default chord appears SOMEWHERE in `docs/SHORTCUTS.md` — a presence check, and this repo already
+knows what those are worth. "Alt+Shift+P" appearing anywhere satisfied it, including on a line
+calling it something else. `DrawingShortcutDocParityTests` now reads the live default profile and
+checks the PAIRING across all seven docs: no unit of text may put a drawing chord alongside the
+name of a different tool without naming its own. Proven on three sabotages, the first of which is
+the mistake itself.
+
+Getting the unit right took two wrong answers worth recording. A per-LINE check misses a wrapped
+sentence, where the chord and its tool land on different lines. A nearest-name-within-N-characters
+check instead reported twenty-two offences that were all one table: in `| Trendline | Alt+Shift+T |`
+the chord sits at the end of its row and the NEXT row's tool name is closer than its own. The unit
+that works is the one a reader takes in at once — a table row, a list item, a blockquote line, or a
+prose paragraph.
+
+While correcting it: the quickstart said the risk/reward tool takes "2 anchors ... then speech
+guides you to the target" and that it "announces the resulting risk amount", neither of which was
+true; the manual and the quickstart both quoted the old "anchor 1 set ... navigate to next point"
+wording that this pass replaced. All updated, and both now say plainly that Alt+Shift+R is the
+rectangle and that the measure tool is two points.
+
+**Tests.** `DrawingAnchorVocabularyTests` (17), `DrawingsAreNotIndicatorsTests` (18) and
+`DrawingShortcutDocParityTests` (6) — including
 a general property, that nothing the Add Indicator dialog offers may be componentless. Three
 sabotages red: the risk/reward order inverted, points called anchors again, and one placeholder
 returning to the registry. The culture-invariance scan caught the new ratio interpolation before it

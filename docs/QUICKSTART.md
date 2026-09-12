@@ -441,9 +441,9 @@ All drawing tools use **sequential anchoring**. You do not hold keys and drag, a
 Take a trendline (Alt+Shift+T) as the example:
 
 1. Navigate the cursor to the first point using the Left and Right arrows.
-2. Press the drawing shortcut (Alt+Shift+T) to set the first anchor at the current bar. Speech announces the price and timestamp of the anchor and tells you what to do next — for example: "Trend line: anchor 1 set at 42,500.00, 14:30. Navigate to next point and press the shortcut again."
+2. Press the drawing shortcut (Alt+Shift+T) to set the first point at the current bar. Speech announces the price and timestamp, and **names the point it is asking for next** — for example: "Trend line: first point at 42,500.00, 14:30. Navigate to the second point and press the shortcut again." Every tool names its own points: the risk/reward tool asks for the entry, then the stop loss, then the take profit.
 3. Navigate to the second point.
-4. Press the **same** shortcut again (Alt+Shift+T) to set the second anchor and complete the drawing. Speech announces the completed drawing: for example, "Trend line placed from 42,500.00 to 43,100.00."
+4. Press the **same** shortcut again (Alt+Shift+T) to set the second point and complete the drawing. Speech names the last point and where the shape runs from: "Trend line placed, second point at 43,100.00, from 42,500.00." Tools that work something out say it here too — the measure tool adds its distance, percentage and bar count, and the risk/reward tool its ratio.
 5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), repeat: navigate, then press the shortcut a third time to set the final anchor.
 6. Press Escape at any time during placement to cancel the in-progress drawing.
 
@@ -470,7 +470,7 @@ Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) 
 | Alt+Shift+G | Gann fan (2 anchors) |
 | Alt+Shift+B | Gann box (2 anchors) |
 | Alt+Shift+J | Angle / Fibonacci angle (2 anchors) |
-| Alt+Shift+P | Risk/Reward tool (2 anchors: entry and stop loss, then speech guides you to the target) |
+| Alt+Shift+P | Risk/Reward tool (3 anchors: entry, stop loss, take profit) |
 | Alt+Shift+W | Anchored VWAP (1 anchor: the bar from which VWAP is calculated forward) |
 | Alt+D | Open the drawing tools panel (manage and delete existing drawings) |
 
@@ -484,7 +484,11 @@ The Anchored VWAP tool (Alt+Shift+W) places a Volume Weighted Average Price line
 
 ### Risk/Reward Tool
 
-Alt+Shift+P starts the Risk/Reward tool. After you set the entry and stop-loss anchors, speech announces the resulting risk amount and asks you to set the target. When the target is set, speech announces the full risk-to-reward ratio.
+Alt+Shift+P starts the Risk/Reward tool — three points, each asked for by name: "entry", then "stop loss", then "take profit". When the take profit is set, speech announces the ratio: "Risk to reward, 1 to 3.00."
+
+Note that **Alt+Shift+R is the rectangle**, not the risk/reward tool, and the **measure tool
+(Alt+Shift+M) is two points** — the distance, percentage and bar count between them — not an
+entry/stop/target tool.
 
 ---
 
