@@ -348,6 +348,12 @@ namespace AccessibleTrader.Core.Services
                             // then Ready once the catch-up lands with fresh data.
                             _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
 
+                            // The switched-TO tab is now the chart on screen, and the snapshot
+                            // the reducer restored carries whatever SymbolDisplayName that tab
+                            // had when it was last active — the empty string, for every tab of a
+                            // resumed session. See ApplyProviderContextAsync.
+                            await ApplyProviderContextAsync(capturedIdentity).ConfigureAwait(false);
+
                             // Use gap-fill instead of a full 200-bar re-fetch.
                             // CatchUpFromSnapshotAsync restores the snapshot then appends
                             // only the bars that arrived while the tab was inactive.
@@ -720,6 +726,50 @@ namespace AccessibleTrader.Core.Services
             _pipelineUpdated.OnNext(Unit.Default);
         }
 
+        /// <summary>
+        /// Tell the store WHAT SYMBOL IS ON SCREEN, without touching the series stack.
+        ///
+        /// <para>
+        /// Every path that puts a chart in front of the user has to do this, and until
+        /// 2026-09-11 only one of them did — <c>LoadChartAsync</c>, through
+        /// <c>InitializeDefaultSeries</c>. A resumed session and a tab switch both reached the
+        /// data (their own catch-up) and neither reached this, so
+        /// <c>WorkspaceState.SymbolDisplayName</c> stayed the empty string until the user
+        /// pressed Load Chart. Four things read that field and all four were wrong about a
+        /// resumed session: the circuit's coverage claim (so the background monitor announced
+        /// the focused chart's every bar close — Cody, 2026-09-11), the in-session alert symbol
+        /// gate (so symbol-scoped alerts never fired), the strategy gate, and the symbol stamped
+        /// on an "any symbol" alert for webhook routing.
+        /// </para>
+        ///
+        /// <para>
+        /// It dispatches <see cref="SetProviderContextAction"/> alone rather than calling
+        /// <c>InitializeDefaultSeries</c>: a restored or switched-to tab has already brought its
+        /// own series back, and re-seeding them is exactly what must not happen here. The
+        /// reducer for this action sets two fields and nothing else.
+        /// </para>
+        /// </summary>
+        private async Task ApplyProviderContextAsync(ChartIdentity identity)
+        {
+            if (string.IsNullOrEmpty(identity.Symbol)) return;
+            try
+            {
+                var provider = await _dataService.GetProviderAsync(identity.Provider).ConfigureAwait(false);
+                var shape = provider?.GetDataShapeForSymbol(identity.Symbol) ?? Sdk.Plugins.ProviderDataShape.Ohlcv;
+                // Never blank: blank IS the defect. A provider that cannot be resolved (a plugin
+                // that failed to load) still leaves the terminal knowing its own symbol.
+                var displayName = provider?.GetSymbolDisplayName(identity.Symbol);
+                if (string.IsNullOrWhiteSpace(displayName)) displayName = identity.Symbol;
+                _store.Dispatch(new SetProviderContextAction(shape, displayName));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Provider context for {identity.Symbol} failed: {ex.Message}");
+                _store.Dispatch(new SetProviderContextAction(
+                    Sdk.Plugins.ProviderDataShape.Ohlcv, identity.Symbol));
+            }
+        }
+
         public async Task LoadRestoredActiveTabAsync()
         {
             var identity = _store.State.Identity;
@@ -736,6 +786,28 @@ namespace AccessibleTrader.Core.Services
             _selectedSymbol    = identity.Symbol;
             _selectedTimeframe = identity.Timeframe;
             _dataManager.Identity = identity;
+
+            // ── WHAT SYMBOL IS ON SCREEN — the field a resume used to leave blank ──────
+            //
+            // WorkspaceState.SymbolDisplayName is written by exactly one action, and until
+            // 2026-09-11 that action was dispatched from exactly one place: InitializeDefaultSeries,
+            // on the LOAD CHART path. A resumed session reached neither, so the terminal did not
+            // know what it was showing until the user pressed Load Chart — and four things read
+            // that field:
+            //
+            //   • the circuit's coverage claim (WebHostBrowserCircuitHandler.CoveredSymbols), so
+            //     the background monitor concluded no browser was watching the focused chart and
+            //     announced its bar closes itself — Cody, 2026-09-11: a MATE notification and its
+            //     sound, once a minute, on the chart he was looking at;
+            //   • AlertOrchestrator's symbol gate, so a symbol-scoped alert on the focused chart
+            //     matched nothing and never fired in-session;
+            //   • StrategyEngine's equivalent gate;
+            //   • the firing symbol stamped onto an "any symbol" alert for webhook routing.
+            //
+            // SetProviderContextAction is dispatched here on its own — NOT through
+            // InitializeDefaultSeries, which would re-seed the series stack a restored tab has
+            // already brought back with it. The reducer touches two fields and nothing else.
+            await ApplyProviderContextAsync(identity).ConfigureAwait(false);
 
             _store.Dispatch(new RequestInitializationStatusAction(InitializationStatus.Loading));
             try

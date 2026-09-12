@@ -380,12 +380,28 @@ namespace AccessibleTrader.WebHost.Services
         /// assumed: if it is off, those symbols are covered by nobody in-session and the
         /// headless session should take them.
         /// </summary>
-        private static IEnumerable<string> CoveredSymbols(
+        internal static IEnumerable<string> CoveredSymbols(
             IWorkspaceStore store,
             AccessibleTrader.Core.Services.Workspace.IBackgroundMonitoringService? monitoring)
         {
-            var focused = store.State.SymbolDisplayName;
-            if (!string.IsNullOrWhiteSpace(focused)) yield return focused;
+            // BOTH spellings of "the chart on screen", and that is deliberate. The display name
+            // is what the alert list and the in-session pipeline compare against; the identity's
+            // raw symbol is what the headless monitor's watch list is built from (a saved tab's
+            // TabConfiguration.Symbol). They are usually the same string and are allowed not to
+            // be — an analytics series displays as "Fear and Greed Index" — and a coverage claim
+            // that depends on which one the state happens to hold is a claim that fails towards
+            // "nobody is watching this", which costs the user a duplicate announcement.
+            //
+            // It also carried the bug Cody reported on 2026-09-11: a RESUMED session never set
+            // SymbolDisplayName at all, so the focused chart claimed nothing and the background
+            // monitor announced its every bar close. That is fixed at the source in
+            // MarketOrchestrator.LoadRestoredActiveTabAsync; this stays belt-and-braces, because
+            // the cost of being wrong here is asymmetric.
+            var state = store.State;
+            if (!string.IsNullOrWhiteSpace(state.SymbolDisplayName)) yield return state.SymbolDisplayName;
+            if (!string.IsNullOrWhiteSpace(state.Identity.Symbol)
+                && !string.Equals(state.Identity.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
+                yield return state.Identity.Symbol;
 
             if (monitoring?.IsEnabled != true) yield break;
             foreach (var m in monitoring.Monitors)

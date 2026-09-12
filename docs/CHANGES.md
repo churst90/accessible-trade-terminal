@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The resumed session did not know what symbol was on screen (2026-09-11, forty-fourth pass)
+
+Suite **7,400** (was 7,393). Cody, on the pass above: *"When I open my 3 workspaces, I'm focused
+on the btcusdt 1 minute chart and I still get the toast mate notification, the notification
+earcon… I shouldn't be getting notifications for the currently focused tab."* He was right, and
+the routing fix was not the thing at fault.
+
+**The notification was the HEADLESS monitor, not the in-session toaster** — the tell was the
+notification SOUND, which `DesktopNotificationService` never plays and
+`LocalBackgroundMonitor.AnnounceBarClose` always does. The monitor announces any chart no browser
+covers, and it had concluded that no browser was covering BTCUSDT.
+
+**The cause is one empty string.** `WorkspaceState.SymbolDisplayName` is written by exactly one
+action, `SetProviderContextAction`, dispatched from exactly one place —
+`WorkspaceInitializer.InitializeDefaultSeries`, which runs only on the **Load Chart** path. The
+session-resume path and the tab-switch catch-up both fetch their data and neither reached it, so
+after "resume last session" the field was `""` until the user pressed Load Chart, while
+`Identity.Symbol` was correct the whole time. Four things read it and all four were wrong about a
+resumed session:
+
+- `WebHostBrowserCircuitHandler.CoveredSymbols` yields the focused chart from that field alone, so
+  the circuit claimed **nothing**, and the background monitor announced the focused chart's bar
+  close once a minute. The two background tabs were unaffected, because
+  `BackgroundWorkspaceMonitor` falls back to `identity.Symbol` — which is exactly why only the
+  chart Cody was looking at misbehaved.
+- `AlertOrchestrator`'s Part A symbol gate compares `a.Symbol` against it, so **every
+  symbol-scoped alert on the focused chart was dropped from `applicable` and never fired
+  in-session** on a resumed session. That is the more serious half of this, and nobody had
+  reported it because the browser-closed monitor was quietly covering for it.
+- `StrategyEngine`'s equivalent gate, and the symbol stamped onto an "any symbol" alert for
+  per-asset webhook routing.
+
+**Fixed at the source.** A new `MarketOrchestrator.ApplyProviderContextAsync` dispatches
+`SetProviderContextAction` on its own — deliberately NOT through `InitializeDefaultSeries`, which
+would re-seed the series stack a restored tab has already brought back — and both the resume path
+and the tab-switch catch-up call it. A provider that cannot be resolved falls back to the raw
+symbol, because blank is the defect. `CoveredSymbols` additionally offers `Identity.Symbol`
+alongside the display name: the two are allowed to differ, and a coverage claim that fails
+towards "nobody is watching this" costs the user a duplicate announcement.
+
+**Durable:** *a field written on one path and read on four is a field that is empty on three.*
+And: **the sound told us which owner it was.** Two components can raise the same toast; only one
+of them plays the notification sound, and that distinction located the bug before any code was
+read.
+
 ### The channel is decided by the event's SUBJECT — one notification switch, a farewell when the browser closes, and the market field that grew forever (2026-09-11, forty-third pass)
 
 Suite **7,393** (was 7,321). Cody: *"The desktop notifications like in MATE seem to fire even when the browser

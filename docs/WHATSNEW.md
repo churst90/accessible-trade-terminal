@@ -41,6 +41,13 @@ the chart you were looking at — arrives as a notification, because nothing is 
 on screen any more. Restore or Quit from the tray icon. Settings → General → "Minimize to tray
 on exit" turns it back off. *This one has never been run on a Windows machine; it compiles only.*
 
+**Two things that only went wrong when you resumed a session.** When the terminal reopened your
+workspaces, it did not actually record which symbol was on screen until you pressed Load Chart —
+the chart was right, the bookkeeping was blank. Because of that, the background monitor believed
+no browser was watching your focused chart and announced its every bar close as a system
+notification, and, less visibly, **every alert scoped to that symbol was skipped by the
+in-browser pipeline**. Both are fixed, on the resume path and on tab switches alike.
+
 **Smaller things you may notice:**
 
 - The tray's silence item now says what it actually silences — "Silence alerts and bar closes"

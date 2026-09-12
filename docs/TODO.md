@@ -119,7 +119,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 > **START HERE (current as of 2026-09-11 (night), FORTY-THIRD pass — THE ROUTING POLICY IS
 > BUILT: the chart in front of you is spoken, everything else is a notification.)**
-> Suite **7,393** (was 7,321), 0 failing. Nothing in this pass was HEARD — see NEXT item 1.
+> Suite **7,400**, 0 failing. Nothing in this pass was HEARD — see NEXT item 1.
+>
+> **FOLLOW-UP, same night (forty-fourth pass): the first report back was "still not working", and
+> it was a DIFFERENT bug.** On a resumed session `WorkspaceState.SymbolDisplayName` was never set
+> — it is written only on the Load Chart path — so the circuit's coverage claim was empty, the
+> background monitor thought no browser was watching the focused chart, and announced its bar
+> close once a minute. The same empty field also silently dropped **every symbol-scoped alert**
+> from the in-session pipeline on a resumed session. Fixed in
+> `MarketOrchestrator.ApplyProviderContextAsync`, called from both the resume path and the
+> tab-switch catch-up; `CoveredSymbols` now offers both spellings of the symbol.
 > Work order: `docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md`, **§0a carries Cody's four
 > answers and the first of them reverses that document's own §1** — the coverage registries
 > STAY, because the channel is decided per event SUBJECT and not per process.
