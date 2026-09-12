@@ -117,6 +117,32 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **OPEN BUG, found 2026-09-11 (night) after the notification work — RSI IS INAUDIBLE NEXT TO
+> MACD, and 31 indicators share one pane.** Diagnosis:
+> `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md`. **Not a regression** — no audio or indicator file
+> was touched this session, and Cody confirmed background narration is not involved.
+>
+> Cody: *"the RSI almost sounds flat, I still hear the texturing but the line is definitely not
+> correct sounding"* … *"RSI sounds correct after I removed the MACD"*.
+>
+> **Cause:** RSI and MACD both declare `DefaultPane = "Oscillator"`, and `meta.DefaultPane` WINS
+> over `PaneAssignmentService` at `SeriesManagementService.cs:246` — so they share one pane, one
+> range is computed across both, and RSI's 0–100 is compressed into ~2.5% of a range MACD's
+> price-difference values stretch to ±800 on BTC. Pitch collapses; grit, pan and volume are
+> unaffected, which is why it reads as "flat but not broken". **Thirty-one indicators declare that
+> same pane across five incompatible scale families — RSI beside OBV would be far worse.** It hits
+> playback and the DRAWN chart too, not just the arrow keys.
+>
+> **Two more defects found with it:** the comment at `SeriesManagementService.cs:588-594` asserts
+> the assignment service decides the pane, which line 246 contradicts; and
+> `MainPaneLevelUnitsTests.cs:87` scans `panes.GetPane(...)` — so that guard is green about a pane
+> the series never lands on.
+>
+> **NEEDS CODY'S CALL before any fix** — every option changes what Alt+PageUp/PageDown traverse.
+> Four options with costs are in §6 of the diagnosis; the recommendation is one pane per indicator
+> plus a migration so existing workspaces heal, with a collision detector that SAYS so rather than
+> going quiet.
+
 > **START HERE (current as of 2026-09-11 (night), FORTY-THIRD pass — THE ROUTING POLICY IS
 > BUILT: the chart in front of you is spoken, everything else is a notification.)**
 > Suite **7,400**, 0 failing. Nothing in this pass was HEARD — see NEXT item 1.
