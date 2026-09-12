@@ -117,6 +117,52 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-12 (late), FORTY-NINTH pass — A SWITCHED-OFF LINE IS NOT A
+> DESTINATION, AND MFI IS THE TWO COLOURS IT DECLARED.)** Suite **7,585**, 0 failing. Still no
+> release cut. Four questions from Cody; two were bug reports, two were questions. Full entry in
+> `docs/CHANGES.md`.
+>
+> **Fixed.** (1) `IndicatorCrossingEngine` had four level lookups and none checked `IsVisible`, so
+> the new `0` toggle hid and silenced RSI's midline while Ctrl+Left/Right kept jumping to it. The
+> earcon path and the spoken zone word already filtered hidden levels; navigation was the only
+> reader that did not. (2) MFI declares a teal primary, a red secondary, `ColorSource.Value` and
+> `ColorBaseline = 50` — and drew solid teal, because `RenderLine` read none of the last three.
+> `UsePolarityColoring` had NO renderer consumer at all. It has one now. (3) UltOsc and STC were
+> the only bounded oscillators with no `Midpoint`, so the `0` key added a line there while it
+> toggled one everywhere else. Both declare it now.
+>
+> **Answered, not changed.** MFI's OB/OS texturing at 80/20 is correct — MFI is the volume-weighted
+> RSI. UltOsc's 70/30 are Williams' own thresholds and are correct.
+>
+> ### NEXT — the classification census found four things that need a DECISION, not a fix
+>
+> 1. **`ComponentRoleMapper` decides a component's role from a hard-coded name registry.**
+>    `RSI.RSI` is in it; `Mfi`, `UltOsc`, `Chop`, `Stc`, `ConnorsRsi` are not. Role drives the
+>    secondary colour, the polarity flag and the SONIFICATION PROFILE — so RSI and MFI, the same
+>    kind of instrument, are sonified from different profiles for no declared reason. This is the
+>    biggest of the four and the one most likely to be audible. Ask Cody whether RSI and MFI
+>    should sound like the same kind of thing; if yes, declare `Role` on every Skender component
+>    and retire the mapper's substring fallbacks the way `GetReferenceLevel` was retired.
+> 2. **Stochastic's %K is role None, its %D is role Signal** — one indicator, two roles, decided by
+>    the substring "SIGNAL" in a component name.
+> 3. **`{zone}` is dead on ADX and Choppiness.** `ResolveZone` looks for levels named
+>    Overbought/Oversold; ADX declares Developing/Strong/Very Strong and Chop declares
+>    Trending/Ranging. Those names are right and should not change. Either drop the token from
+>    those two templates, or teach `ResolveZone` to name a declared band — noting that Chop's
+>    bands are INVERTED (below 38.2 is trending), which is a fact that has to be declared, not
+>    inferred from the order of the numbers.
+> 4. **The Ulcer Index is display type `Oscillator`** while ATR and HV — same provider, same
+>    one-sided shape — are `Line`. Oscillator gives it an area fill and makes the audio split it
+>    at the pane midpoint, which means nothing for a drawdown-depth measure.
+>
+> ### NEXT — still open from the 48th pass
+>
+> 5. **Hear it.** Nothing in the 48th or 49th pass has been heard. `0` on RSI should say "Midpoint
+>    at 50.00 hidden and silent" and then Ctrl+Left/Right should stop landing on 50. `0` on
+>    Choppiness should ADD "Midpoint at 50.00", not "Zero".
+> 6. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md` in full: WHATSNEW assembled
+>    from all of CHANGES `[Unreleased]`, then 2.10.0. Tell the server agent BEFORE the tag.
+
 > **START HERE (current as of 2026-09-12 (evening), FORTY-EIGHTH pass — THE NEUTRAL IS DECLARED,
 > THE `0` KEY TOGGLES IT, AND EVERY AXIS LABEL SITS ON A GRIDLINE.)** Suite **7,577**, 0 failing.
 > No release was cut — Cody, mid-turn: *"hold off on the cutting of the release though."*

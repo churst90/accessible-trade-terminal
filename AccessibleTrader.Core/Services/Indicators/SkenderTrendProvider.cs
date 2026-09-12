@@ -45,9 +45,12 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Trending", 38.2, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f),
                 new("Ranging",  61.8, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f),
             },
+            // STC runs 0-100 and its 25/75 thresholds are the conventional ones. The midline was
+            // missing for the same reason UltOsc's was — see that note.
             "STC" => new List<LevelDescriptor>
             {
                 new("Overbought", 75.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
+                new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
                 new("Oversold",   25.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
             },
             _ => new List<LevelDescriptor>(),

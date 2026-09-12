@@ -52,9 +52,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
                 new("Oversold",   20.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
+            // 70/30 are Williams' own thresholds for the Ultimate Oscillator and are the
+            // conventional ones; they are correct as declared. What was missing is the MIDLINE:
+            // UltOsc was the only 0-100 oscillator in the fleet without one, so the 0 key ADDED a
+            // line here while it toggled one everywhere else, and Ctrl+Left/Right could not reach
+            // the 50 crossing that is the oscillator's own definition of neutral.
             "ULTOSC" => new List<LevelDescriptor>
             {
                 new("Overbought", 70.0, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
+                new("Midpoint",   50.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.7f),
                 new("Oversold",   30.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.45f, ZoneNoiseType: "pink"),
             },
             "WILLIAMSR" => new List<LevelDescriptor>
@@ -187,10 +193,19 @@ namespace AccessibleTrader.Core.Services.Indicators
                 },
                 Components = new List<IndicatorComponentMetadata>
                 {
+                    // The only bounded oscillator drawn in TWO colours, and it means it: teal
+                    // above the midline, red below. The secondary colour, the Value colour source
+                    // and the 50 baseline have been declared here for a long time and the line
+                    // renderer read none of them, so MFI drew solid teal — see
+                    // StandardRenderers.WantsPolaritySplit. DefaultUsePolarityColoring is the
+                    // field that names the behaviour; declaring it stops the by-name role mapper
+                    // deciding, which is how RSI ended up with the flag and MFI without it.
                     new() { Name = "Mfi", DisplayType = ComponentDisplayType.Oscillator,
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350",
                             DefaultColorSource = ColorSource.Value, DefaultTriggerBoundaryClick = true,
-                            DefaultNoiseAmount = 0f, ColorBaseline = 50.0, DefaultReferenceLevel = 50.0 },
+                            DefaultNoiseAmount = 0f, ColorBaseline = 50.0, DefaultReferenceLevel = 50.0,
+                            DefaultUsePolarityColoring = true,
+                            SpeechTemplate = "{name}. {type}. {value:F2}. {zone}." },
                 },
             },
             new IndicatorMetadata

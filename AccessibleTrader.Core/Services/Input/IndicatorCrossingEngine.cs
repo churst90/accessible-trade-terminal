@@ -162,7 +162,18 @@ namespace AccessibleTrader.Core.Services.Input
             // earcon fired at a line the navigation could not reach. The name was also load-bearing
             // in the other direction — adding a level of your own and calling it "Zero" silently
             // changed what Ctrl+Left/Right did on that indicator.
-            var seriesLevels = focusedSeries.Levels;
+            //
+            // AND ONLY LINES THAT ARE SWITCHED ON (2026-09-12). Cody, on the new 0-key toggle:
+            // "when the midline 0 line is hidden, then ctrl left/right shouldn't jump to those
+            // points." Right, and it generalises: a level you have switched off is one you have
+            // said you are not interested in, so it must stop being a NAVIGATION target as well
+            // as a drawn line and an earcon. Switching off RSI's midline now leaves Ctrl+Left /
+            // Ctrl+Right on its overbought and oversold crossings, which is the useful answer
+            // rather than a key that silently kept its old destination.
+            //
+            // SpeechFormatter.ResolveZone already worked this way — it skips a hidden level when
+            // deciding the zone word — so this brings navigation into line with speech.
+            var seriesLevels = focusedSeries.Levels.Where(l => l.IsVisible).ToList();
             bool hasOB = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Overbought);
             bool hasOS = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Oversold);
             if (hasOB && hasOS) return CrossingType.ThresholdLevel;
@@ -239,8 +250,9 @@ namespace AccessibleTrader.Core.Services.Input
 
         private void DoThresholdCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
-            var obEntry = focusedSeries.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Overbought);
-            var osEntry = focusedSeries.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Oversold);
+            // Switched-off lines are not targets — see the note in Classify.
+            var obEntry = focusedSeries.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Overbought);
+            var osEntry = focusedSeries.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Oversold);
             double obLevel = obEntry?.Value ?? double.NaN;
             double osLevel = osEntry?.Value ?? double.NaN;
 
@@ -295,7 +307,7 @@ namespace AccessibleTrader.Core.Services.Input
         /// series declares none — which is a real answer, not a reason to assume zero.
         /// </summary>
         private static LevelConfig? NeutralLevel(ChartSeries series) =>
-            series.Levels.FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral);
+            series.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Neutral);
 
         private void DoMACrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
@@ -556,8 +568,11 @@ namespace AccessibleTrader.Core.Services.Input
         private static double GetNamedLevelValue(ChartSeries series, params string[] nameFragments)
         {
             foreach (var level in series.Levels)
+            {
+                if (!level.IsVisible) continue;   // a switched-off line is not a target
                 foreach (var frag in nameFragments)
                     if (level.Name.Contains(frag, StringComparison.OrdinalIgnoreCase)) return level.Value;
+            }
             return double.NaN;
         }
 

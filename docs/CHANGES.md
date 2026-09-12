@@ -4,6 +4,89 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A switched-off line is not a destination, and MFI is the two colours it declared (2026-09-12, forty-ninth pass)
+
+Suite **7,585** (was 7,577). Four questions from Cody about the pass before this one; two were bug
+reports and two were questions, and the answers are below.
+
+**1. "When the midline 0 line is hidden, Ctrl+Left/Right shouldn't jump to those points."**
+
+Correct, and it generalises past the midline: a level you have switched off is one you have said
+you are not interested in, so it has to stop being a NAVIGATION target as well as a drawn line and
+an earcon. `IndicatorCrossingEngine` had four separate level lookups — the crossing-type
+classification, the midline target, the overbought/oversold targets and the by-name value lookup —
+and none of them checked `IsVisible`. So the new `0` toggle hid and silenced RSI's midline while
+Ctrl+Left/Right kept its old destination, which reads as a key that ignores you.
+
+The earcon path already worked this way (`LevelCrossingMonitor` checks `!lc.IsVisible ||
+!lc.PlayEarcon`) and so did the spoken zone word (`SpeechFormatter.ResolveZone` skips a hidden
+level). Navigation was the only reader that did not. Switching off RSI's midline now leaves
+Ctrl+Left/Right on its overbought and oversold crossings — the useful answer, not silence.
+`SwitchedOffLevelTests` (4), two sabotages red.
+
+**2. "Why does MFI have texturing as if it is overbought/oversold?"**
+
+Because it is. MFI is the volume-weighted RSI: bounded 0–100, with 80/20 as its conventional
+overbought and oversold thresholds, exactly as RSI uses 70/30. The zone noise beyond those two
+lines is the same treatment every bounded oscillator in the fleet gets and it is correct.
+
+**3. "I thought it was red below and green above the midline."**
+
+So did its provider, and it was right — MFI declares a teal primary, a red secondary,
+`ColorSource.Value` and `ColorBaseline = 50`, four fields that say precisely that. It drew solid
+teal. A component of display type `Oscillator` or `Line` is rendered by `StandardRenderers.RenderLine`,
+which painted every point with the primary colour and read none of the other three; only
+`Histogram`/`Bar`, `ZeroArea` and `ZeroDot` could ever show a second colour. The declaration was
+accepted, stored, shown in the Properties dialog, and silently dropped at the one place it meant
+anything — the same shape as the neutral in the pass before this.
+
+`UsePolarityColoring` is the field that names this behaviour and it had **no renderer reading it at
+all** — only the audio layer, choosing a patch. `RenderLine` now honours it, drawing the line and
+its area fill in the primary colour above `ColorBaseline` and the secondary below, split at the
+crossing point rather than at the next bar. The area also hangs from the value to the BASELINE
+rather than to literal zero, which is the other half of what made MFI read as one colour: on a
+0–100 pane the old fill was a solid block from the floor.
+
+**What changes visually, in full.** Only components that declare `UsePolarityColoring` AND whose
+values cross their `ColorBaseline`. MFI and Pulse's MFI (baseline 50) are the ones this was written
+for. The rest of the flag's holders have a baseline of 0: RSI, Stochastic's signal, Stoch RSI's
+signal and Fear & Greed never go negative, so nothing changes for them; PPO's signal and histogram,
+TRIX's signal, the COT z-score, the crowding score and the funding rate DO cross zero and will now
+be drawn green above it and red below, which is what their providers declared
+`DefaultUsePolarityColoring = true` for.
+
+**4. "Are the OB/OS levels appropriate on the Ultimate Oscillator? Are all indicators classified
+correctly?"**
+
+70/30 are Williams' own thresholds for the Ultimate Oscillator and are the conventional ones; they
+are right as declared. What was missing is the MIDLINE — UltOsc was the only 0–100 oscillator in
+the fleet without one, and STC was the only other bounded oscillator missing it. So the `0` key
+ADDED a line on those two while it toggled one everywhere else, and Ctrl+Left/Right could not reach
+the 50 crossing that is an oscillator's own definition of neutral. Both now declare `Midpoint` at 50.
+
+A census of every component in the fleet found four more classification inconsistencies, all
+recorded in `docs/TODO.md` rather than changed unilaterally, because each is a judgment call about
+what an indicator IS:
+
+- **`ComponentRoleMapper` decides a component's role by a hard-coded name registry**, and
+  `RSI.RSI` is in it while `Mfi`, `UltOsc`, `Chop`, `Stc` and `ConnorsRsi` are not. Role drives the
+  secondary colour, the polarity flag and the sonification profile — so RSI and MFI, the same kind
+  of instrument, are sonified from different profiles for no declared reason. It is also why RSI
+  carried the polarity flag and MFI, which actually wanted it, did not.
+- **Stochastic's %K is role None and its %D is role Signal**, because the mapper matches the
+  substring "SIGNAL" in a component name. One indicator, two roles, decided by spelling.
+- **The `{zone}` speech token is dead on ADX and Choppiness.** `SpeechFormatter.ResolveZone` looks
+  for levels named Overbought/Oversold; ADX's are Developing/Strong/Very Strong and Chop's are
+  Trending/Ranging, so the token resolves to an empty string on every bar. Those levels are not
+  overbought/oversold and should not be renamed — the fix is either to drop the token or to teach
+  `ResolveZone` to name a declared band, and Chop's bands are inverted (low means trending), which
+  is exactly the kind of thing that should be declared rather than guessed.
+- **The Ulcer Index is display type `Oscillator`** while ATR and historical volatility — same
+  provider, same shape, a one-sided measure with a floor at zero — are `Line`. Being an Oscillator
+  gives it an area fill and makes the audio split it at the pane's midpoint, which is meaningless
+  for a drawdown-depth measure.
+
+
 ### The neutral is declared, the 0 key toggles it, and the axis labels sit on the gridlines (2026-09-12, forty-eighth pass)
 
 Suite **7,577** (was 7,472). Three threads from `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, plus a

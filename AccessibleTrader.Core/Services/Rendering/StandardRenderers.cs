@@ -196,6 +196,40 @@ namespace AccessibleTrader.Core.Services.Rendering
             }
         }
 
+        /// <summary>
+        /// Whether this component asked to be drawn in TWO colours, split at its
+        /// <see cref="ComponentConfig.ColorBaseline"/>.
+        ///
+        /// <para>
+        /// ── The defect (2026-09-12) ───────────────────────────────────────────────
+        /// Cody, on MFI: <i>"I thought it was red below and green above the midline."</i> So did
+        /// its provider. MFI declares four fields that say exactly that — teal primary, red
+        /// secondary, <c>ColorSource.Value</c>, <c>ColorBaseline = 50</c> — and was drawn solid
+        /// teal, because a component of display type Oscillator or Line comes through this method,
+        /// which painted every point with <c>paint.Color</c> and never read the other three
+        /// fields. Only Histogram/Bar (RenderDirectionalBars), ZeroArea and ZeroDot could ever
+        /// show a second colour. So the declaration was accepted, stored, shown in Properties, and
+        /// silently dropped at the one place it meant anything.
+        /// </para>
+        ///
+        /// <para>
+        /// <c>UsePolarityColoring</c> is the field that names this behaviour, and until now it had
+        /// no renderer reading it at all — only the audio layer, choosing a patch. Reading it here
+        /// gives the declaration its consumer. Components whose baseline is zero and whose values
+        /// never go negative (RSI, Stochastic, the Ultimate Oscillator) are unchanged, because the
+        /// split is at a value they never reach.
+        /// </para>
+        /// </summary>
+        private static bool WantsPolaritySplit(ComponentConfig comp) =>
+            comp.UsePolarityColoring && !string.IsNullOrEmpty(comp.ColorHexSecondary);
+
+        /// <summary>The colour a polarity-split component takes at <paramref name="value"/>.</summary>
+        private static SKColor PolarityColor(ComponentConfig comp, double value, SKColor above)
+        {
+            if (value >= comp.ColorBaseline) return above;
+            return SKColor.TryParse(comp.ColorHexSecondary, out var below) ? below : above;
+        }
+
         public static void RenderLine(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
             var lineData = series.GetComponentData(comp.Name);
@@ -205,6 +239,14 @@ namespace AccessibleTrader.Core.Services.Rendering
             float halfBar = barWidth / 2.0f;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;
             bool isArea = comp.DisplayType == ComponentDisplayType.Area || comp.DisplayType == ComponentDisplayType.Gradient;
+
+            // A two-colour component is drawn segment by segment so the colour can change at the
+            // baseline. Explicit ColorRules already take that path below and win over this.
+            if (!hasColorRules && WantsPolaritySplit(comp))
+            {
+                RenderPolarityLine(ctx, series, comp, paint, lineData, barWidth, halfBar);
+                return;
+            }
 
             // When ColorRules are present, draw each segment individually with the resolved color.
             if (hasColorRules)
@@ -290,6 +332,96 @@ namespace AccessibleTrader.Core.Services.Rendering
             else
             {
                 ctx.Canvas.DrawPath(path, paint);
+            }
+        }
+
+        /// <summary>
+        /// A line (or filled oscillator) drawn in two colours, split at
+        /// <see cref="ComponentConfig.ColorBaseline"/>. See <see cref="WantsPolaritySplit"/>.
+        ///
+        /// <para>
+        /// Drawn per segment rather than as one path, because the colour changes mid-line and a
+        /// single <c>SKPath</c> carries one paint. A segment that straddles the baseline is split
+        /// at the crossing point, so the colour changes exactly where the value does rather than
+        /// at the next bar — on a daily chart that difference is a whole day of the wrong colour.
+        /// </para>
+        ///
+        /// <para>
+        /// The fill, when the component is an area, hangs from the value to the BASELINE, not to
+        /// zero. Anchoring to zero is what the single-colour path does, and on a 0–100 pane it
+        /// draws a solid block from the floor — which is the other half of what made MFI read as
+        /// one colour.
+        /// </para>
+        /// </summary>
+        private static void RenderPolarityLine(RenderContext ctx, ChartSeries series, ComponentConfig comp,
+            SKPaint paint, double[] lineData, float barWidth, float halfBar)
+        {
+            SKColor above = paint.Color;
+            double baseline = comp.ColorBaseline;
+            bool isArea = comp.IsAreaFill
+                || comp.DisplayType is ComponentDisplayType.Area or ComponentDisplayType.Gradient
+                or ComponentDisplayType.Oscillator;
+
+            float yBase = ChartMath.MapY(baseline, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
+            yBase = Math.Clamp(yBase, ctx.Top, ctx.Bottom);
+
+            float? prevX = null, prevY = null;
+            double prevVal = double.NaN;
+
+            for (int i = 0; i < ctx.ViewportLength; i++)
+            {
+                int dataIdx = ctx.ViewportStart + i;
+                if (dataIdx >= lineData.Length) break;
+
+                double val = lineData[dataIdx];
+                if (double.IsNaN(val)) { prevX = null; prevY = null; prevVal = double.NaN; continue; }
+
+                float x = (i * barWidth) + halfBar;
+                float y = ResolveMarkerY(ctx, comp, i, val);
+
+                if (prevX.HasValue && !double.IsNaN(prevVal))
+                {
+                    bool prevAbove = prevVal >= baseline;
+                    bool nowAbove  = val >= baseline;
+
+                    if (prevAbove == nowAbove)
+                    {
+                        DrawSegment(prevX.Value, prevY!.Value, x, y, PolarityColor(comp, val, above));
+                    }
+                    else
+                    {
+                        // Split at the crossing: linear interpolation in value space, which is
+                        // where the baseline is defined, then mapped like any other point.
+                        double t = (baseline - prevVal) / (val - prevVal);
+                        float xc = prevX.Value + (float)((x - prevX.Value) * t);
+                        DrawSegment(prevX.Value, prevY!.Value, xc, yBase, PolarityColor(comp, prevVal, above));
+                        DrawSegment(xc, yBase, x, y, PolarityColor(comp, val, above));
+                    }
+                }
+
+                prevX = x; prevY = y; prevVal = val;
+            }
+
+            void DrawSegment(float x0, float y0, float x1, float y1, SKColor color)
+            {
+                if (isArea)
+                {
+                    using var fillPath = new SKPath();
+                    fillPath.MoveTo(x0, y0);
+                    fillPath.LineTo(x1, y1);
+                    fillPath.LineTo(x1, yBase);
+                    fillPath.LineTo(x0, yBase);
+                    fillPath.Close();
+                    using var fill = new SKPaint { Color = color.WithAlpha(60), Style = SKPaintStyle.Fill, IsAntialias = true };
+                    ctx.Canvas.DrawPath(fillPath, fill);
+                }
+
+                using var stroke = new SKPaint
+                {
+                    Color = color, Style = SKPaintStyle.Stroke, IsAntialias = true,
+                    StrokeWidth = paint.StrokeWidth <= 0 ? Math.Max(1f, comp.Thickness) * ctx.Density : paint.StrokeWidth,
+                };
+                ctx.Canvas.DrawLine(x0, y0, x1, y1, stroke);
             }
         }
 

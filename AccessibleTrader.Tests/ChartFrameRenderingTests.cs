@@ -275,6 +275,116 @@ public sealed class ChartFrameRenderingTests
         Assert.True(marker > yLow, "a doji's marker still has to clear it");
     }
 
+    // ── A two-colour line reads its own declaration ──────────────────────────
+
+    private static ChartSeries PolaritySeries(double[] values, double baseline, bool polarity)
+    {
+        var config = new SeriesConfig { Id = "mfi", Name = "MFI", Pane = "Pane_Mfi", IndicatorCode = "Mfi" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Mfi", DisplayType = ComponentDisplayType.Oscillator, IsVisible = true,
+            ColorHex = "#00FF00", ColorHexSecondary = "#FF0000",
+            ColorSource = ColorSource.Value, ColorBaseline = baseline,
+            ReferenceLevel = baseline, UsePolarityColoring = polarity, IsAreaFill = true, Thickness = 2f,
+        });
+        var buffer = new SeriesDataBuffer { SeriesId = "mfi" };
+        buffer.ComponentData["Mfi"] = values;
+        return new ChartSeries(config, buffer);
+    }
+
+    /// <summary>
+    /// Cody, 2026-09-12, on MFI: <i>"I thought it was red below and green above the midline."</i>
+    /// So did its provider — MFI declares a teal primary, a red secondary, <c>ColorSource.Value</c>
+    /// and <c>ColorBaseline = 50</c>, four fields that say exactly that. It drew solid teal,
+    /// because a component of display type Oscillator or Line goes through <c>RenderLine</c>,
+    /// which painted every point with the primary colour and read none of the other three.
+    /// </summary>
+    [Fact]
+    public void ATwoColourOscillator_IsTheSecondColourBelowItsBaseline()
+    {
+        var theme = Theme();
+        // 20 bars falling from 80 to 20 across a midline at 50: half above, half below.
+        var values = Enumerable.Range(0, 20).Select(i => 80.0 - i * 60.0 / 19).ToArray();
+        var series = PolaritySeries(values, baseline: 50, polarity: true);
+
+        using var bmp = Render(c => StandardRenderers.RenderLine(
+            Ctx(c, Bars(20, i => (100, 102)), theme, min: 0, max: 100),
+            series, series.Components[0], new SKPaint { Color = SKColors.Lime, StrokeWidth = 2f }));
+
+        var painted = Histogram(bmp);
+        Assert.True(painted.Keys.Any(c => c.Red > 100 && c.Green < 60), "nothing was painted in the below-baseline colour");
+        Assert.True(painted.Keys.Any(c => c.Green > 100 && c.Red < 60), "nothing was painted in the above-baseline colour");
+    }
+
+    /// <summary>
+    /// And the colour changes at the BASELINE, not at the next bar. The two halves must sit on
+    /// opposite sides of the midline's y — a split that lags by a bar puts a whole day of the
+    /// wrong colour on a daily chart.
+    /// </summary>
+    [Fact]
+    public void TheColourChangesAtTheBaseline()
+    {
+        var theme = Theme();
+        var values = Enumerable.Range(0, 20).Select(i => 80.0 - i * 60.0 / 19).ToArray();
+        var series = PolaritySeries(values, baseline: 50, polarity: true);
+
+        using var bmp = Render(c => StandardRenderers.RenderLine(
+            Ctx(c, Bars(20, i => (100, 102)), theme, min: 0, max: 100),
+            series, series.Components[0], new SKPaint { Color = SKColors.Lime, StrokeWidth = 2f }));
+
+        int midlineY = (int)ChartMath.MapY(50, 0, H, 0, 100, false);
+        int redAbove = 0, greenBelow = 0;
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            var c = bmp.GetPixel(x, y);
+            bool red = c.Red > 100 && c.Green < 60;
+            bool green = c.Green > 100 && c.Red < 60;
+            // y grows downward, so "above the midline" is a SMALLER y.
+            if (red && y < midlineY - 3) redAbove++;
+            if (green && y > midlineY + 3) greenBelow++;
+        }
+        Assert.Equal(0, redAbove);
+        Assert.Equal(0, greenBelow);
+    }
+
+    /// <summary>
+    /// A component that did NOT ask for the split keeps one colour. Every bounded oscillator but
+    /// MFI is in that group, and the change must not reach them.
+    /// </summary>
+    [Fact]
+    public void AComponentThatDidNotAskForASplit_StaysOneColour()
+    {
+        var theme = Theme();
+        var values = Enumerable.Range(0, 20).Select(i => 80.0 - i * 60.0 / 19).ToArray();
+        var series = PolaritySeries(values, baseline: 50, polarity: false);
+
+        using var bmp = Render(c => StandardRenderers.RenderLine(
+            Ctx(c, Bars(20, i => (100, 102)), theme, min: 0, max: 100),
+            series, series.Components[0], new SKPaint { Color = SKColors.Lime, StrokeWidth = 2f }));
+
+        Assert.DoesNotContain(Histogram(bmp).Keys, c => c.Red > 100 && c.Green < 60);
+    }
+
+    /// <summary>
+    /// A baseline of zero on a strictly positive oscillator is a split at a value it never
+    /// reaches, so the line stays one colour. This is why turning the feature on is invisible for
+    /// RSI, Stochastic and the Ultimate Oscillator: their baseline is 0 and their floor is 0.
+    /// </summary>
+    [Fact]
+    public void ABaselineTheValuesNeverReach_ChangesNothing()
+    {
+        var theme = Theme();
+        var values = Enumerable.Range(0, 20).Select(i => 80.0 - i * 60.0 / 19).ToArray();
+        var series = PolaritySeries(values, baseline: 0, polarity: true);
+
+        using var bmp = Render(c => StandardRenderers.RenderLine(
+            Ctx(c, Bars(20, i => (100, 102)), theme, min: 0, max: 100),
+            series, series.Components[0], new SKPaint { Color = SKColors.Lime, StrokeWidth = 2f }));
+
+        Assert.DoesNotContain(Histogram(bmp).Keys, c => c.Red > 100 && c.Green < 60);
+    }
+
     // ── The frame: panes, dividers and the axis strip ────────────────────────
 
     private static ChartSeries IndicatorSeries(string id, string pane, double[] values)
