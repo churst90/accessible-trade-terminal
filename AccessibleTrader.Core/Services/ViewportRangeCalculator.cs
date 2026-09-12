@@ -160,9 +160,7 @@ namespace AccessibleTrader.Core.Services
 
                 if (!hasData)
                 {
-                    paneRanges[key] = basePaneName == "Pane_CIPHER_B" && !isSubPane
-                        ? (-100.0, 100.0)
-                        : (0.0, 100.0);
+                    paneRanges[key] = EmptyPaneRange(key);
                     continue;
                 }
 
@@ -190,6 +188,54 @@ namespace AccessibleTrader.Core.Services
             return new ViewportRangeResult((mainMin, mainMax), paneRanges.ToImmutableDictionary());
         }
     
+        /// <summary>
+        /// The range an indicator pane has before it has any data: 0–100, the bounded-oscillator
+        /// convention, or ±100 for Cipher B whose OB/OS levels sit at ±53/±60. A sub-pane key
+        /// ("Pane_CIPHER_B/MF") takes the plain default.
+        /// </summary>
+        public static (double Min, double Max) EmptyPaneRange(string rangeKey)
+        {
+            int slash = rangeKey.IndexOf('/');
+            string basePane = slash >= 0 ? rangeKey.Substring(0, slash) : rangeKey;
+            return basePane == "Pane_CIPHER_B" && slash < 0 ? (-100.0, 100.0) : (0.0, 100.0);
+        }
+
+        /// <summary>
+        /// <b>The range a component is normalised against</b> — pitch in navigation and playback
+        /// both read it. The sub-pane's range when the component lives in one, else the pane's.
+        ///
+        /// <para>
+        /// <b>When the key is missing</b>, the answer depends on WHICH pane is missing. The Main
+        /// pane's range IS the viewport range, so that is its fallback. Any other pane falls back
+        /// to <see cref="EmptyPaneRange"/> — never to the price range. Until 2026-09-11 both audio
+        /// sites fell back to <c>state.ViewportRange</c> for every pane, silently: accidentally
+        /// right for Main, and for an oscillator a 0–100 value normalised against 99,900–100,100
+        /// is one flat tone with no log to say why. Recorded as §5 of
+        /// <c>docs/SHARED_OSCILLATOR_PANE_2026-09-11.md</c>; <c>PaneRanges</c> is recomputed only
+        /// when the data, the viewport or the series LIST reference changes and a tab snapshot
+        /// restores it verbatim, so a stale-key miss is reachable.
+        /// </para>
+        /// </summary>
+        public static (double Min, double Max) RangeFor(
+            IReadOnlyDictionary<string, (double Min, double Max)>? paneRanges,
+            string? pane,
+            string? subPane,
+            (double Min, double Max) viewportRange)
+        {
+            string paneKey = string.IsNullOrEmpty(pane) ? "Main" : pane!;
+            string rangeKey = string.IsNullOrEmpty(subPane) ? paneKey : $"{paneKey}/{subPane}";
+
+            if (paneRanges != null)
+            {
+                if (paneRanges.TryGetValue(rangeKey, out var r)) return r;
+                if (paneRanges.TryGetValue(paneKey, out var pr)) return pr;
+            }
+
+            return paneKey.Equals("Main", StringComparison.OrdinalIgnoreCase)
+                ? viewportRange
+                : EmptyPaneRange(rangeKey);
+        }
+
         /// <summary>
         /// Whether a reference level is in the same units as the pane it would expand.
         ///

@@ -261,12 +261,10 @@ namespace AccessibleTrader.Core.Services.Audio
                 return;
             }
 
-            // Sub-pane-aware range so components in a sub-pane use their own Y-range.
-            string compRangeKey = !string.IsNullOrEmpty(comp.SubPaneName)
-                ? $"{series.Pane}/{comp.SubPaneName}"
-                : (series.Pane ?? "");
-            var range = state.PaneRanges.TryGetValue(compRangeKey, out var cr) ? cr
-                : (state.PaneRanges.TryGetValue(series.Pane ?? "", out var pr) ? pr : state.ViewportRange);
+            // Sub-pane-aware range so components in a sub-pane use their own Y-range. A missing
+            // key for an indicator pane falls back to that pane's EMPTY range, never to the price
+            // range — see ViewportRangeCalculator.RangeFor.
+            var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, comp.SubPaneName, state.ViewportRange);
 
             var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
 

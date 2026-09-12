@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A missing pane range no longer falls back to the price range (2026-09-11, forty-sixth pass, second commit)
+
+Suite **7,441** (was 7,433). §5 of `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` — the latent defect
+found beside the shared-pane bug, not its cause. `NavigationSonifier` and `AudioSequencer` both read `state.PaneRanges[pane]`
+and, when the key was absent, fell back to `state.ViewportRange` — the PRICE range — for every
+pane, silently. Right for Main by definition; for an oscillator, a 0–100 value normalised against
+99,900–100,100 is one flat tone with no log. `PaneRanges` is recomputed only when the data, the
+viewport or the series LIST reference changes, and a tab snapshot restores it verbatim, so a
+stale-key miss is reachable. Both sites now call `ViewportRangeCalculator.RangeFor`, which keeps
+the viewport range for Main and falls back to the calculator's own empty-pane default (0–100, or
+±100 for Cipher B) for anything else — the same `EmptyPaneRange` the calculator uses, now one
+function instead of an inline conditional. `PaneRangeFallbackTests` (8); sabotage (fallback back
+to the price range for every pane) proven red.
+
 ### Every oscillator has a pane of its own; RSI is no longer flat beside MACD (2026-09-11, forty-sixth pass)
 
 Suite **7,433** (was 7,407). Resolves `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` — Cody chose

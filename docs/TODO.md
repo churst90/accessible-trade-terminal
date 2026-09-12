@@ -118,7 +118,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 ### What to do next, and why that order
 
 > **START HERE (current as of 2026-09-11 (night), FORTY-SIXTH pass — EVERY OSCILLATOR HAS A
-> PANE OF ITS OWN; RSI IS NO LONGER FLAT BESIDE MACD.)** Suite **7,433**, 0 failing. Nothing in
+> PANE OF ITS OWN; RSI IS NO LONGER FLAT BESIDE MACD.)** Suite **7,441** after both commits, 0 failing. Nothing in
 > this pass was HEARD — see NEXT item 1.
 >
 > Cody chose option A of `docs/SHARED_OSCILLATOR_PANE_2026-09-11.md` ("assign one indicator per
@@ -149,9 +149,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > 3. **A pane shared by a cohort is named by its key** — two RSIs in `Pane_Rsi` read as "Rsi"
 >    (`ChartPaneModel.Prettify`), while one RSI reads as the series name. Minor; the cohort's
 >    common name ("RSI") would be better. Not heard.
-> 4. §5 of the diagnosis — the audio sites fall back to the PRICE range when a pane key is
->    missing — is addressed in its own commit after this one; if that commit is absent, it is the
->    next item.
+> 4. ~~§5 of the diagnosis — the audio sites fall back to the PRICE range when a pane key is
+>    missing.~~ DONE in the second commit of this pass: `ViewportRangeCalculator.RangeFor`, the
+>    empty-pane default for any pane but Main. `PaneRangeFallbackTests` (8), sabotage red.
 
 > **START HERE (current as of 2026-09-11 (night), FORTY-THIRD pass — THE ROUTING POLICY IS
 > BUILT: the chart in front of you is spoken, everything else is a notification.)**

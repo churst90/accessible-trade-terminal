@@ -8,7 +8,7 @@ saved series' pane so existing workspaces heal on load, in the browser and headl
 Add Indicator dialog names the pane it will land on; `MainPaneLevelUnitsTests` is re-aimed at the
 resolver; the contradicting comment in §4 is corrected. 26 guards in `PaneAssignmentTests`, two
 sabotages proven red. The fleet invariant: no pane other than Main and Volume holds two indicator
-codes. §5's latent fallback is addressed separately. Entry in `docs/CHANGES.md`.**
+codes. §5's latent fallback is fixed in the second commit of the same pass (`ViewportRangeCalculator.RangeFor`). Entry in `docs/CHANGES.md`.**
 
 *The text below is the diagnosis as written before the fix, kept as the record of the mechanism.*
 

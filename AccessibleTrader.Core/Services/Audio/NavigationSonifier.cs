@@ -203,13 +203,10 @@ namespace AccessibleTrader.Core.Services.Audio
             // Use the sub-pane range when the focused component lives in a sub-pane (e.g. MF Wave
             // in "Pane_CIPHER_B/MF"). Without this, raw MF values get normalised against the main
             // pane's ±100 WT range and clamp to two tones instead of a continuous pitch sweep.
+            // A missing key for an indicator pane falls back to that pane's EMPTY range, never to
+            // the price range — see ViewportRangeCalculator.RangeFor for the defect that was.
             var focusedComp = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
-            string rangeKey = !string.IsNullOrEmpty(focusedComp?.SubPaneName)
-                ? $"{series.Pane}/{focusedComp.SubPaneName}"
-                : series.Pane;
-            var range = state.PaneRanges.TryGetValue(rangeKey, out var r)
-                ? r
-                : (state.PaneRanges.TryGetValue(series.Pane, out var pr) ? pr : state.ViewportRange);
+            var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, focusedComp?.SubPaneName, state.ViewportRange);
 
             // The bar AS DRAWN, so pitch and direction follow the candle colours on screen.
             //
