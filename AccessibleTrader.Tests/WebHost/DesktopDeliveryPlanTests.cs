@@ -376,7 +376,7 @@ public class DesktopDeliveryPlanTests
         public string DescribeToast() => _plan.DescribeToast();
         public bool CanNotify => _plan.CanNotify;
         public void PlayNotificationSound() { }
-        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
+        public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text, urgent)); return true; }
         public void Speak(string text) { }
     }
 }

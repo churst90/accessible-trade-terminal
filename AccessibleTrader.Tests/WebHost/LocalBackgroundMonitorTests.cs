@@ -280,7 +280,7 @@ public class LocalBackgroundMonitorTests
         // that delivery arrives as speech. HeadlessNarrationTests covers the other machine.
         public bool CanNotify => false;
         public void PlayNotificationSound() => SoundsPlayed++;
-        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
+        public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text, urgent)); return CanNotify; }
         public void Speak(string text) => Spoken.Add(text);
     }
 

@@ -135,12 +135,24 @@ namespace AccessibleTrader.WebHost.Services
             // "do not notify me about things I cannot see" and means what it says.
             bool wanted;
             try { wanted = _notifyEnabled(); }
-            catch { wanted = true; }     // an unanswerable switch is not an off switch
+            catch (Exception ex)
+            {
+                // An unanswerable switch is not an off switch — money events must not be lost to
+                // a settings read. Logged, because it means the user's choice is not being read.
+                _logger?.LogWarning(ex, "Could not read the notification switch; announcing anyway.");
+                wanted = true;
+            }
             if (!wanted) return;
 
             bool covered;
             try { covered = _isCovered(provider); }
-            catch { covered = false; }   // an unanswerable coverage question is not coverage
+            catch (Exception ex)
+            {
+                // An unanswerable coverage question is not coverage: better a double fill
+                // announcement than a silent one.
+                _logger?.LogWarning(ex, "Could not determine browser coverage for {Provider}.", provider);
+                covered = false;
+            }
 
             if (covered)
             {

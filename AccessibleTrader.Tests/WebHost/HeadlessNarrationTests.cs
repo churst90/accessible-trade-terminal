@@ -100,7 +100,11 @@ public sealed class HeadlessNarrationTests : IDisposable
 
         string one = Assert.Single(h.Presenter.Spoken);
         Assert.Equal("BTC/USD 1h: Volume 100,000, up.", one);
-        Assert.Equal(0, h.Presenter.SoundsPlayed);   // a reading is not a notification event
+        // REVERSED 2026-09-11: a standalone ladder carries the same cue a bar close does. The
+        // two used to disagree, which made the sound mean "a bar closed on a chart whose
+        // timeframe clears the floor" rather than "something happened on a chart you cannot
+        // see" — and in-session the background earcon plays for both.
+        Assert.Equal(1, h.Presenter.SoundsPlayed);
     }
 
     [Fact]

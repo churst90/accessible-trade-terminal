@@ -154,9 +154,13 @@ namespace AccessibleTrader.WebHost.Services
 
             while (!ct.IsCancellationRequested)
             {
-                try { await PollOnceAsync(ct); }
+                try
+                {
+                    await PollOnceAsync(ct);
+                    NotePollHealthy();
+                }
                 catch (OperationCanceledException) { break; }
-                catch (Exception ex) { _logger.LogWarning(ex, "Background monitor poll failed; retrying next cycle."); }
+                catch (Exception ex) { NotePollFailed(ex); }
 
                 try { await Task.Delay(PollInterval, ct); }
                 catch (OperationCanceledException) { break; }
@@ -371,11 +375,50 @@ namespace AccessibleTrader.WebHost.Services
                 Announce($"Alert {alert.Name} cannot be fully evaluated in the background: {why}.");
             _evaluator.EvaluationFailed += (alert, ex) =>
             {
-                if (!_reportedFailures.Add(alert.Id)) return;
+                // Keyed on the alert AND the reason. Keyed on the alert alone — which is what it
+                // was until 2026-09-11 — an alert that failed, was fixed, and then failed again
+                // for a DIFFERENT reason was never reported a second time, for the life of the
+                // process. The latch is there to stop a repeating fault repeating every minute,
+                // not to stop a new fault being heard. See NotePollFailed for the same shape.
+                string key = alert.Id + "|" + ex.GetType().Name + "|" + ex.Message;
+                if (!_reportedFailures.Add(key)) return;
                 _logger.LogWarning(ex, "Background alert '{Name}' failed to evaluate.", alert.Name);
                 Announce($"Alert {alert.Name} failed to evaluate in the background: {ex.Message}");
             };
             return _evaluator;
+        }
+
+        // ── The monitor reporting on ITSELF ──────────────────────────────────
+
+        /// <summary>The reason the poll last failed, or null while it is healthy.</summary>
+        private string? _pollFailure;
+
+        /// <summary>
+        /// A poll that threw. Said ONCE per distinct reason, and said again when it recovers.
+        ///
+        /// <para>It used to be a <c>LogWarning</c> and nothing else, forever — which is the same
+        /// "it can speak and did not report its own failure" hole this class was written to
+        /// close, one level up from the alerts. A monitor whose every poll is throwing is a
+        /// monitor announcing nothing, and the user has no way to tell that apart from a quiet
+        /// market.</para>
+        /// </summary>
+        private void NotePollFailed(Exception ex)
+        {
+            _logger.LogWarning(ex, "Background monitor poll failed; retrying next cycle.");
+
+            string reason = ex.GetType().Name + ": " + ex.Message;
+            if (_pollFailure == reason) return;      // same fault, already said
+            _pollFailure = reason;
+            Announce($"Background monitoring has stopped working: {ex.Message}. It will keep retrying.");
+        }
+
+        /// <summary>A poll that came back. Said once, because a user who heard the failure has no
+        /// other way to learn it is over — the same rule the dead-feed tracker uses.</summary>
+        private void NotePollHealthy()
+        {
+            if (_pollFailure == null) return;
+            _pollFailure = null;
+            Announce("Background monitoring is working again.");
         }
 
         /// <summary>One fetch, with the dead-feed bookkeeping. Null on failure.</summary>
@@ -838,8 +881,12 @@ namespace AccessibleTrader.WebHost.Services
             string title = $"{watch.Symbol} {watch.Timeframe}";
             string text = $"{title}: {ladder}";
             _logger.LogInformation("Background narration: {Text}", text);
+            // WITH the sound, like the bar close it would otherwise have ridden. The two used to
+            // disagree — a close plus ladder got the cue, a ladder alone did not — which made the
+            // cue mean "a bar closed on a chart whose timeframe clears the floor" rather than
+            // "something happened". In-session the background earcon plays for both.
             DesktopAnnouncement.Present(_presenter,
-                title, text, text, urgent: false, withSound: false, _logger);
+                title, text, text, urgent: false, withSound: true, _logger);
         }
 
         // ── The chart per watch (Phase 3 D4: the ladder, then the alerts) ───────
@@ -934,6 +981,12 @@ namespace AccessibleTrader.WebHost.Services
             lock (_lastBarSeen)
                 foreach (var key in _lastBarSeen.Keys.Where(k => !keep.Contains(k)).ToList())
                     _lastBarSeen.Remove(key);
+
+            // The "this host cannot build that indicator" latch is keyed by watch too, and a
+            // chart that is gone should be able to say it again if it comes back with the same
+            // problem — otherwise the warning is suppressed for the life of the process on a
+            // chart the user has since re-opened.
+            _warnedMissingIndicators.RemoveWhere(k => !keep.Any(x => k.StartsWith(x, StringComparison.OrdinalIgnoreCase)));
         }
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────

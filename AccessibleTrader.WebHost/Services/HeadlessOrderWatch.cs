@@ -171,7 +171,9 @@ namespace AccessibleTrader.WebHost.Services
                     // The venue could not be asked. That is exactly the dead feed the tracker
                     // is for: an expired key or an unreachable API means fills are not being
                     // watched, whatever the user believes.
-                    NoteStreamFailure(name, "its account could not be read");
+                    NoteStreamFailure(name, string.IsNullOrWhiteSpace(LastFailure)
+                        ? "its account could not be read"
+                        : $"its account could not be read: {LastFailure}");
                     continue;
                 }
 
@@ -282,11 +284,31 @@ namespace AccessibleTrader.WebHost.Services
         /// as the first is how a user ends up believing an expired key is an empty account.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Why the last <see cref="HasOpenWorkAsync"/> could not answer — the venue's own words,
+        /// trimmed. Null when it answered. Static because the method is, and read immediately
+        /// after it returns null.
+        /// </summary>
+        internal static string? LastFailure { get; private set; }
+
+        private static string Describe(Exception ex)
+        {
+            string m = ex.Message?.Trim() ?? "";
+            if (m.Length == 0) m = ex.GetType().Name;
+            return m.Length > 160 ? m[..160] : m;
+        }
+
         internal static async Task<bool?> HasOpenWorkAsync(IDataService data, string providerName)
         {
+            // The venue's OWN complaint, kept so the caller can say WHY rather than only that.
+            // These three catches used to discard it, and the user then heard "its account could
+            // not be read" with nothing to act on — an expired key, a geo-block and a network
+            // outage are three different problems and all three sounded identical.
+            LastFailure = null;
+
             IMarketDataProvider? provider;
             try { provider = await data.GetProviderAsync(providerName); }
-            catch { return null; }
+            catch (Exception ex) { LastFailure = Describe(ex); return null; }
             if (provider is not ITradingProvider tp) return false;   // a data-only feed has no orders to watch
 
             bool asked = false;
@@ -296,15 +318,17 @@ namespace AccessibleTrader.WebHost.Services
                 if ((await tp.GetOpenOrdersAsync()).Count > 0) return true;
                 asked = true;
             }
-            catch { /* try positions before giving up — a spot venue may refuse a null-symbol order query */ }
+            // Try positions before giving up — a spot venue may refuse a null-symbol order query.
+            catch (Exception ex) { LastFailure = Describe(ex); }
 
             try
             {
                 if ((await tp.GetPositionsAsync()).Count > 0) return true;
                 asked = true;
             }
-            catch { /* fall through */ }
+            catch (Exception ex) { LastFailure ??= Describe(ex); }
 
+            if (asked) LastFailure = null;   // one of the two answered; there is no failure to report
             return asked ? false : null;
         }
 

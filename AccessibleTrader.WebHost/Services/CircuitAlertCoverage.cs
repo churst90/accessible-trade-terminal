@@ -72,8 +72,16 @@ namespace AccessibleTrader.WebHost.Services
             foreach (var source in _sources.Values)
             {
                 IEnumerable<string> symbols;
+                // A disposing circuit covers nothing and the headless side takes it, which is the
+                // right direction to fail. It is NOT a silent one: a circuit that throws here is
+                // a browser whose symbols nobody can enumerate, and the announcement it was going
+                // to make is about to be made twice or not at all.
                 try { symbols = source() ?? Enumerable.Empty<string>(); }
-                catch { continue; }   // a disposing circuit covers nothing; the headless side takes it
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Alert coverage source threw: {ex.Message}");
+                    continue;
+                }
 
                 foreach (var s in symbols)
                     if (!string.IsNullOrWhiteSpace(s)) set.Add(s.Trim());

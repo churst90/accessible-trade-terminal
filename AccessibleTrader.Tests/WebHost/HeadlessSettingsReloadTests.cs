@@ -28,8 +28,16 @@ namespace AccessibleTrader.Tests.WebHost;
 /// substituted settings manager has no cache and therefore cannot show the defect.
 /// </para>
 /// </summary>
-public sealed class HeadlessSettingsReloadTests
+[Collection("CircuitCoverage")]
+public sealed class HeadlessSettingsReloadTests : IDisposable
 {
+    // The monitor's announcements are gated on CircuitAlertCoverage, a PROCESS-WIDE static.
+    // Without this collection these tests ran in parallel with the ones that register circuits,
+    // and a circuit covering BTC/USD in another class silenced the monitor here — green alone,
+    // red in the full run.
+    public HeadlessSettingsReloadTests() => CircuitAlertCoverage.ResetForTests();
+    public void Dispose() => CircuitAlertCoverage.ResetForTests();
+
     // ── The cache itself, at the unit ────────────────────────────────────────────
 
     private static (SettingsManager mgr, string path) RealManager()

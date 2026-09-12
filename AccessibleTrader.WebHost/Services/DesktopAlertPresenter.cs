@@ -39,11 +39,26 @@ namespace AccessibleTrader.WebHost.Services
         /// <summary>What is carrying the toasts, in words, for the delivery panel's hint.</summary>
         string DescribeToast();
 
-        /// <summary>A desktop toast. No-op when this machine has no toast tool.</summary>
+        /// <summary>
+        /// A desktop notification. <b>Returns whether it actually reached the desktop</b>, which
+        /// is not the same question as <see cref="CanNotify"/>.
+        ///
+        /// <para>
+        /// It used to return void, and that was the hole: <c>notify-send</c> exiting non-zero —
+        /// the notification daemon gone, no D-Bus session, a display the service cannot reach —
+        /// was <b>total silence with a success-shaped log</b>, and no speech fallback, because
+        /// the fallback asked "does this machine have a tool?" rather than "did the words get
+        /// through?". Since the browser-closed half made the notification the ONLY channel for
+        /// everything the trader cannot see, that hole is the whole feature failing quietly.
+        /// </para>
+        ///
+        /// <para>False means "say it another way". An implementation that cannot tell should
+        /// return true rather than provoke a double announcement.</para>
+        /// </summary>
         /// <param name="urgent">Critical urgency — used for the monitor reporting on ITSELF
         /// (a feed it can no longer watch), not for an alert firing normally. Only Linux honours
         /// it; macOS and Windows have no urgency level on a notification.</param>
-        void Notify(string title, string text, bool urgent);
+        bool Notify(string title, string text, bool urgent);
 
         /// <summary>Speaks with no browser in the picture: Orca then <c>spd-say</c> on Linux —
         /// the same ladder the in-session speech manager uses — <c>say</c> on macOS, SAPI on
@@ -72,7 +87,16 @@ namespace AccessibleTrader.WebHost.Services
     /// </summary>
     public static class DesktopAnnouncement
     {
-        /// <summary>Direct speech runs only where there is no notification tool to carry the text.</summary>
+        /// <summary>
+        /// Whether this machine has no notification tool at all — so the words would have
+        /// nowhere to go but speech.
+        ///
+        /// <para><b>This is no longer the whole rule.</b> Since 2026-09-11 <see cref="Present"/>
+        /// also speaks when the notification was ATTEMPTED and did not land: a machine can have
+        /// <c>notify-send</c> on its PATH and still have no daemon listening. Kept as the
+        /// "before we try" half of the question, and as the answer for a caller that has not
+        /// tried yet.</para>
+        /// </summary>
         public static bool ShouldSpeak(IDesktopAlertPresenter presenter) => !presenter.CanNotify;
 
         /// <param name="toastBody">What the notification shows under <paramref name="title"/>. A
@@ -84,11 +108,23 @@ namespace AccessibleTrader.WebHost.Services
             string title, string toastBody, string speech, bool urgent, bool withSound, ILogger? logger)
         {
             if (withSound) Try(() => presenter.PlayNotificationSound(), "sound", logger);
+
             // Always attempted: a presenter with no toast tool makes this a no-op, and asking
-            // first would be a second copy of the same question.
-            Try(() => presenter.Notify(title, toastBody, urgent), "toast", logger);
-            if (ShouldSpeak(presenter))
+            // first would be a second copy of the same question. What matters is the ANSWER —
+            // a notification that was attempted and did not land leaves the words nowhere.
+            bool delivered = false;
+            Try(() => delivered = presenter.Notify(title, toastBody, urgent), "notification", logger);
+
+            // Speech is the fallback for "the notification did not get through", of which
+            // "there is no notification tool" is only one case. The other — a tool on the PATH
+            // with no daemon behind it — used to be silence with a success-shaped log.
+            if (!delivered)
+            {
+                if (presenter.CanNotify)
+                    logger?.LogWarning(
+                        "The desktop notification did not reach anybody; saying it aloud instead: {Title}", title);
                 Try(() => presenter.Speak(speech), "speech", logger);
+            }
         }
 
         private static void Try(Action deliver, string channel, ILogger? logger)
@@ -164,31 +200,107 @@ namespace AccessibleTrader.WebHost.Services
 
         public bool CanNotify => _plan.CanNotify;
 
-        public void Notify(string title, string text, bool urgent)
-            => Run(_plan.ToastCommand(title, text, urgent));
+        /// <summary>
+        /// Raise the notification AND WAIT to find out whether it landed.
+        ///
+        /// <para>The only one of the three channels that waits, and the reason is asymmetric
+        /// cost: a notification that silently failed is an announcement the user never receives,
+        /// while the sound and the speech have no fallback to choose between. A notification
+        /// tool returns in milliseconds; <see cref="ExitWait"/> is generous enough that a normal
+        /// one is never cut short and short enough that a hung one cannot stall a poll.</para>
+        /// </summary>
+        public bool Notify(string title, string text, bool urgent)
+            => RunAndWait(_plan.ToastCommand(title, text, urgent));
 
         public void Speak(string text) => Run(_plan.SpeechCommand(text));
+
+        /// <summary>How long to wait for the notification tool to exit before giving up on the
+        /// question. Not on the delivery — the process is left to finish.</summary>
+        internal static readonly TimeSpan ExitWait = TimeSpan.FromSeconds(3);
 
         private void Run(DesktopCommand? command)
         {
             if (command == null) return;
             try
             {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = command.File,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                };
-                foreach (var a in command.Args) psi.ArgumentList.Add(a);
-                using var _ = Process.Start(psi);
+                using var _ = Process.Start(StartInfo(command));
             }
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Background delivery command {File} failed.", command.File);
             }
+        }
+
+        /// <summary>
+        /// Start the command and report whether it SUCCEEDED. False means the words did not get
+        /// through and the caller should say them another way.
+        ///
+        /// <para>A command that cannot start, or exits non-zero, is a failure and is logged at
+        /// Warning rather than Debug — this is the user losing an announcement, not a diagnostic
+        /// detail. A command that has not exited within <see cref="ExitWait"/> is reported as
+        /// DELIVERED: it is still running, and guessing the other way would double every
+        /// announcement on a slow machine, which is the failure mode this project refuses.</para>
+        /// </summary>
+        private bool RunAndWait(DesktopCommand? command)
+        {
+            if (command == null) return false;   // no tool on this machine — speech is the path
+            try
+            {
+                using var process = Process.Start(StartInfo(command));
+                if (process == null)
+                {
+                    _logger.LogWarning("Notification command {File} did not start.", command.File);
+                    return false;
+                }
+
+                if (!process.WaitForExit((int)ExitWait.TotalMilliseconds))
+                {
+                    _logger.LogDebug(
+                        "Notification command {File} has not exited after {Seconds}s; assuming it was delivered.",
+                        command.File, ExitWait.TotalSeconds);
+                    return true;
+                }
+
+                if (process.ExitCode == 0) return true;
+
+                // The case this method exists for: notify-send is installed and on the PATH, and
+                // there is no daemon, no D-Bus session or no reachable display behind it.
+                _logger.LogWarning(
+                    "Notification command {File} exited {Code}; the notification did not reach the desktop. {Error}",
+                    command.File, process.ExitCode, ReadError(process));
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Notification command {File} failed.", command.File);
+                return false;
+            }
+        }
+
+        /// <summary>The tool's own complaint, trimmed, for the log line above — "it failed"
+        /// without "why" is not something a maintainer can act on.</summary>
+        private static string ReadError(Process process)
+        {
+            try
+            {
+                string err = process.StandardError.ReadToEnd().Trim();
+                return err.Length == 0 ? "" : err.Length > 200 ? err[..200] : err;
+            }
+            catch { return ""; }
+        }
+
+        private static ProcessStartInfo StartInfo(DesktopCommand command)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = command.File,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            foreach (var a in command.Args) psi.ArgumentList.Add(a);
+            return psi;
         }
 
         // ── Default sound (replace by dropping your own alert.wav) ───────────

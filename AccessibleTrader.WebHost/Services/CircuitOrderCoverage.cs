@@ -73,8 +73,14 @@ namespace AccessibleTrader.WebHost.Services
             foreach (var source in _sources.Values)
             {
                 IEnumerable<string> providers;
+                // Same rule and same reason as CircuitAlertCoverage: failing towards "the
+                // headless side takes it" is right, failing SILENTLY is not.
                 try { providers = source() ?? Enumerable.Empty<string>(); }
-                catch { continue; }   // a disposing circuit covers nothing; the headless side takes it
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Order coverage source threw: {ex.Message}");
+                    continue;
+                }
 
                 foreach (var p in providers)
                     if (!string.IsNullOrWhiteSpace(p)) set.Add(p.Trim());

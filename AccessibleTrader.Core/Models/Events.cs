@@ -366,7 +366,12 @@ namespace AccessibleTrader.Core.Models
     /// have fired unconditionally — a bar close on a chart you are not looking at interrupting
     /// the one you are. Cody, 2026-09-08: toast and earcon by default, speech opt-in.</para>
     /// </summary>
-    public record BackgroundBarClosedEvent(ChartIdentity Identity, Ohlcv ClosedBar, Ohlcv NewBar);
+    /// <param name="Narration">The tab's narration ladder at this close, when it has series
+    /// flagged with N — appended to the notification body so a background tab reads exactly as
+    /// the same chart does with the browser closed. Null when there is nothing to say. Additive
+    /// with a null default so existing constructions still compile.</param>
+    public record BackgroundBarClosedEvent(
+        ChartIdentity Identity, Ohlcv ClosedBar, Ohlcv NewBar, string? Narration = null);
     /// <summary>Fired on every intra-bar tick (same bar count, last bar updated in place).</summary>
     public record IntraBarUpdateEvent(Ohlcv CurrentBar, Ohlcv? PreviousBar = null, Ohlcv? TwoBarsAgo = null);
 

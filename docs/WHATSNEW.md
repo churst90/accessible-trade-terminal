@@ -48,6 +48,19 @@ no browser was watching your focused chart and announced its every bar close as 
 notification, and, less visibly, **every alert scoped to that symbol was skipped by the
 in-browser pipeline**. Both are fixed, on the resume path and on tab switches alike.
 
+**A notification that fails to appear is now spoken instead.** If your notification daemon is not
+running — no D-Bus session, a service started before the desktop — the terminal used to send its
+notification into nothing and log a success. Everything you could not see was simply lost. It now
+checks whether the notification actually arrived and says it aloud when it did not.
+
+**Other open tabs now get the full narration.** A bar closing on a workspace you are not looking
+at used to give you two clauses; the same chart with the browser closed gave you the whole ladder.
+Closing the browser told you more than leaving it open. They match now.
+
+**The background monitor tells you when IT is broken.** If its polling starts failing — a provider
+down, a bad key — it says so once, and says so again when it recovers. It used to fail quietly
+forever, which sounds exactly like a quiet market.
+
 **Smaller things you may notice:**
 
 - The tray's silence item now says what it actually silences — "Silence alerts and bar closes"

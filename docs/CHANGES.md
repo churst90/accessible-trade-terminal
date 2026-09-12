@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A notification that fails is now heard; the ladder reaches other tabs; the monitor reports its own failures (2026-09-11, forty-fifth pass)
+
+Suite **7,407** (was 7,400). H8, H13 and Q3 from
+`docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md`, closing that document out.
+
+**H8 — the notification now reports whether it landed.** `IDesktopAlertPresenter.Notify` returned
+`void`, `ProcessDesktopAlertPresenter` never waited for the process and never read its exit code,
+and the speech fallback asked *"does this machine have a notification tool?"* rather than *"did
+the words get through?"*. So `notify-send` exiting non-zero — no daemon, no D-Bus session, a
+display the service cannot reach — was **total silence with a success-shaped Debug log**. Now the
+notification is awaited (3 s, after which a still-running tool counts as delivered rather than
+risking a double), a non-zero exit is a Warning carrying the tool's own stderr, and **anything
+that did not land is spoken instead**. This matters more since the routing pass made the
+notification the only channel for everything the trader cannot see.
+
+**Q3 — a background tab gets the full narration ladder.** Cody: *"giving the narration for other
+tabs would be useful to have the full ladder."* Until now the same chart told you MORE with the
+browser closed (bar close plus the whole ladder) than with it open (a two-clause sentence), which
+is not a defensible thing for a terminal to do. `BackgroundBarAnnouncer` now keeps a
+`HeadlessChart` per background tab — the same narrator the browser-closed half uses, reading the
+tab's own saved series out of the workspace snapshot — and appends its ladder to both the spoken
+sentence and the notification body, as one utterance. The earcon still fires immediately; the
+words leave the feed thread, because composing a ladder means computing indicators.
+
+**H13 — the monitor reporting on itself, and the latches that never recovered:**
+
+- **A poll that throws is now announced**, once per distinct reason, and announced again when it
+  recovers. It was a `LogWarning` and nothing else, forever — the same "it can speak and did not
+  report its own failure" hole this class exists to close, one level up. A monitor whose every
+  poll is failing is a monitor announcing nothing, and a user who cannot read the log has no way
+  to tell that apart from a quiet market.
+- **`_reportedFailures` is keyed on the alert AND the reason.** Keyed on the alert alone, an alert
+  that failed, was fixed, then failed again for a *different* reason was never reported a second
+  time for the life of the process. A latch stops a repeating fault repeating; it must not stop a
+  new fault being heard.
+- **`HeadlessOrderWatch` keeps the venue's own error.** Three bare catches discarded it and the
+  user heard "its account could not be read" with nothing to act on — an expired key, a geo-block
+  and a network outage sounded identical.
+- **A standalone narration announcement carries the notification sound**, like the bar close it
+  would otherwise have ridden. The two disagreed, which made the cue mean "a bar closed on a chart
+  whose timeframe clears the floor" rather than "something happened".
+- `_warnedMissingIndicators` is pruned with the charts; the coverage registries and the order
+  announcer log their swallowed exceptions instead of discarding them.
+
+**A test that was green alone and red in the full run.** `HeadlessSettingsReloadTests` was not in
+the `CircuitCoverage` collection, so it ran in parallel with classes that register circuits into a
+process-wide static and one of them silenced its monitor. **A guard that depends on a static must
+join the collection that serialises it**; passing in isolation proves nothing about the suite.
+
 ### The resumed session did not know what symbol was on screen (2026-09-11, forty-fourth pass)
 
 Suite **7,400** (was 7,393). Cody, on the pass above: *"When I open my 3 workspaces, I'm focused

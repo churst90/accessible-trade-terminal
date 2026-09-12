@@ -79,9 +79,23 @@ namespace AccessibleTrader.Core.Services.Feeds
         private readonly ISettingsManager _settings;
         private readonly IEarconService _earcons;
         private readonly ISpeechFeedbackRouter _speech;
+        private readonly Accessibility.HeadlessChartFactory? _charts;
         private readonly ILogger<BackgroundBarAnnouncer>? _logger;
         private bool _disposed;
 
+        /// <summary>
+        /// One narrator per background tab, with the crossover memory the ladder needs. Keyed by
+        /// identity and rebuilt when the tab's series change — the same shape
+        /// <c>LocalBackgroundMonitor</c> uses for the browser-closed half, because it is the same
+        /// job: a chart nobody is looking at, scanned at its close.
+        /// </summary>
+        private readonly Dictionary<ChartIdentity, (string Signature, Accessibility.HeadlessChart Chart)> _narrators = new();
+        private readonly object _narratorGate = new();
+
+        /// <param name="charts">The narration ladder for a background tab, added 2026-09-11 on
+        /// Cody's call ("giving the narration for other tabs would be useful to have the full
+        /// ladder"). Optional: without it this class behaves as it did, announcing the two-clause
+        /// sentence alone, which is what every head that does not register the factory gets.</param>
         public BackgroundBarAnnouncer(
             IMarketFeedHub hub,
             IBackgroundTabFeedService tabFeeds,
@@ -90,7 +104,8 @@ namespace AccessibleTrader.Core.Services.Feeds
             ISettingsManager settings,
             IEarconService earcons,
             ISpeechFeedbackRouter speech,
-            ILogger<BackgroundBarAnnouncer>? logger = null)
+            ILogger<BackgroundBarAnnouncer>? logger = null,
+            Accessibility.HeadlessChartFactory? charts = null)
         {
             _hub = hub;
             _tabFeeds = tabFeeds;
@@ -99,6 +114,7 @@ namespace AccessibleTrader.Core.Services.Feeds
             _settings = settings;
             _earcons = earcons;
             _speech = speech;
+            _charts = charts;
             _logger = logger;
             _hub.BackgroundFeedUpdated += OnBackgroundFeedUpdated;
         }
@@ -127,30 +143,117 @@ namespace AccessibleTrader.Core.Services.Feeds
             var closed = bars[bars.Count - 2];
             var opened = bars[bars.Count - 1];
 
+            // The earcon goes first and goes NOW — it is ambient, it says "something closed
+            // somewhere else", and it must not wait behind an indicator computation.
+            try { _earcons.PlayNewBar(); }
+            catch (Exception ex) { _logger?.LogWarning(ex, "Background bar earcon failed."); }
+
+            // The words. Composing the ladder means computing the tab's indicators, which is
+            // async, so the rest of the announcement leaves this thread — the feed hub raised
+            // this event and must not be blocked on a scan.
+            _ = AnnounceAsync(feed, closed, opened);
+        }
+
+        /// <summary>
+        /// The notification and the speech, with the narration ladder behind them when the tab
+        /// has series flagged with N.
+        ///
+        /// <para><b>Cody, 2026-09-11:</b> <i>"giving the narration for other tabs would be useful
+        /// to have the full ladder."</i> Until then a background tab got a two-clause sentence
+        /// while the SAME chart with the browser closed got the full ladder — so closing the
+        /// browser told you more than leaving it open, which is not a defensible thing for a
+        /// terminal to do.</para>
+        /// </summary>
+        private async Task AnnounceAsync(ChartFeed feed, Ohlcv closed, Ohlcv opened)
+        {
             try
             {
+                string sentence = BackgroundSentence(feed.Identity, closed, opened);
+                string? ladder = await LadderAsync(feed).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(ladder)) sentence = sentence + " " + ladder;
+
                 // The notification route. DesktopNotificationService subscribes this under the
                 // one "events you cannot see" switch — and, since 2026-09-11, this is the ONLY
                 // bar close that takes it: the focused chart's is spoken in the live region and
-                // never notified, because the user is already being told.
-                _bus.Publish(new BackgroundBarClosedEvent(feed.Identity, closed, opened));
-
-                // The earcon — ambient by design. It says "something closed somewhere else"
-                // without taking the speech channel, which is the whole point of the default.
-                _earcons.PlayNewBar();
+                // never notified, because the user is already being told. The ladder rides the
+                // notification body too, exactly as it does with the browser closed: the
+                // notification IS the announcement, so it carries the whole sentence.
+                _bus.Publish(new BackgroundBarClosedEvent(feed.Identity, closed, opened, ladder));
 
                 // Speech, opt-in. Named symbol first: this is by definition about a chart the
                 // user is not looking at, so an announcement that opened with a price would be
                 // unattributable. Never interrupting, on the Event channel — the same tier the
-                // focused bar close uses, so Shift+F2 silences both.
+                // focused bar close uses, so Shift+F2 silences both. ONE utterance, ladder
+                // included, as in-session and as headless.
                 if (SpeakEnabled())
-                    _speech.Speak(BackgroundSentence(feed.Identity, closed, opened),
-                                  interrupt: false, channel: SpeechChannel.Event);
+                    _speech.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
             }
             catch (Exception ex)
             {
                 _logger?.LogWarning(ex, "Background bar announcement failed for {Symbol}.",
                     feed.Identity.Symbol);
+            }
+        }
+
+        /// <summary>
+        /// The tab's narration ladder at this close, or null when it has nothing under N, no
+        /// factory is registered, or the scan found nothing to say.
+        /// </summary>
+        private async Task<string?> LadderAsync(ChartFeed feed)
+        {
+            if (_charts == null) return null;
+
+            var configs = SavedSeriesFor(feed.Identity);
+            if (configs == null || !Accessibility.HeadlessChartFactory.HasNarratedSeries(configs)) return null;
+
+            string signature = Accessibility.HeadlessChartFactory.Signature(configs);
+            Accessibility.HeadlessChart chart;
+            lock (_narratorGate)
+            {
+                // A tab whose series changed gets a NEW narrator: the old one's memory is about
+                // components that may no longer exist. Same rule as the headless chart cache.
+                if (!_narrators.TryGetValue(feed.Identity, out var held) || held.Signature != signature)
+                {
+                    held = (signature, _charts.Create(feed.Identity, configs));
+                    _narrators[feed.Identity] = held;
+                }
+                chart = held.Chart;
+            }
+
+            var bars = feed.Bars;
+            if (bars == null || bars.Count == 0) return null;
+
+            // isFullHistory: the feed holds the tab's whole buffer, not a catch-up window, so
+            // the chart never needs to ask for more.
+            var observed = await chart.ObserveAsync(bars, isFullHistory: true, CancellationToken.None)
+                                      .ConfigureAwait(false);
+            return observed?.Narration;
+        }
+
+        /// <summary>
+        /// The series the user actually has on that tab, from the workspace snapshot — the same
+        /// source the background workspace monitors read. Null when the tab is not in the
+        /// snapshot list, which means it is not a tab we should be narrating.
+        /// </summary>
+        private IReadOnlyList<SeriesConfig>? SavedSeriesFor(ChartIdentity identity)
+        {
+            try
+            {
+                var snapshots = _store.State.TabSnapshots;
+                if (snapshots == null) return null;
+                foreach (var snap in snapshots)
+                {
+                    if (!snap.Identity.Equals(identity)) continue;
+                    var series = snap.ActiveSeries;
+                    if (series == null || series.Count == 0) return null;
+                    return series.Select(s => s.Config).ToList();
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Could not read the saved series for {Symbol}.", identity.Symbol);
+                return null;
             }
         }
 

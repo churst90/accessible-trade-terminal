@@ -179,11 +179,13 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    `"Crypto|Spot"`. Cody's existing file heals on the first restore.
 > 3. **The MAUI head is UNVERIFIED.** It is not compiled on this box. `TrayIconService.cs` carries
 >    a five-step smoke test at the top; none of it has ever been run.
-> 4. Still open from the work order, none of them blocking: **H8** (`Present` cannot tell whether
->    the notification was delivered — `notify-send` exiting non-zero is silence with a
->    success-shaped log), **H13** (unbounded dictionaries, the poll's one-warning-a-minute
->    swallow), **§5** (the hosted analogue, latent because `HostedAlertMonitor` is never
->    constructed), and **Q3 / Q7** from §1 — still unanswered by Cody.
+> 4. **H8, H13 and Q3 are DONE (forty-fifth pass)** — the notification reports whether it landed
+>    and falls through to speech when it did not; the monitor announces its own poll failures and
+>    their recovery; a background tab gets the full narration ladder. The work order is closed
+>    except for **§5** (the hosted analogue, entirely latent because `HostedAlertMonitor` is never
+>    constructed — nothing to fix until a hosted tier wants it) and **Q7** (should the tray's
+>    "Show recent alerts" become recent EVENTS? bar closes and ladders are not filed) — still
+>    unanswered, and not blocking anything.
 > 5. Then the deferred venue dry runs (Tradier sandbox first) and the Alpaca order stream.
 
 > **START HERE (superseded 2026-09-11 (night) — FORTY-SECOND pass — ANALYSIS ONLY: THE

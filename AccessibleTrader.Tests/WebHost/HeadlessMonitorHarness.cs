@@ -36,7 +36,7 @@ internal sealed class SpyPresenter : IDesktopAlertPresenter
     public string DescribeToast() => "spy toast";
     public bool CanNotify => HasNotificationTool;
     public void PlayNotificationSound() => SoundsPlayed++;
-    public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
+    public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text, urgent)); return HasNotificationTool; }
     public void Speak(string text) => Spoken.Add(text);
 }
 

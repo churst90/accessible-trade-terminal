@@ -221,8 +221,12 @@ namespace AccessibleTrader.Core.Services.Notifications
             int barSeconds = TimeframeUtility.ToSeconds(e.Identity.Timeframe ?? "");
             if (barSeconds <= 0) barSeconds = BarSecondsFromDates(e.ClosedBar, e.NewBar);
 
-            Send(NewBarTitle(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""),
-                 NewBarBody(barSeconds, e.ClosedBar));
+            // The ladder rides the body, as it does with the browser closed: the notification IS
+            // the announcement, so it carries the whole sentence rather than a shortened form.
+            string body = NewBarBody(barSeconds, e.ClosedBar);
+            if (!string.IsNullOrWhiteSpace(e.Narration)) body = body + " " + e.Narration;
+
+            Send(NewBarTitle(e.Identity.Symbol ?? "", e.Identity.Timeframe ?? ""), body);
         }
 
         /// <summary>

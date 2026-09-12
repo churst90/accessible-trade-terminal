@@ -29,7 +29,9 @@ public sealed class DesktopAnnouncementTests
         public string DescribeToast() => "spy";
         public bool CanNotify => HasNotificationTool;
         public void PlayNotificationSound() => Sounds++;
-        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text));
+        // Returns whether it LANDED — a spy with no tool records the attempt and reports
+        // failure, which is what a real machine with no notification daemon does.
+        public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text)); return HasNotificationTool; }
         public void Speak(string text) => Spoken.Add(text);
     }
 
@@ -56,10 +58,76 @@ public sealed class DesktopAnnouncementTests
     }
 
     [Fact]
-    public void The_rule_is_the_tool_and_nothing_else()
+    public void Before_trying_the_question_is_whether_a_tool_exists()
     {
         Assert.False(DesktopAnnouncement.ShouldSpeak(new Spy { HasNotificationTool = true }));
         Assert.True(DesktopAnnouncement.ShouldSpeak(new Spy { HasNotificationTool = false }));
+    }
+
+    // ── H8: a notification that was ATTEMPTED and did not land ───────────────
+
+    /// <summary>
+    /// <b>The hole this closes.</b> A machine can have <c>notify-send</c> on its PATH and no
+    /// daemon behind it — no D-Bus session, no reachable display, the service started before the
+    /// desktop. <c>CanNotify</c> is true, so the old rule ("speak only where there is no tool")
+    /// chose silence, and the failure was logged at Debug as if nothing had happened. Since the
+    /// browser-closed half made the notification the ONLY channel for everything the trader
+    /// cannot see, that is the entire feature failing without saying so.
+    /// </summary>
+    [Fact]
+    public void A_notification_that_fails_is_spoken_instead()
+    {
+        var p = new FailingNotifier();
+
+        DesktopAnnouncement.Present(p, "Trading alert", "body", "spoken", urgent: false, withSound: false, null);
+
+        Assert.Equal("spoken", Assert.Single(p.Spoken));
+    }
+
+    /// <summary>The other half of the pair: a notification that LANDS is still never doubled.</summary>
+    [Fact]
+    public void A_notification_that_lands_is_not_spoken_as_well()
+    {
+        var p = new Spy { HasNotificationTool = true };
+
+        DesktopAnnouncement.Present(p, "Trading alert", "body", "spoken", urgent: false, withSound: false, null);
+
+        Assert.Single(p.Toasts);
+        Assert.Empty(p.Spoken);
+    }
+
+    /// <summary>A notifier that THROWS is a failed notification, not a lost announcement.</summary>
+    [Fact]
+    public void A_notifier_that_throws_still_gets_the_words_out()
+    {
+        var p = new ThrowingNotifier();
+
+        DesktopAnnouncement.Present(p, "Trading alert", "body", "spoken", urgent: false, withSound: false, null);
+
+        Assert.Equal("spoken", Assert.Single(p.Spoken));
+    }
+
+    /// <summary>Reports a tool that is present and unreachable — CanNotify true, delivery false.</summary>
+    private sealed class FailingNotifier : IDesktopAlertPresenter
+    {
+        public readonly List<string> Spoken = new();
+        public string Describe() => "spy";
+        public string DescribeToast() => "spy";
+        public bool CanNotify => true;
+        public void PlayNotificationSound() { }
+        public bool Notify(string title, string text, bool urgent) => false;
+        public void Speak(string text) => Spoken.Add(text);
+    }
+
+    private sealed class ThrowingNotifier : IDesktopAlertPresenter
+    {
+        public readonly List<string> Spoken = new();
+        public string Describe() => "spy";
+        public string DescribeToast() => "spy";
+        public bool CanNotify => true;
+        public void PlayNotificationSound() { }
+        public bool Notify(string title, string text, bool urgent) => throw new InvalidOperationException("no daemon");
+        public void Speak(string text) => Spoken.Add(text);
     }
 
     [Fact]
@@ -77,7 +145,7 @@ public sealed class DesktopAnnouncementTests
         public string DescribeToast() => "t";
         public bool CanNotify => true;
         public void PlayNotificationSound() => throw new InvalidOperationException("no audio device");
-        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text));
+        public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text)); return true; }
         public void Speak(string text) { }
     }
 }

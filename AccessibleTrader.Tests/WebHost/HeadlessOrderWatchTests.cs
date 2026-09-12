@@ -54,7 +54,7 @@ public class HeadlessOrderWatchTests : IDisposable
         // that delivery arrives as speech. HeadlessNarrationTests covers the other machine.
         public bool CanNotify => false;
         public void PlayNotificationSound() => SoundsPlayed++;
-        public void Notify(string title, string text, bool urgent) => Toasts.Add((title, text, urgent));
+        public bool Notify(string title, string text, bool urgent) { Toasts.Add((title, text, urgent)); return CanNotify; }
         public void Speak(string text) => Spoken.Add(text);
     }
 
@@ -338,7 +338,7 @@ public class HeadlessOrderWatchTests : IDisposable
         public string DescribeToast() => "throwing";
         public bool CanNotify => false;   // no notification tool: see SpyPresenter
         public void PlayNotificationSound() => throw new InvalidOperationException("no audio device");
-        public void Notify(string title, string text, bool urgent) => throw new InvalidOperationException();
+        public bool Notify(string title, string text, bool urgent) => throw new InvalidOperationException();
         public void Speak(string text) => throw new InvalidOperationException();
     }
 
@@ -350,7 +350,7 @@ public class HeadlessOrderWatchTests : IDisposable
         public string DescribeToast() => "half";
         public bool CanNotify => false;   // no notification tool: see SpyPresenter
         public void PlayNotificationSound() => throw new InvalidOperationException("no audio device");
-        public void Notify(string title, string text, bool urgent) => throw new InvalidOperationException("no daemon");
+        public bool Notify(string title, string text, bool urgent) => throw new InvalidOperationException("no daemon");
         public void Speak(string text) => Spoken.Add(text);
     }
 
