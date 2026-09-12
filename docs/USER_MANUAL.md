@@ -839,8 +839,13 @@ and all of them composed into a single sentence per bar so nothing gets cut off 
   flag as live auto-narration, and there are three questions behind what you hear: **N picks what
   MAY speak, the Narration tab picks WHEN, and the scope you played picks WHICH of them.** Press
   Space and the whole chart may speak; Shift+Space on one series and only that series does.
-  Only discrete signals, never crossings, zone changes or oscillator commentary — at ten bars a
-  second those would be a wall of speech.
+  Only **discrete** events, never a running commentary — at ten bars a second a per-bar readout
+  would be a wall of speech.
+- **A line crossing one of its own levels**, which is discrete in exactly the same way: an ADX
+  crossing 25 happens a handful of times in five hundred bars, not on every bar. A line that
+  declares what its two sides mean says the band you entered — *"strong trend"* — and anything
+  else names the line it crossed. These go through the same rarity ranking and the same ceiling
+  as markers, so a line that whipsaws across its level is treated as the routine thing it is.
 - **When several fire at once, the rarest is the one you hear.** Two clauses is the ceiling for
   one bar, and what falls off the end is the marker that fires most often on the chart in front
   of you. That matters on an indicator like Cipher B, whose gold Triple Confluence dot can only
@@ -866,6 +871,14 @@ still spoken so the end of a run never sounds like a crash. The landmarks have a
 their own beneath it — **Speak time landmarks during playback**, on by default — because the
 date and the signals answer different questions, and wanting to hear what your indicators
 printed is not the same as wanting the calendar read to you every few seconds.
+
+**Volume profiles do not narrate during playback.** VPVR, VPFR and TPO announce their point of
+control, value area and the point of control moving **at a bar close** with auto-narration on, and
+they say nothing while playback runs. That is deliberate rather than missing: a profile's levels
+are recomputed as the profile itself rebuilds, so unlike a fixed line at 25 there is no stable
+answer to "how often does price cross this" — and that count is what the rarity ranking uses to
+keep playback from becoming a per-bar readout. Play the chart for the tones and read the profile
+with the arrow keys, or leave auto-narration on and let the bar closes tell you.
 
 **A signal is introduced by the component that fired it, never by the series.** *"Bullish
 divergence."* — and where the wording does not already say which marker it was, the component
@@ -1003,6 +1016,13 @@ Volume, and Profiles — and you move
 through the category and indicator lists with the arrow keys and add one with Enter.
 A new indicator arrives with audio properties already chosen for its type, so it is
 immediately playable; you can refine them later.
+
+**Drawing tools are not in this dialog, and never should have been.** Trend lines, Fibonacci
+levels, the measure tool, the risk/reward tool and the rest are placed with **Alt+D** (Drawing
+Tools) or with their own shortcut chords, because a drawing is a thing you position on the chart
+rather than a calculation you switch on. Until September 2026 fifteen of them were also listed
+here, and adding one from this dialog produced a series with nothing in it — no points to place
+and nothing to hear. They have been removed from the list; Alt+D is the way.
 
 **Some indicator lines have new names, and five indicators have gone.** Until August 2026
 a number of indicators drew nothing at all: they were listed, they could be added, and

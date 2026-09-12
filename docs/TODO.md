@@ -117,6 +117,36 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-13 (later), FIFTY-THIRD pass — DRAWINGS LEAVE THE INDICATOR
+> DIALOG, AND EVERY POINT SAYS WHAT IT IS.)** Suite **7,660**, 0 failing. Still no release cut.
+> Full entry in `docs/CHANGES.md`.
+>
+> 1. **Fifteen drawing placeholders deleted from the indicator registry.** They declared EMPTY
+>    component lists, nothing looked them up, and they appeared in Add Indicator — so choosing one
+>    built a series with nothing in it. Cody: *"inserting the measure tool on the chart just
+>    inserts a series with 0 components."* Alt+D and the shortcut chords are the whole route.
+> 2. **Every drawing point is named by what it IS**, from one table per type. The prompts said
+>    "anchor 1/2/3", and risk/reward's hand-written line was A STEP BEHIND: it said "entry …
+>    navigate to stop loss" on the press that set the STOP, so following it put the stop where the
+>    target belongs and produced an inverted ratio silently.
+> 3. **The tool's own answer is spoken on completion** — the measure distance/percent/bars and the
+>    risk/reward ratio were computed, stored and drawn, and never said.
+> 4. **Profiles + playback documented, not built**, at Cody's direction.
+>
+> ### NEXT
+>
+> 1. **Hear it.** Alt+Shift+R (risk/reward): it should ask for the entry, then the stop, then the
+>    take profit, by name, and finish with the ratio. Alt+Shift+M (measure): two points, then the
+>    distance and bar count. And confirm Add Indicator no longer lists a Drawings category.
+> 2. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, unchanged. WHATSNEW still
+>    needs assembling from ALL of CHANGES `[Unreleased]`, which is now six passes deep.
+> 3. **Navigation still does not honour `SubscribedLevelNames`** — speech, audio, narration and
+>    playback all do; `IndicatorCrossingEngine` does not.
+> 4. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
+>    `IsAreaFill = true` (ask first).
+> 5. **The drawing anchor table is a good home for more.** `Channel` is listed with three points
+>    but the state machine treats it as two-point; worth checking whether the third is reachable.
+
 > **START HERE (current as of 2026-09-13, FIFTY-SECOND pass — PLAYBACK SPEAKS A BAND CROSSING, AND
 > THE PLAYBACK SPEED SURVIVES A RESTART.)** Suite **7,625**, 0 failing. Still no release cut.
 > Full entry in `docs/CHANGES.md`.

@@ -943,6 +943,59 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private int MapXToIndex(double x, double width, int startIndex, int length)
             => ChartMath.MapXToIndex(x, ChartMath.PlotWidth(width, AxisWidthFraction), startIndex, length);
 
+        /// <summary>
+        /// What each point of a drawing IS, in the order it is placed.
+        ///
+        /// <para>
+        /// ── Why this exists (2026-09-13) ──────────────────────────────────────────
+        /// Cody: <i>"make sure the measure tool specifically says which 3 points I'm setting as I
+        /// set them, 'move to the take profit and press the shortcut again' type deal."</i> The
+        /// placement prompts said "anchor 1", "anchor 2", "anchor 3" for almost everything — a
+        /// position in a sequence, not a thing. On a tool whose three points are an entry, a stop
+        /// and a target, "anchor 2" is the one description that does not help you decide where to
+        /// put it.
+        /// </para>
+        ///
+        /// <para>
+        /// Two tools had hand-written wording and one of them was WRONG. Risk/reward's second
+        /// prompt read "entry at {price}. Navigate to stop loss" — but the second point IS the
+        /// stop (<c>RiskRewardCalculator</c>: anchor 1 entry, anchor 2 stop, anchor 3 target), so
+        /// it named the point you had just left and asked for the one you had just set. Anyone
+        /// following it put the stop where the target belongs and got an inverted ratio with no
+        /// sign that anything was wrong. A table of names per type, read by every step, is what
+        /// stops a second copy of that wording drifting from the calculator it describes.
+        /// </para>
+        ///
+        /// <para>
+        /// The MEASURE tool is two points, not three: it reports the distance, the percentage and
+        /// the bar count between them. The three-point entry/stop/target tool is Risk/Reward
+        /// (Alt+Shift+R). Both now say which point they are asking for, which is what made the two
+        /// indistinguishable.
+        /// </para>
+        /// </summary>
+        internal static string[] AnchorNames(DrawingType type) => type switch
+        {
+            DrawingType.RiskReward       => new[] { "entry", "stop loss", "take profit" },
+            DrawingType.MeasureTool      => new[] { "start of the move", "end of the move" },
+            DrawingType.FibRetracement   => new[] { "swing start", "swing end" },
+            DrawingType.FibExtension     => new[] { "swing start", "swing end", "retracement point" },
+            DrawingType.AndrewsPitchfork => new[] { "pivot", "median line", "swing point" },
+            DrawingType.Channel          => new[] { "first point of the trend line", "second point", "channel width" },
+            DrawingType.TrendLine        => new[] { "first point", "second point" },
+            DrawingType.Rectangle        => new[] { "first corner", "opposite corner" },
+            DrawingType.GannFan          => new[] { "origin", "angle point" },
+            DrawingType.GannBox          => new[] { "first corner", "opposite corner" },
+            DrawingType.AngleFib         => new[] { "swing start", "swing end" },
+            _                            => new[] { "first point", "second point", "third point" },
+        };
+
+        /// <summary>The name of the point about to be placed, or a positional fallback.</summary>
+        private static string AnchorName(DrawingType type, int index)
+        {
+            var names = AnchorNames(type);
+            return index < names.Length ? names[index] : $"point {index + 1}";
+        }
+
         private void HandleDrawingStep(DateTime date, double price)
         {
             if (_pendingDrawingType == DrawingType.None) return;
@@ -959,9 +1012,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
+                    // Name the point just set AND the one being asked for. "Anchor 1 set,
+                    // navigate to next point" told the user neither.
                     string ts = SpeakStamp(date);
                     _eventBus.Publish(new AnnouncementEvent(
-                        $"{label}: anchor 1 set at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to next point and press the shortcut again."));
+                        $"{label}: {AnchorName(_pendingDrawingType, 0)} at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. "
+                      + $"Navigate to the {AnchorName(_pendingDrawingType, 1)} and press the shortcut again."));
                 }
             }
             else if (_anchorDate2 == null)
@@ -990,13 +1046,14 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 }
                 else
                 {
+                    // One sentence built from the table, not three hand-written ones. The
+                    // risk/reward line here used to say "entry ... navigate to stop loss" on the
+                    // bar where the STOP had just been set — a whole step behind the state
+                    // machine it was describing.
                     string ts = SpeakStamp(date);
-                    string msg = _pendingDrawingType switch {
-                        DrawingType.RiskReward       => $"Risk/reward: entry at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to stop loss and press the shortcut again.",
-                        DrawingType.AndrewsPitchfork => $"Pitchfork: median line at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to swing point and press the shortcut again.",
-                        _                            => $"{label}: anchor 2 at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. Navigate to anchor 3 and press the shortcut again."
-                    };
-                    _eventBus.Publish(new AnnouncementEvent(msg));
+                    _eventBus.Publish(new AnnouncementEvent(
+                        $"{label}: {AnchorName(_pendingDrawingType, 1)} at {SpeechPriceFormatter.FormatPrice(price)}, {ts}. "
+                      + $"Navigate to the {AnchorName(_pendingDrawingType, 2)} and press the shortcut again."));
                 }
             }
             else
@@ -1042,17 +1099,56 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 CreateDrawingSeries(_pendingDrawingType.ToString(), d, _store.State.Data.ToList());
             }
 
-            string label = FriendlyName(_pendingDrawingType);
+            // THE LAST POINT IS NAMED TOO, and the tool's own answer is spoken with it.
+            //
+            // "Measure placed from 64,100 to 64,900" left the reader to do the subtraction, on a
+            // tool whose entire output IS the subtraction — the distance, the percentage and the
+            // bar count were computed, stored on the drawing and shown only on screen. Risk/reward
+            // had the same gap: it computes the ratio and said nothing about it. On an audio-first
+            // terminal the result of a measurement is the point of taking it.
+            var placedType = _pendingDrawingType;
+            string label = FriendlyName(placedType);
             double fromPrice = _anchorPrice1 ?? priceFinal;
+            string lastPoint = AnchorName(placedType, _anchorDate2 == null ? 1 : 2);
+
             string feedback = Math.Abs(priceFinal - fromPrice) > 0.001
-                ? $"{label} placed from {SpeechPriceFormatter.FormatPrice(fromPrice)} to {SpeechPriceFormatter.FormatPrice(priceFinal)}."
+                ? $"{label} placed, {lastPoint} at {SpeechPriceFormatter.FormatPrice(priceFinal)}, from {SpeechPriceFormatter.FormatPrice(fromPrice)}."
                 : $"{label} placed at {SpeechPriceFormatter.FormatPrice(priceFinal)}.";
+
+            string outcome = PlacedOutcome(placedType);
+            if (!string.IsNullOrEmpty(outcome)) feedback += " " + outcome;
+
             _eventBus.Publish(new AnnouncementEvent(feedback));
 
             _previewSeriesId = null;
             _pendingDrawingType = DrawingType.None;
             _anchorDate1 = null; _anchorPrice1 = null;
             _anchorDate2 = null; _anchorPrice2 = null;
+        }
+
+        /// <summary>
+        /// What the tool WORKS OUT, spoken at the moment it finishes — the measure tool's
+        /// distance and bar count, the risk/reward ratio. Both were computed by their calculators,
+        /// stored on the drawing and rendered on screen, and neither was ever said.
+        /// </summary>
+        private string PlacedOutcome(DrawingType type)
+        {
+            var drawing = _store.State.ActiveSeries
+                .FirstOrDefault(s => s.Drawing != null && s.Drawing.Type == type
+                                     && s.Drawing.AnchorPrice2.HasValue)?.Drawing;
+            if (drawing == null) return string.Empty;
+
+            return type switch
+            {
+                DrawingType.MeasureTool when !string.IsNullOrEmpty(drawing.MeasureResult)
+                    => $"{drawing.MeasureResult}.",
+                DrawingType.RiskReward when drawing.RiskRewardRatio > 0
+                    // Invariant, like every other number the speech layer says: a comma-decimal
+                    // locale would otherwise put "1 to 2,50" in the same sentence as a price
+                    // formatted with a dot.
+                    => $"Risk to reward, 1 to {drawing.RiskRewardRatio.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}.",
+                _ => string.Empty,
+            };
         }
 
         public void HandleAddDrawing(string type, IReadOnlyList<Ohlcv> chartData)

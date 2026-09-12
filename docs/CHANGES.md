@@ -4,6 +4,72 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Drawings leave the indicator dialog, and every point says what it is (2026-09-13, fifty-third pass)
+
+Suite **7,660** (was 7,625).
+
+**1. "Drawing tools shouldn't be in the indicators add dialog — inserting the measure tool just
+inserts a series with 0 components."**
+
+Both halves were true, and the second explains the first. Fifteen drawing types were registered as
+`IndicatorMetadata` with an **empty component list** — TREND, HORIZONTAL, VERTICAL, CHANNEL, FIB,
+FIBEXT, RECT, LABEL, GANNFAN, GANNBOX, RISKREWARD, MEASURE, PITCHFORK, ANGLEFIB, and AVWAP, which
+wore the "Order Flow" category but was the same thing. Nothing in the app ever looked one up. What
+they did do was appear in Add Indicator, which offers whatever the registry returns — so choosing
+one built a series with no components: no points to place, nothing to draw, nothing to navigate,
+nothing to hear. **A menu entry that produces an inert object is worse than a missing one**,
+because the user cannot tell it apart from a feature that has broken.
+
+All fifteen are deleted. Drawings are placed by the Drawing Tools dialog (Alt+D) or their shortcut
+chords, both of which run the anchor state machine — that was always the whole route, and these
+entries were a second, broken one. Safe for saved workspaces: `RestoreSeriesFromSaved` takes a
+nullable metadata and uses the saved config verbatim when it is null, which is the path a restored
+drawing has always taken. The real Anchored VWAP, which has components, is untouched.
+
+**2. "Make sure the measure tool specifically says which 3 points I'm setting as I set them."**
+
+The prompts said "anchor 1", "anchor 2", "anchor 3" for almost everything — a position in a
+sequence rather than a thing. On a tool whose three points are an entry, a stop and a target,
+"anchor 2" is the one description that cannot help you decide where to put it.
+
+Two tools had hand-written wording and **one of them was a step behind the state machine it
+described.** Risk/reward's second prompt read *"entry at {price}. Navigate to stop loss"* — on the
+press that set the **stop**. `RiskRewardCalculator` reads anchor 1 as entry, anchor 2 as stop and
+anchor 3 as target, so the sentence named the point you had just left and asked for the one you had
+just set. Anyone following it put the stop where the target belongs and got an inverted ratio with
+nothing to say so.
+
+Every point is now named from one table per drawing type, read by all three steps and the
+completion: *"Risk Reward: entry at 64,100, 14:00. Navigate to the stop loss and press the shortcut
+again."* No point is called an anchor.
+
+**And the tool's own answer is spoken.** The measure tool computes the distance, the percentage and
+the bar count; the risk/reward tool computes the ratio. Both were stored on the drawing and drawn
+on screen, and neither was ever said — on an audio-first terminal the result of a measurement is
+the point of taking it. Completion now reads *"Measure placed, end of the move at 64,900, from
+64,100. 800.00 (1.25%), 10 bars."*
+
+**A note on which tool is which.** The measure tool is **two** points — the distance between them.
+The three-point entry/stop/target tool is **Risk/Reward** (Alt+Shift+R). Naming the points is what
+makes the two tell themselves apart while you are placing them.
+
+**3. Volume profiles and playback, documented rather than built.** Cody: *"don't worry about
+narrating profiles then, it just needs to be noted in the manual."* `docs/USER_MANUAL.md` now says
+that VPVR, VPFR and TPO announce their point of control and value area at a **bar close** with
+auto-narration on and say nothing during playback — and why: a profile's levels are recomputed as
+the profile rebuilds, so there is no stable answer to "how often does price cross this", and that
+count is what the rarity ranking uses to keep playback from becoming a per-bar readout.
+
+The manual also documents the level-crossing narration added in the previous pass, and that
+drawings are placed with Alt+D rather than from Add Indicator.
+
+**Tests.** `DrawingAnchorVocabularyTests` (17) and `DrawingsAreNotIndicatorsTests` (18) — including
+a general property, that nothing the Add Indicator dialog offers may be componentless. Three
+sabotages red: the risk/reward order inverted, points called anchors again, and one placeholder
+returning to the registry. The culture-invariance scan caught the new ratio interpolation before it
+shipped — it would have spoken "1 to 2,50" on a comma-decimal locale.
+
+
 ### Playback speaks a band crossing, and the playback speed survives a restart (2026-09-12, fifty-second pass)
 
 Suite **7,625** (was 7,613). Cody confirmed the previous pass by ear — *"ctrl arrows work to jump

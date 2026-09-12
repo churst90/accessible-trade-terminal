@@ -86,67 +86,31 @@ namespace AccessibleTrader.Core.Services.Indicators
                     Parameters = new List<IndicatorParameterMetadata> {
                         new IndicatorParameterMetadata { Name = "Sensitivity", DefaultValue = 50.0, DisplayName = "Sensitivity" }
                     }
-                },
-                new IndicatorMetadata { 
-                    Code = "TREND", Name = "Trend Line", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "HORIZONTAL", Name = "Horizontal Line", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "VERTICAL", Name = "Vertical Line", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "CHANNEL", Name = "Parallel Channel", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "FIB", Name = "Fibonacci Retracement", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "FIBEXT", Name = "Fibonacci Extension", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "RECT", Name = "Rectangle", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "LABEL", Name = "Text Label", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "GANNFAN", Name = "Gann Fan", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "GANNBOX", Name = "Gann Box", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "RISKREWARD", Name = "Risk Reward Tool", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "MEASURE", Name = "Measure Tool", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "PITCHFORK", Name = "Andrews Pitchfork", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "ANGLEFIB", Name = "Angle Fib", Category = "Drawings",
-                    Components = new List<IndicatorComponentMetadata>() 
-                },
-                new IndicatorMetadata { 
-                    Code = "AVWAP", Name = "Anchored VWAP", Category = "Order Flow",
-                    Components = new List<IndicatorComponentMetadata>() 
                 }
+                // ── FIFTEEN DRAWING PLACEHOLDERS LIVED HERE AND ARE DELETED (2026-09-13) ──
+                //
+                // TREND, HORIZONTAL, VERTICAL, CHANNEL, FIB, FIBEXT, RECT, LABEL, GANNFAN,
+                // GANNBOX, RISKREWARD, MEASURE, PITCHFORK, ANGLEFIB — and AVWAP, which wore the
+                // "Order Flow" category but was the same thing. Every one of them declared an
+                // EMPTY component list, and nothing in the app ever looked one up.
+                //
+                // What they did do was appear in the Add Indicator dialog, which offers whatever
+                // the registry returns. Choosing one there built a series with no components: no
+                // anchors to place, nothing to draw, nothing to navigate, nothing to hear. Cody,
+                // 2026-09-13: "inserting the measure tool on the chart just inserts a series with
+                // 0 components". A menu entry that produces an inert object is worse than a
+                // missing one, because the user cannot tell it apart from a feature that broke.
+                //
+                // Drawings are placed by the Drawing Tools dialog (Alt+D) or by their shortcut
+                // chords, both of which run the anchor state machine in DrawingInteractionManager
+                // and ask for each point in turn. That is the whole route, and it always was —
+                // these entries were a second, broken one. Cody: "drawings should only be done
+                // through the drawing modal or via the shortcut keys."
+                //
+                // Deleting them is safe for saved workspaces: RestoreSeriesFromSaved takes a
+                // NULLABLE metadata and uses the saved config verbatim when it is null
+                // (SeriesManagementService.cs:395), which is the path a restored drawing has
+                // always taken.
             };
         }
 
