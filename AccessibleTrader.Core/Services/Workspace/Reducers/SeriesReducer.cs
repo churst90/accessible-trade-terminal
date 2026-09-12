@@ -352,11 +352,16 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                     // "narrating" on its own promises signals and this one delivers a number
                     // at every close instead — Cody, 2026-09-11. Bar close only, never in
                     // playback; see SeriesNarrationScope.ReadingComponent.
+                    // A profile says what its levels will say (Cody, 2026-09-11: "I don't hear
+                    // any narration events for profiles" — N on one used to promise a reading
+                    // no profile has). SeriesNarrationScope.NarrationPromise is the one place
+                    // that words the promise.
                     string? nothing = SeriesNarrationScope.WhyNothingToNarrate(updated);
+                    string promise = SeriesNarrationScope.NarrationPromise(updated);
                     msg = nothing != null
                         ? $"{updated.FriendlyName}, narrating. {nothing}"
-                        : SeriesNarrationScope.ReadingComponent(updated) != null
-                            ? $"{updated.FriendlyName}, narrating. Value read at each bar close."
+                        : promise.Length > 0
+                            ? $"{updated.FriendlyName}, narrating. {promise}"
                             : $"{updated.FriendlyName}, narrating";
                     return updated;
                 }

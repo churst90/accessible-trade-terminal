@@ -606,7 +606,7 @@ namespace AccessibleTrader.Core.Services
         /// </list>
         /// </summary>
         /// <remarks>Public because the background monitor restores a saved tab's series with the
-        /// browser closed (<c>HeadlessChartNarrator</c>) and must migrate the same way this
+        /// browser closed (<c>HeadlessChart</c>) and must migrate the same way this
         /// restore does — a saved "Candle Body" is "body" in both places or in neither.</remarks>
         public static void MigrateSeriesConfig(SeriesConfig config, List<IndicatorMetadata> allMeta)
         {

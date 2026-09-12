@@ -416,8 +416,10 @@
         // app has. The alert still works while its chart is open.
         // On a host with no background alerts at all (the paper-only hosted terminal), the
         // caveat would describe a monitor that does not exist there — so it is not said.
+        // Against THIS chart's series: a point-of-control alert needs a profile on it.
         var unwatchableReason = Demo.AllowBackgroundAlerts
-            ? AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(def)
+            ? AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(
+                def, Store.State.ActiveSeries.Select(s => s.Config))
             : null;
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             unwatchableReason == null

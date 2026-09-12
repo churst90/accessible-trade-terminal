@@ -156,8 +156,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Direction,
                             DefaultBullishFrequency = 360.0,
                             DefaultBearishFrequency = 140.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.ReferenceDeviation,
-                            DefaultDeviationNorm = 25.0,
+                            // No amplitude override: a histogram takes the shared bar rule
+                            // (constant loudness, grit ∝ magnitude) from the sonification
+                            // profile, like MACD's and volume's. Until 2026-09-11 this said
+                            // ReferenceDeviation, which made Cipher B the one histogram whose
+                            // bars got LOUDER as they grew.
                             SpeechTemplate = "WT Histogram. {value:F1}.",
                             SubscribedLevelNames = Array.Empty<string>() },
 
@@ -211,8 +214,11 @@ namespace AccessibleTrader.Core.Services.Indicators
                             DefaultPitchMapping = PitchMapping.Direction,
                             DefaultBullishFrequency = 300.0,
                             DefaultBearishFrequency = 100.0,
-                            DefaultAmplitudeMapping = AmplitudeMapping.ReferenceDeviation,
-                            DefaultDeviationNorm = 50.0,
+                            // No amplitude override: a histogram takes the shared bar rule
+                            // (constant loudness, grit ∝ magnitude) from the sonification
+                            // profile, like MACD's and volume's. Until 2026-09-11 this said
+                            // ReferenceDeviation, which made Cipher B the one histogram whose
+                            // bars got LOUDER as they grew.
                             SpeechTemplate = "Money Flow. {value:F1}.",
                             SubscribedLevelNames = Array.Empty<string>() },
 

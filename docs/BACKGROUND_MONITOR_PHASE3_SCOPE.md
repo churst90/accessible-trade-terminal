@@ -1,9 +1,12 @@
 # Background monitor Phase 3 — new bars, and the alerts nothing can watch
 
-**Status: PHASE 3 IS BUILT — D1, D2 and D3 are done (2026-09-08). D4's NARRATION half — the
-ladder with the browser closed — landed 2026-09-11 (`HeadlessChartNarrator`, `NarrationScanner`;
-see `docs/SESSION_REVIEW_2026-09-11.md` §12). D4's ALERT half (populate the evaluator's state,
-shrink `WhyUnwatchable`) is the only item outstanding.** Written 2026-09-08 against `9a0d5940`,
+**Status: PHASE 3 IS BUILT AND D4 IS DONE — D1, D2 and D3 on 2026-09-08; D4's NARRATION half
+(the ladder with the browser closed) on 2026-09-11 (`docs/SESSION_REVIEW_2026-09-11.md` §12);
+D4's ALERT half later the same day (§13): `HeadlessChart` composes the evaluator's state per
+symbol — warmup-deep bars, the alerts' indicators, the profiles' bins, the previous poll's
+values — and `WhyUnwatchable` shrank to "no symbol and provider" and "a POC alert with no
+profile saved". The blank-chart list survives as `WhyUnwatchableWithoutAChart` for the hosted
+monitor, which still evaluates blank.** Written 2026-09-08 against `9a0d5940`,
 suite 7,223 + 4 (the measurements in section 1 are committed tests, not readings).
 
 Phase 3 is the last phase of `docs/BACKGROUND_MONITOR_SCOPE.md`. Phases 0, 1 and 2 are on
@@ -236,6 +239,13 @@ two producers is a field the other silently omits.*
 
 ### D4. Populate the state, and shrink `WhyUnwatchable` in the same commit
 
+> **2026-09-11, later: the ALERT half of D4 is DONE too** — items 1–6 below. Warmup is asked of
+> the providers directly, as the narration half does (item 1); `ActiveSeries` holds the alerts'
+> indicators, from the saved tab's config or the metadata defaults (2); `previousValues` lives on
+> the chart across polls (3); the buffer is `state.Data` (4); the refusal list shrank in the same
+> commit and the alerts modal's caveat with it (5, 6). `HeadlessAlertTests` drives each through
+> the real poll.
+>
 > **2026-09-11: the narration ladder half of D4 is DONE** (Cody's ask that day). Design (B) as
 > recommended below, for narration: `HeadlessChartNarrator` composes a per-chart state — warmup
 > -deep bars in a merged buffer, the tab's narrated series recomputed through `IIndicatorEngine`

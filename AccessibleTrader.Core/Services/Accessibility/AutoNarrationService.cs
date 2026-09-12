@@ -15,7 +15,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// clouds, overlay and level crosses, the volume reading, oscillator zones — and the memory
     /// of what has already been said live in <see cref="NarrationScanner"/>, which has no store
     /// and no bus, so the same ladder can be spoken by the background monitor with the browser
-    /// closed (<see cref="HeadlessChartNarrator"/>). Cody, 2026-09-11: <i>"I also want the
+    /// closed (<see cref="HeadlessChart"/>). Cody, 2026-09-11: <i>"I also want the
     /// narration ladder to also be spoken when the browser is closed too."</i> Two copies of the
     /// scan would have been two places every rule has to be added; this class now answers only
     /// the store-shaped questions — is the chart ready, which bar just closed, is the master

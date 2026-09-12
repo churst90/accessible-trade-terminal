@@ -366,3 +366,76 @@ not. macOS and Windows `ToastIsSpoken` rest on the plan's own earlier claims, un
 before. The alert half of D4 — shrinking `WhyUnwatchable` by giving the evaluator a populated
 state — is NOT done; the narrator now computes exactly the state it would need, so it is a
 smaller step than it was.
+
+## 13. Addendum, the evening of 2026-09-11 — alerts read a real chart, one grit rule, profiles speak
+
+Cody's reply to §12: the hosted answer ("the rest of the alert options other than the background
+options can stay like telegram and all that"), "notifications read excellent top tier now", and
+four odds and ends. This section is what was done with them and with the open half of D4, for a
+reviewer who has read §12 and nothing since. Suite 7,305 → 7,321.
+
+**D4's alert half.** §12 ended: "the narrator now computes exactly the state it would need, so it
+is a smaller step than it was." It was. `HeadlessChartNarrator` became `HeadlessChart`: its
+template is the narrated series plus every series the tab's alerts reference (the saved config
+when the tab has that indicator, the metadata defaults when not), profiles are binned over the
+buffer, and every observation returns the computed `WorkspaceState` and the previous poll's
+component values. `LocalBackgroundMonitor` evaluates against that state with an evaluator built
+from the headless scope (level service for POC, condition evaluator for trees), whose failure
+events are now announced once per alert. `WhyUnwatchable` shrank to two reasons; the old list is
+`WhyUnwatchableWithoutAChart`, used by the hosted monitor, which still evaluates blank. The alerts
+modal stopped telling users an indicator alert cannot be watched in the background.
+
+Two defects in my own first run of the tests, both worth the record. (1) Every alert appeared to
+fire TWICE. The harness's "delivered" collection concatenated the spy presenter's toasts and its
+speech, and `DesktopAnnouncement.Present` raises the toast on every machine and speaks only where
+nothing can read a toast — so one announcement was counted once per channel. The monitor was
+right; the spy was not. (2) An indicator built from its defaults threw "Lookback periods must be
+greater than 0 for EMA": a `SeriesConfig` with no parameters is not "the defaults", because
+`MaterializeSaved` restores parameters and does not invent them. `ApplyDefaultParameters` writes
+the metadata defaults onto the config the way the Add Indicator dialog pre-fills its fields.
+
+**Hosted gating.** Cody's answer matched what §12 had built, and nothing in the bUnit suite ran at
+any policy but Full, so one test now opens the delivery panel under `HostMode.Hosted` and asserts
+the desktop-notification and Web Push panels are gone while email, Telegram and webhooks remain.
+
+**Item 1, histogram sonification.** Measured by reading `SonificationProfileProvider` and
+`DefaultSonificationStrategy`: the histogram arm said `AmplitudeMapping.Size`, the volume arm
+`None` with grit ∝ size; Cipher B's two histograms overrode with `ReferenceDeviation`; a
+`DisplayType=Bar` component with a non-volume role fell through every timbre arm. One rule now —
+constant loudness, `BarGrit` for the sub-octave saw weight, the same nav ping — and a sweep over
+every provider's metadata that fails on any bar-shaped component declaring a size-encoding
+amplitude mapping. The "distinct instruments" test still holds: the reedy square and the brown
+tinge are the identity, not the encoding.
+
+**Item 4, volume direction.** Navigation already said it; the close reading did not.
+`ReadValueAtClose` now takes the state and appends ", up" or ", down" from the bar's own open and
+close for a Volume-role component. The two headless equality assertions and the in-session
+reading tests were updated to the new sentence.
+
+**Items 2 and 3, profiles.** The explorer's report (delegated, read-only): N on a profile promised
+"Value read at each bar close" through `SeriesNarrationScope.ReadingComponent` (a Bar is a reading
+display) while the profile's Bar has no per-bar data; and `FormatProfileFeedback` returned "" for
+`binIndex < 0`, which is the state after every add and every series switch, taking the
+series-switch prefix with it. The route now: `ScanProfile` at bar close (POC cross, value-area
+entry/exit, POC move by a bin), seeded in `Seed` — the first in-session test failed because the
+scan's own first-sighting seed swallowed the first close after N, exactly the failure the Seed doc
+describes for markers; the headless test had passed by accident because it closed two bars. The
+eight profile codes left the narration-route exemption list, and the route guard's driver now
+bins a profile and steps price through its POC. The formatter returns the prefix plus an overview
+when no bin is focused. What else a profile might say is in `docs/TODO.md` §3 for Cody.
+
+**Sabotage — nine, from file copies, each restored byte-identical, control green (60/60).**
+(S1) histogram profile back to `AmplitudeMapping.Size` — 1 red; (S2) Cipher B's
+`ReferenceDeviation` back on WT Histogram — the provider sweep red; (S3) the volume direction
+dropped from the close reading — 2 red (the headless equality assertions); (S4) a fresh crossover
+memory every poll — 2 red (the EMA crossing never fires; the saved-EMA test with it); (S5) profiles
+not binned headless — 2 red (the POC alert and the headless profile ladder); (S6) `SeedProfileState`
+removed from `Seed` — 2 red (the first close after N lost, in-session); (S7) the profile overview
+back to `""` — 1 red; (S8) the indicator refusal back in `WhyUnwatchable` — 5 red across the
+derivation tests and the headless alert tests; (S9) histograms dropped from the nav-ping
+classification — 1 red. Full suite before the runs: 7,326 run, 0 failed; 7,321 listed.
+
+**Not verified.** Nothing heard. MAUI not compiled. Accessibility agents not registered. The
+headless visible-range profile is the profile of the buffer, not of the user's viewport. The
+condition-tree test has one leaf on one timeframe.
+

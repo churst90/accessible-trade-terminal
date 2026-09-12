@@ -117,6 +117,99 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-11 (evening), FORTY-FIRST pass — ALERTS WITH THE BROWSER
+> CLOSED READ A REAL CHART; one grit rule for every bar; profiles narrate and say their name.)**
+> Suite **7,321**. `docs/SESSION_REVIEW_2026-09-11.md` §13 is the addendum. Phase 3 D4 is DONE,
+> both halves. Cody's four odds and ends from this evening: items 1, 3 and 4 built; item 2 built
+> in its first tier and put back to him for the rest (§3 below).
+>
+> ### 1. DURABLE, from this pass
+>
+> - **The narrator was the chart.** The alert half of D4 needed "a populated state per symbol"
+>   and the ladder half had just built one. Rename, widen the template, return the state —
+>   `HeadlessChartNarrator` → `HeadlessChart`. A class named for one consumer of what it
+>   computes will grow a second copy the day a second consumer arrives; name it for what it IS.
+> - **A refusal list is a claim about the REFUSER.** Four of five "cannot watch this in the
+>   background" reasons described the monitor's own blank state, not the alert. When a limit is
+>   removed, the sentence that named it has to go in the same commit — and the monitor that
+>   still has the limit (hosted) keeps the list under a name that says why
+>   (`WhyUnwatchableWithoutAChart`).
+> - **A config built with no parameters is not "the defaults".** `MaterializeSaved` restores
+>   parameters and does not invent them; an alert's indicator synthesized from a bare
+>   `SeriesConfig` gave Skender an EMA with a lookback of ZERO. Write the metadata defaults onto
+>   the config the way the Add Indicator dialog writes its pre-filled fields.
+> - **A spy that records every channel counts one announcement twice.** `Present` raises the
+>   toast on every machine and speaks only where nothing reads a toast; "delivered" is the toast
+>   bodies OR the speech, never both. The first run of the alert tests reported every alert
+>   firing twice and the monitor was innocent.
+> - **Two encodings of the same quantity is a defect even when each is deliberate.** Volume
+>   bars encoded size as grit; histograms encoded it as loudness; both had comments defending
+>   the choice. The user hears one chart. One helper (`BarGrit`) and a provider sweep that
+>   fails on any bar-shaped component declaring its own amplitude mapping.
+> - **A first-sighting seed inside a scan loses the first close after N.** The overlay-cross
+>   pattern ("first sighting seeds and says nothing") is right for a series that arrives
+>   mid-session and wrong for the moment the user presses N — the Seed doc already said so of
+>   the marker window. `SeedProfileState` runs in `Seed`; the in-session test caught it, the
+>   headless one had passed by accident (two closes).
+> - **A formatter that returns "" can drop what its caller prepended.** The series-switch prefix
+>   travelled INTO `FormatProfileFeedback` and died with its empty return. When a formatter is
+>   handed a prefix, its empty case must still return the prefix.
+>
+> ### 2. NEXT — in this order
+>
+> 1. **HEAR IT.** (a) Arrow across a MACD histogram and a Cipher B histogram: bars should get
+>    rougher, not louder, and tick like volume bars. (b) A volume reading at a close: "Volume
+>    12,345, up". (c) N on a volume profile: the confirmation names its levels; a close through
+>    the POC says so, once; adding a profile speaks its name and an overview before any arrow.
+>    (d) An indicator alert (RSI crosses 70, say) with the browser closed, once. (e) A POC alert
+>    with the browser closed.
+> 2. **Profiles, the rest — Cody's call (§3).**
+> 3. Then the deferred venue dry runs (Tradier sandbox first) and the Alpaca order stream.
+>
+> ### 3. OPEN QUESTIONS FOR CODY — "what should the user hear" for profiles
+>
+> Built this pass (the first tier): at each bar close, a narrated profile says when price
+> crosses its point of control, when price enters or leaves the value area (naming the
+> boundary), and when the point of control moves by a bin or more. That is the ladder in the
+> browser and with it closed. Beyond that, three things a profile could say, none decided:
+>
+> - **Playback.** A profile is a distribution over a window, not a per-bar signal, so chart-scope
+>   playback excludes it and playback narration (signals only) says nothing about it. The
+>   crossings above could be spoken as signal steps during playback — "through the point of
+>   control" on the bar it happens — using the same rule. Worth it, or is the profile a thing
+>   you explore by hand (Up/Down through the bins) rather than hear in a run?
+> - **Market profile specifics.** A TPO profile has letters and single prints. "A single print
+>   formed at 45,120" is an event a market-profile trader listens for; a new letter starting is
+>   a period boundary. Neither is spoken today; both are per-close events the scan could add.
+> - **The POC-move threshold.** "Moved by at least a bin" is the smallest honest threshold. A
+>   visible-range profile re-bins every bar, so on a busy chart this is the clause the five-clause
+>   cap drops first; if it turns out chatty, a larger threshold (two bins, or a percent of the
+>   range) is one constant.
+>
+> Also from this pass: **should a POC alert on a chart with no profile saved be refused at
+> creation** (the way an unfireable alert is), rather than added with the "cannot watch it in
+> the background" caveat? In-session it evaluates against the open chart's profile, so it works
+> until the profile is removed; the caveat is honest but it is the last of its kind.
+>
+> ### 4. NOT VERIFIED HERE
+>
+> - Nothing heard. Every claim above is a unit test through the real poll or the real
+>   coordinator; §2 item 1 is the list.
+> - MAUI not compiled here (`AlertsModal.razor` changed: the caveat now passes the open chart's
+>   series). The BlazorClient's `HeadlessChartFactory` singleton registration was renamed and
+>   not compiled.
+> - The accessibility agents did not review this pass (the subagent is not registered in this
+>   environment). One new user-facing sentence family: the profile's N confirmation, its
+>   overview on switch, and its three ladder clauses — all speech, no new controls.
+> - A visible-range profile headless is the profile of the last `BarsNeeded` bars (50–500),
+>   not of whatever the user's chart was showing; a POC alert may therefore fire at a slightly
+>   different price with the browser closed than open. Documented in `HeadlessChart`, not
+>   measured on a real venue.
+> - The tree alert test uses one leaf; a tree with a higher-timeframe leaf headless will
+>   degrade (no `IMultiTimeframeDataService` in the headless scope) and the degradation is now
+>   spoken once — the speaking is tested only through the evaluator's existing event, not
+>   through an HTF leaf.
+
 > **START HERE (current as of 2026-09-11 (later still), FORTIETH pass — THE NARRATION LADDER
 > WITH THE BROWSER CLOSED, and the announcement Orca heard twice.)** Suite **7,305**.
 > `docs/SESSION_REVIEW_2026-09-11.md` §12 is the addendum. Phase 3 D4's narration half is DONE;

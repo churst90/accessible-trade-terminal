@@ -34,6 +34,22 @@ namespace AccessibleTrader.Core.Services.Audio
         }
 
         /// <summary>
+        /// <b>The one grit rule for every bar-shaped component</b> — volume bars, MACD and Cipher B
+        /// histograms, open-interest deltas, anything drawn as a bar from a baseline. The
+        /// sub-octave saw weight is the bar's magnitude against the pane's peak: a bar at the top
+        /// of the pane carries full weight (0.30), a stub is a clean sine. Magnitude, not position
+        /// in the visible range: the smallest visible volume bar is still a bar of some size, and
+        /// a histogram below zero is as big as its distance from zero. Loudness never encodes size
+        /// (see SonificationProfileProvider); this is what does.
+        /// </summary>
+        internal static float BarGrit(double val, (double Min, double Max) viewportRange)
+        {
+            double absMax = Math.Max(Math.Abs(viewportRange.Max), Math.Abs(viewportRange.Min));
+            double magnitudeNorm = absMax > 0 ? Math.Clamp(Math.Abs(val) / absMax, 0.0, 1.0) : 0.0;
+            return (float)(0.30 * magnitudeNorm);
+        }
+
+        /// <summary>
         /// Which end of the candle a wick component describes.
         ///
         /// <para>
@@ -55,6 +71,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// is kept as a case-insensitive fallback for saved workspaces written before the rename.
         /// </para>
         /// </summary>
+
         internal static bool IsUpperWick(ComponentConfig comp)
         {
             if (string.Equals(comp.DataMapping, "high", StringComparison.OrdinalIgnoreCase)) return true;
@@ -333,7 +350,13 @@ namespace AccessibleTrader.Core.Services.Audio
             if (!series.IsProfile && patchLayers == null && string.IsNullOrEmpty(resolvedPatchId))
             {
                 bool isBodyComp = comp.Role == ComponentRole.Body || comp.DisplayType == ComponentDisplayType.Candle;
-                bool isHistogramComp = comp.Role == ComponentRole.Histogram || comp.DisplayType == ComponentDisplayType.Histogram;
+                // Bar is included: a component declared DisplayType=Bar with a role other than
+                // Volume used to fall through every arm and sound as a plain sine — no grit, no
+                // size at all — while the profile provider had already classed it with the
+                // histograms. One test for "is this a bar" here, the same one the provider uses.
+                bool isHistogramComp = comp.Role == ComponentRole.Histogram
+                                    || comp.DisplayType == ComponentDisplayType.Histogram
+                                    || comp.DisplayType == ComponentDisplayType.Bar;
                 if (comp.DisplayType == ComponentDisplayType.Line)
                 {
                     // Price line: warmth (triangle) + a touch of definition (square) + a tinge of
@@ -365,7 +388,7 @@ namespace AccessibleTrader.Core.Services.Audio
                     noiseAmt = Math.Max(noiseAmt, 0.06f);
                     noiseType = "brown";
                     squareMix = 0.10f;   // same "bar" character as the candle body (a sibling timbre)
-                    subSawMix = (float)(0.30 * normalizedValue);
+                    subSawMix = BarGrit(val, viewportRange);
                 }
                 else if (isWickComp)
                 {
@@ -410,11 +433,11 @@ namespace AccessibleTrader.Core.Services.Audio
                 }
                 else if (isHistogramComp)
                 {
-                    // Reedy square (distinct from the volume bed) + warm sub-octave weight ∝ magnitude.
-                    double absMax = Math.Max(Math.Abs(viewportRange.Max), Math.Abs(viewportRange.Min));
-                    double magnitudeNorm = absMax > 0 ? Math.Clamp(Math.Abs(val) / absMax, 0.0, 1.0) : 0.0;
+                    // Reedy square (the fixed character that keeps it apart from the volume bed)
+                    // + the SAME grit rule as volume: warm sub-octave weight ∝ magnitude, on the
+                    // same scale. Loudness is constant (AmplitudeMapping.None in the profile).
                     squareMix = 0.18f;
-                    subSawMix = (float)(0.25 * magnitudeNorm);
+                    subSawMix = BarGrit(val, viewportRange);
                 }
             }
 

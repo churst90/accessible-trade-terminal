@@ -2338,12 +2338,15 @@ names a symbol and provider keeps evaluating about once a minute with no
 browser open, and when one fires you hear it three ways — a notification
 sound, a desktop notification, and speech through Orca in your own voice. The
 watch list is simply your alert list; there is nothing separate to configure.
-The honest limits: alerts that read the chart itself — indicator values, the
-volume-profile POC, trend and zone conditions, and advanced condition trees —
-stay session-only (the indicators they read exist only while their chart is
-open, and the terminal says so when you create one), alerts scoped to "the
-current chart" stay session-only too, and the background monitor stands down
-whenever a browser session is open so nothing is announced twice. The sound
+Alerts that read the chart itself — indicator values, the volume-profile POC,
+trend and zone conditions, and advanced condition trees — are evaluated too:
+the monitor rebuilds each watched chart's indicators from your last saved
+session (an indicator you have not got on the chart is evaluated at its
+defaults), and a POC alert reads the profile saved on that chart, so the one
+alert it cannot watch is a POC alert on a chart with no profile — the terminal
+says so when you create one. Alerts scoped to "the current chart" stay
+session-only (there is no symbol to fetch), and a symbol an open browser is
+already watching is that browser's, so nothing is announced twice. The sound
 is replaceable — drop your own WAV at sounds/alert.wav in the app data
 folder. Pair it with a systemd user service and the terminal listens from
 login to shutdown.

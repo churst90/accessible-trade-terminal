@@ -6,17 +6,30 @@ using Microsoft.Extensions.Logging;
 
 namespace AccessibleTrader.Core.Services.Accessibility
 {
-    /// <summary>What one poll's bars produced. See <see cref="HeadlessChartNarrator.ObserveAsync"/>.</summary>
+    /// <summary>What one poll's bars produced. See <see cref="HeadlessChart.ObserveAsync"/>.</summary>
     /// <param name="Narration">The composed ladder for the bar that closed, or null when nothing
     /// closed, nothing was found, or this was the first sighting.</param>
     /// <param name="NeedsMoreHistory">The bars handed in do not reach back to the last bar this
-    /// narrator holds — a poll was missed for longer than the catch-up window — and the caller
-    /// should fetch <see cref="HeadlessChartNarrator.BarsNeeded"/> bars and observe again.</param>
+    /// chart holds — a poll was missed for longer than the catch-up window — and the caller
+    /// should fetch <see cref="HeadlessChart.BarsNeeded"/> bars and observe again.</param>
     /// <param name="BarClosed">Whether the newest bar advanced since the last observation.</param>
-    public sealed record HeadlessObservation(string? Narration, bool NeedsMoreHistory, bool BarClosed);
+    /// <param name="State">The chart as the alert evaluator needs it — the held bars in
+    /// <c>Data</c>, every series in <c>ActiveSeries</c> recomputed against them — or null when
+    /// there was nothing to compute (no bars, or a gap the caller must close first). Populated on
+    /// the FIRST sighting too: a price alert has two closes to compare from the first poll.</param>
+    /// <param name="PreviousValues">Every indicator component's value at the newest bar as of the
+    /// PREVIOUS observation — the crossover memory <c>AlertEvaluator</c> reads for an indicator
+    /// alert. Empty on the first sighting, which is the warm-up: an indicator alert cannot cross
+    /// from a value nobody has seen.</param>
+    public sealed record HeadlessObservation(
+        string? Narration, bool NeedsMoreHistory, bool BarClosed,
+        WorkspaceState? State = null,
+        IReadOnlyDictionary<string, double>? PreviousValues = null);
 
     /// <summary>
-    /// <b>The narration ladder for ONE saved chart, with the browser closed.</b>
+    /// <b>ONE saved chart, with the browser closed.</b> The state the narration ladder and the
+    /// alert evaluator both need, composed per chart without a store — design (B) of
+    /// docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §2.
     ///
     /// <para>
     /// ── What it is ─────────────────────────────────────────────────────────────
@@ -26,13 +39,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// no redraw and no focused chart — there is the last autosaved session, which says which
     /// charts were open and which of their series carry the N flag, and a background monitor that
     /// re-fetches each chart once a minute. This class is the piece between the two: it holds the
-    /// saved tab's NARRATED series, rebuilt exactly as a workspace load rebuilds them
+    /// saved tab's series, rebuilt exactly as a workspace load rebuilds them
     /// (<c>SeriesManagementService.MaterializeSaved</c> — derived name, component selection,
     /// levels, the lot), keeps enough bars to compute them, recomputes them through the
     /// store-free <see cref="IIndicatorEngine"/> on every poll, and runs the very same
-    /// <see cref="NarrationScanner"/> over the result. Design (B) of
-    /// docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md §2: compose the state the scan needs, per chart,
-    /// without the store.
+    /// <see cref="NarrationScanner"/> over the result.
+    /// </para>
+    ///
+    /// <para>
+    /// ── And the ALERTS on the chart, since 2026-09-11 (D4's second half) ─────────
+    /// The background alert monitor used to hand the evaluator <c>WorkspaceState.Initial</c> —
+    /// no <c>Data</c>, no <c>ActiveSeries</c> — so four of its five "cannot watch this in the
+    /// background" refusals were self-inflicted (scope §1 F3): indicator, POC, trend and zone
+    /// alerts read a chart, and the chart was blank. The state this class already built for the
+    /// ladder is exactly the state those alerts need. So the template it holds is the narrated
+    /// series PLUS every series an alert references (built from the saved tab's config when the
+    /// tab has that indicator, from the indicator's defaults when it does not — see
+    /// <see cref="HeadlessChartFactory"/>), the scanner filters on the N flag as it always has,
+    /// and every observation returns the computed <see cref="HeadlessObservation.State"/> and
+    /// the previous poll's component values. Profiles are computed too, over the whole buffer,
+    /// because a POC alert reads one.
     /// </para>
     ///
     /// <para>
@@ -52,14 +78,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
     ///
     /// <para>
     /// ── What it does NOT decide ────────────────────────────────────────────────
-    /// Whether the ladder is SPOKEN. The monitor owns that: the master narration switch, the
-    /// per-chart ownership rule (a browser that has this chart open is already narrating it),
-    /// and the composition with the bar-close sentence. This class observes and composes. It
-    /// observes even while a browser covers the chart, for the same reason the monitor tracks
-    /// covered charts' timestamps: the moment the browser closes, the seed is already warm.
+    /// Whether the ladder is SPOKEN, or an alert DELIVERED. The monitor owns that: the master
+    /// narration switch, the per-chart ownership rule (a browser that has this chart open is
+    /// already narrating it and evaluating its alerts), and the composition with the bar-close
+    /// sentence. This class observes and composes. It observes even while a browser covers the
+    /// chart, for the same reason the monitor tracks covered charts' timestamps: the moment the
+    /// browser closes, the seed is already warm.
     /// </para>
     /// </summary>
-    public sealed class HeadlessChartNarrator
+    public sealed class HeadlessChart
     {
         /// <summary>The fewest bars worth computing an indicator on, whatever it declares.</summary>
         public const int MinBars = 50;
@@ -74,17 +101,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly IIndicatorEngine _engine;
         private readonly IIndicatorStateMapper _mapper;
         private readonly IIndicatorContextAnalyzer _analyzer;
+        private readonly IProfileService? _profiles;
         private readonly ILogger? _logger;
         private readonly List<ChartSeries> _template;
         private readonly List<Ohlcv> _bars = new();
         private NarrationScanner _scanner;
+        private Dictionary<string, double> _lastValues = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Every series this chart carries: the saved tab's narrated ones and the ones
+        /// its alerts reference.</summary>
+        public IReadOnlyList<ChartSeries> Series => _template;
 
         /// <summary>The narrated series this chart carries, as rebuilt from the saved tab.</summary>
-        public IReadOnlyList<ChartSeries> NarratedSeries => _template;
+        public IReadOnlyList<ChartSeries> NarratedSeries => _template.Where(s => s.IsAutoNarrated).ToList();
 
         /// <summary>Whether there is anything to narrate at all — a saved tab with nothing under
-        /// N costs no fetch and no computation.</summary>
-        public bool HasNarratedSeries => _template.Count > 0;
+        /// N costs no scan.</summary>
+        public bool HasNarratedSeries => _template.Any(s => s.IsAutoNarrated);
+
+        /// <summary>Whether there is anything to compute at all. A chart with no series still
+        /// observes its bars — price alerts read those — but computes nothing.</summary>
+        public bool HasSeries => _template.Count > 0;
+
+        /// <summary>Indicator codes an alert on this chart references that could not be built —
+        /// a plugin that is not loaded, a code nothing answers to. The monitor SAYS so, once:
+        /// an alert on an indicator that does not exist here is an alert that is not being
+        /// watched, and silence must never read as coverage.</summary>
+        public IReadOnlyList<string> MissingIndicators { get; }
 
         /// <summary>How many bars the first fetch (and a catch-up after a long gap) should ask for.</summary>
         public int BarsNeeded { get; }
@@ -96,21 +139,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// catch-up window once it is warm.</summary>
         public int FetchLimit => _bars.Count == 0 ? BarsNeeded : CatchUpLimit;
 
-        internal HeadlessChartNarrator(
+        internal HeadlessChart(
             ChartIdentity identity,
-            IReadOnlyList<ChartSeries> narratedTemplate,
+            IReadOnlyList<ChartSeries> template,
             IIndicatorEngine engine,
             IIndicatorStateMapper mapper,
             IIndicatorContextAnalyzer analyzer,
-            ILogger? logger)
+            ILogger? logger,
+            IProfileService? profiles = null,
+            IReadOnlyList<string>? missingIndicators = null)
         {
             _identity = identity;
             _engine = engine;
             _mapper = mapper;
             _analyzer = analyzer;
+            _profiles = profiles;
             _logger = logger;
-            _template = narratedTemplate.ToList();
+            _template = template.ToList();
             _scanner = new NarrationScanner(analyzer);
+            MissingIndicators = missingIndicators ?? Array.Empty<string>();
             BarsNeeded = ComputeBarsNeeded();
         }
 
@@ -141,8 +188,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         /// <summary>
         /// Hand over one poll's bars. Returns the ladder for the bar that closed since the last
-        /// call, or null. The first call SEEDS and says nothing — the alternative is announcing,
-        /// on startup, every signal in the look-back window as if it were news.
+        /// call, or null — and the computed state either way, for the alerts. The first call
+        /// SEEDS the ladder and says nothing: the alternative is announcing, on startup, every
+        /// signal in the look-back window as if it were news.
         /// </summary>
         /// <param name="fetched">Oldest first. The newest bar is the FORMING one, as every
         /// provider returns it and as the in-session store holds it.</param>
@@ -151,7 +199,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// buffer is replaced and re-seeded rather than asking again.</param>
         public async Task<HeadlessObservation> ObserveAsync(IReadOnlyList<Ohlcv> fetched, bool isFullHistory, CancellationToken ct)
         {
-            if (fetched == null || fetched.Count == 0 || !HasNarratedSeries)
+            // Nothing to compute and nothing to scan: a tab with nothing under N and no alert
+            // that reads a series costs no buffer. Price alerts on such a chart read the fetched
+            // bars directly (the monitor builds them a bare state).
+            if (fetched == null || fetched.Count == 0 || !HasSeries)
                 return new HeadlessObservation(null, false, false);
 
             var sorted = fetched.OrderBy(b => b.Date).ToList();
@@ -159,8 +210,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_bars.Count == 0)
             {
                 _bars.AddRange(sorted);
-                await SeedAsync(ct).ConfigureAwait(false);
-                return new HeadlessObservation(null, false, false);
+                var seeded = await SeedAsync(ct).ConfigureAwait(false);
+                return new HeadlessObservation(null, false, false, seeded, Snapshot(seeded));
             }
 
             // No overlap between what we hold and what arrived: a poll was missed for longer than
@@ -171,28 +222,33 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 if (!isFullHistory) return new HeadlessObservation(null, NeedsMoreHistory: true, false);
 
-                _logger?.LogInformation("Headless narration for {Symbol} {Timeframe} re-seeded after a gap.",
+                _logger?.LogInformation("Headless chart {Symbol} {Timeframe} re-seeded after a gap.",
                     _identity.Symbol, _identity.Timeframe);
                 _bars.Clear();
                 _bars.AddRange(sorted);
                 _scanner = new NarrationScanner(_analyzer);
-                await SeedAsync(ct).ConfigureAwait(false);
-                return new HeadlessObservation(null, false, false);
+                _lastValues.Clear();
+                var reseeded = await SeedAsync(ct).ConfigureAwait(false);
+                return new HeadlessObservation(null, false, false, reseeded, Snapshot(reseeded));
             }
 
             int appended = Merge(sorted);
-            if (appended == 0)
-                return new HeadlessObservation(null, false, false);   // the forming bar refreshed; no close
-
             Trim();
 
             var state = await ComputeStateAsync(ct).ConfigureAwait(false);
+            var previous = Snapshot(state);
+
+            if (appended == 0)
+                return new HeadlessObservation(null, false, false, state, previous);   // the forming bar refreshed; no close
+
             // The bar that CLOSED is the one before the newest (forming) bar. After a missed poll
             // several bars closed at once; the newest closed one is the only one still news, and
             // the scanner's marker window covers the ones before it.
             int closedBound = _bars.Count - 2;
-            string? text = _scanner.ScanAll(state.ActiveSeries, state, closedBound, isBarClose: true);
-            return new HeadlessObservation(text, false, true);
+            string? text = HasNarratedSeries
+                ? _scanner.ScanAll(state.ActiveSeries, state, closedBound, isBarClose: true)
+                : null;
+            return new HeadlessObservation(text, false, true, state, previous);
         }
 
         /// <summary>Append what is newer, replace what is already held. Returns how many were appended.</summary>
@@ -227,17 +283,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _scanner.ShiftIndices(drop);
         }
 
-        private async Task SeedAsync(CancellationToken ct)
+        private async Task<WorkspaceState> SeedAsync(CancellationToken ct)
         {
             var state = await ComputeStateAsync(ct).ConfigureAwait(false);
-            foreach (var s in state.ActiveSeries) _scanner.Seed(s, state);
+            foreach (var s in state.ActiveSeries)
+                if (s.IsAutoNarrated) _scanner.Seed(s, state);
+            return state;
         }
 
         /// <summary>
-        /// The state the scan needs and nothing else: the held bars, the narrated series
-        /// recomputed against them, the cursor on the newest bar. Never dispatched anywhere.
-        /// Same shape as <c>BackgroundWorkspaceMonitor.BuildState</c>, which does this for the
-        /// in-session background tabs' alerts.
+        /// Swap in this poll's component values as the memory for the next one, and return the
+        /// memory that was there — what the evaluator compares THIS poll against. The same
+        /// snapshot <c>BackgroundWorkspaceMonitor.SnapshotIndicatorValues</c> takes for the
+        /// in-session background tabs, keyed the way <c>AlertEvaluator</c> reads it.
+        /// </summary>
+        private IReadOnlyDictionary<string, double> Snapshot(WorkspaceState state)
+        {
+            var previous = _lastValues;
+            var next = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            int idx = state.CurrentDataIndex;
+            foreach (var series in state.ActiveSeries)
+            {
+                if (string.IsNullOrEmpty(series.IndicatorCode)) continue;
+                foreach (var comp in series.Components)
+                {
+                    var data = series.GetComponentData(comp.Name);
+                    if (data == null || idx < 0 || idx >= data.Length) continue;
+                    next[$"{series.IndicatorCode}.{comp.Name}"] = data[idx];
+                }
+            }
+            _lastValues = next;
+            return previous;
+        }
+
+        /// <summary>
+        /// The state the scan and the evaluator need and nothing else: the held bars, every
+        /// series recomputed against them, the cursor on the newest bar. Never dispatched
+        /// anywhere. Same shape as <c>BackgroundWorkspaceMonitor.BuildState</c>, which does this
+        /// for the in-session background tabs' alerts.
         /// </summary>
         private async Task<WorkspaceState> ComputeStateAsync(CancellationToken ct)
         {
@@ -252,6 +335,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 Data = new TimeSeriesBuffer<Ohlcv>(_bars),
                 ActiveSeries = computed.ToImmutable(),
                 CurrentDataIndex = _bars.Count - 1,
+                // The whole buffer is the "visible range" here: a visible-range profile (VPVR,
+                // TPO) is the profile of the last BarsNeeded bars, which is what a chart showing
+                // that many bars would draw.
+                ViewportStartIndex = 0,
+                ViewportLength = _bars.Count,
                 InitStatus = InitializationStatus.Ready,
                 DataStatus = DataStatus.Ready,
             };
@@ -261,17 +349,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// One series against the held bars, the way <c>IndicatorOrchestrator</c> computes it for
         /// the focused chart: core series map straight off the bars, indicators go through the
         /// engine and the production mapper (so companion arrays — touch counts, gradient
-        /// colours — arrive too), and dynamic zone bands land on the config as they do in-session.
-        /// Drawings, profiles and heatmaps have nothing the scanner reads and are left empty.
+        /// colours — arrive too), dynamic zone bands land on the config as they do in-session,
+        /// and a PROFILE gets its bins from the profile service over the whole buffer (a POC
+        /// alert and the profile ladder both read them). Drawings and heatmaps have nothing
+        /// either consumer reads and are left empty.
         /// </summary>
         private async Task<ChartSeries> ComputeSeriesAsync(ChartSeries series, CancellationToken ct)
         {
             try
             {
-                if (series.IsDrawing || series.IsProfile
-                    || series.Components.Any(c => c.DisplayType is ComponentDisplayType.Heatmap
-                                                 or ComponentDisplayType.Profile or ComponentDisplayType.Distribution))
+                if (series.IsDrawing
+                    || series.Components.Any(c => c.DisplayType is ComponentDisplayType.Heatmap))
                     return series;
+
+                if (series.IsProfile || ProfileAnchoring.IsProfileCode(series.IndicatorCode))
+                    return ComputeProfile(series);
 
                 if (series.Components.Any(c => !string.IsNullOrEmpty(c.DataMapping)))
                 {
@@ -305,10 +397,32 @@ namespace AccessibleTrader.Core.Services.Accessibility
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Headless narration: indicator {Code} failed for {Symbol}; it will say nothing this poll.",
+                _logger?.LogWarning(ex, "Headless chart: indicator {Code} failed for {Symbol}; it will say nothing this poll.",
                     series.IndicatorCode, _identity.Symbol);
                 return series;
             }
+        }
+
+        /// <summary>
+        /// The profile's bins, exactly as <c>IndicatorOrchestrator</c> computes them for an open
+        /// chart — the anchoring rule picks the bars (a session, a fixed range, the "visible"
+        /// range, which here is the whole buffer) and the profile service bins them.
+        /// </summary>
+        private ChartSeries ComputeProfile(ChartSeries series)
+        {
+            if (_profiles == null || _bars.Count == 0) return series;
+
+            string codeUpper = series.IndicatorCode.ToUpperInvariant();
+            var slice = ProfileAnchoring.Slice(codeUpper, _bars, series.Config?.Parameters, 0, _bars.Count);
+            if (slice == null || slice.Count == 0) return series;
+
+            var bins = ProfileAnchoring.CountsTime(codeUpper)
+                ? _profiles.CalculateMarketProfile(slice)
+                : _profiles.CalculateVolumeProfile(slice);
+
+            var buffer = new SeriesDataBuffer { SeriesId = series.Id, ProfileBins = bins ?? new List<ProfileBin>() };
+            buffer.FirstBarDate = _bars[0].Date;
+            return series.WithData(buffer);
         }
     }
 }

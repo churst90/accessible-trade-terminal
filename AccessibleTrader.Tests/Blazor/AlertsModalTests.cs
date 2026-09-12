@@ -319,11 +319,14 @@ public class AlertsModalTests
     }
 
     [Fact]
-    public void AddingAChartDependentAlert_SaysBackgroundMonitoringCannotWatchIt()
+    public void AddingAnIndicatorAlert_NoLongerSaysBackgroundMonitoringCannotWatchIt()
     {
-        // "Nothing warns the user" was the finding: an indicator alert saved
-        // fine and then silently never evaluated in the background. The moment
-        // of creation is where the limitation must be spoken.
+        // "Nothing warns the user" was the finding: an indicator alert saved fine and then
+        // silently never evaluated in the background, so the moment of creation had to say so.
+        // Since 2026-09-11 the local monitor composes the indicator per symbol and DOES watch
+        // it (HeadlessAlertTests), so the caveat is no longer true and is no longer spoken —
+        // the confirmation is the plain "added". The caveat itself still exists for what is
+        // still unwatchable (a POC alert on a chart with no profile).
         //
         // The indicator and component are CHOSEN here. They used to be unchoosable — the
         // modal offered Target=Indicator with no picker and AddAlert never set IndicatorCode
@@ -351,7 +354,8 @@ public class AlertsModalTests
             // The fields that make it fireable at all.
             Assert.Equal("RSI", added.IndicatorCode);
             Assert.Equal("Rsi", added.ComponentName);
-            Assert.Contains(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(spoken, m => m.Contains("added", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
         });
     }
 

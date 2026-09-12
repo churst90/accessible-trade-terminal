@@ -204,6 +204,95 @@ public sealed class SonificationTimbreTests
     }
 
     /// <summary>
+    /// <b>One rule for every bar.</b> Cody, 2026-09-11: on Cipher B and MACD "the size of the
+    /// bars still equates to loudness … rather than using the texturing with sawtooth like volume
+    /// bars do." Until then the histogram profile said AmplitudeMapping.Size, so a growing
+    /// histogram bar got louder while a growing volume bar got rougher. Same rule as
+    /// <see cref="VolumeLoudnessIsConstantAndIntensityIsTexture"/>, on the histogram.
+    /// </summary>
+    [Fact]
+    public void HistogramLoudnessIsConstantAndIntensityIsTexture()
+    {
+        var hist = Component(ComponentDisplayType.Histogram, ComponentRole.Histogram, "MACD hist");
+
+        var small = Play(hist, Bar(50, 51, 49, 50), 5, range: (-100.0, 100.0));
+        var large = Play(hist, Bar(50, 51, 49, 50), 95, range: (-100.0, 100.0));
+
+        Assert.Equal(small.Volume, large.Volume, 4);
+        Assert.True(large.SubSawMix > small.SubSawMix,
+            $"a big histogram bar must carry more weight; got {small.SubSawMix} vs {large.SubSawMix}");
+    }
+
+    /// <summary>
+    /// A volume bar, a MACD histogram bar and a plain Bar-typed component at the same magnitude
+    /// carry the SAME grit — one scale for "how big", whatever pane the bar is in. The Bar-typed
+    /// case matters on its own: a component declared DisplayType=Bar with a role that was neither
+    /// Volume nor Histogram used to fall through every timbre arm and play a clean sine with no
+    /// size at all.
+    /// </summary>
+    [Fact]
+    public void EveryBarShapedComponentSharesOneGritRule()
+    {
+        var vol = Component(ComponentDisplayType.Bar, ComponentRole.Volume, "Volume", "volume");
+        var hist = Component(ComponentDisplayType.Histogram, ComponentRole.Histogram, "MACD hist");
+        var bar = Component(ComponentDisplayType.Bar, ComponentRole.None, "OI delta");
+
+        var v = Play(vol, Bar(50, 51, 49, 50, v: 60), 60, range: (0.0, 100.0));
+        var h = Play(hist, Bar(50, 51, 49, 50), -60, range: (-100.0, 100.0));
+        var b = Play(bar, Bar(50, 51, 49, 50), 60, range: (-100.0, 100.0));
+
+        Assert.True(v.SubSawMix > 0f, "a bar at 60% of the pane has audible weight");
+        Assert.Equal(v.SubSawMix, h.SubSawMix, 4);
+        Assert.Equal(v.SubSawMix, b.SubSawMix, 4);
+        Assert.Equal(v.Volume, h.Volume, 4);
+        Assert.Equal(v.Volume, b.Volume, 4);
+    }
+
+    /// <summary>
+    /// The profile is only the default: a provider's component metadata can override the
+    /// amplitude mapping (IndicatorModelFactory lets metadata win), and Cipher B's two histograms
+    /// did — ReferenceDeviation, which is loudness-by-size under another name. Every bar-shaped
+    /// component of every provider must leave loudness alone, or the rule above is a rule for
+    /// some bars.
+    /// </summary>
+    [Fact]
+    public void NoProviderOverridesTheBarLoudnessRule()
+    {
+        var offenders = new List<string>();
+        foreach (var type in IndicatorProviderFixture.ProviderTypes())
+        {
+            var provider = IndicatorProviderFixture.Create(type);
+            List<IndicatorMetadata> indicators;
+            try { indicators = provider.GetIndicators(); }
+            catch { continue; }
+            foreach (var meta in indicators)
+            foreach (var c in meta.Components)
+            {
+                bool bar = c.Role == ComponentRole.Volume || c.Role == ComponentRole.Histogram
+                        || c.DisplayType == ComponentDisplayType.Bar || c.DisplayType == ComponentDisplayType.Histogram;
+                if (!bar) continue;
+                if (c.DefaultAmplitudeMapping is { } m && m != AmplitudeMapping.None)
+                    offenders.Add($"{meta.Code}.{c.Name} = {m}");
+            }
+        }
+        Assert.True(offenders.Count == 0,
+            "bar-shaped components encoding size as loudness: " + string.Join(", ", offenders));
+    }
+
+    /// <summary>Under arrow-key navigation a histogram bar is a ping like a volume bar, not a
+    /// sustained note — the classification the sonifier uses is the profile's.</summary>
+    [Fact]
+    public void HistogramsTakeTheBarPingUnderNavigation()
+    {
+        Assert.True(NavigationSonifier.IsBarComponent(Component(ComponentDisplayType.Histogram, ComponentRole.Histogram)));
+        Assert.True(NavigationSonifier.IsBarComponent(Component(ComponentDisplayType.Bar, ComponentRole.None)));
+        Assert.True(NavigationSonifier.IsBarComponent(Component(ComponentDisplayType.Bar, ComponentRole.Volume, "Volume", "volume")));
+        Assert.False(NavigationSonifier.IsBarComponent(Component(ComponentDisplayType.Oscillator, ComponentRole.None)));
+        Assert.False(NavigationSonifier.IsBarComponent(Component(ComponentDisplayType.Line, ComponentRole.None)));
+        Assert.False(NavigationSonifier.IsBarComponent(null));
+    }
+
+    /// <summary>
     /// The histogram and the volume bed sound during playback at the same time, so their fixed
     /// character has to differ or they blur into one instrument.
     /// </summary>

@@ -285,7 +285,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public string FormatProfileFeedback(WorkspaceState state, bool isXMove, bool isYMove, ChartSeries series, int binIndex, string prefixMessage)
         {
-            if (binIndex < 0 || series.ProfileBins == null || binIndex >= series.ProfileBins.Count) return "";
+            if (series.ProfileBins == null || series.ProfileBins.Count == 0) return "";
+
+            // No bin focused yet — which is every time a profile is ADDED or switched to, since
+            // only Up and Down select a bin. This used to return "", and the return value carried
+            // the series-switch prefix ("Volume Profile. 24 bins. ") with it, so the name was not
+            // heard until the first Up or Down. Cody, 2026-09-11: "When I add a profile to the
+            // chart, the series name isn't read until I start moving around the profile." The
+            // name, then the profile in one breath: where its point of control and value area
+            // are, and how to move through it.
+            if (binIndex < 0 || binIndex >= series.ProfileBins.Count)
+                return prefixMessage + ProfileLevels.Overview(series.ProfileBins);
             var allBins = series.ProfileBins;
             var bin     = allBins[binIndex];
 

@@ -77,6 +77,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public static ComponentConfig? ReadingComponent(ChartSeries series)
         {
             if (series.IsDrawing) return null;
+            // A profile's one component is a Bar with NO per-bar data — the bins are the data —
+            // so it is not a reading, and saying "value read at each bar close" about it was
+            // the promise this class exists to refuse. It narrates by its levels instead
+            // (NarrationScanner.ScanProfile).
+            if (IsProfileSeries(series)) return null;
             if (series.Components.Any(c => IsMarkerDisplay(c.DisplayType) && !c.UsesGradientSpeech)) return null;
             if (series.Components.Any(c => c.DisplayType == ComponentDisplayType.Oscillator)) return null;
 
@@ -117,6 +122,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // A drawing is not an indicator and never narrates; that is not a surprise worth a
             // sentence, and the toggle is not offered on one.
             if (series.IsDrawing) return null;
+            if (IsProfileSeries(series)) return null;   // its levels speak: POC, value area
             if (ReadingComponent(series) != null) return null;
 
             bool hasMarker    = series.Components.Any(c => IsMarkerDisplay(c.DisplayType) && !c.UsesGradientSpeech);
@@ -138,6 +144,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return !isPricePane && hasReading
                 ? $"{series.FriendlyName} has no signals to narrate. Press 0 to add a reference level and its crossings will speak."
                 : $"{series.FriendlyName} has no signals to narrate.";
+        }
+
+        /// <summary>A volume or market profile — decided by its indicator code, which is what
+        /// every add path agrees on (the two add paths disagree about the component's display
+        /// type, Bar on one and Distribution on the other).</summary>
+        public static bool IsProfileSeries(ChartSeries series)
+            => series.IsProfile || ProfileAnchoring.IsProfileCode(series.IndicatorCode);
+
+        /// <summary>
+        /// What N promises for this series, in the confirmation the reducer speaks: signals, a
+        /// reading at each close, or — for a profile — its levels. A switch that names an
+        /// outcome is a promise, so the sentence names the outcome the scan can keep.
+        /// </summary>
+        public static string NarrationPromise(ChartSeries series)
+        {
+            if (IsProfileSeries(series))
+                return "Price crossing the point of control and the value area, and point of control moves, at each bar close.";
+            if (ReadingComponent(series) != null)
+                return "Value read at each bar close.";
+            return "";
         }
 
         /// <summary>A quantity per bar: volume, delta, a histogram. See <see cref="ReadingComponent"/>.</summary>

@@ -595,7 +595,7 @@ namespace AccessibleTrader.WebHost
             // series and runs the same scan the focused chart runs, from the headless scope
             // (LocalBackgroundMonitor). Scoped so it shares the headless session's indicator
             // stack and plugin registry.
-            services.AddScoped<AccessibleTrader.Core.Services.Accessibility.HeadlessNarration>();
+            services.AddScoped<AccessibleTrader.Core.Services.Accessibility.HeadlessChartFactory>();
 
             services.AddScoped<IBarDetailService, BarDetailService>();
             services.AddScoped<IAlertEvaluator, AlertEvaluator>();

@@ -3,6 +3,7 @@ using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Accessibility;
 using AccessibleTrader.Core.Services.Feeds;
 using AccessibleTrader.Core.Services.Notifications;
+using AccessibleTrader.Core.Services.Strategies;
 using AccessibleTrader.Core.Services.Workspace;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Interfaces;
@@ -26,11 +27,13 @@ namespace AccessibleTrader.WebHost.Services
     /// returns null on anything that is not Linux, so a Windows or macOS user
     /// got a monitor that ran, watched, and delivered silently to no one.
     ///
-    /// Scope, deliberately: SIMPLE alerts (price/pattern rules) that carry an
-    /// explicit Symbol + Provider — the watch list is DERIVED from your saved
-    /// alerts, no separate configuration. Condition-tree and current-chart
-    /// alerts need the full indicator pipeline and stay session-only (the
-    /// Settings text says so).
+    /// Scope: every alert that carries an explicit Symbol + Provider — the watch
+    /// list is DERIVED from your saved alerts, no separate configuration. Until
+    /// 2026-09-11 that read "SIMPLE alerts (price/pattern rules)", because the
+    /// evaluator was handed a blank chart; indicator, POC, trend, zone and
+    /// condition-tree alerts are evaluated now against a chart composed per
+    /// symbol (HeadlessChart). Current-chart alerts — no symbol — stay
+    /// session-only, because there is nothing to fetch.
     ///
     /// Until 2026-09-06 (Phase 1) the monitor PAUSED entirely while any browser
     /// session was connected, because the in-session pipeline owned delivery then
@@ -52,7 +55,7 @@ namespace AccessibleTrader.WebHost.Services
     ///
     /// Since 2026-09-11 (Phase 3 D4) it also speaks the NARRATION LADDER for the
     /// saved tabs' series flagged with N — the same scan the focused chart runs,
-    /// through <see cref="HeadlessChartNarrator"/> — composed into the bar-close
+    /// through <see cref="HeadlessChart"/> — composed into the bar-close
     /// sentence as one utterance, exactly as in-session.
     ///
     /// Opt-in: Settings → General → "Keep monitoring when the browser is closed"
@@ -82,9 +85,13 @@ namespace AccessibleTrader.WebHost.Services
 
         // One evaluator for the monitor's lifetime: it owns the per-alert
         // hysteresis/edge state, so a level crossed at 03:00 doesn't re-fire
-        // on every subsequent poll.
-        private readonly AlertEvaluator _evaluator = new(
-            new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer());
+        // on every subsequent poll. Built on the first poll rather than here because two of its
+        // collaborators live in the headless scope: the level service (a POC alert reads the
+        // profile's point of control through it) and the condition-tree evaluator (an advanced
+        // alert is nothing without one). Until 2026-09-11 it was built with neither, which was
+        // consistent with the blank state it was handed and just as useless.
+        private AlertEvaluator? _evaluator;
+        private readonly HashSet<string> _reportedFailures = new(StringComparer.OrdinalIgnoreCase);
 
         public LocalBackgroundMonitor(
             HeadlessSession session,
@@ -137,22 +144,26 @@ namespace AccessibleTrader.WebHost.Services
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
 
             var alerts = services.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
-            WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts));
+
+            // The saved tabs are read for three reasons that answer to three different switches:
+            // bar closes (the New-bars category, opt-in), the narration ladder (the Narration
+            // tab's master switch, default on, over the per-series N flag), and the ALERTS — an
+            // indicator alert reads the indicator as the user configured it on the chart, and a
+            // point-of-control alert reads the chart's profile. Any one is a reason to know
+            // which charts the user had open.
+            bool barClosesOn = WatchBarCloses(settings);
+            bool narrationOn = NarrateOnBarClose(settings);
+            bool anyAlerts = alerts.Any(a => a.IsActive);
+            var session = barClosesOn || narrationOn || anyAlerts ? LoadLastSession(services) : null;
+            var tabWatches = DeriveBarCloseWatches(session);
+
+            WarnOnceAboutUnwatchable(DeriveUnwatchable(alerts, session));
 
             // The routing rule that replaced "stand down while a circuit is open". A symbol an
             // open browser session already watches belongs to that session; everything else is
             // ours. See CircuitAlertCoverage for why this is not a pause.
             var covered = CircuitAlertCoverage.CoveredSymbols();
-            var watches = OwnedWatches(DeriveWatches(alerts), covered);
-
-            // The saved tabs are read for two reasons that answer to two different switches:
-            // bar closes (the New-bars category, opt-in) and the narration ladder (the Narration
-            // tab's master switch, default on, over the per-series N flag). Either one is a
-            // reason to know which charts the user had open.
-            bool barClosesOn = WatchBarCloses(settings);
-            bool narrationOn = NarrateOnBarClose(settings);
-            var session = barClosesOn || narrationOn ? LoadLastSession(services) : null;
-            var tabWatches = DeriveBarCloseWatches(session);
+            var watches = OwnedWatches(DeriveWatches(alerts, session), covered);
 
             // Bar closes (Phase 3 D1). Same routing rule as alerts: a symbol an open browser
             // already covers belongs to that browser — in-session the focused chart publishes
@@ -181,15 +192,15 @@ namespace AccessibleTrader.WebHost.Services
             // for a reading a minute. The floor stays what its doc says it is — new-bar
             // announcements only.
             var narrationWatches = narrationOn
-                ? tabWatches.Where(w => HeadlessNarration.HasNarratedSeries(w.Series)).ToList()
+                ? tabWatches.Where(w => HeadlessChartFactory.HasNarratedSeries(w.Series)).ToList()
                 : new List<Watch>();
             var narrateKeys = OwnedWatches(narrationWatches, covered)
                 .Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            ForgetNarratorsNotIn(narrationWatches);
 
             // One fetch per chart, however many reasons there are to want it. A symbol carrying
             // an alert AND sitting in an open tab is two reasons and must stay one request.
             var targets = MergeTargets(watches, barWatches, narrationWatches);
+            ForgetChartsNotIn(targets);
             if (targets.Count == 0) return;
 
             // Serialised with the order watch's identical preamble — two loops on one scope
@@ -204,32 +215,35 @@ namespace AccessibleTrader.WebHost.Services
                 var provider = await data.GetProviderAsync(watch.Provider);
                 if (provider == null) continue;
 
-                // The narrator, when this chart has anything under N, decides how deep the fetch
-                // is: the indicators' warmup on a cold buffer, MinFetch once it is warm.
-                var narrator = target.Narrate ? GetNarrator(services, watch) : null;
-                int limit = Math.Max(MinFetch, narrator?.FetchLimit ?? MinFetch);
+                // The chart, when this tab has anything under N or an alert that reads a series,
+                // decides how deep the fetch is: the indicators' warmup on a cold buffer, MinFetch
+                // once it is warm.
+                var chart = target.Narrate || watch.Alerts.Count > 0 ? GetChart(services, watch) : null;
+                if (chart != null && !chart.HasSeries) chart = null;   // price alerts only: bars suffice
+                int limit = Math.Max(MinFetch, chart?.FetchLimit ?? MinFetch);
 
                 var bars = await FetchAsync(provider, watch, limit);
                 if (bars == null) continue;
                 NoteFeedRecovered(watch.Symbol);
                 if (bars.Count < 2) continue;
 
-                // The ladder is OBSERVED on every poll the chart is narrated — covered or not —
-                // so its memory of what has already been said is warm at hand-off. Whether it is
-                // SPOKEN is decided below, by ownership.
+                // The chart is OBSERVED on every poll — covered or not — so the ladder's memory
+                // of what has already been said, and the alerts' memory of last poll's values,
+                // are warm at hand-off. Whether anything is SPOKEN is decided below, by ownership.
                 string? ladder = null;
-                if (narrator != null)
+                HeadlessObservation? observed = null;
+                if (chart != null)
                 {
-                    var observed = await narrator.ObserveAsync(bars, isFullHistory: limit >= narrator.BarsNeeded, ct);
+                    observed = await chart.ObserveAsync(bars, isFullHistory: limit >= chart.BarsNeeded, ct);
                     if (observed.NeedsMoreHistory)
                     {
                         // A poll was missed for longer than the catch-up window covers: ask once
-                        // for the full window, then let the narrator decide whether to re-seed.
-                        var more = await FetchAsync(provider, watch, narrator.BarsNeeded);
+                        // for the full window, then let the chart decide whether to re-seed.
+                        var more = await FetchAsync(provider, watch, chart.BarsNeeded);
                         if (more != null && more.Count >= 2)
                         {
                             bars = more;
-                            observed = await narrator.ObserveAsync(bars, isFullHistory: true, ct);
+                            observed = await chart.ObserveAsync(bars, isFullHistory: true, ct);
                         }
                     }
                     ladder = observed.Narration;
@@ -248,13 +262,58 @@ namespace AccessibleTrader.WebHost.Services
 
                 if (watch.Alerts.Count == 0) continue;
 
-                var state = WorkspaceState.Initial with { SymbolDisplayName = watch.Symbol };
-                var fired = _evaluator.EvaluateAlerts(
-                    watch.Alerts, state, bars[^1], bars[^2],
-                    new Dictionary<string, double>()).ToList();
+                // The state the evaluator reads: the chart's, with every referenced series
+                // computed and the previous poll's values for the crossover memory — or, for a
+                // chart with nothing to compute, the fetched bars alone (a three-bar pattern
+                // reads Data; a price crossing reads the two newest closes). Until 2026-09-11
+                // this was WorkspaceState.Initial and a fresh empty dictionary on every poll:
+                // no Data, no series, no memory — see docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md F3.
+                var state = observed?.State ?? BareState(watch, bars);
+                var previous = observed?.PreviousValues ?? new Dictionary<string, double>();
+                var fired = Evaluator(services).EvaluateAlerts(
+                    watch.Alerts, state, bars[^1], bars[^2], previous).ToList();
 
                 foreach (var f in fired) Deliver(f, watch.Symbol);
             }
+        }
+
+        /// <summary>The fetched bars and nothing else — the state for a chart that has no series
+        /// to compute. Price and candle alerts read this; a three-bar pattern needs the bars in
+        /// <c>Data</c>, which the blank state never had.</summary>
+        private static WorkspaceState BareState(Watch watch, IReadOnlyList<Ohlcv> bars) =>
+            WorkspaceState.Initial with
+            {
+                Identity = new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
+                SymbolDisplayName = watch.Symbol,
+                Data = new TimeSeriesBuffer<Ohlcv>(bars.ToList()),
+                CurrentDataIndex = bars.Count - 1,
+                InitStatus = InitializationStatus.Ready,
+                DataStatus = DataStatus.Ready,
+            };
+
+        /// <summary>
+        /// The evaluator, with the headless scope's level service (POC alerts) and condition
+        /// evaluator (tree alerts) when the host registers them. Its two failure events are
+        /// SPOKEN, once per alert: an alert whose rule throws, or whose tree has a leaf nothing
+        /// here can answer, is an alert that is not being watched, and the in-session
+        /// orchestrator says so too. Silence must never read as coverage.
+        /// </summary>
+        private AlertEvaluator Evaluator(IServiceProvider services)
+        {
+            if (_evaluator != null) return _evaluator;
+            _evaluator = new AlertEvaluator(
+                new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer(),
+                services.GetService<ILevelService>(),
+                services.GetService<IConditionEvaluator>());
+            _evaluator.EvaluationDegraded += (alert, why) =>
+                Announce($"Alert {alert.Name} cannot be fully evaluated in the background: {why}.");
+            _evaluator.EvaluationFailed += (alert, ex) =>
+            {
+                if (!_reportedFailures.Add(alert.Id)) return;
+                _logger.LogWarning(ex, "Background alert '{Name}' failed to evaluate.", alert.Name);
+                Announce($"Alert {alert.Name} failed to evaluate in the background: {ex.Message}");
+            };
+            return _evaluator;
         }
 
         /// <summary>One fetch, with the dead-feed bookkeeping. Null on failure.</summary>
@@ -440,46 +499,85 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         /// <summary>
-        /// Why background evaluation cannot watch an active alert, or null when it
-        /// can — see <see cref="AccessibleTrader.Core.Services.Alerts.BackgroundWatchability"/>,
-        /// which the alerts UI shares so the exclusion and the user-facing warning
-        /// can never disagree.
+        /// Why THIS monitor cannot watch an active alert, or null when it can — see
+        /// <see cref="AccessibleTrader.Core.Services.Alerts.BackgroundWatchability"/>, which the
+        /// alerts UI shares so the exclusion and the user-facing warning can never disagree.
+        /// The chart's saved series come from the last autosaved tab for the alert's symbol.
         /// </summary>
-        public static string? WhyUnwatchable(AlertDefinition a)
-            => AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(a);
+        public static string? WhyUnwatchable(AlertDefinition a, WorkspaceConfiguration? session)
+            => AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(a, SavedSeriesFor(session, a));
 
         /// <summary>
-        /// The active alerts the background monitors CANNOT evaluate, with the
-        /// reason each is excluded — for the monitors' once-per-change warning and
-        /// for the alerts UI to say at creation time.
+        /// The active alerts a background monitor CANNOT evaluate, with the reason each is
+        /// excluded — for the monitor's once-per-change warning and for the alerts UI to say at
+        /// creation time. The predicate is the monitor's own: this monitor composes a chart per
+        /// symbol and refuses almost nothing; the hosted monitor evaluates against a blank chart
+        /// and passes <c>BackgroundWatchability.WhyUnwatchableWithoutAChart</c>.
         /// </summary>
         public static IReadOnlyList<(AlertDefinition Alert, string Reason)> DeriveUnwatchable(
-            IEnumerable<AlertDefinition> alerts) =>
+            IEnumerable<AlertDefinition> alerts, Func<AlertDefinition, string?> whyUnwatchable) =>
             alerts.Where(a => a.IsActive)
-                  .Select(a => (Alert: a, Reason: WhyUnwatchable(a)))
+                  .Select(a => (Alert: a, Reason: whyUnwatchable(a)))
                   .Where(t => t.Reason != null)
                   .Select(t => (t.Alert, t.Reason!))
                   .ToList();
 
+        /// <inheritdoc cref="DeriveUnwatchable(IEnumerable{AlertDefinition}, Func{AlertDefinition, string?})"/>
+        public static IReadOnlyList<(AlertDefinition Alert, string Reason)> DeriveUnwatchable(
+            IEnumerable<AlertDefinition> alerts, WorkspaceConfiguration? session = null) =>
+            DeriveUnwatchable(alerts, a => WhyUnwatchable(a, session));
+
         /// <summary>
-        /// The watch list IS the user's alert list: every active alert the
-        /// background evaluator can honestly evaluate (see
-        /// <see cref="WhyUnwatchable"/>) with an explicit Symbol AND Provider.
-        /// Grouped so each (provider, market, symbol, timeframe) costs one fetch
-        /// per poll. Market rides along from the alert (defaulting to "Spot" for
-        /// pre-existing alerts) — it used to be hardcoded to "Spot" at the fetch,
-        /// so a Futures or Derivatives alert quietly watched the wrong market.
+        /// The watch list IS the user's alert list: every active alert the background evaluator
+        /// can honestly evaluate (see <paramref name="whyUnwatchable"/>) with an explicit Symbol
+        /// AND Provider. Grouped so each (provider, market, symbol, timeframe) costs one fetch
+        /// per poll. Market rides along from the alert (defaulting to "Spot" for pre-existing
+        /// alerts) — it used to be hardcoded to "Spot" at the fetch, so a Futures or Derivatives
+        /// alert quietly watched the wrong market.
         /// </summary>
-        public static IReadOnlyList<Watch> DeriveWatches(IEnumerable<AlertDefinition> alerts) =>
+        public static IReadOnlyList<Watch> DeriveWatches(
+            IEnumerable<AlertDefinition> alerts, Func<AlertDefinition, string?> whyUnwatchable,
+            WorkspaceConfiguration? session = null) =>
             alerts
-                .Where(a => a.IsActive && WhyUnwatchable(a) == null)
+                .Where(a => a.IsActive && whyUnwatchable(a) == null)
                 .GroupBy(a => (Provider: a.Provider!.Trim(),
                                Symbol: a.Symbol!.Trim(),
                                Timeframe: string.IsNullOrWhiteSpace(a.Timeframe) ? "1h" : a.Timeframe!.Trim(),
                                Market: string.IsNullOrWhiteSpace(a.Market) ? "Spot" : a.Market!.Trim()),
                     StringTupleComparer.Instance)
-                .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market))
+                // The saved tab's series ride along: the alerts' indicators are built from them.
+                .Select(g => new Watch(g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.ToList(), g.Key.Market,
+                                       SavedSeriesFor(session, g.Key.Provider, g.Key.Symbol, g.Key.Timeframe, g.Key.Market)))
                 .ToList();
+
+        /// <summary>This monitor's watches: the chart-composing predicate, with the saved session.</summary>
+        public static IReadOnlyList<Watch> DeriveWatches(IEnumerable<AlertDefinition> alerts, WorkspaceConfiguration? session = null)
+            => DeriveWatches(alerts, a => WhyUnwatchable(a, session), session);
+
+        /// <summary>
+        /// The series saved on the tab an alert belongs to. The tab on the same chart when there
+        /// is one; failing that, any saved tab on the same symbol at the same venue — an alert
+        /// written on the 1-hour chart still means the RSI as the user set it up, and a profile
+        /// on the 5-minute tab is the profile they have. Empty when nothing is saved for the
+        /// symbol, which a point-of-control alert reports as unwatchable.
+        /// </summary>
+        internal static IReadOnlyList<SeriesConfig> SavedSeriesFor(WorkspaceConfiguration? session, AlertDefinition a)
+            => SavedSeriesFor(session, a.Provider ?? "", a.Symbol ?? "",
+                string.IsNullOrWhiteSpace(a.Timeframe) ? "1h" : a.Timeframe!, string.IsNullOrWhiteSpace(a.Market) ? "Spot" : a.Market!);
+
+        internal static IReadOnlyList<SeriesConfig> SavedSeriesFor(
+            WorkspaceConfiguration? session, string provider, string symbol, string timeframe, string market)
+        {
+            if (session?.Tabs == null) return Array.Empty<SeriesConfig>();
+            bool Same(string? x, string? y) => string.Equals(x?.Trim(), y?.Trim(), StringComparison.OrdinalIgnoreCase);
+            var sameSymbol = session.Tabs
+                .Where(t => Same(t.Provider, provider) && Same(t.Symbol, symbol) && t.Series != null && t.Series.Count > 0)
+                .ToList();
+            var exact = sameSymbol.FirstOrDefault(t =>
+                Same(string.IsNullOrWhiteSpace(t.Timeframe) ? "1h" : t.Timeframe, timeframe)
+                && Same(string.IsNullOrWhiteSpace(t.Market) ? "Spot" : t.Market, market));
+            return (IReadOnlyList<SeriesConfig>?)(exact ?? sameSymbol.FirstOrDefault())?.Series ?? Array.Empty<SeriesConfig>();
+        }
 
         /// <summary>
         /// The routing rule, pure and therefore testable: the watches THIS session owns, given
@@ -549,13 +647,13 @@ namespace AccessibleTrader.WebHost.Services
                 // later with nothing in a log. The tab's SERIES ride along either way, because
                 // the alert watch never carries any.
                 byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
-                    ? existing with { Watch = existing.Watch with { Series = w.Series }, WatchBarCloses = true }
+                    ? existing with { Watch = existing.Watch with { Series = w.Series ?? existing.Watch.Series }, WatchBarCloses = true }
                     : new Target(w, true, false);
             }
             foreach (var w in narrationWatches)
             {
                 byKey[WatchKey(w)] = byKey.TryGetValue(WatchKey(w), out var existing)
-                    ? existing with { Watch = existing.Watch with { Series = w.Series }, Narrate = true }
+                    ? existing with { Watch = existing.Watch with { Series = w.Series ?? existing.Watch.Series }, Narrate = true }
                     : new Target(w, false, true);
             }
             return byKey.Values.ToList();
@@ -678,65 +776,90 @@ namespace AccessibleTrader.WebHost.Services
                 title, text, text, urgent: false, withSound: false, _logger);
         }
 
-        // ── The narration ladder (Phase 3 D4) ────────────────────────────────
+        // ── The chart per watch (Phase 3 D4: the ladder, then the alerts) ───────
 
         /// <summary>
-        /// One narrator per watched chart, kept for as long as the saved tab's narrated series
-        /// stay the same. Keyed on the watch; the signature says whether the saved configs
-        /// changed underneath it (N pressed on something, a parameter edited) — in which case it
-        /// is rebuilt and re-seeded. A save that changed NOTHING the ladder reads keeps the
-        /// narrator and its warm memory, which is what makes the hand-off from an open browser
-        /// announce the first close after it rather than the second.
+        /// One chart per watched (provider, market, symbol, timeframe), kept for as long as the
+        /// saved tab's series and the alerts on it stay the same. Keyed on the watch; the
+        /// signature says whether the saved configs or the alert list changed underneath it (N
+        /// pressed on something, a parameter edited, an alert added) — in which case it is
+        /// rebuilt and re-seeded. A save that changed NOTHING the chart reads keeps it and its
+        /// warm memory, which is what makes the hand-off from an open browser announce the first
+        /// close after it rather than the second.
         /// </summary>
-        private readonly Dictionary<string, (string Signature, HeadlessChartNarrator Narrator)> _narrators
+        private readonly Dictionary<string, (string Signature, HeadlessChart Chart)> _charts
             = new(StringComparer.OrdinalIgnoreCase);
-        private bool _warnedNoNarration;
+        private readonly HashSet<string> _warnedMissingIndicators = new(StringComparer.Ordinal);
+        private bool _warnedNoFactory;
 
-        private HeadlessChartNarrator? GetNarrator(IServiceProvider services, Watch watch)
+        private HeadlessChart? GetChart(IServiceProvider services, Watch watch)
         {
             string key = WatchKey(watch);
             var saved = watch.Series ?? Array.Empty<SeriesConfig>();
-            string signature = HeadlessNarration.Signature(saved);
+            string signature = HeadlessChartFactory.Signature(saved, watch.Alerts);
 
-            if (_narrators.TryGetValue(key, out var held) && held.Signature == signature)
-                return held.Narrator;
+            if (_charts.TryGetValue(key, out var held) && held.Signature == signature)
+                return held.Chart;
 
-            var factory = services.GetService<HeadlessNarration>();
+            var factory = services.GetService<HeadlessChartFactory>();
             if (factory == null)
             {
-                if (!_warnedNoNarration)
+                if (!_warnedNoFactory)
                 {
-                    _warnedNoNarration = true;
-                    _logger.LogWarning("Headless narration is not registered in this host; the narration ladder will not be spoken with the browser closed.");
+                    _warnedNoFactory = true;
+                    _logger.LogWarning("Headless charts are not registered in this host; the narration ladder will not be spoken with the browser closed, and indicator alerts will not be evaluated.");
                 }
                 return null;
             }
 
             try
             {
-                var narrator = factory.Create(
-                    new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved);
-                _narrators[key] = (signature, narrator);
+                var chart = factory.Create(
+                    new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe), saved, watch.Alerts);
+                _charts[key] = (signature, chart);
                 _logger.LogInformation(
-                    "Headless narration watching {Symbol} {Timeframe}: {Count} narrated series, {Bars} bars of history.",
-                    watch.Symbol, watch.Timeframe, narrator.NarratedSeries.Count, narrator.BarsNeeded);
-                return narrator;
+                    "Headless chart watching {Symbol} {Timeframe}: {Narrated} narrated series, {Total} in all, {Bars} bars of history.",
+                    watch.Symbol, watch.Timeframe, chart.NarratedSeries.Count, chart.Series.Count, chart.BarsNeeded);
+                ReportMissingIndicators(watch, chart);
+                return chart;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Headless narration could not be built for {Symbol} {Timeframe}.",
+                _logger.LogWarning(ex, "Headless chart could not be built for {Symbol} {Timeframe}.",
                     watch.Symbol, watch.Timeframe);
                 return null;
             }
         }
 
-        /// <summary>A tab that closed, or lost its last N flag, is forgotten — its memory would
-        /// otherwise sit in the dictionary for the life of the process.</summary>
-        private void ForgetNarratorsNotIn(IEnumerable<Watch> narrationWatches)
+        /// <summary>
+        /// An alert on an indicator this process cannot build — a plugin not loaded here, a
+        /// code nothing answers to — is an alert that is not being watched. Said once per
+        /// distinct set per chart, on the same channel the alerts use; the alternative is the
+        /// evaluator returning null on every poll while the user believes the market is watched.
+        /// </summary>
+        private void ReportMissingIndicators(Watch watch, HeadlessChart chart)
         {
-            var keep = narrationWatches.Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var key in _narrators.Keys.Where(k => !keep.Contains(k)).ToList())
-                _narrators.Remove(key);
+            if (chart.MissingIndicators.Count == 0) return;
+            string key = WatchKey(watch) + "|" + string.Join(",", chart.MissingIndicators.OrderBy(c => c, StringComparer.OrdinalIgnoreCase));
+            if (!_warnedMissingIndicators.Add(key)) return;
+
+            var names = watch.Alerts
+                .Where(a => a.IndicatorCode != null && chart.MissingIndicators.Contains(a.IndicatorCode, StringComparer.OrdinalIgnoreCase))
+                .Select(a => a.Name).Distinct().ToList();
+            string which = names.Count > 0 ? $"Alert {string.Join(", ", names)} on {watch.Symbol}" : $"An alert on {watch.Symbol}";
+            string text = $"{which} cannot be watched in the background: indicator {string.Join(", ", chart.MissingIndicators)} is not available here.";
+            _logger.LogWarning("{Text}", text);
+            Announce(text);
+        }
+
+        /// <summary>A chart that is no longer wanted for any reason — its tab closed, its last N
+        /// flag and its last alert gone — is forgotten; its memory would otherwise sit in the
+        /// dictionary for the life of the process.</summary>
+        private void ForgetChartsNotIn(IEnumerable<Target> targets)
+        {
+            var keep = targets.Select(t => WatchKey(t.Watch)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in _charts.Keys.Where(k => !keep.Contains(k)).ToList())
+                _charts.Remove(key);
         }
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────

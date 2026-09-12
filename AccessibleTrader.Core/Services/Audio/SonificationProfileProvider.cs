@@ -50,11 +50,20 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         if (role == ComponentRole.Volume)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 330, 1.0, false, "Sustain");
 
-        // 3b. Histograms and other bars: base SINE with a fixed square partial (reedy character,
-        //     set in CreateAudioPoint) plus saw ∝ magnitude — a distinct timbre from the volume
-        //     bed, so the two never blur together when both sound during playback.
+        // 3b. Histograms and other bars: THE SAME RULE AS VOLUME. Loudness is constant and the
+        //     bar's magnitude is carried by the sub-octave saw weight set in CreateAudioPoint
+        //     (one helper, BarGrit, for volume and histogram alike). Only the fixed character
+        //     differs — a reedier square here, a brown-noise tinge on the volume bed — so the two
+        //     never blur together when both sound during playback.
+        //
+        //     Until 2026-09-11 this arm said AmplitudeMapping.Size, so a MACD or Cipher B
+        //     histogram bar got LOUDER as it grew while a volume bar got ROUGHER — two encodings
+        //     of "how big" for two kinds of bar, and the loud one dropped small bars toward
+        //     silence, which is the very thing the volume rule exists to prevent. Cody: "all
+        //     histograms/bars should use a similar sonification profile, decide on one that is
+        //     consistent." This is the one.
         if (role == ComponentRole.Histogram || displayType == ComponentDisplayType.Bar || displayType == ComponentDisplayType.Histogram)
-            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.Size, PitchMapping.PriceDirection, 440, 1.0, false, "Sustain");
+            return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 440, 1.0, false, "Sustain");
 
         // 4. Oscillators: base SINE; the upper and lower halves are differentiated by a square
         //     (bright) or triangle (warm) partial set in CreateAudioPoint, not by swapping the

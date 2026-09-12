@@ -105,8 +105,10 @@ public sealed class NarrationRouteContractTests
     /// <list type="bullet">
     ///   <item><b>Drawings.</b> The user's own objects. They speak through the drawing contract
     ///         (<c>DrawingSpeech</c>) and the nudge readback, not through indicator narration.</item>
-    ///   <item><b>The price itself</b>, and the volume/profile/heatmap surfaces. The new-bar
-    ///         announcement IS the candle's narration; a profile has no per-bar event.</item>
+    ///   <item><b>The price itself</b>, and the volume/heatmap surfaces. The new-bar
+    ///         announcement IS the candle's narration. (Profiles left this list on 2026-09-11:
+    ///         a profile has no per-bar VALUE, but it has three levels, and price crossing
+    ///         them is its narration route — <c>NarrationScanner.ScanProfile</c>.)</item>
     ///   <item><b>Unbounded accumulators.</b> OBV, ADL, Force Index, standard deviation, Ulcer,
     ///         historical volatility, ATR: no fixed threshold exists to cross, because the series
     ///         has no scale of its own — an ATR of 400 is enormous on one asset and noise on
@@ -122,9 +124,8 @@ public sealed class NarrationRouteContractTests
         // Drawings
         "ANGLEFIB", "CHANNEL", "FIB", "FIBEXT", "GANNBOX", "GANNFAN", "HORIZONTAL", "LABEL",
         "MEASURE", "PITCHFORK", "RECT", "RISKREWARD", "TREND", "VERTICAL",
-        // Price, volume and the distribution surfaces
+        // Price, volume and the heatmap surface
         "CANDLES", "PRICE", "VOLUME", "HEATMAP", "AVWAP",
-        "TPO", "TPOFR", "TPOSESSION", "TPOANCHOR", "VPVR", "VPFR", "VPSESSION", "VPANCHOR",
         // Unbounded accumulators — no threshold exists to cross
         "Adl", "Atr", "ForceIndex", "Hv", "Obv", "StdDev", "UlcerIndex",
         // Comparison overlays: another symbol's price, drawn here
@@ -212,14 +213,30 @@ public sealed class NarrationRouteContractTests
         var router = new SpeechFeedbackRouter(speech, new SpeechFormatter(), store);
         _ = new AutoNarrationService(store, bus, router, new IndicatorContextAnalyzer());
 
+        // A PROFILE has no component arrays; its data is the bins, and its route is price
+        // crossing the levels read off them. Two heavy bars at 100 put the point of control
+        // there; the closing bar prints at 110, through it.
+        bool isProfile = AccessibleTrader.Core.Services.ProfileAnchoring.IsProfileCode(meta.Code);
+        Ohlcv BarAt(int i) => isProfile
+            ? (i < 2 ? new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 100, 100.5, 99.5, 100, 100)
+                     : new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 110, 110.5, 109.5, 110, 10))
+            : new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 100, 101, 99, 100, 10);
+
         WorkspaceState At(int bars)
         {
             var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
             foreach (var kv in arrays) buf.ComponentData[kv.Key] = kv.Value.Take(bars).ToArray();
+            var data = Enumerable.Range(0, bars).Select(BarAt).ToList();
+            if (isProfile)
+            {
+                var profiles = new AccessibleTrader.Core.Services.ProfileService();
+                buf.ProfileBins = AccessibleTrader.Core.Services.ProfileAnchoring.CountsTime(meta.Code.ToUpperInvariant())
+                    ? profiles.CalculateMarketProfile(data)
+                    : profiles.CalculateVolumeProfile(data);
+            }
             return WorkspaceState.Initial with
             {
-                Data = new TimeSeriesBuffer<Ohlcv>(Enumerable.Range(0, bars).Select(i =>
-                    new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), 100, 101, 99, 100, 10))),
+                Data = new TimeSeriesBuffer<Ohlcv>(data),
                 ActiveSeries = System.Collections.Immutable.ImmutableList.Create(new ChartSeries(cfg, buf)),
                 FocusedSeriesId = cfg.Id,
                 CurrentDataIndex = bars - 1,

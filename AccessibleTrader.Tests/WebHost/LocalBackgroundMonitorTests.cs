@@ -42,8 +42,11 @@ public class LocalBackgroundMonitorTests
     // ── Watch derivation ─────────────────────────────────────────────────────
 
     [Fact]
-    public void Watches_require_symbol_provider_active_and_no_tree()
+    public void Watches_require_symbol_provider_and_active()
     {
+        // A tree alert used to be excluded here ("trees need the indicator pipeline"). Since
+        // 2026-09-11 the monitor composes that pipeline per symbol, so a tree rides the watch
+        // like any other alert — see HeadlessAlertTests for it firing.
         var tree = new ConditionLeaf("l1", "RSI.Rsi", LeafOperator.LessThan, 30);
         var alerts = new[]
         {
@@ -51,13 +54,13 @@ public class LocalBackgroundMonitorTests
             Alert(symbol: null),                      // ✗ current-chart alert
             Alert(provider: null),                    // ✗ no provider to fetch from
             Alert(active: false),                     // ✗ switched off
-            Alert(tree: tree),                        // ✗ trees need the indicator pipeline
+            Alert(tree: tree),                        // ✓ monitorable too, now
         };
 
         var watches = LocalBackgroundMonitor.DeriveWatches(alerts);
 
         var w = Assert.Single(watches);
-        Assert.Single(w.Alerts);
+        Assert.Equal(2, w.Alerts.Count);
         Assert.Equal("Bitstamp", w.Provider);
         Assert.Equal("BTC/USD", w.Symbol);
         Assert.Equal("1h", w.Timeframe); // default when the alert doesn't scope one
@@ -104,20 +107,22 @@ public class LocalBackgroundMonitorTests
     }
 
     [Fact]
-    public void Chart_dependent_alerts_are_excluded_and_named_not_silently_no_opped()
+    public void Chart_dependent_alerts_are_watched_now_and_the_blank_chart_list_belongs_to_the_hosted_monitor()
     {
-        // Background polls evaluate with WorkspaceState.Initial — no indicator
-        // series, no volume profile. Indicator and POC targets, zone and trend
-        // conditions, and trees all read chart state, so the evaluator returned
-        // null for them on every poll while the watch list claimed coverage.
-        // They are now excluded up front, and DeriveUnwatchable names each one.
+        // Until 2026-09-11 background polls evaluated with WorkspaceState.Initial — no
+        // indicator series, no volume profile — so indicator and POC targets, zone and trend
+        // conditions and trees were excluded up front, and this test pinned six exclusions.
+        // The local monitor now composes a chart per symbol (HeadlessChart) and refuses only
+        // what it cannot fetch or read: with NO saved tab, a POC alert has no profile to read.
+        // The hosted monitor still evaluates blank and keeps the old list under its own name.
         var tree = new ConditionLeaf("l1", "RSI.Rsi", LeafOperator.LessThan, 30);
-        var watchable = Alert();
+        var price = Alert();
+        var poc = Alert(target: AlertTarget.Poc);
         var alerts = new[]
         {
-            watchable,
+            price,
             Alert(target: AlertTarget.Indicator),
-            Alert(target: AlertTarget.Poc),
+            poc,
             Alert(condition: AlertCondition.EntersZone),
             Alert(condition: AlertCondition.ExitsZone),
             Alert(condition: AlertCondition.TrendChange),
@@ -128,10 +133,16 @@ public class LocalBackgroundMonitorTests
         var watches = LocalBackgroundMonitor.DeriveWatches(alerts);
         var unwatchable = LocalBackgroundMonitor.DeriveUnwatchable(alerts);
 
-        Assert.Same(watchable, Assert.Single(Assert.Single(watches).Alerts));
-        Assert.Equal(6, unwatchable.Count);
+        Assert.Equal(6, Assert.Single(watches).Alerts.Count);
+        Assert.Same(poc, Assert.Single(unwatchable).Alert);
         Assert.All(unwatchable, u => Assert.False(string.IsNullOrWhiteSpace(u.Reason)));
-        Assert.DoesNotContain(unwatchable, u => !u.Alert.IsActive);
+
+        var hosted = LocalBackgroundMonitor.DeriveUnwatchable(
+            alerts, AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchableWithoutAChart);
+        Assert.Equal(6, hosted.Count);
+        Assert.DoesNotContain(hosted, u => !u.Alert.IsActive);
+        Assert.Same(price, Assert.Single(Assert.Single(LocalBackgroundMonitor.DeriveWatches(
+            alerts, AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchableWithoutAChart)).Alerts));
     }
 
     [Fact]

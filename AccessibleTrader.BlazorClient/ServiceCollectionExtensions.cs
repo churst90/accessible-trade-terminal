@@ -595,7 +595,7 @@ namespace AccessibleTrader.BlazorClient
             // The narration ladder rebuilt from a saved tab with no store (Core). Consumed today by
             // the WebHost's headless monitor only; registered on both heads so the two
             // registrations stay in step (HostParityTests) and a native head can use it later.
-            services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.HeadlessNarration>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Accessibility.HeadlessChartFactory>();
 
             // Bar detail (Ctrl+Shift+D) and alert system.
             services.AddSingleton<IBarDetailService, BarDetailService>();

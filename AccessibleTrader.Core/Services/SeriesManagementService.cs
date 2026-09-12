@@ -430,7 +430,7 @@ namespace AccessibleTrader.Core.Services
         /// <para>This is the body of <see cref="RestoreSeriesFromSaved"/> minus the dispatch:
         /// the three-layer rebuild through the factory, the derived name, the five user
         /// switches, the levels. It is static and store-free because the background monitor
-        /// restores a saved tab's series WITH THE BROWSER CLOSED (<c>HeadlessChartNarrator</c>)
+        /// restores a saved tab's series WITH THE BROWSER CLOSED (<c>HeadlessChart</c>)
         /// and there is no store there to dispatch into — and because a second hand-written copy
         /// of this list is exactly how narration, mute and "announce across series" each got lost
         /// across a restart before (see the comment on the five switches below). One list, two

@@ -1,4 +1,5 @@
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Alerts;
 using AccessibleTrader.Sdk.Alerts;
 using AccessibleTrader.Sdk.Models;
 using AccessibleTrader.WebHost.Account;
@@ -163,8 +164,10 @@ namespace AccessibleTrader.WebHost.Services
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? true)) return;
 
             var alerts = scope.ServiceProvider.GetRequiredService<IWorkspaceLibraryService>().LoadAlerts();
-            WarnOnceAboutUnwatchable(userKey, LocalBackgroundMonitor.DeriveUnwatchable(alerts));
-            var watches = LocalBackgroundMonitor.DeriveWatches(alerts);
+            // This monitor still evaluates against a BLANK chart (WorkspaceState.Initial below),
+            // so it keeps the refusal list the local monitor outgrew on 2026-09-11.
+            WarnOnceAboutUnwatchable(userKey, LocalBackgroundMonitor.DeriveUnwatchable(alerts, BackgroundWatchability.WhyUnwatchableWithoutAChart));
+            var watches = LocalBackgroundMonitor.DeriveWatches(alerts, BackgroundWatchability.WhyUnwatchableWithoutAChart);
             if (watches.Count == 0) return;
 
             if (!_evaluators.TryGetValue(userKey, out var evaluator))

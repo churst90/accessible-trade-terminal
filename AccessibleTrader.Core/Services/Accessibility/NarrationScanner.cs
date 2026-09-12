@@ -21,7 +21,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// were fields of that service. Nothing headless has a store to bind to: the background
     /// monitor fetches bars off the provider once a minute and holds them as method arguments.
     /// Copying the scan would have been a second place every rule has to be added; this is the
-    /// one place, and both the in-session service and <see cref="HeadlessChartNarrator"/> call
+    /// one place, and both the in-session service and <see cref="HeadlessChart"/> call
     /// it.
     /// </para>
     ///
@@ -109,6 +109,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private readonly Dictionary<string, bool> _lastAboveLevel = new();
 
         /// <summary>
+        /// Which side of a PROFILE's point of control the close was on at the last bar close,
+        /// whether it sat below, inside or above the value area, and where the point of control
+        /// was — the three things a narrated profile has to say. Key = "{seriesId}:profile".
+        /// </summary>
+        private readonly Dictionary<string, bool> _lastPriceAbovePoc = new();
+        private readonly Dictionary<string, int> _lastValueAreaSide = new();
+        private readonly Dictionary<string, double> _lastPoc = new();
+
+        /// <summary>
         /// Window of bars to scan behind the just-closed bar to catch delayed-confirmation signals
         /// (e.g. SR pivots that need pivotBars future bars before they appear in the data).
         /// 20 is generous enough for the maximum AutoScale pivotBars = 15.
@@ -149,6 +158,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             SeedOscillatorState(series, state);
             SeedZoneLineState(series, state);
             SeedCloudState(series, state);
+            SeedProfileState(series, state);
         }
 
         /// <summary>Narration was switched off for this series — drop its tracking to keep the dictionaries lean.</summary>
@@ -167,6 +177,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             RemoveByPrefix(_lastPriceAboveOverlay, prefix);
             RemoveByPrefix(_lastAboveLevel, prefix);
             RemoveByPrefix(_lastCloudPosition, prefix);
+            RemoveByPrefix(_lastPriceAbovePoc, prefix);
+            RemoveByPrefix(_lastValueAreaSide, prefix);
+            RemoveByPrefix(_lastPoc, prefix);
         }
 
         private static void RemoveByPrefix<T>(Dictionary<string, T> map, string prefix)
@@ -295,6 +308,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // 1d. Price crossing a plain price-space overlay (an EMA, a VWAP).
             ScanOverlayCrosses(series, state, toIndex, utterance);
 
+            // 1d′. A PROFILE: price against its point of control and value area, and the point
+            // of control moving. A profile has no per-bar value and no marker; what it has is
+            // three levels, and the news about a level is what crossed it.
+            ScanProfile(series, state, toIndex, utterance);
+
             // 1e. The indicator crossing one of its OWN declared levels (RSI 70, MACD zero).
             ScanLevelCrosses(series, toIndex, utterance);
 
@@ -302,7 +320,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // pane under N used to set a flag nothing acted on; now the closed bar's value is the
             // last clause of the ladder. Bar close only — this branch is below the isBarClose
             // return above on purpose, and playback never reaches this scan at all.
-            ReadValueAtClose(series, toIndex, utterance);
+            ReadValueAtClose(series, state, toIndex, utterance);
 
             // 2. Oscillator zone transitions.
 
@@ -359,7 +377,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// confirmation consults, so the toggle and the ladder cannot disagree about whether a
         /// series reads.
         /// </summary>
-        private static void ReadValueAtClose(ChartSeries series, int barIndex, ScanUtterance utterance)
+        private static void ReadValueAtClose(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
         {
             var comp = SeriesNarrationScope.ReadingComponent(series);
             if (comp == null) return;
@@ -369,6 +387,21 @@ namespace AccessibleTrader.Core.Services.Accessibility
             double val = data[barIndex];
             if (double.IsNaN(val)) return;
 
+            // A VOLUME bar is coloured by the candle it belongs to, and the arrow-key reading
+            // already says so ("12,345.68, up" — SpeechFormatter.VolumeBarStrategy). The close
+            // reading said the number alone. Cody, 2026-09-11: "in addition to the value of the
+            // volume bar, it may be nice to hear the direction as well up or down." Same words,
+            // same source (the bar's own open and close), same order — the value, then the
+            // direction — so a reading heard headless matches one heard while arrowing. Only for
+            // volume: a MACD histogram's sign is already in its number.
+            string direction = "";
+            if (comp.Role == ComponentRole.Volume
+                && state.Data != null && barIndex < state.Data.Count)
+            {
+                var bar = state.Data[barIndex];
+                direction = bar.Close >= bar.Open ? ", up" : ", down";
+            }
+
             // Spoken form: "1.2 million", never "1.2M" — a screen reader reads the letter.
             //
             // No colon after the name on purpose. ScanUtterance.Compose drops a "{series}: "
@@ -377,7 +410,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // as a bare "101,000." — a number with nothing to say what it is. A reading is the
             // one clause whose whole content is its name and a value; it keeps both.
             utterance.Add(ScanUtterance.TierReading, series.FriendlyName, $"{series.Id}:reading",
-                          $"{series.FriendlyName} {QuantityFormatter.FormatSpoken(val)}");
+                          $"{series.FriendlyName} {QuantityFormatter.FormatSpoken(val)}{direction}");
         }
 
         // ── Price crossing a plain overlay line ──────────────────────────────────
@@ -473,6 +506,102 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (below.Count > 0)
                 utterance.Add(ScanUtterance.TierCross, series.FriendlyName, $"{series.Id}:overlay",
                               $"Price crossed below {string.Join(", ", below)}.");
+        }
+
+        // ── A profile: price against the point of control and the value area ────
+
+        /// <summary>
+        /// The narration route for a volume or market profile. Cody, 2026-09-11: <i>"I don't
+        /// hear any narration events for profiles, volume or market."</i> Until then N on a
+        /// profile promised "Value read at each bar close" and could not keep it — the
+        /// profile's one component is a Bar with no per-bar data (the bins live in
+        /// <c>ProfileBins</c>), so the reading found an empty array and said nothing.
+        ///
+        /// <para>What a profile can say at a bar close, in the order a trader wants it: price
+        /// crossed the point of control (the price the market accepted most — a cross of it is
+        /// a change of hands); price entered or left the value area (the 70% the market agreed
+        /// on — leaving it is a breakout attempt, re-entering is a failed one); and the point of
+        /// control itself moved to a new price (acceptance shifting). The first two are
+        /// crossings and rank with the other crossings; the third is the lowest tier, so a busy
+        /// close drops it first.</para>
+        ///
+        /// <para>Bar close only, seeded on first sighting like the overlay cross, and read off
+        /// the SAME bins the level service hands a POC alert — so the ladder and the alert
+        /// name one price.</para>
+        /// </summary>
+        private void ScanProfile(ChartSeries series, WorkspaceState state, int barIndex, ScanUtterance utterance)
+        {
+            if (!SeriesNarrationScope.SeriesNarrates(series)) return;
+            if (ProfileSides(series, state, barIndex) is not var (key, levels, poc, nowAbove, side)) return;
+            string name = series.FriendlyName;
+
+            // Seeded when N was pressed (SeedProfileState) — or, for a series that arrived
+            // without a seed, on this first sighting, silently: there is no previous side to
+            // have crossed from, and announcing one would fire a cross the moment N was pressed.
+            if (_lastPriceAbovePoc.TryGetValue(key, out bool wasAbove))
+            {
+                if (wasAbove != nowAbove)
+                    utterance.Add(ScanUtterance.TierCross, name, key + ":poc",
+                        $"{name}: Price crossed {(nowAbove ? "above" : "below")} the point of control at {SpeechPriceFormatter.FormatPrice(poc)}.");
+
+                if (levels.HasValueArea && _lastValueAreaSide.TryGetValue(key, out int wasSide) && wasSide != side)
+                {
+                    string va = side == 0
+                        ? $"Price entered the value area, {SpeechPriceFormatter.FormatPrice(levels.ValueAreaLow!.Value)} to {SpeechPriceFormatter.FormatPrice(levels.ValueAreaHigh!.Value)}."
+                        : side > 0
+                            ? $"Price left the value area above {SpeechPriceFormatter.FormatPrice(levels.ValueAreaHigh!.Value)}."
+                            : $"Price left the value area below {SpeechPriceFormatter.FormatPrice(levels.ValueAreaLow!.Value)}.";
+                    utterance.Add(ScanUtterance.TierTouch, name, key + ":va", $"{name}: {va}");
+                }
+
+                // Moved by at least a bin: the profile is re-binned over a slightly different
+                // range every bar, and a midpoint drifting by less than a bin is the binning,
+                // not the market.
+                if (_lastPoc.TryGetValue(key, out double prevPoc) && levels.BinWidth > 0
+                    && Math.Abs(poc - prevPoc) >= levels.BinWidth * 0.999)
+                    utterance.Add(ScanUtterance.TierReading, name, key + ":pocmove",
+                        $"{name}: Point of control moved to {SpeechPriceFormatter.FormatPrice(poc)}.");
+            }
+
+            _lastPriceAbovePoc[key] = nowAbove;
+            _lastValueAreaSide[key] = side;
+            _lastPoc[key] = poc;
+        }
+
+        /// <summary>
+        /// Where the close at <paramref name="barIndex"/> sits against the profile: above or
+        /// below the point of control, and below (-1), inside (0) or above (+1) the value area.
+        /// Null when the series is not a profile, has no bins, or the bar is out of range.
+        /// </summary>
+        private static (string Key, ProfileLevels.Levels Levels, double Poc, bool AbovePoc, int ValueAreaSide)?
+            ProfileSides(ChartSeries series, WorkspaceState state, int barIndex)
+        {
+            if (!SeriesNarrationScope.IsProfileSeries(series)) return null;
+            if (state.Data == null || barIndex < 0 || barIndex >= state.Data.Count) return null;
+
+            var levels = ProfileLevels.Of(series.ProfileBins);
+            if (levels.Poc is not double poc) return null;
+            double close = (double)state.Data[barIndex].Close;
+            if (close <= 0) return null;
+
+            int side = levels.HasValueArea
+                ? (close < levels.ValueAreaLow!.Value ? -1 : close > levels.ValueAreaHigh!.Value ? 1 : 0)
+                : 0;
+            return ($"{series.Id}:profile", levels, poc, close > poc, side);
+        }
+
+        /// <summary>
+        /// N was just pressed on a profile: record which side of its levels the newest bar is
+        /// on, so the FIRST close after the flag can speak. Without this the scan's own
+        /// first-sighting seed swallowed that close — the one bar the user is listening for
+        /// when they press N, as the Seed doc above already says of the marker window.
+        /// </summary>
+        private void SeedProfileState(ChartSeries series, WorkspaceState state)
+        {
+            if (ProfileSides(series, state, state.CurrentDataIndex) is not var (key, _, poc, nowAbove, side)) return;
+            _lastPriceAbovePoc[key] = nowAbove;
+            _lastValueAreaSide[key] = side;
+            _lastPoc[key] = poc;
         }
 
         // ── The indicator crossing its own reference levels ──────────────────────

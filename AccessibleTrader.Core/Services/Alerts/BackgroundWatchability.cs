@@ -1,21 +1,50 @@
 using AccessibleTrader.Sdk.Alerts;
+using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Alerts
 {
     /// <summary>
-    /// Whether the background monitors can honestly evaluate an alert with no
-    /// chart open. They evaluate against <c>WorkspaceState.Initial</c> — no
-    /// indicator series, no volume profile — so an alert that reads chart state
-    /// is not "evaluated with a blank chart"; it silently returns null on every
-    /// poll while the user believes the market is being watched. Shared between
-    /// the WebHost monitors (which exclude and log these) and the alerts UI
-    /// (which says so at creation time) — one definition, so the warning and the
-    /// exclusion can never disagree.
+    /// Whether the background monitors can honestly evaluate an alert with no chart open.
+    /// Shared between the WebHost monitors (which exclude and log these) and the alerts UI
+    /// (which says so at creation time) — one definition, so the warning and the exclusion can
+    /// never disagree.
+    ///
+    /// <para><b>Two answers, because there are two monitors with different chests.</b> The
+    /// LOCAL monitor (<c>LocalBackgroundMonitor</c>, since 2026-09-11) composes a real chart
+    /// per watched symbol — warmup-deep bars, the indicators the alerts reference recomputed
+    /// through the store-free engine, the profiles binned — so it can evaluate everything the
+    /// in-session pipeline can, given a symbol to fetch. That is <see cref="WhyUnwatchable"/>.
+    /// The HOSTED monitor still evaluates against <c>WorkspaceState.Initial</c> — no indicator
+    /// series, no volume profile — and an alert that reads chart state is not "evaluated with
+    /// a blank chart"; it silently returns null on every poll while the user believes the market
+    /// is being watched. That is <see cref="WhyUnwatchableWithoutAChart"/>, the list this class
+    /// carried for both monitors until the local one could do better.</para>
     /// </summary>
     public static class BackgroundWatchability
     {
-        /// <summary>Why background evaluation cannot watch this alert; null = it can.</summary>
-        public static string? WhyUnwatchable(AlertDefinition a)
+        /// <summary>
+        /// Why the LOCAL background monitor cannot watch this alert; null = it can.
+        /// </summary>
+        /// <param name="chartSeries">The series saved on the chart the alert belongs to — the
+        /// last autosaved tab for its symbol, or the open chart's series at creation time. An
+        /// empty list means there is no such chart. It decides one thing: a point-of-control
+        /// alert reads a profile, and a profile is a series on a chart, so an alert whose chart
+        /// has none is an alert nothing can answer.</param>
+        public static string? WhyUnwatchable(AlertDefinition a, IEnumerable<SeriesConfig> chartSeries)
+        {
+            if (string.IsNullOrWhiteSpace(a.Symbol) || string.IsNullOrWhiteSpace(a.Provider))
+                return "it has no explicit symbol and provider to fetch by";
+            if (a.Target == AlertTarget.Poc
+                && !chartSeries.Any(s => s.Drawing == null && ProfileAnchoring.IsProfileCode(s.IndicatorCode)))
+                return "a point-of-control alert reads a volume or market profile, and this chart has none saved";
+            return null;
+        }
+
+        /// <summary>
+        /// Why a monitor that evaluates against a BLANK chart cannot watch this alert; null = it
+        /// can. The hosted monitor's list — and, until 2026-09-11, the local one's too.
+        /// </summary>
+        public static string? WhyUnwatchableWithoutAChart(AlertDefinition a)
         {
             if (a.ConditionTree != null)
                 return "advanced condition trees need the chart's indicator pipeline";

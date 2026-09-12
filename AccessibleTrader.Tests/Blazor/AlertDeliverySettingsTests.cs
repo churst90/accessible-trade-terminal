@@ -13,6 +13,7 @@ using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Sdk.Alerts;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 
@@ -109,6 +110,33 @@ public class AlertDeliverySettingsTests
         Assert.Empty(cut.FindAll("#s-notify-alerts"));
         Assert.Empty(cut.FindAll("#s-notify-fills"));
         Assert.Empty(cut.FindAll("#s-notify-bars"));
+    }
+
+    /// <summary>
+    /// <b>The hosted gating, pinned.</b> Cody, 2026-09-11: the paper-only website should not
+    /// offer background alerts and their settings — and "the rest of the alert options other
+    /// than the background options can stay like telegram and all that". So on a Hosted policy
+    /// the desktop-notification switches and the browser-notification (Web Push) panel are
+    /// absent even where a toast could be delivered, while email, Telegram and webhooks — which
+    /// deliver from the in-browser pipeline with the browser open — remain. Every other test in
+    /// this file runs at HostMode.Full, so until this one the hosted shape was unpinned.
+    /// </summary>
+    [Fact]
+    public void OnTheHostedTerminal_OnlyTheBackgroundPanelsAreGone()
+    {
+        using var h = new BlazorTestHarness();
+        h.Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(AccessibleTrader.Core.Services.HostMode.Hosted));
+        h.DesktopNotifier.IsAvailable.Returns(true);
+        var cut = OpenDeliveryPanel(h);
+
+        Assert.Empty(cut.FindAll("#s-notify-alerts"));
+        Assert.Empty(cut.FindAll("#s-notify-fills"));
+        Assert.Empty(cut.FindAll("#s-notify-bars"));
+        Assert.DoesNotContain("Browser notifications", cut.Markup);
+
+        Assert.Single(cut.FindAll("#s-email-host"));
+        Assert.Single(cut.FindAll("#s-tg-token"));
+        Assert.Single(cut.FindAll("#s-setup-alerts"));
     }
 
     [Fact]

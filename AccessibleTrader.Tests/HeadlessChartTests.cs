@@ -25,14 +25,14 @@ namespace AccessibleTrader.Tests;
 /// every poll whose newest bar is the FORMING one.
 /// </para>
 /// </summary>
-public sealed class HeadlessChartNarratorTests
+public sealed class HeadlessChartTests
 {
     private static readonly DateTime T0 = new(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc);
     private static readonly ChartIdentity Btc = new("Spot", "Bitstamp", "BTC/USD", "1h");
 
     // ── The stack ────────────────────────────────────────────────────────────
 
-    private static HeadlessNarration Stack()
+    private static HeadlessChartFactory Stack()
     {
         var providers = new List<IIndicatorProvider> { new CoreIndicatorProvider(), new SkenderTrendProvider() };
         var indicators = new IndicatorService(providers, NullLogger<IndicatorService>.Instance);
@@ -40,7 +40,7 @@ public sealed class HeadlessChartNarratorTests
         var styling = new StylingService(new ComponentRoleMapper(), new SonificationProfileProvider(), new PaneAssignmentService());
         var prefs = new MockIndicatorPreferencesService();
         var factory = new IndicatorModelFactory(styling, prefs);
-        return new HeadlessNarration(indicators, engine, new IndicatorStateMapper(), factory, prefs, new IndicatorContextAnalyzer());
+        return new HeadlessChartFactory(indicators, engine, new IndicatorStateMapper(), factory, prefs, new IndicatorContextAnalyzer());
     }
 
     /// <summary>The real Volume series as the autosave writes it: one Bar component mapped to volume.</summary>
@@ -89,10 +89,10 @@ public sealed class HeadlessChartNarratorTests
         return bars;
     }
 
-    private static Task<HeadlessObservation> Full(HeadlessChartNarrator n, List<Ohlcv> bars)
+    private static Task<HeadlessObservation> Full(HeadlessChart n, List<Ohlcv> bars)
         => n.ObserveAsync(bars, isFullHistory: true, CancellationToken.None);
 
-    private static Task<HeadlessObservation> CatchUp(HeadlessChartNarrator n, List<Ohlcv> bars)
+    private static Task<HeadlessObservation> CatchUp(HeadlessChart n, List<Ohlcv> bars)
         => n.ObserveAsync(bars, isFullHistory: false, CancellationToken.None);
 
     // ── The reading at the close ──────────────────────────────────────────────
@@ -194,9 +194,9 @@ public sealed class HeadlessChartNarratorTests
         var volumeOnly = Stack().Create(Btc, new[] { SavedVolume() });
         var ema200 = Stack().Create(Btc, new[] { SavedEma("e", 200, narrated: true) });
 
-        Assert.Equal(HeadlessChartNarrator.MinBars, volumeOnly.BarsNeeded);
+        Assert.Equal(HeadlessChart.MinBars, volumeOnly.BarsNeeded);
         Assert.True(ema200.BarsNeeded > 200, $"an EMA 200 needs more than 200 bars, got {ema200.BarsNeeded}");
-        Assert.True(ema200.BarsNeeded <= HeadlessChartNarrator.MaxBars);
+        Assert.True(ema200.BarsNeeded <= HeadlessChart.MaxBars);
 
         // Cold buffer: ask for the window. Warm: ask for the catch-up.
         Assert.Equal(volumeOnly.BarsNeeded, volumeOnly.FetchLimit);
@@ -207,7 +207,7 @@ public sealed class HeadlessChartNarratorTests
     {
         var n = Stack().Create(Btc, new[] { SavedVolume() });
         await Full(n, Window(0, 99));
-        Assert.Equal(HeadlessChartNarrator.CatchUpLimit, n.FetchLimit);
+        Assert.Equal(HeadlessChart.CatchUpLimit, n.FetchLimit);
     }
 
     // ── Gaps and the bounded buffer ───────────────────────────────────────────
@@ -246,7 +246,7 @@ public sealed class HeadlessChartNarratorTests
         Assert.Equal(100, n.BufferedBars);
 
         var first = await CatchUp(n, Window(98, 100));
-        Assert.Equal(HeadlessChartNarrator.MinBars, n.BufferedBars);
+        Assert.Equal(HeadlessChart.MinBars, n.BufferedBars);
         Assert.Contains("Volume 100,000", first.Narration, StringComparison.Ordinal);
 
         var second = await CatchUp(n, Window(99, 101));
@@ -259,16 +259,16 @@ public sealed class HeadlessChartNarratorTests
     public void The_signature_changes_when_N_is_pressed_and_not_when_a_colour_is()
     {
         var a = SavedVolume();
-        string before = HeadlessNarration.Signature(new[] { a });
+        string before = HeadlessChartFactory.Signature(new[] { a });
 
         a.Components[0].ColorHex = "#123456";
-        Assert.Equal(before, HeadlessNarration.Signature(new[] { a }));
+        Assert.Equal(before, HeadlessChartFactory.Signature(new[] { a }));
 
         a.Components[0].IsAutoNarrated = true;
-        Assert.NotEqual(before, HeadlessNarration.Signature(new[] { a }));
+        Assert.NotEqual(before, HeadlessChartFactory.Signature(new[] { a }));
 
-        Assert.True(HeadlessNarration.HasNarratedSeries(new[] { a }));
-        Assert.False(HeadlessNarration.HasNarratedSeries(new[] { SavedVolume(narrated: false) }));
+        Assert.True(HeadlessChartFactory.HasNarratedSeries(new[] { a }));
+        Assert.False(HeadlessChartFactory.HasNarratedSeries(new[] { SavedVolume(narrated: false) }));
     }
 
     // ── The scanner's indices after a trim ────────────────────────────────────

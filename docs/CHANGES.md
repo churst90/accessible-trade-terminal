@@ -4,6 +4,110 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alerts with the browser closed read a real chart; one grit rule for every bar; profiles narrate and say their name (2026-09-11, forty-first pass)
+
+Suite **7,321** (was 7,305). Cody's four odds and ends, his hosted-gating answer, and the half of
+Phase 3 D4 the previous pass left open.
+
+**The alert half of D4: the background monitor evaluates against a composed chart.** Until now
+`LocalBackgroundMonitor` handed `AlertEvaluator` `WorkspaceState.Initial` — no `Data`, no
+`ActiveSeries`, a fresh empty crossover memory every poll — and then REFUSED every alert that
+would have read them: indicator targets, the volume-profile POC, trend and zone conditions,
+condition trees. Four of its five "cannot watch this in the background" reasons described its
+own blank state (`docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` §1 F3). The chart the narration
+ladder had started composing per symbol is exactly the state those alerts need, so the narrator
+became the chart: `HeadlessChartNarrator` → `HeadlessChart`, `HeadlessNarration` →
+`HeadlessChartFactory`. Its template is the saved tab's narrated series PLUS every series the
+tab's alerts reference — built from the tab's own config when the tab has that indicator (an
+"RSI crosses 70" alert reads the RSI as the user set it up), from the indicator's metadata
+defaults when it does not (an alert on an indicator no longer on the chart is still an alert on
+the 14-period RSI) — and every observation now returns the computed `WorkspaceState` and the
+previous poll's component values (`HeadlessObservation.State`, `.PreviousValues`), the crossover
+memory that used to be thrown away each minute. Profiles are binned over the whole buffer, so a
+POC alert reads a point of control. Condition trees get the indicators their leaves name through
+the signal catalog, and the evaluator is built with the headless scope's level service and tree
+evaluator, whose two failure events (a rule that throws, a leaf nothing can answer) are now
+SPOKEN once per alert rather than logged. A chart with no series to compute costs no buffer;
+price and candle alerts on it read the fetched bars through a bare state that, unlike the blank
+one, carries `Data` — so a three-bar pattern alert can see three bars headless.
+
+`BackgroundWatchability.WhyUnwatchable` shrank to what the local monitor genuinely cannot do:
+fetch without a symbol and provider, or read a point of control off a chart with no profile
+saved (it takes the chart's series now; the alerts modal passes the open chart's). The old list
+survives as `WhyUnwatchableWithoutAChart`, named for what it is, and `HostedAlertMonitor` — which
+still evaluates blank — passes it explicitly. The alerts modal no longer tells the user an
+indicator alert "works while this chart is open, but background monitoring cannot watch it",
+because it can. An alert on an indicator this process cannot build (a plugin not loaded here) is
+announced once, by name, on the alerts channel: silence must never read as coverage. Ten new
+tests through the real poll (`HeadlessAlertTests`, on a harness lifted into
+`HeadlessMonitorHarness` so the narration and alert halves drive one rig): an EMA crossing fires
+once and not again; a value already past the threshold at first sight is not a crossing; the
+saved tab's EMA 3 is read, not the default 9; a browser that covers the symbol keeps the alert; a
+POC alert fires when price crosses the saved profile's point of control; a tree alert fires on
+its first true bar; a ghost indicator is said once. Two harness defects found on the way and
+recorded in the session review: the spy counted a toast and its speech as two deliveries, and a
+config built with no parameters gave Skender an EMA of lookback zero.
+
+**Hosted gating — Cody's answer.** *"The rest of the alert options other than the background
+options can stay like telegram and all that no problem."* That is what the previous pass had
+built: `HostedAlertMonitor` is registered nowhere (the only block that registers it is
+hosted-only and the flag is Full-only), the desktop-notification and Web Push panels are hidden
+there, and email, Telegram and webhooks deliver from the in-browser pipeline
+(`AlertOrchestrator` → `AlertFiredEvent` → `AlertDeliveryService`) with the browser open. No code
+changed; the shape was UNPINNED — every bUnit test runs at `HostMode.Full` — so one test now
+opens the delivery panel under a Hosted policy and asserts the two background panels are gone
+and the three channels remain.
+
+**One sonification rule for every bar (Cody's item 1).** *"On cipher b and macd … the size of
+the bars still equates to loudness … rather than using the texturing with sawtooth like volume
+bars do."* Exactly so: the histogram profile said `AmplitudeMapping.Size` (loudness ∝ magnitude,
+small bars fading toward silence — the thing the volume rule exists to prevent) while the volume
+profile said `None` with grit ∝ size; Cipher B's two histograms overrode even that with
+`ReferenceDeviation`, loudness-by-height under another name; and a component declared
+`DisplayType=Bar` with any other role fell through every timbre arm and played a plain sine.
+Now: constant loudness for every bar-shaped component, and ONE grit helper
+(`DefaultSonificationStrategy.BarGrit` — sub-octave saw weight = |value| against the pane's peak,
+0.30 at full) for volume, histogram and bar alike; the fixed character still differs (reedy
+square on a histogram, brown-noise tinge on the volume bed) so the two instruments stay apart in
+playback. Under arrow-key navigation a histogram bar is now the same 0.40 s grit-carrying ping a
+volume bar is (`NavigationSonifier.IsBarComponent`), not a sustained note. Cipher B's overrides
+are deleted. Four tests: histogram loudness constant with grit tracking magnitude; volume, MACD
+and a bare Bar at the same magnitude carry the same grit; no provider's bar-shaped component
+declares a size-encoding amplitude mapping (a sweep over every provider, which is what keeps
+the rule from being a rule for some bars); histograms take the bar ping under navigation. No
+user preference persists the amplitude mapping, so this takes effect on existing installs.
+
+**Volume reads say up or down (item 4).** *"In addition to the value of the volume bar, it may
+be nice to hear the direction as well."* Arrow-key navigation already did ("12,345.68, down");
+the bar-close reading did not. `NarrationScanner.ReadValueAtClose` now takes the state and, for
+a Volume-role component, appends the candle's direction from the bar's own open and close —
+"Volume 100,000, up" — the same words, source and order as navigation, in the browser and with
+it closed. Only volume: a MACD histogram's sign is already in its number.
+
+**Profiles narrate, and say their name (items 2 and 3).** *"I don't hear any narration events
+for profiles, volume or market"* — because N on a profile promised "Value read at each bar
+close" and no profile has a per-bar value: its one component is a Bar whose data is the BINS,
+so the reading found an empty array and said nothing (the shape the thirty-eighth pass called a
+switch that lies). A profile's news is its LEVELS. `NarrationScanner.ScanProfile`, bar close
+only, seeded when N is pressed: price crossed above or below the point of control (a crossing,
+ranked with the other crossings); price entered or left the value area, with the boundary it
+crossed (ranked with touches); the point of control moved by at least a bin (the lowest tier,
+dropped first on a busy close). `ProfileLevels` reads the three prices off the bins the way
+`VolumeProfileLevelProvider` does — midpoints — so the ladder, the level list and a POC alert
+name one price. The N confirmation says what it will say
+(`SeriesNarrationScope.NarrationPromise`), the headless chart bins profiles so the ladder speaks
+with the browser closed, and the eight profile codes left `NarrationRouteContractTests`'
+exemption list — the route guard now drives a profile through a bar close that crosses its POC
+and hears it. And the name: *"When I add a profile to the chart, the series name isn't read
+until I start moving around the profile."* The series-switch prefix ("Volume Profile. 50 bins.")
+was handed to `FormatProfileFeedback`, which returned "" whenever no bin was focused — which is
+every time a profile is added or switched to, since only Up and Down select a bin — and the
+prefix went with it. It now returns the prefix and an overview: point of control, value area,
+"Up or down moves through the bins." Seven tests (`ProfileNarrationTests`), both heads.
+
+What a profile could ALSO say — during playback, TPO letters, single prints — is put to Cody in
+`docs/TODO.md` rather than decided here.
+
 ### The narration ladder with the browser closed, and the announcement Orca heard twice (2026-09-11, fortieth pass)
 
 Suite **7,305** (was 7,280). Two asks from Cody, both from the same afternoon of listening.

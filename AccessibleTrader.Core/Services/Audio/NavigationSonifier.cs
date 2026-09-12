@@ -99,6 +99,16 @@ namespace AccessibleTrader.Core.Services.Audio
         // Optional: user patch library for level-cue earcon overrides (null in minimal tests).
         private readonly ISoundPatchLibrary? _patchLibrary;
 
+        /// <summary>Whether a component is drawn as a bar from a baseline — volume, or any
+        /// histogram — and so takes the bar treatment under navigation: a 0.40 s ping whose grit
+        /// carries the magnitude. The same classification as the sonification profile's.</summary>
+        internal static bool IsBarComponent(AccessibleTrader.Sdk.Models.ComponentConfig? comp)
+            => comp != null
+               && (comp.Role == ComponentRole.Volume
+                   || comp.Role == ComponentRole.Histogram
+                   || comp.DisplayType == ComponentDisplayType.Histogram
+                   || comp.DisplayType == ComponentDisplayType.Bar);
+
         /// <summary>
         /// Resolves the navigation Ping duration for a component, applying patch DefaultDecayMs
         /// when a SoundPatchId is set and comp.DecayMs is not explicitly set.
@@ -263,21 +273,25 @@ namespace AccessibleTrader.Core.Services.Audio
             // previous note), but always self-terminates so Home/End/PageUp/PageDown never leave a
             // stuck drone. continuous=false for all navigation voices; continuous=true is for playback only.
             var focusedCompForNav = (cIdx >= 0 && cIdx < series.Components.Count) ? series.Components[cIdx] : null;
-            // Volume reads as a short "tick"/ping under MANUAL navigation (it stays a continuous bed
-            // only during playback), so arrow-stepping bars doesn't hold a sustained drone under the price.
-            string navEnvelope = (focusedCompForNav?.Role == ComponentRole.Volume) ? "Ping" : audioPt.EnvelopeType;
+            // Bars — volume AND histograms (MACD, Cipher B, open-interest delta) — read as a short
+            // "tick"/ping under MANUAL navigation (they stay a continuous bed only during
+            // playback), so arrow-stepping bars doesn't hold a sustained drone under the price.
+            // One rule for every bar-shaped component, the same way their grit is one rule
+            // (DefaultSonificationStrategy.BarGrit); until 2026-09-11 only volume was a ping.
+            bool focusedIsBar = IsBarComponent(focusedCompForNav);
+            string navEnvelope = focusedIsBar ? "Ping" : audioPt.EnvelopeType;
             bool isPing = string.Equals(navEnvelope, "Ping", StringComparison.OrdinalIgnoreCase);
             double navDuration = isPing
                 ? (focusedCompForNav != null ? ResolveNavPingDuration(focusedCompForNav, audioPt) : 0.15)
                 : 0.45;
             // Grit-carrying pings need longer decays: the sub-octave sawtooth that
             // encodes size sits an octave below the fundamental, and a 0.15s ping is
-            // gone before a low-frequency texture registers. Volume bars (brown noise
-            // + grit) get 0.40s; wicks (grit ∝ length) get 0.25s. An explicit
-            // component DecayMs still wins.
+            // gone before a low-frequency texture registers. Bars (volume and histogram
+            // alike, grit ∝ magnitude) get 0.40s; wicks (grit ∝ length) get 0.25s. An
+            // explicit component DecayMs still wins.
             if (isPing && focusedCompForNav != null && !focusedCompForNav.DecayMs.HasValue)
             {
-                if (focusedCompForNav.Role == ComponentRole.Volume)
+                if (focusedIsBar)
                     navDuration = 0.40;
                 else if (focusedCompForNav.Role == ComponentRole.Wick
                          || focusedCompForNav.DisplayType == ComponentDisplayType.Wick)

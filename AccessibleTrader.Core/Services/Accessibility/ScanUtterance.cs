@@ -44,7 +44,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     ///
     /// <para>
     /// Lifted out of <c>AutoNarrationService</c> on 2026-09-11 so the same ladder can be composed
-    /// with no browser attached (<see cref="HeadlessChartNarrator"/>): one composer, one order,
+    /// with no browser attached (<see cref="HeadlessChart"/>): one composer, one order,
     /// one cap, whichever process is speaking.
     /// </para>
     /// </summary>
