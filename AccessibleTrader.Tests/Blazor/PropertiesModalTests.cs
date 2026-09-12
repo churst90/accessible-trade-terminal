@@ -168,8 +168,16 @@ public class PropertiesModalTests
         });
     }
 
+    /// <summary>
+    /// Five tabs since 2026-09-12, when Levels got one of its own. Cody: <i>"levels and zones
+    /// should be in the indicator properties shift f12 modal in their own tab."</i> They used to
+    /// be the last fieldset on Appearance, below every component's colour and thickness, so
+    /// reaching a reference line meant tabbing past all of the styling first — and a reference
+    /// line is not styling. It has a value, it chimes when the price crosses it, it roughens the
+    /// tone while you are beyond it, and the 0 key switches it off.
+    /// </summary>
     [Fact]
-    public void PropertiesModal_FourTabs_AllPresent()
+    public void PropertiesModal_FiveTabs_AllPresent()
     {
         using var h = new BlazorTestHarness();
         SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
@@ -178,8 +186,33 @@ public class PropertiesModalTests
 
         Assert.NotNull(cut.WaitForElement("button#props-tab-general"));
         Assert.NotNull(cut.Find("button#props-tab-appearance"));
+        Assert.NotNull(cut.Find("button#props-tab-levels"));
         Assert.NotNull(cut.Find("button#props-tab-sonification"));
         Assert.NotNull(cut.Find("button#props-tab-speech"));
+    }
+
+    /// <summary>
+    /// The Levels tab shows the reference levels, and the Appearance tab no longer does — a
+    /// control in two places is two places to keep in step, and the whole point of the move is
+    /// that the levels are reachable without walking the styling.
+    /// </summary>
+    [Fact]
+    public void PropertiesModal_LevelsTab_HoldsTheReferenceLevels_AndAppearanceDoesNot()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, NewSeries("rsi-1", "RSI 14"));
+
+        var cut = OpenProperties(h);
+
+        cut.WaitForElement("button#props-tab-appearance").Click();
+        Assert.DoesNotContain("Reference Levels", cut.Find("#props-tabpanel").TextContent);
+
+        cut.Find("button#props-tab-levels").Click();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", cut.Find("button#props-tab-levels").GetAttribute("aria-selected"));
+            Assert.Contains("Reference Levels", cut.Find("#props-tabpanel").TextContent);
+        });
     }
 
     [Fact]

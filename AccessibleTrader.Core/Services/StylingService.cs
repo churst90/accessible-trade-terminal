@@ -16,7 +16,6 @@ namespace AccessibleTrader.Core.Services
         ColorSource GetColorSource(string indicatorCode, string componentName);
         string GetPane(string indicatorCode);
         List<(string Name, double Value)> GetLevelComponents(string indicatorCode);
-        bool GetIsAreaFill(string indicatorCode, string componentName, ComponentDisplayType displayType);
         bool GetUsePolarityColoring(string indicatorCode, string componentName, ComponentDisplayType displayType);
         string GetSpeechTemplate(string indicatorCode, string componentName, ComponentDisplayType displayType);
         double GetColorBaseline(string indicatorCode, string componentName);
@@ -159,11 +158,6 @@ namespace AccessibleTrader.Core.Services
 
         public List<(string Name, double Value)> GetLevelComponents(string indicatorCode)
             => new();
-
-        // This is called only when IndicatorComponentMetadata.DefaultIsAreaFill is null.
-        // Custom providers should declare these explicitly in metadata.
-        public bool GetIsAreaFill(string indicatorCode, string componentName, ComponentDisplayType displayType)
-            => displayType is ComponentDisplayType.Area or ComponentDisplayType.Oscillator;
 
         // This is called only when IndicatorComponentMetadata.DefaultUsePolarityColoring is null.
         // Custom providers should declare these explicitly in metadata.

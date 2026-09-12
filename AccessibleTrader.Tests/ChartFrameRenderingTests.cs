@@ -275,6 +275,73 @@ public sealed class ChartFrameRenderingTests
         Assert.True(marker > yLow, "a doji's marker still has to clear it");
     }
 
+    // ── The fill is a property, and it is opt-in ─────────────────────────────
+
+    private static ChartSeries FilledLine(double[] values, bool fill)
+    {
+        var config = new SeriesConfig { Id = "l", Name = "L", Pane = "Pane_L", IndicatorCode = "L" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "L", DisplayType = ComponentDisplayType.Line, IsVisible = true,
+            ColorHex = "#00FF00", IsAreaFill = fill, Thickness = 2f,
+        });
+        var buffer = new SeriesDataBuffer { SeriesId = "l" };
+        buffer.ComponentData["L"] = values;
+        return new ChartSeries(config, buffer);
+    }
+
+    private static int PaintedPixels(ChartSeries series, ChartTheme theme)
+    {
+        using var bmp = Render(c => StandardRenderers.RenderLine(
+            Ctx(c, Bars(20, i => (100, 102)), theme, min: 0, max: 100),
+            series, series.Components[0], new SKPaint { Color = SKColors.Lime, StrokeWidth = 2f }));
+        return Histogram(bmp).Where(kv => kv.Key != SKColors.Black).Sum(kv => kv.Value);
+    }
+
+    /// <summary>
+    /// <c>IsAreaFill</c> is the one way to ask for a fill, and it is read. Every provider set it,
+    /// the factory stored it, <c>Clone</c> copied it and the workspace saved it — and the renderer
+    /// computed its own answer from the display type instead, so about twenty-five components
+    /// carried <c>IsAreaFill = true</c> and none of them has ever drawn a fill.
+    /// </summary>
+    [Fact]
+    public void ALineThatAsksForAFill_GetsOne()
+    {
+        var theme = Theme();
+        var values = Enumerable.Range(0, 20).Select(i => 60.0 + 10 * Math.Sin(i / 3.0)).ToArray();
+
+        int filled = PaintedPixels(FilledLine(values, fill: true), theme);
+        int plain   = PaintedPixels(FilledLine(values, fill: false), theme);
+
+        Assert.True(filled > plain * 3,
+            $"a filled line painted {filled} pixels against a plain line's {plain} — the fill is not being drawn");
+    }
+
+    /// <summary>
+    /// And it is OPT-IN. Cody's call, asked directly: the default for an oscillator is off, so
+    /// nothing on screen changes until a component says it wants one.
+    /// </summary>
+    [Fact]
+    public void TheFleetDefaultsToNoFill()
+    {
+        var factory = new IndicatorModelFactory(
+            new StylingService(new ComponentRoleMapper(),
+                new Core.Services.Audio.SonificationProfileProvider(), new PaneAssignmentService()),
+            new Mocks.MockIndicatorPreferencesService());
+
+        var filled = new List<string>();
+        foreach (var provider in IndicatorProviderFixture.AllProviders())
+        foreach (var meta in provider.GetIndicators())
+        {
+            var series = factory.CreateSeriesFromMetadata(meta, meta.Name, PaneAssignmentService.PaneFor(meta),
+                new List<(string, string)>(), null, null);
+            foreach (var c in series.Components)
+                if (c.IsAreaFill) filled.Add($"{meta.Code}.{c.Name}");
+        }
+        Assert.True(filled.Count == 0,
+            "a fill is opt-in and nothing has opted in yet:\n  " + string.Join("\n  ", filled));
+    }
+
     // ── A two-colour line reads its own declaration ──────────────────────────
 
     private static ChartSeries PolaritySeries(double[] values, double baseline, bool polarity)

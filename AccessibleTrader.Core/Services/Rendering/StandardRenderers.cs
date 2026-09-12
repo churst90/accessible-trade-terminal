@@ -230,6 +230,29 @@ namespace AccessibleTrader.Core.Services.Rendering
             return SKColor.TryParse(comp.ColorHexSecondary, out var below) ? below : above;
         }
 
+        /// <summary>
+        /// Whether this component is drawn with a fill under its line.
+        ///
+        /// <para>
+        /// <see cref="ComponentConfig.IsAreaFill"/> is the answer, and until 2026-09-12 nothing
+        /// asked it. Every provider set it, <c>StylingService</c> resolved it to true for every
+        /// Oscillator, the factory stored it, <c>Clone</c> copied it and the workspace saved it —
+        /// and the renderer computed its own answer from the display type instead, so about
+        /// twenty-five components carried <c>IsAreaFill = true</c> and have never drawn a fill.
+        /// The Properties dialog did not show it either. A property with no reader anywhere.
+        /// </para>
+        ///
+        /// <para>
+        /// Cody's call, asked directly: opt-in. The property is real now and its default for an
+        /// Oscillator is FALSE, so nothing changes on screen today and a component that wants a
+        /// fill says <c>DefaultIsAreaFill = true</c>. The two display-type names are kept as a
+        /// reading path for a workspace saved while they were declarable; nothing declares them.
+        /// </para>
+        /// </summary>
+        internal static bool IsFilled(ComponentConfig comp) =>
+            comp.IsAreaFill
+            || comp.DisplayType is ComponentDisplayType.Area or ComponentDisplayType.Gradient;
+
         public static void RenderLine(RenderContext ctx, ChartSeries series, ComponentConfig comp, SKPaint paint)
         {
             var lineData = series.GetComponentData(comp.Name);
@@ -238,7 +261,7 @@ namespace AccessibleTrader.Core.Services.Rendering
             float barWidth = ctx.Width / ctx.ViewportLength;
             float halfBar = barWidth / 2.0f;
             bool hasColorRules = comp.ColorRules != null && comp.ColorRules.Count > 0;
-            bool isArea = comp.DisplayType == ComponentDisplayType.Area || comp.DisplayType == ComponentDisplayType.Gradient;
+            bool isArea = IsFilled(comp);
 
             // A two-colour component is drawn segment by segment so the colour can change at the
             // baseline. Explicit ColorRules already take that path below and win over this.
@@ -358,9 +381,7 @@ namespace AccessibleTrader.Core.Services.Rendering
         {
             SKColor above = paint.Color;
             double baseline = comp.ColorBaseline;
-            bool isArea = comp.IsAreaFill
-                || comp.DisplayType is ComponentDisplayType.Area or ComponentDisplayType.Gradient
-                or ComponentDisplayType.Oscillator;
+            bool isArea = IsFilled(comp);
 
             float yBase = ChartMath.MapY(baseline, ctx.Top, ctx.Bottom, ctx.Min, ctx.Max, ctx.IsLogScale);
             yBase = Math.Clamp(yBase, ctx.Top, ctx.Bottom);

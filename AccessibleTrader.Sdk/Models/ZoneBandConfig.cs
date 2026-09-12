@@ -30,7 +30,7 @@ namespace AccessibleTrader.Sdk.Models
         public double FixedBottom { get; set; } = double.NaN;
         /// <summary>Whether this band is currently rendered.</summary>
         public bool IsVisible { get; set; } = true;
-        /// <summary>Label shown in Properties → Appearance.</summary>
+        /// <summary>Label shown in Properties → Levels (moved off Appearance 2026-09-12).</summary>
         public string DisplayName { get; set; } = "";
 
         /// <summary>True when both <see cref="FixedTop"/> and <see cref="FixedBottom"/> are set to real values.</summary>

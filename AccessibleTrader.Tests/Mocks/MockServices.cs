@@ -146,7 +146,6 @@ namespace AccessibleTrader.Tests.Mocks
         public SonificationProfile GetSonificationProfile(ComponentDisplayType type, ComponentRole role, string strategy) => new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.Value, 440, 1.0, false, "Sustain");
         public ColorSource GetColorSource(string indicatorCode, string componentName) => ColorSource.Value;
         public List<(string Name, double Value)> GetLevelComponents(string indicatorCode) => new List<(string Name, double Value)>();
-        public bool GetIsAreaFill(string indicatorCode, string componentName, ComponentDisplayType type) => false;
         public bool GetUsePolarityColoring(string indicatorCode, string componentName, ComponentDisplayType type) => false;
         public string GetSpeechTemplate(string indicatorCode, string componentName, ComponentDisplayType type) => "";
         public double GetColorBaseline(string indicatorCode, string componentName) => 0.0;

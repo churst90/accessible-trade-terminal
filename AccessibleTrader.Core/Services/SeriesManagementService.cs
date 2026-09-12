@@ -632,6 +632,8 @@ namespace AccessibleTrader.Core.Services
                     EarconVolume    = desc.EarconVolume,
                     ZoneNoiseAmount = desc.ZoneNoiseAmount,
                     ZoneNoiseType   = desc.ZoneNoiseType,
+                    AboveLabel      = desc.AboveLabel,
+                    BelowLabel      = desc.BelowLabel,
                 });
             }
 

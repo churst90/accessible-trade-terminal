@@ -55,7 +55,7 @@ namespace AccessibleTrader.Core.Services
                 // No metadata on this path, so the display type is all there is to go on. Every
                 // component that HAS metadata declares its own — see CreateComponentConfigFromMeta.
                 ReferenceLevel = type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null,
-                IsAreaFill = _stylingService.GetIsAreaFill(indicatorCode, componentName, type),
+                IsAreaFill = false,   // opt-in; see StandardRenderers.IsFilled
                 UsePolarityColoring = _stylingService.GetUsePolarityColoring(indicatorCode, componentName, type),
                 ColorBaseline = _stylingService.GetColorBaseline(indicatorCode, componentName),
                 IsEnabled = true,
@@ -378,7 +378,10 @@ namespace AccessibleTrader.Core.Services
                 ReferenceLevel     = meta.DefaultReferenceLevel
                                      ?? (meta.ColorBaseline.HasValue && meta.ColorBaseline.Value != 0.0 ? meta.ColorBaseline : null)
                                      ?? (type is ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea ? 0.0 : (double?)null),
-                IsAreaFill         = meta.DefaultIsAreaFill ?? _stylingService.GetIsAreaFill(indicatorCode, meta.Name, type),
+                // Opt-in, and the default is OFF. It used to fall through to a StylingService
+                // answer of "true for every Oscillator", which nothing read — see
+                // StandardRenderers.IsFilled for the whole account.
+                IsAreaFill         = meta.DefaultIsAreaFill ?? false,
                 UsePolarityColoring = meta.DefaultUsePolarityColoring ?? _stylingService.GetUsePolarityColoring(indicatorCode, meta.Name, type),
 
                 // Bell synthesis hints — provider metadata Layer 1; overridden by user edit (DecayMs on ComponentConfig).

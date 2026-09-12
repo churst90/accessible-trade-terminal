@@ -106,7 +106,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // The Ulcer Index is a depth-of-drawdown measure: zero IS its floor and the
                     // quiet state, not a midline it swings about. Declared rather than inherited
                     // so that "0 here is deliberate" is written down.
-                    new() { Name = "UI", DisplayName = "Ulcer Index", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#EF5350",
+                    //
+                    // And it is a LINE, not an Oscillator. It was the only one-sided measure in
+                    // this provider typed as an oscillator — ATR, standard deviation and
+                    // historical volatility are all Lines — and the type is not cosmetic: an
+                    // Oscillator's audio splits its timbre at the MIDPOINT of the pane's visible
+                    // range, brightening as the value rises through the middle. For a bounded
+                    // oscillator that is the whole point; for "how deep is the drawdown" it is a
+                    // tone change at an arbitrary depth with nothing behind it.
+                    new() { Name = "UI", DisplayName = "Ulcer Index", DisplayType = ComponentDisplayType.Line, DefaultColorHex = "#EF5350",
                             DefaultReferenceLevel = 0.0,
                             SpeechTemplate = "{name}. {value:F2}." },
                 },

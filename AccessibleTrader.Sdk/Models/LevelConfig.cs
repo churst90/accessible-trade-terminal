@@ -123,6 +123,16 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private LevelRole _role = LevelRole.Auto;
 
         /// <summary>
+        /// What being ABOVE this line means, spoken by the <c>{zone}</c> token. See
+        /// <see cref="LevelDescriptor.AboveLabel"/> for why band edges need this and
+        /// overbought/oversold lines do not.
+        /// </summary>
+        [ObservableProperty] private string? _aboveLabel;
+
+        /// <summary>What being BELOW this line means. See <see cref="AboveLabel"/>.</summary>
+        [ObservableProperty] private string? _belowLabel;
+
+        /// <summary>
         /// Resolves <see cref="LevelRole.Auto"/> against the level's name. The four spellings of
         /// the midline are collapsed here, in one place, rather than at each of the readers that
         /// used to sniff for one of them.
@@ -197,6 +207,8 @@ namespace AccessibleTrader.Sdk.Models
                 CrossDirection  = CrossDirection,
                 IsUserDefined   = IsUserDefined,
                 Role            = Role,
+                AboveLabel      = AboveLabel,
+                BelowLabel      = BelowLabel,
             };
         }
     }

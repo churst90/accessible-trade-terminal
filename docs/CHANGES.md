@@ -4,6 +4,92 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A level says what it is, what it means, and whose it is — and the area fill becomes real (2026-09-12, fiftieth pass)
+
+Suite **7,599** (was 7,585). Cody asked four design questions and made four calls; this is those
+calls, plus a fifth ask that arrived mid-pass.
+
+**The questions, answered before anything was built.**
+
+*"Should there be a display type called area fill?"* No — and the reason was the finding. `Line`,
+`Area`, `Oscillator` and `Gradient` all route to the same function, and inside it only `Area` and
+`Gradient` draw a fill, so **`Line` and `Oscillator` render identically** and everything separating
+them is audio and speech. Worse: **nothing in the tree declares `Area`, `Gradient` or `ZeroArea`.**
+Not one provider. `RenderZeroArea` is ~130 lines of dead code written for Cipher B's Money Flow
+Wave, which is a `Histogram` now — the comment above that declaration still describes the filled
+wave. So building the two-colour split into `RenderLine` yesterday rebuilt a capability that
+already existed in a type nothing could reach.
+
+Meanwhile `IsAreaFill` — the property that literally means area fill — was set by every provider,
+resolved by `StylingService` to true for every Oscillator, stored, cloned and saved into
+workspaces, and **read by nothing**: not the renderer, not even the Properties dialog. A fourth
+declared-but-unread property in three days.
+
+**What changed.** `IsAreaFill` is the one way to ask for a fill and it is honoured, for `Line` and
+`Oscillator` alike. `StylingService.GetIsAreaFill` is deleted with its interface member, the way
+`GetReferenceLevel` was. Cody's call was opt-in, so the default is **false** — about twenty-five
+components were carrying `IsAreaFill = true` and have never drawn one, and turning them all on at
+once is not a change anybody could check. Nothing on screen moves; a component that wants a fill
+says `DefaultIsAreaFill = true`.
+
+**The three display types are deprecated in place, not deleted**, and that is a correction to what
+was agreed: saved workspaces store `DisplayType` as an **ordinal**, not a name — a
+`__last-session__` file on this machine carries `"DisplayType": 21` for a Square and `22` for a
+Cross. Removing `Area` (6), `Gradient` (15) and `ZeroArea` (17) would renumber every member after
+them and silently turn saved markers into other markers. The enum is now documented as append-only.
+
+*"Is that what Money Flow actually is?"* Two different things carry the name. **MFI** is the
+volume-weighted RSI — 0–100, overbought/oversold 80/20, conventionally a plain line, which is what
+it is. **Cipher B's Money Flow Wave** is the one component in the tree that genuinely wants a
+filled area, and its own comment says so while it is declared as a `Histogram`.
+
+**A level can now say what it MEANS.** `LevelDescriptor` and `LevelConfig` gain `AboveLabel` and
+`BelowLabel`. Overbought and oversold are handled by the role and need nothing; this is for a line
+that divides a scale into named BANDS. ADX's speech template asks for `{zone}` and its lines are
+Developing / Strong / Very Strong; Choppiness asks too and its lines are Trending / Ranging. Both
+resolved to an empty string on every bar the indicator has ever drawn — and for ADX the band *is*
+the message. Choppiness is why this is declared rather than derived: it is **inverted**, a low
+reading means trending, and any rule inferring meaning from the order of the numbers gets it
+backwards. ADX now says "strong trend" at 30 and "very strong trend" at 60; Chop says "trending" at
+30 and "ranging" at 70.
+
+**A level is identified by its ROLE, not by the words in its name.** Both readers of "am I in a
+zone" — `SpeechFormatter.ResolveZone` for the spoken word and `AudioZoneHelper` for the texture —
+matched the substrings "Overbought" and "Oversold", years after `LevelConfig.EffectiveRole` was
+introduced to collapse exactly that kind of name-sniffing in one place. A level declaring
+`Role = Overbought` under any other name was invisible to both. Both read the role now.
+
+**A level can say WHOSE it is.** Levels are declared per indicator, and Aroon puts three components
+on one pane: Up and Down run 0–100 about 50 while the Oscillator runs ±100 about zero, so its single
+"Midpoint 50" was wrong for one of them whichever way it was set. The mechanism for this already
+existed — `ComponentConfig.SubscribedLevelNames`, honoured only by the audio layer. The spoken zone
+honours it now too, Aroon declares both lines, and each component subscribes to its own.
+
+**Levels and zones have their own tab in Properties.** Cody, mid-pass: *"levels and zones should be
+in the indicator properties shift f12 modal in their own tab."* They were the last fieldset on
+Appearance, below every component's colour and thickness, so reaching a reference line meant tabbing
+past all of the styling first — and a reference line is not styling. It has a value, it chimes when
+the price crosses it, it roughens the tone while you are beyond it, and the `0` key switches it off.
+The new tab carries the levels with their new Above/Below label fields, and lists the dynamic zone
+bands read-only (they are the indicator's own per-bar output, so an editable field there would be
+overwritten on the next tick).
+
+**The Ulcer Index is a `Line`, not an `Oscillator`.** It was the only one-sided measure in its
+provider typed as an oscillator — ATR, standard deviation and historical volatility are all Lines —
+and the type is not cosmetic: an Oscillator's audio splits its timbre at the midpoint of the pane's
+visible range. For a bounded oscillator that is the point; for "how deep is the drawdown" it is a
+tone change at an arbitrary depth with nothing behind it.
+
+**Tests.** `LevelMeaningAndScopeTests` (11) and four new cases in `ChartFrameRenderingTests`. Seven
+sabotages proven red: band labels ignored, Chop's labels flipped, the zone word back to matching
+names, the spoken zone ignoring the subscription, Aroon's oscillator back on the midline,
+`IsAreaFill` ignored, and the fleet default back to "true for every oscillator".
+
+**Still open, by decision.** Cody chose to leave levels unreachable by keyboard — Ctrl+Left/Right
+crossings and the Properties tab remain the only ways to them. Navigation does not yet honour
+`SubscribedLevelNames`; only speech and audio do.
+
+
 ### A switched-off line is not a destination, and MFI is the two colours it declared (2026-09-12, forty-ninth pass)
 
 Suite **7,585** (was 7,577). Four questions from Cody about the pass before this one; two were bug
@@ -69,10 +155,15 @@ recorded in `docs/TODO.md` rather than changed unilaterally, because each is a j
 what an indicator IS:
 
 - **`ComponentRoleMapper` decides a component's role by a hard-coded name registry**, and
-  `RSI.RSI` is in it while `Mfi`, `UltOsc`, `Chop`, `Stc` and `ConnorsRsi` are not. Role drives the
-  secondary colour, the polarity flag and the sonification profile — so RSI and MFI, the same kind
-  of instrument, are sonified from different profiles for no declared reason. It is also why RSI
-  carried the polarity flag and MFI, which actually wanted it, did not.
+  `RSI.RSI` is in it while `Mfi`, `UltOsc`, `Chop`, `Stc` and `ConnorsRsi` are not. **CORRECTED
+  2026-09-12, later the same day:** this first said the mapper's role drives the sonification
+  profile, so RSI and MFI were sonified differently. It does not and they are not. On the metadata
+  path the profile is looked up from the component's DECLARED `Role` (`None` for both) and its
+  display type (`Oscillator` for both), so the two get the same profile. The mapper's opinion is
+  consulted only where metadata left a field null, and between RSI and MFI it decided exactly one
+  thing: `UsePolarityColoring`. That is why RSI carried the polarity flag and MFI, which actually
+  wanted it, did not. The registry is still a by-name guesser worth retiring, but it is a styling
+  defect, not an audio one.
 - **Stochastic's %K is role None and its %D is role Signal**, because the mapper matches the
   substring "SIGNAL" in a component name. One indicator, two roles, decided by spelling.
 - **The `{zone}` speech token is dead on ADX and Choppiness.** `SpeechFormatter.ResolveZone` looks

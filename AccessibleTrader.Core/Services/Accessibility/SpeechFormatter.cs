@@ -1107,7 +1107,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string tmpl = string.IsNullOrEmpty(comp.SpeechTemplate) ? "{name}. {type}. {value}." : comp.SpeechTemplate;
 
             string trend = ctx.Pt.Close >= ctx.Pt.Open ? "Bullish" : "Bearish";
-            string zone = ResolveZone(series, val);
+            string zone = ResolveZone(series, val, comp);
             string gradientSpeech = ResolveGradientSpeech(ctx, tmpl);
 
             string result = tmpl
@@ -1149,23 +1149,72 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Replace("{zone}", zone);
         }
 
-        private static string ResolveZone(ChartSeries series, double val)
+        /// <summary>
+        /// The word the <c>{zone}</c> token speaks: which named region of its own scale the value
+        /// is in.
+        ///
+        /// <para>
+        /// Two sources, in order. An overbought or oversold line answers by its
+        /// <see cref="LevelConfig.EffectiveRole"/> — this used to match the WORDS "Overbought" and
+        /// "Oversold" in the level's name, so a level that declared <c>Role = Overbought</c> under
+        /// any other name produced nothing, and the four spellings of the midline had already
+        /// taught this repo that lesson once. Then a BAND EDGE answers with the label it declares
+        /// for the side the value is on.
+        /// </para>
+        ///
+        /// <para>
+        /// Band edges are why ADX and Choppiness spoke no zone at all until 2026-09-12: ADX's
+        /// lines are Developing / Strong / Very Strong and Chop's are Trending / Ranging, none of
+        /// which is an extreme, so no role fit and no name matched. The declared labels also carry
+        /// the fact that CHOPPINESS IS INVERTED — below 38.2 is trending — which cannot be
+        /// inferred from the numbers.
+        /// </para>
+        ///
+        /// <para>
+        /// Scoped to the component, through the subscription list the audio layer already honours:
+        /// on a pane like Aroon's, where Up and Down run 0–100 about 50 while the Oscillator runs
+        /// ±100 about zero, a level belonging to one of them means nothing for the others.
+        /// </para>
+        /// </summary>
+        internal static string ResolveZone(ChartSeries series, double val, ComponentConfig? comp = null)
         {
+            // The extremes win: being overbought is a more specific fact than being in the upper
+            // band, and a pane can carry both.
             foreach (var lc in series.Config.Levels)
             {
-                if (!lc.IsVisible) continue;
-                if (lc.Name.Contains("Overbought", StringComparison.OrdinalIgnoreCase) ||
-                    lc.Name.Contains("Extreme OB", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (val >= lc.Value) return "Overbought";
-                }
-                else if (lc.Name.Contains("Oversold", StringComparison.OrdinalIgnoreCase) ||
-                         lc.Name.Contains("Extreme OS", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (val <= lc.Value) return "Oversold";
-                }
+                if (!lc.IsVisible || !Subscribes(comp, lc.Name)) continue;
+                var role = lc.EffectiveRole;
+                if (role == LevelRole.Overbought && val >= lc.Value) return "Overbought";
+                if (role == LevelRole.Oversold   && val <= lc.Value) return "Oversold";
             }
-            return "";
+
+            // Band edges: the tightest one the value is outside of, so ADX at 60 says "Very
+            // Strong" rather than "Strong" — walk from the far edges inward by taking the label
+            // whose boundary is closest to the value while still being crossed.
+            string band = "";
+            double bestDistance = double.MaxValue;
+            foreach (var lc in series.Config.Levels)
+            {
+                if (!lc.IsVisible || !Subscribes(comp, lc.Name)) continue;
+
+                string? label = val >= lc.Value ? lc.AboveLabel : lc.BelowLabel;
+                if (string.IsNullOrWhiteSpace(label)) continue;
+
+                double distance = Math.Abs(val - lc.Value);
+                if (distance < bestDistance) { bestDistance = distance; band = label!; }
+            }
+            return band;
+        }
+
+        /// <summary>
+        /// Whether a component answers to a level, using the subscription list
+        /// <c>AudioZoneHelper</c> has always honoured: null subscribes to all, empty to none.
+        /// </summary>
+        private static bool Subscribes(ComponentConfig? comp, string levelName)
+        {
+            if (comp?.SubscribedLevelNames is not { } subs) return true;
+            if (subs.Count == 0) return false;
+            return subs.Contains(levelName, StringComparer.OrdinalIgnoreCase);
         }
 
         private static string ResolveGradientSpeech(ComponentFormatContext ctx, string tmpl)

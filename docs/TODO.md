@@ -117,6 +117,52 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-12 (night), FIFTIETH pass — A LEVEL SAYS WHAT IT IS, WHAT IT
+> MEANS AND WHOSE IT IS; THE AREA FILL BECOMES REAL; LEVELS GET THEIR OWN PROPERTIES TAB.)**
+> Suite **7,599**, 0 failing. Still no release cut. Full entry in `docs/CHANGES.md`.
+>
+> **Cody's four design calls, and what they produced.**
+> 1. *Area fill* — opt-in. `IsAreaFill` was a FOURTH declared-but-unread property (every provider
+>    set it, `StylingService` resolved it true for every Oscillator, nothing read it). It is the
+>    one way to ask for a fill now, honoured for Line and Oscillator, default FALSE, and
+>    `GetIsAreaFill` is deleted. Nothing on screen changed.
+> 2. *Level keyboard reach* — NO, crossings and the Properties tab only. Not built.
+> 3. *Band meanings* — YES. `AboveLabel`/`BelowLabel` on a level. ADX says "strong trend" at 30;
+>    Choppiness says "trending" at 30 because it is INVERTED, which is exactly why this is a
+>    declaration and not a rule.
+> 4. *Per-component levels* — YES, via the `SubscribedLevelNames` that already existed and only
+>    the audio layer honoured. Aroon declares both lines; each component subscribes to its own.
+>
+> Plus, mid-pass: **levels and zones have their own Properties tab** (five tabs now), and the
+> **Ulcer Index is a Line**, not an Oscillator.
+>
+> **CORRECTION to what was agreed:** the three dead display types (`Area`, `Gradient`, `ZeroArea`)
+> are deprecated in place, NOT deleted. **Saved workspaces store `DisplayType` as an ORDINAL** —
+> a `__last-session__` file here carries `"DisplayType": 21` for a Square — so removing a member
+> from the middle renumbers everything after it and silently turns saved markers into other
+> markers. The enum is documented as append-only.
+>
+> ### NEXT
+>
+> 1. **Hear it.** Nothing from the 48th, 49th or 50th pass has been heard. Highest value:
+>    load ADX and arrow along it — it should now say "strong trend" / "very strong trend" where it
+>    said nothing at all. Then Choppiness, which should say "trending" at the LOW end. Then `0` on
+>    RSI, and Ctrl+Left/Right afterwards to confirm it stops landing on 50.
+> 2. **The release.** §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md`, unchanged: assemble WHATSNEW
+>    from all of CHANGES `[Unreleased]`, then 2.10.0. Tell the server agent BEFORE the tag.
+> 3. **Navigation does not honour `SubscribedLevelNames`.** Speech and audio do. So on Aroon,
+>    Ctrl+Left/Right from the Oscillator can still target the Midpoint that belongs to Up/Down.
+>    Same fix shape as the `IsVisible` filter in the 49th pass — four lookups in
+>    `IndicatorCrossingEngine`.
+> 4. **`ComponentRoleMapper`'s name registry** is still the last by-name guesser in this area, now
+>    reduced to deciding `UsePolarityColoring` and the colour fallbacks. Retire it the way
+>    `GetReferenceLevel` and `GetIsAreaFill` were: declare the field, delete the guess.
+> 5. **Cipher B's Money Flow Wave** is declared `Histogram` while its own comment describes the
+>    filled wave it used to be. It is the one component in the tree that wants `IsAreaFill = true`
+>    — but changing it is a visual change to Cody's most-used indicator, so ask first.
+> 6. **Stochastic's %K is role None and its %D is role Signal**, decided by the substring
+>    "SIGNAL" in a component name. Cosmetic only now; folds into item 4.
+
 > **START HERE (current as of 2026-09-12 (late), FORTY-NINTH pass — A SWITCHED-OFF LINE IS NOT A
 > DESTINATION, AND MFI IS THE TWO COLOURS IT DECLARED.)** Suite **7,585**, 0 failing. Still no
 > release cut. Four questions from Cody; two were bug reports, two were questions. Full entry in
@@ -137,12 +183,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > ### NEXT — the classification census found four things that need a DECISION, not a fix
 >
 > 1. **`ComponentRoleMapper` decides a component's role from a hard-coded name registry.**
->    `RSI.RSI` is in it; `Mfi`, `UltOsc`, `Chop`, `Stc`, `ConnorsRsi` are not. Role drives the
->    secondary colour, the polarity flag and the SONIFICATION PROFILE — so RSI and MFI, the same
->    kind of instrument, are sonified from different profiles for no declared reason. This is the
->    biggest of the four and the one most likely to be audible. Ask Cody whether RSI and MFI
->    should sound like the same kind of thing; if yes, declare `Role` on every Skender component
->    and retire the mapper's substring fallbacks the way `GetReferenceLevel` was retired.
+>    `RSI.RSI` is in it; `Mfi`, `UltOsc`, `Chop`, `Stc`, `ConnorsRsi` are not.
+>    **CORRECTED:** this item first claimed the mapper drives the SONIFICATION PROFILE and that
+>    RSI and MFI therefore sound like different instruments. Re-read: `CreateComponentConfigFromMeta`
+>    passes the component's DECLARED `Role` (`None` for both) and its display type (`Oscillator`
+>    for both) to `GetSonificationProfile`, so the profile is identical. The mapper is consulted
+>    only for fields metadata left null, and between these two it decided exactly one:
+>    `UsePolarityColoring`. So this is a STYLING defect, not an audio one, and it is smaller than
+>    filed. Still worth retiring the registry the way `GetReferenceLevel` was — a by-name guesser
+>    that answers for four fields is one edit away from answering for a fifth.
 > 2. **Stochastic's %K is role None, its %D is role Signal** — one indicator, two roles, decided by
 >    the substring "SIGNAL" in a component name.
 > 3. **`{zone}` is dead on ADX and Choppiness.** `ResolveZone` looks for levels named

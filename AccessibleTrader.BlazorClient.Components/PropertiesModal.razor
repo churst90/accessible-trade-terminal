@@ -38,6 +38,11 @@
                         aria-selected="@(_activeTab == "Appearance" ? "true" : "false")"
                         aria-controls="props-tabpanel"
                         @onclick='() => _activeTab = "Appearance"'>Appearance</button>
+                <button role="tab" id="props-tab-levels"
+                        class="@(_activeTab == "Levels" ? "active" : "")"
+                        aria-selected="@(_activeTab == "Levels" ? "true" : "false")"
+                        aria-controls="props-tabpanel"
+                        @onclick='() => _activeTab = "Levels"'>Levels</button>
                 <button role="tab" id="props-tab-sonification"
                         class="@(_activeTab == "Sonification" ? "active" : "")"
                         aria-selected="@(_activeTab == "Sonification" ? "true" : "false")"
@@ -379,8 +384,20 @@
                                 </fieldset>
                             }
 
+                        </div>
+                        break;
+
+                    case "Levels":
+                        @* LEVELS AND ZONES, on a tab of their own (Cody, 2026-09-12).
+                           They used to be the last fieldset on Appearance, below the per-component
+                           colour and thickness controls — so reaching a level meant tabbing past
+                           every component's styling first, and a reference line is not styling.
+                           It is a thing the chart tells you about: it has a value, it chimes when
+                           the price crosses it, it roughens the tone while you are beyond it, and
+                           the 0 key switches it off. That is its own subject. *@
+                        <div class="scroll-area">
                             <fieldset>
-                                    <legend>Reference Levels</legend>
+                                <legend>Reference Levels</legend>
                                     @if (!_series.Levels.Any())
                                     {
                                         <p>No reference levels on this series yet.</p>
@@ -468,6 +485,25 @@
                                                     <option value="brown">Brown</option>
                                                 </select>
                                             </div>
+                                            @* What the two sides of this line MEAN, spoken by the
+                                               {zone} token. Overbought and oversold lines need
+                                               nothing here — their role already says it. A band
+                                               edge does: ADX at 25 divides a developing trend from
+                                               a strong one, and Choppiness is inverted, so its LOW
+                                               side is the trending one. Both boxes, because that
+                                               pairing cannot be worked out from the numbers. *@
+                                            <div class="modal-row">
+                                                <label for="@(lid)-above">Above says</label>
+                                                <input id="@(lid)-above" type="text" value="@level.AboveLabel"
+                                                       placeholder="@(level.EffectiveRole == LevelRole.Overbought ? "Overbought" : "")"
+                                                       aria-label="Word spoken when the value is above level @level.Name"
+                                                       @onchange='e => level.AboveLabel = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()' />
+                                                <label for="@(lid)-below">Below says</label>
+                                                <input id="@(lid)-below" type="text" value="@level.BelowLabel"
+                                                       placeholder="@(level.EffectiveRole == LevelRole.Oversold ? "Oversold" : "")"
+                                                       aria-label="Word spoken when the value is below level @level.Name"
+                                                       @onchange='e => level.BelowLabel = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()' />
+                                            </div>
                                         </div>
                                     }
                                     <div class="modal-row">
@@ -477,6 +513,31 @@
                                         <span>Or press 0 on the chart. Pressing 0 again where one of your levels sits removes it.</span>
                                     </div>
                                 </fieldset>
+
+                            @* Dynamic zone bands are the indicator's own output, recomputed on
+                               every bar (a Cipher SR support band moves with price), so they are
+                               listed rather than edited — an editable field here would be
+                               overwritten on the next tick, which is worse than no field. *@
+                            @if (_series.ZoneBands.Any())
+                            {
+                                <fieldset>
+                                    <legend>Zone Bands</legend>
+                                    <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 6px 0;">
+                                        Computed by the indicator on every bar, so they are shown here rather than edited.
+                                    </p>
+                                    <ul>
+                                        @foreach (var band in _series.ZoneBands)
+                                        {
+                                            <li>
+                                                @(string.IsNullOrWhiteSpace(band.DisplayName) ? (string.IsNullOrWhiteSpace(band.ComponentName) ? "Band" : band.ComponentName) : band.DisplayName):
+                                                @(band.IsFixedMode
+                                                    ? $"{band.FixedBottom:F2} to {band.FixedTop:F2}"
+                                                    : $"centred on {band.ComponentName}, ±{band.BandWidthPct:F2}%")@(band.IsVisible ? "" : ", hidden")
+                                            </li>
+                                        }
+                                    </ul>
+                                </fieldset>
+                            }
                         </div>
                         break;
 
@@ -763,8 +824,8 @@
     private string _activeTab = "General";
 
     // Tab ids in visual order, so the arrow handler and the markup cannot drift apart.
-    private static readonly string[] TabIds = { "props-tab-general", "props-tab-appearance", "props-tab-sonification", "props-tab-speech" };
-    private static readonly string[] TabKeys = { "General", "Appearance", "Sonification", "Speech" };
+    private static readonly string[] TabIds = { "props-tab-general", "props-tab-appearance", "props-tab-levels", "props-tab-sonification", "props-tab-speech" };
+    private static readonly string[] TabKeys = { "General", "Appearance", "Levels", "Sonification", "Speech" };
 
     /// <summary>
     /// Arrow / Home / End across the tab row. Selection follows focus, per WAI-ARIA:
@@ -790,6 +851,7 @@
     {
         "General"      => "props-tab-general",
         "Appearance"   => "props-tab-appearance",
+        "Levels"       => "props-tab-levels",
         "Sonification" => "props-tab-sonification",
         "Speech"       => "props-tab-speech",
         _              => "props-tab-general",

@@ -34,16 +34,29 @@ namespace AccessibleTrader.Core.Services.Indicators
 
         public List<LevelDescriptor> GetDefaultLevels(string code) => code.ToUpperInvariant() switch
         {
+            // ADX measures trend STRENGTH, not direction, so none of its lines is an extreme and
+            // none has a role that fits. Its speech template asks for {zone} and got an empty
+            // string on every bar until these labels existed — the indicator's whole message is
+            // which band you are in, and it was the one thing it could not say.
             "ADX" => new List<LevelDescriptor>
             {
-                new("Developing",   20.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.5f),
-                new("Strong",       25.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f),
-                new("Very Strong",  50.0, "#FF9800", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
+                new("Developing",   20.0, "#888888", DashStyle.Dot,  PlayEarcon: true, EarconVolume: 0.5f,
+                    AboveLabel: "developing trend", BelowLabel: "no trend"),
+                new("Strong",       25.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f,
+                    AboveLabel: "strong trend"),
+                new("Very Strong",  50.0, "#FF9800", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f,
+                    AboveLabel: "very strong trend"),
             },
+            // CHOPPINESS IS INVERTED and this is the declaration that says so: a LOW reading
+            // means the market is trending and a HIGH one means it is ranging. Anything that tried
+            // to infer the meaning from the order of the numbers would get it exactly backwards,
+            // which is why the labels are declared per side rather than derived.
             "CHOP" => new List<LevelDescriptor>
             {
-                new("Trending", 38.2, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f),
-                new("Ranging",  61.8, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f),
+                new("Trending", 38.2, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f,
+                    BelowLabel: "trending"),
+                new("Ranging",  61.8, "#FF4444", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f,
+                    AboveLabel: "ranging"),
             },
             // STC runs 0-100 and its 25/75 thresholds are the conventional ones. The midline was
             // missing for the same reason UltOsc's was — see that note.

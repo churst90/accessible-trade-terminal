@@ -29,6 +29,26 @@ namespace AccessibleTrader.Sdk.Models
     /// <summary>
     /// Specifies how a component is visually rendered on the chart.
     /// </summary>
+    /// <summary>
+    /// How a component is drawn.
+    ///
+    /// <para>
+    /// <b>THIS ENUM IS APPEND-ONLY.</b> Saved workspaces store the ORDINAL, not the name — a
+    /// <c>__last-session__</c> file on this machine carries <c>"DisplayType": 21</c> for a Square
+    /// and <c>22</c> for a Cross. Removing a member from the middle renumbers every member after
+    /// it, so a chart saved yesterday comes back with its markers silently turned into other
+    /// markers. Add at the end; deprecate in place; never delete.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Area, Gradient and ZeroArea have no declarer.</b> Not one provider in the tree sets any
+    /// of the three (checked 2026-09-12). <c>ZeroArea</c> was written for Cipher B's Money Flow
+    /// Wave, which is declared as a <c>Histogram</c> now — the comment above that declaration
+    /// still describes the filled wave the type used to draw. A filled component is asked for with
+    /// <see cref="ComponentConfig.IsAreaFill"/> on a Line or Oscillator instead; these three stay
+    /// for the reason above and because an old workspace may carry one.
+    /// </para>
+    /// </summary>
     public enum ComponentDisplayType
     {
         Line,

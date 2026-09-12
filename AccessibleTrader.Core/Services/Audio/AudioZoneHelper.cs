@@ -40,13 +40,13 @@ namespace AccessibleTrader.Core.Services.Audio
                     !comp.SubscribedLevelNames.Contains(lc.Name, StringComparer.OrdinalIgnoreCase))
                     continue;
 
-                string n = lc.Name;
-                bool isOb = n.Contains("Overbought", StringComparison.OrdinalIgnoreCase) ||
-                            n.Contains("Extreme OB",  StringComparison.OrdinalIgnoreCase);
-                bool isOs = n.Contains("Oversold",    StringComparison.OrdinalIgnoreCase) ||
-                            n.Contains("Extreme OS",  StringComparison.OrdinalIgnoreCase);
-
-                bool inZone = (isOb && val > lc.Value) || (isOs && val < lc.Value);
+                // BY ROLE, not by the words in the name. LevelConfig.EffectiveRole collapses the
+                // spellings in one place and honours an explicitly declared Role, so a provider
+                // that names its extreme anything else still gets its zone texture. The same
+                // substring test in SpeechFormatter.ResolveZone was fixed on the same day.
+                var role = lc.EffectiveRole;
+                bool inZone = (role == LevelRole.Overbought && val > lc.Value)
+                           || (role == LevelRole.Oversold   && val < lc.Value);
                 if (inZone && lc.ZoneNoiseAmount > maxNoise)
                 {
                     maxNoise  = lc.ZoneNoiseAmount;

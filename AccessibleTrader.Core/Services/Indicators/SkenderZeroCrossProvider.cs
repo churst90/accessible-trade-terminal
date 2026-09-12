@@ -45,9 +45,16 @@ namespace AccessibleTrader.Core.Services.Indicators
                 new("Zero",         0.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
                 new("Oversold",   -50.0, "#44BB44", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.6f, ZoneNoiseAmount: 0.12f, ZoneNoiseType: "pink"),
             },
+            // TWO SCALES ON ONE PANE. Aroon Up and Aroon Down run 0..100 about 50; the
+            // Oscillator is their difference and runs -100..+100 about zero. A single "Midpoint
+            // 50" was declared for the indicator and was therefore wrong for one of the three
+            // components whichever way it was set. Both lines are declared, and each component
+            // subscribes to the one that belongs to it (see SubscribedLevelNames below) so the
+            // zone word and the zone texture cannot read the other scale's line.
             "AROON" => new List<LevelDescriptor>
             {
                 new("Midpoint", 50.0, "#888888", DashStyle.Dot, PlayEarcon: true, EarconVolume: 0.7f),
+                new("Zero",      0.0, "#888888", DashStyle.Dash, PlayEarcon: true, EarconVolume: 0.7f),
             },
             // Connors RSI is an RSI: 0..100, midline 50. It was in the zero-crossing group and
             // so declared "Zero" at 0 — a midline sitting on the floor of its own pane, a line it
@@ -255,11 +262,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                     // and runs -100..+100 about zero. One pane, three components, two different
                     // neutrals — which is exactly why the neutral belongs to the COMPONENT.
                     new() { Name = "AroonUp",    DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#26A69A",
-                            DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 50.0, SubscribedLevelNames = new[] { "Midpoint" },
+                            SpeechTemplate = "{name}. {type}. {value:F2}." },
                     new() { Name = "AroonDown",  DisplayType = ComponentDisplayType.Line,      DefaultColorHex = "#EF5350",
-                            DefaultReferenceLevel = 50.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 50.0, SubscribedLevelNames = new[] { "Midpoint" },
+                            SpeechTemplate = "{name}. {type}. {value:F2}." },
                     new() { Name = "Oscillator", DisplayType = ComponentDisplayType.Oscillator, DefaultColorHex = "#42A5F5",
-                            DefaultReferenceLevel = 0.0, SpeechTemplate = "{name}. {type}. {value:F2}." },
+                            DefaultReferenceLevel = 0.0, SubscribedLevelNames = new[] { "Zero" },
+                            SpeechTemplate = "{name}. {type}. {value:F2}." },
                 },
             },
         };

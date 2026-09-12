@@ -83,14 +83,21 @@ namespace AccessibleTrader.Tests
             Assert.Contains(levels, l => l.Name == "Zero" && l.Value == 0);
         }
 
+        /// <summary>
+        /// Aroon declares TWO lines, because its pane carries two scales: Up and Down run 0–100
+        /// about 50, while the Oscillator is their difference and runs ±100 about zero. This
+        /// asserted a single Midpoint until 2026-09-12, which described the version where one of
+        /// the three components was answering to the wrong line whichever way it was set. Each
+        /// component now subscribes to its own — see LevelMeaningAndScopeTests.
+        /// </summary>
         [Fact]
-        public void GetLevels_Aroon_ReturnsMidpoint50()
+        public void GetLevels_Aroon_ReturnsAMidpointForUpDownAndAZeroForTheOscillator()
         {
             var levels = _zeroCross.GetDefaultLevels("AROON");
 
-            Assert.Single(levels);
-            Assert.Equal("Midpoint", levels[0].Name);
-            Assert.Equal(50, levels[0].Value);
+            Assert.Equal(2, levels.Count);
+            Assert.Contains(levels, l => l.Name == "Midpoint" && l.Value == 50);
+            Assert.Contains(levels, l => l.Name == "Zero" && l.Value == 0);
         }
 
         [Theory]
