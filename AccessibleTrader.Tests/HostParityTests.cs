@@ -87,6 +87,18 @@ public class HostParityTests
           + "PluginHostServices.ApiKeys is a process-wide static. MauiProgram assigns that static "
           + "straight from DI (MauiProgram.cs:92-94) because the MAUI registration is already a "
           + "Singleton — there is nothing to bridge there.",
+        ["CircuitPresence"] =
+            "The two heads answer \"can I still reach the user\" with genuinely different "
+          + "machinery, and both register IUserPresence so the consumers are identical. On the "
+          + "WebHost it is per CIRCUIT and tracks the SignalR connection: a closed tab's circuit "
+          + "lives on for about three minutes while the headless session already owns its events, "
+          + "so the circuit must stop delivering or every alert goes out twice — two emails, two "
+          + "webhook POSTs.",
+        ["WindowVisibilityPresence"] =
+            "The MAUI half of the same seam. There is no circuit and no second process, so "
+          + "CanReachUser is always true; what varies is whether the WINDOW is visible, because "
+          + "hiding to the tray is this head's \"browser closed\" and the focused chart's events "
+          + "then have to take the notification channel.",
         ["PluginHostSecurityEventLog"] =
             "Same reason as PluginHostApiKeyBridge, for PluginHostServices.SecurityEvents: an "
           + "INSTANCE-level sink, because the WebHost's ISecurityEventLog is Scoped and routes "

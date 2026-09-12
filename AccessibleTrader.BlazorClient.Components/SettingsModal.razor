@@ -347,9 +347,11 @@
                                    @onchange="OnMinimizeToTrayChanged" />
                         </div>
                         <p style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">
-                            Closing the window hides the terminal to the tray instead of quitting,
-                            so alerts, fills and feeds keep announcing. The tray icon's menu
-                            (Shift+F10) offers Restore and Quit.
+                            On by default. Closing the window — or pressing Alt+F4 — hides the
+                            terminal to the tray instead of quitting, so alerts, order fills and
+                            bar closes keep arriving as system notifications. The tray icon's
+                            menu (Shift+F10) offers Restore and Quit. Turn this off and closing
+                            the window really quits, and nothing is watched after that.
                         </p>
                     </fieldset>
                 }
@@ -1474,14 +1476,17 @@
     /// Cody, 2026-09-06: an app that does not close when you close it is a surprise, so the
     /// switch has to say what it now does rather than change the window's behaviour in silence.
     /// The value itself commits on Save with everything else on this tab.
+    ///
+    /// <para>ON by default since 2026-09-11, which makes the announcement below matter more,
+    /// not less: it is now the OFF direction that changes what the close button does.</para>
     /// </summary>
     private void OnMinimizeToTrayChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
     {
         _minimizeToTray = e.Value is bool b && b;
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _minimizeToTray
-                ? "Minimize to tray on. Closing the window will hide the terminal to the notification area and it keeps running. Quit from the tray menu."
-                : "Minimize to tray off. Closing the window quits the terminal.", true));
+                ? "Minimize to tray on. Closing the window hides the terminal to the notification area and it keeps running, sending alerts, order fills and bar closes as notifications. Quit from the tray menu."
+                : "Minimize to tray off. Closing the window quits the terminal, and nothing is watched after that.", true));
     }
 
     private void OnVisualEarconsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1563,7 +1568,7 @@
     private bool _chartEarcons;
     private bool _interfaceEarcons;
     private bool _bgLocalMonitor;
-    private bool _minimizeToTray;
+    private bool _minimizeToTray = AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayDefault;
 
     // Web-head-only speech-output control (double-speech fix). Null on MAUI —
     // resolved optionally so the desktop heads never show it.
@@ -1874,9 +1879,10 @@
         _muteIncludesOrderEvents = App.MuteIncludesOrderEvents;
         _chartEarcons     = App.ChartEarconsEnabled;
         _interfaceEarcons = App.InterfaceEarconsEnabled;
-        _bgLocalMonitor = Settings.GetSetting("monitoring.backgroundLocal")?.ToObject<bool>() ?? false;
-        _minimizeToTray = Settings.GetSetting(
-            AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayKey)?.ToObject<bool>() ?? false;
+        _bgLocalMonitor = Settings.GetSetting(SettingsKeys.BackgroundLocalMonitoring)?.ToObject<bool>() ?? false;
+        // Through the shared reader, which owns the default (ON since 2026-09-11). Reading the
+        // key here with its own "?? false" is how a default ends up living in three places.
+        _minimizeToTray = AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTray(Settings);
 
         // Optional web-head capability (null on MAUI). Seed the dropdown from the
         // live mode so it reflects a first-visit prompt choice made this session.
@@ -2134,7 +2140,7 @@
         App.NarrateFormingCandlePatterns = _narrateFormingCandles;
         App.NarrateFormingChartPatterns  = _narrateFormingCharts;
         App.ResumeLastSession       = _resumeSession;
-        Settings.SetSetting("monitoring.backgroundLocal", Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
+        Settings.SetSetting(SettingsKeys.BackgroundLocalMonitoring, Newtonsoft.Json.Linq.JToken.FromObject(_bgLocalMonitor));
         Settings.SetSetting(AccessibleTrader.Core.Services.DesktopWindowSettings.MinimizeToTrayKey,
                             Newtonsoft.Json.Linq.JToken.FromObject(_minimizeToTray));
         App.Save();

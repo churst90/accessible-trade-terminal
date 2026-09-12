@@ -539,6 +539,12 @@ namespace AccessibleTrader.WebHost
                     // log and (when a circuit is open) the user's speech — null before.
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
                     sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
+            // Whether this circuit can still reach its user. Scoped, so the delivery service and
+            // the toaster below share the circuit's one instance; WebHostBrowserCircuitHandler
+            // flips it on connection down/up. See CircuitPresence for the doubling it closes.
+            services.AddScoped<AccessibleTrader.WebHost.Services.CircuitPresence>();
+            services.AddScoped<AccessibleTrader.Core.Services.Notifications.IUserPresence>(
+                sp => sp.GetRequiredService<AccessibleTrader.WebHost.Services.CircuitPresence>());
             services.AddScoped<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
             // Desktop toasts for alerts / fills / new bars, per circuit like the delivery
             // service; the IDesktopNotifier it speaks through is registered in Program.cs.

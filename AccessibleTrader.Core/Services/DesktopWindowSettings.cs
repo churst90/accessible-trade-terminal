@@ -18,13 +18,37 @@ namespace AccessibleTrader.Core.Services
         /// area instead of quitting, so alerts, fills and feeds keep running.
         ///
         /// <para>
-        /// <b>Default OFF, deliberately (Cody, 2026-09-06).</b> An app that does not close when
-        /// you close it is a surprise, and for a screen-reader user a surprise with no
-        /// announcement is worse than an extra keystroke. Absent means off: every reader uses
-        /// <c>?? false</c>, so a settings file written before this key existed behaves the way
-        /// the app always did.
+        /// <b>Default ON since 2026-09-11 (Cody).</b> <i>"On the MAUI heads, if the person closes
+        /// the application with the X in the upper corner or Alt+F4, then it should, by default,
+        /// minimize to tray and toast notifications should be sent."</i> This makes the MAUI head
+        /// behave like the WebHost, where closing the browser hands every terminal event to the
+        /// notification channel rather than ending the watch.
+        /// </para>
+        ///
+        /// <para>
+        /// It reverses the 2026-09-06 default, and the reason recorded then was real: an app
+        /// that does not close when you close it is a surprise, and for a screen-reader user a
+        /// surprise with no announcement is worse than an extra keystroke. The answer is the
+        /// announcement, not the extra keystroke — hiding to the tray now says so, and the tray
+        /// menu carries a Quit. Read through <see cref="MinimizeToTray"/> so all three readers
+        /// agree about what "absent" means.
         /// </para>
         /// </summary>
         public const string MinimizeToTrayKey = "app.minimizeToTray";
+
+        /// <summary>The default for <see cref="MinimizeToTrayKey"/>: ON.</summary>
+        public const bool MinimizeToTrayDefault = true;
+
+        /// <summary>
+        /// The one reader. Three places asked this question — the Settings checkbox, the Windows
+        /// tray applet and the tests — and each carried its own <c>?? false</c>, which is three
+        /// places to change a default and two chances to miss one.
+        /// </summary>
+        public static bool MinimizeToTray(ISettingsManager? settings)
+        {
+            if (settings == null) return MinimizeToTrayDefault;
+            try { return settings.GetSetting(MinimizeToTrayKey)?.ToObject<bool>() ?? MinimizeToTrayDefault; }
+            catch { return MinimizeToTrayDefault; }
+        }
     }
 }

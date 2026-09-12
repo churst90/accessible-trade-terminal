@@ -2329,27 +2329,78 @@ money directly rather than through a trade, and it will not ship until it has be
 end to end against a live venue by a person. Until then no button renders, and the
 code refuses before any request could leave your machine.
 
+### Where each announcement goes — the one rule
+
+The terminal decides how to tell you something by asking one question: **can you see the
+chart it is about?**
+
+- **The chart in front of you** is spoken where it always was — in the browser, through your
+  screen reader, with its earcons. It is never turned into a system notification, because you
+  are already being told. Minimising the browser does not change this: the page is still there
+  and your screen reader still reads it.
+- **Anything else** arrives as a **system notification**. That means a bar closing on another
+  tab you have open, an alert or an order fill on a market with no tab open at all, and — once
+  the browser is closed — every terminal event there is. A notification is the only channel
+  that can reach you when the words have nowhere else to go.
+
+One switch governs the second bullet: Alt+J → **Delivery settings** → **Events you cannot
+see** → *"Send me a notification"*. **It is on by default.** Under it sits a **Shortest
+timeframe to announce** floor for bar closes, so a one-minute chart need not be a notification
+a minute; the floor covers the narration ladder too, and it never touches alerts or order
+fills, which are per-occurrence rather than per-bar.
+
 ### Monitoring with the browser closed
 
-On your own machine (the local web host — not the hosted site), the terminal
-is a server that outlives the browser tab. Settings → General → **"Keep
-monitoring when the browser is closed"** puts that to work: any alert that
-names a symbol and provider keeps evaluating about once a minute with no
-browser open, and when one fires you hear it three ways — a notification
-sound, a desktop notification, and speech through Orca in your own voice. The
-watch list is simply your alert list; there is nothing separate to configure.
-Alerts that read the chart itself — indicator values, the volume-profile POC,
-trend and zone conditions, and advanced condition trees — are evaluated too:
-the monitor rebuilds each watched chart's indicators from your last saved
-session (an indicator you have not got on the chart is evaluated at its
-defaults), and a POC alert reads the profile saved on that chart, so the one
-alert it cannot watch is a POC alert on a chart with no profile — the terminal
-says so when you create one. Alerts scoped to "the current chart" stay
-session-only (there is no symbol to fetch), and a symbol an open browser is
-already watching is that browser's, so nothing is announced twice. The sound
-is replaceable — drop your own WAV at sounds/alert.wav in the app data
-folder. Pair it with a systemd user service and the terminal listens from
-login to shutdown.
+On your own machine (the local web host — not the hosted site), the terminal is a server that
+outlives the browser tab. Settings → General → **"Keep monitoring when the browser is closed"**
+puts that to work.
+
+**When you close the last tab, the terminal says so.** A notification arrives a few seconds
+later: *"The browser is closed. The terminal keeps running: alerts, order fills, bar closes and
+narration for your saved charts arrive here as notifications until a browser connects again."*
+A reload or a brief network drop does not trigger it, and three tabs closed together produce
+one notification, not three. If the master switch above is **off**, the same notification tells
+you that instead — that nothing is being watched, and which switch to turn on. A farewell that
+announces silence is more useful than no farewell.
+
+With it on, and with no browser connected, the terminal watches about once a minute and tells
+you about:
+
+- **Alerts.** Any alert that names a symbol and provider keeps evaluating. The watch list is
+  simply your alert list; there is nothing separate to configure. Alerts that read the chart
+  itself — indicator values, the volume-profile POC, trend and zone conditions, and advanced
+  condition trees — are evaluated too: the monitor rebuilds each watched chart's indicators
+  from your last saved session, and a POC alert reads the profile saved on that chart, so the
+  one alert it cannot watch is a POC alert on a chart with no profile — the terminal says so
+  when you create one. Alerts scoped to "the current chart" stay session-only, because there is
+  no symbol to fetch.
+- **Order fills, stops, take-profits, rejections, cancels and replacements**, on every venue
+  you have a stored key for with open work. The terminal reports these; it never places,
+  moves or cancels anything on its own.
+- **Bar closes** on your saved charts, above the timeframe floor.
+- **The narration ladder** — the same reading you get on a bar close in the browser, for the
+  series you have flagged with N.
+
+You hear each of these the way your machine is best able to present it: a notification where
+there is a notification daemon (MATE, GNOME and KDE all show one and Orca reads it; macOS
+Notification Center; the Windows Action Center), and direct speech only on a machine with no
+notification tool at all. One path for the words, never two — the notification **is** the
+announcement, so its body carries the whole sentence.
+
+The alert sound is replaceable — drop your own WAV at `sounds/alert.wav` in the app data
+folder. Pair the terminal with a systemd user service and it listens from login to shutdown.
+
+**Ctrl+Alt+Shift+M** speaks where things stand: which of the two monitoring switches is on,
+what is being watched, and — the clause that matters when you are about to walk away — whether
+anything will be watched once the browser is closed.
+
+**On the Windows app** there is no browser to close, so its equivalent is the window. Closing
+it with the X or Alt+F4 **minimises the terminal to the notification area** rather than
+quitting — that is the default — and a notification confirms it is still running. While it is
+hidden, every terminal event including the focused chart's own bar close arrives as a
+notification, because nothing is being read aloud on screen any more. Restore or Quit from the
+tray icon's menu (Shift+F10 on the icon). Settings → General → **Minimize to tray on exit**
+turns this off if you would rather the X really quit.
 
 ### The system-tray applet
 
@@ -2365,15 +2416,20 @@ which your screen reader navigates like any menu, has seven items:
   navigable **Recent alerts** page where each alert has *Mark as read* and
   *Dismiss* buttons (plus *Mark all read*). Alerts that fired while the browser
   was open show up here too, not only the ones caught with it closed.
-- **Silence alerts for 30 minutes** — pauses the background announcements; the
-  item then reads "Resume alerts" with the minutes remaining, so a second
-  activation lifts the silence early.
+- **Silence alerts and bar closes for 30 minutes** — quietens the desktop: alerts, bar
+  closes, the narration ladder and the monitor's own status reports. **Order fills, stops
+  and take-profits always come through** — money is the one thing a silence must not
+  swallow. The item then reads "Resume alerts and bar closes" with the minutes remaining,
+  so a second activation lifts it early. Alerts keep being evaluated throughout and still
+  reach your email, Telegram and webhooks; what is silenced is this desk, not the routing.
 - **Connection status** — speaks a quick summary: whether monitoring is on, how
   many alerts are armed, and how many are unread.
 - **Copy terminal address** — copies the local URL to the clipboard, for opening
   the terminal from another browser or device.
-- **Turn background monitoring on / off** — the same setting as the Settings
-  checkbox above, reachable from the tray.
+- **Turn background monitoring on / off** — this is the **"Keep monitoring when the browser
+  is closed"** switch, the master switch of the browser-closed half, reachable without a
+  browser. It is *not* the "Keep watching other tabs" switch, which only means anything while
+  a browser is open.
 - **Exit terminal** — shuts the server down cleanly.
 
 This is a local-machine feature only; the hosted multi-user site never shows a
@@ -2467,17 +2523,19 @@ notification channels that carry alerts to you when you are away from the termin
 It opens as a second view of the same dialog, so Escape still closes one thing; "Back
 to alerts" returns you to the list, and to the button you left from.
 
-The same panel holds **Desktop notifications** on the heads that can show one: the
-local web host on Linux, where the notification goes through `notify-send` to your
-desktop's notification daemon (MATE, GNOME and KDE all show it, and Orca can present
-it), and the Windows app, where it is a Windows toast that Narrator, NVDA and JAWS
-read. Three switches, each off until you turn it on: **Alerts that fire**, **Order
-fills, stops and take-profits**, and **New bars on the current chart**. They exist for
-the moment the terminal is not the window you are in — speech inside the terminal is
-unchanged, and nothing here replaces it. New bars are one notification per bar close,
-so switch that one on for an hourly or daily chart rather than a one-minute one. The
-hosted site has no desktop to reach and shows its browser-notification (Web Push)
-controls instead; the switches simply do not appear where there is no toast path.
+The same panel holds **Events you cannot see** — one switch, **on by default**, that governs
+every system notification the terminal sends: alerts, order fills, stops and take-profits, and
+bar closes, whether they come from another open tab or from the terminal running with the
+browser closed. What is happening on the chart in front of you is never part of it; that is
+spoken here as it always was. On the local web host the notification goes through
+`notify-send` to your desktop's notification daemon (MATE, GNOME and KDE all show it, and Orca
+can present it); on the Windows app it is a Windows toast that Narrator, NVDA and JAWS read;
+on a machine with no notification tool at all the same sentences are spoken aloud instead, and
+the panel says so. Beneath the switch sit **Also speak bar closes from other tabs** (off by
+default — it waits for the current sentence to finish rather than interrupting it) and
+**Shortest timeframe to announce**, the floor that keeps a one-minute chart from becoming a
+notification a minute. The hosted site has no desktop to reach and shows its
+browser-notification (Web Push) controls instead.
 
 When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
@@ -2494,33 +2552,25 @@ how a Bitcoin alert lands in your #btc Discord channel while a gold alert lands 
 it was created on and only evaluates there, so a BTC alert no longer fires against
 whatever chart happens to be on screen (choose "any symbol" if you do want that).
 
-On the **hosted terminal**, alerts on **price and candle patterns** do not need
-you at all: symbol-scoped alerts of those kinds keep evaluating on the server
-after you close the browser, and anything that fires is delivered through your
-configured email, Telegram, and webhook channels. Alerts that read the chart
-itself — indicator values, the volume-profile POC, trend and zone conditions,
-and advanced condition trees — only run while their chart is open, because the
-indicators they read exist only there; the terminal tells you so the moment you
-create one, so you always know which alerts are watching while you're away and
-which are not. You can also enable **browser notifications** (Alt+J, Delivery
-settings, Browser notifications): your alerts then arrive as system notifications on that
-device — spoken by your screen reader like any other notification — even with
-the terminal tab closed, as long as the browser is running. Turn server-side
-evaluation off with the "alerts.serverSide" setting if you'd rather alerts only
-run while you are present.
+On the **hosted terminal**, alerts run only while your browser has the terminal open.
+The server-side evaluation described here in earlier versions of this manual, and the
+**browser notifications** (Web Push) panel that went with it, are **switched off on the
+hosted site** — deliberately: it is a paper-only terminal, and an alert that arrives after
+you have closed the browser is not something you can act on there. The code for both is
+present and can be turned back on for a future hosted tier; today neither renders and
+neither runs. Email, Telegram and webhook delivery all still work, from your open browser,
+as does everything else in the Delivery settings panel.
 
-**A limitation worth knowing while you are signed in.** The server steps back
-while you have the terminal open, on the assumption that your live session is
-watching — but your live session only evaluates alerts for symbols you
-currently have on screen. So a price alert on a symbol whose tab you closed is
-watched by the server once you sign out, and by nobody while you are signed in
-with other charts open. Until that is fixed, the reliable pattern is to keep a
-tab open for anything you are actively waiting on, or to sign out and let the
-server carry the watch.
-And if you enable "send setups to alerts" in the alerts dialog's Delivery settings,
-confirmed and armed strategy
-setups flow through the same delivery — your Discord channel hears "Long setup —
-gold" with the trade plan, even when you're away from the terminal.
+If you want alerts that keep working with the browser closed, that is the **local web
+host** on your own machine — see *Monitoring with the browser closed* above, which is a
+different and much more capable mechanism: it watches every kind of alert, not only price
+and candle patterns, plus order fills and bar closes.
+
+**A limitation worth knowing on the local web host.** While a browser is connected, the
+in-session pipeline owns the alerts it can actually see, and the background monitor takes
+the rest — so an alert on a symbol with no tab open is watched either way. What the
+background monitor does NOT do is act: it reports fills, stops and take-profits, and it
+never places, moves or cancels an order.
 
 For conditions a single rule can't express, switch on **Advanced condition** in
 the add-alert form. The same rule-tree builder the strategy composer uses
@@ -2620,16 +2670,17 @@ the rules, not a promise.
 
 Normally only the chart on screen is live: switch from your BTC tab to a gold tab and
 the BTC alerts and strategies go quiet until you switch back. **Background monitoring**
-lifts that limit. Turn it on in Settings (F12), under General, "Monitor background
-tabs", and every *other* open tab keeps being watched while you work: its data is
+lifts that limit. Turn it on in Settings (F12), under General, **"Keep watching other tabs"**
+(not to be confused with "Keep monitoring when the browser is closed" beneath it, which is
+the separate browser-closed half), and every *other* open tab keeps being watched while you
+work: its data is
 re-fetched on a polling cadence (every 30 seconds by default — adjustable in the same
 place, with a floor of 10), its indicators are recomputed, and its symbol-scoped
 alerts and running strategies are evaluated against the fresh bars. It is off by
 default, like every feature that spends your provider's request budget, and it is a
 desktop feature — the hosted web builds stay single-chart by design.
 
-On exchanges whose data feeds support it (Binance today, more as they are
-enrolled), you can go one better: **"Live-stream background tabs"**, in the same
+On exchanges whose data feeds support it, you can go one better: **"Live-stream other tabs"**, in the same
 Settings section, keeps up to eight background tabs on real streaming data
 instead of the 30-second poll. Background alerts and strategies then evaluate on
 tick-fresh bars, and switching to a live background tab is instant — the chart
@@ -2637,14 +2688,18 @@ binds its already-current data with no network fetch at all. On exchanges that
 cannot stream multiple charts at once, the poll quietly remains — nothing
 breaks, it is simply not as fresh.
 
-What you hear follows one simple rule: **events speak from everywhere, the soundscape
-belongs to the focused chart.** A background tab's alerts and strategy setups reach
-you at full priority — earcons, speech, Journal, and your email/Telegram/Discord
-deliveries all fire exactly as if that tab were on screen — and every spoken
-announcement is prefixed with its symbol ("BTC/USD: crossed above 50,000") so you
-always know which market is talking. But playback, navigation ticks, and the
-sonification bed never mix across tabs; only the chart you are actually viewing is
-sonified.
+What you hear follows one simple rule: **events reach you from everywhere, the soundscape
+belongs to the focused chart.** A background tab's alerts and strategy setups reach you at
+full priority — Journal, and your email/Telegram/Discord deliveries all fire exactly as if
+that tab were on screen — and every announcement is prefixed with its symbol ("BTC/USD:
+crossed above 50,000") so you always know which market is talking. The channel, though, is
+chosen by which chart the news is about: a background tab's events arrive as **system
+notifications**, because the live region belongs to the tab in front of you and an
+interruption there is the loss of the sentence you were reading. A bar closing on a
+background tab also plays an earcon, and can speak as well if you turn on "Also speak bar
+closes from other tabs" (Alt+J, Delivery settings) — it waits for the current sentence to
+finish rather than cutting into it. Playback, navigation ticks and the sonification bed never
+mix across tabs; only the chart you are actually viewing is sonified.
 
 Two rules keep this honest. First, an alert or strategy is evaluated by exactly one
 side at a time: while its tab is focused, the normal live pipeline runs it; the moment

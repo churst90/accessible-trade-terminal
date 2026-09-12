@@ -72,6 +72,7 @@ public sealed class HeadlessAlertTests : IDisposable
     {
         var alert = EmaAbove(110);
         using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();                       // first sighting: EMA 100, no memory to cross from
         h.Nothing();
@@ -97,6 +98,7 @@ public sealed class HeadlessAlertTests : IDisposable
     {
         var alert = EmaAbove(50);   // EMA is 100 from the start
         using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();
         h.CloseABar();
@@ -114,6 +116,7 @@ public sealed class HeadlessAlertTests : IDisposable
         // therefore fires only if the saved tab's parameters were honoured.
         var alert = EmaAbove(140);
         using var h = new HeadlessMonitorHarness(new[] { SavedEma(3) }, alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();
         h.CloseABar();
@@ -127,6 +130,7 @@ public sealed class HeadlessAlertTests : IDisposable
     {
         var alert = EmaAbove(110);
         using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
         using var _ = OpenCircuit("c1", "BTC/USD");
 
         await h.PollAsync();
@@ -147,6 +151,7 @@ public sealed class HeadlessAlertTests : IDisposable
     {
         var alert = Alert("Through the POC", AlertTarget.Poc, AlertCondition.CrossesAbove);
         using var h = new HeadlessMonitorHarness(new[] { SavedVolumeProfile() }, alerts: new[] { alert }, priceAt: PocStep);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();
         h.Nothing();
@@ -198,6 +203,7 @@ public sealed class HeadlessAlertTests : IDisposable
         var tree = new ConditionLeaf("l1", "Ema.Ema", LeafOperator.GreaterThan, 110);
         var alert = Alert("EMA tree", AlertTarget.Price, AlertCondition.CrossesAbove, tree: tree);
         using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();
         h.Nothing();
@@ -214,6 +220,7 @@ public sealed class HeadlessAlertTests : IDisposable
     {
         var alert = Alert("Ghost", AlertTarget.Indicator, AlertCondition.CrossesAbove, 1, indicator: "NOPE", component: "x");
         using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();   // a 1-day floor on a 1-hour chart: no bar close, no ladder, alerts unaffected
 
         await h.PollAsync();
         h.CloseABar();

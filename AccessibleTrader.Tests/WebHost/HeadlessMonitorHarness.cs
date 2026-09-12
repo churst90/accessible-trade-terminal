@@ -76,9 +76,16 @@ internal sealed class HeadlessMonitorHarness : IDisposable
     /// are all this). Constant 100 by default, so indicator crossings are the test's to arrange.</param>
     /// <param name="withTab">False to save NO tab at all — an alert on a symbol nothing is
     /// open on, which is the ordinary case for a price alert and the unwatchable one for a POC alert.</param>
+    /// <param name="settingsOnDisk">True to put the REAL <see cref="SettingsManager"/> over a
+    /// real settings.json in a temp directory, instead of the substitute. The substitute cannot
+    /// show the defect it was written for: <c>SettingsManager</c> caches its document for the
+    /// life of the instance, and the headless scope is the life of the PROCESS, so a switch
+    /// flipped between two polls was invisible until a restart. Use <see cref="WriteSetting"/>
+    /// to flip one. See <c>HeadlessSession.RefreshSettings</c>.</param>
     public HeadlessMonitorHarness(
         IReadOnlyList<SeriesConfig> savedSeries, string timeframe = "1h",
-        IReadOnlyList<AlertDefinition>? alerts = null, Func<int, double>? priceAt = null, bool withTab = true)
+        IReadOnlyList<AlertDefinition>? alerts = null, Func<int, double>? priceAt = null, bool withTab = true,
+        bool settingsOnDisk = false)
     {
         var provider = Substitute.For<IMarketDataProvider>();
         provider.FetchOhlcvAsync(Arg.Any<MarketDataRequest>()).Returns(ci =>
@@ -113,8 +120,20 @@ internal sealed class HeadlessMonitorHarness : IDisposable
         library.GetAllProfilesWithTimes().Returns(_ => new[] { (SessionAutosaveService.LastSessionProfileName + "x", DateTime.UtcNow) });
         library.LoadProfile(Arg.Any<string>()).Returns(_ => session);
 
-        _settings = Substitute.For<ISettingsManager>();
-        _settings.GetSetting(LocalBackgroundMonitor.SettingKey).Returns(JToken.FromObject(true));
+        if (settingsOnDisk)
+        {
+            SettingsDirectory = TestTemp.NewDir("headless-settings");
+            SettingsPath = Path.Combine(SettingsDirectory, "settings.json");
+            WriteSetting(LocalBackgroundMonitor.SettingKey, true);
+            var paths = Substitute.For<IPlatformPathService>();
+            paths.AppDataDirectory.Returns(SettingsDirectory);
+            _settings = new SettingsManager(paths, NullLogger<SettingsManager>.Instance);
+        }
+        else
+        {
+            _settings = Substitute.For<ISettingsManager>();
+            _settings.GetSetting(LocalBackgroundMonitor.SettingKey).Returns(JToken.FromObject(true));
+        }
 
         var services = new ServiceCollection();
         services.AddLogging(b => b.Services.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider>(new ListLoggerProvider(Logs)));
@@ -155,8 +174,51 @@ internal sealed class HeadlessMonitorHarness : IDisposable
             Presenter, NullLogger<LocalBackgroundMonitor>.Instance);
     }
 
-    public void NewBarToasts(bool on) =>
-        _settings.GetSetting(SettingsKeys.DesktopNotifyNewBars).Returns(JToken.FromObject(on));
+    /// <summary>Where the real settings.json lives, when the harness was built with
+    /// <c>settingsOnDisk</c>. Null otherwise.</summary>
+    public readonly string? SettingsDirectory;
+    public readonly string? SettingsPath;
+
+    /// <summary>
+    /// Write one dotted key into the real settings.json on disk, merging into what is already
+    /// there. This is the user reaching the tray, the F12 checkbox or the Alt+J dialog — every
+    /// one of which writes the file from a DIFFERENT scope than the monitor's.
+    /// </summary>
+    public void WriteSetting(string keyPath, object value)
+    {
+        if (SettingsPath == null) throw new InvalidOperationException("Harness was not built with settingsOnDisk.");
+        var doc = File.Exists(SettingsPath)
+            ? JObject.Parse(File.ReadAllText(SettingsPath))
+            : new JObject();
+        var keys = keyPath.Split('.');
+        JObject node = doc;
+        for (int i = 0; i < keys.Length - 1; i++)
+        {
+            if (node[keys[i]] is not JObject next) { next = new JObject(); node[keys[i]] = next; }
+            node = next;
+        }
+        node[keys[^1]] = JToken.FromObject(value);
+        File.WriteAllText(SettingsPath, doc.ToString());
+    }
+
+    /// <summary>
+    /// The ONE notification switch (default ON since 2026-09-11). It gates alerts, order events,
+    /// bar closes and the ladder alike — so a test that wants only one of them must use
+    /// <see cref="OnlyAlerts"/> rather than turning this off.
+    /// </summary>
+    public void Notifications(bool on) =>
+        _settings.GetSetting(SettingsKeys.NotifyUnseenEvents).Returns(JToken.FromObject(on));
+
+    /// <inheritdoc cref="Notifications"/>
+    public void NewBarToasts(bool on) => Notifications(on);
+
+    /// <summary>
+    /// Raise the bar-close floor above the chart's timeframe, so a test about ALERTS hears only
+    /// alerts. The floor gates bar closes and the narration ladder and NEVER gates an alert,
+    /// which makes it the honest way to isolate one — turning the notification switch off would
+    /// silence the alert too, since it is one switch for all of them.
+    /// </summary>
+    public void OnlyAlerts() => BarFloor("1d");
     public void NarrationMaster(bool on) =>
         _settings.GetSetting(SettingsKeys.NarrateSignalsOnBarClose).Returns(JToken.FromObject(on));
     public void BarFloor(string tf) =>

@@ -25,6 +25,7 @@ namespace AccessibleTrader.Tests
             public JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() => SaveCount++;
             public void ResetToDefaults() { SaveCount++; }
+            public void Reload() { }
         }
 
         private static (PreferencePersistenceService svc, IWorkspaceStore store, FakeSettings fake,

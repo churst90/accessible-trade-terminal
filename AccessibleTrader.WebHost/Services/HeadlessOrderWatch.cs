@@ -120,6 +120,9 @@ namespace AccessibleTrader.WebHost.Services
         internal async Task PollOnceAsync(CancellationToken ct)
         {
             var services = _session.Services;
+            // Off disk again, every poll — see HeadlessSession.RefreshSettings. The opt-in
+            // read on the next line is the one this class's doc claims is re-read per poll.
+            _session.RefreshSettings();
             var settings = services.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(LocalBackgroundMonitor.SettingKey)?.ToObject<bool>() ?? false)) return;
 
@@ -329,20 +332,17 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         /// <summary>
-        /// Speaks and toasts without the notification sound: this is the watch reporting on
-        /// ITSELF, not a fill, and the sound is the cue that means money moved.
+        /// The watch reporting on ITSELF — no notification sound, because the sound is the cue
+        /// that means money moved.
+        ///
+        /// <para>Through <see cref="DesktopAnnouncement.Present"/> like every other headless
+        /// announcement. It used to call <c>Notify</c> and then <c>Speak</c> directly, which is
+        /// the doubling Cody heard on 2026-09-11 ("pick the best path, not both") one file over
+        /// from where it was fixed: on a machine with a notification daemon the toast is read by
+        /// the screen reader AND the sentence was spoken again by spd-say.</para>
         /// </summary>
         private void Announce(string text)
-        {
-            try
-            {
-                _presenter.Notify("Order monitoring", text, urgent: true);
-                _presenter.Speak(text);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Headless order watch could not report its own state.");
-            }
-        }
+            => DesktopAnnouncement.Present(
+                _presenter, "Order monitoring", text, text, urgent: true, withSound: false, _logger);
     }
 }

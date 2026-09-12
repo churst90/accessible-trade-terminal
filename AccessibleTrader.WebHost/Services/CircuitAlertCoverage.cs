@@ -60,9 +60,11 @@ namespace AccessibleTrader.WebHost.Services
         }
 
         /// <summary>
-        /// The union of every open circuit's coverage, upper-cased for the case-insensitive
-        /// comparison the alert pipeline uses. Empty when the browser is closed — which
-        /// correctly means "suppress nothing".
+        /// The union of every open circuit's coverage. Compared case-INSENSITIVELY (the set is
+        /// an <c>OrdinalIgnoreCase</c> one), which is what the alert pipeline does; nothing is
+        /// upper-cased, and the comment that said so was describing a transformation that never
+        /// happened. Empty when the browser is closed — which correctly means "suppress
+        /// nothing".
         /// </summary>
         public static IReadOnlySet<string> CoveredSymbols()
         {

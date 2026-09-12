@@ -1,5 +1,37 @@
 # Background monitoring — the expansion, scoped
 
+> **STATUS, 2026-09-11 — READ THIS FIRST. Phases 0–3 are all on `main`, and PHASE 4 has landed
+> on top of them and CHANGES THE ROUTING RULE THIS DOCUMENT DESCRIBES.** Everything below is
+> kept as the record of how the feature was planned and built; do not take its "today"
+> statements or its routing table as current. The current rule is in
+> `docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md` §0a and, in the code, in
+> `Core/Services/Notifications/NotificationPolicy.cs`.
+>
+> **Phase 4, in one sentence: the CHANNEL is decided by the event's SUBJECT.** Whatever happens
+> on the chart in front of the trader is spoken in the browser's live region and never turned
+> into a system notification; everything else — another open tab, a market with no tab open, and
+> every event once the browser is closed — is a notification, because nothing else can reach
+> them. What Phase 4 specifically reversed:
+>
+> - The **toast row** of the routing table in §4. It read "headless, opt-in per category" in
+>   both columns. The in-session `DesktopNotificationService` was in fact the toaster in the
+>   circuit-open column, and it toasted the FOCUSED chart's bar close — a notification a minute
+>   on a 1-minute chart, for news the browser was already announcing. That subscription now
+>   refuses while the app is visible.
+> - The **three `notifications.desktop.*` switches**, all default OFF, are now ONE switch
+>   (`notifications.unseen`, "Events you cannot see"), default **ON**.
+> - The **timeframe floor** now gates the narration ladder as well as the bar close.
+> - The **snooze** gates announcement only, never observation, and order events always pierce it.
+> - **`ISettingsManager` is re-read on every poll** (`HeadlessSession.RefreshSettings`). It was
+>   cached for the life of the process, so every "read per poll, so toggling takes effect without
+>   a restart" claim in this document and in the code was false.
+> - A **farewell notification** on the debounced 1→0 edge of the connected-circuit count
+>   (`BrowserPresence`), and a **`CircuitPresence`** that stops a disconnected circuit delivering
+>   during Blazor's three-minute retention window — that window was sending every alert twice,
+>   including two emails and two webhook POSTs.
+> - **MAUI**: closing the window (X or Alt+F4) minimises to the tray **by default** now, and
+>   while hidden every event including the focused chart's bar close is a notification.
+
 **Status: PHASES 0, 1 AND 2 ARE BUILT (2026-09-06). Phase 3 is SCOPED IN ITS OWN DOCUMENT —
 `docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md` (2026-09-08), which supersedes §4's Phase 3 section
 below and corrects row 4 of the table in §1.** Written 2026-09-06 from a
@@ -192,7 +224,7 @@ with exactly one delivery owner at a time:
 | | Circuit open | Circuit closed |
 |---|---|---|
 | Speech | the circuit (Orca via the browser) | headless (`IDesktopAlertPresenter.Speak`) |
-| Toast | headless, opt-in per category | headless, opt-in per category |
+| Toast | ~~headless, opt-in per category~~ **SUPERSEDED 2026-09-11 — see the Phase 4 note at the top.** The in-session toaster was the circuit-open owner all along; it now toasts only what the trader cannot see, and the headless side owns the closed column outright. | headless, one switch (`notifications.unseen`, default ON) |
 | Earcon | the circuit | headless sound |
 
 > **THE HAZARD, and it is the 22nd pass's lesson inverted.** *Two subscribers speaking about the

@@ -43,13 +43,14 @@ namespace AccessibleTrader.WebHost.Services
     ///   <item><b>Evaluation</b> — <see cref="CircuitAlertCoverage"/>. A symbol an open circuit
     ///   is watching is skipped headless; a symbol nobody has on screen is taken headless. Each
     ///   fired alert therefore has exactly one producer.</item>
-    ///   <item><b>Delivery</b> — <see cref="DesktopNotificationCategories"/>. The headless
-    ///   <see cref="DesktopNotificationService"/> is built WITHOUT the Alerts category, because
-    ///   <see cref="LocalBackgroundMonitor"/> already delivers its own alert (sound, toast,
-    ///   speech) under its own opt-in switch — and, since Phase 2, without OrderFills either,
-    ///   because <see cref="HeadlessOrderAnnouncer"/> owns those and is the only one of the two
-    ///   that can ask <see cref="CircuitOrderCoverage"/> whether a browser is already saying
-    ///   it.</item>
+    ///   <item><b>Delivery</b> — each headless event class is delivered by the component that
+    ///   produced it. <see cref="LocalBackgroundMonitor"/> delivers its own alerts, bar closes
+    ///   and narration; <see cref="HeadlessOrderAnnouncer"/> delivers order events, because it
+    ///   is the one that can ask <see cref="CircuitOrderCoverage"/> whether a browser is already
+    ///   saying it. <b>There is no <c>DesktopNotificationService</c> in this scope at all</b> —
+    ///   see the paragraph in <c>Start()</c> for why the one that used to be here was a
+    ///   subscriber with no producer. An earlier version of this list described that instance
+    ///   and its category mask; it has not existed since 2026-09-08.</item>
     ///   <item><b>Fills</b> — <see cref="CircuitOrderCoverage"/>. A venue whose stream an open
     ///   circuit has hooked announces through that circuit; every other venue is ours. Asked at
     ///   delivery time, because browsers open and close between a subscription and a fill.</item>
@@ -117,6 +118,30 @@ namespace AccessibleTrader.WebHost.Services
 
         /// <summary>Resolve an optional service from the long-lived scope.</summary>
         public T? GetOptional<T>() where T : class => Services.GetService<T>();
+
+        /// <summary>
+        /// Re-read settings.json. <b>Both headless loops must call this first thing on every
+        /// poll, and it is the only reason <see cref="ISettingsManager.Reload"/> exists.</b>
+        ///
+        /// <para>
+        /// <c>ISettingsManager</c> is registered Scoped and caches the document for the life of
+        /// the instance. That is correct for a browser circuit, which is one sitting. This scope
+        /// is the PROCESS, so without this call the headless side read settings.json exactly
+        /// once — at its first poll — and never again. Every switch in the feature was affected:
+        /// the tray's "Turn background monitoring on", the F12 checkbox, the Alt+J delivery
+        /// switches and the bar-close timeframe floor each wrote the file and reached a monitor
+        /// that was no longer listening. Three separate class comments claimed the opposite
+        /// ("read per poll, so toggling takes effect without a restart"); none of them was true.
+        /// </para>
+        ///
+        /// <para>Safe here precisely because of the SAFETY LINE above: the headless session
+        /// reports and never configures, so it has no unsaved edits to lose.</para>
+        /// </summary>
+        public void RefreshSettings()
+        {
+            try { Services.GetRequiredService<ISettingsManager>().Reload(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Headless session could not re-read settings."); }
+        }
 
         /// <summary>
         /// Plugins loaded and every stored key applied to its provider — the preamble both
@@ -190,10 +215,18 @@ namespace AccessibleTrader.WebHost.Services
                     _subscribers.Add(new HeadlessOrderAnnouncer(
                         sp.GetRequiredService<IEventBus>(),
                         presenter,
-                        sp.GetService<ILogger<HeadlessOrderAnnouncer>>()));
+                        sp.GetService<ILogger<HeadlessOrderAnnouncer>>(),
+                        isCovered: null,
+                        // Read at DELIVERY time, not now: this scope re-reads settings.json on
+                        // every poll (RefreshSettings), so a box ticked between two fills counts.
+                        notifyEnabled: () => NotificationPolicy.NotifyUnseen(
+                            sp.GetService<ISettingsManager>())));
                 else
-                    _logger.LogInformation(
-                        "Headless session has no desktop presenter; order events will not be announced.");
+                    // Warning, not Information: with no presenter this scope loses EVERY order
+                    // event for the life of the process — a fill, a stop, a rejection — and a
+                    // one-line Information among startup chatter is how that goes unnoticed.
+                    _logger.LogWarning(
+                        "Headless session has no desktop presenter; order events will NOT be announced with the browser closed.");
             }
             catch (Exception ex)
             {

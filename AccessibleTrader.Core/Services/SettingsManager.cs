@@ -26,6 +26,29 @@ namespace AccessibleTrader.Core.Services
         /// </para>
         /// </summary>
         void ResetToDefaults();
+
+        /// <summary>
+        /// Drop the cached document so the next read comes off disk again.
+        ///
+        /// <para>
+        /// ── Why this exists ───────────────────────────────────────────────────────
+        /// This class loads settings.json ONCE and caches it for the life of the instance,
+        /// which is right for a browser circuit (one instance, one sitting, and unsaved edits
+        /// live in that document until Save writes them). It was wrong for the headless
+        /// background monitor, which holds ONE scope — and therefore one instance — for the
+        /// life of the process. Every "read per poll, so toggling takes effect without a
+        /// restart" claim in the headless code was false: the tray's monitoring toggle, the
+        /// F12 checkbox, the Alt+J delivery switches and the bar-close timeframe floor all
+        /// wrote the file and reached nothing until the process was restarted.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>It discards unsaved in-memory edits by design</b>, so only a caller that never
+        /// writes settings should use it. That is the headless session: it reports, it does
+        /// not configure.
+        /// </para>
+        /// </summary>
+        void Reload();
     }
 
     public class SettingsManager : ISettingsManager
@@ -132,6 +155,17 @@ namespace AccessibleTrader.Core.Services
             }
 
             current[keys.Last()] = value;
+        }
+
+        public void Reload()
+        {
+            lock (_initLock)
+            {
+                // _filepath is deliberately left resolved: on the WebHost it is per-user and
+                // was computed against the right directory on first access. Only the document
+                // goes, so the next read re-loads it from that same path.
+                _settings = null;
+            }
         }
 
         public void ResetToDefaults()

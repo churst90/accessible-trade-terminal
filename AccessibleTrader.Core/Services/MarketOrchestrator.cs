@@ -175,7 +175,11 @@ namespace AccessibleTrader.Core.Services
             if (!string.IsNullOrEmpty(identity.Provider))  _selectedProvider  = identity.Provider;
             if (!string.IsNullOrEmpty(identity.Symbol))    _selectedSymbol    = identity.Symbol;
             if (!string.IsNullOrEmpty(identity.Timeframe)) _selectedTimeframe = identity.Timeframe;
-            if (!string.IsNullOrEmpty(identity.Market))    _selectedSubType   = identity.Market;
+            // The SUB-TYPE half only. Assigning the whole composite here is what grew
+            // "Crypto|Spot" into "Crypto|Crypto|Crypto|Spot" one Load Chart at a time; a bare
+            // category has no sub-type to adopt, so the current one stands. See MarketKey.
+            var adoptedSubType = Sdk.Models.MarketKey.SubType(identity.Market);
+            if (!string.IsNullOrEmpty(adoptedSubType))     _selectedSubType   = adoptedSubType;
             if (!string.IsNullOrEmpty(identity.Symbol))    _dataManager.Identity = identity;
 
             // Cheap, immediate correction so the toolbar stops lying before any await.
@@ -393,7 +397,9 @@ namespace AccessibleTrader.Core.Services
             _selectedProvider  = identity.Provider;
             _selectedSymbol    = identity.Symbol;
             _selectedTimeframe = identity.Timeframe;
-            if (!string.IsNullOrEmpty(identity.Market)) _selectedSubType = identity.Market;
+            // Sub-type half only — the second half of the growth loop. See AdoptIdentityIntoToolbar.
+            var syncedSubType = Sdk.Models.MarketKey.SubType(identity.Market);
+            if (!string.IsNullOrEmpty(syncedSubType)) _selectedSubType = syncedSubType;
 
             _pipelineUpdated.OnNext(Unit.Default);
         }
@@ -635,7 +641,7 @@ namespace AccessibleTrader.Core.Services
 
             // Pass the sub-type as "Market|SubType" so DataService routes symbol fetch correctly.
             string marketKey = _availableSubTypes.Count > 1
-                ? $"{market}|{_selectedSubType}"
+                ? Sdk.Models.MarketKey.Compose(market, _selectedSubType)
                 : market;
 
             _availableSymbols = await _dataService.LoadSymbolsAsync(marketKey, _selectedProvider).ConfigureAwait(false);
@@ -773,7 +779,7 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(MarketTrigger.ConnectionStarted);
 
             string marketForIdentity = _availableSubTypes.Count > 1
-                ? $"{EffectiveMarket}|{_selectedSubType}"
+                ? Sdk.Models.MarketKey.Compose(EffectiveMarket, _selectedSubType)
                 : EffectiveMarket;
 
             var identity = new ChartIdentity

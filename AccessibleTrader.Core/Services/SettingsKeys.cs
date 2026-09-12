@@ -164,27 +164,61 @@ namespace AccessibleTrader.Core.Services
         public const string LiveBackgroundTabs   = "workspace.liveBackgroundTabs";
         public const string ResumeLastSession    = "workspace.resumeLastSession";
 
-        // ── Desktop notifications (the OS toast; see DesktopNotificationService) ──
-        // All three default FALSE — opt-in, so a bare settings substitute gets the default
-        // and a one-minute chart does not become a toast a minute by surprise.
-        public const string DesktopNotifyAlerts     = "notifications.desktop.alerts";
-        public const string DesktopNotifyNewBars    = "notifications.desktop.newBars";
-        public const string DesktopNotifyOrderFills = "notifications.desktop.orderFills";
+        // ── Notifications for what you CANNOT SEE (the OS toast) ─────────────
+        //
+        // ONE switch, and it defaults TRUE. Cody, 2026-09-11.
+        //
+        // The rule it implements: the channel is decided by the event's SUBJECT. Whatever is
+        // happening on the chart in front of you is spoken in the browser's live region and
+        // never toasted — you are already there. Everything else — a bar closing on another
+        // open tab, an alert or a fill on a symbol with no tab open, and every terminal event
+        // while the browser is closed — arrives as a system notification, because that is the
+        // only way it can reach you.
+        //
+        // It replaces three switches (notifications.desktop.alerts / .newBars / .orderFills)
+        // which all defaulted FALSE and lived in a different dialog from the thing they gated.
+        // That arrangement produced the thirty-ninth pass's incident — a feature reported as
+        // broken that was merely switched off — and for a blind user an accidental silence has
+        // no compensating channel. One switch, on by default, and the timeframe floor below as
+        // the volume control.
+        // The default (ON) lives on NotificationPolicy, not here: two guards in AppSettingsTests
+        // read every public literal of this class AS A STRING, so a bool constant among them is
+        // an InvalidCastException. This class is string keys and nothing else.
+        public const string NotifyUnseenEvents = "notifications.unseen";
+
+        // Retired 2026-09-11. Read ONLY by NotificationPolicy, and only when the new key is
+        // absent, so a user who had deliberately turned all three OFF is not switched back on
+        // by the new default. Nothing writes them.
+        internal const string LegacyDesktopNotifyAlerts     = "notifications.desktop.alerts";
+        internal const string LegacyDesktopNotifyNewBars    = "notifications.desktop.newBars";
+        internal const string LegacyDesktopNotifyOrderFills = "notifications.desktop.orderFills";
 
         // ── Bars closing on a LIVE BACKGROUND TAB (a chart you have open, not the one you are
-        // looking at). Toast and earcon ride the switches above and the earcon tier; SPEECH is
-        // its own opt-in and defaults FALSE, because a bar close on a chart you are not looking
-        // at interrupting the chart you ARE is how a feature gets switched off for good.
-        // Cody, 2026-09-08.
+        // looking at). The notification rides NotifyUnseenEvents above; the earcon plays
+        // UNCONDITIONALLY, as an ambient "something happened elsewhere" — this comment used to
+        // say it rode the switches above, and it never has. SPEECH is its own opt-in and defaults
+        // FALSE, because a bar close on a chart you are not looking at interrupting the chart
+        // you ARE is how a feature gets switched off for good. Cody, 2026-09-08.
         public const string SpeakBackgroundTabBars = "notifications.backgroundTabBars.speak";
 
-        // The shortest timeframe whose bar closes are announced with the BROWSER CLOSED.
-        // Default "1m" — i.e. every timeframe announces. Cody, 2026-09-08: the suppression that
-        // stops a one-minute chart becoming a toast a minute is DesktopNotifyNewBars above,
-        // which is opt-in; a user who has turned that on has asked for bar closes, so this floor
-        // is the escape hatch and not the gate. NEW BARS ONLY — it must never gate an alert or a
-        // trade event, which are per-occurrence and carry their own switches.
+        /// <summary>
+        /// The shortest timeframe whose bar closes are announced with the BROWSER CLOSED — and,
+        /// since 2026-09-11, whose NARRATION LADDER is spoken there too (Cody: the floor means
+        /// "do not talk to me about charts faster than this", which is what the settings hint
+        /// had always promised while the ladder ignored it and recited every minute).
+        ///
+        /// <para>Default "1m" — i.e. every timeframe announces. NEW BARS AND THE LADDER ONLY:
+        /// it must never gate an alert or a trade event, which are per-occurrence.</para>
+        /// </summary>
         public const string HeadlessNewBarMinTimeframe = "notifications.newBars.minTimeframe";
+
+        // ── The browser-closed master switch ─────────────────────────────────
+        //
+        // "Keep monitoring when the browser is closed" (Settings → General, and the tray).
+        // It had NO constant until 2026-09-11: it was a const on LocalBackgroundMonitor in the
+        // WebHost project and a raw string literal twice in SettingsModal.razor, so the master
+        // switch of the whole browser-closed half was typo-exposed across a project boundary.
+        public const string BackgroundLocalMonitoring = "monitoring.backgroundLocal";
 
         // ── Alerts: email (SMTP) ─────────────────────────────────────────────
         public const string EmailHost          = "alerts.email.host";

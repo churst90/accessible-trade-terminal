@@ -240,6 +240,37 @@ namespace AccessibleTrader.Core.Services.Workspace
                     "Background monitoring off.", Interrupt: false, IsUserInitiated: false));
         }
 
+        /// <summary>
+        /// The browser-closed half's master switch — "Keep monitoring when the browser is
+        /// closed". A DIFFERENT switch from <see cref="IsEnabled"/>, which is "keep watching
+        /// other tabs" inside this browser.
+        ///
+        /// <para><b>Why this is read here at all.</b> Ctrl+Alt+Shift+M used to report only the
+        /// in-session switch, so on a machine with the browser-closed half turned ON and the
+        /// other-tabs switch OFF it said "Background monitoring is off" — false on that machine,
+        /// and said in the one sentence a user presses a key specifically to hear. Two switches,
+        /// one phrase, three surfaces (this, the tray's Connection status, and Settings).</para>
+        /// </summary>
+        /// <summary>"Live-stream other tabs" — a different switch again, and the one that
+        /// actually produces bar closes from a tab you are not looking at.</summary>
+        private bool LiveBackgroundTabsOn()
+        {
+            try { return _settings.GetSetting(SettingsKeys.LiveBackgroundTabs)?.ToObject<bool>() ?? false; }
+            catch { return false; }
+        }
+
+        private bool BrowserClosedMonitoringOn()
+        {
+            try { return _settings.GetSetting(SettingsKeys.BackgroundLocalMonitoring)?.ToObject<bool>() ?? false; }
+            catch { return false; }
+        }
+
+        /// <summary>One clause, always said, so the two switches are never confused again.</summary>
+        private string BrowserClosedClause()
+            => BrowserClosedMonitoringOn()
+                ? " With the browser closed, the terminal keeps watching your saved charts and announces through system notifications."
+                : " With the browser closed, nothing is watched — turn on \"Keep monitoring when the browser is closed\" in Settings, General.";
+
         public void AnnounceStatus()
         {
             List<BackgroundWorkspaceMonitor> monitors;
@@ -252,9 +283,10 @@ namespace AccessibleTrader.Core.Services.Workspace
             if (!IsEnabled && monitors.Count == 0)
             {
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
-                    _policy.AllowBackgroundMonitoring
-                        ? "Background monitoring is off, and no positions are open. Enable it in Settings, General."
-                        : "Background monitoring is not available on this host.",
+                    (_policy.AllowBackgroundMonitoring
+                        ? "Watching other tabs is off, and no positions are open. Enable it in Settings, General."
+                        : "Watching other tabs is not available on this host.")
+                    + BrowserClosedClause(),
                     Interrupt: true));
                 return;
             }
@@ -262,9 +294,10 @@ namespace AccessibleTrader.Core.Services.Workspace
             if (!IsEnabled)
             {
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
-                    $"Background monitoring is off, but {monitors.Count} " +
+                    $"Watching other tabs is off, but {monitors.Count} " +
                     $"{(monitors.Count == 1 ? "chart is" : "charts are")} watched for open paper positions and orders: " +
-                    string.Join(", ", monitors.Select(m => m.SymbolDisplayName).OrderBy(s => s)) + ".",
+                    string.Join(", ", monitors.Select(m => m.SymbolDisplayName).OrderBy(s => s)) + "."
+                    + BrowserClosedClause(),
                     Interrupt: true));
                 return;
             }
@@ -300,10 +333,15 @@ namespace AccessibleTrader.Core.Services.Workspace
                 // The teaching line: a monitored workspace with NOTHING armed is
                 // silent by design — bar-by-bar announcements belong to the
                 // focused chart. Say so, or the silence reads as a bug.
-                if (armedAlerts == 0 && armedStrategies == 0)
+                // The teaching line, and it is CONDITIONAL now: with "Live-stream other tabs"
+                // on, a workspace with nothing armed still earcons and notifies every bar close,
+                // so "you will hear nothing from it" would be false.
+                if (armedAlerts == 0 && armedStrategies == 0 && !LiveBackgroundTabsOn())
                     sb.Append(", nothing armed — add an alert or strategy for this symbol to hear from it");
                 sb.Append(". ");
             }
+
+            sb.Append(BrowserClosedClause().TrimStart());
 
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, sb.ToString().TrimEnd(), Interrupt: true));
         }

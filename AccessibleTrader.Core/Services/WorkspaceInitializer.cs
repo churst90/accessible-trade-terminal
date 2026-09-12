@@ -466,7 +466,12 @@ namespace AccessibleTrader.Core.Services
                 {
                     _store.Dispatch(new SetIdentityAction(new ChartIdentity
                     {
-                        Market = tab.Market,
+                        // Heal a Market field that grew ("Crypto|Crypto|Crypto|Spot") before the
+                        // producer loop in MarketOrchestrator was closed on 2026-09-11. The fix
+                        // stops new growth; it cannot shrink a file already on disk, and the
+                        // grown value orphans every cache and background-monitor key that includes
+                        // it. Normalising on restore means the first open repairs the session.
+                        Market = MarketKey.Normalize(tab.Market),
                         Provider = tab.Provider,
                         Symbol = tab.Symbol,
                         Timeframe = tab.Timeframe

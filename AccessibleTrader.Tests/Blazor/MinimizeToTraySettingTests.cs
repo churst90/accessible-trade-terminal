@@ -66,10 +66,19 @@ public class MinimizeToTraySettingTests
         Assert.Empty(cut.FindAll("input#s-minimize-to-tray"));
     }
 
-    /// <summary>The default that matters. A settings file written before this key existed has no
-    /// entry for it, and must behave the way the app always did: close means close.</summary>
+    /// <summary>
+    /// <b>The default that matters, and it REVERSED on 2026-09-11.</b>
+    ///
+    /// <para>Cody: <i>"On the MAUI heads, if the person closes the application with the X in the
+    /// upper corner or Alt+F4, then it should, by default, minimize to tray and toast
+    /// notifications should be sent."</i> That makes the MAUI head behave like the WebHost,
+    /// where closing the browser hands every terminal event to the notification channel instead
+    /// of ending the watch. The 2026-09-06 reasoning for the old default — an app that does not
+    /// close when you close it is a surprise — is answered by the notification that now
+    /// accompanies the hide, not by the extra keystroke.</para>
+    /// </summary>
     [Fact]
-    public void Absent_from_the_settings_file_means_off()
+    public void Absent_from_the_settings_file_means_ON()
     {
         using var h = new BlazorTestHarness();
         PretendWindowsDesktop(h);
@@ -77,7 +86,35 @@ public class MinimizeToTraySettingTests
 
         var cut = OpenSettings(h);
 
+        Assert.True(cut.Find("input#s-minimize-to-tray").HasAttribute("checked"));
+    }
+
+    /// <summary>An explicit false still means close-means-close — the escape hatch is real.</summary>
+    [Fact]
+    public void A_saved_false_comes_back_unchecked()
+    {
+        using var h = new BlazorTestHarness();
+        PretendWindowsDesktop(h);
+        h.SettingsManager.GetSetting(DesktopWindowSettings.MinimizeToTrayKey)
+            .Returns(JToken.FromObject(false));
+
+        var cut = OpenSettings(h);
+
         Assert.False(cut.Find("input#s-minimize-to-tray").HasAttribute("checked"));
+    }
+
+    /// <summary>The shared reader owns the default; three call sites used to own three.</summary>
+    [Fact]
+    public void The_shared_reader_defaults_on_and_honours_an_explicit_false()
+    {
+        Assert.True(DesktopWindowSettings.MinimizeToTray(null));
+
+        var settings = Substitute.For<ISettingsManager>();
+        settings.GetSetting(DesktopWindowSettings.MinimizeToTrayKey).Returns((JToken?)null);
+        Assert.True(DesktopWindowSettings.MinimizeToTray(settings));
+
+        settings.GetSetting(DesktopWindowSettings.MinimizeToTrayKey).Returns(JToken.FromObject(false));
+        Assert.False(DesktopWindowSettings.MinimizeToTray(settings));
     }
 
     [Fact]

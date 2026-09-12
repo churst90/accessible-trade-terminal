@@ -97,11 +97,15 @@ namespace AccessibleTrader.Tests.WebHost
             var h = new Harness().Build();
             h.Controller.ToggleSilence();
             Assert.True(h.Snooze.IsActive);
+            // The sentence names what is actually silenced AND what is not. The old label said
+            // "alerts" while the snooze swallowed every bar close and let every fill through.
             Assert.Contains(h.Platform.Spoken, s => s.Contains("silenced for 30 minutes"));
+            Assert.Contains(h.Platform.Spoken, s => s.Contains("bar closes"));
+            Assert.Contains(h.Platform.Spoken, s => s.Contains("Order fills still come through"));
 
             h.Controller.ToggleSilence();
             Assert.False(h.Snooze.IsActive);
-            Assert.Contains("Alerts resumed.", h.Platform.Spoken);
+            Assert.Contains("Alerts and bar closes resumed.", h.Platform.Spoken);
         }
 
         [Fact]

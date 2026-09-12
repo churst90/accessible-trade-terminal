@@ -50,6 +50,7 @@ namespace AccessibleTrader.Core.Services.Theming
             public Newtonsoft.Json.Linq.JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() { }
             public void ResetToDefaults() { }   // nothing is remembered, so nothing to forget
+            public void Reload() { }            // …and nothing on disk to re-read
         }
     }
 }

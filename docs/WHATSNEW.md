@@ -1,5 +1,62 @@
 # What's New
 
+<!-- UNRELEASED. This file holds the CURRENT RELEASE ONLY; the section below is what the next
+     tag will say, and it must be moved into CHANGES.md if a tag is cut without it. Check with
+     `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has accumulated
+     post-tag entries under an old heading before. -->
+
+## Unreleased — the terminal stops telling you what you already know
+
+If you had a one-minute chart open, your desktop got a notification every minute for a bar
+close the browser had just read out to you. That is fixed, and fixing it meant writing down a
+rule that had never been written down.
+
+**Here is the rule.** Whatever happens on the chart in front of you is spoken here, the way it
+always was. Everything else is a system notification — a bar closing on another tab you have
+open, an alert or a fill on a market with no tab open at all, and, once you close the browser,
+every terminal event there is. Minimising the browser counts as being here: the page is still
+loaded and your screen reader is still reading it.
+
+**Closing the browser now tells you what happens next.** A few seconds after the last tab goes,
+a notification says the terminal is still running and what it will keep watching. If you have
+not turned on "Keep monitoring when the browser is closed", it says *that* instead, and names
+the switch — the moment you are about to lose the ability to check is the moment to be told.
+Reloading the page does not trigger it, and closing three tabs together produces one, not three.
+
+**Three switches became one, and it is on by default.** "Alerts that fire", "Order fills" and
+"New bars" each defaulted to off and lived in a different dialog from the thing they controlled.
+That is how a working feature came to be reported as broken a few weeks ago — it was simply
+switched off. There is now a single **Events you cannot see** switch in Alt+J → Delivery
+settings, on out of the box, with the timeframe floor under it for when a fast chart gets chatty.
+If you had deliberately turned all three of the old ones off, you stay quiet.
+
+**The switches reach the background monitor now.** They did not before, and nobody had noticed:
+the browser-closed half read your settings file once, at its first check, and never again — so
+ticking a box in the tray or in Settings did nothing at all until you restarted the terminal,
+while three separate comments in the code promised the opposite.
+
+**On the Windows app, the X button now minimises to the tray by default.** The terminal keeps
+running in the notification area, says so when it hides, and from then on everything — including
+the chart you were looking at — arrives as a notification, because nothing is being read aloud
+on screen any more. Restore or Quit from the tray icon. Settings → General → "Minimize to tray
+on exit" turns it back off. *This one has never been run on a Windows machine; it compiles only.*
+
+**Smaller things you may notice:**
+
+- The tray's silence item now says what it actually silences — "Silence alerts and bar closes"
+  — and **order fills always come through it**. Money is the one thing a silence must not
+  swallow.
+- The "shortest timeframe to announce" floor now quietens the narration ladder too. It used to
+  silence the bar close and leave the chart reciting its indicators every minute anyway.
+- **Ctrl+Alt+Shift+M** knows the browser-closed half exists. It used to say "Background
+  monitoring is off" on a machine where it was running, because two different switches shared
+  one sentence.
+- If you loaded the same chart repeatedly, the market recorded against it grew — `Crypto|Spot`,
+  then `Crypto|Crypto|Spot`, and on. It quietly made every load start from cold. Files already
+  on disk repair themselves the first time you open them.
+- A tab you closed used to go on sending your alerts for about three minutes — including a
+  second email, a second Telegram message and a second webhook post. It stops immediately now.
+
 ## 2.9.0 — the line goes where the line means something
 
 2.8.0 made the switches survive a restart. This one is about lines and where they

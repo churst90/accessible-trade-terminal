@@ -117,6 +117,79 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-11 (night), FORTY-THIRD pass — THE ROUTING POLICY IS
+> BUILT: the chart in front of you is spoken, everything else is a notification.)**
+> Suite **7,393** (was 7,321), 0 failing. Nothing in this pass was HEARD — see NEXT item 1.
+> Work order: `docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md`, **§0a carries Cody's four
+> answers and the first of them reverses that document's own §1** — the coverage registries
+> STAY, because the channel is decided per event SUBJECT and not per process.
+>
+> ### What landed (§9 items 1–8, plus MAUI)
+>
+> 1. **The `Market` field that grew by one segment per Load Chart** — `Sdk/Models/MarketKey.cs`,
+>    the two adopt sites in `MarketOrchestrator`, and a normaliser on restore AND save so Cody's
+>    existing session file heals itself. Proved by sabotage (3 red).
+> 2. **The headless scope read settings.json exactly once, ever** — `ISettingsManager.Reload`
+>    plus `HeadlessSession.RefreshSettings` at the top of both poll loops. Proved by sabotage.
+> 3. **`BrowserPresence`** — a CONNECTED-circuit count with a 15-second grace, replacing nothing
+>    (the existing `ActiveCircuits` counts RETAINED circuits and can never be the gate).
+> 4. **One switch, `notifications.unseen`, default ON**, replacing the three default-off
+>    `notifications.desktop.*`; `NotificationPolicy` owns the default and the legacy read.
+> 5. **The focused chart is never toasted**; background tabs, off-screen symbols and the
+>    browser-closed case all are. `DesktopNotificationService` + `NotificationPolicy.IsOnScreen`.
+> 6. **The farewell notification** on the debounced 1→0 edge (`BrowserFarewellService`), and
+>    **`CircuitPresence`** closing the three-minute double-delivery window (two emails, two
+>    webhook POSTs). Autosave now also runs on connection-down.
+> 7. **Snooze gates announcement only**, money pierces, tray relabelled; **the floor gates the
+>    ladder too**; **the bar-close seed is kept for every fetched chart**; both memories pruned
+>    together; `HeadlessOrderWatch` self-reports through `Present`.
+> 8. **Ctrl+Alt+Shift+M reports both owners** and always ends with what happens once the browser
+>    is closed.
+> 9. **MAUI**: `app.minimizeToTray` defaults ON, one shared reader, hiding announces itself, and
+>    `WindowVisibilityPresence` makes the focused chart notify while the window is hidden.
+>
+> ### NEXT — in this order
+>
+> 1. **HEAR IT.** Nothing in this pass was heard. (a) With three tabs open, confirm the focused
+>    chart's bar close no longer raises a MATE notification and the other two tabs' closes still
+>    do. (b) Close the browser and listen for the farewell. (c) Turn "Keep monitoring when the
+>    browser is closed" OFF, close the browser, and confirm the farewell says nothing is watched.
+>    (d) Press Ctrl+Alt+Shift+M with each combination of the two monitoring switches.
+>    (e) Tick and untick "Events you cannot see" from the tray and from Alt+J WITHOUT restarting,
+>    and confirm the running monitor obeys — that is item 2 above, and it is the one that was
+>    silently impossible before.
+> 2. **Load a MEXC chart three times and check the saved session file** — `Market` should stay
+>    `"Crypto|Spot"`. Cody's existing file heals on the first restore.
+> 3. **The MAUI head is UNVERIFIED.** It is not compiled on this box. `TrayIconService.cs` carries
+>    a five-step smoke test at the top; none of it has ever been run.
+> 4. Still open from the work order, none of them blocking: **H8** (`Present` cannot tell whether
+>    the notification was delivered — `notify-send` exiting non-zero is silence with a
+>    success-shaped log), **H13** (unbounded dictionaries, the poll's one-warning-a-minute
+>    swallow), **§5** (the hosted analogue, latent because `HostedAlertMonitor` is never
+>    constructed), and **Q3 / Q7** from §1 — still unanswered by Cody.
+> 5. Then the deferred venue dry runs (Tradier sandbox first) and the Alpaca order stream.
+
+> **START HERE (superseded 2026-09-11 (night) — FORTY-SECOND pass — ANALYSIS ONLY: THE
+> BACKGROUND MONITOR QUALITY PASS, and Cody's policy that the TOAST IS THE BROWSER-CLOSED CHANNEL.)**
+> Nothing edited, no test run. Suite still **7,321** at `e1e41709`.
+> **`docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md` is the work order** — read it first.
+>
+> The policy (Cody, tonight): a connected browser (minimised counts) gets every terminal event
+> as live-region speech and earcons and NO system toast from anything; no browser connected
+> means the headless process owns every event as a notification; the last tab closing sends one
+> farewell toast. Today's toasts with the browser open come from the per-circuit
+> `DesktopNotificationService` (`MainLayout.razor:41`), not from the headless monitor.
+>
+> Order of work is §9 of that document: (1) the growing `Market` field in
+> `MarketOrchestrator.cs:178/396/775`; (2) the headless scope's settings are frozen at first poll
+> (`ISettingsManager` is Scoped, `HeadlessSession` holds one scope forever); (3) a CONNECTED-circuit
+> counter (`ActiveCircuits` counts retained circuits and cannot be the gate); (4) one gate on
+> announcement only, `OwnedWatches` and both coverage registries deleted; (5) delete the in-session
+> toaster and regate the Delivery panel; (6) mute the circuit's deliverers on connection-down and
+> the debounced farewell; (7) snooze, the two bar-close oracles, `Present` delivery failure;
+> (8) Ctrl+Alt+Shift+M reports both owners; (9) docs. Eight questions for Cody are in §1 of the
+> document (Q1–Q8); Q1, Q2 and Q6 block step 5.
+
 > **START HERE (current as of 2026-09-11 (evening), FORTY-FIRST pass — ALERTS WITH THE BROWSER
 > CLOSED READ A REAL CHART; one grit rule for every bar; profiles narrate and say their name.)**
 > Suite **7,321**. `docs/SESSION_REVIEW_2026-09-11.md` §13 is the addendum. Phase 3 D4 is DONE,

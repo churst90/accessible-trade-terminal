@@ -62,9 +62,9 @@ namespace AccessibleTrader.WebHost.Services
             = new(StringComparer.Ordinal);
 
         /// <summary>
-        /// Symbols this user's live circuits currently have on screen, upper-cased for the
-        /// case-insensitive comparison the alert pipeline uses. Empty when they are offline —
-        /// which correctly means "suppress nothing".
+        /// Symbols this user's live circuits currently have on screen. Compared
+        /// case-INSENSITIVELY, as the alert pipeline does; nothing is upper-cased here. Empty
+        /// when they are offline — which correctly means "suppress nothing".
         /// </summary>
         internal static IReadOnlySet<string> OnScreenSymbolsForUser(string userKey)
         {
@@ -111,10 +111,17 @@ namespace AccessibleTrader.WebHost.Services
         /// announcer would stay quiet about fills nobody is announcing.</summary>
         private IDisposable? _orderCoverage;
 
-        /// <summary>Live browser sessions on this process. Ops observability only since
-        /// Phase 1 (2026-09-06): the local background monitor used to pause outright while this
-        /// was non-zero, and now suppresses per SYMBOL instead — see
-        /// <see cref="CircuitAlertCoverage"/>, which is what it reads.</summary>
+        /// <summary>
+        /// <b>RETAINED circuits, for ops observability only — never a gate.</b>
+        ///
+        /// <para>It goes up in <c>OnCircuitOpenedAsync</c> and down in
+        /// <c>OnCircuitClosedAsync</c>, and Blazor holds a closed tab's circuit for about three
+        /// minutes in case the client reconnects. So this reads 1 for three minutes after the
+        /// last tab is closed and 2 for three minutes after a reload. Anything that asks "can I
+        /// reach the user right now" must read <see cref="BrowserPresence"/> instead, which
+        /// counts CONNECTIONS; gating on this counter would reinstate the three-minute silence
+        /// the 2026-09-11 hand-off fix removed.</para>
+        /// </summary>
         internal static int ActiveCircuits => _activeCircuits;
 
         private readonly ILogger<WebHostBrowserCircuitHandler> _logger;
@@ -287,6 +294,35 @@ namespace AccessibleTrader.WebHost.Services
 
         internal bool HoldsCoverage => _coverage != null || _orderCoverage != null;
 
+        /// <summary>
+        /// Tell this circuit's own deliverers whether they can still reach anybody.
+        ///
+        /// <para>Releasing coverage hands the user's events to the headless session; this is the
+        /// other half of the same hand-off, and without it the circuit goes on delivering them
+        /// for the three minutes Blazor retains a disconnected circuit — a second toast, a
+        /// second entry in the recent list, a second email and a second webhook POST. Swallows
+        /// everything: a disposing scope must not throw out of a circuit lifecycle method.</para>
+        /// </summary>
+        /// <summary>The session snapshot, from whichever hand-off point reached it first.</summary>
+        private void SaveSessionNow(string why)
+        {
+            try
+            {
+                (_scope.GetService(typeof(AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService))
+                    as AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService)?.SaveNow();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Session autosave on {Why} failed (scope may already be disposed).", why);
+            }
+        }
+
+        private void SetPresence(bool connected)
+        {
+            try { (_scope.GetService(typeof(CircuitPresence)) as CircuitPresence)?.SetConnected(connected); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Could not update circuit presence."); }
+        }
+
         // ── THE HAND-OFF HAPPENS WHEN THE CONNECTION DROPS, NOT WHEN THE CIRCUIT DIES ────────
         //
         // Closing the browser tab does not close the circuit. Blazor keeps a disconnected
@@ -306,15 +342,33 @@ namespace AccessibleTrader.WebHost.Services
         public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken cancellationToken)
         {
             ReleaseCoverage();
+            SetPresence(false);
+
+            // The final autosave used to run ONLY in OnCircuitClosedAsync, about three minutes
+            // after the tab closed — so for those three minutes the headless monitor derived its
+            // watch list from the PREVIOUS autosave, and then the tab list changed underneath it
+            // at the worst possible moment: a changed list changes the chart signature, which
+            // rebuilds the chart, which swallows one bar close in the hand-off window. Saving
+            // here means the monitor reads the tabs the user actually just left. Idempotent —
+            // the close-time save still runs.
+            SaveSessionNow("connection down");
+            var id = _coverageCircuitId ?? circuit?.Id;
+            if (id != null) BrowserPresence.Disconnected(id);
             return base.OnConnectionDownAsync(circuit, cancellationToken);
         }
 
         public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken cancellationToken)
         {
             // Also runs for the FIRST connection, right after OnCircuitOpenedAsync has already
-            // registered — RegisterCoverage is idempotent for that reason.
+            // registered — RegisterCoverage is idempotent for that reason, and so is
+            // BrowserPresence.Connected (keyed on the circuit id, not counted).
             var id = _coverageCircuitId ?? circuit?.Id;
-            if (id != null) RegisterCoverage(id);
+            if (id != null)
+            {
+                RegisterCoverage(id);
+                BrowserPresence.Connected(id);
+            }
+            SetPresence(true);
             return base.OnConnectionUpAsync(circuit, cancellationToken);
         }
 
@@ -347,6 +401,13 @@ namespace AccessibleTrader.WebHost.Services
 
             ReleaseCoverage();
 
+            // Belt and braces: a circuit can be torn down without a connection-down (process
+            // shutdown, an abort), and a presence entry left behind would read as "a browser is
+            // connected" forever — which under the policy means total silence from the headless
+            // side. Idempotent, so the ordinary path (down, then closed three minutes later)
+            // costs nothing here.
+            if (_coverageCircuitId != null) BrowserPresence.Disconnected(_coverageCircuitId);
+
             if (_userKey != null)
             {
                 var key = _userKey;
@@ -366,15 +427,7 @@ namespace AccessibleTrader.WebHost.Services
             // Final session snapshot before the circuit's scoped services die —
             // a browser refresh was previously a destructive act that lost every
             // unsaved tab, drawing, and indicator stack.
-            try
-            {
-                (_scope.GetService(typeof(AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService))
-                    as AccessibleTrader.Core.Services.Workspace.ISessionAutosaveService)?.SaveNow();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Session autosave on circuit close failed (scope may already be disposed).");
-            }
+            SaveSessionNow("circuit close");
             return Task.CompletedTask;
         }
 

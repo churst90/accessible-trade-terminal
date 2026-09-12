@@ -237,7 +237,10 @@ namespace AccessibleTrader.Core.Services
         {
             return new TabConfiguration
             {
-                Market = state.Identity.Market,
+                // Normalised on the way out as well as on the way in: a tab restored from a
+                // snapshot never passes through WorkspaceInitializer.RestoreTabInto, and a
+                // grown key written back to disk survives the fix that stopped it growing.
+                Market = MarketKey.Normalize(state.Identity.Market),
                 Provider = state.Identity.Provider,
                 Symbol = state.Identity.Symbol,
                 Timeframe = state.Identity.Timeframe,
@@ -256,7 +259,7 @@ namespace AccessibleTrader.Core.Services
         {
             return new TabConfiguration
             {
-                Market = snap.Identity.Market,
+                Market = MarketKey.Normalize(snap.Identity.Market),
                 Provider = snap.Identity.Provider,
                 Symbol = snap.Identity.Symbol,
                 Timeframe = snap.Identity.Timeframe,

@@ -30,6 +30,7 @@ namespace AccessibleTrader.Tests
             public Newtonsoft.Json.Linq.JObject GetEffectiveSettingsForSeries(string seriesId) => new();
             public void SaveSettings() { }
             public void ResetToDefaults() => _store.Clear();
+            public void Reload() { }
         }
 
         private static ComponentConfig Comp(string name, ComponentDisplayType dt) =>

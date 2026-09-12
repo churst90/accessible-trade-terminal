@@ -46,6 +46,15 @@ namespace AccessibleTrader.WebHost.Services
     /// <see cref="CircuitAlertCoverage"/>, which is the same per-symbol
     /// suppression the hosted monitor already uses.
     ///
+    /// Since 2026-09-11 (Phase 4) that routing rule sits under a policy about
+    /// CHANNELS rather than owners, and it is worth stating because the two are
+    /// easy to conflate. Cody: what happens on the chart in FRONT of the trader is
+    /// spoken in the browser and never notified; everything else is a system
+    /// notification. Coverage still decides WHO announces a given symbol — that is
+    /// this class's question and it has not changed — while
+    /// <see cref="Core.Services.Notifications.NotificationPolicy"/> decides which
+    /// channel the circuit uses for the events it keeps.
+    ///
     /// It also no longer builds a throwaway DI scope per poll. It runs inside
     /// <see cref="HeadlessSession"/> — one scope for the life of the process —
     /// so subscriptions inside it outlive a tick, providers stay configured
@@ -59,12 +68,18 @@ namespace AccessibleTrader.WebHost.Services
     /// sentence as one utterance, exactly as in-session.
     ///
     /// Opt-in: Settings → General → "Keep monitoring when the browser is closed"
-    /// (monitoring.backgroundLocal, default off). Read per poll, so toggling
-    /// takes effect without a restart.
+    /// (<see cref="Core.Services.SettingsKeys.BackgroundLocalMonitoring"/>, default
+    /// off). Read per poll — and that became TRUE on 2026-09-11 rather than merely
+    /// claimed: <c>ISettingsManager</c> is Scoped and caches its document for the
+    /// life of the instance, and this monitor's scope is the life of the PROCESS, so
+    /// until <see cref="HeadlessSession.RefreshSettings"/> was added at the top of
+    /// this poll the switch was read once, at the first poll, and never again.
     /// </summary>
     public sealed class LocalBackgroundMonitor : BackgroundService
     {
-        public const string SettingKey = "monitoring.backgroundLocal";
+        /// <summary>The master switch. Defined in Core beside every other settings key since
+        /// 2026-09-11; this alias stays because four test files and the tray name it here.</summary>
+        public const string SettingKey = SettingsKeys.BackgroundLocalMonitoring;
         public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
         /// <summary>The narrowest fetch a poll ever makes: the forming bar, the one that just
@@ -92,6 +107,24 @@ namespace AccessibleTrader.WebHost.Services
         // consistent with the blank state it was handed and just as useless.
         private AlertEvaluator? _evaluator;
         private readonly HashSet<string> _reportedFailures = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Whether the tray's snooze was active when this poll began.
+        ///
+        /// <para><b>What a snooze does and does not do.</b> It silences the DESKTOP — sound,
+        /// notification and speech — for alerts, bar closes, the narration ladder and the
+        /// monitor's own status reports. It does not stop evaluation, it does not stop the
+        /// recent-alerts list filling up (catching up on what you missed is the point of a
+        /// snooze), and it does not stop the email / Telegram / webhook fan-out, which is a
+        /// routing rule rather than a noise one. Order fills, stops and take-profits are not
+        /// covered at all: money always pierces (Cody, 2026-09-11), which is why
+        /// <c>HeadlessOrderWatch</c> and <c>HeadlessOrderAnnouncer</c> never consult it.</para>
+        /// </summary>
+        private bool _announcementsSnoozed;
+
+        /// <summary>The one notification switch as of this poll — see
+        /// <see cref="NotificationPolicy.NotifyUnseen"/>. Default ON.</summary>
+        private bool _notifyUnseen = true;
 
         public LocalBackgroundMonitor(
             HeadlessSession session,
@@ -136,10 +169,25 @@ namespace AccessibleTrader.WebHost.Services
         /// reaches the desktop with a circuit open versus with none.</remarks>
         internal async Task PollOnceAsync(CancellationToken ct)
         {
-            // The user silenced alerts from the tray — skip delivery until it expires.
-            if (_snooze.IsActive) return;
+            // The user silenced alerts and bar closes from the tray.
+            //
+            // It gates ANNOUNCEMENT, never OBSERVATION, and that is a fix rather than a style
+            // point: this used to be the first statement of the method, so a 30-minute snooze on
+            // a 1-minute chart was a 30-bar gap. HeadlessChart re-seeded when the poll came back,
+            // the first close after the snooze was swallowed on both oracles, and DeadFeedTracker
+            // never advanced — so a feed that died during the snooze was never reported either.
+            // Same rule as the browser-coverage gate one level down: watch always, speak by gate.
+            // One read per poll, held in a field so the four announcement sites need not thread
+            // it through. Safe because a BackgroundService's polls are serialised — the loop
+            // awaits each PollOnceAsync before starting the next.
+            _announcementsSnoozed = _snooze.IsActive;
 
             var services = _session.Services;
+
+            // Settings come off disk again on every poll. Without this the scope's cached
+            // document — loaded at the FIRST poll and never since — answered every switch
+            // read below for the life of the process. See HeadlessSession.RefreshSettings.
+            _session.RefreshSettings();
             var settings = services.GetRequiredService<ISettingsManager>();
             if (!(settings.GetSetting(SettingKey)?.ToObject<bool>() ?? false)) return;
 
@@ -152,6 +200,7 @@ namespace AccessibleTrader.WebHost.Services
             // point-of-control alert reads the chart's profile. Any one is a reason to know
             // which charts the user had open.
             bool barClosesOn = WatchBarCloses(settings);
+            _notifyUnseen = barClosesOn;   // the SAME switch; held for the delivery sites below
             bool narrationOn = NarrateOnBarClose(settings);
             bool anyAlerts = alerts.Any(a => a.IsActive);
             var session = barClosesOn || narrationOn || anyAlerts ? LoadLastSession(services) : null;
@@ -186,13 +235,19 @@ namespace AccessibleTrader.WebHost.Services
 
             // The narration ladder (Phase 3 D4). Cody, 2026-09-11: "I also want the narration
             // ladder to also be spoken when the browser is closed too." Same ownership rule, and
-            // observed-while-covered for the same reason as the bar close above. NOT behind the
-            // timeframe floor: in-session the ladder answers to the narration switches and not
-            // to the new-bar toast, and a user who flagged a 1-minute volume pane with N asked
-            // for a reading a minute. The floor stays what its doc says it is — new-bar
-            // announcements only.
+            // observed-while-covered for the same reason as the bar close above.
+            //
+            // BEHIND THE TIMEFRAME FLOOR since 2026-09-11, and that reverses what this comment
+            // used to say. The old argument was that the floor is "new-bar announcements only",
+            // so a 1-minute pane flagged with N earned a reading a minute. The effect was that
+            // raising the floor to silence a fast chart silenced its bar close and left it
+            // reciting its ladder every minute anyway — while the settings hint promised
+            // silence. Cody's call: the floor means "do not talk to me about charts faster than
+            // this", and it means it about every sentence.
+            string? floor = TimeframeFloor(settings);
             var narrationWatches = narrationOn
-                ? tabWatches.Where(w => HeadlessChartFactory.HasNarratedSeries(w.Series)).ToList()
+                ? tabWatches.Where(w => HeadlessChartFactory.HasNarratedSeries(w.Series)
+                                        && ClearsTimeframeFloor(w.Timeframe, floor)).ToList()
                 : new List<Watch>();
             var narrateKeys = OwnedWatches(narrationWatches, covered)
                 .Select(WatchKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -252,10 +307,17 @@ namespace AccessibleTrader.WebHost.Services
                 // Bar closes FIRST, and outside the alert path: a chart with no alerts on it is
                 // the ordinary case for this half, and burying it under an alert loop that runs
                 // zero times is how it would come to depend on something unrelated.
-                bool closed = target.WatchBarCloses && NoteBarClose(watch, bars);
+                // OBSERVE every chart that was fetched; ANNOUNCE only the ones whose bar
+                // closes are wanted. Until 2026-09-11 the observation itself was conditional,
+                // so the memory was never seeded while the new-bars switch was off — ticking
+                // the box mid-session then swallowed the first close after it, and so did a
+                // chart fetched only for its alerts or its ladder. Same rule as the fetch list
+                // above, one level down: the gate decides what is SAID, never what is WATCHED.
+                // The seed costs one timestamp per chart.
+                bool closed = NoteBarClose(watch, bars);
                 bool speakLadder = ladder != null && narrateKeys.Contains(WatchKey(watch));
 
-                if (closed && announceKeys.Contains(WatchKey(watch)))
+                if (closed && target.WatchBarCloses && announceKeys.Contains(WatchKey(watch)))
                     AnnounceBarClose(watch, closed: bars[^2], opened: bars[^1], speakLadder ? ladder : null);
                 else if (speakLadder)
                     AnnounceNarration(watch, ladder!);
@@ -382,8 +444,11 @@ namespace AccessibleTrader.WebHost.Services
         /// put a fake row in the tray's list.
         /// </summary>
         private void Announce(string text)
-            => DesktopAnnouncement.Present(_presenter,
+        {
+            if (_announcementsSnoozed) return;
+            DesktopAnnouncement.Present(_presenter,
                 "Alert monitoring", text, text, urgent: true, withSound: false, _logger);
+        }
 
         // Warn once per distinct set, not once per poll: the monitor polls every
         // minute for as long as the app runs, and a warning that repeats forever
@@ -659,12 +724,11 @@ namespace AccessibleTrader.WebHost.Services
             return byKey.Values.ToList();
         }
 
-        /// <summary>Whether the user asked for bar-close notifications at all (opt-in, default off).</summary>
+        /// <summary>Whether the user wants to be told about events they cannot see — one
+        /// switch across the whole feature since 2026-09-11, default ON. See
+        /// <see cref="NotificationPolicy.NotifyUnseen"/>.</summary>
         private static bool WatchBarCloses(ISettingsManager settings)
-        {
-            try { return settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false; }
-            catch { return false; }
-        }
+            => NotificationPolicy.NotifyUnseen(settings);
 
         /// <summary>The Narration tab's master switch — default ON, as it is in-session
         /// (<c>AppSettings.NarrateSignalsOnBarClose</c>). N picks WHICH series speak; this says
@@ -743,6 +807,7 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         private void AnnounceBarClose(Watch watch, Ohlcv closed, Ohlcv opened, string? ladder)
         {
+            if (_announcementsSnoozed) return;
             string title = DesktopNotificationService.NewBarTitle(watch.Symbol, watch.Timeframe);
             string sentence = BackgroundBarAnnouncer.BackgroundSentence(
                 new ChartIdentity(watch.Market, watch.Provider, watch.Symbol, watch.Timeframe),
@@ -769,6 +834,7 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         private void AnnounceNarration(Watch watch, string ladder)
         {
+            if (_announcementsSnoozed) return;
             string title = $"{watch.Symbol} {watch.Timeframe}";
             string text = $"{title}: {ladder}";
             _logger.LogInformation("Background narration: {Text}", text);
@@ -854,12 +920,20 @@ namespace AccessibleTrader.WebHost.Services
 
         /// <summary>A chart that is no longer wanted for any reason — its tab closed, its last N
         /// flag and its last alert gone — is forgotten; its memory would otherwise sit in the
-        /// dictionary for the life of the process.</summary>
+        /// dictionary for the life of the process.
+        ///
+        /// <para>BOTH memories, and that is the point: <c>_charts</c> used to be pruned here
+        /// while <c>_lastBarSeen</c> kept its entry for the life of the process. The two then
+        /// disagreed about the same chart — a re-opened tab met a rebuilt (cold) chart and a
+        /// stale "the newest bar I saw" — and a re-opened tab is the ordinary case.</para></summary>
         private void ForgetChartsNotIn(IEnumerable<Target> targets)
         {
             var keep = targets.Select(t => WatchKey(t.Watch)).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var key in _charts.Keys.Where(k => !keep.Contains(k)).ToList())
                 _charts.Remove(key);
+            lock (_lastBarSeen)
+                foreach (var key in _lastBarSeen.Keys.Where(k => !keep.Contains(k)).ToList())
+                    _lastBarSeen.Remove(key);
         }
 
         // ── Delivery: sound → toast → speech ─────────────────────────────────
@@ -888,8 +962,13 @@ namespace AccessibleTrader.WebHost.Services
             // put an already-opted-in delivery behind notifications.desktop.alerts, which
             // defaults off, and silently un-ship the feature. The headless service is built
             // without the Alerts category for exactly this reason.
-            DesktopAnnouncement.Present(_presenter,
-                "Trading alert", text, text, urgent: false, withSound: true, _logger);
+            // The desktop half only. The recent-alerts entry above and the channel fan-out
+            // below are unaffected by either gate: a snooze is about noise at this desk, and
+            // "do not notify me" is about this desk too — neither is an instruction to stop
+            // sending your alerts to Telegram.
+            if (!_announcementsSnoozed && _notifyUnseen)
+                DesktopAnnouncement.Present(_presenter,
+                    "Trading alert", text, text, urgent: false, withSound: true, _logger);
 
             // And then publish it on the long-lived session's bus, so the ordinary in-session
             // subscribers see a background alert for the first time: AlertDeliveryService's

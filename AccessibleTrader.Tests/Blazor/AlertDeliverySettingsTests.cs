@@ -100,16 +100,19 @@ public class AlertDeliverySettingsTests
 
     // ── Desktop notifications ────────────────────────────────────────────────
 
+    /// <summary>
+    /// The panel belongs to hosts that HAVE a browser-closed half. The gate is the host mode,
+    /// not whether this particular desktop happens to have notify-send — see
+    /// <see cref="WithNoNotificationTool_TheControlsRemain_AndSayWhatWillHappenInstead"/>.
+    /// </summary>
     [Fact]
-    public void DesktopSwitches_AreAbsent_WhereNoToastCanBeDelivered()
+    public void TheNotificationPanel_IsAbsent_WhereThereIsNoBrowserClosedHalf()
     {
-        // Hosted, demo, and any desktop without a notification path: the notifier says
-        // unavailable and the panel offers no checkbox that would do nothing.
         using var h = new BlazorTestHarness();
+        h.Ctx.Services.AddSingleton(new AccessibleTrader.Core.Services.DemoPolicy(AccessibleTrader.Core.Services.HostMode.Hosted));
         var cut = OpenDeliveryPanel(h);
-        Assert.Empty(cut.FindAll("#s-notify-alerts"));
-        Assert.Empty(cut.FindAll("#s-notify-fills"));
-        Assert.Empty(cut.FindAll("#s-notify-bars"));
+        Assert.Empty(cut.FindAll("#s-notify-unseen"));
+        Assert.Empty(cut.FindAll("#s-bg-bar-floor"));
     }
 
     /// <summary>
@@ -129,9 +132,8 @@ public class AlertDeliverySettingsTests
         h.DesktopNotifier.IsAvailable.Returns(true);
         var cut = OpenDeliveryPanel(h);
 
-        Assert.Empty(cut.FindAll("#s-notify-alerts"));
-        Assert.Empty(cut.FindAll("#s-notify-fills"));
-        Assert.Empty(cut.FindAll("#s-notify-bars"));
+        Assert.Empty(cut.FindAll("#s-notify-unseen"));
+        Assert.Empty(cut.FindAll("#s-bg-bar-floor"));
         Assert.DoesNotContain("Browser notifications", cut.Markup);
 
         Assert.Single(cut.FindAll("#s-email-host"));
@@ -139,35 +141,57 @@ public class AlertDeliverySettingsTests
         Assert.Single(cut.FindAll("#s-setup-alerts"));
     }
 
+    /// <summary>
+    /// ONE switch since 2026-09-11, and it is ON by default — Cody's call. The three default-off
+    /// switches this replaces lived in a different dialog from the feature they gated, which is
+    /// how the thirty-ninth pass's "broken" bar closes turned out to be switched-off ones.
+    /// </summary>
     [Fact]
-    public void DesktopSwitches_ArePresentAndOff_WhereAToastCanBeDelivered()
+    public void TheNotificationSwitch_IsPresentAndOnByDefault_WhereAToastCanBeDelivered()
     {
         using var h = new BlazorTestHarness();
         h.DesktopNotifier.IsAvailable.Returns(true);
         h.DesktopNotifier.Describe().Returns("notify-send");
         var cut = OpenDeliveryPanel(h);
-        Assert.Single(cut.FindAll("#s-notify-alerts"));
-        Assert.Single(cut.FindAll("#s-notify-fills"));
-        Assert.Single(cut.FindAll("#s-notify-bars"));
-        Assert.Null(cut.Find("#s-notify-bars").GetAttribute("checked"));
+
+        Assert.Single(cut.FindAll("#s-notify-unseen"));
+        Assert.NotNull(cut.Find("#s-notify-unseen").GetAttribute("checked"));
         Assert.Contains("notify-send", cut.Markup);
     }
 
+    /// <summary>
+    /// <b>The panel survives a machine with no notification tool.</b> It used to be gated on
+    /// <c>IDesktopNotifier.IsAvailable</c>, so a desktop without notify-send lost the
+    /// background-tab SPEECH switch and the timeframe floor along with the toast switch — which
+    /// is backwards, because on that machine speech is the delivery channel
+    /// (<c>DesktopAnnouncement.Present</c> speaks exactly where nothing reads a toast).
+    /// </summary>
     [Fact]
-    public void TickingADesktopSwitch_WritesItsKeyImmediately()
+    public void WithNoNotificationTool_TheControlsRemain_AndSayWhatWillHappenInstead()
+    {
+        using var h = new BlazorTestHarness();
+        h.DesktopNotifier.IsAvailable.Returns(false);
+        var cut = OpenDeliveryPanel(h);
+
+        Assert.Single(cut.FindAll("#s-notify-unseen"));
+        Assert.Single(cut.FindAll("#s-speak-bg-bars"));
+        Assert.Single(cut.FindAll("#s-bg-bar-floor"));
+        Assert.Contains("spoken aloud instead", cut.Markup);
+    }
+
+    [Fact]
+    public void TickingTheNotificationSwitch_WritesItsKeyImmediately()
     {
         // Same commit rule as the SMTP fields: no Save button, and Escape cannot lose it.
         using var h = new BlazorTestHarness();
         h.DesktopNotifier.IsAvailable.Returns(true);
         var cut = OpenDeliveryPanel(h);
 
-        cut.InvokeAsync(() => cut.Find("#s-notify-bars").Change(true)).GetAwaiter().GetResult();
+        cut.InvokeAsync(() => cut.Find("#s-notify-unseen").Change(false)).GetAwaiter().GetResult();
 
         cut.WaitForAssertion(() =>
         {
-            h.SettingsManager.Received().SetSetting(SettingsKeys.DesktopNotifyNewBars,
-                Arg.Is<JToken>(t => t.Type == JTokenType.Boolean && (bool)t));
-            h.SettingsManager.Received().SetSetting(SettingsKeys.DesktopNotifyAlerts,
+            h.SettingsManager.Received().SetSetting(SettingsKeys.NotifyUnseenEvents,
                 Arg.Is<JToken>(t => t.Type == JTokenType.Boolean && !(bool)t));
             h.SettingsManager.Received().SaveSettings();
         });

@@ -59,6 +59,7 @@ namespace AccessibleTrader.WebHost.Services
         private readonly IDesktopAlertPresenter _presenter;
         private readonly ILogger<HeadlessOrderAnnouncer>? _logger;
         private readonly Func<string?, bool> _isCovered;
+        private readonly Func<bool> _notifyEnabled;
         private readonly List<IDisposable> _subs = new();
 
         /// <param name="isCovered">
@@ -67,15 +68,23 @@ namespace AccessibleTrader.WebHost.Services
         /// is the only way the doubling hazard is actually proved. Defaults to
         /// <see cref="CircuitOrderCoverage.IsCovered"/>.
         /// </param>
+        /// <param name="notifyEnabled">
+        /// The one notification switch (<see cref="SettingsKeys.NotifyUnseenEvents"/>, default
+        /// ON). Passed as a callback rather than read once, because the headless scope re-reads
+        /// settings.json on every poll and the user may tick the box between two fills. Null
+        /// means always on — a missing switch must never mean a silent fill.
+        /// </param>
         public HeadlessOrderAnnouncer(
             IEventBus bus,
             IDesktopAlertPresenter presenter,
             ILogger<HeadlessOrderAnnouncer>? logger = null,
-            Func<string?, bool>? isCovered = null)
+            Func<string?, bool>? isCovered = null,
+            Func<bool>? notifyEnabled = null)
         {
             _presenter = presenter;
             _logger = logger;
             _isCovered = isCovered ?? CircuitOrderCoverage.IsCovered;
+            _notifyEnabled = notifyEnabled ?? (() => true);
 
             // The money events, in the wording the in-session pipeline uses. Every one of
             // these is something that happened to the user's money while they were not
@@ -121,6 +130,14 @@ namespace AccessibleTrader.WebHost.Services
         /// </summary>
         private void Announce(string? provider, string title, string speech)
         {
+            // The user's one switch. Deliberately NOT the snooze: a snooze silences alerts and
+            // bar closes and money always pierces it (Cody, 2026-09-11), whereas this switch is
+            // "do not notify me about things I cannot see" and means what it says.
+            bool wanted;
+            try { wanted = _notifyEnabled(); }
+            catch { wanted = true; }     // an unanswerable switch is not an off switch
+            if (!wanted) return;
+
             bool covered;
             try { covered = _isCovered(provider); }
             catch { covered = false; }   // an unanswerable coverage question is not coverage

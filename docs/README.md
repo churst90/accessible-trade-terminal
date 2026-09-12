@@ -127,7 +127,10 @@ the 2.9.0 binaries.
 Two things this release could not verify on the machine it was built on: the Windows toast notifier
 is still only compiled, never run, and the two-layout Alt+Shift question on Windows needs a Windows
 box. Both are in `docs/TODO.md`, along with `docs/BACKGROUND_MONITOR_SCOPE.md` — the scoped plan
-for receiving notifications with the browser closed on every head, which is the next feature.
+for receiving notifications with the browser closed on every head. Phases 0 to 3 of that plan
+are on `main` since 2026-09-11: alerts, order events, bar closes and the narration ladder all
+reach you with no browser open. Phase 4 (also on `main`, post-tag) settled the routing policy —
+the chart in front of you is spoken, everything else is a system notification.
 
 ### 2.7.0 — everything you switched on now speaks (2026-09-05)
 

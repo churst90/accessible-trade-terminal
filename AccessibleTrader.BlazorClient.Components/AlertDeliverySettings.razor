@@ -61,57 +61,49 @@
         </fieldset>
     }
 
-    @if (Notifier.IsAvailable && Demo.AllowBackgroundAlerts)
+    @if (Demo.AllowBackgroundAlerts)
     {
-        @* ── Desktop notifications (the OS toast) ────────────────────────
-           Shown only where a toast can be delivered. On the local WebHost that is whatever
+        @* ── Notifications for what you cannot see (the OS toast) ────────
+           NOT gated on Notifier.IsAvailable any more, and that was a real defect: a machine
+           with no notify-send lost the in-session SPEECH switch and the timeframe floor along
+           with the toast switch, which is backwards — on that machine speech IS the delivery
+           channel (DesktopAnnouncement.Present speaks precisely where nothing reads a toast),
+           so it is the machine that needs these controls most.
+
+           Where a toast CAN be delivered, this is whatever
            this desktop has (notify-send on Linux, which the MATE notification daemon shows
            and Orca can present; Notification Center on macOS; the Action Center on Windows —
            see DesktopDeliveryPlan), and on the Windows app it is the Windows App SDK toast,
-           read by Narrator, NVDA and JAWS. Hosted has Web Push above instead. Three switches,
-           all off by default — see DesktopNotificationService.
+           read by Narrator, NVDA and JAWS. Hosted has Web Push above instead.
 
-           Notifier.Describe() below is the only place the user learns WHICH of those is
+           ONE switch since 2026-09-11, default ON, and the legend says what it is FOR rather
+           than what carries it. The three switches this replaces all defaulted off and lived
+           in a different dialog from the feature they gated, which is how a working feature
+           came to be reported as broken in the thirty-ninth pass.
+
+           Notifier.Describe() below is the only place the user learns WHICH mechanism is
            carrying their toasts, which is why it comes from the live plan rather than from a
            sentence written here: until 2026-09-06 it said "notify-send is not installed" to a
            Mac user, which was a wrong answer to a real question. *@
         <fieldset style="border:1px solid var(--border-color); padding:12px 16px; margin-bottom:16px;">
-            <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Desktop notifications</legend>
-            @* One checkbox, its name, one sentence (Cody, 2026-09-11). The delivery mechanism
-               is still named once, from the live plan — see the note above on why. *@
+            <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Events you cannot see</legend>
+            <p style="margin:0 0 12px; color:var(--text-muted); font-size:0.9em;">
+                Whatever happens on the chart in front of you is spoken here, as it always is.
+                These settings are about everything else.
+            </p>
             <div class="modal-row">
-                <label for="s-notify-alerts">Alerts that fire</label>
-                <input id="s-notify-alerts" type="checkbox"
-                       aria-describedby="s-notify-alerts-hint"
-                       checked="@_notifyAlerts"
-                       @onchange="e => Commit(() => _notifyAlerts = e.Value is bool b ? b : _notifyAlerts)" />
+                <label for="s-notify-unseen">Send me a notification</label>
+                <input id="s-notify-unseen" type="checkbox"
+                       aria-describedby="s-notify-unseen-hint"
+                       checked="@_notifyUnseen"
+                       @onchange="e => Commit(() => _notifyUnseen = e.Value is bool b ? b : _notifyUnseen)" />
             </div>
-            <p id="s-notify-alerts-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification when an alert fires.</p>
-            <div class="modal-row">
-                <label for="s-notify-fills">Order fills, stops and take-profits</label>
-                <input id="s-notify-fills" type="checkbox"
-                       aria-describedby="s-notify-fills-hint"
-                       checked="@_notifyFills"
-                       @onchange="e => Commit(() => _notifyFills = e.Value is bool b ? b : _notifyFills)" />
-            </div>
-            <p id="s-notify-fills-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification for fills, stops, take-profits, cancels and rejections.</p>
-            @* The label said "on the current chart" until 2026-09-08, and it was true: bars
-               closing on a live BACKGROUND tab announced nowhere at all. Phase 3 D3 fixed that,
-               so this switch now covers every open chart and the label has to say so — a
-               control that names its scope is making a claim about it. *@
-            <div class="modal-row">
-                <label for="s-notify-bars">New bars on any open chart</label>
-                <input id="s-notify-bars" type="checkbox"
-                       aria-describedby="s-notify-bars-hint"
-                       checked="@_notifyBars"
-                       @onchange="e => Commit(() => _notifyBars = e.Value is bool b ? b : _notifyBars)" />
-            </div>
-            <p id="s-notify-bars-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">A system notification each time a bar closes on any open chart, on that chart's own timeframe, with the browser open or closed.</p>
-            @* Speech for background tabs only. Separate from the toast because it is the one
+            <p id="s-notify-unseen-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Alerts, order fills, stops, take-profits and bar closes — from tabs you are not looking at, from markets with no tab open, and from everything while the browser is closed.</p>
+            @* Speech for background tabs. Separate from the notification because it is the one
                that can interrupt: a bar closing on a chart you are NOT looking at, spoken over
                the chart you ARE reading, is how a useful feature gets switched off for good.
-               Cody, 2026-09-08: toast and earcon by default, speech opt-in. The focused chart's
-               own bar-close speech is unaffected — that lives under Narration. *@
+               Cody, 2026-09-08: notification and earcon by default, speech opt-in. The focused
+               chart's own bar-close speech is unaffected — that lives under Narration. *@
             <div class="modal-row">
                 <label for="s-speak-bg-bars">Also speak bar closes from other tabs</label>
                 <input id="s-speak-bg-bars" type="checkbox"
@@ -119,11 +111,12 @@
                        checked="@_speakBackgroundBars"
                        @onchange="e => Commit(() => _speakBackgroundBars = e.Value is bool b ? b : _speakBackgroundBars)" />
             </div>
-            <p id="s-speak-bg-bars-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Speaks bar closes from tabs you are not looking at, over whatever you are reading.</p>
-            @* The floor for bar closes announced with NO browser open. Default 1 minute — every
-               timeframe announces — because the switch above is already the opt-in; this is the
-               escape hatch for someone who wants bar closes but not one a minute. Cody,
-               2026-09-08. New bars ONLY: alerts and trade events are never gated by it. *@
+            <p id="s-speak-bg-bars-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">Speaks bar closes from tabs you are not looking at. It waits for the current sentence to finish rather than interrupting it.</p>
+            @* The floor for bar closes and the narration ladder with NO browser open. Default
+               1 minute — every timeframe announces. Since 2026-09-11 it gates the LADDER too:
+               raising it used to silence the bar close and leave the ladder reciting every
+               minute, while this very hint promised silence. Alerts and trade events are never
+               gated by it — they are per-occurrence, not per-bar. *@
             <div class="modal-row">
                 <label for="s-bg-bar-floor">Shortest timeframe to announce</label>
                 <select id="s-bg-bar-floor"
@@ -136,8 +129,12 @@
                     }
                 </select>
             </div>
-            <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent. 1 minute announces every chart.</p>
-            <p style="margin:0; color:var(--text-muted); font-size:0.9em;">Delivered by @Notifier.Describe().</p>
+            <p id="s-bg-bar-floor-hint" style="margin:-8px 0 12px; color:var(--text-muted); font-size:0.9em;">With the browser closed, charts on a shorter timeframe stay silent — no bar close and no narration. 1 minute announces every chart. Alerts and order fills are never affected.</p>
+            <p style="margin:0; color:var(--text-muted); font-size:0.9em;">
+                @(Notifier.IsAvailable
+                    ? $"Delivered by {Notifier.Describe()}."
+                    : "No notification tool was found on this machine, so these are spoken aloud instead.")
+            </p>
         </fieldset>
     }
 
@@ -367,9 +364,8 @@
     private string _setupWebhookTarget = string.Empty;
 
     // Desktop toasts — plain settings keys, read per event by DesktopNotificationService.
-    private bool _notifyAlerts;
-    private bool _notifyFills;
-    private bool _notifyBars;
+    /// <summary>The one notification switch. See SettingsKeys.NotifyUnseenEvents.</summary>
+    private bool _notifyUnseen = true;
     // Speech for bar closes on live BACKGROUND tabs. Read by BackgroundBarAnnouncer, which owns
     // the whole background route (toast, earcon, speech) — see that class for why the gate is a
     // settings key and not another WorkspaceState field.
@@ -435,9 +431,10 @@
         _setupAlertsEnabled = App.SetupAlertsEnabled;
         _setupWebhookTarget = App.SetupWebhookTarget;
 
-        _notifyAlerts = Settings.GetSetting(SettingsKeys.DesktopNotifyAlerts)?.ToObject<bool>() ?? false;
-        _notifyFills  = Settings.GetSetting(SettingsKeys.DesktopNotifyOrderFills)?.ToObject<bool>() ?? false;
-        _notifyBars   = Settings.GetSetting(SettingsKeys.DesktopNotifyNewBars)?.ToObject<bool>() ?? false;
+        // Through NotificationPolicy, not straight off the key: it carries the default (ON)
+        // and the one-time read of the three retired switches, so a user who had deliberately
+        // turned all three off sees the box unticked rather than being switched back on.
+        _notifyUnseen = AccessibleTrader.Core.Services.Notifications.NotificationPolicy.NotifyUnseen(Settings);
         _speakBackgroundBars = Settings.GetSetting(SettingsKeys.SpeakBackgroundTabBars)?.ToObject<bool>() ?? false;
         _headlessBarFloor = Settings.GetSetting(SettingsKeys.HeadlessNewBarMinTimeframe)?.ToString() ?? "1m";
     }
@@ -486,9 +483,7 @@
         App.SetupAlertsEnabled = _setupAlertsEnabled;
         App.SetupWebhookTarget = _setupWebhookTarget;
 
-        Settings.SetSetting(SettingsKeys.DesktopNotifyAlerts, Newtonsoft.Json.Linq.JToken.FromObject(_notifyAlerts));
-        Settings.SetSetting(SettingsKeys.DesktopNotifyOrderFills, Newtonsoft.Json.Linq.JToken.FromObject(_notifyFills));
-        Settings.SetSetting(SettingsKeys.DesktopNotifyNewBars, Newtonsoft.Json.Linq.JToken.FromObject(_notifyBars));
+        Settings.SetSetting(SettingsKeys.NotifyUnseenEvents, Newtonsoft.Json.Linq.JToken.FromObject(_notifyUnseen));
         Settings.SetSetting(SettingsKeys.SpeakBackgroundTabBars, Newtonsoft.Json.Linq.JToken.FromObject(_speakBackgroundBars));
         Settings.SetSetting(SettingsKeys.HeadlessNewBarMinTimeframe, Newtonsoft.Json.Linq.JToken.FromObject(_headlessBarFloor));
         App.Save();

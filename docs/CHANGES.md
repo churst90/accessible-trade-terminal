@@ -4,6 +4,123 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The channel is decided by the event's SUBJECT — one notification switch, a farewell when the browser closes, and the market field that grew forever (2026-09-11, forty-third pass)
+
+Suite **7,393** (was 7,321). Cody: *"The desktop notifications like in MATE seem to fire even when the browser
+is open."* They did, and they came from the in-session toaster, not the background monitor. The
+work order was `docs/BACKGROUND_MONITOR_QUALITY_PASS_2026-09-11.md`; his four answers are in §0a
+of it and the first one reversed that document's own §1.
+
+**THE RULE, and it is one sentence.** Whatever is happening on the chart in front of the trader
+is spoken in the browser's live region and **never** turned into a system notification —
+minimising the browser does not change that, because the page is still there and the screen
+reader is still reading it. Everything else is a notification: a bar closing on another open tab,
+an alert or a fill on a market with no tab open, and every terminal event once the browser is
+closed. `Core/Services/Notifications/NotificationPolicy.cs` owns both halves of that decision.
+`DesktopNotificationService`'s `NewBarEvent` handler — the focused chart's bar close, a MATE
+notification a minute on a 1-minute chart — now refuses while the app is visible.
+
+**Nine switches became one, and it defaults ON.** `notifications.desktop.alerts`, `.newBars` and
+`.orderFills` all defaulted OFF, lived in a different dialog from the feature they gated, and
+between them produced the thirty-ninth pass's incident: a feature reported as broken that was
+merely switched off. They are now `notifications.unseen` — *"Events you cannot see"* — default
+**on**, read by the in-session toaster, the headless monitor, the headless order announcer and
+the Delivery panel alike. Someone who had deliberately turned all three off keeps their silence
+(`NotificationPolicy.NotifyUnseen` reads the retired keys once, only when the new one has never
+been written). `monitoring.backgroundLocal` finally has a `SettingsKeys` constant; it had been a
+`const` in the WebHost and a raw string literal twice in `SettingsModal.razor`, so the master
+switch of the whole browser-closed half was typo-exposed across a project boundary.
+
+**The headless monitor had read settings.json exactly once, ever.** `ISettingsManager` is Scoped
+and caches its document for the life of the instance — right for a browser circuit, which is one
+sitting; wrong for `HeadlessSession`, which holds one scope for the life of the PROCESS. So the
+tray's monitoring toggle, the F12 checkbox, the Alt+J switches and the timeframe floor each wrote
+the file and reached a monitor that was no longer listening, while three separate class comments
+claimed "read per poll, so toggling takes effect without a restart". `ISettingsManager.Reload`
+plus `HeadlessSession.RefreshSettings` at the top of both poll loops. **Fix this first** was the
+work order's advice, and it was right: nothing switch-gated could be verified by hand until it
+was done.
+
+**A farewell when the browser goes.** Closing the last tab now produces one notification — *"The
+browser is closed. The terminal keeps running: alerts, order fills, bar closes and narration for
+your saved charts arrive here as notifications until a browser connects again."* If the master
+switch is off it says *that* instead, and names the switch, because a farewell that announces
+silence is more useful than no farewell. It hangs off the debounced 1→0 edge of a new
+`BrowserPresence` — a CONNECTED-circuit count, not the retained-circuit count that already
+existed (`ActiveCircuits` reads 1 for three minutes after the last tab closes and 2 for three
+minutes after a reload, so gating on it would have reinstated the very silence the 2026-09-11
+hand-off fix removed). A reload says nothing, a five-second blip says nothing, three tabs closed
+together say it once.
+
+**The three-minute window that sent every alert twice.** A closed tab's circuit is retained for
+about three minutes and every service in its scope goes on running, while the headless session
+takes ownership the instant the connection drops. For those three minutes an alert fired in both
+pipelines: two notifications, two entries in the recent-alerts list, and two emails, two Telegram
+messages and two webhook POSTs — and a duplicated outbound webhook can place a duplicate order at
+the far end. `IUserPresence` / `CircuitPresence` stops a disconnected circuit delivering. A
+missing presence service means "present", deliberately: failing towards silence is how a whole
+delivery channel disappears unnoticed.
+
+**MAUI: the X button minimises to the tray, by default.** Cody: *"if the person closes the
+application with the X in the upper corner or Alt+F4, then it should, by default, minimize to
+tray and toast notifications should be sent."* `app.minimizeToTray` defaults ON (it was off), all
+three readers go through one `DesktopWindowSettings.MinimizeToTray`, hiding announces itself, and
+a `WindowVisibilityPresence` tells the notification layer the live region has stopped reaching
+anybody — so while hidden the focused chart's own bar close becomes a notification too. **Not
+compiled or run here**; the Windows TFM does not build on this box and the five-step smoke test
+at the top of `TrayIconService.cs` is still owed.
+
+**Smaller, and each its own defect:**
+
+- **The `Market` field grew by one segment per Load Chart, forever.** Cody's session file had
+  `"Crypto|Crypto|Crypto|Crypto|Spot"` on one MEXC tab and eight segments on another.
+  `MarketOrchestrator` composes `"{category}|{subType}"` into the identity and then two places
+  adopted the WHOLE composite back into `_selectedSubType`, a field declared to hold a bare
+  sub-type. The sanitiser that should have caught it re-polluted four lines later — **ordering
+  defeats a guard that runs beside the thing it guards** — so the rule is now a type,
+  `Sdk/Models/MarketKey.cs`. It was not cosmetic: `ChartIdentity` equality includes `Market`, so
+  every load minted a fresh identity (cold caches, a rebuilt chart) and orphaned the background
+  monitor's bar-close seed. `MarketKey.Normalize` on restore and on save heals a file already on
+  disk.
+- **The timeframe floor now gates the narration ladder too.** Raising it to quieten a fast chart
+  used to silence the bar close and leave the ladder reciting every minute — while the settings
+  hint promised silence.
+- **The snooze gates announcement, never observation.** It was the first statement of the poll,
+  so a 30-minute snooze on a 1-minute chart was a 30-bar gap: the chart re-seeded, the first
+  close after the snooze was swallowed, and a feed that died during it was never reported. Order
+  fills, stops and take-profits are not covered at all — money always pierces — and the tray item
+  says so now instead of saying "alerts".
+- **The bar-close memory is seeded for every chart that is FETCHED**, not only the ones being
+  announced, so ticking the bar-close switch mid-session no longer costs you the next close. And
+  `ForgetChartsNotIn` prunes both memories together; it pruned the chart and kept the timestamp,
+  so a re-opened tab met a cold chart and a stale "newest bar I saw".
+- **`HeadlessOrderWatch` toasted AND spoke its self-reports** — the doubling Cody heard on
+  2026-09-11, one file over from where it was fixed. Through `DesktopAnnouncement.Present` now.
+- **Ctrl+Alt+Shift+M knows the headless half exists.** With "Keep monitoring when the browser is
+  closed" ticked and "Keep watching other tabs" unticked it used to say "Background monitoring is
+  off" — false on that machine, in the one sentence a user presses a key specifically to hear.
+  Two switches had one phrase across three surfaces; each is now named for what it covers, and
+  the sentence always ends with what will happen once the browser is closed.
+- **The Delivery panel is no longer gated on `notify-send` being installed.** A machine without
+  it lost the background-tab speech switch and the timeframe floor along with the notification
+  switch — backwards, since on that machine speech *is* the delivery channel. The panel now says
+  so in place of the "Delivered by" line.
+- `HeadlessSession` logs a **Warning**, not Information, when it starts with no presenter: that
+  state loses every order event for the life of the process.
+
+**Durable, from this pass:**
+
+- **Ordering defeats a guard that runs beside the thing it guards.** The sub-type sanitiser ran
+  four lines before the line that re-polluted it and was green for weeks.
+- **Name the two questions separately when they are two questions.** "Can I reach the user?" and
+  "can the user SEE me?" look like one boolean until MAUI, where hiding the window makes the
+  first true and the second false — and where collapsing them would mean total silence.
+- **A default that lives at three call sites is three defaults.** `?? false` written out three
+  times is how a reversal ships half-done.
+- **A guard that is only sometimes red is not a guard.** The three-load market test passed under
+  sabotage about half the time, because a background toolbar sync reset the field it was
+  watching. Silence the racing path in the test, or pin something the race cannot mask.
+
 ### Alerts with the browser closed read a real chart; one grit rule for every bar; profiles narrate and say their name (2026-09-11, forty-first pass)
 
 Suite **7,321** (was 7,305). Cody's four odds and ends, his hosted-gating answer, and the half of

@@ -164,7 +164,7 @@ public class HeadlessSessionTests : IDisposable
             // DesktopNotificationService owned the Alerts category it would toast here, so
             // asserting Notifier.Shown is empty proves the CATEGORY MASK and not merely a
             // settings default. A test with this switch off would pass either way.
-            settings.GetSetting(SettingsKeys.DesktopNotifyAlerts).Returns(JToken.FromObject(true));
+            settings.GetSetting(SettingsKeys.NotifyUnseenEvents).Returns(JToken.FromObject(true));
 
             var services = new ServiceCollection();
             services.AddScoped<IEventBus, EventBus>();
@@ -199,7 +199,7 @@ public class HeadlessSessionTests : IDisposable
                 }).ToList()
             };
             _sessionSlots = new[] { (SessionAutosaveService.LastSessionProfileName + "abc", DateTime.UtcNow) };
-            Session.Get<ISettingsManager>().GetSetting(SettingsKeys.DesktopNotifyNewBars)
+            Session.Get<ISettingsManager>().GetSetting(SettingsKeys.NotifyUnseenEvents)
                 .Returns(JToken.FromObject(true));
         }
 
@@ -502,20 +502,41 @@ public class HeadlessSessionTests : IDisposable
         Assert.Single(h.Presenter.Spoken);
     }
 
+    /// <summary>
+    /// <b>Turning the notification switch OFF silences the whole browser-closed half.</b>
+    ///
+    /// <para>This test used to assert the opposite default. Until 2026-09-11 there were three
+    /// switches, all off, and it pinned "no switch, no announcement". There is now ONE switch
+    /// and it is ON by default (Cody) — so the shipped state is loud, and what has to be pinned
+    /// is that unticking it really does reach the monitor.</para>
+    /// </summary>
     [Fact]
-    public async Task Without_the_new_bar_switch_nothing_is_announced()
+    public async Task Turning_the_notification_switch_off_silences_the_monitor()
     {
-        // The category switch is the gate; the timeframe floor is only the escape hatch. A test
-        // that never turned the switch on would pass against a monitor that ignored it.
         using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
         h.OpenTabs(("BTC/USD", "1h"));
-        h.Session.Get<ISettingsManager>().GetSetting(SettingsKeys.DesktopNotifyNewBars)
-            .Returns((JToken?)null);      // the shipped default: off
+        h.Session.Get<ISettingsManager>().GetSetting(SettingsKeys.NotifyUnseenEvents)
+            .Returns(JToken.FromObject(false));
 
         await h.PollAsync();
         await h.PollAsync();
 
         Assert.Empty(h.Presenter.Spoken);
+    }
+
+    /// <summary>The vacuity floor for the test above: the SHIPPED default announces.</summary>
+    [Fact]
+    public async Task With_no_switch_written_at_all_the_default_announces()
+    {
+        using var h = new Harness(Array.Empty<AlertDefinition>(), (99, 101), advancingBars: true);
+        h.OpenTabs(("BTC/USD", "1h"));
+        h.Session.Get<ISettingsManager>().GetSetting(SettingsKeys.NotifyUnseenEvents)
+            .Returns((JToken?)null);      // never written — which IS the shipped state
+
+        await h.PollAsync();
+        await h.PollAsync();
+
+        Assert.NotEmpty(h.Presenter.Spoken);
     }
 
     [Fact]

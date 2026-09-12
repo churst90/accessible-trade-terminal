@@ -119,8 +119,9 @@ if (hostMode == HostMode.Full)
     // plus the alert-snooze flag the tray sets and the monitor honours.
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.RecentAlertsBuffer>();
     builder.Services.AddSingleton<AccessibleTrader.WebHost.Services.Tray.AlertSnooze>();
-    // Per-circuit bridge: records browser-open alerts into the shared buffer too (the
-    // monitor only covers browser-closed). Instantiated per circuit by the circuit handler.
+    // Per-circuit bridge: records browser-open alerts into the shared buffer too. The monitor
+    // files the ones IT fires, and coverage guarantees the two sets do not overlap — a symbol an
+    // open circuit is watching is that circuit's. Instantiated per circuit by the circuit handler.
     builder.Services.AddScoped<AccessibleTrader.WebHost.Services.InSessionAlertRecorder>();
     // Sound, toast and speech for the monitor, behind a seam: the PATH probing and the
     // Process.Start calls live in the presenter, so the monitor itself is constructible in a
@@ -140,10 +141,17 @@ if (hostMode == HostMode.Full)
     // CircuitOrderCoverage decides per venue which of the two owners says it. Same opt-in
     // switch as the alert monitor. HEADLESS REPORTS; IT NEVER ACTS.
     builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.HeadlessOrderWatch>();
-    // In-session desktop toasts (alerts, fills, new bars — each opt-in under Alerts →
-    // Delivery settings) through the same presenter the monitor uses, so on Linux the MATE
-    // notification daemon shows them and Orca can present them, on macOS they land in
-    // Notification Center, and on Windows in the Action Center. Full only: the hosted
+    // One notification when the last browser connection goes away: "the browser is closed, the
+    // terminal keeps running". Cody, 2026-09-11 — a blind user closing a browser has no visual
+    // cue that a background process survived it, and the alternative to being told is finding
+    // out by not hearing an alert. Debounced off BrowserPresence's 1→0 edge so a reload and a
+    // network blip say nothing; see BrowserFarewellService for why no lifecycle hook will do.
+    builder.Services.AddHostedService<AccessibleTrader.WebHost.Services.BrowserFarewellService>();
+    // In-session desktop notifications for events the trader cannot see — another open tab, a
+    // market with no tab open — through the same presenter the monitor uses, so on Linux the
+    // MATE notification daemon shows them and Orca can present them, on macOS they land in
+    // Notification Center, and on Windows in the Action Center. The chart IN FRONT of the
+    // trader is spoken in the live region and never toasted. Full only: the hosted
     // server's desktop is not the user's, and its Web Push path is the equivalent there.
     // Every other mode keeps the NullDesktopNotifier registered by
     // AddAccessibleTraderWebHostServices; this later registration replaces it.

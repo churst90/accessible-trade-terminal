@@ -134,5 +134,6 @@ public class PreferenceRoundTripTests
         public JObject GetEffectiveSettingsForSeries(string seriesId) => new();
         public void SaveSettings() { }
         public void ResetToDefaults() { }
+        public void Reload() { }
     }
 }

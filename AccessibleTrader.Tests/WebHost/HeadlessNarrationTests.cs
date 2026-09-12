@@ -119,11 +119,18 @@ public sealed class HeadlessNarrationTests : IDisposable
         Assert.DoesNotContain("Volume", one, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <b>The floor gates the ladder too, and that REVERSES what this test used to assert.</b>
+    ///
+    /// <para>The old rule was "the floor is new-bar announcements only", so a 1-minute chart
+    /// under a 1-hour floor lost its bar close and went on reciting its volume every minute.
+    /// The effect was that raising the floor to quieten a fast chart quietened half of it, while
+    /// the settings hint promised silence. Cody, 2026-09-11: the floor means "do not talk to me
+    /// about charts faster than this", and it means it about every sentence.</para>
+    /// </summary>
     [Fact]
-    public async Task The_timeframe_floor_gates_the_bar_close_and_not_the_ladder()
+    public async Task The_timeframe_floor_gates_the_ladder_as_well_as_the_bar_close()
     {
-        // A 1-minute chart below a 1-hour floor: no "close … new bar", but the user flagged its
-        // volume with N and that is a request for a reading a minute.
         using var h = new HeadlessMonitorHarness(new[] { SavedVolume() }, timeframe: "1m");
         h.NewBarToasts(true);
         h.BarFloor("1h");
@@ -132,8 +139,24 @@ public sealed class HeadlessNarrationTests : IDisposable
         h.CloseABar();
         await h.PollAsync();
 
+        Assert.Empty(h.Presenter.Spoken);
+    }
+
+    /// <summary>The vacuity floor for the test above: the same chart ABOVE the floor is loud.</summary>
+    [Fact]
+    public async Task A_chart_that_clears_the_floor_gets_both_the_close_and_the_ladder()
+    {
+        using var h = new HeadlessMonitorHarness(new[] { SavedVolume() }, timeframe: "1h");
+        h.NewBarToasts(true);
+        h.BarFloor("1h");
+
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+
         string one = Assert.Single(h.Presenter.Spoken);
-        Assert.Equal("BTC/USD 1m: Volume 100,000, up.", one);
+        Assert.Contains("close 100.00", one, StringComparison.Ordinal);
+        Assert.Contains("Volume", one, StringComparison.Ordinal);
     }
 
     [Fact]

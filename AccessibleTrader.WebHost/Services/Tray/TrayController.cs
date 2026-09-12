@@ -37,9 +37,14 @@ namespace AccessibleTrader.WebHost.Services.Tray
             {
                 new(1, () => "Restore workspaces to browser", OpenBrowser),
                 new(2, () => "Show recent alerts", ShowAlerts),
+                // The label says what the snooze actually covers. It reads alerts AND bar
+                // closes because it silences the whole announcement side of the poll — the
+                // ladder and the monitor's self-reports with them. Order events are deliberately
+                // NOT covered (Cody, 2026-09-11: money always pierces), and a label that said
+                // "alerts" while swallowing every bar close was a claim the code did not honour.
                 new(3, () => _c.Snooze.IsActive
-                        ? $"Resume alerts (silenced, {_c.Snooze.RemainingMinutes} min left)"
-                        : "Silence alerts for 30 minutes", ToggleSilence),
+                        ? $"Resume alerts and bar closes (silenced, {_c.Snooze.RemainingMinutes} min left)"
+                        : "Silence alerts and bar closes for 30 minutes", ToggleSilence),
                 new(4, () => "Connection status", SpeakStatus),
                 new(5, () => "Copy terminal address", CopyAddress),
                 new(6, () => _c.GetMonitoring()
@@ -71,8 +76,16 @@ namespace AccessibleTrader.WebHost.Services.Tray
 
         internal void ToggleSilence()
         {
-            if (_c.Snooze.IsActive) { _c.Snooze.Resume(); _platform.Speak("Alerts resumed."); }
-            else { _c.Snooze.SilenceFor(TimeSpan.FromMinutes(30)); _platform.Speak("Alerts silenced for 30 minutes."); }
+            if (_c.Snooze.IsActive)
+            {
+                _c.Snooze.Resume();
+                _platform.Speak("Alerts and bar closes resumed.");
+            }
+            else
+            {
+                _c.Snooze.SilenceFor(TimeSpan.FromMinutes(30));
+                _platform.Speak("Alerts and bar closes silenced for 30 minutes. Order fills still come through.");
+            }
         }
 
         internal void SpeakStatus() => _platform.Speak(BuildStatus());
@@ -112,7 +125,7 @@ namespace AccessibleTrader.WebHost.Services.Tray
         {
             var parts = new List<string>();
             parts.Add(_c.GetMonitoring() ? "Background monitoring is on." : "Background monitoring is off.");
-            if (_c.Snooze.IsActive) parts.Add($"Alerts silenced for {_c.Snooze.RemainingMinutes} more minutes.");
+            if (_c.Snooze.IsActive) parts.Add($"Alerts and bar closes silenced for {_c.Snooze.RemainingMinutes} more minutes; order fills still come through.");
             int armed = _c.ArmedAlertCount();
             parts.Add(armed == 1 ? "1 alert armed." : $"{armed} alerts armed.");
             int unread = _c.Alerts.UnreadCount;

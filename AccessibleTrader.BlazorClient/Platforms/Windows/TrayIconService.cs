@@ -1,9 +1,14 @@
 #if TRAY_ICON
 // Windows tray icon (on by default; compiled with -p:EnableWindowsTrayIcon=true).
-// Needs a real Windows-session smoke test: with "Minimize to tray on exit" ON,
-// close the window → app hides to the tray (audio/alerts keep running);
-// double-click / "Restore" → window returns; "Quit" really quits. With the
-// setting OFF (the default), close must actually close.
+// Needs a real Windows-session smoke test, and it has never had one:
+//   1. With "Minimize to tray on exit" ON (the DEFAULT since 2026-09-11), close the window or
+//      press Alt+F4 → the app hides to the tray, a notification says it is still running, and
+//      audio/alerts keep going.
+//   2. While hidden, a bar close on the focused chart now arrives as a NOTIFICATION (it is
+//      suppressed while the window is visible, because the live region says it).
+//   3. Double-click / "Restore" → the window returns AND the focused chart stops notifying.
+//   4. "Quit" really quits.
+//   5. With the setting turned OFF, close must actually close.
 
 using System;
 using H.NotifyIcon;
@@ -48,14 +53,23 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
         private static TaskbarIcon? _tray;
         private static AppWindow? _appWindow;
         private static bool _reallyExit;
-        private static Func<bool> _minimizeToTray = static () => false;
+        private static Func<bool> _minimizeToTray = static () => true;
+        private static Action<bool>? _onVisibilityChanged;
 
-        /// <param name="minimizeToTrayEnabled">Read at every close. False — the default — means
-        /// the close button closes the app.</param>
+        /// <param name="minimizeToTrayEnabled">Read at every close. TRUE is the default since
+        /// 2026-09-11 (Cody) — the close button hides to the tray and the terminal keeps
+        /// watching.</param>
+        /// <param name="onVisibilityChanged">Told whenever the window hides or comes back, so
+        /// the notification layer knows the live region has stopped reaching anybody and every
+        /// terminal event — the focused chart's bar close included — must take the OS
+        /// notification channel instead. See <c>WindowVisibilityPresence</c>.</param>
         public static void Initialize(
-            Microsoft.Maui.Controls.Window mauiWindow, Func<bool> minimizeToTrayEnabled)
+            Microsoft.Maui.Controls.Window mauiWindow,
+            Func<bool> minimizeToTrayEnabled,
+            Action<bool>? onVisibilityChanged = null)
         {
-            _minimizeToTray = minimizeToTrayEnabled ?? (static () => false);
+            _minimizeToTray = minimizeToTrayEnabled ?? (static () => true);
+            _onVisibilityChanged = onVisibilityChanged;
 
             mauiWindow.HandlerChanged += (_, _) =>
             {
@@ -71,6 +85,8 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
                     if (!SafeMinimizeToTray()) return;
                     e.Cancel = true;
                     _appWindow.Hide();
+                    SetVisible(false);
+                    Announce();
                 };
 
                 CreateTray(native);
@@ -83,6 +99,32 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
         {
             try { return _minimizeToTray(); }
             catch { return false; }
+        }
+
+        /// <summary>Neither the visibility callback nor a notification may stop a window
+        /// closing, or refuse to let one come back.</summary>
+        private static void SetVisible(bool visible)
+        {
+            try { _onVisibilityChanged?.Invoke(visible); }
+            catch { /* a broken listener is not a reason to keep the window open */ }
+        }
+
+        /// <summary>
+        /// The MAUI analogue of the WebHost's farewell notification. A sighted user sees the
+        /// window go and the tray icon appear; with a screen reader there is nothing at all to
+        /// tell you the terminal is still watching — Alt+F4 and silence is indistinguishable
+        /// from Alt+F4 and gone.
+        /// </summary>
+        private static void Announce()
+        {
+            try
+            {
+                _tray?.ShowNotification(
+                    title: "Accessible Trade Terminal",
+                    message: "Still running in the notification area. Alerts, order fills and bar "
+                           + "closes arrive here as notifications. Restore or Quit from the tray icon.");
+            }
+            catch { /* best effort: the app is already hidden and must stay hidden */ }
         }
 
         private static void CreateTray(Microsoft.UI.Xaml.Window native)
@@ -122,6 +164,8 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
             // Bring to foreground so keyboard focus lands back in the terminal.
             if (_appWindow != null)
                 (_appWindow.Presenter as OverlappedPresenter)?.Restore();
+            // The live region is reading again, so the focused chart stops toasting.
+            SetVisible(true);
         }
 
         private static void Exit()

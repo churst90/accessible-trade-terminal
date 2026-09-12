@@ -402,7 +402,7 @@ public class HeadlessOrderWatchTests : IDisposable
         var notifier = new SpyNotifier();
 
         var settings = Substitute.For<ISettingsManager>();
-        settings.GetSetting(SettingsKeys.DesktopNotifyOrderFills).Returns(JToken.FromObject(true));
+        settings.GetSetting(SettingsKeys.NotifyUnseenEvents).Returns(JToken.FromObject(true));
 
         var services = new ServiceCollection();
         services.AddScoped<IEventBus, EventBus>();
@@ -431,7 +431,7 @@ public class HeadlessOrderWatchTests : IDisposable
         using var _ = OpenCircuit("c1", "Binance");
 
         var settings = Substitute.For<ISettingsManager>();
-        settings.GetSetting(SettingsKeys.DesktopNotifyOrderFills).Returns(JToken.FromObject(true));
+        settings.GetSetting(SettingsKeys.NotifyUnseenEvents).Returns(JToken.FromObject(true));
 
         var services = new ServiceCollection();
         services.AddScoped<IEventBus, EventBus>();

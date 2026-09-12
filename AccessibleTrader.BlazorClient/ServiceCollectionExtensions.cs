@@ -518,6 +518,13 @@ namespace AccessibleTrader.BlazorClient
                     // silently null before — the warning feature never fired).
                     sp.GetService<Microsoft.Extensions.Logging.ILogger<AccessibleTrader.Core.Services.Alerts.WebhookAlertChannel>>(),
                     sp.GetRequiredService<AccessibleTrader.Core.Services.IEventBus>()));
+            // Whether the window is in front of the trader. Hiding to the tray flips it, and
+            // the notification layer then treats the focused chart like any other chart it
+            // cannot see — this head's "browser closed". One singleton, because this head has
+            // one window. CanReachUser stays true: there is no second process to take over.
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.WindowVisibilityPresence>();
+            services.AddSingleton<AccessibleTrader.Core.Services.Notifications.IUserPresence>(
+                sp => sp.GetRequiredService<AccessibleTrader.Core.Services.Notifications.WindowVisibilityPresence>());
             services.AddSingleton<AccessibleTrader.Core.Services.Alerts.AlertDeliveryService>();
             // Desktop toasts (alerts / fills / new bars, each opt-in). Windows has a toast
             // path through the Windows App SDK; the other MAUI platforms register the null

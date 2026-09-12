@@ -35,12 +35,19 @@ namespace AccessibleTrader.Core.Services.Feeds
     ///
     /// <para>
     /// ── What reaches the user, and why not speech ─────────────────────────────
-    /// <b>Cody, 2026-09-08: toast and earcon by default, speech opt-in.</b> A bar close on a
-    /// chart you are not looking at interrupting the chart you ARE looking at is the kind of
-    /// thing that gets a feature switched off altogether — and for a screen-reader user an
-    /// interruption is not a notification, it is the loss of the sentence being read. The toast
-    /// and the earcon are ambient; speech is behind
+    /// <b>Cody, 2026-09-08: notification and earcon by default, speech opt-in.</b> A bar close
+    /// on a chart you are not looking at interrupting the chart you ARE looking at is the kind
+    /// of thing that gets a feature switched off altogether — and for a screen-reader user an
+    /// interruption is not a notification, it is the loss of the sentence being read. The
+    /// notification and the earcon are ambient; speech is behind
     /// <see cref="SettingsKeys.SpeakBackgroundTabBars"/>, default off.
+    ///
+    /// <para>Two corrections to what this paragraph used to claim. (1) "By default" was false
+    /// of the toast until 2026-09-11: it rode <c>notifications.desktop.newBars</c>, which
+    /// defaulted OFF, so the shipped default was an earcon and nothing else. It is true now —
+    /// <see cref="SettingsKeys.NotifyUnseenEvents"/> defaults ON. (2) The EARCON has never ridden
+    /// any of those switches; it plays unconditionally, which is what "ambient" means here and
+    /// what <c>SettingsKeys</c> used to describe the other way round.</para>
     /// </para>
     ///
     /// <para>
@@ -122,9 +129,10 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             try
             {
-                // The toast route. DesktopNotificationService subscribes this under the SAME
-                // user switch as the focused bar close, because it is the same idea about a
-                // different chart.
+                // The notification route. DesktopNotificationService subscribes this under the
+                // one "events you cannot see" switch — and, since 2026-09-11, this is the ONLY
+                // bar close that takes it: the focused chart's is spoken in the live region and
+                // never notified, because the user is already being told.
                 _bus.Publish(new BackgroundBarClosedEvent(feed.Identity, closed, opened));
 
                 // The earcon — ambient by design. It says "something closed somewhere else"
