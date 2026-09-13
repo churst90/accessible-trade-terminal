@@ -516,19 +516,21 @@ public class SettingsModalTests
     }
 
     [Fact]
-    public void SettingsModal_TheProfileButtons_SitOnTheTabWhoseSettingsTheyWrite()
+    public void SettingsModal_HasNoProfileExportButtons()
     {
-        // They were in a "Settings Profiles" box on General, exporting settings that belong to
-        // two other tabs (Cody, 2026-09-04).
+        // The "Visual profile" and "Audio profile" Export/Import pairs were removed on
+        // 2026-09-13 (Cody): they promised a whole tab as one file and exported only the
+        // current chart's per-component overrides, with a hard-coded theme name and master
+        // volume, and an import onto a chart without the same indicators reported success
+        // while changing nothing. A control that claims more than it does is worse than none.
+        // Patches share from the Sound Designer and themes from the theme editor.
         using var h = new BlazorTestHarness();
         var cut = OpenSettings(h);
 
-        Assert.NotNull(cut.Find("#tabpanel-appearance #s-visual-profile-export"));
-        Assert.NotNull(cut.Find("#tabpanel-appearance #s-visual-profile-import"));
-        Assert.NotNull(cut.Find("#tabpanel-sonification #s-audio-profile-export"));
-        Assert.NotNull(cut.Find("#tabpanel-sonification #s-audio-profile-import"));
-        Assert.Empty(cut.FindAll("#tabpanel-general #s-visual-profile-export"));
-        Assert.Empty(cut.FindAll("#tabpanel-general #s-audio-profile-export"));
+        Assert.Empty(cut.FindAll("[id^='s-visual-profile-']"));
+        Assert.Empty(cut.FindAll("[id^='s-audio-profile-']"));
+        Assert.DoesNotContain("Visual profile", cut.Find("#tabpanel-appearance").TextContent);
+        Assert.DoesNotContain("Audio profile", cut.Find("#tabpanel-sonification").TextContent);
     }
 
     // ── The paper-account reset asks first (WCAG 3.3.4) ───────────────────

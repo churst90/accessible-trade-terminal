@@ -408,9 +408,7 @@ the desktop apps only. On the web press Ctrl+Alt+Shift+T to focus the tab bar, t
 
 **Sharing your setup.** Themes copy and paste as text (Appearance → Edit theme → Copy theme
 text). Sound patches export and import as JSON (Alt+W). Strategies export as `.atstrat` files
-and scripts as `.atpkg` packages. Export Visual and Export Audio on the Appearance and
-Sonification tabs save the colours or sounds of the indicators on the current chart, matched
-by indicator and component name on import. Everything else (settings, shortcuts, workspaces,
+and scripts as `.atpkg` packages. Everything else (settings, shortcuts, workspaces,
 watchlists, screens, indicator defaults) is a JSON file in the app-data folder you can copy:
 `~/.local/share/AccessibleTrader/` on Linux and macOS, `%LOCALAPPDATA%\AccessibleTrader\` on
 Windows.

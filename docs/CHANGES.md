@@ -34,9 +34,17 @@ hint.
   OCO pairs appear where the venue can pair, not "paper only"; the paper account starts at
   100,000 USDT with a 0.04% fee and a live Cross/Isolated choice; Settings has nine tabs on
   the desktop and eight on the web; the panning step is no longer a live control; the
-  Narration tab has six switches; Export Visual/Audio save the current chart's component
-  styling, not the tab; the quick-trade arming and summary sentences are quoted as the code
-  speaks them.
+  Narration tab has six switches; the quick-trade arming and summary sentences are quoted as
+  the code speaks them.
+- **The "Visual profile" and "Audio profile" Export/Import buttons are removed** (Settings →
+  Appearance and → Sonification, with `IWorkspaceLibraryService`'s four profile methods and
+  `SettingsProfiles.cs`). Their hint text promised "everything on this tab as one file"; the
+  code exported the current chart's per-component overrides with a hard-coded theme name and
+  master volume, and an import onto a chart without the same indicators changed nothing and
+  reported "imported". Cody: *"remove those buttons if they don't do anything … What really
+  matters for export is sonification patches and perhaps visual theme configs."* Both of
+  those have working routes — the Sound Designer's patch JSON and the theme editor's copy /
+  paste text — and the manual's *Sharing your setup* now names only those.
 - **`docs/SHORTCUTS.md`**: Ctrl+Alt+Shift+N removed; Page Up/Down described as series
   navigation; Market Structure is off by default, not on; band edges added to the
   Ctrl+Left/Right table; playback signals introduced by the component and band crossings

@@ -83,6 +83,10 @@
 - Narration coherence: a switch that said "narrating" for a series with nothing to say now
   refuses and names a way out; the forming candle and the forming formation each have their
   own switch (formations off by default); Ctrl+Alt+Shift+N is gone, N is the switch.
+- The "Export Visual" and "Export Audio" buttons are gone from Settings. They promised a
+  whole tab as one file and saved only the current chart's component overrides. Share a
+  soundscape as patch JSON from the Sound Designer and a theme as text from the theme
+  editor; both work.
 - The toolbar dropdowns follow the chart, including after a restore. A closed tab no longer
   keeps sending its alerts for three minutes. A market string that grew on every load
   ("Crypto|Crypto|Spot") repairs itself.

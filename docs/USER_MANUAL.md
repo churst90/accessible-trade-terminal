@@ -3344,8 +3344,7 @@ the tray behaviour on Windows, the touch toolbar, analysis (Market Structure on 
 and the two pattern switches), magnet snap, the panning step, a CSV export — and the
 **factory reset**, below. **Braille** enables the tactile display. **Appearance** is the
 theme — most relevant to a sighted collaborator looking over your shoulder — and the
-visual accommodations; it and Sonification each carry an Export/Import pair described
-under *Sharing your setup* below. **Keyboard** rebinds any command, and those rebinds save
+visual accommodations. What can be shared, and how, is under *Sharing your setup* below. **Keyboard** rebinds any command, and those rebinds save
 the moment you make them, the one exception to the Save rule.
 
 **Save and Cancel.** The dialog commits when you press **Save**, and only then. **Escape,
@@ -3642,12 +3641,11 @@ and `%LOCALAPPDATA%\AccessibleTrader\` on Windows. The pieces:
 | Everything on the Settings tabs | `settings.json` | copying the file |
 | API keys | the operating system's encrypted store | never as a file; re-enter them |
 
-Two buttons look like whole-tab exports and are narrower than that. **Export Visual** on the
-Appearance tab and **Export Audio** on the Sonification tab save the colours and line styles,
-or the sound patches and volumes, of the indicators on the **current chart**, matched by
-indicator and component name when imported onto a chart that carries the same indicators.
-They do not carry the theme, the text size, the accommodations, the sound theme or the
-earcon families; those are in `themes.json` and `settings.json`.
+The two things people actually hand each other are the first two rows: a tuned soundscape
+and a theme. Until 2026-09-13 the Appearance and Sonification tabs also carried "Export
+Visual" and "Export Audio" buttons that promised a whole tab as one file and delivered only
+the current chart's per-component overrides; they are gone, and the patch and theme routes
+above are the ones that work.
 
 A factory reset (General tab) clears everything in the table except your API keys, your paper
 account and its history, and your saved workspaces, and says so before it does.
