@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.10.0] — 2026-09-13
 
 ### The documentation reflects the terminal (2026-09-13, fifty-fourth pass)
 

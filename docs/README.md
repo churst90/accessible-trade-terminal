@@ -13,7 +13,7 @@ Diagrams of all of this — architecture, hosting topology, the data/order/feedb
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.9.0** — the `0` key marks the pane's own neutral, the crossing keys reach an RSI's 50 line, braille has its own settings tab, the Order book button is back on the toolbar with a dialog that explains itself, and one guard found four fields that saved charts had been dropping) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.10.0** — a stop can no longer open a position the other way, one rule decides whether a sentence is spoken here or arrives as a system notification, and every oscillator gets a pane of its own so an RSI beside a MACD is no longer flat) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -104,7 +104,38 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status — 2.9.0 (2026-09-06)
+## Current Status — 2.10.0 (2026-09-13)
+
+**2.10.0 is the release where money got safer, words got one rule about where they go, and every
+oscillator got a pane of its own.** Bracket legs are reduce-only and share one pair, so a stop
+that fires after you have closed by hand cannot become a fresh position the other way; a key
+marked Paper on a venue with no practice environment is refused by name instead of routed live;
+the dashboard's key dropdown now chooses the key that signs and the status bar carries a **LIVE**
+badge beside the PAPER one, because an absence is not a signal a screen reader can find. Every
+trading plugin is held to one conformance suite — thirty-three rows were red on its first run and
+ten plugins were fixed.
+
+One rule now decides where a sentence goes: whatever is about the chart in front of you is spoken
+there, and everything else — another tab, a symbol with no tab, the terminal with the browser
+closed — is a system notification. Three default-off switches became one that defaults on, and
+closing the browser tells you what will still be watched.
+
+On the chart, thirty indicators had been sharing a single scale, which is why an RSI beside a MACD
+was almost flat; each oscillator now has its own pane and saved workspaces heal on load. Seventeen
+indicators declare their natural range so RSI 70 is the same note on every chart, a reference level
+says what it is and what it means (ADX's 25 announces "strong trend"), the `0` key marks the pane's
+declared neutral, and the fifteen drawing entries that used to sit in Add Indicator and produce an
+empty series are gone — drawings are placed with Alt+D or their chords, and every point is asked
+for by name.
+
+Two things this release could not verify on the machine it was built on: the Windows toast notifier
+and tray-on-close are still only compiled, never run, and the drawing prompts and their spoken
+answers have not yet been heard with a screen reader. Both are in `docs/TODO.md`.
+
+Anything that lands after this tag goes under a new `## [Unreleased]` heading in
+[`CHANGES.md`](CHANGES.md) and is not in the 2.10.0 binaries.
+
+### 2.9.0 — the line goes where the line means something (2026-09-06)
 
 **2.9.0 is the release where a reference line goes where the line means something.** The `0` key
 marks the pane's own neutral rather than the number zero — 50 on an RSI, −50 on Williams %R, still
@@ -122,11 +153,10 @@ instead of above and below the bar, a Properties checkbox never read back, Ctrl+
 indicators' text settings, and a hand-picked colour losing its protection from the next theme
 change. The keyboard and alert layers were measured by sabotage for the first time.
 
-What postdates the tag is under `## [Unreleased]` in [`CHANGES.md`](CHANGES.md); none of it is in
-the 2.9.0 binaries.
+What postdated that tag is in the 2.10.0 section above.
 
-Two things this release could not verify on the machine it was built on: the Windows toast notifier
-is still only compiled, never run, and the two-layout Alt+Shift question on Windows needs a Windows
+Two things 2.9.0 could not verify on the machine it was built on: the Windows toast notifier
+was still only compiled, never run, and the two-layout Alt+Shift question on Windows needs a Windows
 box. Both are in `docs/TODO.md`, along with `docs/BACKGROUND_MONITOR_SCOPE.md` — the scoped plan
 for receiving notifications with the browser closed on every head. Phases 0 to 3 of that plan
 are on `main` since 2026-09-11: alerts, order events, bar closes and the narration ladder all

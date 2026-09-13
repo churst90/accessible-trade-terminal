@@ -31,8 +31,20 @@ items 1 and 2 — `CapabilityManifest` and a startup line naming every `DemoPoli
 midline (line and earcon together) instead of refusing with "already marked", which was its only
 outcome on every indicator that declares one.
 
-**Explicitly NOT done.** No release was cut — Cody, mid-turn: *"hold off on the cutting of the
-release though."* So all of §4 stands, WHATSNEW included. §1b's Hurst, TBD and Vol Regime were
+**§4 IS SPENT — v2.10.0 was cut 2026-09-13** (fifty-fifth pass), six passes after this document
+was written. Its five steps, in order: WHATSNEW was assembled from all of CHANGES `[Unreleased]`
+across the 54th pass and now names conformance, real money, profiles and volume; items 2 and 3
+were satisfied — D1/D2/D3 landed in the 48th and 50th passes, and Cody confirmed by ear at cut
+time that he had heard the bounded axis with its band labels and the `0` key on its declared
+neutral, but NOT the drawing prompts, which therefore ship marked unheard in WHATSNEW beside the
+Windows tray item; `TODO.md:9830` was already ticked; the heading rename and both version bumps
+are done; `check_doc_drift.py` passes all four checks. Step 5's other half — telling the server
+agent before the tag — is NOT done and could not be done from here: there is no repo→server
+channel, only `patches/HOSTED-DEPLOY-NOTES.md` written the other way. It is the second item of the
+55th pass's NEXT list. The rest of this section is the state as of the 54th pass.
+
+**Explicitly NOT done at the time this section was written.** No release had been cut — Cody,
+mid-turn: *"hold off on the cutting of the release though."* §1b's Hurst, TBD and Vol Regime were
 looked at and deliberately left: each is one pane holding components with different natural
 ranges, and `RangeMin`/`RangeMax` are properties of the INDICATOR — per-component bounds are the
 declaration those want. §1c rows 3–9, §2's browser test (12), and §3's MAUI gap and two-tab

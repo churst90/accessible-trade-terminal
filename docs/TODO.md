@@ -117,6 +117,55 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-13, FIFTY-FIFTH pass — v2.10.0 IS CUT.)** Suite **7,666**,
+> 0 failing; browser harness **209/209**; three JS suites 15/61/19; doc-drift all four checks
+> passed. Full entry in `docs/CHANGES.md` under `## [2.10.0] — 2026-09-13`.
+>
+> **Why 2.10.0 and not 2.9.1.** The repo's own rule since 2.8.0: minor when a default changes
+> under the user without them touching a setting. Four did — every oscillator gets its own pane
+> (Alt+PageDown walks more panes than it did), seventeen indicators keep a fixed axis, three
+> default-off notification switches became one that defaults ON, and the Windows X button
+> minimises to the tray.
+>
+> **What the cut actually consisted of**, since §4 of `docs/PRE_RELEASE_REVIEW_2026-09-12.md` is
+> now spent: `CHANGES.md`'s `[Unreleased]` → `[2.10.0] — 2026-09-13` (2,043 lines, twenty-four
+> pass entries, back to the 2.9.0 tag); `WHATSNEW.md`'s `Unreleased` heading → `2.10.0` with the
+> 2.9.0 section dropped out of it (history lives in CHANGES, and the file's own comment now says
+> what goes where at the NEXT cut rather than describing an unreleased state);
+> `Directory.Build.props:8` 2.9.0 → 2.10.0 and `BlazorClient.csproj:40` `ApplicationVersion`
+> 9 → 10; `docs/README.md`'s Download pointer and Current Status, with 2.9.0's section demoted to
+> a `###` beneath it.
+>
+> **Two things ship unheard, and both say so in WHATSNEW rather than being quietly claimed.**
+> The Windows toast notifier and tray-on-close are compiled and never run on a Windows machine.
+> The drawing prompts and their spoken answers (Alt+Shift+P risk/reward, Alt+Shift+M measure) are
+> three days old and Cody has not yet heard them — he confirmed by ear, at cut time, only the
+> bounded axis with its band labels and the `0` key on its declared neutral. **That is the first
+> thing to do after this tag: hear the drawings.** If a prompt reads wrong, the release note
+> already told the user why.
+>
+> ### NEXT
+>
+> 1. **Hear the drawings.** Alt+Shift+P should ask for the entry, then the stop, then the take
+>    profit, each by name, and finish with the ratio; Alt+Shift+M should take two points and then
+>    speak the distance, the percent and the bar count. Alt+Shift+R is the rectangle, not
+>    risk/reward.
+> 2. **The server agent has not been told, and it must be before the hosted box takes this tag.**
+>    Two things from §7 of the pre-release review: `sync-trader-docs.sh` does a blind `cp` from
+>    HEAD rather than from `git show v2.10.0:docs/...`, so running it between tags publishes
+>    unreleased prose; and `/features`' sentence "three switches, each off until you turn it on"
+>    goes FALSE at this tag — it is one switch now, and it defaults ON. `check_doc_drift.py` has
+>    never seen that site, which is the standing reason these sentences drift.
+> 3. **Navigation still does not honour `SubscribedLevelNames`** — speech, audio, narration and
+>    playback all do; `IndicatorCrossingEngine` does not.
+> 4. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
+>    `IsAreaFill = true` (ask first).
+> 5. **The presence-vs-pairing gap almost certainly exists for the non-drawing chords.**
+>    `DrawingShortcutDocParityTests` closed it for the seven drawing tools only;
+>    `check_doc_drift.py` still asks only whether a chord appears SOMEWHERE in SHORTCUTS.md.
+> 6. **`Channel` is listed with three anchor points but its state machine treats it as two** —
+>    worth checking whether the third is reachable.
+
 > **START HERE (current as of 2026-09-13 (later), FIFTY-THIRD pass — DRAWINGS LEAVE THE INDICATOR
 > DIALOG, AND EVERY POINT SAYS WHAT IT IS.)** Suite **7,660**, 0 failing. Still no release cut.
 > Full entry in `docs/CHANGES.md`.

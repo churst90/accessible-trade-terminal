@@ -1,11 +1,14 @@
 # What's New
 
-<!-- UNRELEASED. This file holds the CURRENT RELEASE ONLY; the section below is what the next
-     tag will say, and it must be moved into CHANGES.md if a tag is cut without it. Check with
-     `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has accumulated
-     post-tag entries under an old heading before. -->
+<!-- This file holds the CURRENT RELEASE ONLY. The section below belongs to the tag named in
+     its heading; anything written after that tag goes under a NEW `## Unreleased` heading above
+     it, and the previous release's section moves out (its history is already in CHANGES.md).
+     Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
+     accumulated post-tag entries under an old heading before. -->
 
-## Unreleased — safer money, one rule for where words go, and a pane for every oscillator
+## 2.10.0 — safer money, one rule for where words go, and a pane for every oscillator
+
+*Everything before this release is in `CHANGES.md`.*
 
 ### Money
 
@@ -75,7 +78,9 @@
   nothing in it. Drawings are placed with Alt+D or their chords, and every point is asked for
   by name: "Risk Reward: entry at 64,100. Navigate to the stop loss and press the shortcut
   again." The measure tool speaks its distance, percent and bar count; the risk/reward tool
-  speaks its ratio. Risk/reward is Alt+Shift+P; Alt+Shift+R is the rectangle.
+  speaks its ratio. Risk/reward is Alt+Shift+P; Alt+Shift+R is the rectangle. *The prompts and
+  the spoken answers are new in this release and have not yet been heard with a screen reader —
+  if one of them reads wrong, that is the reason.*
 - **Volume reads at the close**, with its direction, when you flag the volume series with N.
   Volume and market profiles narrate their point of control, value area and POC moves at each
   bar close; they say nothing during playback, by design.
@@ -90,27 +95,3 @@
 - The toolbar dropdowns follow the chart, including after a restore. A closed tab no longer
   keeps sending its alerts for three minutes. A market string that grew on every load
   ("Crypto|Crypto|Spot") repairs itself.
-
-## 2.9.0 — the line goes where the line means something
-
-*Everything before this release is in `CHANGES.md`.*
-
-- **The 0 key marks the line that matters.** On RSI, Stochastic, Stoch RSI, MFI and the
-  Ultimate Oscillator it marks 50, not zero; on Williams %R, −50; on MACD, still zero; on the
-  price chart, the price under the cursor. Where the indicator already draws its midline you
-  are told so. Where a pane has no centre, the key says so. Pressing 0 again takes it back.
-- **Ctrl+Left and Ctrl+Right reach the midline.** Sixteen indicators spell that line four ways
-  and the crossing keys knew one; all sixteen are reachable, alongside overbought and
-  oversold.
-- **Braille has its own Settings tab.** Shift+F4 opens it with focus on the tab. The browser
-  build has no such tab, because a Dot Pad connects to the machine running the terminal.
-- **Drawing tools moved to the bar under the chart**, with Add indicator and Scripts. The
-  Order book button is always on the toolbar and its dialog says whether the venue has no
-  depth feed or returned none.
-- **Four dropped switches found by one guard** that checks every saved field at once: Market
-  Structure's swing markers anchored to the wrong place, a Properties checkbox never read
-  back, Ctrl+Z resetting four indicators' text settings, and a hand-picked colour losing its
-  protection from the next theme change.
-- Under the hood: the keyboard and alert layers were tested by deliberate sabotage for the
-  first time; seven of twenty-seven regressions slipped past the suite and all seven are
-  closed, including F1 going quiet inside every dialog.
