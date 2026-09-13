@@ -154,4 +154,83 @@ public sealed class BandZoneNarrationTests
         Assert.True(said == null || !said.Contains("strong trend", StringComparison.OrdinalIgnoreCase),
             $"narrated a switched-off line: {said}");
     }
+
+    /// <summary>
+    /// A component that declares an EMPTY level subscription narrates none of the series' levels.
+    ///
+    /// <para>
+    /// A2f's F13. <c>SubscribesToLevel</c> distinguishes three states and only two were pinned:
+    /// null means "no declaration, so every level", a non-empty list means "these", and an empty
+    /// list means "none of them". Flipping the empty case from <c>false</c> to <c>true</c> — so an
+    /// explicit opt-OUT becomes an opt-in to everything — went unnoticed by the whole suite. This
+    /// is the knob Aroon needs: three components on one pane, of which only some live on the scale
+    /// the level describes.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AComponentDeclaringAnEmptyLevelSubscription_NarratesNoLevelAtAll()
+    {
+        string? said = CrossUp(
+            values =>
+            {
+                var s = Rsi(values);
+                s.Components[0].SubscribedLevelNames = Array.Empty<string>();
+                return s;
+            },
+            below: 60, above: 80);
+
+        Assert.True(said == null || !said.Contains("Overbought", StringComparison.OrdinalIgnoreCase),
+            $"An empty subscription is an explicit 'none', not 'all'. Said: {said}");
+    }
+
+    /// <summary>
+    /// The control: the same crossing with NO declaration does narrate, so "never narrate" cannot
+    /// satisfy the test above.
+    /// </summary>
+    [Fact]
+    public void TheSameCrossingWithNoSubscriptionDeclared_DoesNarrate()
+    {
+        string? said = CrossUp(Rsi, below: 60, above: 80);
+        Assert.NotNull(said);
+        Assert.Contains("Overbought", said!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A level keeps its NUMBER unless the name already is the number.
+    ///
+    /// <para>
+    /// A2f's F16. <c>LevelPhrase</c> drops the value only when the level sits at zero AND is named
+    /// "zero" — because "zero, 0" is a stutter. Loosening that <c>&amp;&amp;</c> to <c>||</c> made
+    /// it drop the number for EITHER condition, so any level parked at zero under its own name —
+    /// a Midpoint at 0, MACD's signal line — announced a crossing with no price in it. Nothing
+    /// noticed, because every fixture that reached this line had a level whose name and value
+    /// agreed.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ALevelAtZeroThatIsNotCalledZero_KeepsItsNumber()
+    {
+        string? said = CrossUp(
+            values =>
+            {
+                var config = new SeriesConfig
+                {
+                    Id = "macd", IndicatorCode = "SomeOsc", Name = "MACD", FriendlyName = "MACD",
+                    Pane = "Pane_Macd", IsAutoNarrated = true,
+                };
+                config.Components.Add(new ComponentConfig
+                {
+                    Name = "Value", DisplayType = ComponentDisplayType.Oscillator, IsVisible = true,
+                });
+                config.Levels.Add(new LevelConfig { Name = "Midpoint", Value = 0, IsVisible = true });
+                var buffer = new SeriesDataBuffer { SeriesId = "macd" };
+                buffer.ComponentData["Value"] = values;
+                return new ChartSeries(config, buffer);
+            },
+            below: -5, above: 5);
+
+        Assert.NotNull(said);
+        Assert.Contains("midpoint", said!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("0", said!);
+    }
 }

@@ -413,4 +413,115 @@ public class NavigationUtteranceTests
 
         Assert.DoesNotContain("Near", spy.SpokenTexts[0]);
     }
+
+    /// <summary>
+    /// A series with NO components still speaks the prefix it was handed.
+    ///
+    /// <para>
+    /// A2f's F04. The early return here was deliberately WIDENED — its own comment says the
+    /// prefix is the only thing that would ever be said for a component-less series, so returning
+    /// a bare <c>""</c> swallows the caller's whole message. Narrowing it back passed every one of
+    /// 7,666 tests: the fix had no test, only a comment explaining why it was a fix.
+    /// </para>
+    ///
+    /// <para>
+    /// The prefix is how pane and series changes announce themselves, so the failure is silence
+    /// exactly when the user has just moved somewhere new and empty.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ASeriesWithNoComponents_StillSpeaksThePrefixItWasGiven()
+    {
+        var config = new SeriesConfig { Id = "empty", IndicatorCode = "EMPTY", Name = "Empty", FriendlyName = "Empty" };
+        var series = new ChartSeries(config, new SeriesDataBuffer { SeriesId = "empty" });
+
+        var state = State(series, 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(series),
+            FocusedSeriesId = series.Id,
+        };
+
+        string said = new SpeechFormatter().FormatPointFeedback(
+            state, isXMove: true, isYMove: false, series, state.Data![1], "Pane 2 of 3. ");
+
+        Assert.Contains("Pane 2 of 3", said);
+    }
+
+    /// <summary>
+    /// A zone the bar does not come near is not announced.
+    ///
+    /// <para>
+    /// A2f's F21. The proximity window is 0.5% of price — <c>ZoneProximityPct = 0.005</c> — and
+    /// widening it a hundredfold to 0.5 passed the whole suite, because every zone fixture in this
+    /// file places its lines exactly ON the bar's high and low. A threshold is only under test
+    /// when something sits OUTSIDE it.
+    /// </para>
+    ///
+    /// <para>
+    /// Under the mutant every level on the chart reads as active on every bar, which is the
+    /// "approaching" clause firing forever — the noise floor that makes a real approach
+    /// worthless.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AZoneFarFromTheBar_IsNotAnnouncedAsNear()
+    {
+        var candles = CandleSeries();
+
+        // Bar 1 runs low 10 to high 12. A line at 13 is ~8% above the high: comfortably outside
+        // the 0.5% window, and comfortably INSIDE a 50% one.
+        var zoneConfig = new SeriesConfig { Id = "sr", IndicatorCode = "SR", Name = "Support Resistance", Pane = "Main" };
+        var zoneData = new SeriesDataBuffer { SeriesId = zoneConfig.Id };
+        zoneConfig.Components.Add(new ComponentConfig
+        {
+            Name = "R9", DisplayName = "R9", IsVisible = true, IsZoneLine = true, BaseFrequency = 880,
+        });
+        zoneData.ComponentData["R9"] = new double[] { 13, 13, 13 };
+
+        var state = State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(
+                candles, new ChartSeries(zoneConfig, zoneData)),
+            FocusedSeriesId = candles.Id,
+        };
+
+        var spy = new SpySpeechRouter();
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        // The clause names the ROLE and the price — "Near resistance at 13.00" — not the
+        // component. Asserting on the component name would pass for the wrong reason.
+        Assert.DoesNotContain(spy.SpokenTexts, t => t != null
+            && t.Contains("resistance", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// The control: the same zone placed ON the bar IS announced, so "never mention a zone" cannot
+    /// satisfy the test above.
+    /// </summary>
+    [Fact]
+    public void AZoneTheBarActuallyTouches_IsStillAnnounced()
+    {
+        var candles = CandleSeries();
+
+        var zoneConfig = new SeriesConfig { Id = "sr", IndicatorCode = "SR", Name = "Support Resistance", Pane = "Main" };
+        var zoneData = new SeriesDataBuffer { SeriesId = zoneConfig.Id };
+        zoneConfig.Components.Add(new ComponentConfig
+        {
+            Name = "R9", DisplayName = "R9", IsVisible = true, IsZoneLine = true, BaseFrequency = 880,
+        });
+        zoneData.ComponentData["R9"] = new double[] { 12, 12, 12 };   // exactly the bar's high
+
+        var state = State(candles, index: 1) with
+        {
+            ActiveSeries = System.Collections.Immutable.ImmutableList.Create(
+                candles, new ChartSeries(zoneConfig, zoneData)),
+            FocusedSeriesId = candles.Id,
+        };
+
+        var spy = new SpySpeechRouter();
+        Manager(spy).HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.Contains(spy.SpokenTexts, t => t != null
+            && t.Contains("resistance", StringComparison.OrdinalIgnoreCase));
+    }
 }

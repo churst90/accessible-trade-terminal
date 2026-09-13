@@ -196,4 +196,33 @@ public sealed class NavigationTimestampTests
 
         Assert.All(said, m => Assert.StartsWith(Day(Hourly[0]) + ".", m));
     }
+
+    /// <summary>
+    /// <b>"None" means none.</b> A2f's F02: flipping this gate from <c>false</c> to <c>true</c> —
+    /// so a user who set the read location to None gets a timestamp on every arrow press anyway —
+    /// passed all 7,666 tests. Every other value of the setting was covered; the one that turns
+    /// the feature OFF was not, which is the half a user only reaches by deciding they do not
+    /// want it.
+    /// </summary>
+    [Fact]
+    public void TimestampReadLocation_None_PutsNoTimeAndNoDateInTheReading()
+    {
+        var said = Read(State("1h", Hourly) with { TimestampReadLocation = "None" }, 0, 1, 2);
+
+        Assert.All(said, m => Assert.DoesNotContain(Time(Hourly[0]), m));
+        Assert.All(said, m => Assert.DoesNotContain(Time(Hourly[2]), m));
+        Assert.All(said, m => Assert.DoesNotContain(Day(Hourly[0]), m));
+        Assert.All(said, m => Assert.DoesNotContain(Day(Hourly[2]), m));
+    }
+
+    /// <summary>
+    /// The control for the test above: with the setting at its default the stamp IS there, so
+    /// "say nothing ever" cannot satisfy both.
+    /// </summary>
+    [Fact]
+    public void TimestampReadLocation_Always_StillCarriesTheStamp()
+    {
+        var said = Read(State("1h", Hourly), 0);
+        Assert.Contains(Time(Hourly[0]), said[0]);
+    }
 }

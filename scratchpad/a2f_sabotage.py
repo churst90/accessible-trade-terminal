@@ -272,8 +272,13 @@ def build():
 
 
 def test():
+    # NO `-v q --nologo` HERE, and that is the whole point. A2f's first pass added them and
+    # every failing_tests list came back EMPTY, because quiet verbosity suppresses the per-test
+    # failure lines. That silently removed the false-catch audit — the check that turned A2's
+    # naive 79% into an honest 61% and A2e's 74.1% into 72.0%. A mutant "caught" by one flaky
+    # test firing alone is indistinguishable from a real catch without these names.
     return run("dotnet test AccessibleTrader.Tests/AccessibleTrader.Tests.csproj "
-               "-p:UseRazorSourceGenerator=false --no-build -v q --nologo")
+               "-p:UseRazorSourceGenerator=false --no-build")
 
 
 def recover_inflight():

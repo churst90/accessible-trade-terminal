@@ -243,5 +243,55 @@ namespace AccessibleTrader.Tests
             IsPOC = false,
             IsValueArea = isValueArea,
         };
+
+        /// <summary>
+        /// A HIGH-severity error interrupts whatever is being read.
+        ///
+        /// <para>
+        /// A2f's F26. The rule is <c>Severity &gt;= High</c>; tightening it to <c>&gt;</c> leaves
+        /// only Critical interrupting, and the whole suite stayed green. The tests directly above
+        /// this one already publish <c>ErrorSeverity.High</c> events — they assert on the MESSAGE
+        /// and never on the flag, so the one property that decides whether the sentence arrives in
+        /// time was carried past them untested.
+        /// </para>
+        ///
+        /// <para>
+        /// For a blind trader an error that waits its turn behind a bar reading is an error
+        /// delivered after the decision it was about.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void AHighSeverityError_InterruptsWhateverIsBeingSpoken()
+        {
+            var bus = new SpyEventBus();
+            using var coord = new GlobalErrorCoordinator(bus, NullLogger<GlobalErrorCoordinator>.Instance,
+                                                         Substitute.For<IAudioFeedbackRouter>());
+
+            bus.Publish(new AppErrorEvent(ErrorSeverity.High, ErrorCategory.UserActionable,
+                                          "Order rejected", "Broker"));
+
+            var spoken = bus.Log.OfType<FeedbackRequestEvent>().Single();
+            Assert.True(spoken.Interrupt,
+                "A High-severity error must cut in. Queued behind a bar reading it arrives after "
+                + "the decision it was about.");
+        }
+
+        /// <summary>
+        /// The control: a Medium error does NOT interrupt, so "always interrupt" cannot satisfy
+        /// the test above. Medium is the tier that must not make network retries unmutable.
+        /// </summary>
+        [Fact]
+        public void AMediumSeverityError_WaitsItsTurn()
+        {
+            var bus = new SpyEventBus();
+            using var coord = new GlobalErrorCoordinator(bus, NullLogger<GlobalErrorCoordinator>.Instance,
+                                                         Substitute.For<IAudioFeedbackRouter>());
+
+            bus.Publish(new AppErrorEvent(ErrorSeverity.Medium, ErrorCategory.Systemic,
+                                          "Cache miss", "Store"));
+
+            var spoken = bus.Log.OfType<FeedbackRequestEvent>().Single();
+            Assert.False(spoken.Interrupt);
+        }
     }
 }

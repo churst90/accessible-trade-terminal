@@ -2,6 +2,80 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### A2f — the speech path is measured for the first time, and a knob that moves nothing is a lie the dialog tells (2026-09-13, fifty-sixth pass)
+
+Two pieces of work with one subject: **the parts of this terminal that talk had never been
+measured, and the parts that claim to be adjustable had never been asked whether they are.**
+
+**A2f, the fifth mutant campaign.** `Core/Services/Accessibility` is 49 files and 15,898
+lines — tied with `Services/Indicators` as the largest body of code in the repo — and eleven
+mutants had ever been applied to it, all eleven on small helper files. Its five largest files,
+`SpeechFormatter`, `NarrationScanner`, `DrawingInteractionManager`, `TactileCanvasCoordinator`
+and `PlaybackNarration`, had had **zero**. For this application's user that is not a feature
+area, it is the entire output channel: a defect in the renderer is seen eventually, a sentence
+that never fires is indistinguishable from a market that did nothing.
+
+- **26 mutants, 18 caught, honest catch rate 69.2%.** Baseline seen green immediately before
+  the run (7,666 passed); control run green afterwards; every file restored byte-identical.
+  Against A2d's 73.1% and A2e's 72.0% on disjoint files chosen weeks apart, the rate is a
+  property of the suite rather than of where it was pointed.
+- **All eight survivors are closed, each proved red by re-applying its mutant**
+  (`scratchpad/a2f_prove_kills.py`, 8/8):
+  - a `TimestampReadLocation` of `"None"` could be ignored, so a setting the user switched OFF
+    put a timestamp on every arrow press;
+  - the empty-series early return — widened on purpose, its comment explaining that the prefix
+    is the only thing that would be said — could be narrowed back, silently;
+  - an explicitly EMPTY level subscription could narrate every level instead of none;
+  - a level sitting at zero under its own name (a Midpoint at 0, a signal line) could lose its
+    number and announce a crossing with no price in it;
+  - the zone proximity window could widen a hundredfold, so every level reads as active on every
+    bar;
+  - the hit tester could select the FARTHEST component under the cursor;
+  - a click on the x-axis strip could select a series in the pane above it;
+  - and a HIGH-severity error could stop interrupting, arriving after the decision it was about.
+- **Two of those are one shape:** a selection rule is only under test when at least two
+  candidates compete. Every hit-test fixture in the repo had a single line on the chart, and
+  every one passed `axisHeightFraction: 0f`, which made the x-axis guard unreachable.
+- **A method correction worth more than any single finding.** The first pass recorded empty
+  `failing_tests` for all 26, because `-v q --nologo` suppresses per-test failure names — which
+  silently disables the false-catch audit, the check that turned A2's naive 79% into an honest
+  61%. The six mutants caught by two tests or fewer were re-run with names captured; all six are
+  genuine, each killed by a topically relevant test. The harness now carries the reason in a
+  comment so the flags do not come back.
+
+**`DeclaredKnobObservabilityTests` — one guard for a defect CLASS.** Four bugs in the 46th–49th
+passes had a single shape: a property declared, stored, round-tripped and rendered by the
+Properties dialog as a working control, with nothing at the far end reading it
+(`UsePolarityColoring`, `DefaultReferenceLevel`, `DefaultPane`, three indicator bool
+parameters). Reading the code cannot catch it — the declaration is perfect. A conventional test
+cannot catch it — the declaration does exist.
+
+- Every knob on `ComponentConfig` is enumerated **by reflection** (a hard-coded list would be a
+  second place each new property must be added, which is this file's own subject), flipped, and
+  required to move one of the four channels the application actually delivers through: pixels,
+  the sonification point, the navigation readout, and the bar-close narration scan. 27 shape x
+  audio cells, because most knobs are live in only some of them.
+- **Proven red on the real defect:** reverting the polarity split in `RenderLine` makes it name
+  `UsePolarityColoring`, and nothing else.
+- **It found a dead field on its first run.** `ComponentConfig.SecondaryWaveform` was declared,
+  copied by `Clone()`, and written into every saved workspace as `""` — with no metadata field
+  able to set it and no reader anywhere in the tree. Deleted, along with its clone line. Saved
+  workspaces carrying the key are unaffected; an unknown key is ignored on load.
+- Four knobs carry exemptions that NAME their real consumer — `PlaybackLayer` and `DecayMs` in
+  `AudioSequencer`, `SubPaneHeightRatio` in `ChartRenderer`, `DataMapping` in the tactile canvas
+  and the state mapper — so each exemption is a claim that can be checked rather than trusted,
+  and a second test fails if an exemption ever names a property that no longer exists.
+
+**`docs/REPORT_CARD_2026-09-13.md`** — the third graded pass. Alerts and monitoring D → C+ → **B**
+(the notifier seam the last card asked for is built, across four phases); data flow and providers
+→ **B** (the conformance suite went 33 rows red on its first run); trading-live → **B** (the
+Gemini sandbox run means "never exercised against a live venue" is no longer true); drawing and
+rendering → **B**; documentation → **A-**. Workspace and persistence is HELD at C+ on purpose —
+this window produced three more restore defects. Summary grades: chart-reading terminal
+B+ → **A-**, real-money readiness B- → **B**.
+
 ## [2.10.0] — 2026-09-13
 
 ### The documentation reflects the terminal (2026-09-13, fifty-fourth pass)

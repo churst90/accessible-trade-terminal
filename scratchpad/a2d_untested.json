@@ -360,13 +360,8 @@
   ]
  },
  "AccessibleTrader.Core/Services": {
-  "total": 147,
+  "total": 152,
   "unnamed": [
-   [
-    "class",
-    "ProfileService",
-    "AccessibleTrader.Core/Services/ProfileService.cs"
-   ],
    [
     "class",
     "DataExportService",
@@ -484,108 +479,208 @@
    ]
   ]
  },
- "AccessibleTrader.Sdk/Models": {
-  "total": 119,
+ "AccessibleTrader.Core/Services/Accessibility": {
+  "total": 90,
+  "unnamed": [
+   [
+    "interface",
+    "INavigationStrategy",
+    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
+   ],
+   [
+    "record",
+    "NavigationResult",
+    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
+   ],
+   [
+    "enum",
+    "NavigationDirection",
+    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
+   ],
+   [
+    "class",
+    "NotificationHub",
+    "AccessibleTrader.Core/Services/Accessibility/NotificationHub.cs"
+   ],
+   [
+    "interface",
+    "ISeriesNavigationRegistry",
+    "AccessibleTrader.Core/Services/Accessibility/SeriesNavigationRegistry.cs"
+   ],
+   [
+    "class",
+    "SeriesNavigationRegistry",
+    "AccessibleTrader.Core/Services/Accessibility/SeriesNavigationRegistry.cs"
+   ],
+   [
+    "class",
+    "HistoryBufferCoordinator",
+    "AccessibleTrader.Core/Services/Accessibility/HistoryBufferCoordinator.cs"
+   ],
+   [
+    "record",
+    "ChartHit",
+    "AccessibleTrader.Core/Services/Accessibility/ChartHitTester.cs"
+   ],
+   [
+    "interface",
+    "IUndoableEdit",
+    "AccessibleTrader.Core/Services/Accessibility/ChartUndoStack.cs"
+   ],
+   [
+    "interface",
+    "IChartUndoStack",
+    "AccessibleTrader.Core/Services/Accessibility/ChartUndoStack.cs"
+   ],
+   [
+    "class",
+    "ViewportManager",
+    "AccessibleTrader.Core/Services/Accessibility/ViewportManager.cs"
+   ],
+   [
+    "interface",
+    "ITactileCanvasCoordinator",
+    "AccessibleTrader.Core/Services/Accessibility/TactileCanvasCoordinator.cs"
+   ],
+   [
+    "enum",
+    "PositionKind",
+    "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs"
+   ],
+   [
+    "record",
+    "PaneInfo",
+    "AccessibleTrader.Core/Services/Accessibility/ChartPaneModel.cs"
+   ],
+   [
+    "record",
+    "Membership",
+    "AccessibleTrader.Core/Services/Accessibility/CandlePatternSpeech.cs"
+   ],
+   [
+    "class",
+    "ProfileLevels",
+    "AccessibleTrader.Core/Services/Accessibility/ProfileLevels.cs"
+   ],
+   [
+    "class",
+    "DrawingComponentStrategy",
+    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
+   ],
+   [
+    "class",
+    "CandleBodyStrategy",
+    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
+   ],
+   [
+    "class",
+    "VolumeBarStrategy",
+    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
+   ]
+  ]
+ },
+ "AccessibleTrader.WebHost/Services": {
+  "total": 62,
   "unnamed": [
    [
     "class",
-    "OhlcvExtensions",
-    "AccessibleTrader.Sdk/Models/OhlcvExtensions.cs"
-   ],
-   [
-    "record",
-    "SetPrimarySeriesIdAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "SetProviderContextAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "SelectBinAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "RemoveLevelAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "UpdateSeriesZoneBandsAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "UpdateSeriesParametersAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "NavigateRelativeAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "WorkspacePanEvent",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "WorkspaceZoomEvent",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "ResizePaneAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "SetPaneHeightRatiosAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
-   ],
-   [
-    "record",
-    "SetCoordinateEntryAnchorAction",
-    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+    "WebHostApiKeyCheckoutAdapter",
+    "AccessibleTrader.WebHost/Services/WebHostApiKeyCheckoutAdapter.cs"
    ],
    [
     "class",
-    "VisualProfile",
-    "AccessibleTrader.Sdk/Models/SettingsProfiles.cs"
+    "WebHostMainThreadService",
+    "AccessibleTrader.WebHost/Services/WebHostMainThreadService.cs"
    ],
    [
     "class",
-    "AudioProfile",
-    "AccessibleTrader.Sdk/Models/SettingsProfiles.cs"
+    "WebHostRuntimePlatform",
+    "AccessibleTrader.WebHost/Services/WebHostRuntimePlatform.cs"
    ],
    [
     "class",
-    "ComponentAppearance",
-    "AccessibleTrader.Sdk/Models/SettingsProfiles.cs"
+    "InSessionAlertRecorder",
+    "AccessibleTrader.WebHost/Services/InSessionAlertRecorder.cs"
    ],
    [
     "class",
-    "ComponentAudioOverride",
-    "AccessibleTrader.Sdk/Models/SettingsProfiles.cs"
+    "RecentAlertItem",
+    "AccessibleTrader.WebHost/Services/RecentAlertsBuffer.cs"
+   ],
+   [
+    "interface",
+    "IStatusNotifierWatcher",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
    ],
    [
     "class",
-    "ComponentIndex",
-    "AccessibleTrader.Sdk/Models/ComponentIndex.cs"
+    "StatusNotifierItemProperties",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "interface",
+    "IStatusNotifierItem",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
    ],
    [
     "class",
-    "StandardTimeframes",
-    "AccessibleTrader.Sdk/Models/TimeframeUtility.cs"
+    "TrayItem",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "class",
+    "DbusMenuProperties",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "interface",
+    "IDbusMenu",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "class",
+    "TrayMenu",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "class",
+    "NoopDisposable",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "class",
+    "Unsub",
+    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
+   ],
+   [
+    "class",
+    "InstancePaths",
+    "AccessibleTrader.WebHost/Services/PluginHostBridges.cs"
+   ],
+   [
+    "record",
+    "DesktopCommand",
+    "AccessibleTrader.WebHost/Services/DesktopDeliveryPlan.cs"
+   ],
+   [
+    "enum",
+    "ToastKind",
+    "AccessibleTrader.WebHost/Services/DesktopDeliveryPlan.cs"
+   ],
+   [
+    "enum",
+    "SpeechKind",
+    "AccessibleTrader.WebHost/Services/DesktopDeliveryPlan.cs"
+   ],
+   [
+    "enum",
+    "SoundKind",
+    "AccessibleTrader.WebHost/Services/DesktopDeliveryPlan.cs"
    ]
   ]
  },
  "AccessibleTrader.Core/Models": {
-  "total": 106,
+  "total": 107,
   "unnamed": [
    [
     "class",
@@ -679,101 +774,6 @@
    ]
   ]
  },
- "AccessibleTrader.Core/Services/Accessibility": {
-  "total": 83,
-  "unnamed": [
-   [
-    "interface",
-    "INavigationStrategy",
-    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
-   ],
-   [
-    "record",
-    "NavigationResult",
-    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
-   ],
-   [
-    "enum",
-    "NavigationDirection",
-    "AccessibleTrader.Core/Services/Accessibility/INavigationStrategy.cs"
-   ],
-   [
-    "class",
-    "NotificationHub",
-    "AccessibleTrader.Core/Services/Accessibility/NotificationHub.cs"
-   ],
-   [
-    "interface",
-    "ISeriesNavigationRegistry",
-    "AccessibleTrader.Core/Services/Accessibility/SeriesNavigationRegistry.cs"
-   ],
-   [
-    "class",
-    "SeriesNavigationRegistry",
-    "AccessibleTrader.Core/Services/Accessibility/SeriesNavigationRegistry.cs"
-   ],
-   [
-    "class",
-    "HistoryBufferCoordinator",
-    "AccessibleTrader.Core/Services/Accessibility/HistoryBufferCoordinator.cs"
-   ],
-   [
-    "record",
-    "ChartHit",
-    "AccessibleTrader.Core/Services/Accessibility/ChartHitTester.cs"
-   ],
-   [
-    "interface",
-    "IUndoableEdit",
-    "AccessibleTrader.Core/Services/Accessibility/ChartUndoStack.cs"
-   ],
-   [
-    "interface",
-    "IChartUndoStack",
-    "AccessibleTrader.Core/Services/Accessibility/ChartUndoStack.cs"
-   ],
-   [
-    "class",
-    "ViewportManager",
-    "AccessibleTrader.Core/Services/Accessibility/ViewportManager.cs"
-   ],
-   [
-    "interface",
-    "ITactileCanvasCoordinator",
-    "AccessibleTrader.Core/Services/Accessibility/TactileCanvasCoordinator.cs"
-   ],
-   [
-    "enum",
-    "PositionKind",
-    "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs"
-   ],
-   [
-    "record",
-    "PaneInfo",
-    "AccessibleTrader.Core/Services/Accessibility/ChartPaneModel.cs"
-   ],
-   [
-    "record",
-    "Membership",
-    "AccessibleTrader.Core/Services/Accessibility/CandlePatternSpeech.cs"
-   ],
-   [
-    "class",
-    "DrawingComponentStrategy",
-    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
-   ],
-   [
-    "class",
-    "CandleBodyStrategy",
-    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
-   ],
-   [
-    "class",
-    "VolumeBarStrategy",
-    "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs"
-   ]
-  ]
- },
  "AccessibleTrader.WebHost/Pages/Account": {
   "total": 17,
   "unnamed": [
@@ -859,91 +859,6 @@
    ]
   ]
  },
- "AccessibleTrader.WebHost/Services": {
-  "total": 46,
-  "unnamed": [
-   [
-    "class",
-    "WebHostApiKeyCheckoutAdapter",
-    "AccessibleTrader.WebHost/Services/WebHostApiKeyCheckoutAdapter.cs"
-   ],
-   [
-    "class",
-    "WebHostMainThreadService",
-    "AccessibleTrader.WebHost/Services/WebHostMainThreadService.cs"
-   ],
-   [
-    "class",
-    "WebHostRuntimePlatform",
-    "AccessibleTrader.WebHost/Services/WebHostRuntimePlatform.cs"
-   ],
-   [
-    "class",
-    "InSessionAlertRecorder",
-    "AccessibleTrader.WebHost/Services/InSessionAlertRecorder.cs"
-   ],
-   [
-    "class",
-    "RecentAlertItem",
-    "AccessibleTrader.WebHost/Services/RecentAlertsBuffer.cs"
-   ],
-   [
-    "interface",
-    "IStatusNotifierWatcher",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "StatusNotifierItemProperties",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "interface",
-    "IStatusNotifierItem",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "TrayItem",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "DbusMenuProperties",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "interface",
-    "IDbusMenu",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "TrayMenu",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "NoopDisposable",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "Unsub",
-    "AccessibleTrader.WebHost/Services/TrayDBus.cs"
-   ],
-   [
-    "class",
-    "InstancePaths",
-    "AccessibleTrader.WebHost/Services/PluginHostBridges.cs"
-   ],
-   [
-    "class",
-    "NotifySendDesktopNotifier",
-    "AccessibleTrader.WebHost/Services/NotifySendDesktopNotifier.cs"
-   ]
-  ]
- },
  "AccessibleTrader.Core/Services/Scripting": {
   "total": 23,
   "unnamed": [
@@ -1019,6 +934,81 @@
    ]
   ]
  },
+ "AccessibleTrader.Sdk/Models": {
+  "total": 118,
+  "unnamed": [
+   [
+    "class",
+    "OhlcvExtensions",
+    "AccessibleTrader.Sdk/Models/OhlcvExtensions.cs"
+   ],
+   [
+    "record",
+    "SetPlaybackSpeedAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "SetPrimarySeriesIdAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "SelectBinAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "UpdateSeriesZoneBandsAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "UpdateSeriesParametersAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "NavigateRelativeAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "WorkspacePanEvent",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "WorkspaceZoomEvent",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "ResizePaneAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "SetPaneHeightRatiosAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "record",
+    "SetCoordinateEntryAnchorAction",
+    "AccessibleTrader.Sdk/Models/WorkspaceState.cs"
+   ],
+   [
+    "class",
+    "ComponentIndex",
+    "AccessibleTrader.Sdk/Models/ComponentIndex.cs"
+   ],
+   [
+    "class",
+    "StandardTimeframes",
+    "AccessibleTrader.Sdk/Models/TimeframeUtility.cs"
+   ]
+  ]
+ },
  "AccessibleTrader.Core/Services/Indicators": {
   "total": 59,
   "unnamed": [
@@ -1041,11 +1031,6 @@
     "class",
     "OfflineWorkspaceBuilder",
     "AccessibleTrader.Core/Services/Indicators/OfflineWorkspaceBuilder.cs"
-   ],
-   [
-    "interface",
-    "IIndicatorStateMapper",
-    "AccessibleTrader.Core/Services/Indicators/IndicatorStateMapper.cs"
    ],
    [
     "class",
@@ -1101,11 +1086,6 @@
     "record",
     "LabComparisonRow",
     "AccessibleTrader.Core/Services/Strategies/LabRunner.cs"
-   ],
-   [
-    "interface",
-    "ILevelService",
-    "AccessibleTrader.Core/Services/Strategies/ILevelProvider.cs"
    ],
    [
     "class",
@@ -1219,11 +1199,6 @@
    ],
    [
     "class",
-    "AudioZoneHelper",
-    "AccessibleTrader.Core/Services/Audio/AudioZoneHelper.cs"
-   ],
-   [
-    "class",
     "SignalTierClassifier",
     "AccessibleTrader.Core/Services/Audio/SignalTierClassifier.cs"
    ],
@@ -1289,13 +1264,13 @@
    ],
    [
     "class",
-    "MauiApiKeyCheckoutAdapter",
-    "AccessibleTrader.BlazorClient/Services/MauiApiKeyCheckoutAdapter.cs"
+    "BlazorAudioDriver",
+    "AccessibleTrader.BlazorClient/Services/BlazorAudioDriver.cs"
    ],
    [
     "class",
-    "BlazorAudioDriver",
-    "AccessibleTrader.BlazorClient/Services/BlazorAudioDriver.cs"
+    "MauiApiKeyCheckoutAdapter",
+    "AccessibleTrader.BlazorClient/Services/MauiApiKeyCheckoutAdapter.cs"
    ]
   ]
  },
@@ -1419,41 +1394,6 @@
    ]
   ]
  },
- "AccessibleTrader.Sdk/Interfaces": {
-  "total": 23,
-  "unnamed": [
-   [
-    "interface",
-    "IComponentRoleMapper",
-    "AccessibleTrader.Sdk/Interfaces/IComponentRoleMapper.cs"
-   ],
-   [
-    "interface",
-    "IAdaptiveIndicatorProvider",
-    "AccessibleTrader.Sdk/Interfaces/IAdaptiveIndicatorProvider.cs"
-   ],
-   [
-    "interface",
-    "IPaneAssignmentService",
-    "AccessibleTrader.Sdk/Interfaces/IPaneAssignmentService.cs"
-   ],
-   [
-    "interface",
-    "ISonificationProfileProvider",
-    "AccessibleTrader.Sdk/Interfaces/ISonificationProfileProvider.cs"
-   ],
-   [
-    "record",
-    "OrderBookSnapshot",
-    "AccessibleTrader.Sdk/Interfaces/IOrderBookProvider.cs"
-   ],
-   [
-    "interface",
-    "IDetailFactProvider",
-    "AccessibleTrader.Sdk/Interfaces/IDetailFactProvider.cs"
-   ]
-  ]
- },
  "AccessibleTrader.StrategyLab/Catalogue": {
   "total": 12,
   "unnamed": [
@@ -1516,31 +1456,6 @@
     "class",
     "AndroidIsolatedProcessLauncher",
     "AccessibleTrader.BlazorClient/Platforms/Android/AndroidIsolatedProcessLauncher.cs"
-   ]
-  ]
- },
- "AccessibleTrader.Core/Services/Rendering": {
-  "total": 16,
-  "unnamed": [
-   [
-    "interface",
-    "IRenderLayer",
-    "AccessibleTrader.Core/Services/Rendering/IRenderLayer.cs"
-   ],
-   [
-    "class",
-    "PaneLayoutService",
-    "AccessibleTrader.Core/Services/Rendering/IPaneLayoutService.cs"
-   ],
-   [
-    "interface",
-    "IComponentRenderer",
-    "AccessibleTrader.Core/Services/Rendering/IComponentRenderer.cs"
-   ],
-   [
-    "struct",
-    "RentedPaint",
-    "AccessibleTrader.Core/Services/Rendering/SKPaintPool.cs"
    ]
   ]
  },
@@ -1674,6 +1589,46 @@
    ]
   ]
  },
+ "AccessibleTrader.Core/Services/Rendering": {
+  "total": 16,
+  "unnamed": [
+   [
+    "interface",
+    "IRenderLayer",
+    "AccessibleTrader.Core/Services/Rendering/IRenderLayer.cs"
+   ],
+   [
+    "interface",
+    "IComponentRenderer",
+    "AccessibleTrader.Core/Services/Rendering/IComponentRenderer.cs"
+   ],
+   [
+    "struct",
+    "RentedPaint",
+    "AccessibleTrader.Core/Services/Rendering/SKPaintPool.cs"
+   ]
+  ]
+ },
+ "AccessibleTrader.Sdk/Interfaces": {
+  "total": 23,
+  "unnamed": [
+   [
+    "interface",
+    "IAdaptiveIndicatorProvider",
+    "AccessibleTrader.Sdk/Interfaces/IAdaptiveIndicatorProvider.cs"
+   ],
+   [
+    "record",
+    "OrderBookSnapshot",
+    "AccessibleTrader.Sdk/Interfaces/IOrderBookProvider.cs"
+   ],
+   [
+    "interface",
+    "IDetailFactProvider",
+    "AccessibleTrader.Sdk/Interfaces/IDetailFactProvider.cs"
+   ]
+  ]
+ },
  "AccessibleTrader.BlazorClient.Components": {
   "total": 7,
   "unnamed": [
@@ -1704,6 +1659,21 @@
    ]
   ]
  },
+ "AccessibleTrader.Core/Services/Notifications": {
+  "total": 8,
+  "unnamed": [
+   [
+    "class",
+    "NullDesktopNotifier",
+    "AccessibleTrader.Core/Services/Notifications/IDesktopNotifier.cs"
+   ],
+   [
+    "class",
+    "AlwaysPresent",
+    "AccessibleTrader.Core/Services/Notifications/IUserPresence.cs"
+   ]
+  ]
+ },
  "AccessibleTrader.Core/Services/Screening": {
   "total": 10,
   "unnamed": [
@@ -1716,6 +1686,21 @@
     "record",
     "QuickScreenShape",
     "AccessibleTrader.Core/Services/Screening/QuickScreenBuilder.cs"
+   ]
+  ]
+ },
+ "AccessibleTrader.Sdk/Plugins": {
+  "total": 36,
+  "unnamed": [
+   [
+    "record",
+    "DepositRecord",
+    "AccessibleTrader.Sdk/Plugins/IWalletProvider.cs"
+   ],
+   [
+    "record",
+    "OrderDryRunResult",
+    "AccessibleTrader.Sdk/Plugins/IOrderDryRunProvider.cs"
    ]
   ]
  },
@@ -1829,26 +1814,6 @@
    ]
   ]
  },
- "AccessibleTrader.Core/Services/Alerts": {
-  "total": 15,
-  "unnamed": [
-   [
-    "class",
-    "BackgroundWatchability",
-    "AccessibleTrader.Core/Services/Alerts/BackgroundWatchability.cs"
-   ]
-  ]
- },
- "AccessibleTrader.Core/Services/Feeds": {
-  "total": 8,
-  "unnamed": [
-   [
-    "interface",
-    "IMarketFeedHub",
-    "AccessibleTrader.Core/Services/Feeds/MarketFeedHub.cs"
-   ]
-  ]
- },
  "AccessibleTrader.Core/Services/Input": {
   "total": 10,
   "unnamed": [
@@ -1856,16 +1821,6 @@
     "interface",
     "IKeyNormalizationService",
     "AccessibleTrader.Core/Services/Input/KeyNormalizationService.cs"
-   ]
-  ]
- },
- "AccessibleTrader.Core/Services/Notifications": {
-  "total": 3,
-  "unnamed": [
-   [
-    "class",
-    "NullDesktopNotifier",
-    "AccessibleTrader.Core/Services/Notifications/IDesktopNotifier.cs"
    ]
   ]
  },
@@ -1916,16 +1871,6 @@
     "class",
     "SeriesMetadataRegistry",
     "AccessibleTrader.Sdk/Configuration/SeriesMetadataRegistry.cs"
-   ]
-  ]
- },
- "AccessibleTrader.Sdk/Plugins": {
-  "total": 33,
-  "unnamed": [
-   [
-    "record",
-    "DepositRecord",
-    "AccessibleTrader.Sdk/Plugins/IWalletProvider.cs"
    ]
   ]
  },
@@ -1991,12 +1936,20 @@
   "total": 4,
   "unnamed": []
  },
+ "AccessibleTrader.Core/Services/Alerts": {
+  "total": 15,
+  "unnamed": []
+ },
  "AccessibleTrader.Core/Services/Diagnostics": {
   "total": 2,
   "unnamed": []
  },
  "AccessibleTrader.Core/Services/Drawing": {
   "total": 3,
+  "unnamed": []
+ },
+ "AccessibleTrader.Core/Services/Feeds": {
+  "total": 9,
   "unnamed": []
  },
  "AccessibleTrader.Core/Services/Security": {

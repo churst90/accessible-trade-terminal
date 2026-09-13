@@ -53,7 +53,6 @@ namespace AccessibleTrader.Sdk.Models
         [ObservableProperty] private string _waveform = "sine";
         [ObservableProperty] private string _aboveReferenceWaveform = "sine";
         [ObservableProperty] private string _belowReferenceWaveform = "sine";
-        [ObservableProperty] private string _secondaryWaveform = "";
         [ObservableProperty] private double _freqMultiplier = 1.0;
         [ObservableProperty] private bool _triggerBoundaryClick = false;
         [ObservableProperty] private string _envelopeType = "Sustain";
@@ -231,7 +230,7 @@ namespace AccessibleTrader.Sdk.Models
                 AmplitudeMapping = AmplitudeMapping, PitchMapping = PitchMapping,
                 ColorHex = ColorHex, ColorHexSecondary = ColorHexSecondary, IsUserStyled = IsUserStyled,
                 Waveform = Waveform, AboveReferenceWaveform = AboveReferenceWaveform, BelowReferenceWaveform = BelowReferenceWaveform,
-                SecondaryWaveform = SecondaryWaveform, FreqMultiplier = FreqMultiplier, TriggerBoundaryClick = TriggerBoundaryClick,
+                FreqMultiplier = FreqMultiplier, TriggerBoundaryClick = TriggerBoundaryClick,
                 EnvelopeType = EnvelopeType,
                 Volume = Volume, BaseFrequency = BaseFrequency, BullishFrequency = BullishFrequency, BearishFrequency = BearishFrequency,
                 SpeechTemplate = SpeechTemplate, Thickness = Thickness, DashStyle = DashStyle, IsEnabled = IsEnabled,

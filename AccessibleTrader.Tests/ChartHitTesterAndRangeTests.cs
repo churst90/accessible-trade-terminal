@@ -216,4 +216,86 @@ public sealed class ChartHitTesterAndRangeTests
         Assert.NotNull(ev);
         Assert.Equal("ema-1", ev!.HitSeriesId);
     }
+
+    /// <summary>
+    /// With two lines inside the grab radius, the NEAREST one wins.
+    ///
+    /// <para>
+    /// A2f's F24. Inverting <c>dist &lt; best.DistancePx</c> to <c>&gt;</c> — so the pointer
+    /// selects the component furthest from where it was pointed — passed the entire suite,
+    /// because every fixture in this file put exactly ONE line on the chart and with one
+    /// candidate <c>best == null</c> short-circuits the comparison entirely.
+    /// </para>
+    ///
+    /// <para>
+    /// The same shape as A2e's E09 in a different file: <b>a selection rule is only under test
+    /// when at least two candidates compete.</b>
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void HitTest_PicksTheNearerOfTwoLinesInsideTheTolerance()
+    {
+        var h = new Harness();
+        // 0.02 apart: about 7 px on a 720 px pane over this viewport, so both are inside the
+        // 12 px grab radius and genuinely compete. 0.1 apart is 36 px and only one competes,
+        // which is the fixture that makes this test vacuous — the guard below catches that.
+        h.AddOverlayLine("far", "Far EMA", constantValue: 100.50);
+        h.AddOverlayLine("near", "Near EMA", constantValue: 100.52);
+        var state = h.Store.State;
+
+        float farY  = ChartMath.MapY(100.50, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
+        float nearY = ChartMath.MapY(100.52, 0, 720, state.ViewportRange.Min, state.ViewportRange.Max, false);
+
+        // Both are inside the 12 px tolerance; the cursor sits ON the nearer one.
+        Assert.True(Math.Abs(farY - nearY) < ChartHitTester.TolerancePx,
+            "Fixture error: the two lines must both be inside the grab radius, or only one competes.");
+
+        var hit = ChartHitTester.HitTest(state, NoDividers, 0f, 0f, x: 640, y: nearY, width: 1280, height: 720);
+
+        Assert.NotNull(hit);
+        Assert.Equal("near", hit!.SeriesId);
+    }
+
+    /// <summary>
+    /// A click on the x-axis strip is not a click on the last pane.
+    ///
+    /// <para>
+    /// A2f's F25. The guard reads <c>yFrac &gt; plotBottomFrac</c>, where <c>plotBottomFrac</c>
+    /// excludes the bottom axis strip — and widening it to <c>&gt; 1.0</c> passed everything,
+    /// because every other test in this file passes <c>axisHeightFraction: 0f</c>. At zero the
+    /// two expressions are identical, so the strip guard had never once been executed with a
+    /// strip to guard.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void HitTest_RefusesAClickOnTheXAxisStrip()
+    {
+        var h = new Harness();
+        const float axisHeight = 0.02f;                 // a thin bottom strip
+        const float height = 720f;
+        float plotBottomPx = height * (1f - axisHeight);
+
+        // The line sits at the BOTTOM of the viewport, so it maps to the very bottom edge of the
+        // plot area — right up against the strip. Any higher and a click inside the strip is out
+        // of grab range anyway, and the test passes for the wrong reason: the first draft of this
+        // test put the line at 100.5, ~36 px away, so the original and the mutant both returned
+        // null and the mutant survived its own kill.
+        double lineValue = h.Store.State.ViewportRange.Min;
+        h.AddOverlayLine("floor", "Floor", constantValue: lineValue);
+        var state = h.Store.State;
+
+        float lineY = ChartMath.MapY(lineValue, 0, plotBottomPx,
+                                     state.ViewportRange.Min, state.ViewportRange.Max, false);
+        double clickY = lineY + 4;                      // inside the strip, 4 px from the line
+
+        Assert.True(clickY / height > 1f - axisHeight,
+            "Fixture error: the click must land INSIDE the x-axis strip, or the guard is not exercised.");
+        Assert.True(Math.Abs(lineY - clickY) < ChartHitTester.TolerancePx,
+            "Fixture error: the click must be within grab range of the line, or a null result proves nothing.");
+
+        var hit = ChartHitTester.HitTest(state, NoDividers, axisHeight, 0f,
+                                         x: 640, y: clickY, width: 1280, height: (double)height);
+
+        Assert.Null(hit);
+    }
 }

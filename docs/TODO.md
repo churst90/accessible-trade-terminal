@@ -117,6 +117,58 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-13 (later), FIFTY-SIXTH pass — THE SPEECH PATH IS MEASURED
+> FOR THE FIRST TIME, AND A KNOB THAT MOVES NOTHING IS NOW A TEST FAILURE.)** Suite **7,680**,
+> 0 failing. No release cut — this is post-2.10.0 work sitting in CHANGES `[Unreleased]`.
+> Full entry in `docs/CHANGES.md`.
+>
+> 1. **A2f: 26 mutants over `Core/Services/Accessibility`, 18 caught, 69.2%.** The largest
+>    never-mutated area in the repo — 49 files, 15,898 lines, eleven mutants ever, all eleven on
+>    small helpers, and ZERO on its five biggest files. Baseline green before, control green
+>    after, every file restored byte-identical. **All eight survivors closed and proved red**
+>    (`scratchpad/a2f_prove_kills.py`, 8/8).
+> 2. **69.2% against A2d's 73.1% and A2e's 72.0%, on disjoint files chosen weeks apart.** Quote
+>    it as *~70% measured over ~11% of the tree* — still a sample, now a slightly larger one.
+> 3. **`DeclaredKnobObservabilityTests`** sweeps every `ComponentConfig` knob by reflection over
+>    27 shape x audio cells and requires one of four channels (pixels, sonification point,
+>    navigation readout, bar-close narration scan) to move. Proven red by reverting the real MFI
+>    polarity defect. It found `SecondaryWaveform` — declared, cloned, saved in every workspace,
+>    readable by nothing — and it is deleted.
+> 4. **`docs/REPORT_CARD_2026-09-13.md`** — alerts D→C+→**B**, providers→**B**, trading-live→**B**,
+>    docs→**A-**, workspace HELD at C+. Chart-reading B+→**A-**; real-money B-→**B**.
+>
+> ### THE TWO METHOD LESSONS, and they cost real findings
+>
+> - **`-v q --nologo` on `dotnet test` suppresses per-test failure names**, which silently
+>   disables the false-catch audit — the check that turned A2's naive 79% into an honest 61%.
+>   A2f's first pass recorded empty `failing_tests` for all 26 and had to re-run six. The
+>   harness now says why the flags are absent.
+> - **A channel that is identical for every input is not evidence of anything.** The knob sweep
+>   named 18 knobs on its first run; 13 were defects in the FIXTURE — seeding and scanning the
+>   same state means the scanner correctly has no news, `SpeechOrder = "ValueOnly"` never says a
+>   name, and an omitted optional `prevVal` makes the whole boundary-click branch unreachable.
+>
+> ### NEXT
+>
+> 1. **Hear it.** Nothing in this pass has been heard. The eight survivor fixes are all about
+>    what is SAID: press `0`-adjacent keys near a zone and confirm a far-away level is no longer
+>    called "near"; set the timestamp read location to None in Settings and confirm arrow keys
+>    stop announcing a time.
+> 2. **`Services/Audio` is the next campaign, and the argument is the same one that chose A2f.**
+>    19 files, 4,394 lines, **ONE mutant ever applied** (in `AudioEngine.cs`), 8 of 32 types never
+>    named by a test — and for this user sound is the primary output, not a decoration.
+> 3. **The two rendering holes named by the 48th pass are still open**: the surviving
+>    minimum-label-spacing mutant in `RenderYAxis`, and `RenderCandles`'s `hasPhaseOverride`
+>    branch, which has **no fixture at all** — grep the test project for `phaseData` and it
+>    returns nothing, so a mutant aimed there cannot be evaluated.
+> 4. **Navigation still does not honour `SubscribedLevelNames`** — speech, audio, narration and
+>    playback all do; `IndicatorCrossingEngine` does not. A2f's F13 closed the NARRATION half.
+> 5. **The presence-vs-pairing gap for the non-drawing chords** (55th pass item 5) is unchanged.
+> 6. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
+>    `IsAreaFill = true` (ask first).
+> 7. **The server agent still has not been told** about `sync-trader-docs.sh`'s blind `cp` and
+>    `/features`' now-false "three switches" sentence (55th pass item 2).
+
 > **START HERE (current as of 2026-09-13, FIFTY-FIFTH pass — v2.10.0 IS CUT.)** Suite **7,666**,
 > 0 failing; browser harness **209/209**; three JS suites 15/61/19; doc-drift all four checks
 > passed. Full entry in `docs/CHANGES.md` under `## [2.10.0] — 2026-09-13`.
