@@ -2,10 +2,10 @@
 
 This is the full reference manual for Accessible Trader. It explains every part of
 the terminal in depth: what each feature does, when you would reach for it, the
-keys that drive it, and the speech you should expect to hear as you go. It assumes
-you already understand core trading ideas — candles, support and resistance, stops
-and take-profits, trailing stops, moving averages, oscillators — and concentrates
-on how those ideas are expressed and controlled inside this application.
+keys that drive it, and the speech you should expect to hear as you go. It does not
+assume you already trade: a term is explained the first time it matters, the
+indicator primer and the risk chapter are written for someone new to markets, and
+the glossary at the end defines everything in a sentence.
 
 If all you want is a one-line-per-shortcut crib sheet, press **F1** inside the app
 or read `SHORTCUTS.md`. If you are brand new, the shorter `QUICKSTART.md`
@@ -29,16 +29,19 @@ feature and understand what it is doing.
 
 1. [Getting Oriented](#getting-oriented) — what it is, the Hybrid Voice model, the soundscape
 2. [Loading a Market](#loading-a-market) — API keys, the market/provider/symbol/timeframe cascade, live vs. historical
-3. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
-4. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, point analysis
-5. [Analysis Tools](#analysis-tools) — indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
-6. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — the AI analyst, auto-narration, the session record
-7. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
-8. [Automation](#automation) — alerts, strategies, background monitoring, custom scripts, the Strategy Lab
-9. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces
-10. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
-11. [Platform Support](#platform-support) — per-OS notes, which version to use, the browser-reserved chords
-12. [Glossary](#glossary)
+3. [How a Chart Is Laid Out](#how-a-chart-is-laid-out) — panes, axes, series, components, levels, zones, Heikin-Ashi
+4. [Market Watch and Screening](#market-watch-and-screening) — watchlists, the screen builder, running a screen
+5. [Reading the Chart](#reading-the-chart) — navigation, scanning for events, playback, bar replay, point analysis
+6. [Analysis Tools](#analysis-tools) — an indicator primer, indicators, market structure, chart formations, value zones, the respect report, the asset dossier, quick trade, drawing tools, volume profile, heatmap, the object tree
+7. [AI, Narration, and the Journal](#ai-narration-and-the-journal) — what speaks when, the AI analyst, auto-narration, the session record
+8. [Trading](#trading) — paper mode, order types, protective and trailing exits, the live review, fills, positions, the order book
+9. [Risk Management](#risk-management) — preserving capital, stops, sizing, reward-to-risk, the environment check
+10. [Automation](#automation) — alerts, strategies, custom scripts, the Strategy Lab
+11. [Monitoring When You Are Not Looking](#monitoring-when-you-are-not-looking) — where announcements go, other tabs, the browser closed, the tray
+12. [Customizing](#customizing) — settings, the sound designer, tabs and workspaces, sharing your setup
+13. [The Tactile Display](#the-tactile-display) — the Dot Pad, enabling braille output, reading the chart by touch
+14. [Platform Support](#platform-support) — per-OS notes, which version to use, the browser-reserved chords
+15. [Glossary](#glossary)
 
 ---
 
@@ -244,11 +247,12 @@ missing — you do not have to memorise which providers need one.
 The toolbar has two rows and they divide by purpose, which is worth learning once
 because it tells you where to look for anything.
 
-The **first row opens things.** Left to right it holds the object tree, drawing
-tools and the sound designer; then the trading dashboard, order book, strategies,
-**Watch** (watchlists and the screener), **Levels** (the respect report),
-**Journal** and **AI**; then alerts and API keys; then save and load workspace;
-and finally settings and help. Every one of these opens a dialog, and every one
+The **first row opens things.** Left to right it holds the object tree and the sound
+designer; then the trading dashboard, order book, strategies, **Watch** (watchlists and
+the screener), **Levels** (the respect report), **Journal** and **AI**; then alerts and
+API keys; then save and load workspace; and finally settings and help. The things you
+put *on* a chart — **Add indicator**, **Drawing tools** and **Scripts** — sit on the bar
+under the chart instead. Every one of these opens a dialog, and every one
 has a keyboard shortcut named in its tooltip, so the toolbar is how you *find* a
 feature and the shortcut is how you reach it once you know it is there.
 
@@ -263,9 +267,8 @@ the switched-off region on purpose.
 
 The **second row builds and changes the chart**: the market cascade described
 below, then import and load, then pan and zoom, then the display toggles —
-heatmap, Heikin Ashi, log scale, **Split** view and **Replay**. The last five are
-pressed-state toggles, so your screen reader announces whether each is currently
-on.
+heatmap, Heikin Ashi, log scale and **Replay**. The last four are pressed-state
+toggles, so your screen reader announces whether each is currently on.
 
 Buttons are labelled with an abbreviation on screen and a full name for your
 screen reader, so "Watch" reads as "Watch lists and screener" and "AI" reads as
@@ -455,6 +458,169 @@ different provider — it defaults to the chart's own), and the second market
 appears rebased on the price pane or as a strength ratio in its own pane,
 always on the chart's timeframe so the bars line up one to one.
 
+## How a Chart Is Laid Out
+
+Every key in the next chapter moves through a structure. Sighted traders absorb that
+structure in one glance and never name it; this chapter names it, because by ear you meet it
+one piece at a time. If you already know what a price chart looks like, skim the headings and
+read the part about components, levels and zones, which is specific to this terminal.
+
+### A picture you can build at home
+
+Take a sheet of paper and lay it on the desk in landscape, the long edge toward you. That
+sheet is one **pane**. Run a ruler along its bottom edge, left to right: that is the **X
+axis**, and it is time. The far left is the oldest bar you have loaded, the far right is
+now, and every centimetre is one bar of the timeframe you chose: one minute, one hour, one
+day. Stand a second ruler upright along the right-hand edge: that is the **Y axis**, and on
+the top sheet it is price, low at the bottom, high at the top.
+
+Now stand a row of matchsticks on the sheet, one per bar, each one placed where its price
+sits on the upright ruler. Each matchstick is a **candle**. Its thick body runs from the
+opening price to the closing price; the thin ends sticking out above and below are the
+**wicks**, the highest and lowest prices touched during that bar. A long body is a decisive
+bar; a body so short the candle is almost all wick is a bar where buyers and sellers ended
+about where they started. Lay a length of thread across the tops of the matchsticks and you
+have drawn the shape of price through time. That thread is what pitch plays for you: high on
+the ruler is a high note, low is a low note, and the sound sweeps from your left speaker to
+your right as the cursor moves along the bottom ruler.
+
+Put a second sheet of paper directly below the first. It has the same bottom ruler, because
+time is shared, but its own upright ruler with its own units. This sheet might be **volume**,
+counted in shares or coins rather than dollars. A third sheet below that might be RSI, a
+gauge that only ever reads between 0 and 100. Each sheet is a pane, and the whole stack,
+sharing one timeline, is the chart.
+
+### A pane is a Y axis
+
+That is the whole definition. Things share a pane when they are measured in the same units,
+and get their own pane when they are not.
+
+- The **Main pane** is price. Candles live there, and so does every overlay measured in
+  price: moving averages, Bollinger Bands, VWAP, Ichimoku, pivot levels. They sit on the same
+  sheet because a moving average at 42,500 belongs beside a candle at 42,500.
+- **Volume** has its own pane, because a volume of 1.2 million is not a price.
+- **Every oscillator has its own pane.** RSI reads 0 to 100. MACD on Bitcoin swings by
+  hundreds of dollars. Put them on one upright ruler and RSI's entire working range becomes a
+  sliver at the bottom of MACD's, and by ear that sliver is one flat note. Until September
+  2026 thirty indicators shared one pane and that is exactly what happened; now each gets a
+  pane of its own, and two copies of the same indicator share one because they are on the
+  same scale.
+
+Alt+PageUp and Alt+PageDown move between panes and name the one you land on. They stop at
+the ends with the boundary tone rather than wrapping, because a silent jump from the bottom
+of the chart back to the top is the one move you could not detect.
+
+**Bounded panes keep their scale.** An RSI pane always runs 0 to 100, at every zoom. An
+unbounded pane, MACD or ATR, fits itself to the values in view. Seventeen indicators declare
+their natural range and four declare a floor, and the difference matters by ear: RSI 70 is
+the same note on every chart, whereas a MACD reading is a note relative to whatever else is
+in the window. Alt+L switches the price pane's ruler to logarithmic, so equal distance means
+equal percentage, which is the honest ruler for a history in which price multiplied.
+
+### Series, components, strips
+
+Inside a pane the structure continues. A **series** is one thing you added: the candles, an
+RSI, a trend line. A **component** is one line or marker that series draws, and it has a value
+on every bar. MACD is one series with three components: the MACD line, the signal line and the
+histogram. Cipher B is one series with eleven. PageUp and PageDown walk series; Up and Down
+walk the components of the series you are on.
+
+A few panes divide into **strips**, a band of the sheet with its own upright ruler: Cipher B
+keeps its money-flow histogram in a strip along the bottom of its pane. Ctrl+Up and Ctrl+Down
+walk the strip you are in across every series drawn in it, which on the Main pane is how you
+step from the candles to an overlay drawn on top of them.
+
+### Components, reference levels and zones
+
+Three different kinds of thing live on a pane. They are heard differently and navigated
+differently, and telling them apart is most of what this chapter is for.
+
+**A component has a value per bar.** An EMA has a value on every bar; a buy dot has a value
+only on the bars it fired. You navigate onto a component and hear its reading; in playback it
+plays as a tone (a line) or a bell (a marker). Components are what Up, Down, Ctrl+Up and
+Ctrl+Down move between.
+
+**A reference level is a constant.** RSI's 70 and 30, a Stochastic's 80 and 20, MACD's zero,
+ADX's 25: one number, the same on every bar, drawn as a dashed line across the pane. On the
+paper picture it is a thread stretched taut across the sheet at one height. A level has three
+properties the terminal keeps track of:
+
+- its **value**, which you can move in Properties;
+- its **meaning**: overbought, oversold, or neutral (the line the reading swings about), or a
+  named band on either side: ADX at 25 separates "developing trend" from "strong trend", and
+  Choppiness at 61.8 separates "trending" from "ranging", which is inverted, a low reading
+  meaning a trend;
+- its **owner**: the indicator declared it, or you added it with the **0** key. Yours can be
+  removed with 0 again; the indicator's live in Properties and come back with "Reset to
+  defaults".
+
+You do not navigate onto a level. You hear it when a component interacts with it: a very
+short high ping as the value comes within about five percent, a two-note chirp as it crosses
+(rising for up, falling for down), and a single low tone once it has stayed beyond the line
+for several bars. Ctrl+Left and Ctrl+Right stop at the crossings, and on a band-labelled line
+the announcement names the band you entered. A level you hide in Properties stops being all
+of those things: no ping, no chirp, no jump target.
+
+**A zone is a region, not a line.** Three kinds appear:
+
+- the shaded overbought and oversold **bands** behind an oscillator, which are visual only and
+  never spoken or navigated, though the noise texture you hear inside them is the audible
+  version of the same idea;
+- **zone lines**, which Cipher SR and Spider Lines carry forward from past turning points as
+  support and resistance. These are levels with a side, and they get the full vocabulary:
+  "support at 61,200 broken", "price tested resistance at 64,000, tested 3 times",
+  "approaching support at 61,200";
+- **value zones** from the Value Deviation indicator: bars where price turned back toward
+  value, tiered by how far out it was, marked with a glyph and a pitch per tier.
+
+Drawings are none of these: a trend line you placed is its own series, read value-first when
+you arrow along it, and announced when price crosses it.
+
+### Hearing the whole thing
+
+Three keys describe the structure instead of a value.
+
+- **Alt+Shift+/** describes the pane you are in: "Main pane, 1 of 3. Y axis, price: 41,200 to
+  43,800, about 500 between gridlines, linear scale. X axis, time: March 3 2026 to July 1
+  2026, 120 bars at 1d each." It then names the series in the pane, and on a pane with strips
+  says "Control Up and Control Down walk the strip you are in."
+- **Ctrl+Alt+Shift+Y** describes the chart: the symbol and timeframe, how many bars are in
+  view of how many loaded, the price range and scale, how many indicator panes sit below the
+  price pane, each with its own Y axis, how many components are hidden or muted, whether
+  Heikin-Ashi is on, and whether the feed is fresh.
+- **Shift+F1** says where you are: symbol, provider, timeframe, the focused series, its pane
+  and where that pane sits in the stack.
+
+The numbers these three speak come from the same ranges the chart is drawn with, so what you
+hear is what a sighted partner sees.
+
+### Heikin-Ashi, and what stays raw
+
+A standard candle reports what happened in one bar: it opened here, traded up to there and
+down to there, closed here. A **Heikin-Ashi** candle (Alt+C) is a smoothed version: its close
+is the average of the bar's open, high, low and close, and its open is the midpoint of the
+previous smoothed candle. The effect is that a trend becomes a run of same-coloured candles
+with wicks on one side only, and choppy noise inside the trend is averaged away, which is why
+the sequence of pitches is easier to follow with HA on.
+
+The price of that smoothness is that a Heikin-Ashi close is not a price anything traded at.
+So the terminal keeps two things raw whatever the candles are doing:
+
+- **Every indicator computes on the raw bars.** RSI, MACD, a moving average, a volume profile:
+  all read the real open, high, low and close. Switching HA on does not change a single
+  indicator reading, and a level the indicator announces is a level in real prices.
+- **Chart formations, the close line and the title price are raw.** A neckline measured from a
+  smoothed candle could not be put into an order, so formations are read from standard
+  candles even while HA is displayed, and the terminal says so when you switch it on with
+  formation description enabled.
+
+What does change with HA on is the candle you hear: the spoken open, high, low and close, the
+body and wick percentages, and the candle pattern named on the bar are all the smoothed
+candle's, because they are meant to describe the shape on screen. Use HA to hear the trend;
+trust the levels as real.
+
+---
+
 ## Market Watch and Screening
 
 Loading one symbol at a time answers "what is this market doing?". Market watch
@@ -568,26 +734,11 @@ movement keys are in your fingers.
 
 ### The shape of a chart
 
-The chart is a stack of **panes**, one above the next. The top pane is always the
-price itself — candlesticks by default. Below it sit indicator panes, one for each
-indicator that needs its own area; some indicators, like moving averages, instead
-draw directly on the price pane as overlays and never get a pane of their own.
-
-Inside a pane the hierarchy continues. A pane holds one or more **series**, and a
-series holds one or more **components**. A MACD, for instance, is one series with
-three components — the MACD line, the signal line, and the histogram. Holding this
-three-level shape in mind — panes, series, components — is the key to moving around
-with confidence: you change panes one way, and components another, and the terminal
-always tells you where you have landed.
-
-**A note on the picture during fast markets.** The chart image repaints about ten times a
-second. Until August 2026 the rate limit was the wrong kind: it waited for a *pause* in the
-data rather than repainting on a timer, so while ticks kept arriving faster than that pause
-— which is exactly what a busy market is — the image stopped updating altogether and only
-caught up once things went quiet. Sighted collaborators looking over your shoulder would
-have seen a frozen chart at the one moment it mattered. Everything you hear and everything
-you navigate came from the live data all along and was never affected; only the drawn PNG
-was stale.
+The chart is a stack of panes sharing one timeline; a pane is a Y axis; a pane holds
+series, a series holds components, and a level or a zone is a different kind of thing
+from either. The previous chapter, *How a Chart Is Laid Out*, builds that picture from
+scratch. Hold it in mind here: you change panes one way, series another, components a
+third, and the terminal names where you have landed each time.
 
 ### Moving through time
 
@@ -736,45 +887,32 @@ drag-to-pan, and the terminal says so.
 
 ### Moving between panes and components
 
-Page Down moves your focus to the next pane below, Page Up to the pane above; as you
-arrive, speech announces the newly focused series by name — "RSI", "Volume". Within
-a series, the Up and Down arrows step through its components: Down from the MACD line
-to the signal line to the histogram, Up back through them, each announced with its
-name and current value.
+Four keys, four levels of the structure. **Page Down** and **Page Up** move to the next or
+previous **series** in the order the chart draws them, top to bottom; as you arrive speech
+names it — "RSI", "Volume". **Up** and **Down** step through the focused series'
+**components**: Down from the MACD line to the signal line to the histogram, each announced
+with its name and current value. **Alt+PageDown** and **Alt+PageUp** move between **panes**,
+the next Y axis down or up the chart, and the pane's name is spoken at the end of the move
+so you hear what you landed on after you hear what it says. **Ctrl+Down** and **Ctrl+Up**
+walk the **strip** you are in across every series drawn against the same axis — from the
+candles to a price overlay drawn on top of them, which is the pair you most often want to
+compare.
 
-**A pane is a Y axis.** That is the whole definition, and it is what makes the structure
-worth navigating. Candles and a price overlay share the Main pane because they share a
-price scale; volume gets a pane of its own because a volume axis is not a price axis;
-Cipher B gets a third. Alt+PageUp and Alt+PageDown move between them — the next Y axis
-up or down the chart — and the pane's name is spoken at the end of the move, so you hear
-what you landed on after you hear what it says.
+All four clamp at the ends with the boundary tone; none of them wraps, because a silent
+jump from the bottom of the chart back to the top is the one move you could not detect.
 
-Some panes hold several things drawn against the same axis, and some divide into strips:
-a Cipher B pane holds a money-flow histogram, two wave lines and cross dots, with the
-money-flow histogram in a strip of its own at the bottom. Ctrl+Up and Ctrl+Down walk the
-strip you are in, **across every series in the pane** — so from the candles they reach a
-price overlay drawn on top of them, which is the pair you most often want to compare and
-the one move the terminal could not previously make. The plain arrows still walk every
-component of the focused series in order.
+Three keys re-orient you whenever you lose the thread. **Shift+F1** announces the symbol,
+provider and timeframe, the focused series, and its pane and place in the stack.
+**Ctrl+Alt+Shift+C** focuses the chart and reads a fuller context summary.
+**Ctrl+Alt+Shift+Y** describes the chart's *layout* rather than its values, and
+**Alt+Shift+/** describes the pane you are in: what each axis measures, its range, the
+gridline step, and what is drawn there. Reach for all of them freely; there is no penalty
+for asking the terminal where you are.
 
-Alt+Shift+/ answers the question those moves raise: it describes the pane you are in —
-what each axis measures, the range each covers, the step between gridlines, and what is
-drawn in it. A value means nothing without the scale it sits against, and that scale is
-something a sighted trader reads off an axis without thinking about it.
-
-> Ctrl+PageUp and Ctrl+PageDown are left unbound on every head. Browsers use them to
-> cycle their own tabs, ahead of anything the page can do about it, so pane navigation
-> lives on Alt+PageUp / Alt+PageDown everywhere and the desktop and the browser agree.
-> F1 always shows the bindings actually in effect on the host you are using.
-
-Three keys re-orient you whenever you lose the thread. Shift+F1 announces the current
-symbol, provider, and timeframe. Ctrl+Alt+Shift+C focuses the chart and reads a fuller
-context summary. And Ctrl+Alt+Shift+Y describes the chart's **layout** rather than its
-values — the axes and their scales, how many panes are open and what is in each, how
-many series and components they hold, and what is currently hidden or muted. It is the
-answer to "what am I looking at?", which is the question a sighted trader settles with
-one glance and every other spoken message quietly assumes you have already answered.
-Reach for all three freely — there is no penalty for asking the terminal where you are.
+> Ctrl+PageUp and Ctrl+PageDown are left unbound on every head. Browsers use them to cycle
+> their own tabs ahead of anything the page can do, so pane navigation lives on Alt+PageUp
+> and Alt+PageDown everywhere and the desktop and the browser agree. F1 always shows the
+> bindings actually in effect on the host you are using.
 
 ### Scanning for events
 
@@ -990,7 +1128,7 @@ by the button's announced pressed state — whether history is currently hidden.
 ### Inspecting a single bar
 
 When one bar deserves a thorough look before you act on it, press Alt+Shift+D
-(Alt+Shift+D on the Linux web host) for a full point analysis. It reads the candle's
+for a full point analysis. It reads the candle's
 open, high, low, close and volume, names any candlestick pattern recognised at that
 bar — "Engulfing bullish" — reports every active indicator's reading there, and lists
 any signal events on the bar across all indicators. It is the one-key way to gather
@@ -1008,14 +1146,68 @@ place by keyboard and then hear the cursor cross, the volume profile that maps w
 trading actually concentrated, and the heatmap that colours activity into the
 playback itself.
 
+### An indicator primer
+
+An indicator is arithmetic over the bars, drawn as one or more lines or markers. None of
+them knows anything the candles do not; each one compresses the candles into a shape that is
+easier to read for one particular question. Four families cover most of what you will add.
+
+**Trend: where is price relative to its recent average?** A **moving average** is the mean
+close over the last N bars, redrawn each bar, so it lags price and smooths it. A **simple
+moving average (SMA)** weights every bar equally; an **exponential moving average (EMA)**
+weights recent bars more, so it turns sooner. Price above a rising average is the textbook
+uptrend; a fast average crossing a slow one is the textbook signal. **VWAP** is the average
+price weighted by volume, the level the day's trading actually centred on. **ADX** measures
+trend strength without direction: below 20 no trend, above 25 a strong one, above 50 a very
+strong one, which is why its pane names those bands.
+
+**Momentum: how fast, and is it stretching?** These are the oscillators, and they get their
+own panes. **RSI** (relative strength index) compares recent gains to recent losses on a 0 to
+100 scale: above 70 is called overbought, below 30 oversold, and 50 is neutral. Overbought does
+not mean "sell"; it means the last fourteen bars were mostly up, and strong trends stay
+overbought for weeks. **Stochastic** asks where the close sits inside the recent range, 0 to
+100, with 80 and 20 as its lines. **MACD** is the gap between a fast and a slow EMA, drawn as
+a line that swings about zero, a smoothed signal line, and a histogram of the difference
+between them; a cross of zero is the two averages crossing each other. **Rate of change** is
+simply the percent move over N bars.
+
+**Volatility: how much does it move?** **ATR** (average true range) is the average size of a
+bar in price units, and it is the number stops and targets should be measured in, because a
+1% stop is tight on one instrument and enormous on another. **Bollinger Bands** draw a moving
+average with a band two standard deviations either side; the bands pinch when the market is
+quiet and open when it is not. **Keltner** and **Donchian** channels are the same idea built
+on ATR and on recent highs and lows.
+
+**Volume: who is participating?** The volume bars themselves. **OBV** and the **accumulation
+distribution line** add volume up on up bars and down on down bars, so a rising line with a
+flat price says buying is building. **MFI** is RSI weighted by volume. A **volume profile**
+turns the question sideways: instead of volume per bar, volume per price level, so you can
+hear which prices the market accepted (the point of control, where the most traded) and which
+it passed through quickly.
+
+**Multi-signal and structure.** **Cipher B** combines a wave oscillator, money flow and
+divergence detection into one pane with eleven components and rare gold "triple confluence"
+dots. **Market Structure** labels swing highs and lows as higher or lower than the last and
+reports the trend state those labels imply. **Value Deviation** marks where price turned away
+from value. All three are descriptive: they tell you where you are, not what to do.
+
+Two cautions travel with every indicator. First, **warm-up**: an indicator with a
+fourteen-bar period has nothing to say for its first fourteen bars, and a screen built on a
+long moving average needs enough history to produce a value at all. Second, **every indicator
+reads the raw candles**, whatever Heikin-Ashi is doing to the picture; the section on
+Heikin-Ashi in the chart-layout chapter explains what that means.
+
+The glossary at the end of this manual defines each of these terms in a sentence.
+
 ### Adding and tuning indicators
 
 Press Alt+A to open the Add Indicator dialog. Indicators are grouped into categories
-— Multi-Signal, Trend, Momentum, Cycles, Positioning, Derivatives, Volatility,
-Volume, and Profiles — and you move
-through the category and indicator lists with the arrow keys and add one with Enter.
-A new indicator arrives with audio properties already chosen for its type, so it is
-immediately playable; you can refine them later.
+— Multi-Signal, Trend, Momentum, Cycles, Positioning, Derivatives, Volatility, Volume,
+Profiles, Overlays (comparison symbols) and My Data — and you move through the category
+and indicator lists with the arrow keys and add one with Enter. The dialog says whether
+the indicator joins the price pane or gets a pane of its own. A new indicator arrives with
+audio properties already chosen for its type, so it is immediately playable; you can
+refine them later.
 
 **Drawing tools are not in this dialog, and never should have been.** Trend lines, Fibonacci
 levels, the measure tool, the risk/reward tool and the rest are placed with **Alt+D** (Drawing
@@ -1056,21 +1248,25 @@ anything. They have been withdrawn rather than left in the list — an indicator
 and wait for is worse than one that is honestly absent. They return if the library gains
 them.
 
-Once it is on the chart you reach it the same way you reach any pane — Page Down from
-the price pane until speech announces it — and explore its components with Up and
-Down, as the previous chapter described. Two small touches help here. Pressing 0
-(zero) on a focused indicator adds a zero-level reference line, which both sounds
-during playback and gives Ctrl+Left and Ctrl+Right something to jump between. And
-when an indicator has outlived its use, Delete removes the focused pane after a
-spoken confirmation — the price pane itself cannot be removed.
+Once it is on the chart you reach it the same way you reach any series — Page Down from
+the price pane, or Alt+PageDown to its pane — and explore its components with Up and
+Down, as the previous chapter described. Two small touches help here. Pressing **0** on a
+focused oscillator toggles the pane's declared neutral line (50 on RSI, zero on MACD),
+which sounds as the reading crosses it and gives Ctrl+Left and Ctrl+Right a place to
+stop; the soundscape section in Getting Oriented has the full rule. And when an
+indicator has outlived its use, Delete removes the focused series after a spoken
+confirmation, and Ctrl+Z brings it back — the candles themselves cannot be removed.
 
-To change how an indicator calculates or sounds, focus it and press P (or
-Shift+F12) for its properties dialog. There you adjust calculation parameters —
-periods, smoothing, thresholds — and, per component, the things that shape how it is
-heard: the waveform that colours its continuous tone, the bell patch that rings on
-its signal events, and its relative volume. A "Save as Defaults" option stores your
-preferences so the next indicator of that type starts already configured the way you
-like.
+To change how an indicator calculates or sounds, focus it and press P (or Shift+F12)
+for its properties dialog. It has five tabs: **General** for the calculation parameters
+— periods, smoothing, thresholds; **Appearance** for colours and line styles;
+**Levels** for every reference level, its value, colour, which crossings to report, and
+a Remove button on the ones you added; **Sonification** for the sound patch each
+component plays, with a bullish/bearish or above/below-midline pair where the component
+has two sides, and the zone texture; and **Speech** for how the series reads. A "Save as
+Defaults" option stores your preferences so the next indicator of that type starts
+already configured the way you like, and "Reset to Defaults" restores the indicator's
+own settings while leaving your levels alone.
 
 **Positioning indicators — who actually holds what.** Two 1.6.0 additions read
 official positioning data instead of price. **COT Positioning** (Positioning
@@ -1091,9 +1287,9 @@ before — it is hidden from the menu, not removed from the terminal. Tab and th
 every label and value.
 
 Two whole-chart toggles live near the indicators. Alt+C switches the price pane to
-Heikin-Ashi candles, a smoothed formula that strips noise and can make a trend easier
-to hear; Alt+L switches to a logarithmic price scale, useful over long histories
-where price has moved by large percentages.
+Heikin-Ashi candles, and Alt+L to a logarithmic price scale; both are explained in the
+chart-layout chapter, including the one thing to hold on to about Heikin-Ashi — every
+indicator keeps reading the raw candles.
 
 ### Market structure
 
@@ -1596,30 +1792,49 @@ You can size and place a trade without leaving the chart or opening the trading 
 | `Ctrl+Alt+Shift+Q` | Say what is armed right now |
 | `Ctrl+Alt+Shift+0`, or `Escape` | Cancel |
 
-#### Why the stop comes first
+#### What the percentage means, and why the stop comes first
 
-**A risk percentage is not a position size.** "Risk 1%" is a cash budget — on a $100,000
-account, $1,000. Turning that into a quantity needs the distance to your stop, because that
-distance is what one unit of the instrument can lose. Entry 43,700 with a stop at 42,100 is
-1,600 of risk per unit, so $1,000 buys 0.625 units.
+The percentage can mean one of two things, and Settings → General → **"Quick trade: the
+risk percentage means"** chooses which.
 
-So arming a percentage puts the terminal into *stop needed*, and it will not place an order
-until you have set one. What you get in return is the calculation itself, spoken at the
-moment you need it:
+- **The position's value** (the default). 1% of a 100,000 account is a 1,000 position,
+  whatever the stop. This is how an exchange ticket behaves; the stop is purely protective,
+  and what you stand to lose depends on where you put it.
+- **What I lose if the stop is hit.** The "1% rule": 1,000 is the cash you are willing to
+  lose, and the quantity is that budget divided by the distance to the stop. Entry 43,700
+  with a stop at 42,100 is 1,600 of risk per unit, so 1,000 buys 0.625 BTC. A tight stop
+  makes this a large position, which is the half that surprises people.
 
-> *"Armed 1 percent. $1,000.00 at risk, stop 42,100, long 0.625 units, entry 43,700."*
+Either way the terminal will not place until you have set a stop, because without one the
+size is either a guess or a number you cannot check by ear. Arming speaks the budget and
+asks for the stop:
+
+> *"Armed 1 percent, $1,000.00 at risk. Move to the bar for your stop and press control alt
+> shift X. Escape cancels."*
+
+and setting the stop speaks the whole calculation, naming both the number you chose and the
+one that follows from it:
+
+> *"Long 0.625 BTC, entry 43,700, stop 42,100. Position value 27,312.50. If the stop is hit
+> you lose 1,000.00. Shift enter for a limit at the cursor, control enter for market. Escape
+> cancels."*
 
 That sum is what a sighted trader does in a position-size calculator before every trade. Not
-having to leave the chart to do it is the point of the feature.
+having to leave the chart to do it is the point of the feature. Quantities always carry the
+instrument's own unit — "0.625 BTC", never "0.625 units". If the position would cost more
+than the cash in the account you hear a caution, not a refusal, because margin accounts hold
+positions larger than their cash.
 
 #### The rest of the behaviour
 
 **Direction is inferred, never asked.** A stop below the current price can only be protecting
 a long; above it, a short. There is exactly one right answer, so the terminal does not ask.
 
-**You are told you are armed on every bar you move to** — *"Armed 1 percent, ready."* It is
-short because you hear it constantly, and unconditional because forgetting you are armed and
-then pressing Enter for some other reason is the one way this feature could cost you money.
+**You are told you are armed on every bar you move to** — *"Armed 1 percent, stop needed."*
+then *"Armed 1 percent, ready."* It is short because you hear it constantly, and
+unconditional because forgetting you are armed and then pressing Enter for some other reason
+is the one way this feature could cost you money. Placing says only *"Market buy sent."*; the
+fill that follows is the sentence that matters, and it is never talked over.
 
 **`Escape` always cancels**, and it reaches an armed trade before it reaches a half-placed
 drawing — the armed trade is the one with consequences.
@@ -1860,8 +2075,30 @@ straight to the Strategy manager.
 Three features sit between reading the chart yourself and acting on it: an AI analyst
 you can ask for a second opinion, an auto-narrator that watches a series and speaks
 up when something happens, and the Journal that quietly records everything the
-terminal has said so nothing scrolls past for good. All three chords use three
-modifiers and are the same on every head.
+terminal has said so nothing scrolls past for good.
+
+### What speaks when
+
+Everything the terminal says without being asked fits one table. Three questions decide
+each row: **N picks what may speak, the Narration tab picks when, and the scope you played
+picks which of them.** Where the words go — spoken here, or a system notification — is the
+subject of the Monitoring chapter, and it depends only on whether the event is about the
+chart in front of you.
+
+| Occasion | What is said | Switch |
+|---|---|---|
+| A bar closes on the focused chart | "Close … at …, {pattern}. New bar: Open …" then, in the same sentence, what your narrated series made of it — up to five clauses, a broken level first, then signals, crossings, tests, approaches, oscillator commentary, and a plain reading (volume) last | Narration → Announce new bars; Narrate signals on bar close; N on each series |
+| The forming bar changes shape | "hammer forming", "bullish engulfing forming"; a formation building, with its confirming level | Narrate candle patterns as they form (on); Narrate chart formations as they form (off); both need N on the candles |
+| Playback steps onto a bar | The date or hour as it changes; discrete signals on the series you played (two at most, rarest first); a line crossing one of its own levels; a formation resolving | Narrate during playback; Speak time landmarks during playback |
+| An alert fires | "{name}: crossed above {level}. Current value {value}." | The alert's own Delivery setting; ignores every narration switch |
+| Money moves | "Order filled…", "Stop loss hit…", "Order rejected for … {reason}" | None: through every mute, every snooze, every playback |
+| Something fails | "{Category}: {message}", after an error earcon | None |
+
+What never speaks unprompted, whatever you flag: a continuous line's value (that is what the
+tones are for), your drawings (they read when you arrow onto them), a comparison overlay, and
+the unbounded accumulators — OBV, A/D, Force Index, ATR, standard deviation — which have no
+threshold that means anything. All three chords in this chapter use three modifiers and are
+the same on every head.
 
 ### The AI technical analyst
 
@@ -1926,9 +2163,10 @@ Toggling it announces the new state, "Narrating" or "Narration off", so you alwa
 know whether it is listening. Hiding a series or a component (H), or muting it (M),
 takes it out of narration for as long as it is hidden or muted — on bar closes and in
 playback alike — without touching the N flag, so showing it again brings its narration
-straight back. `Ctrl+Alt+Shift+N` does the same thing and is the one to reach
-for when focus is somewhere other than the chart — it has three modifiers, which browsers do
-not reserve, so it works unchanged on the Linux web host.
+straight back. Flag a series with nothing to narrate and the terminal says so instead of
+promising: "{Series} has no signals to narrate. Press 0 to add a reference level and its
+crossings will speak." (The former Ctrl+Alt+Shift+N alias is gone; N is the switch, and it
+needs the chart focused.)
 
 **N follows your cursor, exactly like H and M.** With the cursor on a series it switches the
 whole series; with the cursor on a *component* — Ctrl+Up and Ctrl+Down move between them — it
@@ -2025,13 +2263,16 @@ decides whether any of them do, and turning it off is how you get an hour of qui
 un-flagging every indicator and having to remember what you had flagged. "Narrate during
 playback" decides whether those same flagged series speak while the chart is playing, covered
 back in the playback section — and what you hear there is scoped to what you *played*, so
-Shift+Space on one series narrates that series and nothing else on the chart.
+Shift+Space on one series narrates that series and nothing else on the chart. One edge worth
+knowing: switching the master back on can replay a signal up to twenty bars old, because a
+pivot takes that long to confirm; it is bounded, and a twenty-bar-old signal is usually still
+worth hearing.
 
 Auto-narration is one of a small family of "let the terminal keep you posted" features
 worth knowing together. The rolling **new-bar announcement** — the "Close … New bar …"
 you met when you first loaded a market — is the always-on heartbeat of the live candle,
 and you can turn it on or off under Settings (F12), Narration, with "Announce new bars". The
-**detailed point analysis**, Alt+Shift+D (Alt+Shift+D on the web host), is the
+**detailed point analysis**, Alt+Shift+D, is the
 on-demand deep read of whichever bar you are sitting on — candle values, patterns, every
 indicator, every signal, in one keystroke, covered back in the chart chapter. And the
 **context summary**, Shift+F1 for a quick "symbol, provider, timeframe" and Ctrl+Alt+Shift+C
@@ -2065,9 +2306,9 @@ terminal just told you, this is where you go to read it back at your own pace.
 Everything to do with money — placing orders, attaching protective exits, watching
 positions and fills, and reading the live order book — runs through the trading
 dashboard, which you open with Alt+T. Your screen reader announces it as "Trading
-Dashboard". It gathers four things in one place: the market you are trading and its
-environment, an order ticket, a five-level order book snapshot, and a row of account
-tabs — Balances, Positions, Orders, and History. This chapter assumes you already
+Dashboard". It gathers three things in one place: the market you are trading and its
+environment, an order ticket, and a row of account tabs — Positions, Balances, Orders,
+History, and Book. This chapter assumes you already
 know what market, limit, stop, and trailing orders are, and concentrates on how you
 express and hear those decisions here, and on what the terminal does and does not do
 on your behalf.
@@ -2076,13 +2317,14 @@ on your behalf.
 
 Before risking a cent, turn on **paper trading mode** and learn the whole workflow
 against simulated money. Open Settings with F12, and on the General tab tick "Paper
-trading mode"; the terminal confirms "Paper trading enabled" and a small paper
-indicator appears in the status bar (announced as "Paper trading enabled"). From
-then on, every order you place — on any chart, with any provider — is routed to a
-built-in simulator instead of a real exchange. Fills are driven by **real live
-prices**: a market order fills at the current price, and a stop, target, or trailing
-order fills the moment live price action actually crosses it. You start with a
-virtual balance, the account persists between sessions, and a "Reset paper account"
+trading" and press Save; the terminal confirms "Paper trading enabled" and a PAPER
+badge appears in the status bar (announced as "Paper trading enabled"). From then on,
+every order you place — on any chart, with any provider, even a data-only one — is
+routed to a built-in simulator instead of a real exchange. Fills are driven by **real
+live prices**: a market order fills at the current price, and a stop, target, or
+trailing order fills the moment live price action actually crosses it, less a
+simulated 0.04% taker fee. You start with 100,000 USDT, the account persists between
+sessions, and a "Reset paper account"
 button on the same settings tab wipes it back to the starting balance whenever you
 want a clean slate. **It asks you first.** The first press arms a confirmation and
 says what is at stake — the balance, every open position and working order, and the
@@ -2124,7 +2366,10 @@ named rather than accepted and quietly unwound later.
 **Leverage is still withheld.** The margin requirement is 1x — a dollar of collateral
 per dollar of exposure — so there is no borrowing beyond your own balance, and the
 leverage selector does not appear on the paper ticket at all. It returns when
-multi-x margin is properly modelled, and not before.
+multi-x margin is properly modelled, and not before. The **Cross / Isolated** margin
+choice is live in paper, though: an isolated short is liquidated against its own
+collateral, a cross short against the pooled collateral of every cross position plus
+free cash, so you can rehearse the difference.
 
 On the **hosted web terminal** (the logged-in, multi-user build) this choice is made
 for you: paper trading is **always on and cannot be switched off**, so pressing Alt+T
@@ -2147,18 +2392,33 @@ them. A stop you set in one tab still fills while you are working in another.
 
 ### Paper or live — check this first
 
-When you are not in paper mode, your environment follows whichever API key profile
-is active. A profile marked Paper points at the provider's own sandbox; a profile
-marked Live trades real, funded money. The dashboard shows the current environment
-in its market panel, and when you are on a live profile it puts an unmissable red
-banner across the top of the controls — "⚠ LIVE TRADING — Real funds at risk." —
-that stays on screen the whole time.
+When you are not in paper mode, your environment follows the API key profile you chose.
+The terminal names it in four places, because for a screen-reader user a red banner is
+not a warning:
 
-You can change accounts without leaving the dashboard: the "Switch API Key" dropdown
-lists your profiles as "{name} ({environment})", and selecting one announces
-"Switched to API key {name} ({environment})" and reloads that account's balances and
-positions. Build the habit of confirming this out loud before a session — it is the
-single most consequential setting on the screen.
+- **The status bar** carries a PAPER badge or a **LIVE** badge ("Live trading — real
+  money"). The live one exists because an absence is not a signal you can navigate to.
+- **The dashboard speaks the account when it opens**: "{Provider}: LIVE account
+  '{nickname}'. Orders here are real money." or "…paper account '{nickname}' — a practice
+  environment, no real money."
+- **The "API key for this order" dropdown** at the top of the dashboard is the choice of
+  record: the key you pick is the key that signs. Its options read "{nickname} — Live,
+  real money" or "{nickname} — Paper, practice environment", and changing it reloads that
+  account's balances and positions. Anything not explicitly marked Paper is treated as
+  live.
+- **The banner** across the ticket reads "⚠ LIVE TRADING — Real funds at risk (key:
+  {nickname})", for anyone looking.
+
+**A Paper key only means paper on a venue that has a practice environment.** Alpaca,
+Binance, Gemini, Oanda and Tradier do: a Paper profile there points at the sandbox or
+testnet. Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
+withdrawn on 2026-07-14), MEXC and Schwab have none, so a key marked Paper on those would
+sign against real money while everything on screen said paper. The terminal **refuses**
+such an order instead, at the one point every order passes through: "{provider} has no
+practice venue and the key '{nickname}' is marked Paper, so this order would be real.
+Mark that key Live to trade real money, or turn on Paper trading in Settings." Build the
+habit of confirming the environment out loud before a session — it is the single most
+consequential setting on the screen.
 
 ### Placing an order
 
@@ -2232,9 +2492,11 @@ terminal is honest about each:
 Your resting protective legs are visible: on Tradier and Schwab the Orders tab
 lists each leg of a bracket individually — entry, stop, and target, each with
 its real trigger price — so you can hear that your protection is in place.
-One further caution: there is no inline editor for a resting order's
-protective levels; to move a stop you cancel it on the Orders tab and place a
-new one. Set your exits deliberately at entry.
+To move a stop or target on an open position afterwards, use the inline editors on
+the Positions tab: each Stop loss and Take profit cell is a button that becomes a
+field; type the new level, press Enter, and it is checked against the current price
+before anything is sent. A resting order's own levels have no editor; cancel it on the
+Orders tab and place a new one.
 
 ### The live order review
 
@@ -2308,13 +2570,15 @@ Schwab you'll find it in the Orders/History tabs rather than hearing it named.
 
 ### Positions, orders, balances, and history
 
-The lower part of the dashboard carries four tabs — Balances, Positions, Orders, and
-History — and switching to one speaks its name and count, like "Positions, 2".
+The right-hand side of the dashboard carries five tabs — Positions, Balances, Orders,
+History, and Book — and switching to one speaks its name and count, like "Positions, 2".
 
-- **Positions** lists each open position with its quantity, average price, value,
-  unrealized profit or loss, leverage, and liquidation price, and gives each a
-  **Close** button that flattens it with an opposing market order — so exiting is now
-  a single action, announced as "Closing {symbol}. …".
+- **Positions** lists each open position as the instrument as held ("BTCUSDT isolated
+  1x"), its direction spelled out, the exchange, quantity, average price, value,
+  unrealized profit or loss, **stop loss** and **take profit** (each an inline editor),
+  and liquidation price. Two buttons close it, each named for its order type: **Close
+  position** flattens at market, **Close at limit** opens a price field first. A spot venue
+  with no positions says why the list is empty rather than showing nothing.
 - **Orders** lists your working, not-yet-filled orders — side, type, quantity, price,
   status — each with a Cancel button to pull a resting limit or protective stop.
 - **History** is your fill log, newest first: time, symbol, side, quantity, price,
@@ -2322,11 +2586,13 @@ History — and switching to one speaks its name and count, like "Positions, 2".
 - **Balances** shows, for every asset you hold: the **free** and **locked**
   quantities, what the holding is **worth** in the account's quote currency, its
   **share** of the account as a percentage, and the **day's change**. Above the table
-  a summary line gives the portfolio total. Before 2.3.0 this tab showed quantities
-  only, which told you what you held but never what it was worth. An asset whose price
-  cannot be fetched is shown as **unpriced** and the total says explicitly that it is
-  partial — a price that could not be read is never silently counted as zero. Money
-  locked as short collateral appears here under Locked (see paper trading, above).
+  a summary line gives the portfolio total. An asset whose price cannot be fetched is
+  shown as **unpriced** and the total says explicitly that it is partial — a price that
+  could not be read is never silently counted as zero. Money locked as short collateral
+  appears here under Locked (see paper trading, above).
+- **Book** is a five-level snapshot of the bids and asks with the spread, refreshed every
+  two seconds and read on demand by Tab; it never announces on its own. The full
+  twenty-level order book is Alt+B.
 
 ### Getting funds onto a venue: deposit addresses
 
@@ -2361,129 +2627,28 @@ money directly rather than through a trade, and it will not ship until it has be
 end to end against a live venue by a person. Until then no button renders, and the
 code refuses before any request could leave your machine.
 
-### Where each announcement goes — the one rule
+### Fills when you are not looking
 
-The terminal decides how to tell you something by asking one question: **can you see the
-chart it is about?**
-
-- **The chart in front of you** is spoken where it always was — in the browser, through your
-  screen reader, with its earcons. It is never turned into a system notification, because you
-  are already being told. Minimising the browser does not change this: the page is still there
-  and your screen reader still reads it.
-- **Anything else** arrives as a **system notification**. That means a bar closing on another
-  tab you have open, an alert or an order fill on a market with no tab open at all, and — once
-  the browser is closed — every terminal event there is. A notification is the only channel
-  that can reach you when the words have nowhere else to go.
-
-One switch governs the second bullet: Alt+J → **Delivery settings** → **Events you cannot
-see** → *"Send me a notification"*. **It is on by default.** Under it sits a **Shortest
-timeframe to announce** floor for bar closes, so a one-minute chart need not be a notification
-a minute; the floor covers the narration ladder too, and it never touches alerts or order
-fills, which are per-occurrence rather than per-bar.
-
-### Monitoring with the browser closed
-
-On your own machine (the local web host — not the hosted site), the terminal is a server that
-outlives the browser tab. Settings → General → **"Keep monitoring when the browser is closed"**
-puts that to work.
-
-**When you close the last tab, the terminal says so.** A notification arrives a few seconds
-later: *"The browser is closed. The terminal keeps running: alerts, order fills, bar closes and
-narration for your saved charts arrive here as notifications until a browser connects again."*
-A reload or a brief network drop does not trigger it, and three tabs closed together produce
-one notification, not three. If the master switch above is **off**, the same notification tells
-you that instead — that nothing is being watched, and which switch to turn on. A farewell that
-announces silence is more useful than no farewell.
-
-With it on, and with no browser connected, the terminal watches about once a minute and tells
-you about:
-
-- **Alerts.** Any alert that names a symbol and provider keeps evaluating. The watch list is
-  simply your alert list; there is nothing separate to configure. Alerts that read the chart
-  itself — indicator values, the volume-profile POC, trend and zone conditions, and advanced
-  condition trees — are evaluated too: the monitor rebuilds each watched chart's indicators
-  from your last saved session, and a POC alert reads the profile saved on that chart, so the
-  one alert it cannot watch is a POC alert on a chart with no profile — the terminal says so
-  when you create one. Alerts scoped to "the current chart" stay session-only, because there is
-  no symbol to fetch.
-- **Order fills, stops, take-profits, rejections, cancels and replacements**, on every venue
-  you have a stored key for with open work. The terminal reports these; it never places,
-  moves or cancels anything on its own.
-- **Bar closes** on your saved charts, above the timeframe floor.
-- **The narration ladder** — the same reading you get on a bar close in the browser, for the
-  series you have flagged with N.
-
-You hear each of these the way your machine is best able to present it: a notification where
-there is a notification daemon (MATE, GNOME and KDE all show one and Orca reads it; macOS
-Notification Center; the Windows Action Center), and direct speech only on a machine with no
-notification tool at all. One path for the words, never two — the notification **is** the
-announcement, so its body carries the whole sentence.
-
-The alert sound is replaceable — drop your own WAV at `sounds/alert.wav` in the app data
-folder. Pair the terminal with a systemd user service and it listens from login to shutdown.
-
-**Ctrl+Alt+Shift+M** speaks where things stand: which of the two monitoring switches is on,
-what is being watched, and — the clause that matters when you are about to walk away — whether
-anything will be watched once the browser is closed.
-
-**On the Windows app** there is no browser to close, so its equivalent is the window. Closing
-it with the X or Alt+F4 **minimises the terminal to the notification area** rather than
-quitting — that is the default — and a notification confirms it is still running. While it is
-hidden, every terminal event including the focused chart's own bar close arrives as a
-notification, because nothing is being read aloud on screen any more. Restore or Quit from the
-tray icon's menu (Shift+F10 on the icon). Settings → General → **Minimize to tray on exit**
-turns this off if you would rather the X really quit.
-
-### The system-tray applet
-
-On a local machine the terminal also puts an icon in your system tray (the
-notification area) — the control surface for that always-running server, so
-you can drive it without a browser open. Its accessible name carries the live
-unread-alert count ("Accessible Trade Terminal — 3 new alerts"), and its menu,
-which your screen reader navigates like any menu, has seven items:
-
-- **Restore workspaces to browser** — reopens the terminal in your browser; the
-  last session resumes itself.
-- **Show recent alerts** — speaks how many alerts are waiting and opens a plain,
-  navigable **Recent alerts** page where each alert has *Mark as read* and
-  *Dismiss* buttons (plus *Mark all read*). Alerts that fired while the browser
-  was open show up here too, not only the ones caught with it closed.
-- **Silence alerts and bar closes for 30 minutes** — quietens the desktop: alerts, bar
-  closes, the narration ladder and the monitor's own status reports. **Order fills, stops
-  and take-profits always come through** — money is the one thing a silence must not
-  swallow. The item then reads "Resume alerts and bar closes" with the minutes remaining,
-  so a second activation lifts it early. Alerts keep being evaluated throughout and still
-  reach your email, Telegram and webhooks; what is silenced is this desk, not the routing.
-- **Connection status** — speaks a quick summary: whether monitoring is on, how
-  many alerts are armed, and how many are unread.
-- **Copy terminal address** — copies the local URL to the clipboard, for opening
-  the terminal from another browser or device.
-- **Turn background monitoring on / off** — this is the **"Keep monitoring when the browser
-  is closed"** switch, the master switch of the browser-closed half, reachable without a
-  browser. It is *not* the "Keep watching other tabs" switch, which only means anything while
-  a browser is open.
-- **Exit terminal** — shuts the server down cleanly.
-
-This is a local-machine feature only; the hosted multi-user site never shows a
-tray. On Linux it uses the freedesktop StatusNotifier protocol (its menu is
-exposed to your screen reader over AT-SPI); on Windows it uses the standard
-notification-area icon; on macOS the WebHost provides the menu *actions* but not
-the icon itself — the native Mac desktop app is the right home for a Mac tray.
-If your desktop can't host a tray icon, the terminal simply runs without one —
-the background monitoring above still works either way.
+A fill, a stop or a take-profit on the chart in front of you is spoken there. On any other
+chart, or with the browser closed, the same sentence arrives as a system notification, and
+the tray's 30-minute silence never covers it. The chapter *Monitoring When You Are Not
+Looking* has the rule, the two monitoring switches, and the tray icon.
 
 ### OCO pairs: one cancels the other
 
-In paper mode the dashboard offers an **OCO pair** — two resting orders where
-whichever executes first cancels the other, announced like any cancel. A sell
-pair brackets an exit: a take-profit limit above and a protective stop below;
-a buy pair brackets a breakout: a stop above and a pullback limit below. The
-form is one side, one quantity, and the two prices, and it refuses an
-inverted layout out loud rather than resting a pair that would fill
-instantly. Cancelling either leg cancels both, and the pairing survives a
-restart. (Live exchanges will get OCO through their native order types later;
-until then the section only appears in paper mode, so a live account can
-never hold two secretly-unlinked orders.)
+The dashboard offers an **OCO pair** — two resting orders where whichever executes first
+cancels the other, announced like any cancel — whenever the venue the chart is reading
+can pair orders natively (Binance today) or you are in paper mode on such a venue. A
+sell pair brackets an exit: a take-profit limit above and a protective stop below; a buy
+pair brackets a breakout: a stop above and a pullback limit below. The form is one side,
+one quantity, and the two prices, and it refuses an inverted layout, or two legs at the
+same price, out loud rather than resting a pair that would fill instantly. On a live
+venue the pairing is held by the exchange ("OCO pair resting, linked by the exchange");
+in paper the simulator enforces it, and the pairing survives a restart. If the second
+leg fails to place, the first is cancelled and the cancel is verified — you are never
+told a pair is gone while one leg still rests. The panel does not appear on a venue that
+cannot pair, in paper mode or otherwise, so paper is always a rehearsal for something the
+venue can actually do.
 
 ### Reading the order book
 
@@ -2532,6 +2697,121 @@ cancelled for {symbol}") — no order leaves the book without you hearing it.
 
 ---
 
+## Risk Management
+
+The main objective is to preserve capital. A trader who keeps their account survives long
+enough for skill and luck to matter; a trader who loses it has no next trade. Everything in
+this chapter follows from that one sentence, and most of the terminal's trading features
+exist to serve it: paper trading, the stop-first quick trade, the risk/reward tool, the live
+review, the Journal. This chapter is not a course in trading. It is the handful of practices
+that keep one bad decision from becoming the last one, and where each of them lives in the
+terminal.
+
+### Decide what you can lose before you decide what you can make
+
+Every trade has a price at which you were wrong. Name it before you enter. That price is your
+**stop loss**, and the distance from your entry to it, multiplied by your position size, is
+the amount you are risking. Naming the stop first turns "I think this goes up" into "I think
+this goes up, and if it trades below 42,100 I was wrong and I am out for 160 dollars".
+
+The terminal enforces this in one place: the quick-trade keys refuse to place anything until
+you have set a stop with **Ctrl+Alt+Shift+X**, and the stop always travels with the entry.
+Nothing stops you typing a ticket in the dashboard with the stop field blank, but the
+protective-level validator will refuse a stop on the wrong side of price, because a stop
+above a long entry is not protection, it is an order to close the position on the next bar.
+
+### Size from risk, not from conviction
+
+The standard rule, and the one every position-sizing calculator implements, is to risk a
+small fixed fraction of the account on each trade: half a percent to two percent. On a
+100,000 account, one percent is 1,000. The position size follows from that budget and the
+stop distance:
+
+    quantity = risk budget ÷ (entry price − stop price)
+
+Entry 43,700, stop 42,100, budget 1,000 gives 0.625 units. A wider stop means a smaller
+position for the same risk; a tighter stop means a larger one, and that second half is the
+trap, because a stop three ticks away sizes a position many times the account. The quick
+trade's **Position value** mode (the default) avoids the trap by making the percentage the
+size of the position instead; its **What I lose if the stop is hit** mode is the rule above.
+Choose in Settings → General → "Quick trade: the risk percentage means", and listen to the
+summary either way: it speaks the position value and the loss at the stop, and the one you
+did not choose is the one that surprises people.
+
+The dashboard's **Size** button does the same arithmetic from the "Risk % of balance" field
+and the stop you typed, rounding down, from the cash in the destination account's quote
+currency and nothing else. A strategy's risk plan sizes the same way, half a percent by
+default.
+
+### Reward has to be worth the risk
+
+A trade that risks 1 to make 1 needs to be right more than half the time to pay for fees and
+slippage. A trade that risks 1 to make 3 can be wrong twice for every time it is right and
+still come out ahead. That ratio is what the **Risk/Reward tool** (Alt+Shift+P) measures:
+place the entry, the stop, then the target, and it says "Risk to reward, 1 to 3.00". If the
+number is poor, the answer is usually not a nearer stop, which just makes you wrong more
+often, but a different trade.
+
+Two of this project's own findings belong here, because they are easy to get backwards. Fixed
+targets and scale-outs tested badly in the Strategy Lab: returns are concentrated in a small
+number of large wins, and an exit rule that caps the right tail throws most of the return
+away. And pyramiding, adding to a winner on the way up, lost to simply taking the full
+position at entry on 47 instruments out of 47, because every add buys later at a worse
+price. If a bigger position is what pays, take it at entry where the price is best, and spend
+the risk budget on size rather than on a schedule.
+
+### Practise where the money is pretend
+
+Paper trading exists so that the whole workflow, the keys, the announcements, the feeling of
+a stop firing, is familiar before it costs anything. The simulator fills at real live prices,
+charges a fee, refuses what you cannot afford, models shorts with collateral and a
+liquidation price, and runs brackets, one-cancels-other pairs and trailing exits. Everything
+in the Trading chapter behaves identically in paper and live. The one thing it cannot teach
+is how you behave when the loss is real, so treat the first live trades as paper trades with
+a real balance: small, stopped, and reviewed afterwards.
+
+### Know which account you are on
+
+The most expensive mistake available in this terminal is placing a live order you thought was
+paper. The terminal names the environment in four places: the status bar badge (PAPER or
+LIVE), the spoken sentence when the dashboard opens ("LIVE account. Orders here are real
+money."), the "API key for this order" dropdown, and the live review before every real order.
+Any key not explicitly marked Paper is treated as live, and a key marked Paper on a venue that
+has no practice environment is refused rather than quietly routed to real money. Make
+confirming the environment the first thing you do in every trading session.
+
+### Leverage, correlation, and the warnings you will hear
+
+Leverage multiplies both directions and adds a **liquidation price**: the level at which the
+exchange closes the position for you. The live review compares that level with your stop and
+warns if the exchange would act first, and the terminal keeps warning, once per approach,
+while an open leveraged position drifts toward liquidation. Correlated positions are one bet:
+Bitcoin and Ether, gold and silver, SPY and QQQ. The review reminds you when an order stacks
+onto an open position in the same sector, against a budget of two percent per sector. Neither
+warning blocks the order. The terminal informs; you decide.
+
+### Write it down, and read it back
+
+The **Journal** (Ctrl+Alt+Shift+J) records every fill, every stop, every alert and every
+strategy setup with its rationale, and the **History** tab holds every fill with its price,
+profit or loss and fee. A losing streak reads differently on paper than it felt in the
+moment. The strategy library's **Evidence** column is the same habit applied to rules: a
+strategy that says Untested or Falsified is telling you what to expect.
+
+### What the research says about edges
+
+This project has tested a great deal of conventional technical analysis in its Strategy Lab,
+and most of it has come back null: random horizontal lines were respected as often as real
+swing levels, Fibonacci ratios did nothing across 355,000 tests, and swing structure used as
+an entry trigger did not beat buy-and-hold once the entry was placed where it could actually
+have been known. The indicators and formations in this terminal are still worth hearing,
+because they are how you build a picture of the chart. Whether acting on them makes money is
+a separate question, and one to answer with a control before it is answered with capital.
+Use the tools to understand where you are; get your edge somewhere you have tested; and keep
+the stop.
+
+---
+
 ## Automation
 
 Three features let the terminal watch and act so you do not have to stare at every
@@ -2556,18 +2836,9 @@ It opens as a second view of the same dialog, so Escape still closes one thing; 
 to alerts" returns you to the list, and to the button you left from.
 
 The same panel holds **Events you cannot see** — one switch, **on by default**, that governs
-every system notification the terminal sends: alerts, order fills, stops and take-profits, and
-bar closes, whether they come from another open tab or from the terminal running with the
-browser closed. What is happening on the chart in front of you is never part of it; that is
-spoken here as it always was. On the local web host the notification goes through
-`notify-send` to your desktop's notification daemon (MATE, GNOME and KDE all show it, and Orca
-can present it); on the Windows app it is a Windows toast that Narrator, NVDA and JAWS read;
-on a machine with no notification tool at all the same sentences are spoken aloud instead, and
-the panel says so. Beneath the switch sit **Also speak bar closes from other tabs** (off by
-default — it waits for the current sentence to finish rather than interrupting it) and
-**Shortest timeframe to announce**, the floor that keeps a one-minute chart from becoming a
-notification a minute. The hosted site has no desktop to reach and shows its
-browser-notification (Web Push) controls instead.
+every system notification the terminal sends, with the timeframe floor beneath it. The
+Monitoring chapter explains the rule those follow. The hosted site has no desktop to reach
+and shows its browser-notification (Web Push) controls instead.
 
 When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
@@ -2594,15 +2865,10 @@ neither runs. Email, Telegram and webhook delivery all still work, from your ope
 as does everything else in the Delivery settings panel.
 
 If you want alerts that keep working with the browser closed, that is the **local web
-host** on your own machine — see *Monitoring with the browser closed* above, which is a
-different and much more capable mechanism: it watches every kind of alert, not only price
-and candle patterns, plus order fills and bar closes.
-
-**A limitation worth knowing on the local web host.** While a browser is connected, the
-in-session pipeline owns the alerts it can actually see, and the background monitor takes
-the rest — so an alert on a symbol with no tab open is watched either way. What the
-background monitor does NOT do is act: it reports fills, stops and take-profits, and it
-never places, moves or cancels an order.
+host** on your own machine — see the chapter *Monitoring When You Are Not Looking*. While
+a browser is connected, the in-session pipeline owns the alerts it can see and the
+background monitor takes the rest, so an alert on a symbol with no tab open is watched
+either way; the monitor reports and never acts.
 
 For conditions a single rule can't express, switch on **Advanced condition** in
 the add-alert form. The same rule-tree builder the strategy composer uses
@@ -2698,60 +2964,13 @@ P&L, max drawdown, Sharpe ratio, and an expandable trade log of each entry, exit
 reason. Because the whole feature is experimental, read those numbers as a study of
 the rules, not a promise.
 
-### Background monitoring — watching every tab at once
+### Background monitoring
 
-Normally only the chart on screen is live: switch from your BTC tab to a gold tab and
-the BTC alerts and strategies go quiet until you switch back. **Background monitoring**
-lifts that limit. Turn it on in Settings (F12), under General, **"Keep watching other tabs"**
-(not to be confused with "Keep monitoring when the browser is closed" beneath it, which is
-the separate browser-closed half), and every *other* open tab keeps being watched while you
-work: its data is
-re-fetched on a polling cadence (every 30 seconds by default — adjustable in the same
-place, with a floor of 10), its indicators are recomputed, and its symbol-scoped
-alerts and running strategies are evaluated against the fresh bars. It is off by
-default, like every feature that spends your provider's request budget, and it is a
-desktop feature — the hosted web builds stay single-chart by design.
-
-On exchanges whose data feeds support it, you can go one better: **"Live-stream other tabs"**, in the same
-Settings section, keeps up to eight background tabs on real streaming data
-instead of the 30-second poll. Background alerts and strategies then evaluate on
-tick-fresh bars, and switching to a live background tab is instant — the chart
-binds its already-current data with no network fetch at all. On exchanges that
-cannot stream multiple charts at once, the poll quietly remains — nothing
-breaks, it is simply not as fresh.
-
-What you hear follows one simple rule: **events reach you from everywhere, the soundscape
-belongs to the focused chart.** A background tab's alerts and strategy setups reach you at
-full priority — Journal, and your email/Telegram/Discord deliveries all fire exactly as if
-that tab were on screen — and every announcement is prefixed with its symbol ("BTC/USD:
-crossed above 50,000") so you always know which market is talking. The channel, though, is
-chosen by which chart the news is about: a background tab's events arrive as **system
-notifications**, because the live region belongs to the tab in front of you and an
-interruption there is the loss of the sentence you were reading. A bar closing on a
-background tab also plays an earcon, and can speak as well if you turn on "Also speak bar
-closes from other tabs" (Alt+J, Delivery settings) — it waits for the current sentence to
-finish rather than cutting into it. Playback, navigation ticks and the sonification bed never
-mix across tabs; only the chart you are actually viewing is sonified.
-
-Two rules keep this honest. First, an alert or strategy is evaluated by exactly one
-side at a time: while its tab is focused, the normal live pipeline runs it; the moment
-you switch away, the background monitor takes over — never both, so nothing
-double-fires. (Alerts set to "any symbol" belong to the focused chart only, as
-always.) Second, background strategy signals are **announce-only**: even a strategy in
-Auto mode will speak its signal but never place an order from a background tab.
-Order placement stays something that happens on the chart in front of you.
-
-Press **Ctrl+Alt+Shift+M** any time for a status report: it names each watched tab,
-how fresh its data is ("current", or "last checked 4 minutes ago", or "data error"),
-and how many strategies are armed on it. Monitors start and stop themselves as you
-open, close, and switch tabs, and come back automatically when a saved workspace is
-restored — there is nothing to manage beyond the one setting.
-
-Each background tab costs one small history request per poll, and every request goes
-through the provider's own rate limiter — so many tabs can never blow a provider's
-request budget; at worst they queue behind each other and a tab's "last checked" age
-grows. If you monitor a great many tabs on one provider, lengthen the poll interval
-rather than racing the limiter.
+Alerts and strategies on tabs you are not looking at, and on charts with no browser open at
+all, are covered in the next chapter, *Monitoring When You Are Not Looking*. The short
+version: two switches in Settings → General, "Keep watching other tabs" and "Keep
+monitoring when the browser is closed", both off by default; background strategies announce
+and never place orders; Ctrl+Alt+Shift+M reports the status of both.
 
 ### Custom scripts
 
@@ -2925,6 +3144,151 @@ a screen reader, and per-trade CSVs are written for deeper review.
 
 ---
 
+## Monitoring When You Are Not Looking
+
+Normally the terminal watches the chart in front of you. Two settings extend that: one to the
+other tabs you have open, one to the time the browser is closed altogether. They are
+different switches for different situations, and this chapter covers both, plus the rule that
+decides how each announcement reaches you and the tray icon that drives the browser-closed
+half.
+
+### Where each announcement goes
+
+The terminal decides how to tell you something by asking one question: **is this about the
+chart in front of you?**
+
+- If it is, it is spoken where it always was: through your screen reader, with its earcons.
+  It is never also a system notification, because you are already being told. Minimising the
+  browser does not change this; the page is still loaded and your screen reader still reads
+  it.
+- If it is not, it arrives as a **system notification**: a bar closing on another tab, an
+  alert or a fill on a market with no tab open, and, once the browser is closed, every event
+  there is. A notification is the only channel that can reach you when the words have
+  nowhere else to go. It goes through your desktop's notification daemon on Linux (MATE, GNOME
+  and KDE all show it and Orca reads it), the Action Center on Windows, Notification Center on
+  macOS. On a machine with no notification tool at all, or when a notification is sent and
+  does not arrive, the same sentence is spoken aloud instead.
+
+One switch governs the second bullet: Alt+J → **Delivery settings** → **Events you cannot
+see** → "Send me a notification". **It is on by default.** Beneath it sit **Shortest timeframe
+to announce**, a floor so a one-minute chart does not become a notification a minute (it
+covers bar closes and the narration ladder, never alerts or fills), and **Also speak bar
+closes from other tabs**, off by default, which adds speech to the earcon a background tab's
+bar close already plays, waiting for the current sentence to finish.
+
+Three things ignore all of this. Errors and order outcomes come through every mute and every
+snooze. The soundscape never mixes across tabs: playback, navigation tones and the
+sonification bed belong to the focused chart only.
+
+### Keep watching other tabs
+
+By default only the chart on screen is live; switch from a Bitcoin tab to a gold tab and the
+Bitcoin alerts and strategies go quiet until you switch back. Settings (F12) → General →
+**"Keep watching other tabs"** lifts that. Every other open tab is then re-fetched on a
+polling cadence (every 30 seconds by default, adjustable, floor 10), its indicators
+recomputed, and its symbol-scoped alerts and running strategies evaluated on the fresh bars.
+**"Live-stream other tabs"** keeps up to eight background tabs on real streaming data instead
+of the poll where the exchange allows it. It is off by default because it spends your
+provider's request budget, and it is a desktop and local web host feature; the hosted site
+stays single-chart.
+
+What you hear follows the rule above: a background tab's alerts and setups reach you at full
+priority, as notifications prefixed with the symbol ("BTC/USD: crossed above 50,000"), and
+its email, Telegram and webhook deliveries fire as if the tab were on screen. Two rules keep
+it honest. An alert or strategy is evaluated by exactly one side at a time, the live pipeline
+while its tab is focused and the background monitor the moment you switch away, so nothing
+fires twice. And background strategy signals are **announce-only**: a strategy in Auto mode
+speaks its setup from a background tab but never places an order there. Its managed exits
+still run, because a stop that only works while its tab is on screen is worse than no stop.
+
+Order placement is not the same as order watching. A chart you have a position or a resting
+order on is watched whether or not this switch is on, across tabs, after the tab is closed,
+and after a restart: a stop fires and a fill announces wherever you are.
+
+### Keep monitoring when the browser is closed
+
+On your own machine, the local web host is a server that outlives the browser tab. Settings →
+General → **"Keep monitoring when the browser is closed"** puts that to work. It is off by
+default.
+
+**When you close the last tab, the terminal says so.** A notification arrives a few seconds
+later: "The browser is closed. The terminal keeps running: alerts, order fills, bar closes and
+narration for your saved charts arrive here as notifications until a browser connects again."
+If the switch is off, the same notification says that nothing is being watched and names the
+switch. A reload does not trigger it, and three tabs closed together produce one.
+
+With it on and no browser connected, the terminal checks about once a minute and tells you
+about:
+
+- **Alerts.** Every alert that names a symbol and provider keeps evaluating; the watch list is
+  your alert list. Indicator, point-of-control, trend, zone and condition-tree alerts are
+  evaluated too, on a real chart the monitor rebuilds from your last saved session. The two it
+  cannot watch are an alert scoped to "the current chart" (no symbol to fetch) and a POC alert
+  on a chart with no profile; the terminal says so when you create one.
+- **Order fills, stops, take-profits, rejections, cancels and replacements** on every venue
+  you hold a key for with open work. Reported, never acted on: the monitor places, moves and
+  cancels nothing.
+- **Bar closes** on your saved tabs (up to eight), above the timeframe floor.
+- **The narration ladder**, the same reading a bar close gets in the browser, for every series
+  you flagged with N, in the same sentence as the bar close and led by the symbol.
+
+Bar closes and the ladder follow your **saved tabs**; alerts follow your **alert list**. Close
+a tab and its bar closes stop being watched even if an alert on that symbol keeps firing.
+Strategies are not evaluated with the browser closed at all.
+
+If the monitor's own polling fails (a provider down, a bad key) it says so once, and again
+when it recovers. The alert sound is replaceable: drop your own WAV at `sounds/alert.wav` in
+the app-data folder. Pair the terminal with a systemd user service and it listens from login
+to shutdown.
+
+**Ctrl+Alt+Shift+M** speaks where things stand: which of the two switches is on, which tabs
+are watched and how fresh their data is, how many alerts and strategies are armed, and
+whether anything will be watched once the browser is closed.
+
+### The system tray icon
+
+On a local machine the terminal puts an icon in the system tray (the notification area). Its
+accessible name carries the unread alert count ("Accessible Trade Terminal — 3 new alerts")
+and its menu, which your screen reader navigates like any menu, has seven items:
+
+- **Restore workspaces to browser** reopens the terminal in your browser; the session resumes.
+- **Show recent alerts** speaks how many are waiting and opens a plain page where each alert
+  has Mark as read and Dismiss, plus Mark all read. Bar closes and narration that happened
+  while you were away are not filed here; the alerts are.
+- **Silence alerts and bar closes for 30 minutes** quietens alerts, bar closes, the ladder and
+  the monitor's own reports. **Order fills, stops and take-profits always come through.**
+  Alerts keep being evaluated and still reach your email, Telegram and webhooks. The item then
+  reads "Resume alerts and bar closes" with the minutes remaining.
+- **Connection status** speaks whether monitoring is on, how many alerts are armed and unread.
+- **Copy terminal address** copies the local URL for another browser or device.
+- **Turn background monitoring on / off** is the "Keep monitoring when the browser is closed"
+  switch, reachable without a browser. It is not the "Keep watching other tabs" switch.
+- **Exit terminal** shuts the server down.
+
+On Linux the tray uses the freedesktop StatusNotifier protocol and its menu is exposed to your
+screen reader; on Windows it is the standard notification-area icon; on macOS the web host
+provides the actions but no icon. If your desktop cannot host a tray icon the monitoring above
+still works.
+
+### The native apps
+
+The Windows app has no browser to close, so its equivalent is the window. Closing it with the
+X or Alt+F4 **minimises to the notification area by default** and a notification confirms the
+terminal is still running; from then on every event, including the focused chart's bar close,
+arrives as a notification because nothing is being read aloud on screen. Restore or Quit from
+the tray icon. Settings → General → **Minimize to tray on exit** turns this off. This path is
+built and tested in code but has not yet been run on a Windows machine.
+
+The native apps have **no headless monitor**: with the window open they watch the focused
+chart and, with "Keep watching other tabs" on, the other open tabs, and nothing else. An alert
+on a symbol with no tab open is watched by nobody on the Mac and mobile apps, and the Mac app
+has no tray and no minimise-to-tray. For browser-closed monitoring, run the local web host.
+
+The hosted website runs none of this: it is a paper-only terminal, its alerts evaluate only
+while your browser has it open, and it never shows a tray.
+
+---
+
 ## Customizing
 
 The terminal is meant to be shaped to how you work and what you can hear. This chapter
@@ -2934,9 +3298,11 @@ arranging and saving your charts.
 
 ### Settings
 
-Press F12 for the settings dialog. It has eight tabs — **General, Speech, Narration,
-Sonification, Appearance, Keyboard, License, About** — and Left and Right arrows
-move between them.
+Press F12 for the settings dialog. It has nine tabs on the desktop apps — **General,
+Speech, Narration, Sonification, Braille, Appearance, Keyboard, License, About** — and
+eight in a browser, where the Braille tab is absent because a Dot Pad connects to the
+machine running the terminal, never to the viewer's browser. Left and Right arrows move
+between them, and a **Search settings** box at the top jumps to any setting by name.
 
 **Save is what saves, and Escape is Cancel.** Every control in this dialog holds your change
 until you press Save; Save writes them all at once and says "Settings saved", and Cancel — or
@@ -2972,19 +3338,23 @@ to "narration" and "speech" in the settings search box.
 
 **Sonification** mirrors F3 and holds the sound theme, the sound-under-the-mouse option and
 the two **earcon families** described below.
-**General** is where you switch **paper trading mode** on and choose what the quick-trade
-risk percentage means, plus workspace, background-monitoring, braille, touch-bar, analysis,
-drawing and viewport preferences — and the **factory reset**, also below. **Appearance** is the theme — most relevant to a sighted
-collaborator looking over your shoulder — and the visual accommodations, plus the
-**visual profile** export/import. The **audio profile** export/import is on Sonification;
-each sits on the tab whose settings it writes.
+**General** is where you switch **paper trading** on and choose what the quick-trade
+risk percentage means, plus the session resume, the two background-monitoring switches,
+the tray behaviour on Windows, the touch toolbar, analysis (Market Structure on new charts
+and the two pattern switches), magnet snap, the panning step, a CSV export — and the
+**factory reset**, below. **Braille** enables the tactile display. **Appearance** is the
+theme — most relevant to a sighted collaborator looking over your shoulder — and the
+visual accommodations; it and Sonification each carry an Export/Import pair described
+under *Sharing your setup* below. **Keyboard** rebinds any command, and those rebinds save
+the moment you make them, the one exception to the Save rule.
 
 **Save and Cancel.** The dialog commits when you press **Save**, and only then. **Escape,
 the Cancel button and a click outside the dialog all discard** — that is the rule everywhere
 in the terminal now, and it was not always true here: until 2.6.0 this dialog had a single
 button reading *Close*, and closing is what saved. A few controls still take effect the
-moment you change them, and each of them says so as you do: the theme picker, interface
-scale, panning step, the paper-account reset, and the visual accommodations.
+moment you change them, and each of them says so as you do: the theme picker, text size and
+the visual accommodations (previewed, and put back on Cancel), the paper-account reset and
+the factory reset (commands, not edits), and keyboard rebinds.
 
 #### The two earcon families (Sonification tab)
 
@@ -3031,15 +3401,20 @@ the terminal afterwards so every part of it re-reads the defaults.
 
 #### The Narration tab
 
-Three switches, and the two new ones are both **on** to begin with. That is deliberate and it
-is not the terminal being chatty at you: neither switch lets anything new through on its own.
-Signal narration only ever speaks about series and components you flagged yourself with N, so
-on a chart where you have flagged nothing it has nothing to say; and playback narration is
-on because it is what the terminal already did. What is new is that you can now turn either
-of them **off**.
+"What the terminal says on its own, without you pressing anything." Six switches. Most are
+**on** to begin with, and that is not the terminal being chatty at you: none of them lets
+anything new through on its own. Signal narration only ever speaks about series and
+components you flagged yourself with N, so on a chart where you have flagged nothing it has
+nothing to say; and playback narration is on because it is what the terminal already did.
 
 - **Announce new bars** — the rolling "Close … New bar …" heartbeat of the live candle. It
-  moved here from the Speech tab; nothing about it changed.
+  also gates the two forming-bar switches below.
+- **Narrate candle patterns as they form** (on) — "hammer forming", spoken as the live bar
+  changes shape, debounced to one announcement per change. Needs "Describe candle patterns"
+  on General, and N on the candles.
+- **Narrate chart formations as they form** (off) — a double top or triangle while it is
+  still building, with the level that would confirm it, once per formation. Off because it
+  is a new occasion to speak.
 - **Narrate signals on bar close** — the master switch over auto-narration. N chooses *which*
   series and components speak; this decides whether any of them do. Turn it off for an hour of
   quiet without having to un-flag six indicators and then remember which six they were.
@@ -3127,7 +3502,7 @@ interface text throughout the terminal — browser zoom still works on top of it
 at the top of the whole dialog there is now a **Search settings** box: type a word
 like "speech", "theme", or "alerts" and matching settings are listed with the tab
 they live on; choose one and the dialog jumps there and focuses the control, so you
-never need to remember which of the eight tabs holds a setting.
+never need to remember which of the tabs holds a setting.
 
 Two further accommodations need no switch at all: if your operating system or browser
 is set to **reduce motion**, the terminal's animations and transitions are disabled
@@ -3245,6 +3620,37 @@ back where you left off, tabs, drawings, strategies and all. This covers the
 browser-refresh case on the web build too, which previously lost everything
 unsaved. If you prefer a blank start, turn off Settings > Workspace > "Resume
 last session at startup"; explicit named workspaces are untouched either way.
+
+### Sharing your setup
+
+Your settings are modular in one specific sense: each kind of thing lives in its own file in
+the app-data folder, so any of them can be copied to another machine or handed to another
+trader without the rest. The folder is `~/.local/share/AccessibleTrader/` on Linux and macOS
+and `%LOCALAPPDATA%\AccessibleTrader\` on Windows. The pieces:
+
+| What | Where it lives | Share it by |
+|---|---|---|
+| Themes | `themes.json` | Appearance → Edit theme → **Copy theme text**, and **Paste a theme** on the other side |
+| Sound patches and wavetables | `patches.json` | Sound designer (Alt+W) → **Export JSON** / **Import Patch JSON** |
+| Earcon assignments | `earcon-settings.json` | copying the file |
+| Strategies | `strategies.json` | Strategy manager → **Export .atstrat** / **Import strategies** (a `.json` file or pasted text) |
+| Custom scripts | script library | Custom scripts (Alt+,) → **Export .atpkg** / **Import** |
+| Workspaces | `Workspaces/<name>.json` | copying the file |
+| Keyboard rebinds | `shortcuts.json` | copying the file |
+| Watchlists and screens | `watchlists.json`, `screeners.json` | copying the files |
+| Indicator defaults ("Save as Defaults") | `IndicatorPreferences/<CODE>.json` | copying the files |
+| Everything on the Settings tabs | `settings.json` | copying the file |
+| API keys | the operating system's encrypted store | never as a file; re-enter them |
+
+Two buttons look like whole-tab exports and are narrower than that. **Export Visual** on the
+Appearance tab and **Export Audio** on the Sonification tab save the colours and line styles,
+or the sound patches and volumes, of the indicators on the **current chart**, matched by
+indicator and component name when imported onto a chart that carries the same indicators.
+They do not carry the theme, the text size, the accommodations, the sound theme or the
+earcon families; those are in `themes.json` and `settings.json`.
+
+A factory reset (General tab) clears everything in the table except your API keys, your paper
+account and its history, and your saved workspaces, and says so before it does.
 
 ---
 
@@ -3415,8 +3821,14 @@ not a substitute for a course in the markets themselves.
 **Anchored VWAP.** A VWAP (see *VWAP*) calculated forward from one bar you choose, rather
 than from the start of the session.
 
+**ADX.** Average Directional Index — trend strength without direction, 0 to 100. Below 20
+no trend, above 25 a strong one, above 50 very strong; the terminal names those bands.
+
 **Ask.** The lowest price a seller is currently willing to accept. The counterpart to the
 *bid*; the gap between them is the *spread*.
+
+**ATR.** Average True Range — the average size of a bar in price units, the natural ruler for
+stops and targets because it adapts to each instrument's volatility.
 
 **Bar / Candle.** One unit of the chart, summarising price over one *timeframe* by its
 open, high, low, and close (see *OHLC*). "Candle" refers to the common visual form of a
@@ -3424,6 +3836,12 @@ bar.
 
 **Bid.** The highest price a buyer is currently willing to pay. The counterpart to the
 *ask*.
+
+**Bollinger Bands.** A moving average with a band two standard deviations above and below it;
+the bands pinch when the market is quiet and widen when it is not.
+
+**Component.** One line or marker a series draws, with a value on every bar (an EMA) or on the
+bars it fired (a buy dot). Up and Down move between the components of a series.
 
 **Bracket / OCO.** A pair of protective orders attached to a position — a *stop-loss* and
 a *take-profit* — where filling one cancels the other ("one cancels the other").
@@ -3455,6 +3873,11 @@ playback, hear — where trading was most active.
 **Heikin-Ashi.** A smoothed candlestick formula that averages price to reduce noise and
 make trends easier to follow.
 
+**Level (reference level).** A constant drawn across a pane — RSI's 70, MACD's zero, ADX's
+25 — with a value, a meaning (overbought, oversold, neutral, or a named band) and an owner (the
+indicator's, or yours from the 0 key). Heard as a ping, a chirp and a low tone as a value
+approaches, crosses and stays beyond it.
+
 **Hybrid Voice.** This terminal's core model: your screen reader speaks exact values
 while the built-in engine sonifies the shape of the market, the two heard together.
 
@@ -3474,6 +3897,9 @@ useful over long histories where price has changed by large multiples.
 **Long / Short.** A long position profits when price rises; a short position profits when
 price falls. In hedge mode an account can hold both sides at once — the *position side*.
 
+**MACD.** Moving Average Convergence Divergence — the gap between a fast and a slow EMA, drawn
+as a line about zero, a smoothed signal line, and a histogram of the difference.
+
 **Market order.** An order to buy or sell immediately at the best available price
 (compare *limit order*).
 
@@ -3489,6 +3915,9 @@ measuring momentum or the speed of price change rather than price itself.
 **Overbought / Oversold.** Zones at the extremes of an oscillator suggesting price may
 have risen (overbought) or fallen (oversold) faster than is sustainable. Not by
 themselves a signal to act.
+
+**Pane.** One Y axis, with its own scale and its own share of the chart's height; the chart is
+a stack of them sharing one time axis. Price, volume, and each oscillator get their own.
 
 **Paper trading.** A simulated mode that fills orders against the live price with
 imaginary money, so you can rehearse the whole workflow without risk.
@@ -3509,6 +3938,16 @@ immediately.
 **Reduce-only.** An order flag that can only shrink or close an existing position, never
 open or enlarge one — a guard against accidentally flipping direction.
 
+**Reward-to-risk ratio.** The distance from entry to target divided by the distance from
+entry to stop — "1 to 3" means the target pays three times what the stop costs. The
+Risk/Reward tool measures it.
+
+**Risk per trade.** The share of the account you are willing to lose if the stop is hit,
+usually half a percent to two percent; position size follows from it and the stop distance.
+
+**RSI.** Relative Strength Index — recent gains against recent losses on a 0 to 100 scale,
+70 and 30 conventionally overbought and oversold, 50 neutral.
+
 **Sonification.** Turning data into non-speech sound — here, mapping price and indicator
 values to pitch, timbre, and stereo position so you can hear the chart's shape.
 
@@ -3517,6 +3956,12 @@ more layered oscillators plus noise and an envelope — that can be assigned to 
 earcon or to an indicator component. Editing a patch updates everything using it.
 
 **Spread.** The gap between the best *bid* and the best *ask*.
+
+**Stochastic.** Where the close sits inside the recent range, 0 to 100, with 80 and 20 as its
+lines; a momentum oscillator like RSI.
+
+**Strip.** A band inside a pane with its own axis — Cipher B's money-flow histogram — walked
+with Ctrl+Up and Ctrl+Down across every series drawn in it.
 
 **Stop-loss.** A protective order that closes a position once price reaches a level
 working against you, capping the loss.
@@ -3550,5 +3995,13 @@ roughly 70% of traded volume.
 **VWAP.** Volume-Weighted Average Price — the average price over a span weighted by volume
 at each level, used as a fair-value reference (see also *Anchored VWAP*).
 
+**Warm-up.** The leading bars on which an indicator has no value yet, because its period has
+not filled — fourteen bars for a fourteen-period RSI. They are silent, not zero.
+
 **Volume profile.** A view of how much volume traded at each price level (rather than over
 time), highlighting the *Point of Control* and *Value Area*.
+
+**Zone.** A region rather than a line: the shaded overbought band behind an oscillator
+(visual only), a support or resistance zone line carried forward from a turning point
+(spoken as broken, tested, approached), or a Value Deviation zone where price turned back
+toward value.

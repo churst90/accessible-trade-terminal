@@ -1,0 +1,57 @@
+---
+title: The background monitor — from your last tab closing to the notification
+---
+%% Verified against the tree on 2026-09-13.
+%% Local WebHost only (HostMode.Full). The MAUI heads have no headless monitor: they watch
+%% the focused chart and, with "Keep watching other tabs" on, the other open tabs — nothing else.
+%% The hosted site never runs this: DemoPolicy.AllowBackgroundAlerts is Full-only.
+sequenceDiagram
+    autonumber
+    actor U as Trader
+    participant B as Browser tab
+    participant P as BrowserPresence<br/>counts connections, 15 s grace
+    participant F as BrowserFarewellService
+    participant M as LocalBackgroundMonitor<br/>one poll a minute
+    participant S as HeadlessSession<br/>one DI scope for the process
+    participant H as HeadlessChart<br/>a real chart per saved tab, max 8
+    participant A as AlertEvaluator
+    participant O as HeadlessOrderWatch
+    participant N as IDesktopNotifier
+    participant T as Tray applet
+
+    Note over M,H: While a browser is open the monitor still observes every saved chart,<br/>so the seed is warm the moment the browser goes.
+
+    U->>B: closes the last tab (or the browser crashes, or the cable is pulled)
+    B-->>P: connection count 1 → 0
+    P->>F: debounced edge — a reload or a blip never fires this
+    alt "Keep monitoring when the browser is closed" is ON
+        F->>N: "The browser is closed. The terminal keeps running: alerts, order fills,<br/>bar closes and narration for your saved charts arrive here as notifications<br/>until a browser connects again."
+    else it is OFF
+        F->>N: "…the terminal is still running, but it is not watching anything.<br/>Turn on 'Keep monitoring when the browser is closed' in Settings, General."
+    end
+
+    loop every 60 seconds (settings re-read each pass, no restart needed)
+        M->>S: RefreshSettings — monitoring.backgroundLocal, the timeframe floor, the snooze
+        M->>H: fetch the last 3 bars per saved tab, merge into the buffer (never a fresh window)
+        H->>H: recompute every series through the store-free indicator engine
+        H->>A: evaluate every alert with an explicit symbol and provider<br/>(indicator, POC, trend, zone and condition-tree alerts included)
+        H->>H: NarrationScanner — the same ladder the browser runs, for series flagged with N
+        M->>O: HasOpenWork on every venue with a stored key
+        O->>O: fills, partial fills, stops, take-profits, rejections, cancels, replacements, expiries
+        alt something to say
+            M->>N: bar close + ladder as ONE sentence, led by "SYMBOL TF:"
+            A->>N: "Alert: {name}"
+            O->>N: the order outcome — pierces the snooze
+        else the poll failed
+            M->>N: says so ONCE, and again when it recovers
+        end
+    end
+
+    U->>T: Shift+F10 on the tray icon
+    T-->>U: Restore workspaces · Show recent alerts · Silence 30 min ·<br/>Connection status · Copy address · Turn monitoring on/off · Exit
+
+    U->>B: opens the terminal again
+    B-->>P: connection count 0 → 1 (after the grace period, delivery returns to the browser)
+    Note over P,H: No greeting and no catch-up: the tray's Recent alerts page holds the alerts.<br/>Bar closes and ladders that happened while you were away are not filed.
+
+    Note over M,O: The monitor REPORTS. It never places, moves or cancels an order,<br/>and strategies are not evaluated headless at all.

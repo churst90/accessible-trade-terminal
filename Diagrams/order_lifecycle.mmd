@@ -1,7 +1,7 @@
 ---
 title: Order lifecycle — from an intent to a spoken fill
 ---
-%% Verified against the tree on 2026-08-28.
+%% Verified against the tree on 2026-09-13.
 %% Every exit from GeneralOrderService.PlaceOrderAsync goes through OrderPlacement.Parse,
 %% including the sentinels the method invents itself — so the code that PRODUCES a sentinel
 %% and the code that RECOGNISES one cannot drift apart. That drift was the original defect.
@@ -12,8 +12,13 @@ flowchart TD
         STRAT["StrategyEngine — desktop only"]
     end
 
+    REVIEW{"Live profile and paper mode off?"}
+    DASH --> REVIEW
+    REVIEW -->|paper| GOS
+    REVIEW -->|live| SPOKEN["The live order review — a spoken one-line summary<br/>(side, size, type, stop, target, cost, fee) and an explicit Confirm.<br/>If the ticket or the provider changes after the review,<br/>Confirm re-arms: 'Ticket changed since the review. Nothing was sent.'"]
+    SPOKEN -->|Confirm| GOS
     GOS["GeneralOrderService.PlaceOrderAsync(provider, TradeSignal)"]
-    DASH & QUICK & STRAT --> GOS
+    QUICK & STRAT --> GOS
 
     VAL["ProtectiveLevelValidator — a stop or target on the wrong side of price<br/>is refused as it is TYPED, in the dashboard and in the paper broker.<br/>It is not part of the GeneralOrderService chain below."]
     DASH -.-> VAL
@@ -22,15 +27,16 @@ flowchart TD
         G1["1. Sanity clamps — quantity finite, positive, within range;<br/>limit-style orders need a finite positive price.<br/>A strategy bug emitting 1e308 must never reach a venue."]
         G2["2. Idempotency — mint a ClientOid if the caller gave none"]
         G3["3. Dedup gate — a second submit of the same order identity<br/>inside the window is a probable double-fire<br/>(screen-reader double-Enter, post-flap retry) and is refused"]
-        G1 --> G2 --> G3
+        G4["4. Credential checkout — IApiKeyCheckout reads the ACTIVE profile;<br/>a Paper key on a live-only venue is refused out loud,<br/>and paper mode is re-read at submit, never cached"]
+        G1 --> G2 --> G3 --> G4
     end
     GOS --> GUARDS
 
     ROUTE{"Which broker?"}
-    G3 --> ROUTE
+    G4 --> ROUTE
     ROUTE -->|paper| PAPER["PaperTradingProvider + PaperAccountHub<br/>isolated and cross margin, liquidation modelled<br/>(also calls ProtectiveLevelValidator on stop entry)"]
     VAL -.-> PAPER
-    ROUTE -->|live, desktop only| PROV["Trading provider plugin — signs and sends"]
+    ROUTE -->|live, desktop only| PROV["Trading provider plugin — signs and sends.<br/>Every plugin is held to the provider conformance suite:<br/>a close-position order is reduce-only and can never open the opposite side"]
 
     RESULT["OrderPlacement — one typed record"]
     PAPER --> RESULT
@@ -62,6 +68,9 @@ flowchart TD
     FILL --> SPCH & EAR & JRN
     O2 --> SPCH
     O3 --> SPCH
+
+    HEADLESS["Browser closed or the fill is on another chart:<br/>HeadlessOrderWatch to HeadlessOrderAnnouncer to IDesktopNotifier —<br/>the same sentence as a system notification. Reported, never acted on."]
+    FILL --> HEADLESS --> JRN
 
     NOTE["The whole point of the typed record: a refusal, an uncertainty and a fill<br/>are three different things a trader must be able to tell apart by ear.<br/>Before OrderPlacement, three separate classifiers disagreed about which was which."]
     RESULT --- NOTE

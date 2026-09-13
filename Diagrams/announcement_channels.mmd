@@ -1,0 +1,54 @@
+---
+title: Where an announcement goes — spoken here, or a notification
+---
+%% Verified against the tree on 2026-09-13.
+%% The rule (NotificationPolicy.cs): the CHANNEL IS DECIDED BY THE EVENT'S SUBJECT.
+%% The chart in front of the trader is spoken; everything else is a system notification.
+flowchart TD
+    subgraph SRC["Something happened"]
+        BAR["A bar closed<br/>NewBarEvent · BackgroundBarAnnouncer · HeadlessChart"]
+        LADDER["The narration ladder ran<br/>NarrationScanner → ScanUtterance (one sentence, five clauses at most)"]
+        ALERT["An alert fired<br/>AlertOrchestrator · AlertEvaluator"]
+        FILL["Money moved — fill, stop, take-profit, rejection, cancel<br/>TradingReconciliationCoordinator · HeadlessOrderWatch"]
+        SETUP["A strategy setup armed<br/>SetupSonifier — always prefixed with its symbol"]
+    end
+
+    Q1{"NotificationPolicy.IsOnScreen<br/>Is the event's SYMBOL the chart in front of the trader?<br/>(symbol only — timeframe and venue are ignored)"}
+    BAR & LADDER & ALERT & FILL & SETUP --> Q1
+
+    Q2{"IUserPresence.IsAppVisible<br/>Is anything being read aloud?<br/>A minimised browser still counts as visible.<br/>A MAUI window hidden to the tray does not."}
+    Q1 -->|yes| Q2
+
+    subgraph SPOKEN["Spoken here — never also a notification"]
+        AFC["AccessibilityFeedbackCoordinator → SpeechFeedbackRouter"]
+        CH["SpeechChannel<br/>Manual — muted by F2 · Event — muted by Shift+F2<br/>OrderEvent — breaks both mutes · Critical — never muted"]
+        LIVE["ARIA live region in MainLayout (the ONE announcing channel)<br/>or the server-side voice: Orca over D-Bus, spd-say"]
+        AFC --> CH --> LIVE
+    end
+    Q2 -->|yes| AFC
+
+    Q3{"Events you cannot see → Send me a notification<br/>SettingsKeys.NotifyUnseenEvents — ON by default"}
+    Q1 -->|no: another tab, no tab, or no browser| Q3
+    Q2 -->|no: hidden to the tray| Q3
+
+    FLOOR{"Bar closes and the ladder only:<br/>is the chart's timeframe at or above the<br/>Shortest timeframe to announce floor?"}
+    Q3 -->|on| FLOOR
+    Q3 -->|off| DROP["Stays quiet.<br/>Alerts still reach email, Telegram and webhooks; the Journal still records it."]
+
+    subgraph TOAST["A system notification — the notification IS the announcement"]
+        DNS["DesktopNotificationService → IDesktopNotifier"]
+        OS["DesktopDeliveryPlan<br/>Linux: notify-send, then Orca / spd-say if it did not land<br/>Windows: toast (Action Center)<br/>macOS: terminal-notifier or osascript"]
+        DNS --> OS
+    end
+    FLOOR -->|yes, or not a bar close| DNS
+    FLOOR -->|below the floor| DROP
+
+    SNOOZE["Tray: Silence alerts and bar closes for 30 minutes<br/>gates alerts, bar closes, the ladder and the monitor's own reports —<br/>ORDER EVENTS ALWAYS COME THROUGH"]
+    DNS --- SNOOZE
+
+    JRN["JournalService — every sentence, whichever way it went (Ctrl+Alt+Shift+J)"]
+    LIVE --> JRN
+    OS --> JRN
+
+    NOTE["Two things ignore every switch on this page:<br/>errors, and your order outcomes. Missing a stop firing costs real money."]
+    FILL --- NOTE

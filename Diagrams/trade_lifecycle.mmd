@@ -1,0 +1,55 @@
+---
+title: A trade from start to finish — paper or live
+---
+%% Verified against the tree on 2026-09-13. The user-level companion to order_lifecycle.mmd.
+flowchart TD
+    subgraph WHERE["Where the order starts"]
+        DASH["Trading dashboard — Alt+T<br/>BUY / SELL · Quantity · Type · Stop Loss · Take Profit · trailing exits"]
+        QUICK["Quick trade from the chart — QuickTradeService<br/>Ctrl+Alt+Shift+X stop first · Ctrl+Alt+Shift+1 / 2 / 3 arm 0.5 / 1 / 2 % risk<br/>Shift+Enter limit at the cursor bar · Ctrl+Enter at market"]
+        STRATL["A running strategy in Auto mode — desktop only,<br/>and only on the chart in front of you"]
+    end
+
+    SIZE["Size from risk, never from a guess:<br/>risk budget ÷ (entry − stop) = quantity<br/>'Armed 1 percent. $1,000.00 at risk, stop 42,100, long 0.625 units, entry 43,700.'"]
+    QUICK --> SIZE
+    DASH -->|Size button: Risk % of balance + stop| SIZE
+
+    VAL["ProtectiveLevelValidator — a stop or target on the wrong side of price<br/>is refused as it is typed"]
+    DASH --> VAL
+
+    ENV{"Paper trading on (Settings → General),<br/>or the active API key profile is Paper?"}
+    VAL & SIZE & STRATL --> ENV
+
+    subgraph PAPER["Paper — PaperTradingProvider + PaperAccountHub"]
+        PF["Fills against REAL live prices · one account across every tab ·<br/>shorts at 1x with collateral · brackets, OCO, trailing exits simulated ·<br/>refuses what you cannot afford, and says by how much"]
+    end
+    ENV -->|paper| PF
+
+    subgraph LIVE["Live — real funds"]
+        BANNER["⚠ LIVE TRADING — Real funds at risk (always on screen)"]
+        REVIEW["The live order review — spoken, then Confirm or Cancel<br/>'Confirm: buy 0.5 BTC/USD, market. Stop 42,100. Target 43,400.<br/>Estimated cost …, fee …. Confirm or cancel.'<br/>+ warn-only checks: liquidation distance vs your stop, correlated sector exposure<br/>Change the ticket after the review and Confirm re-arms: nothing was sent."]
+        KEY["IApiKeyCheckout — the ACTIVE profile is what signs.<br/>A Paper key on a live-only venue refuses out loud."]
+        PROV["Trading provider plugin — held to the conformance suite:<br/>close-position orders are reduce-only and cannot open the opposite side"]
+        BANNER --> REVIEW --> KEY --> PROV
+    end
+    ENV -->|live| BANNER
+
+    GOS["GeneralOrderService — sanity clamps, ClientOid, 30 s double-submit gate<br/>→ one typed OrderPlacement: Placed / Rejected / Uncertain"]
+    PF --> GOS
+    PROV --> GOS
+
+    PROTECT["The stop travels WITH the entry.<br/>Native brackets where the venue has them (Alpaca, Tradier, Schwab, Binance);<br/>Kraken attaches ONE leg — the stop wins over the target, and you are told;<br/>elsewhere the terminal verifies ~2 s later and warns if no protection landed."]
+    GOS --> PROTECT
+
+    subgraph HEAR["What you hear — OrderEvent channel, through every mute"]
+        H1["'Order placed. Buy 0.5 BTC/USD, market.'"]
+        H2["'Order filled. Bought 0.5 BTC/USD at 42,500.'"]
+        H3["'Stop loss hit. Sold 0.5 BTC/USD at 42,180. Loss 160.00.'<br/>'Take profit hit … Profit 380.00.' · 'Trailing stop hit …'"]
+        H4["'Order rejected for BTC/USD.' + THE REASON"]
+        H5["Browser closed or another chart: the same sentence as a notification<br/>(HeadlessOrderWatch → IDesktopNotifier)"]
+    end
+    PROTECT --> H1 --> H2 --> H3
+    GOS --> H4
+    H2 --> H5
+
+    AFTER["Positions tab: Close flattens with one press · Orders tab: Cancel a resting leg ·<br/>History: every fill with price, P&L, fee · Journal: every sentence, re-readable ·<br/>On reconnect: 'While you were away on Kraken: BTC/USD position closed …'"]
+    H3 --> AFTER

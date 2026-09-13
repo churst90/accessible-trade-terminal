@@ -310,15 +310,20 @@
                                        @onchange="e => _bgLocalMonitor = e.Value is bool b && b" />
                             </div>
                             @* The dependency is said here because this is where a user looks when
-                               "the browser is closed and I hear nothing": bar closes, unlike alerts
-                               and fills, are also behind their own category switch on the Alerts
-                               dialog (Alt+J), which defaults off. Cody, 2026-09-11: three tabs, a
-                               1-minute chart, browser closed, silence — the switch was off. *@
+                               "the browser is closed and I hear nothing". The three per-category
+                               switches that used to gate this (and defaulted OFF — Cody, 2026-09-11:
+                               three tabs, a 1-minute chart, browser closed, silence) are gone; one
+                               "Send me a notification" switch under "Events you cannot see" in the
+                               Alerts dialog governs every notification and defaults ON. The
+                               timeframe floor beside it is the remaining reason a bar close can be
+                               quiet, so it is the one named here. *@
                             <p style="margin:6px 0 0; color:var(--text-muted); font-size:0.9em;">
                                 Alerts, order fills and bar closes keep being announced on this
                                 machine with no browser open: as a desktop notification your
-                                screen reader reads, with a sound. Bar closes also need "New bars
-                                on any open chart" turned on under Alerts (Alt+J). Indicators you
+                                screen reader reads, with a sound. Every notification is governed
+                                by "Send me a notification" under Alerts (Alt+J), Delivery
+                                settings, which is on by default; the "Shortest timeframe to
+                                announce" floor beside it can quieten fast charts. Indicators you
                                 flagged with N keep narrating at each bar close too, under the
                                 Narration tab's master switch. Nothing is ever placed or cancelled
                                 for you.

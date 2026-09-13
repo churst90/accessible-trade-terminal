@@ -1,0 +1,59 @@
+---
+title: Chart layout — panes, axes, series, components, levels and zones
+---
+%% Verified against the tree on 2026-09-13.
+%% This is the structure a user walks with the arrow keys. Every node is a real type or key.
+%% The one rule it draws: A PANE IS A Y AXIS (ChartPaneModel.cs). Everything else follows from it.
+flowchart TD
+    X["X axis — time, shared by every pane<br/>ViewportStartIndex + ViewportLength = the window<br/>CurrentDataIndex = the cursor bar<br/>Left / Right, Home / End, Backslash, [ ], - ="]
+
+    subgraph STACK["The chart — a stack of panes, top to bottom (ChartPaneModel.Panes)"]
+        direction TB
+        subgraph MAIN["Main pane — Y axis is PRICE (ChartPaneModel.MainPaneKey)"]
+            CANDLES["Candles series<br/>components: body, upper wick, lower wick"]
+            PRICE["Price (close line) — always the RAW close"]
+            OVER["Overlays declared DefaultPane = Main<br/>EMA · SMA · VWAP · Bollinger · Keltner · Ichimoku · Cipher SR …<br/>they share the axis because they are measured in price"]
+            PROF["Profiles and the heatmap overlay Main<br/>VPVR · VPFR · TPO · Heatmap — Up / Down walk price BINS"]
+            LVLP["Your own level — 0 at the price under the cursor"]
+        end
+        subgraph VOL["Volume pane — Y axis is VOLUME (PaneAssignmentService.VolumePane)"]
+            VOLS["Volume bars — shared by every volume-family indicator"]
+        end
+        subgraph OSC["One pane PER oscillator — Pane_{Code} (PaneAssignmentService.OwnPaneKey)"]
+            RSI["RSI pane — declared RangeMin 0, RangeMax 100:<br/>the axis never shrinks to the visible values,<br/>so RSI 70 is the same note at every zoom"]
+            MACD["MACD pane — unbounded: auto-fit to the visible values, ±10% buffer"]
+            CB["Cipher B pane — three levels of structure:<br/>pane → series → components, with a money-flow STRIP<br/>(ComponentConfig.SubPaneName) that has its own axis"]
+        end
+        MAIN --> VOL --> OSC
+    end
+    X --- STACK
+
+    subgraph INSIDE["Inside a series"]
+        COMP["COMPONENT — a value on every bar<br/>ComponentConfig · ComponentDisplayType (append-only enum)<br/>Line · Histogram · Oscillator · Dot · Arrow · Cloud …<br/>Up / Down walk them; Ctrl+Up / Ctrl+Down walk the strip across series"]
+        LEVEL["LEVEL — a CONSTANT with a value, a meaning and an owner<br/>LevelConfig: Value · LevelRole (Neutral / Overbought / Oversold) ·<br/>AboveLabel / BelowLabel band names (ADX 25 = strong trend) ·<br/>IsUserDefined (yours, removable) vs declared (the indicator's, restorable)<br/>Crossings sound, narrate, and are Ctrl+Left / Ctrl+Right targets — unless hidden"]
+        ZONE["ZONE — a region, not a line<br/>ZoneBandConfig: a shaded band (visual only, never navigated)<br/>Zone LINES (IsZoneLine: Cipher SR pivots, Spider Lines) are levels that speak support / resistance<br/>Value zones: Value Deviation marks where price turned away from value"]
+    end
+    CB --> COMP
+    RSI --> LEVEL
+    MAIN --> ZONE
+
+    subgraph AXIS["The Y axis of a pane (ViewportRangeCalculator)"]
+        DECL["Declared bounds — RangeMin / RangeMax<br/>17 indicators declare a pair, 4 declare a floor only (ATR, StdDev, HV, Ulcer)"]
+        FIT["Auto-fit — min / max of what is visible, plus a buffer"]
+        GRID["ChartMath.NiceStep — one step for gridlines and axis labels"]
+        PITCH["Pitch = (value − min) / (max − min) mapped onto 200–1000 Hz<br/>DefaultSonificationStrategy.CreateAudioPoint"]
+        DECL & FIT --> GRID --> PITCH
+    end
+    OSC --- AXIS
+
+    subgraph KEYS["Hearing the structure"]
+        K1["Alt+PageUp / Alt+PageDown — the next Y axis (clamps, never wraps)"]
+        K2["PageUp / PageDown — the next series, in visual order"]
+        K3["Alt+Shift+/ — describe THIS pane: axes, ranges, gridline step, strips"]
+        K4["Ctrl+Alt+Shift+Y — describe the whole layout: panes, series, hidden, muted"]
+        K5["0 — toggle the pane's declared neutral (RSI 50, MACD 0), or mark the price under the cursor"]
+    end
+    STACK --- KEYS
+
+    RAW["Indicators always compute on RAW OHLCV.<br/>Heikin-Ashi (Alt+C) changes only the candles you hear and their patterns;<br/>the close line, the title price, every indicator and every formation level stay raw.<br/>(ChartSeries.cs, ChartMath.BarAsDrawn)"]
+    CANDLES --- RAW

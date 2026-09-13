@@ -1,7 +1,7 @@
 ---
 title: Accessible Trading Terminal — architecture overview
 ---
-%% Verified against the tree on 2026-08-28.
+%% Verified against the tree on 2026-09-13.
 %% Counts here are load-bearing: 16 trading + 17 analytics plugins, 128 audio voices.
 %% docs/README.md claims the same numbers and CI (scripts/check_doc_drift.py) enforces them there.
 graph TD
@@ -15,17 +15,19 @@ graph TD
     end
 
     subgraph POLICY["Host gating"]
-        DP["DemoPolicy — HostMode Full | Demo | Hosted<br/>Full only: live trading, API-key modal, custom scripts,<br/>AI analyst, strategies, background monitoring<br/>Not-demo: paper dashboard, alerts, order book, settings"]
+        DP["DemoPolicy — HostMode Full | Demo | Hosted<br/>Full only: live trading, API-key modal, custom scripts,<br/>AI analyst, strategies, background monitoring,<br/>browser-closed alerts, private-network targets<br/>Not-demo: paper dashboard, in-session alerts, order book, settings"]
     end
 
     subgraph INPUT["Input pipeline"]
         KB["Platform key capture<br/>keyboard.js (web/WebView) · MainActivity.DispatchKeyEvent (Android)<br/>KeyboardPageHandler (Mac Catalyst)"]
         BIS["BlazorInputService"]
         SM["ShortcutManager<br/>InitializeDefaultProfile — every default binding"]
-        REMAP["WebHostShortcutRemap<br/>Ctrl+Shift+letter to Alt+Shift+letter,<br/>reserved single-Ctrl chords rebound"]
+        REMAP["WebHostShortcutRemap<br/>legacy Ctrl+Shift+letter profiles to Alt+Shift+letter,<br/>browser-reserved Ctrl+T / Ctrl+W / Ctrl+Tab removed"]
+        MS["ModalStack<br/>the one record of which dialog is on top —<br/>Escape and the Tab trap both read it"]
         CD["CommandDispatcher"]
         KB --> BIS --> SM --> CD
         REMAP -.mutates in-memory profile at WebHost startup.-> SM
+        MS -.Escape aims at the top dialog.-> CD
     end
 
     subgraph CORE["AccessibleTrader.Core — platform-agnostic"]
@@ -37,6 +39,13 @@ graph TD
             DO["DataOrchestrator<br/>Polly retry + circuit breaker<br/>DataState machine"]
             DOS["DataOrchestrationService"]
             IO["IndicatorOrchestrator"]
+        end
+
+        subgraph CHART["Chart model — a pane is a Y axis"]
+            PAS["PaneAssignmentService.PaneFor<br/>Main · Volume · one pane per oscillator"]
+            CPM["ChartPaneModel — panes, series, components, strips"]
+            VRC["ViewportRangeCalculator<br/>declared RangeMin/RangeMax or auto-fit"]
+            PAS --> CPM --> VRC
         end
 
         subgraph A11Y["Accessibility cluster"]
@@ -59,7 +68,7 @@ graph TD
         subgraph TRADE["Trading"]
             GOS["GeneralOrderService<br/>typed OrderPlacement result"]
             PAPER["PaperTradingProvider + PaperAccountHub<br/>isolated and cross margin"]
-            QT["QuickTrade — arm, size, place from the chart"]
+            QT["QuickTradeService — arm, size, place from the chart"]
             ALERT["AlertOrchestrator + AlertEvaluator"]
             STRAT["StrategyEngine"]
         end
@@ -72,6 +81,24 @@ graph TD
             IS["IndicatorService — 36 IIndicatorProvider implementations"]
         end
 
+        subgraph MON["Background monitor — runs with no browser attached"]
+            LBM["LocalBackgroundMonitor<br/>polls about once a minute, re-reads settings each pass"]
+            HC["HeadlessChart + HeadlessChartFactory<br/>a real chart per saved workspace, no UI"]
+            HOW["HeadlessOrderWatch + HeadlessOrderAnnouncer<br/>fills, stops, cancels — reported, never acted on"]
+            BBA["BackgroundBarAnnouncer — bar closes on charts you are not looking at"]
+            LBM --> HC
+            LBM --> HOW
+        end
+
+        subgraph NOTIFY["Notifications — the channel is decided by the event's subject"]
+            NP["NotificationPolicy.IsOnScreen<br/>the focused chart is spoken; everything else is notified"]
+            UP["IUserPresence — CircuitPresence · BrowserPresence · WindowVisibilityPresence"]
+            DNS["DesktopNotificationService to IDesktopNotifier<br/>LocalDesktopNotifier (notify-send) · WindowsDesktopNotifier (toast)"]
+            BFS["BrowserFarewellService — one notification when the last tab closes"]
+            NP --> DNS
+            UP --> NP
+        end
+
         PLS["PluginLoaderService"]
         PTP["PluginTrustPolicy — SHA-256 allow-list"]
         SCR["Out-of-process scripting<br/>OutOfProcessScriptHost to ScriptWorker"]
@@ -80,7 +107,7 @@ graph TD
     subgraph PLUGINS["Plugins — AccessibleTrader.Sdk contract"]
         TP["16 trading providers<br/>Plugins/Providers"]
         AP["17 analytics providers<br/>Plugins/Analytics"]
-        IP["Drop-in indicator DLLs<br/>Plugins/Indicators"]
+        IP["Drop-in indicator DLLs<br/>Plugins/Indicators — a runtime scan path, no folder ships"]
     end
 
     subgraph SANDBOX["Script isolation — separate OS process, per platform"]
@@ -120,6 +147,9 @@ graph TD
     DO --> STORE
     STORE --> DOS --> IO --> IS --> STORE
 
+    STORE --> PAS
+    CPM --> NE
+    CPM --> CLD
     STORE --> AFC
     EB --> AFC
     AFC --> SFR --> SPEECH
@@ -130,6 +160,16 @@ graph TD
     NE --> VM --> TACT
     ANS --> SFR
     CLD --> SFR
+
+    HC --> IS
+    HC --> ALERT
+    HC --> BBA
+    BBA --> NP
+    ALERT --> NP
+    HOW --> NP
+    NP -->|on screen| AFC
+    UP --> BFS --> DNS
+    DNS --> SPEECH
 
     STORE --> REND
     STORE --> STRAT --> GOS

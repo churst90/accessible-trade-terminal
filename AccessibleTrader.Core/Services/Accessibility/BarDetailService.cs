@@ -10,7 +10,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 {
     /// <summary>
     /// Provides deep, context-aware analysis of a single data point (bar).
-    /// Used for the detailed summary command (Ctrl+Shift+D, Alt+Shift+D on the web head).
+    /// Used for the detailed summary command (Alt+Shift+D on every head since 2026-09-05).
     /// </summary>
     public class BarDetailService : IBarDetailService
     {
@@ -43,7 +43,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <inheritdoc />
         public void AnnounceDetails(WorkspaceState state)
         {
-            // Ctrl+Shift+D is an EXPLICIT request. Answering it with pure silence is the
+            // Alt+Shift+D is an EXPLICIT request. Answering it with pure silence is the
             // worst shape a failure can take here: the user asked a direct question and got
             // nothing back, with no way to tell a broken key from an empty chart. Both of
             // these were bare returns.
@@ -228,7 +228,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 return sb.ToString().TrimEnd();
             }
 
-            // Ctrl+Shift+D always reads raw component values regardless of indicator type.
+            // Alt+Shift+D always reads raw component values regardless of indicator type.
             // GetDetailFact is intentionally bypassed here so every indicator reveals its
             // actual numeric column values rather than a condensed narrative summary.
             foreach (var comp in series.Components)

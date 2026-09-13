@@ -141,8 +141,10 @@ namespace AccessibleTrader.Sdk.Models
 
         /// <summary>
         /// When true, this component is a carry-forward zone line (e.g. Resistance Zone, Support Zone).
-        /// NavigationFeedbackManager will play a quiet proximity tone on audio slot 2 when the cursor
-        /// bar's price range overlaps the zone value (within 0.5% tolerance).
+        /// Zone proximity is conveyed by SPEECH only — the nearest support below and resistance above
+        /// the cursor bar are named as you move — and no proximity tone is played (see
+        /// NavigationSonifier.CheckAndPlayZoneProximity, which says so). The narration ladder gives
+        /// zone lines the full support/resistance vocabulary: broken, tested, approached, crossed.
         /// Propagated to <see cref="AccessibleTrader.Sdk.Models.ComponentConfig.IsZoneLine"/>.
         /// </summary>
         public bool DefaultIsZoneLine { get; set; } = false;

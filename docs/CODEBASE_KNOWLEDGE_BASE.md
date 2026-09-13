@@ -2,7 +2,7 @@
 
 This document is the authoritative technical reference for the AccessibleTrader project. It is designed to give an AI assistant or new team member the deep architectural context, design patterns, and platform-specific nuances required to maintain and evolve the system as a Senior .NET Engineer.
 
-Read it alongside [`Diagrams/`](../Diagrams/README.md), which carries the same material as ten
+Read it alongside [`Diagrams/`](../Diagrams/README.md), which carries the same material as fourteen
 verified Mermaid sources — architecture, hosting topology, the data / navigation / order / feedback
 paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging —
 each with a prose summary. When something here changes, check whether a diagram claims it too.

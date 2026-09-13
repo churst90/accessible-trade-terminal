@@ -1,7 +1,7 @@
 ---
 title: Hosting topology — which head can do what
 ---
-%% Verified against the tree and docs/SERVER_SETUP.md on 2026-08-28.
+%% Verified against the tree and docs/SERVER_SETUP.md on 2026-09-13.
 %% The gates are AccessibleTrader.Core/Services/DemoPolicy.cs. Read that file before
 %% adding a feature to a hosted head; the split is deliberate, not incidental.
 flowchart TD
@@ -20,8 +20,8 @@ flowchart TD
     end
 
     subgraph GATE["DemoPolicy"]
-        FULL["Mode == Full only:<br/>live trading · API-keys modal · custom scripts<br/>AI analyst · strategies · background monitoring"]
-        NOTDEMO["!IsDemo (so: Hosted and Full):<br/>paper dashboard · alerts · order book<br/>workspace save/load · symbol search · settings"]
+        FULL["Mode == Full only:<br/>live trading · API-keys modal · custom scripts<br/>AI analyst · strategies · background monitoring<br/>browser-closed alerts (AllowBackgroundAlerts)<br/>private-network targets (BlockPrivateNetworkTargets off)"]
+        NOTDEMO["!IsDemo (so: Hosted and Full):<br/>paper dashboard · alerts while a browser is open · order book<br/>workspace save/load · symbol search · settings"]
         ALWAYS["Always: charting, navigation, speech,<br/>sonification, drawing tools"]
         RESTRICT["RestrictsData (Mode != Full):<br/>provider/market/live-stream curation.<br/>Hosted shows Crypto/Stock/Forex only because<br/>Bitstamp and TwelveData are the two that work keyless"]
     end
@@ -53,8 +53,8 @@ flowchart TD
     SERVER --- RULE
 
     subgraph SHIP["What reaches a hosted user"]
-        Y["Data-READ path, the paper broker, alerts,<br/>and everything in the component and accessibility library"]
-        N["NOT: real-venue order signing, strategies,<br/>background multi-workspace monitoring, custom scripts, API-key storage"]
+        Y["Data-READ path, the paper broker, alerts while the browser is open,<br/>and everything in the component and accessibility library"]
+        N["NOT: real-venue order signing, strategies,<br/>background multi-workspace monitoring, browser-closed alerts,<br/>custom scripts, API-key storage, the system tray"]
     end
     RULE --- SHIP
 

@@ -1,7 +1,7 @@
 ---
 title: Navigation flow — one keypress, end to end
 ---
-%% Verified against the tree on 2026-08-28.
+%% Verified against the tree on 2026-09-13.
 sequenceDiagram
     autonumber
     actor U as User
@@ -10,6 +10,7 @@ sequenceDiagram
     participant SM as ShortcutManager
     participant RM as WebHostShortcutRemap
     participant CD as CommandDispatcher
+    participant MS as ModalStack
     participant NE as NavigationEngine
     participant VM as ViewportManager
     participant ST as WorkspaceStore
@@ -20,8 +21,8 @@ sequenceDiagram
     participant TD as ITactileDriver
 
     Note over RM,SM: WebHost only, once at startup
-    RM->>SM: Ctrl+Shift+letter becomes Alt+Shift+letter, and<br/>reserved single-Ctrl chords are removed or rebound
-    Note right of RM: in memory only — shortcuts.json stays portable<br/>and F1 reads the live profile, so Help is never wrong
+    RM->>SM: a saved pre-2026-09-05 Ctrl+Shift+letter chord becomes Alt+Shift+letter,<br/>and browser-reserved Ctrl+T, Ctrl+W, Ctrl+Tab are removed
+    Note right of RM: in memory only — shortcuts.json stays portable<br/>and F1 reads the live profile, so Help is never wrong.<br/>The default profile is already Alt+Shift, so a fresh install is untouched.
 
     U->>KB: press a key
     KB->>BIS: key + modifiers
@@ -36,11 +37,17 @@ sequenceDiagram
     else viewport ([ ] - = Shift+[ Shift+])
         CD->>VM: pan / zoom / change the pan step
         VM->>ST: viewport change
-    else series and component (Up/Down, PageUp/Down, Ctrl+Up/Down, Ctrl+PageUp/Down)
+    else series and component (Up/Down, PageUp/Down, Ctrl+Up/Down)
         CD->>ST: focus change
+    else pane — the next Y axis (Alt+PageUp / Alt+PageDown, never Ctrl+PageUp: browsers own it)
+        CD->>ST: focus the first series of the neighbouring pane, then name the pane
     else a panel or modal (Alt+letter, F-keys)
         CD->>EB: Open...Event
-    else drawing (Ctrl+Shift+letter — sequential anchoring)
+    else Escape with a dialog open
+        CD->>MS: which dialog is on top?
+        MS-->>CD: the top entry — the only one Escape may close
+        CD->>EB: CloseModal for that dialog, and focus returns to the one beneath, or to the chart
+    else drawing (Alt+Shift+letter — sequential anchoring)
         CD->>EB: AddDrawingEvent — one press per anchor, no Enter to confirm
     end
 

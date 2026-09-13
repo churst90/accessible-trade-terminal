@@ -969,7 +969,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <para>
         /// The MEASURE tool is two points, not three: it reports the distance, the percentage and
         /// the bar count between them. The three-point entry/stop/target tool is Risk/Reward
-        /// (Alt+Shift+R). Both now say which point they are asking for, which is what made the two
+        /// (Alt+Shift+P; Alt+Shift+R is the rectangle). Both now say which point they are asking for, which is what made the two
         /// indistinguishable.
         /// </para>
         /// </summary>

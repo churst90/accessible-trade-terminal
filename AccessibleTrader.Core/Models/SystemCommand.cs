@@ -32,7 +32,7 @@ namespace AccessibleTrader.Core.Models
         ReplayToggle,       // Ctrl+Alt+Shift+P: start bar replay at the cursor / stop it
         ReplayStepForward,  // F9: reveal the next bar
         ReplayStepBack,     // Shift+F9: hide the last revealed bar
-        ReplayPlayPause,    // F8: auto-advance on/off
+        ReplayPlayPause,    // F10: auto-advance on/off
         ContextSummary,
         MonitoringStatus,   // Ctrl+Alt+Shift+M: speak the background-workspace monitoring summary
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
@@ -91,7 +91,7 @@ namespace AccessibleTrader.Core.Models
         QuickArmRisk1,      // Ctrl+Alt+Shift+1 — 0.5%
         QuickArmRisk2,      // Ctrl+Alt+Shift+2 — 1%
         QuickArmRisk3,      // Ctrl+Alt+Shift+3 — 2%
-        QuickSetStop,       // Ctrl+Alt+Shift+S — the bar under the cursor becomes the stop
+        QuickSetStop,       // Ctrl+Alt+Shift+X — the bar under the cursor becomes the stop
         QuickPlaceLimit,    // Shift+Enter — limit at the cursor bar
         QuickPlaceMarket,   // Ctrl+Enter — market now
         QuickDisarm,        // Ctrl+Alt+Shift+0 — cancel
@@ -132,22 +132,22 @@ namespace AccessibleTrader.Core.Models
         ToggleHeatmap, // Alt+H
         AddReferenceLevel, // 0
         
-        // Drawings
-        DrawTrend,
-        DrawHorizontal,
-        DrawVertical,
-        DrawChannel,
-        DrawFibonacci,
-        DrawLabel,
-        DrawFibExtension,   // Ctrl+Shift+E
-        DrawRectangle,      // Ctrl+Shift+R
-        DrawGannFan,        // Ctrl+Shift+G
-        DrawRiskReward,     // Ctrl+Shift+P
-        DrawAnchoredVwap,   // Ctrl+Shift+W
-        DrawMeasure,        // Ctrl+Shift+M
-        DrawGannBox,        // Ctrl+Shift+B
-        DrawPitchfork,      // Ctrl+Shift+A
-        DrawAngleFib,       // Ctrl+Shift+J
+        // Drawings — Alt+Shift+letter on every head since 2026-09-05 (see ShortcutManager)
+        DrawTrend,          // Alt+Shift+T
+        DrawHorizontal,     // Alt+Shift+H
+        DrawVertical,       // Alt+Shift+V
+        DrawChannel,        // Alt+Shift+C
+        DrawFibonacci,      // Alt+Shift+F
+        DrawLabel,          // Alt+Shift+L
+        DrawFibExtension,   // Alt+Shift+E
+        DrawRectangle,      // Alt+Shift+R
+        DrawGannFan,        // Alt+Shift+G
+        DrawRiskReward,     // Alt+Shift+P
+        DrawAnchoredVwap,   // Alt+Shift+W
+        DrawMeasure,        // Alt+Shift+M
+        DrawGannBox,        // Alt+Shift+B
+        DrawPitchfork,      // Alt+Shift+A
+        DrawAngleFib,       // Alt+Shift+J
         
         // Series Management
         RemoveSelectedSeries, // Delete: remove the currently focused indicator series
@@ -155,7 +155,7 @@ namespace AccessibleTrader.Core.Models
         SelectPrevSeries,     // cycle focus to the previous series (no default binding)
 
         // Detail / Drawing
-        DetailedPointSummary, // Ctrl+Shift+D: speak full candle pattern analysis
+        DetailedPointSummary, // Alt+Shift+D: speak full candle pattern analysis
         CancelDrawing,        // Escape (no modal): cancel an in-progress drawing placement
         ConfirmCoordinateEntry, // RESERVED / unused: drawings are placed by re-pressing the tool shortcut at each anchor (see DrawingInteractionManager). No default key binding and no dispatch handler; kept for profile/back-compat only.
         OpenDrawingContextMenu, // ContextMenu key / Shift+F10: open the drawing context menu on the focused drawing
@@ -199,9 +199,9 @@ namespace AccessibleTrader.Core.Models
         /// free by glancing at the screen.
         /// <para>
         /// These three were Alt+Shift+L / H / M when they landed, and this comment still said so
-        /// long after they moved. On the WebHost every Ctrl+Shift+letter chord is rewritten to
-        /// Alt+Shift+letter, so all three sat on top of the Text Label, Horizontal Line and
-        /// Measure tools; they moved to three-modifier chords, which the rewrite does not touch.
+        /// long after they moved. Alt+Shift+letter is the drawing family on every head, so all
+        /// three sat on top of the Text Label, Horizontal Line and Measure tools; they moved to
+        /// three-modifier chords, which no host remap touches.
         /// Alt+Shift+L on the WebHost is the TEXT LABEL tool, and nothing else.
         /// </para></summary>
         SpeakChartLayout,

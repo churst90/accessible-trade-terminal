@@ -1,6 +1,6 @@
 # Accessible Trading Terminal — Keyboard Shortcuts
 
-All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Users can customise bindings via the Sound Designer or by editing the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json` (MAUI heads) or `~/.local/share/AccessibleTrader/shortcuts.json` (Linux WebHost).
+All shortcuts are sourced from `ShortcutManager.InitializeDefaultProfile()`. Shortcuts not listed here are not assigned by default. Rebind any command under Settings (F12) → Keyboard (rebinds save immediately), or edit the shortcuts profile saved at `%LOCALAPPDATA%\AccessibleTrader\shortcuts.json` (MAUI heads) or `~/.local/share/AccessibleTrader/shortcuts.json` (Linux WebHost).
 
 ## Host-specific note: the drawing chords are `Alt+Shift+letter` on every head
 
@@ -60,8 +60,8 @@ The workspace tab switcher bar (a row of tabs just above the chart) is always vi
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| Page Down | Move focus to next pane/series below | "{Series Name}" |
-| Page Up | Move focus to pane/series above | "{Series Name}" |
+| Page Down | Move focus to the next series down the chart, in the order the series are drawn (clamps) | "{Series Name}" |
+| Page Up | Move focus to the previous series up (clamps) | "{Series Name}" |
 | Down Arrow | Move to next component within focused series | "{Component Name}, {value}" |
 | Up Arrow | Move to previous component within focused series | "{Component Name}, {value}" |
 | Ctrl+Down | Next component in the strip you are in, **across every series in the pane** (clamps) | "{Component Name}, {value}" |
@@ -85,7 +85,8 @@ see the move has no way to detect.
 | Price candle or candle wick | Next bar where price crosses a drawn trendline |
 | Sparse marker (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square, ZeroDot) | Next bar where that component has a non-NaN signal value |
 | Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses its **midline** — zero on a zero-centred reading, 50 on a bounded one. Recognised by the line's role, so all four spellings providers use for it (Zero, Midpoint, Midline, Neutral) are reached |
-| Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone |
+| Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone. A level you have hidden is not a target |
+| Band-labelled line (ADX 20/25/50, Choppiness 38.2/61.8) | Next bar where the reading crosses a band edge; the announcement names the band entered ("strong trend") |
 | Moving average overlay (EMA, SMA, WMA, Spider Lines etc.) | Next bar where price (close) crosses the focused MA line |
 | Band indicator (Bollinger %B / PERCENTB) | Next bar where the indicator crosses the upper (1.0), mid (0.5), or lower (0.0) band boundary |
 | No focus / unknown | Next trendline crossing (fallback) |
@@ -124,6 +125,18 @@ the old behaviour and it made the choice feel as though it had not registered: y
 *"leading with ascending triangle"* and, one keypress later, *"double bottom confirmed here."* Both
 sentences were true; the key had simply travelled somewhere you had not asked to go. When you run
 out of edges the terminal names the pin and reminds you that `Shift+;` releases it.
+
+**The stops are edges, not formations.** Each formation contributes two: the bar its structure first
+became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.
+Landing on those two bars walks you through the same narrative arrow-key navigation gives you, so
+the jump keys and the arrow keys always agree about what is worth saying.
+
+There is no equivalent for **candle** patterns, deliberately. Dojis, spinning tops and small-bodied
+bars occur on a large share of every chart, so "jump to the next candle pattern" would usually mean
+"move one bar right". Candle patterns are read on the bar you are standing on, and since 2026-09-04
+that includes the multi-bar ones: the arrow keys, the detail key, the bar close and the live forming
+bar all run the same classifier over the same trailing window, so the four cannot name the same bar
+differently.
 
 **Nesting.** A formation inside a larger one says so — *"…Inside a larger double bottom that began
 12 March."* The container's start date is given rather than just its name, because that is what lets
@@ -164,19 +177,6 @@ always cancels, and takes precedence over cancelling a half-placed drawing.
 
 **The stop is always sent with the entry.** The size was derived from the stop distance, so a
 position placed without it would have a quantity justified by protection that does not exist.
-
-**The stops are edges, not formations.** Each one contributes two: the bar its structure first
-became knowable, and the bar its story ended — the break, or the point it aged out unconfirmed.
-Landing on those two bars walks you through the same narrative arrow-key navigation gives you, so
-the jump keys and the arrow keys always agree about what is worth saying.
-
-There is no equivalent for **candle** patterns, deliberately. Dojis, spinning tops and small-bodied
-bars occur on a large share of every chart, so "jump to the next candle pattern" would usually mean
-"move one bar right" — a key that does nothing you could not do with the right arrow, while
-consuming a binding. Candle patterns are already read on the bar you are standing on, which is the
-right place for something that common — and since 2026-09-04 that includes the multi-bar ones. The
-arrow keys, the detail key, the bar close and the live forming bar all run the same classifier over
-the same trailing window, so the four of them cannot name the same bar differently.
 
 ### What you hear
 
@@ -249,8 +249,11 @@ utterance per bar** so nothing can cut anything else off:
    new period is spoken without interrupting.
 2. **Signals**, from the series you flagged with `N` and only those — and, when you played one
    series or one component rather than the whole chart, only the ones inside what you played: a marker
-   signal printing on the bar just reached, named with its series — *"Cipher B: bull signal at
-   64,900."* Discrete signals only; never crossings, zone changes or oscillator commentary.
+   signal printing on the bar just reached, introduced by the component that fired it, never by the
+   series — *"Triple confluence buy, strong confirmation."* At most two per bar, the rarest first. A
+   line crossing one of its own declared levels is discrete in the same way and is spoken too — as the
+   band entered (*"strong trend"*) or *"crossed above overbought"*. Never a running reading, never
+   oscillator zone commentary, and volume profiles say nothing during playback.
 3. **A formation resolving** on that bar, if *Describe chart patterns* is on, in the same words
    the arrow keys use.
 
@@ -299,7 +302,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|-----------------|
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
-| N | Narrate the focused series or component — speak its signals unprompted | "{Series}, narrating" / "{Component}, narrating" (the component alone; "{Component} only, narrating" when it is the first one picked out) |
+| N | Narrate the focused series or component — speak its signals unprompted. N picks WHAT may speak; Settings → Narration decides WHEN (bar close, playback); the scope you played decides WHICH of them. (The former Ctrl+Alt+Shift+N alias was removed on 2026-09-11.) | "{Series}, narrating" / "{Component}, narrating" (the component alone; "{Component} only, narrating" when it is the first one picked out) |
 | 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane the line goes on that pane's **neutral** — zero for MACD and the other zero-centred readings, **50** for RSI, Stochastic and MFI, **−50** for Williams %R — because zero is only the meaningful constant where the value actually swings about it. Where the indicator already declares its own midline (RSI ships one at 50) you are told so and nothing is added. On the **price** pane there is no meaningful constant at all, so the line goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Midpoint added at 50, audible on crossing." / "Midpoint already marks 50 on this pane." / "Level removed." / "Nothing on this pane declares a neutral line, so there is no level to add." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 | Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |
@@ -329,8 +332,9 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 
 ## Market Structure
 
-The Market Structure overlay (HH/HL/LH/LL) is added to new OHLCV charts by default. Turn it
-off in Settings, or delete the series from the Object Tree (Alt+O) to drop it for the session.
+The Market Structure overlay (HH/HL/LH/LL) is off by default: add it from Alt+A, or switch it on
+for every new chart under Settings → General → Analysis. Delete the series from the Object Tree
+(Alt+O) to drop it for the session.
 Navigate to its Structure State component and press Shift+F1 (context summary) for the full structural read: current
 state, last swing high and low, and where price sits between them.
 
@@ -341,7 +345,6 @@ state, last swing high and low, and where price sits between them.
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
 | Alt+Shift+D (web: Alt+Shift+D) | Full candle analysis for the current bar — **including the multi-bar patterns** (engulfing, harami, piercing line, morning and evening star, three white soldiers, three black crows) with how many bars they span and whether they read as reversal or continuation — plus indicator values, **plus every chart formation the cursor sits inside** with its trigger and measured target. Never silenced by *Describe candle patterns*: this key is you asking | Spoken summary |
-| Ctrl+Alt+Shift+N | The same as `N`, but works with focus outside the chart. Picks WHAT speaks; Settings → Narration decides WHEN (bar close, playback); the scope you played decides WHICH of them | "Narration on/off" |
 | Ctrl+Alt+Shift+A | Open the AI Analyst modal | — |
 
 ---

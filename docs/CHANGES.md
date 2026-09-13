@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The documentation reflects the terminal (2026-09-13, fifty-fourth pass)
+
+A read of every user-facing document against the code, with six research passes over the
+source and its comments. Nothing in the product changed except comments and one settings
+hint.
+
+- **`docs/QUICKSTART.md` rewritten** at a third of its length: what a trader needs to load a
+  chart, hear it, add an indicator, place a paper trade, and find a key — one copy of the
+  shortcut reference instead of three. Stale in the old text: Page Up/Down described as pane
+  navigation and Alt+Up/Down as a pane scroller (deleted 2026-09-04), `0` as "a zero-level
+  line", Ctrl+PageUp/Down as sub-pane keys, Ctrl+Alt+Shift+N (removed 2026-09-11), eight
+  Settings tabs, and only one of the two quick-trade sizing modes.
+- **`docs/USER_MANUAL.md` gains four chapters and a primer.** *How a Chart Is Laid Out*
+  (the paper-and-rulers picture; a pane is a Y axis; series, components and strips; what a
+  component, a reference level and a zone each are; the three describe keys; Heikin-Ashi and
+  what stays raw). *Risk Management* (preserve capital; stop first; size from risk with both
+  quick-trade modes; reward-to-risk; the environment check; what the Lab found). *Monitoring
+  When You Are Not Looking* (the subject-decides-the-channel rule, both switches, the tray,
+  the native-app hole), consolidating three sections that were split across Trading and
+  Automation. An indicator primer for a new trader, a "what speaks when" table at the top of
+  the narration chapter, *Sharing your setup* with the honest inventory of what exports and
+  what is a file to copy, and eleven glossary entries.
+- **Corrections in the manual**, each checked against code: the toolbar's first row no
+  longer holds Drawing tools and there is no Split view; the dashboard has five tabs and the
+  order book is one of them; the key dropdown is "API key for this order" and it is the key
+  that signs; the Positions tab has inline stop and target editors and a Close-at-limit
+  button; a Paper key on a venue with no practice environment is refused (seven venues named);
+  OCO pairs appear where the venue can pair, not "paper only"; the paper account starts at
+  100,000 USDT with a 0.04% fee and a live Cross/Isolated choice; Settings has nine tabs on
+  the desktop and eight on the web; the panning step is no longer a live control; the
+  Narration tab has six switches; Export Visual/Audio save the current chart's component
+  styling, not the tab; the quick-trade arming and summary sentences are quoted as the code
+  speaks them.
+- **`docs/SHORTCUTS.md`**: Ctrl+Alt+Shift+N removed; Page Up/Down described as series
+  navigation; Market Structure is off by default, not on; band edges added to the
+  Ctrl+Left/Right table; playback signals introduced by the component and band crossings
+  spoken; two paragraphs about formations that had been pasted into the Quick Trade section
+  put back; rebinds are on Settings → Keyboard, not the Sound Designer.
+- **`docs/WHATSNEW.md`** rewritten to cover every user-visible commit since v2.9.0 — the
+  money items (reduce-only brackets, the practice-venue refusal, the key that signs, the
+  conformance suite) were missing entirely — and the 2.9.0 section condensed. Still
+  unreleased; no version bump.
+- **Diagrams:** four new at user-manual altitude (`chart_layout`, `announcement_channels`,
+  `background_monitor`, `trade_lifecycle`), five updated (`architecture_overview` gains the
+  pane model, `ModalStack`, the background monitor and the notification tier;
+  `navigation_flow` the pane and Escape branches; `feedback_routing` the fourth gate;
+  `hosting_topology` the browser-closed alert gate; `order_lifecycle` the live review, the
+  credential checkout and the headless fill path). All fourteen render.
+- **Code comments corrected** where a doc reader would be misled: `SystemCommand.cs` (F10 not
+  F8, Ctrl+Alt+Shift+X not S, Alt+Shift not Ctrl+Shift on every drawing), `BarDetailService`
+  and `DrawingInteractionManager` (Alt+Shift+D, Alt+Shift+P), `IndicatorMetadata.DefaultIsZoneLine`
+  (speech only, no proximity tone), `TrayIconService` (the default is on). One Settings hint
+  named a switch retired on 2026-09-11 ("New bars on any open chart"); it now names "Send me
+  a notification".
+
 ### Drawings leave the indicator dialog, and every point says what it is (2026-09-13, fifty-third pass)
 
 Suite **7,660** (was 7,625).

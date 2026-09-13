@@ -23,16 +23,18 @@ namespace AccessibleTrader.BlazorClient.Platforms.Windows
     /// <para>
     /// With "Minimize to tray on exit" on (Settings → General), the close button hides the
     /// window, the process keeps running — audio, alerts and fills all keep announcing — and the
-    /// tray menu offers Restore / Quit. With it off, which is the default, closing the window
-    /// closes the app the way every other window on the desktop does.
+    /// tray menu offers Restore / Quit. With it off, closing the window closes the app the way
+    /// every other window on the desktop does. ON is the default since 2026-09-11 (see the
+    /// constructor parameter below and DesktopWindowSettings.MinimizeToTrayDefault).
     /// </para>
     ///
     /// <para>
-    /// <b>Why the default is off (Cody, 2026-09-06).</b> An application that does not close when
-    /// you close it is a surprise, and for a screen-reader user a surprise with no announcement
-    /// is worse than an extra keystroke. The switch says what it now does when it is turned on,
-    /// and the tray menu always carries a Quit so there is a way out that does not need the
-    /// window.
+    /// <b>Why it announces itself.</b> An application that does not close when you close it is
+    /// a surprise, and for a screen-reader user a surprise with no announcement is worse than an
+    /// extra keystroke — which is why the default was off until 2026-09-11. It is on now because
+    /// the terminal keeps watching only while it runs, and hiding to the tray sends a toast
+    /// saying so; the tray menu always carries a Quit so there is a way out that does not need
+    /// the window.
     /// </para>
     ///
     /// <para>

@@ -85,21 +85,22 @@ See `CODEBASE_KNOWLEDGE_BASE.md` Section 5 for the full authoritative decision. 
 
 Press `F1` in the application to open the full Help dialog. Key bindings:
 
-- `Left/Right Arrow` — Navigate data points (X axis).
+- `Left/Right Arrow` — Navigate data points (X axis). `Ctrl+Left/Right` — jump to the next crossing or signal.
 - `Up/Down Arrow` — Navigate components within a series (Y axis).
-- `Page Up/Down` — Switch between chart series.
+- `Page Up/Down` — Switch between chart series. `Alt+PageUp/PageDown` — switch panes (each pane is a Y axis).
 - `Home/End` — Jump to viewport start/end. `\` — Jump to live edge.
 - `[ / ]` — Pan viewport. `- / =` — Zoom in/out. (Also available as toolbar buttons, and you can click-drag the chart to pan.)
 - `Space` — Play chart. `Shift+Space` — Play series. `Ctrl+Shift+Space` — Play component. `Ctrl+Space` — Pause/resume.
 - `F1` — Help. `Shift+F1` — Context summary. `F2` — Toggle speech (`Shift+F2` toggles event speech). `F3` — Toggle sonification (`Shift+F3` toggles earcons). `F4` — Toggle the braille/tactile display (`Shift+F4` opens Settings on its Braille tab). `F12` — Settings.
 - `F5/Shift+F5` — Component volume up/down. `F6/Shift+F6` — Series volume. `F7/Shift+F7` — Master volume.
-- `Alt+Up/Down` — Scroll indicator pane list when more panes are open than fit on screen.
 - `Ctrl+Alt+Shift+C` — Focus chart + announce context summary.
 - `Alt+C` — Toggle Heikin-Ashi candles. `Alt+L` — Toggle log scale.
 - `Ctrl+Alt+Shift+J` — Open the Journal modal (review/copy every spoken phrase, alert, strategy setup, error from this session).
 - `Alt+M` — Market watch (watchlists + screener). `Alt+R` — Respect report (which levels this market actually holds).
 - `Ctrl+Alt+Shift+P` (or `F11`) — Bar replay on/off; `F9` / `Shift+F9` reveal/hide a bar, `F10` auto-advance.
-- `Alt+PageUp` / `Alt+PageDown` — move between panes (each pane is a Y axis); `Ctrl+Up`/`Ctrl+Down` walk the strip you are in across every series in the pane; `Alt+Shift+/` describes the pane's axes, ranges and gridline step.
+- `Ctrl+Up`/`Ctrl+Down` walk the strip you are in across every series in the pane; `Alt+Shift+/` describes the pane's axes, ranges and gridline step; `Ctrl+Alt+Shift+Y` describes the whole layout.
+- `N` — narrate the focused series or component on bar closes. `0` — toggle the pane's declared neutral level (RSI 50, MACD 0) or mark the price under the cursor.
+- `Ctrl+Alt+Shift+M` — speak the background-monitoring status, both halves (other tabs, and browser closed).
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
@@ -696,7 +697,7 @@ Built with **.NET 10**. Two hosts share the same component library and core.
 - **StrategyLab:** `AccessibleTrader.StrategyLab` — headless research CLI over snapshot data. Falsifies strategy claims against recorded controls; carries the spec catalogue and each spec's provenance. See [`LAB_DESIGN.md`](LAB_DESIGN.md) and [`STRATEGY_CATALOGUE.md`](STRATEGY_CATALOGUE.md).
 - **Tests:** `AccessibleTrader.Tests` — Unit and integration diagnostics (7661 tests, all passing); `AccessibleTrader.BrowserTests` — a Playwright harness that drives a real Chromium against a real Kestrel running the WebHost, asserting per-modal `document.activeElement` against a declared target, dialog accessible names, Tab traps, Escape and focus return, an accessible-name sweep over every reachable control, and what the terminal SAYS along with its interrupt flag. Plus three zero-dependency JS suites — the gesture engine (`node tools/jstests/gesture-tests.mjs`, 15 tests), the keydown trap (`node tools/jstests/keyboard-tests.mjs`, 61 tests), which asserts on `preventDefault`, something no C# test can observe, and the ARIA tree keyboard model behind the Object Tree (`node tools/jstests/tree-tests.mjs`, 19 tests). All of them run in CI.
 
-- **Diagrams:** [`Diagrams/`](../Diagrams/README.md) — ten Mermaid sources covering architecture, hosting topology, the data / navigation / order / feedback paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging. Each has a prose summary in the index; change both together.
+- **Diagrams:** [`Diagrams/`](../Diagrams/README.md) — fourteen Mermaid sources: four at user-manual altitude (the chart layout, where an announcement goes, the background monitor, a trade from start to finish) and ten covering architecture, hosting topology, the data / navigation / order / feedback paths, the indicator adapter surface, the plugin trust chain, the script sandbox and tactile paging. Each has a prose summary in the index; change both together.
 
 To run on Linux: `dotnet run --project AccessibleTrader.WebHost`. To run the MAUI head: build on the appropriate platform (Windows/macOS for the MAUI workloads).
 

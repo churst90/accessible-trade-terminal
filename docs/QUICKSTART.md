@@ -1,995 +1,561 @@
 # Accessible Trader: Quick Start Guide
 
-## For Blind and Visually Impaired Traders
+Accessible Trader is a trading terminal built for blind and visually impaired traders. The
+chart is something you hear, every function has a keystroke, and everything that happens says
+so out loud. This guide gets you from a blank window to a chart, a first indicator and a first
+paper trade, and gives you the keys you will look up most. The
+[User Manual](USER_MANUAL.md) explains the why behind everything here; `SHORTCUTS.md` and
+**F1** in the app hold the complete key list.
 
-This guide is for new users who want to understand how Accessible Trader works, how to navigate it by keyboard, and how to interpret the audio and speech feedback the application provides. No prior experience with trading software is required to read this guide, though familiarity with financial markets and charting concepts will help.
+## Contents
 
----
-
-## Table of Contents
-
-1. What Is Accessible Trader?
-2. The Hybrid Voice Model
-3. Understanding the Soundscape
-4. Getting Started: The Chart Layout
-5. Moving Through Time: Bar-by-Bar Navigation
-6. Moving Between Panes and Components
-7. Jumping to Signals: Ctrl+Left and Ctrl+Right
-8. Playback: Listening to the Market
-9. Controlling Volume and Speech
-10. Working with Indicators
-11. Drawing Tools
-12. Analysis, AI, and Context (AI Analyst, Auto-Narration, Journal)
-13. Modals, Panels, and Dialogs
-14. Volume Profile Navigation
-15. Heatmap Overlay
-16. Settings and Customization
-17. Platform Support
-18. Complete Keyboard Shortcut Reference
+1. What you are working with
+2. Load your first chart
+3. How a chart is laid out
+4. Moving around
+5. Playback
+6. When the terminal speaks on its own
+7. Volume, mute and hide
+8. Indicators
+9. Drawing tools
+10. Trading safely
+11. Alerts and monitoring
+12. Settings, workspaces and sharing
+13. Platform notes
+14. Keyboard reference
+15. First five minutes
 
 ---
 
-## 1. What Is Accessible Trader?
+## 1. What you are working with
 
-Accessible Trader is a professional trading terminal built from the ground up for blind and visually impaired traders. It runs on Windows, Android, iOS, and Mac and gives you access to real-time and historical market data across stocks, crypto, forex, and other instruments.
+**Two voices at once.** Your screen reader (NVDA, JAWS, Narrator, VoiceOver, TalkBack, or Orca
+on the web host) speaks exact values: prices, indicator readings, dialog labels, confirmations.
+The built-in audio engine plays the shape of the market: pitch for value, timbre for character,
+bells for events. The terminal calls this the Hybrid Voice model. You can run either alone
+(F2 for speech, F3 for sound) or both together.
 
-The application is entirely keyboard-driven. You do not need a mouse at any point. Every function — from placing a drawing tool to configuring an indicator's audio properties — is reachable through keyboard shortcuts.
+**The sound vocabulary, in one table.**
 
-Accessible Trader pairs your existing screen reader (NVDA, JAWS, Narrator, VoiceOver, or TalkBack) with its own built-in audio engine to give you two complementary layers of information simultaneously:
-
-- Your screen reader announces exact values: price, time, indicator readings.
-- The built-in audio engine plays continuous sound that reflects the shape and movement of the market.
-
-Together these two layers let you perceive both precise numbers and broad market structure at the same time — something no conventional chart can offer.
-
----
-
-## 2. The Hybrid Voice Model
-
-Accessible Trader uses what is called the Hybrid Voice model. This is the core design principle of the application, and understanding it will help you get the most out of every session.
-
-**Screen reader (your existing tool) handles:**
-- Exact price values when you land on a bar
-- Exact indicator readings when you navigate to a component
-- Dialog labels, menu items, setting names, and all text content
-- Confirmation messages after actions
-
-**Built-in sonification engine handles:**
-- The pitch contour of price as it moves left to right through time
-- The tonal texture of oscillator indicators — how overbought, how oversold, how far from zero
-- Distinct bell tones for specific signal events (crossovers, divergences, confluence zones, support and resistance levels)
-- Stereo position: bars on the left side of the visible window play in the left channel; bars on the right side play in the right channel
-- Volume scaling: louder sounds indicate larger, more significant movements
-
-Neither system replaces the other. When you play back a chart, you hear both simultaneously: your screen reader announces each bar's values while the audio engine plays that bar's sonic shape.
-
-**Optional third layer — refreshable tactile graphics.** If you have a Dot Pad, the terminal can also render the chart's shape under your fingers. **All Dot Pad models are supported** — the **Dot Pad X** (newest) and the **second generation** — because they share the same graphics SDK. This is a Windows-only feature and needs a one-time SDK install; see the "Tactile Display" chapter of the User Manual and [PLATFORMS.md §7](PLATFORMS.md#7-tactile-display-support) for setup.
-
----
-
-## 3. Understanding the Soundscape
-
-### Pitch
-
-Pitch maps directly to value. Higher pitch means a higher price or a higher oscillator reading. Lower pitch means lower. When a price trend is rising, you hear a rising pitch. When it falls, the pitch falls with it.
-
-For oscillators (indicators that have a center line, such as MACD or RSI), the pitch rises above a mid-point for positive values and falls below for negative values.
-
-### Waveform (Timbre)
-
-The type of sound — its tonal color — changes based on where a value sits relative to key thresholds.
-
-- Every sound is built on a warm sine base, with a slight coloring blended in rather than a whole different waveform.
-- When an oscillator is above its midline, the tone takes on a brighter, slightly reedy square coloring; below the midline it takes on a softer, warmer triangle coloring — so you can hear which side you are on without checking a number.
-- When a value pushes into an overbought or oversold zone on a bounded oscillator (RSI, Stochastics, MFI, CCI, Williams %R, or the Ultimate Oscillator), a noticeable noise texture roughens the tone so you can hear the extremity without checking a number. You can set how strong this roughness is per level with the Zone Texture slider in the indicator's properties dialog, under Reference Levels.
-
-This means you can often tell at a glance — or rather, at a listen — not just what the value is but where it sits relative to the structure of the indicator.
-
-### Bell Tones
-
-When the playback cursor lands on a bar that contains a signal event, you hear a short bell tone in addition to the continuous oscillator sound. Different signal types have distinct bell timbres so you can tell them apart by ear:
-
-- Sine bell: smooth and clear — typically marks crossover events
-- Triangle bell: bright and metallic — typically marks divergence signals
-- Crystal bell: high and pure — typically marks support and resistance levels
-- Detuned pair bell: a slightly shimmering double tone — typically marks high-confluence signals
-- Gradient blend bell: a rich, multi-harmonic tone — typically marks momentum signals
-
-When you encounter a bell tone during playback, you can stop playback and read the exact event details through your screen reader.
-
-### Stereo Panning
-
-As playback moves forward in time, or as you move the cursor right, the sound moves from the left channel toward the right channel. The leftmost visible bar on screen is hard left; the rightmost is hard right. This gives you an immediate spatial sense of where you are in the visible window, even without a screen reader announcement.
-
-### Volume Layers
-
-The audio engine organizes sounds into three depth layers:
-
-- Background layer (quieter): longer-term context sounds, such as broad trend lines
-- Midground layer (medium): main oscillator and price tones
-- Foreground layer (loudest): signals and event bells
-
-This layering lets important signals cut through the continuous background without the two competing at the same volume.
-
----
-
-## 4. Getting Started: The Chart Layout
-
-When you open Accessible Trader, the main chart area is divided into panes stacked vertically:
-
-- The top pane is always the price chart (candlestick bars by default).
-- Below it are indicator panes — one for each indicator that has its own separate display area.
-- Some indicators appear as overlays directly on the price chart (such as moving averages); they do not get their own pane.
-
-Each pane can contain one or more series. Each series can contain one or more components. For example:
-
-- A pane might contain a MACD indicator (one series).
-- That MACD series has three components: the MACD line, the signal line, and the histogram.
-- You navigate between these components with the Up and Down arrow keys.
-
-Understanding this three-level hierarchy — panes, series, components — is the key to navigating the chart confidently.
-
-### Choosing what to chart
-
-Above the chart is the toolbar. Its second row is the selection cascade: **Market →
-Provider → Symbol → timeframe → Load.** To chart data feeds instead of a tradeable
-instrument, choose **Analytics** in the Market dropdown; an extra **Analytics type**
-dropdown then appears (Economic, OnChain, Derivatives, Sentiment) before Provider. There is
-no separate "Trading vs Analytics" switch — the Market dropdown is the single place you
-choose between the two.
-
-### Which API keys to get first
-
-You can chart crypto the minute you install this and never enter a key. Everything else is
-worth adding in roughly this order — each step unlocks more than the one after it, and the
-first four are free.
-
-**Start here — no key needed at all.**
-Crypto price data works out of the box: **Bitstamp**, **Kraken**, **Kraken Futures**,
-**Gemini**, **MEXC** and **Binance** all serve market data without credentials. So do a surprising number of the analytics
-feeds: **CoinGecko** (coin profiles, the crypto half of the `Alt+I` dossier), **SEC EDGAR**
-(US company filings, the equity half of the dossier), **Alternative.me** (Fear & Greed),
-**CoinMetrics** (on-chain), **FINRA** (daily short volume for any US stock), **CFTC**
-(Commitments of Traders), **Binance Vision** (funding and open interest), **DefiLlama**,
-**Mempool**, **Deribit**, **OKX**, and **Wikipedia pageviews** (retail attention). That is
-most of the analytics layer, for nothing.
-
-**1. Alpaca — free, and the single biggest unlock.**
-This is the one to get first if you touch US markets at all. It brings **14,162 active US
-equities and ETFs**, including **1,136 OTC symbols**, with 5-minute intraday history back
-to 2016 — so esoteric tickers, the leveraged and thematic ETFs, and small caps are all
-covered. The same key also gives you a **paper trading account**, which is how you should
-practise the order panel before any real money is involved. Sign up at alpaca.markets; you
-get a paper key pair and a live key pair. **Enter the paper pair first**, and only add the
-live pair when you actually intend to trade with it.
-
-Alpaca covers ETFs but **not indices**. There is no `SPX`. Use the fund that tracks the
-index instead — SPY, QQQ, IWM, DIA — and for metals and bonds use GLD, SLV, TLT, IEF. One
-trap worth knowing: typing `ES` expecting the S&P futures contract returns **Eversource
-Energy**, a utility stock trading around $72. It is a valid symbol, so nothing will warn
-you.
-
-**2. FRED — free, instant, and the whole macro picture.**
-A St. Louis Fed key (fred.stlouisfed.org, issued immediately) turns on the Economic
-analytics provider: CPI, unemployment, yield curves, the Fed funds rate, and hundreds of
-other series you can chart beside price like any indicator.
-
-**3. TwelveData — free tier, for what Alpaca cannot reach.**
-Spot gold (`XAU/USD`) works on the free tier and is genuinely useful. Be aware that on the
-free plan `SPX` and `XAG/USD` (spot silver) are **not** included — they need a paid tier —
-so do not be surprised when they fail.
-
-**4. An AI provider — optional, and only for the AI Analyst.**
-**Claude**, **OpenAI** or a local **Ollama** install. Nothing else in the terminal uses it,
-no strategy or alert depends on it, and your chart data leaves your machine when you use
-it. A local Ollama install avoids that entirely.
-
-**Later, and only if you need them.** **Coinbase**, **Schwab**, **Tradier**, **Oanda** and
-**Interactive Brokers** are for placing real orders through a broker you already have.
-**Polygon**, **Finnhub** and **FMP** are paid data vendors that overlap heavily with what
-Alpaca already gives you free — add one only when you hit a specific gap. **Glassnode** and
-**Etherscan** are paid or rate-limited on-chain sources, and the free CoinMetrics and
-Mempool feeds cover most of the same ground.
-
-Keys go in the **API key manager, `Alt+K`**. They are stored on your own machine, never
-sent anywhere except the provider they belong to, and each provider tells you plainly when
-a key is missing rather than failing quietly.
-
----
-
-## 5. Moving Through Time: Bar-by-Bar Navigation
-
-### The Basics
-
-| Key | Action |
-|-----|--------|
-| Left Arrow | Move cursor one bar earlier (back in time) |
-| Right Arrow | Move cursor one bar later (forward in time) |
-| Home | Jump to the leftmost bar in the visible viewport |
-| End | Jump to the rightmost bar in the visible viewport |
-| Backslash (\) | Jump to the latest (live/most recent) bar |
-
-When you move left or right, your screen reader announces the bar's data. If you are on the price pane, it announces the open, high, low, and close of that candle. If you are focused on an indicator component, it announces that component's value for the current bar.
-
-Simultaneously, the audio engine plays the sonified tone for that bar.
-
-### Scrolling the Viewport
-
-Moving the cursor with Left and Right eventually reaches the edges of the visible window and causes the viewport to scroll automatically, keeping the cursor in view.
-
-You can also scroll the viewport independently of the cursor:
-
-| Key | Action |
-|-----|--------|
-| [ | Pan the viewport left (older bars come into view) |
-| ] | Pan the viewport right (newer bars come into view) |
-| Shift+[ | Decrease the pan step size (smaller pans) |
-| Shift+] | Increase the pan step size (larger pans) |
-
-### Zooming
-
-| Key | Action |
-|-----|--------|
-| - (minus) | Zoom out (more bars visible, each appears narrower) |
-| = (equals) | Zoom in (fewer bars visible, each appears wider) |
-
-Zooming in shows you finer detail on fewer bars. Zooming out shows you broader context across more bars.
-
-### With the mouse
-
-The chart toolbar also has **Pan left**, **Pan right**, **Zoom in**, and **Zoom out**
-buttons that do exactly what the keys above do (and announce the new visible range, so
-they're screen-reader friendly). And when no drawing tool is selected, you can **click and
-drag the chart** to pan it — drag right to bring older bars into view. Release the button
-anywhere to stop.
-
----
-
-## 6. Moving Between Panes and Components
-
-### Switching Panes
-
-| Key | Action |
-|-----|--------|
-| Page Down | Move focus to the next pane below |
-| Page Up | Move focus to the pane above |
-| Alt+Down | Scroll the indicator pane list down (when more panes are open than fit on screen) |
-| Alt+Up | Scroll the indicator pane list up |
-
-When you switch panes, speech announces the name of the newly focused series (for example, "RSI" or "Volume").
-
-### Switching Components Within a Series
-
-| Key | Action |
-|-----|--------|
-| Down Arrow | Move to the next component within the focused series |
-| Up Arrow | Move to the previous component within the focused series |
-
-For example, if you are in a MACD pane, Down Arrow moves from the MACD line to the signal line to the histogram, and Up Arrow moves back up through them.
-
-Speech announces the component name and its value at the current bar when you move to it. The audio engine simultaneously plays that component's tone.
-
-### Announcing Context
-
-| Key | Action |
-|-----|--------|
-| Shift+F1 | Announce the current symbol, data provider, and timeframe |
-| Ctrl+Alt+Shift+C | Focus the chart area and announce a full context summary |
-
----
-
-## 7. Jumping to Signals: Ctrl+Left and Ctrl+Right
-
-Bar-by-bar navigation is precise but slow when you want to scan for events. Ctrl+Left and Ctrl+Right perform context-aware jumps based on what component you currently have focused.
-
-| Focused Component | Ctrl+Left / Ctrl+Right Jumps To |
-|-------------------|----------------------------------|
-| Price candle | Previous/next bar where price crosses a drawn trendline |
-| Sparse signal marker (dots, diamonds, arrows) | Previous/next bar where that signal fires (has a value) |
-| Zero-crossing oscillator (MACD etc.) | Previous/next bar where the oscillator crosses zero |
-| Threshold oscillator (RSI, Stochastics etc.) | Previous/next bar where the indicator crosses into or out of the overbought/oversold zone |
-| Moving average overlay | Previous/next bar where price crosses the moving average |
-
-When you reach a boundary in either direction with no more events, speech announces: "No more [component name] signals in this direction."
-
-This navigation mode is designed for rapid scanning. For example, you can press Ctrl+Right repeatedly to step through every RSI overbought entry since the chart's beginning, or through every instance where price crossed a moving average.
-
----
-
-## 8. Playback: Listening to the Market
-
-Playback is the core listening mode. When you start playback, the chart animates bar by bar through the visible window while the audio engine plays the sonified representation of each bar. Your screen reader announces each bar's values as the cursor advances.
-
-### Playback Scopes
-
-There are three playback scopes, controlling how much of the chart you hear:
-
-| Key | Scope |
-|-----|-------|
-| Space | Play or stop the entire chart (all panes and series visible) |
-| Shift+Space | Play or stop the focused series only |
-| Ctrl+Shift+Space | Play or stop the focused component only |
-
-Use whole-chart playback for a broad overview. Use focused series playback when you want to study one indicator without the noise of others. Use focused component playback when you want to isolate a single line — for example, just the RSI line by itself.
-
-Whole-chart playback layers every visible, unmuted series at once, and each series sounds all of its own visible, unmuted components together — including soft cloud- and ribbon-fill sounds (such as an EMA Fill between two averages) that used to drop out when too many voices were playing. Muting a series or component (M) or hiding it (H) simply removes it from the mix, so you can thin a crowded soundscape down to what matters.
-
-### Pause, Resume, and Stop
-
-| Key | Action |
-|-----|--------|
-| Ctrl+Space | Pause or resume active playback |
-| Shift+Escape | Force-stop all playback immediately |
-
-When you pause with Ctrl+Space, playback now falls fully silent instead of holding the last chord. The arrow keys still audition individual bars while paused, so you can inspect the frozen moment before resuming.
-
-### Playback Speed
-
-| Key | Action |
-|-----|--------|
-| Shift+= | Increase playback speed |
-| Shift+- | Decrease playback speed |
-
-Speed affects how quickly the cursor advances through bars. At slower speeds you hear each bar more fully. At faster speeds you can scan a long history quickly.
-
----
-
-## 9. Controlling Volume and Speech
-
-### Speech Toggle
-
-| Key | Action |
-|-----|--------|
-| F2 | Toggle speech output on or off |
-| F3 | Toggle sonification (audio engine) on or off |
-
-You can run with speech only, audio only, or both simultaneously, depending on your preference and task.
-
-### Volume Controls
-
-Volume is controlled at three levels: per component, per series, and master chart volume.
-
-| Key | Action |
-|-----|--------|
-| F5 | Component volume up (+10%) |
-| Shift+F5 | Component volume down (-10%) |
-| F6 | Series volume up (+10%) |
-| Shift+F6 | Series volume down (-10%) |
-| F7 | Master chart volume up (+10%) |
-| Shift+F7 | Master chart volume down (-10%) |
-
-Component volume adjusts just the one component you have focused (for example, just the histogram within MACD). Series volume adjusts all components in the focused series together. Master volume adjusts everything.
-
-### Muting and Hiding
-
-| Key | Action |
-|-----|--------|
-| M | Mute or unmute the focused series (or focused component if you last used Up/Down) |
-| H | Hide or show the focused series (or component) |
-| N | Narration on or off for the focused series (or component) |
-
-Muting silences the audio for that series without removing it from the chart. Hiding removes it from visual display and silences it. Both are toggles — pressing the same key again restores it.
-
----
-
-## 10. Working with Indicators
-
-### Adding an Indicator
-
-Press Alt+A to open the Add Indicator dialog. Indicators are organized in categories:
-
-- Multi-Signal: indicators that produce several different types of signals from a single calculation
-- Trend: moving averages and directional tools
-- Momentum: oscillators that measure speed and rate of change
-- Volatility: indicators that measure the range or dispersion of price
-- Volume: indicators that incorporate trading volume into their analysis
-- Profiles: volume profile and time-price opportunity tools
-
-Navigate the category list and indicator list with the arrow keys. Press Enter to add an indicator.
-
-When an indicator is added, it is automatically assigned audio properties based on its type. You can adjust these in the indicator's properties dialog.
-
-### Navigating to an Indicator
-
-Use Page Down from the price chart to move focus through indicator panes in order. Use Page Up to move back up. When you land on an indicator pane, speech announces the indicator name and the value of its primary component at the current bar.
-
-### Exploring Components Within an Indicator
-
-Press Down Arrow to move through the components of the focused indicator. Each component is a distinct output of the indicator — for example, the fast line, slow line, and signal line of a multi-line indicator. Speech announces the component name and value as you move to each one.
-
-### Adding a Reference Line
-
-When focused on any indicator pane, press 0 (zero) to add a zero-level horizontal reference line to that indicator. This line will be audible during playback and will be used for zero-crossing navigation via Ctrl+Left/Right.
-
-### Opening Indicator Properties
-
-| Key | Action |
-|-----|--------|
-| P or Shift+F12 | Open the properties dialog for the focused indicator |
-
-In the properties dialog you can adjust:
-
-- Calculation parameters (periods, smoothing factors, thresholds)
-- Per-component colors (for sighted collaborators)
-- Per-component audio settings (on the Sonification tab): a Sound Patch dropdown listing built-in bell patches plus any patch you have built in the Sound Designer, each with a ▶ preview button, and fallback waveform, noise, and volume controls used when no patch is chosen. Directional, green/red components (candles, bars, histograms and volume bars) also get separate Green (bullish) and Red (bearish) patch dropdowns, so up-bars and down-bars can sound different; plain lines and areas show only the single patch
-- "Save as Defaults" — saves your preferred settings so new instances of this indicator start with the same configuration
-
-Navigate the properties dialog with Tab and the arrow keys. Your screen reader reads all labels and current values.
-
-### Removing an Indicator
-
-Press Delete while focused on an indicator pane to remove that indicator from the chart. Speech asks for confirmation. The price candle pane cannot be removed.
-
-### Heikin-Ashi Candles
-
-Press Alt+C to toggle Heikin-Ashi candle mode on the price chart. Heikin-Ashi candles are a smoothed candlestick formula that reduces noise and can make trends easier to hear.
-
-### Logarithmic Scale
-
-Press Alt+L to toggle logarithmic (log) scale on the price chart. Log scale is useful for long historical views where price has moved by very large percentages, as it compresses large ranges into a more even distribution.
-
----
-
-## 11. Drawing Tools
-
-Drawing tools let you place reference lines and shapes on the chart that are then audible during navigation and playback — for example, the cursor will announce when it crosses a trendline you have placed.
-
-All drawing tools use **sequential anchoring**. You do not hold keys and drag, and you do not press Enter. Instead you navigate the cursor to the point you want and **press the same drawing shortcut again** to set each anchor at the current bar. This makes every drawing tool fully accessible.
-
-### The Sequential Anchoring Workflow
-
-Take a trendline (Alt+Shift+T) as the example:
-
-1. Navigate the cursor to the first point using the Left and Right arrows.
-2. Press the drawing shortcut (Alt+Shift+T) to set the first point at the current bar. Speech announces the price and timestamp, and **names the point it is asking for next** — for example: "Trend line: first point at 42,500.00, 14:30. Navigate to the second point and press the shortcut again." Every tool names its own points: the risk/reward tool asks for the entry, then the stop loss, then the take profit.
-3. Navigate to the second point.
-4. Press the **same** shortcut again (Alt+Shift+T) to set the second point and complete the drawing. Speech names the last point and where the shape runs from: "Trend line placed, second point at 43,100.00, from 42,500.00." Tools that work something out say it here too — the measure tool adds its distance, percentage and bar count, and the risk/reward tool its ratio.
-5. For three-anchor tools (Fibonacci extension, Risk/Reward, Andrews' pitchfork), repeat: navigate, then press the shortcut a third time to set the final anchor.
-6. Press Escape at any time during placement to cancel the in-progress drawing.
-
-Single-anchor tools (horizontal line, vertical line, text label, anchored VWAP) complete on the first press — they place immediately at the current bar.
-
-> **Note:** Enter does **not** confirm anchors. Each anchor is set by pressing the tool's own shortcut again. (If you have a mouse, you can also click or drag to place anchors, and drag an existing anchor handle to reposition it — but the keyboard workflow above is the primary, fully accessible path.)
-
-### Drawing Shortcuts
-
-> The drawing chords are `Alt+Shift+<letter>` on every head — desktop, mobile and browser. (Before 2026-09-05 the desktop apps used Ctrl+Shift and only the browser used Alt+Shift; see [Platform Support](#17-platform-support).)
-
-| Key | Tool |
-|-----|------|
-| Alt+Shift+T | Trendline (2 anchors) |
-| Alt+Shift+H | Horizontal line — price level (1 anchor) |
-| Alt+Shift+V | Vertical line — time marker (1 anchor) |
-| Alt+Shift+C | Price channel (2 anchors) |
-| Alt+Shift+F | Fibonacci retracement (2 anchors: swing high and swing low) |
-| Alt+Shift+E | Fibonacci extension (3 anchors: move start, move end, pullback) |
-| Alt+Shift+L | Text label (1 anchor) |
-| Alt+Shift+R | Rectangle (2 anchors: opposite corners) |
-| Alt+Shift+M | Measure / range tool (2 anchors: start and end of range) |
-| Alt+Shift+A | Andrews' pitchfork (3 anchors) |
-| Alt+Shift+G | Gann fan (2 anchors) |
-| Alt+Shift+B | Gann box (2 anchors) |
-| Alt+Shift+J | Angle / Fibonacci angle (2 anchors) |
-| Alt+Shift+P | Risk/Reward tool (3 anchors: entry, stop loss, take profit) |
-| Alt+Shift+W | Anchored VWAP (1 anchor: the bar from which VWAP is calculated forward) |
-| Alt+D | Open the drawing tools panel (manage and delete existing drawings) |
-
-### Fibonacci Retracement
-
-After placing 2 anchors (for example, from a swing low to a swing high), the application places horizontal levels at standard Fibonacci ratios (23.6%, 38.2%, 50%, 61.8%, 78.6%). These levels are then audible as the cursor crosses them and are used as trendline-crossing events for Ctrl+Left/Right navigation when focused on the price series.
-
-### Anchored VWAP
-
-The Anchored VWAP tool (Alt+Shift+W) places a Volume Weighted Average Price line starting from the bar you anchor it to and extending to the latest bar. It behaves like a moving average overlay — you can focus on it with Up/Down, and price/VWAP crossings are navigable with Ctrl+Left/Right.
-
-### Risk/Reward Tool
-
-Alt+Shift+P starts the Risk/Reward tool — three points, each asked for by name: "entry", then "stop loss", then "take profit". When the take profit is set, speech announces the ratio: "Risk to reward, 1 to 3.00."
-
-Note that **Alt+Shift+R is the rectangle**, not the risk/reward tool, and the **measure tool
-(Alt+Shift+M) is two points** — the distance, percentage and bar count between them — not an
-entry/stop/target tool.
-
----
-
-## 12. Analysis, AI, and Context
-
-### Detailed Point Analysis
-
-| Key | Action |
-|-----|--------|
-| Alt+Shift+D | Announce full analysis of the current bar |
-
-This announces:
-- The candle's open, high, low, close, and volume
-- Any recognized candlestick patterns at this bar (for example, "Engulfing bullish pattern")
-- The readings of all active indicators at this bar
-- Any signal events on this bar across all active indicators
-
-This is useful for a thorough understanding of a specific bar before making a decision.
-
-### Context Summary
-
-| Key | Action |
-|-----|--------|
-| Shift+F1 | Announce symbol, data provider, and timeframe |
-| Ctrl+Alt+Shift+C | Focus chart area and announce full context summary |
-
-### AI Technical Analyst
-
-| Key | Action |
-|-----|--------|
-| Ctrl+Alt+Shift+A | Open the AI Analyst modal |
-
-The AI Analyst sends a snapshot of the current chart — recent candle data, a summary of your active indicators, and (where the provider supports vision) an image of the chart — to a large language model and reads back a concise, plain-language technical analysis written for text-to-speech: trend direction, key support/resistance levels, momentum signals, and a short-term outlook.
-
-To use it you must first add an API key for at least one AI provider in the **API key manager (Alt+K)**. Supported providers are tried in order — **Claude, then OpenAI, then Ollama** — and the first one you have configured is used. If no key is configured, the Analyst tells you so rather than failing silently. Because the request goes to an external service, only use it with a provider you trust with your chart data.
-
-### Auto-Narration
-
-| Key | Action |
-|-----|--------|
-| N | Narration on/off for the focused series or component |
-| Ctrl+Alt+Shift+N | The same, from anywhere — works with focus outside the chart |
-
-Auto-narration watches the focused indicator and **speaks new signals and zone transitions as they occur on live bar closes** — for example, a fresh marker firing, or an oscillator entering or leaving an overbought/oversold zone. Only signals that appear *after* you enable narration are announced; pre-existing historical signals are not replayed.
-
-`N` is the third switch on a chart object beside `H` (hide) and `M` (mute), and like them it follows your cursor: on a series it switches the whole series, on a component it picks out that one component. No component picked out means all of them, so `N` on a series then `N` on one of its components narrows narration to that component, and `N` on it again widens back out.
-
-### The Journal
-
-| Key | Action |
-|-----|--------|
-| Ctrl+Alt+Shift+J | Open the Journal |
-
-The Journal is a persistent, screen-reader-friendly record of everything the application has spoken or alerted on during the current session — speech, alerts, strategy setups, errors, and backtest results. It is the primary tool for reviewing things that scrolled past in speech. The view is a monospace text area you can Tab into to read or copy any line, with filter buttons (All / Speech / Alerts / Setups / Errors / Backtests) and a "Copy visible" button. The buffer holds up to 2000 entries, newest at the bottom. Composite-strategy setups appear with their full rationale — side, score, stop price, first target, risk/reward, and stop placement notes.
-
----
-
-## 13. Modals, Panels, and Dialogs
-
-All modals and panels are opened by keyboard shortcut and navigated with Tab, Shift+Tab, and the arrow keys. Your screen reader reads all labels. Press Escape to close any dialog.
-
-| Key | Opens |
-|-----|-------|
-| F1 | Help dialog: complete keyboard shortcut reference |
-| F12 | Settings: global application preferences |
-| Alt+A | Add indicator dialog |
-| Alt+O | Object tree: manage all chart layers, indicators, and drawings |
-| Alt+J | Alerts manager: create and manage price and indicator alerts |
-| Alt+K | API key manager: enter and manage your data provider credentials |
-| Alt+T | Trading dashboard: view positions, orders, and account balance |
-| Alt+B | Order book: view the live bid/ask order book for the current symbol |
-| Alt+H | Toggle the heatmap overlay on/off |
-| Alt+S | Strategy manager: build, import, and run automated strategies (your library starts empty — the app does not choose a strategy for you) |
-| Alt+W | Sound designer: customize indicator timbres and bell patch assignments |
-| Alt+, | Custom scripts panel: load and run PineScript or custom strategy scripts |
-| Ctrl+Alt+Shift+A | AI Analyst: AI-powered technical analysis of the current chart (see [Analysis, AI, and Context](#12-analysis-ai-and-context)) |
-| Alt+M | Market watch: watchlists, the screen builder, and the screener |
-| Alt+R | Respect report: which levels and moving averages this market actually holds |
-| Ctrl+Alt+Shift+J | Journal: review every speech utterance, alert, setup, and error this session |
-
-### Help Dialog (F1)
-
-Press F1 at any time to open the built-in keyboard reference. This lists every shortcut in the application. It is readable by your screen reader in full.
-
-### Settings (F12)
-
-Eight tabs, Left and Right arrows between them, and a search box at the top that jumps to
-any setting by name. Speech and Narration are split by trigger: **Speech is how the terminal
-says what you asked for, Narration is what it says when you pressed nothing.**
-- **General** — paper trading and quick-trade sizing, resume last session, background
-  monitoring, braille display, touch toolbar, market structure on new charts, magnet snap,
-  panning step, data export and settings profiles
-- **Speech** — speech on/off, timestamps and when to speak them, value order, column headers,
-  describe chart patterns, which voice speaks on this device
-- **Narration** — announce new bars, narrate signals on bar close (the master over `N`),
-  narrate during playback, speak time landmarks during playback
-- **Sonification** — sonification on/off, sound under the mouse, sound theme, and the two
-  earcon families (market and interface) under the Shift+F3 mute
-- **Appearance** — the theme (New, Clone, Edit) and the visual accommodations: chart
-  formations drawn, visual earcons, colour-vision-safe colours, hollow up-candles, text size
-- **Keyboard** — rebind any shortcut, plus the reference table
-- **License** and **About**
-
-Alert delivery (email, Telegram, named webhooks) is no longer a Settings tab — it moved into
-the alerts dialog itself, Alt+J then **Delivery settings**, next to the alerts it delivers.
-
-**Nothing is saved until you press Save.** Every checkbox, text field and dropdown in this
-dialog holds your change and waits: Save writes them all and says "Settings saved", and Cancel
-or Escape drops them all and says "Settings discarded". The one exception is deliberate — the
-theme and the visual accommodations on the Appearance tab change the moment you pick them, so
-you can see what you are choosing, and Cancel puts those back too.
-
-### Market watch (Alt+M)
-
-Three tabs. **Watchlists** keeps named, ordered sets of symbols — pick them from the
-provider's real symbol list through the same Market → Provider → Sub-type → Symbol cascade
-the toolbar uses, with a filter box for large universes and a live count of how many symbols
-are showing out of how many exist. **Build a screen** creates a saved screen from filter rows
-(indicator → component → condition → values), combined by all / any / weighted score; each row
-is restated in plain English underneath. **Run screener** runs a screen against a watchlist and
-returns a table you can move through cell by cell. Symbols that could not be evaluated are
-always reported, never dropped.
-
-### Respect report (Alt+R)
-
-Measures which lines this market actually reacts to, rather than assuming. Two tabs — levels
-near price, and a moving-average ranking — each reporting hold rate, touch count, median
-reaction in ATR, the support-versus-resistance split, and how long ago. Wicks through and back
-count as holds, because that is a sweep. Leave the minimum-touches filter ticked.
-
-### Bar replay
-
-**Bar replay** (Ctrl+Alt+Shift+P, or F11 on the desktop) hides history after the bar you are on
-and gives it back one bar at a time with F9 — Shift+F9 steps back, F10 auto-advances — so you can
-practise reading a market forward without hindsight. Indicators recompute on the revealed bars
-only, so they read what they would have read then.
-
----
-
-## 14. Volume Profile Navigation
-
-A Volume Profile is a special type of indicator that shows the distribution of volume across price levels rather than across time. It appears as a horizontal bar chart layered on the price chart, showing which price levels saw the most trading activity.
-
-When your focus is on a Volume Profile series, the Up and Down arrows change their behavior:
-
-- Up Arrow: move to the next higher price bin in the volume distribution
-- Down Arrow: move to the next lower price bin
-
-Your screen reader announces the price level of each bin and the volume at that level.
-
-Two special announcements to listen for:
-
-- Point of Control (POC): the price bin with the highest volume. When you land on it, you hear a distinct square wave tone in addition to the normal audio. Your screen reader announces "Point of Control."
-- Value Area: the range of price levels that account for approximately 70% of all trading volume. When you enter this range, your screen reader announces "Entering Value Area." When you leave, it announces "Exiting Value Area."
-
-Left and Right arrows still work normally in Volume Profile navigation, moving the cursor through time.
-
----
-
-## 15. Heatmap Overlay
-
-Press Alt+H to toggle the volume heatmap overlay on the price chart. The heatmap shades each price candle and time zone based on relative volume intensity.
-
-When the heatmap is active, playback audio incorporates the heatmap intensity of each bar — higher-volume bars play louder than lower-volume bars, giving you an auditory sense of where the market was most active.
-
-Press Alt+H again to turn the heatmap off.
-
----
-
-## 16. Settings and Customization
-
-### Saving Indicator Defaults
-
-In any indicator's properties dialog (P or Shift+F12 while focused on the indicator), there is a "Save as Defaults" option. When you activate this, your current parameter and audio settings for that indicator type are saved. The next time you add an indicator of the same type, it will start with these saved settings.
-
-### Custom Audio Per Component
-
-In the indicator properties dialog, the Sonification tab has an Acoustics section for the component you select. There you can set:
-
-- Sound Patch: the voice this component plays — any built-in patch or any patch you built in the Sound Designer — with a ▶ button to preview it
-- Green (bullish) / Red (bearish) patch: for directional components (candles, bars, histograms and volume bars), separate patches for up-bars and down-bars; plain lines and areas do not show these
-- Waveform, noise, and volume: fallback controls that take over when no Sound Patch is chosen
-
-Patches are live-linked: edit a patch in the Sound Designer and every component using it updates immediately.
-
-### Sound Designer (Alt+W)
-
-The Sound Designer is a general-purpose patch workbench. A patch it produces can be assigned to event earcons here in the panel, or to indicator components through the properties dialog above.
-
-A single patch can stack several oscillators via the "Add Oscillator" button. Each oscillator layer has:
-
-- Waveform: sine, square, sawtooth, triangle, or noise
-- Level: how much this layer contributes to the mix
-- Freq Ratio: a harmonic multiple of the patch's base frequency (2.0 = one octave up)
-- Noise Blend and Noise Colour: pink, white, or brown noise mixed into the layer
-
-A Mix section sets the base frequency, a frequency multiplier, and overall volume; an Envelope section chooses a sustained tone or a plucked Ping and its duration. The Preview button auditions the whole patch, including its noise and envelope — not just the raw waveform. Patches saved by older versions still load unchanged.
-
----
-
-## 17. Platform Support
-
-Accessible Trader runs as a native desktop/mobile app (the "MAUI head" — Windows, Android, iOS, Mac) and as a self-hosted browser application (the "Linux web host"). The core keyboard navigation and audio model are the same everywhere. Platform-specific notes:
-
-**Windows:**
-- Works with NVDA, JAWS, and Narrator
-- Full hardware keyboard required for all shortcuts
-- WASAPI audio engine for lowest latency
-
-**Android:**
-- Works with TalkBack
-- All shortcuts available via physical keyboard if connected
-- AudioTrack audio engine
-
-**iOS:**
-- Works with VoiceOver
-- Keyboard shortcuts require a connected hardware keyboard; on-screen keyboard access is limited
-- AVAudioEngine audio
-
-**Mac:**
-- Works with VoiceOver
-- Full keyboard support with hardware keyboard
-- AVAudioEngine audio
-
-**Linux (web host, runs in a browser such as Firefox):**
-- Works with Orca and other browser-compatible screen readers
-- **Modifiers are the same as on the desktop.** The drawing tools and the detailed point summary are `Alt+Shift+<letter>` on every head. Browsers (especially Firefox) reserve several Ctrl+Shift+letter chords at the browser-chrome level (reopen tab, history, private window, console, reload, close window) and the page cannot override them, which is why the default moved to Alt+Shift everywhere on 2026-09-05 instead of the browser silently rewriting the desktop's chords. A shortcuts profile saved before then that still carries Ctrl+Shift chords is rewritten to Alt+Shift in the browser, in memory only.
-- Chords with three modifiers (`Ctrl+Alt+Shift+...`, e.g. AI Analyst, narration, journal, save/load workspace) are the same everywhere — browsers don't reserve them.
-- A few single-`Ctrl` browser chords are reserved at the chrome level and can't be overridden in-page, so on the web the in-app action moves to a web-safe chord (the reserved one is dropped from the Help dialog): new tab is **`Alt+Shift+N`** or the always-visible tab bar **+** button (not `Ctrl+T`); close a tab with the **Close tab** button beside it or by focusing the bar and pressing `Delete` (not `Ctrl+W`); switch tabs by pressing **`Ctrl+Alt+Shift+T`** to focus the tab switcher bar, then the arrow keys / `Home`/`End` / the number row (`1`–`9`) / `Insert` to add / `Delete` to close (not `Ctrl+Tab`). Pane navigation needs no such rule — it is **`Alt+PageUp`** / **`Alt+PageDown`** on every head, and `Ctrl+PageUp`/`Ctrl+PageDown` is left unbound because the browser cycles its own tabs on it.
-- The Help dialog (F1) and its live shortcut table always read the bindings actually in effect on your host, so you will always see the correct modifier for the platform you are using.
-
-#### Drawing tool modifiers — the same on every head
-
-| Drawing tool | Every head (`Alt+Shift`) |
+| You hear | It means |
 |---|---|
-| Trendline | Alt+Shift+T |
-| Horizontal line | Alt+Shift+H |
-| Vertical line | Alt+Shift+V |
-| Channel | Alt+Shift+C |
-| Fibonacci retracement | Alt+Shift+F |
-| Fibonacci extension | Alt+Shift+E |
-| Text label | Alt+Shift+L |
-| Rectangle | Alt+Shift+R |
-| Measure / range | Alt+Shift+M |
-| Andrews' pitchfork | Alt+Shift+A |
-| Gann fan | Alt+Shift+G |
-| Gann box | Alt+Shift+B |
-| Angle / Fibonacci angle | Alt+Shift+J |
-| Risk/Reward | Alt+Shift+P |
-| Anchored VWAP | Alt+Shift+W |
-| Detailed point summary | Alt+Shift+D |
+| Rising or falling pitch | Value going up or down. Every pane has its own scale, so RSI 70 is the same note on every chart. |
+| Brighter, reedy tone / softer, warmer tone | An oscillator above / below its midline |
+| Roughness (noise) on the tone | The reading is in an overbought or oversold zone |
+| A heavier, weightier candle tone | A bigger candle body; wick pings roughen with wick length |
+| Sound moving left to right | Position in the visible window: leftmost bar hard left, newest bar hard right |
+| Short bells | Discrete events: crossovers (sine), divergences (triangle), levels (crystal), confluence (detuned pair), momentum (blend) |
+| Very short high ping / two-note chirp / low long tone | Approaching a level / crossing it / staying beyond it |
+| Boundary tone | You reached an edge: no more bars, components, panes or signals that way |
+
+**A third layer, optional.** A Dot Pad tactile display (any model) can show the chart under
+your fingers. Windows only; see the manual's Tactile Display chapter.
 
 ---
 
-## 18. Complete Keyboard Shortcut Reference
+## 2. Load your first chart
 
-### Time Navigation
+**No key needed to start.** Bitstamp, Kraken, Kraken Futures, Gemini, MEXC and Binance serve
+crypto market data without credentials, and so do most analytics feeds (CoinGecko, SEC EDGAR,
+Fear & Greed, CoinMetrics, FINRA, CFTC, DefiLlama, Mempool and more).
 
-| Shortcut | Action |
-|----------|--------|
-| Left Arrow | Move cursor one bar back in time |
-| Right Arrow | Move cursor one bar forward in time |
-| Home | Jump to leftmost visible bar |
-| End | Jump to rightmost visible bar |
-| Backslash (\) | Jump to the latest (live) bar |
-| [ | Pan viewport left |
-| ] | Pan viewport right |
-| Shift+[ | Decrease pan step size |
-| Shift+] | Increase pan step size |
-| - | Zoom out |
-| = | Zoom in |
+**Keys worth adding, in this order.** All go in the API key manager, **Alt+K**, and stay on
+your machine.
 
-### Pane and Component Navigation
+1. **Alpaca (free).** US equities and ETFs, and a **paper trading account**. Enter the paper key
+   pair first. No indices: use SPY, QQQ, IWM, DIA, GLD, SLV, TLT. Typing `ES` returns Eversource
+   Energy, not S&P futures.
+2. **FRED (free).** The Economic analytics provider: CPI, unemployment, yields, Fed funds.
+3. **TwelveData (free tier).** Spot gold `XAU/USD` works; `SPX` and `XAG/USD` need a paid tier.
+4. **An AI provider (optional).** Claude, OpenAI, or a local Ollama. Only the AI Analyst uses it.
 
-| Shortcut | Action |
-|----------|--------|
-| Page Down | Move to next pane below |
-| Page Up | Move to previous pane above |
-| Up Arrow | Move to previous component in focused series |
-| Down Arrow | Move to next component in focused series |
-| Alt+Up | Scroll pane list up |
-| Alt+Down | Scroll pane list down |
-| Ctrl+Left | Jump to previous signal/crossing in context |
-| Ctrl+Right | Jump to next signal/crossing in context |
-| Ctrl+Alt+Shift+Y | Describe the chart's layout — panes, series, scales, what is hidden or muted |
-| Alt+Shift+/ | Describe THIS pane — what its axes measure, their ranges, and the step between gridlines |
+Broker keys (Coinbase, Schwab, Tradier, Oanda, Interactive Brokers) are for real orders through
+a broker you already have. Add them last.
 
-### Chart Formations
+**The toolbar cascade.** Tab into the toolbar's second row: **Market → Provider → (Type) →
+Symbol → Time → Load**. Each choice refills the next list and pre-selects its first entry.
+Choose **Analytics** in Market to chart data feeds instead of instruments; **My Data** to chart
+your own CSV files. A symbol list reading "API key required" means open Alt+K. Timeframe is a
+multiplier plus a unit; quick-pick buttons show the provider's own timeframes.
 
-Shapes the terminal recognises for you — double tops, head and shoulders, triangles,
-wedges, flags. These are unmodified keys because you press them repeatedly while reading;
-they only act when the chart has focus, so they stay typable everywhere else. They need
-**Describe chart patterns** on in Settings → General, and if it is off they say so rather than moving
-you somewhere without explaining why.
+**Load.** Activate **Load** or press **Ctrl+Alt+Shift+L** from anywhere. You hear "Loading
+history…" then "{Symbol} on {Provider}, {Timeframe}. Ready." From then on **Shift+F1** repeats
+the symbol, provider and timeframe, and **Ctrl+Alt+Shift+C** focuses the chart with a fuller
+summary.
 
-| Shortcut | Action |
-|----------|--------|
-| , | Previous formation edge |
-| . | Next formation edge |
-| ; | Choose which overlapping formation leads the readout (press again for the next) |
-| Shift+; | Stop choosing — go back to largest-first |
+**Is it live?** A live feed announces each bar close: a short bell and "Close 42,500. Doji. New
+bar: Open 42,510." Those announcements are your confirmation that data is flowing. Backslash
+(`\`) jumps to the newest bar; "No live data yet" means you ran off the end of what exists.
 
-### Playback
+---
 
-| Shortcut | Action |
-|----------|--------|
-| Space | Play/Stop entire chart |
-| Shift+Space | Play/Stop focused series |
-| Ctrl+Shift+Space | Play/Stop focused component |
-| Ctrl+Space | Pause/Resume active playback |
-| Shift+Escape | Force-stop all playback |
-| Shift+= | Increase playback speed |
-| Shift+- | Decrease playback speed |
+## 3. How a chart is laid out
 
-### Volume and Speech
+The keys in the rest of this guide move through a structure, so here is the structure.
 
-| Shortcut | Action |
-|----------|--------|
-The rule for the F-key row: **the plain key controls what you asked for, and Shift
-controls what happens to you.**
+**The X axis is time**, running left (past) to right (now), shared by every pane. Each step
+is one bar of the timeframe you loaded. The Left and Right arrows walk it.
 
-| Shortcut | Action |
-|----------|--------|
-| F2 | Toggle interactive speech — navigation values, summaries, your own commands |
-| Shift+F2 | Toggle event speech — alerts, monitoring reports, new-bar announcements |
-| F3 | Toggle chart sonification — navigation tones and playback |
-| Shift+F3 | Toggle earcons — the short UI confirmation sounds |
-| F4 | Toggle the braille / tactile display (where a device is connected) |
-| Shift+F4 | Open Settings on the Braille tab (desktop only) |
-| Shift+F1 | Announce symbol, provider, timeframe |
-| F5 | Component volume up |
-| Shift+F5 | Component volume down |
-| F6 | Series volume up |
-| Shift+F6 | Series volume down |
-| F7 | Master chart volume up |
-| Shift+F7 | Master chart volume down |
-| H | Toggle visibility of focused series or component |
-| M | Toggle mute of focused series or component |
-| N | Narration on or off for focused series or component |
-| Ctrl+Alt+Shift+K | Show everything you have hidden with H (says how many) |
-| Ctrl+Alt+Shift+U | Unmute everything you have muted with M (says how many) |
-| Ctrl+Alt+Shift+O | Switch narration off everywhere you turned it on with N (says how many) |
+**A pane is a Y axis.** The chart is a stack of panes, top to bottom. The top pane is
+**Main**: candles, the close line, and every overlay measured in price (moving averages,
+Bollinger Bands, VWAP). **Volume** is a pane of its own because volume is not a price. **Every
+oscillator gets its own pane**, because RSI runs 0 to 100 while MACD swings by hundreds, and a
+shared scale would flatten one of them into a sliver of the other. Alt+PageUp and Alt+PageDown
+move between panes and name the one you land on.
 
-Errors and your order outcomes — fills, stop hits, take profits — speak through every
-mute, because missing a stop firing costs real money. None of these mutes persist: the
-terminal always starts with everything audible.
+**Inside a pane: series, then components.** A series is one indicator; a component is one line
+or marker it draws, with a value on every bar. MACD is one series with three components: the
+MACD line, the signal line, the histogram. Up and Down walk the components of the focused
+series; PageUp and PageDown walk series. Some panes divide into **strips**: Cipher B keeps its
+money-flow histogram in a strip with its own axis, and Ctrl+Up and Ctrl+Down walk a strip
+across every series in the pane.
 
-### Indicators
+**Three things live on a pane, and they are not the same.**
 
-| Shortcut | Action |
-|----------|--------|
-| Alt+A | Open Add Indicator dialog |
-| P or Shift+F12 | Open properties for focused indicator |
-| 0 (zero) | Add a reference line to the focused series — at zero on an oscillator, at the price under the cursor on the price chart |
-| Delete | Remove focused indicator series |
-| Alt+C | Toggle Heikin-Ashi candle mode |
-| Alt+L | Toggle logarithmic scale |
+- A **component** has a value on every bar (an EMA, an RSI line, a histogram) or on some bars
+  (a buy dot). You navigate to it and hear its value.
+- A **reference level** is a constant: RSI's 70 and 30, MACD's zero, ADX's 25. It has a value,
+  a meaning (overbought, oversold, neutral, or a named band such as "strong trend") and an
+  owner (the indicator's, or yours from the **0** key). Levels ping as you approach, chirp as
+  you cross, and are the stops for Ctrl+Left and Ctrl+Right.
+- A **zone** is a region rather than a line: the shaded overbought band, a support or
+  resistance zone a level indicator carries forward, or a Value Deviation zone where price
+  turned away from value. Zone lines speak "support at…" and "resistance at…"; shaded bands are
+  visual only.
 
-### Analysis
+**Three keys describe all of this.** **Alt+Shift+/** describes the pane you are in: what each
+axis measures, its range, the gridline step, and what is drawn there. **Ctrl+Alt+Shift+Y**
+describes the whole layout: how many panes, what is in each, what is hidden or muted.
+**Shift+F1** says where you are. The manual's "How a chart is laid out" chapter has the
+household picture of all this if you want one.
 
-| Shortcut | Action |
-|----------|--------|
-| Alt+Shift+D | Full point analysis of current bar |
-| Ctrl+Alt+Shift+C | Focus chart and announce context summary |
-| Ctrl+Alt+Shift+N | Narration on/off for the focused series or component (`N` on the chart) |
-| Ctrl+Alt+Shift+A | Open AI Analyst modal |
-| Alt+R | Respect report — which levels this market actually holds |
-| Alt+I | Asset dossier — what this instrument is, in plain language |
+---
 
-### Quick Trade (from the chart, no dashboard)
+## 4. Moving around
 
-Size a position from your risk budget and place it without leaving the chart. **Arming a
-percentage is not a position size** — the terminal needs your stop before it can turn "risk
-1%" into a quantity, so it waits for one and then speaks the whole calculation back to you.
-The Trading chapter of the [User Manual](USER_MANUAL.md#quick-trade-from-the-chart) walks
-through why.
+**Time**
 
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+Alt+Shift+1 | Arm 0.5% risk |
-| Ctrl+Alt+Shift+2 | Arm 1% risk |
-| Ctrl+Alt+Shift+3 | Arm 2% risk |
-| Ctrl+Alt+Shift+X | Make the bar under the cursor your stop |
+| Key | Action |
+|---|---|
+| Left / Right Arrow | One bar earlier / later, spoken and sounded |
+| Home / End | First / last bar in the visible window |
+| Backslash (`\`) | The newest bar |
+| `[` / `]` | Pan the window; Shift+`[` / Shift+`]` shrink / grow the pan step |
+| `-` / `=` | Zoom out / in |
+
+**Structure**
+
+| Key | Action |
+|---|---|
+| Up / Down Arrow | Previous / next component in the focused series |
+| Page Up / Page Down | Previous / next series, in the order they are drawn |
+| Alt+Page Up / Alt+Page Down | Previous / next pane (the next Y axis); clamps at the ends |
+| Ctrl+Up / Ctrl+Down | Previous / next component in this strip, across every series in the pane |
+
+**Jumps.** Ctrl+Left and Ctrl+Right skip to the previous or next event for the focused thing:
+a price crossing your trend line (on candles), a signal firing (on a dot or arrow), a crossing
+of the midline or an overbought/oversold line (on an oscillator), a band edge (on ADX or
+Choppiness), price crossing the average (on a moving average). A hidden level is not a target.
+At the end: "No more {component} signals in this direction."
+
+**Formations.** With **Describe chart patterns** on (Settings → General), `,` and `.` step
+between the edges of double tops, head and shoulders, triangles, wedges, flags and ranges; `;`
+chooses which overlapping formation leads, Shift+`;` releases it.
+
+**Mouse and touch** work too: click a bar to hear it, Shift+click to measure, double-click for
+the newest bar, scroll to zoom, Shift+scroll to pan, right-click or Shift+F10 for the chart
+menu. Touch has a navigation toolbar under the chart.
+
+---
+
+## 5. Playback
+
+| Key | Action |
+|---|---|
+| Space | Play / stop the whole chart, every visible unmuted series, from the left edge |
+| Shift+Space | Play / stop the focused series, from the cursor |
+| Ctrl+Shift+Space | Play / stop the focused component |
+| Ctrl+Space | Pause / resume (paused is silent; arrows still audition bars) |
+| Shift+Escape | Stop everything |
+| Shift+`=` / Shift+`-` | Faster / slower (remembered across restarts) |
+
+**What playback says.** Start, pause, speed and finish are always spoken. Beyond that,
+governed by Settings → Narration → **Narrate during playback**: the date or hour as the bars
+cross it, discrete **signals** on series you flagged with **N** (at most two per bar, the
+rarest first), a line crossing one of its own levels ("strong trend"), and a chart formation
+resolving. Continuous lines never narrate during playback, oscillator zone commentary is left
+to the bar close, and volume profiles say nothing while playing. F3 turns the tones off and
+leaves the words; F2 mutes the words.
+
+---
+
+## 6. When the terminal speaks on its own
+
+**The bar close.** One sentence per bar: the closing candle and its pattern, then whatever your
+narrated indicators made of it, up to five clauses, most consequential first. "Close 64,905 at
+14:32, Bullish engulfing. New bar: Open 64,910. Triple confluence buy. RSI 14: RSI overbought."
+
+**N chooses what may speak.** Press **N** on a series (or on one component to narrow it) and its
+signals, level crossings, moving-average crosses and cloud entries are spoken at each bar
+close. **Ctrl+Alt+Shift+O** switches narration off everywhere. Settings → Narration holds the
+switches: Announce new bars, Narrate candle patterns as they form, Narrate chart formations as
+they form (off by default), Narrate signals on bar close, Narrate during playback, Speak time
+landmarks during playback.
+
+**Where it goes.** Whatever is about the chart in front of you is spoken here. Anything else
+(another tab, a symbol with no tab, or the terminal running with the browser closed) arrives as
+a **system notification**, behind one switch that is on by default: Alt+J → Delivery settings →
+**Events you cannot see**.
+
+**Two mutes, one rule.** F2 silences what you asked for (navigation, summaries); Shift+F2
+silences what happens to you (alerts, new bars, narration). Errors and money (fills, stops,
+take-profits) speak through both. Alerts ignore every narration switch.
+
+---
+
+## 7. Volume, mute and hide
+
+| Key | Action |
+|---|---|
+| F5 / Shift+F5 | Focused component louder / quieter |
+| F6 / Shift+F6 | Focused series louder / quieter |
+| F7 / Shift+F7 | Whole chart louder / quieter |
+| M | Mute / unmute the focused series or component |
+| H | Hide / show it (hidden things leave navigation too) |
+| N | Narrate it on bar closes |
+| Ctrl+Alt+Shift+K / U / O | Show everything hidden / unmute everything / narration off everywhere |
+| F2 / Shift+F2 | Interactive speech / event speech |
+| F3 / Shift+F3 | Chart sound / earcons |
+| F4 / Shift+F4 | Tactile display / its Settings tab |
+
+None of the mutes persist: every start is audible.
+
+---
+
+## 8. Indicators
+
+An indicator is a calculation over the bars, drawn as one or more lines or markers. Trend
+indicators (moving averages) smooth price; momentum oscillators (RSI, MACD, Stochastic)
+measure speed and swing about a midline; volatility indicators (ATR, Bollinger Bands) measure
+range; volume indicators weigh moves by participation. The manual's indicator primer explains
+the common ones.
+
+**Add one with Alt+A.** Categories: Multi-Signal, Trend, Momentum, Cycles, Positioning,
+Derivatives, Volatility, Volume, Profiles, Overlays, My Data. Arrow to it, Enter. The dialog
+says whether it joins the price pane or gets its own. Drawing tools are not in this dialog;
+they are under Alt+D.
+
+**Reach it** with PageDown or Alt+PageDown, then Up and Down through its components.
+
+**Tune it with P (or Shift+F12).** Five tabs: General (parameters), Appearance, Levels,
+Sonification (a sound patch per component, with bullish/bearish or above/below-midline pairs),
+Speech. **Save as Defaults** makes the next indicator of that type start this way.
+
+**0 marks the line that matters.** On an oscillator, 0 toggles the pane's declared neutral
+(50 on RSI, zero on MACD, −50 on Williams %R). On the price pane it marks the price under the
+cursor. Press 0 again on your own level to remove it. Indicator-declared levels live in
+Properties.
+
+**Delete** removes the focused series after confirmation. **Ctrl+Z** takes it back.
+
+**Heikin-Ashi (Alt+C)** replaces each candle with a smoothed one: its close is the average of
+open, high, low and close, its open the midpoint of the previous smoothed candle. Trends read
+as runs of one colour, so they are easier to hear. Two things to know: the smoothed prices
+are averages nobody traded at, so **every indicator, the close line and every formation level
+keep reading the raw candles**; and with HA on, the candle you hear and its pattern are the
+smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories.
+
+---
+
+## 9. Drawing tools
+
+Drawings are placed by **sequential anchoring**: no dragging, no Enter.
+
+1. Arrow to the first point.
+2. Press the tool's chord. Speech names the point you set and the point it wants next: "Trend
+   line: first point at 42,500.00, 14:30. Navigate to the second point and press the shortcut
+   again."
+3. Arrow to the next point and press the **same** chord. Three-point tools take a third press.
+4. Completion speaks the tool's answer: the measure tool its distance, percent and bar count;
+   the risk/reward tool "Risk to reward, 1 to 3.00."
+5. Escape cancels a drawing in progress.
+
+| Chord | Tool (points) |
+|---|---|
+| Alt+Shift+T | Trend line (2) |
+| Alt+Shift+H | Horizontal line at the cursor price (1) |
+| Alt+Shift+V | Vertical line at the cursor bar (1) |
+| Alt+Shift+C | Price channel (2) |
+| Alt+Shift+F | Fibonacci retracement: swing start, swing end (2) |
+| Alt+Shift+E | Fibonacci extension: swing start, swing end, retracement point (3) |
+| Alt+Shift+L | Text label, then a dialog for the wording (1) |
+| Alt+Shift+R | Rectangle: opposite corners (2) |
+| Alt+Shift+M | Measure tool: start and end of the move (2) |
+| Alt+Shift+A | Andrews' pitchfork: pivot, median line, swing point (3) |
+| Alt+Shift+G | Gann fan: origin, angle point (2) |
+| Alt+Shift+B | Gann box: opposite corners (2) |
+| Alt+Shift+J | Angle Fibonacci: swing start, swing end (2) |
+| Alt+Shift+P | Risk/Reward: entry, stop loss, take profit (3) |
+| Alt+Shift+W | Anchored VWAP from the cursor bar (1) |
+| Alt+D | Drawing tools panel: review and delete |
+
+Alt+Shift+R is the rectangle and Alt+Shift+M is the two-point measure tool; the three-point
+entry, stop and target tool is Risk/Reward on Alt+Shift+P.
+
+**Afterwards.** Focus a drawing with PageUp or PageDown and each bar reads its value and which
+side price is on. **Shift+Left / Shift+Right** move the selected anchor a bar, **Shift+Up /
+Shift+Down** move its price, **Ctrl+Alt+Shift+G** selects the next anchor, **Ctrl+Alt+Shift+B**
+snaps it to the bar's high, low, open or close. **Ctrl+Z / Ctrl+Y** undo and redo, fifty deep.
+**Shift+F10** opens the drawing's menu. Name a drawing in Properties (P) so it reads as "Weekly
+resistance" instead of "Trend line 3".
+
+---
+
+## 10. Trading safely
+
+**Practise first.** Settings (F12) → General → **Paper trading**, then Save. Every order on
+every chart then goes to a built-in simulator: 100,000 USDT to start, fills at real live
+prices, a 0.04% fee, brackets, OCO pairs, trailing exits and 1x shorts all simulated. Reset it
+from the same tab; it asks first. On the hosted website paper is always on.
+
+**Know which account you are on.** The status bar carries a PAPER or a **LIVE** badge. The
+dashboard (Alt+T) speaks it when it opens: "{Provider}: LIVE account '{name}'. Orders here are
+real money." The **API key for this order** dropdown at the top of the dashboard is the choice
+of record; anything not marked Paper is treated as live. A key marked Paper on a venue with no
+practice environment (Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures, MEXC,
+Schwab) is **refused**, never routed live.
+
+**The dashboard (Alt+T).** A ticket (BUY/SELL, quantity, type, stop loss, take profit,
+trailing exits, a **Size** button that sizes from a risk percentage and a stop) and five tabs:
+Positions, Balances, Orders, History, Book. Positions has inline stop and target editors and
+**Close position** / **Close at limit** buttons.
+
+**Quick trade from the chart.**
+
+| Key | Action |
+|---|---|
+| Ctrl+Alt+Shift+1 / Ctrl+Alt+Shift+2 / Ctrl+Alt+Shift+3 | Arm 0.5% / 1% / 2% |
+| Ctrl+Alt+Shift+X | The bar under the cursor becomes the stop (direction is inferred from its side) |
 | Shift+Enter | Place a limit at the bar under the cursor |
 | Ctrl+Enter | Place at market |
-| Ctrl+Alt+Shift+Q | Say what is armed right now |
-| Ctrl+Alt+Shift+0, or Escape | Cancel the armed trade |
+| Ctrl+Alt+Shift+Q | Say what is armed |
+| Ctrl+Alt+Shift+0 or Escape | Cancel |
 
-### Undo
+Nothing places until a stop is set, and the stop always travels with the entry. What the
+percentage means is a setting (Settings → General → "Quick trade: the risk percentage means"):
+**the position's value** (the default: 1% of a 100,000 account is a 1,000 position, whatever
+the stop) or **what I lose if the stop is hit** (the "1% rule": size = risk ÷ stop distance,
+which can be a large position on a tight stop). Every bar reading reminds you that you are
+armed.
 
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+Z | Undo the last chart edit — says what it undid |
-| Ctrl+Y | Redo it |
+**Live orders get a spoken review** with Confirm and Cancel, plus warn-only checks on
+liquidation distance and correlated exposure. Change the ticket after the review and nothing
+is sent until you review again.
 
-Covers drawing edits and deleting a series, fifty deep. It is not an application-wide
-undo: it will not take back an order, an alert, or a settings change.
-
-### Bar Replay
-
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+Alt+Shift+P (or F11) | Start bar replay at the cursor bar / stop and restore full history |
-| F9 | Reveal the next bar |
-| Shift+F9 | Hide the last revealed bar |
-| F10 | Play / pause auto-advance |
-
-On the web host use Ctrl+Alt+Shift+P rather than F11 — browsers own F11 for fullscreen.
-
-### Tabs and Workspaces
-
-| Shortcut | Action |
-|----------|--------|
-| Alt+Shift+N | New chart tab (web-safe; works everywhere) |
-| Ctrl+T | New chart tab (desktop only — browser-reserved on the web) |
-| Ctrl+W | Close current tab (desktop; on the web use the tab's × or focus the bar + Delete) |
-| Ctrl+Tab | Switch to next tab (desktop only) |
-| Ctrl+Shift+Tab | Switch to previous tab (desktop only) |
-| Ctrl+Alt+Shift+T | Focus the tab switcher bar (web-safe), then use arrows / Home / End / 1–9 / Insert (new) / Delete (close) |
-| Ctrl+Alt+Shift+W | Save workspace |
-| Ctrl+Alt+W | Load workspace |
-| Ctrl+Alt+Shift+L | Load the chart — the same as activating the toolbar's **Load** button |
-| Ctrl+Alt+Shift+I | Open **My Data** — your own imported series and events |
-| Ctrl+Alt+Shift+M | Speak background monitoring status |
-
-By default only the chart on screen is live. To keep the other tabs watched too, enable **Monitor background tabs** in Settings (F12), General (desktop builds). Their symbol-scoped alerts and running strategies then keep evaluating on a polling cadence while you work elsewhere — announcements arrive prefixed with the symbol ("BTC/USD: crossed above 50,000"), background strategy signals are announce-only (never auto-placed orders), and the sonification/playback soundscape always belongs to the focused chart only. Press Ctrl+Alt+Shift+M for a spoken status of every watched tab.
-
-### Sub-Pane and Intra-Pane Navigation
-
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+Page Down (web: Alt+Page Down) | Jump to first component of next sub-pane |
-| Ctrl+Page Up (web: Alt+Page Up) | Jump to first component of previous sub-pane |
-| Ctrl+Down | Cycle to next component within current pane (wraps) |
-| Ctrl+Up | Cycle to previous component within current pane (wraps) |
-
-### Drawing Tools
-
-| Shortcut | Tool |
-|----------|------|
-| Alt+Shift+T | Trendline |
-| Alt+Shift+H | Horizontal line |
-| Alt+Shift+V | Vertical line |
-| Alt+Shift+C | Price channel |
-| Alt+Shift+F | Fibonacci retracement |
-| Alt+Shift+E | Fibonacci extension |
-| Alt+Shift+L | Text label |
-| Alt+Shift+R | Rectangle |
-| Alt+Shift+M | Measure / range tool |
-| Alt+Shift+A | Andrews' pitchfork |
-| Alt+Shift+G | Gann fan |
-| Alt+Shift+B | Gann box |
-| Alt+Shift+J | Angle / Fibonacci angle |
-| Alt+Shift+P | Risk/Reward tool |
-| Alt+Shift+W | Anchored VWAP |
-| Alt+D | Open drawing tools panel |
-| (re-press the tool shortcut) | Set each anchor at the current bar; the same shortcut advances anchor 1 → 2 → 3 and completes the drawing |
-| ContextMenu / Shift+F10 | Open the context menu for the focused drawing (keyboard equivalent of right-click) |
-| Escape | Cancel an in-progress drawing / close dialog |
-
-> These `Alt+Shift` drawing chords are the same on every head — see [Platform Support](#17-platform-support).
-
-### Panels and Dialogs
-
-| Shortcut | Opens |
-|----------|-------|
-| F1 | Help dialog |
-| F12 | Settings |
-| Alt+O | Object tree |
-| Alt+J | Alerts manager |
-| Alt+K | API key manager |
-| Alt+T | Trading dashboard |
-| Alt+B | Order book |
-| Alt+H | Toggle heatmap overlay |
-| Alt+S | Strategy manager |
-| Alt+W | Sound designer |
-| Alt+, | Custom scripts panel |
-| Alt+M | Market watch (watchlists + screener) |
-| Alt+R | Respect report |
-| Ctrl+Alt+Shift+J | Journal (review every speech, alert, setup, error this session) |
+**Money always speaks.** "Order filled…", "Stop loss hit…", "Order rejected for… {reason}" come
+through every mute and every playback. The manual's Risk Management chapter is the one to
+read before the first real order.
 
 ---
 
-## Quick Start Checklist
+## 11. Alerts and monitoring
 
-If you are opening Accessible Trader for the first time, here is a recommended sequence to orient yourself:
+**Alerts (Alt+J).** Name, target (price, candle, indicator, point of control), condition,
+level, delivery (speech, earcon, both). Alerts are scoped to the chart they were created on
+unless you choose "any symbol". **Delivery settings** in the same dialog holds email, Telegram,
+named webhooks (Discord, Slack), the **Events you cannot see** notification switch, and the
+**Shortest timeframe to announce** floor. Advanced condition trees are available but evaluate
+only while their chart is open.
 
-1. Press Shift+F1 to hear what symbol, provider, and timeframe is currently active.
-2. Press Ctrl+Alt+Shift+C to get a full context summary.
-3. Press Right Arrow a few times and listen to the pitch changes as price moves forward in time.
-4. Press Space to start whole-chart playback and let the chart play for several seconds. Press Space again to stop.
-5. Press Page Down to move to the first indicator pane, then press Down Arrow to step through its components.
-6. Press F1 to open the help dialog and explore the full shortcut reference.
-7. Press Alt+A to open the Add Indicator dialog and add one indicator to get familiar with the workflow.
+**Two monitoring switches, Settings → General.**
 
-When you are ready to go deeper, the [User Manual](USER_MANUAL.md) covers trading,
-alerts (including Discord/Slack webhooks), automated strategies with spoken trade
-plans, and the Strategy Lab — the command-line research harness that holds this
-project's strategies and the evidence for each of them. The terminal ships the tools
-and starts with an empty strategy library; strategies get there because you built one
-or imported one, never because the application decided for you (see the manual's
-Automation chapter, and `STRATEGY_LIBRARY_POLICY.md` for why).
+- **Keep watching other tabs** (off by default): the other open tabs keep polling (every 30
+  seconds, or live-streamed on exchanges that allow it), their alerts and strategies keep
+  evaluating, and their events arrive as notifications prefixed with the symbol. Background
+  strategies announce; they never place orders.
+- **Keep monitoring when the browser is closed** (off by default, local web host only): the
+  terminal keeps running with no browser, checking about once a minute. It evaluates every
+  alert with a symbol, reports order fills on every venue you hold a key for, announces bar
+  closes and the narration ladder for your saved tabs, and delivers all of it as system
+  notifications. Closing the last tab sends one notification saying whether anything will be
+  watched. It reports and never acts.
 
-Welcome to Accessible Trader.
+**Ctrl+Alt+Shift+M** speaks the status of both halves. The **system tray icon** (local web
+host; Windows app) can restore the browser, show recent alerts, silence alerts and bar closes
+for 30 minutes (money still comes through), toggle browser-closed monitoring, and exit. On the
+Windows app the close button minimises to the tray by default. The Mac and mobile apps have no
+headless monitor.
+
+---
+
+## 12. Settings, workspaces and sharing
+
+**Settings (F12).** Nine tabs on the desktop, eight on the web (no Braille tab there): General,
+Speech, Narration, Sonification, Braille, Appearance, Keyboard, License, About. A search box
+at the top jumps to any setting. **Nothing is saved until you press Save**; Escape and Cancel
+discard. Appearance choices preview immediately and are put back on Cancel; keyboard rebinds
+save immediately. Speech is how the terminal says what you asked for; Narration is what it
+says when you pressed nothing.
+
+**Workspaces.** Every tab, its symbol and timeframe, indicators with their settings and sounds,
+drawings, Heikin-Ashi and log scale, pane heights and running strategies. **Ctrl+Alt+Shift+W**
+saves, **Ctrl+Alt+W** loads. The session autosaves every 30 seconds and resumes on start
+("Resumed your last session: N tabs"); alerts persist on their own.
+
+**Tabs.** Alt+Shift+N opens one everywhere; Ctrl+T, Ctrl+W, Ctrl+Tab and Ctrl+Shift+Tab work on
+the desktop apps only. On the web press Ctrl+Alt+Shift+T to focus the tab bar, then arrows,
+1 to 9, Insert to add and Delete to close.
+
+**Sharing your setup.** Themes copy and paste as text (Appearance → Edit theme → Copy theme
+text). Sound patches export and import as JSON (Alt+W). Strategies export as `.atstrat` files
+and scripts as `.atpkg` packages. Export Visual and Export Audio on the Appearance and
+Sonification tabs save the colours or sounds of the indicators on the current chart, matched
+by indicator and component name on import. Everything else (settings, shortcuts, workspaces,
+watchlists, screens, indicator defaults) is a JSON file in the app-data folder you can copy:
+`~/.local/share/AccessibleTrader/` on Linux and macOS, `%LOCALAPPDATA%\AccessibleTrader\` on
+Windows.
+
+---
+
+## 13. Platform notes
+
+- **Windows, macOS, iOS, Android:** the native app. Windows drives the Dot Pad; iOS cannot
+  compile custom scripts.
+- **Linux:** the web host in a browser with Orca. Also the recommended build everywhere.
+- **The keyboard is the same on every head.** Drawing chords are Alt+Shift+letter everywhere.
+  The only differences are the browser-reserved tab chords above, and F11 for bar replay
+  (use Ctrl+Alt+Shift+P in a browser). F1 always shows the bindings in effect on your host.
+- **Windows with two keyboard layouts:** hold Alt+Shift, then press the letter. **Mac with
+  VoiceOver:** set the VoiceOver modifier to Caps Lock, or the Ctrl+Alt+Shift chords collide.
+
+---
+
+## 14. Keyboard reference
+
+**Time and viewport**
+
+| Key | Action |
+|---|---|
+| Left Arrow / Right Arrow | One bar back / forward |
+| Home / End | First / last visible bar |
+| Backslash (`\`) | Newest bar |
+| `[` / `]` | Pan left / right |
+| Shift+`[` / Shift+`]` | Smaller / larger pan step |
+| `-` / `=` | Zoom out / in |
+| Ctrl+Left / Ctrl+Right | Previous / next crossing or signal for the focused thing |
+| `,` / `.` | Previous / next chart-formation edge |
+| `;` / Shift+`;` | Choose the leading overlapping formation / release the choice |
+
+**Panes, series, components**
+
+| Key | Action |
+|---|---|
+| Up Arrow / Down Arrow | Previous / next component in the focused series |
+| Page Up / Page Down | Previous / next series |
+| Alt+Page Up / Alt+Page Down | Previous / next pane |
+| Ctrl+Up / Ctrl+Down | Previous / next component in the strip, across series |
+| Shift+F1 | Symbol, provider, timeframe, focused series and pane |
+| Ctrl+Alt+Shift+C | Focus the chart and speak the context summary |
+| Ctrl+Alt+Shift+Y | Describe the chart layout |
+| Alt+Shift+/ | Describe this pane's axes |
+| Alt+Shift+D | Full analysis of the current bar: candle, patterns, every indicator, every formation |
+
+**Playback and bar replay**
+
+| Key | Action |
+|---|---|
+| Space / Shift+Space / Ctrl+Shift+Space | Play or stop the chart / series / component |
+| Ctrl+Space | Pause / resume |
+| Shift+Escape | Stop all playback |
+| Shift+`=` / Shift+`-` | Faster / slower |
+| Ctrl+Alt+Shift+P (or F11 on the desktop) | Bar replay on / off at the cursor bar |
+| F9 / Shift+F9 | Reveal the next bar / hide the last revealed bar |
+| F10 | Replay auto-advance play / pause |
+
+**Speech, sound, volume**
+
+| Key | Action |
+|---|---|
+| F2 / Shift+F2 | Interactive speech / event speech |
+| F3 / Shift+F3 | Chart sonification / earcons |
+| F4 / Shift+F4 | Tactile display on/off / open its Settings tab |
+| F5 / Shift+F5 | Component volume up / down |
+| F6 / Shift+F6 | Series volume up / down |
+| F7 / Shift+F7 | Chart volume up / down |
+| H / M / N | Hide, mute, narrate the focused series or component |
+| Ctrl+Alt+Shift+K / Ctrl+Alt+Shift+U / Ctrl+Alt+Shift+O | Show all hidden / unmute all / narration off everywhere |
+
+**Indicators and chart**
+
+| Key | Action |
+|---|---|
+| Alt+A | Add indicator |
+| P or Shift+F12 | Properties of the focused indicator or drawing |
+| 0 | Toggle the pane's neutral level, or mark the price under the cursor |
+| Delete | Remove the focused series |
+| Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
+| Alt+C / Alt+L / Alt+H | Heikin-Ashi / log scale / volume heatmap |
+
+**Drawings**
+
+| Key | Action |
+|---|---|
+| Alt+Shift+T, H, V, C, F, E, L, R, M, A, G, B, J, P, W | The tools in section 9 (trend line, horizontal line, vertical line, channel, Fibonacci retracement, Fibonacci extension, text label, rectangle, measure, pitchfork, Gann fan, Gann box, angle Fibonacci, risk/reward, anchored VWAP); re-press to set each point |
+| Alt+D | Drawing tools panel |
+| Escape | Cancel the drawing in progress (or the armed quick trade first) |
+| ContextMenu or Shift+F10 | Menu for the focused drawing, or the chart menu |
+| Shift+Left / Shift+Right / Shift+Up / Shift+Down | Nudge the selected anchor by a bar / by price |
+| Ctrl+Alt+Shift+G / Ctrl+Alt+Shift+B | Next anchor / snap the anchor to the bar's O, H, L or C |
+
+**Trading**
+
+| Key | Action |
+|---|---|
+| Ctrl+Alt+Shift+1 / Ctrl+Alt+Shift+2 / Ctrl+Alt+Shift+3 | Arm 0.5% / 1% / 2% |
+| Ctrl+Alt+Shift+X | Stop at the cursor bar |
+| Shift+Enter / Ctrl+Enter | Place limit at the cursor bar / place at market |
+| Ctrl+Alt+Shift+Q / Ctrl+Alt+Shift+0 | Say what is armed / cancel |
+
+**Dialogs and panels**
+
+| Key | Opens |
+|---|---|
+| F1 / F12 | Help / Settings |
+| Alt+K | API keys |
+| Alt+T / Alt+B | Trading dashboard / order book |
+| Alt+J / Alt+S | Alerts / strategies |
+| Alt+O | Object tree |
+| Alt+W / Alt+, | Sound designer / custom scripts |
+| Alt+M / Alt+R / Alt+I | Market watch / respect report / asset dossier |
+| Ctrl+Alt+Shift+A / Ctrl+Alt+Shift+J | AI analyst / journal |
+| Ctrl+Alt+Shift+I | My Data import |
+| Ctrl+Alt+Shift+M | Background monitoring status |
+
+**Tabs and workspaces**
+
+| Key | Action |
+|---|---|
+| Alt+Shift+N (Ctrl+T on the desktop) | New chart tab |
+| Ctrl+W (desktop) | Close tab; on the web focus the bar and press Delete |
+| Ctrl+Tab / Ctrl+Shift+Tab (desktop) | Next / previous tab |
+| Ctrl+Alt+Shift+T | Focus the tab bar (then arrows, 1–9, Insert, Delete) |
+| Ctrl+Alt+Shift+W / Ctrl+Alt+W | Save / load a workspace |
+| Ctrl+Alt+Shift+L | Load the chart for the toolbar's selection |
+
+---
+
+## 15. First five minutes
+
+1. Tab into the toolbar, pick Crypto, keep the first provider and symbol, press Load. Wait for
+   "Ready."
+2. Press Right Arrow a few times and listen to the pitch follow price. Press Alt+Shift+D on a
+   bar.
+3. Press Space. Listen for ten seconds. Press Space again.
+4. Press Alt+A, arrow to Momentum, add RSI. Press Alt+PageDown to reach its pane, Up and Down
+   through its components, Ctrl+Right to jump to its next overbought or oversold crossing.
+5. Press N on the RSI series, and leave the chart running: the next bar close will tell you
+   what RSI did.
+6. Press F12, tick Paper trading, Save. Press Alt+T and place a market buy for a small
+   quantity with a stop below the price. Listen to the fill.
+7. Press F1 and skim the full key list. Then read the manual's chapters on how a chart is laid
+   out and on risk management.
