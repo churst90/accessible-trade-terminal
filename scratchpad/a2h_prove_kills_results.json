@@ -1,0 +1,26 @@
+[
+ {
+  "id": "H14",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 23,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.TheMultiTimeframeAnchorOscillatesAroundItsMidline"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H15",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 23,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.ASeriesSittingExactlyOnTheMidlineProducesNoCrosses"
+  ],
+  "status": "RED"
+ }
+]
