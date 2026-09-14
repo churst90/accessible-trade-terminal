@@ -171,6 +171,55 @@ public sealed class LevelMeaningAndScopeTests
         Assert.Equal("", Zone(series, comp, 85.0));
     }
 
+    /// <summary>
+    /// <b>The OFF value of the setting, which is the one nobody writes a fixture for.</b>
+    ///
+    /// <para>
+    /// <c>SubscribedLevelNames</c> has three states and they are documented as three:
+    /// <c>null</c> subscribes to ALL levels, a populated list subscribes to the named ones, and an
+    /// explicitly EMPTY list subscribes to NONE. The test above covers the middle case and the
+    /// default covers the first; the empty list had no test at all, on either of its two readers.
+    /// </para>
+    ///
+    /// <para>
+    /// The A2g mutant set flipped <c>Count == 0 ? false</c> to <c>true</c> in
+    /// <c>AudioZoneHelper.ComponentSubscribesTo</c> — turning "hear no levels" into "hear every
+    /// level" — and nothing went red. This is the second campaign in a row where an explicitly
+    /// empty subscription survived; A2f found the same shape in the narration path. Opting out is
+    /// a thing users do, and it has to be as real as opting in.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AComponentSubscribedToNoLinesReadsNone()
+    {
+        var series = Built("Rsi", "Rsi", new[] { 85.0 });
+        var comp = series.Components.First(c => c.Name == "Rsi");
+
+        Assert.NotEqual(0f, ZoneNoise(series, comp, 85.0));          // precondition: it has a zone to lose
+
+        comp.SubscribedLevelNames = Array.Empty<string>();
+
+        Assert.Equal(0f, ZoneNoise(series, comp, 85.0));
+        Assert.Equal("", Zone(series, comp, 85.0));
+        Assert.False(AudioZoneHelper.ComponentSubscribesTo(comp, "Overbought"));
+    }
+
+    /// <summary>
+    /// The other two states of the same setting, asserted on the same reader so the three cannot
+    /// quietly collapse into two. A null list is the default and must still hear everything.
+    /// </summary>
+    [Fact]
+    public void AComponentWithNoSubscriptionListReadsEveryLine()
+    {
+        var series = Built("Rsi", "Rsi", new[] { 85.0 });
+        var comp = series.Components.First(c => c.Name == "Rsi");
+        comp.SubscribedLevelNames = null;
+
+        Assert.True(AudioZoneHelper.ComponentSubscribesTo(comp, "Overbought"));
+        Assert.True(AudioZoneHelper.ComponentSubscribesTo(comp, "Oversold"));
+        Assert.NotEqual(0f, ZoneNoise(series, comp, 85.0));
+    }
+
     // ── Helpers that drive the real readers ──────────────────────────────────
 
     // Internal rather than reflected: ResolveZone is the arithmetic under the {zone} token and a

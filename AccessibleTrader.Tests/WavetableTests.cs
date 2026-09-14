@@ -1,4 +1,6 @@
+using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AccessibleTrader.Tests
 {
@@ -66,6 +68,52 @@ namespace AccessibleTrader.Tests
             var bytes = BuildWav(src, 44100, 16, channels: 2);
             Assert.True(WavFileReader.TryParse(bytes, out var mono, out _, out var err), err);
             Assert.Equal(100, mono.Length); // frames, not interleaved samples
+        }
+
+        /// <summary>
+        /// <b>PCM8 is unsigned: silence is 128, not 0.</b>
+        ///
+        /// <para>
+        /// <c>WavReader_RoundTripsAmplitudeAndRate</c> above checks the PEAK of an 8-bit file, and
+        /// the peak is exactly where this cannot be seen: drop the <c>- 128</c> and the peak
+        /// sample reads 1.992, which <c>Math.Clamp(sum / channels, -1, 1)</c> pins at 1.0 — the
+        /// same number the correct reader produces. The A2g mutant set removed that subtraction
+        /// and nothing failed.
+        /// </para>
+        ///
+        /// <para>
+        /// The zero crossing is where an offset shows. A silent 8-bit sample is the byte 128, and
+        /// it has to come back as 0: read unsigned it comes back as 1.0, so an imported earcon
+        /// arrives as a full-scale DC step — a click the limiter then ducks the whole mix for.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void WavReader_ReadsEightBitSilenceAsSilence()
+        {
+            // BuildWav maps 0f to byte 128, which is PCM8's zero point.
+            var bytes = BuildWav(new float[] { 0f, 0f, 0f, 0f }, 44100, bits: 8);
+
+            Assert.True(WavFileReader.TryParse(bytes, out var mono, out _, out var err), err);
+            Assert.All(mono, s => Assert.InRange(s, -0.02f, 0.02f));
+        }
+
+        /// <summary>
+        /// And the negative half of the range, which an unsigned read cannot reach at all: every
+        /// sample of an unsigned read is ≥ 0, so a waveform that swings below zero comes back
+        /// rectified as well as offset.
+        /// </summary>
+        [Fact]
+        public void WavReader_ReadsEightBitNegativeSamplesAsNegative()
+        {
+            var src = SineCycle(600);
+            var bytes = BuildWav(src, 44100, bits: 8);
+
+            Assert.True(WavFileReader.TryParse(bytes, out var mono, out _, out var err), err);
+
+            Assert.True(mono.Any(s => s < -0.5f),
+                "no sample of an 8-bit sine came back below -0.5 — the unsigned byte range was " +
+                "not re-centred, so the whole clip is offset and rectified.");
+            Assert.InRange(mono[450], -1.0 - 0.03, -1.0 + 0.03);   // sin trough at three-quarter cycle
         }
 
         [Fact]
@@ -188,6 +236,89 @@ namespace AccessibleTrader.Tests
             var audio = Render(engine, 44100, settle: 4096);
             double freq = EstimateFrequency(audio, 44100);
             Assert.InRange(freq, 500 * 0.95, 500 * 1.05);
+        }
+
+        // ── Import: which of the two kinds a file becomes ────────────────────
+
+        private sealed class TempPaths : IPlatformPathService
+        {
+            // TestTemp rather than a directory of our own: one run-scoped root, removed at
+            // process exit. See TestTempScanTests for why the suite insists on it.
+            public string AppDataDirectory { get; } = TestTemp.NewDir("att-wavetable-lib");
+            public string CacheDirectory => AppDataDirectory;
+        }
+
+        /// <summary>
+        /// <b>A single cycle and a clip are two different instruments, and length is what tells
+        /// them apart.</b>
+        ///
+        /// <para>
+        /// A WAVETABLE is looped at pitch: it behaves like a built-in oscillator with a custom
+        /// shape, so pitch mapping, envelopes, noise and partials all still apply. A SAMPLE is
+        /// played once at natural speed with no pitch mapping at all. <c>Import</c> decides which
+        /// one a file becomes from <c>mono.Length &lt;= WavetableMaxFrames</c>, and nothing tested
+        /// that comparison — <c>WavetableLibraryService</c> had no test of any kind.
+        /// </para>
+        ///
+        /// <para>
+        /// The A2g mutant set inverted the comparison. An AKWF single cycle (~600 frames) would
+        /// then register as a sample: a custom oscillator shape becomes an unpitched 14 ms click,
+        /// and every patch referencing it loses its pitch. Nothing failed.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void Import_AShortFileBecomesAWavetable()
+        {
+            var paths = new TempPaths();
+            var lib = new WavetableLibraryService(paths, NullLogger<WavetableLibraryService>.Instance);
+
+            // 600 frames — the AKWF single-cycle length named in the service's own doc comment.
+            var (ok, message, id) = lib.Import("akwf_cycle.wav", BuildWav(SineCycle(600), 44100));
+
+            Assert.True(ok, message);
+            Assert.NotNull(id);
+            Assert.Contains(id!, lib.WavetableIds);
+            Assert.DoesNotContain(id!, lib.SampleIds);
+            Assert.True(WavetableBank.TryGetWavetable(id!, out _),
+                "a 600-frame single cycle did not register as a wavetable, so it cannot be played at pitch.");
+        }
+
+        [Fact]
+        public void Import_ALongFileBecomesASample()
+        {
+            var paths = new TempPaths();
+            var lib = new WavetableLibraryService(paths, NullLogger<WavetableLibraryService>.Instance);
+
+            // Comfortably past WavetableMaxFrames (4096) — half a second of audio.
+            var (ok, message, id) = lib.Import("chime.wav", BuildWav(SineCycle(22050), 44100));
+
+            Assert.True(ok, message);
+            Assert.NotNull(id);
+            Assert.Contains(id!, lib.SampleIds);
+            Assert.DoesNotContain(id!, lib.WavetableIds);
+            Assert.True(WavetableBank.TryGetSample(id!, out _, out _),
+                "a half-second clip did not register as a sample.");
+        }
+
+        /// <summary>
+        /// The boundary itself, from both sides. A single off-by-one here silently reclassifies
+        /// every file of exactly the threshold length.
+        /// </summary>
+        [Fact]
+        public void Import_TheBoundaryIsInclusiveOnTheWavetableSide()
+        {
+            var paths = new TempPaths();
+            var lib = new WavetableLibraryService(paths, NullLogger<WavetableLibraryService>.Instance);
+
+            var (okAt, _, atLimit) = lib.Import("at_limit.wav",
+                BuildWav(SineCycle(WavetableLibraryService.WavetableMaxFrames), 44100));
+            var (okOver, _, overLimit) = lib.Import("over_limit.wav",
+                BuildWav(SineCycle(WavetableLibraryService.WavetableMaxFrames + 1), 44100));
+
+            Assert.True(okAt);
+            Assert.True(okOver);
+            Assert.Contains(atLimit!, lib.WavetableIds);
+            Assert.Contains(overLimit!, lib.SampleIds);
         }
     }
 }

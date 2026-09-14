@@ -129,6 +129,7 @@ public sealed class MuteIsAbsoluteTests
     private sealed class SpyDriver : IAudioDriver
     {
         public List<VoiceCall> Calls { get; } = new();
+        public HashSet<int> Stopped { get; } = new();
         public int SampleRate => 44100;
         public int Channels => 2;
         public event Action<int>? PointReached { add { } remove { } }
@@ -139,7 +140,7 @@ public sealed class MuteIsAbsoluteTests
         {
             lock (Calls) Calls.Add(new VoiceCall(slot, frequency, volume));
         }
-        public void StopVoice(int slot) { }
+        public void StopVoice(int slot) { lock (Stopped) Stopped.Add(slot); }
         public void StopAll() { }
         public void Reset() { }
         public void SetMasterGain(float gain) { }
@@ -415,5 +416,132 @@ public sealed class MuteIsAbsoluteTests
         sonifier.SonifyProfile(series, binIndex: 1, masterVolume: 1f);
 
         Assert.Empty(driver.Audible);
+    }
+
+    /// <summary>
+    /// A distribution series with NO components at all has nothing switched off, and its data is
+    /// still worth hearing — so <c>AllComponentsSilenced</c> is deliberately false for it
+    /// (<c>Components.Count &gt; 0 &amp;&amp; …</c>). Without that leading clause, <c>All</c> on an empty
+    /// list is vacuously true and a profile still loading its components reads as muted.
+    ///
+    /// <para>
+    /// The A2g mutant set narrowed that <c>&gt; 0</c> to <c>&gt;= 0</c> and nothing failed — the third
+    /// campaign running in which a guard widened ON PURPOSE, with a comment saying why, could be
+    /// narrowed back in silence. A fix whose only record is a comment is not under test.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ADistributionSeriesWithNoComponentsIsStillHeard()
+    {
+        var (sonifier, driver) = NavSonifier();
+        var series = ProfileSeries();
+        series.Config.Components.Clear();
+
+        sonifier.SonifyProfile(series, binIndex: 1, masterVolume: 1f);
+
+        Assert.True(driver.Audible.Any(),
+            "a profile with no components was treated as deliberately switched off — it has nothing " +
+            "switched off, and its bins are still worth hearing.");
+    }
+
+    [Fact]
+    public void AHeatmapSeriesWithNoComponentsIsStillHeard()
+    {
+        var (sonifier, driver) = NavSonifier();
+        var series = HeatmapSeries();
+        series.Config.Components.Clear();
+
+        sonifier.SonifyHeatmap(series, dataIndex: 0, binIndex: 1, masterVolume: 1f);
+
+        Assert.True(driver.Audible.Any(), "a heatmap with no components was silenced.");
+    }
+
+    // ── The navigation path's own series gate ───────────────────────────────────────
+
+    /// <summary>
+    /// <b>The claim this file makes at the top, finally asserted.</b>
+    ///
+    /// <para>
+    /// The docstring on <see cref="AMutedProfileComponentIsSilent"/> says "the series-level mute is
+    /// gated upstream in <c>SyncNavigationSlots</c>" — and every test here checks the COMPONENT
+    /// mute, through <c>CreateAudioPoint</c>, where it collapses <c>baseVolume</c>. The series
+    /// gate is a separate early return in a different class, and it was never asserted at all.
+    /// </para>
+    ///
+    /// <para>
+    /// The A2g mutant set proved the gap: dropping <c>comp.IsMuted</c> from the strategy turned
+    /// 26 tests red, while dropping <c>series.IsMuted</c> from <c>SyncNavigationSlots</c> turned
+    /// none. Mute is absolute, and arrowing across a muted series is the most ordinary way in the
+    /// app to find out whether it is.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Asserted as "no voice command at all", not as "nothing audible" — and the first draft of
+    /// this test got that wrong.</b> The strategy zeroes a muted series' volume anyway, so an
+    /// "is anything audible" check passes whether the early return runs or not, and the mutant
+    /// stayed green against it. What the early return actually guarantees is that the slots are
+    /// SILENCED rather than fed a zero-volume voice — which is the same distinction the NaN guard
+    /// a few lines below it is written for, since a zero-volume Ping still clicks on some drivers.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AMutedSeriesArmsNoNavigationVoiceAtAll()
+    {
+        var (sonifier, driver) = NavSonifier();
+        sonifier.SyncNavigationSlots(NavState(muted: false));
+        Assert.NotEmpty(driver.Audible);                  // precondition: it has a voice to lose
+
+        driver.Calls.Clear();
+        driver.Stopped.Clear();
+        sonifier.SyncNavigationSlots(NavState(muted: true));
+
+        Assert.True(driver.Calls.Count == 0,
+            "a MUTED series still armed navigation voices: " +
+            string.Join(", ", driver.Calls.Select(c => $"slot {c.Slot} at {c.Volume:F3}")));
+        Assert.All(Enumerable.Range(0, 8), slot => Assert.Contains(slot, driver.Stopped));
+    }
+
+    [Fact]
+    public void AHiddenSeriesArmsNoNavigationVoiceAtAll()
+    {
+        var (sonifier, driver) = NavSonifier();
+        sonifier.SyncNavigationSlots(NavState(visible: false));
+
+        Assert.True(driver.Calls.Count == 0,
+            "a HIDDEN series still armed navigation voices: " +
+            string.Join(", ", driver.Calls.Select(c => $"slot {c.Slot} at {c.Volume:F3}")));
+        Assert.All(Enumerable.Range(0, 8), slot => Assert.Contains(slot, driver.Stopped));
+    }
+
+    /// <summary>One ordinary line series under the cursor, so the only variable is the switch.</summary>
+    private static WorkspaceState NavState(bool muted = false, bool visible = true)
+    {
+        const int BarCount = 20;
+
+        var cfg = new SeriesConfig
+        {
+            Id = "candles", Name = "candles", Pane = "Main",
+            IsVisible = visible, IsMuted = muted, Volume = 1f,
+        };
+        cfg.Components.Add(Component(ComponentDisplayType.Line, "line"));
+
+        var data = new SeriesDataBuffer { SeriesId = "candles" };
+        var values = new double[BarCount];
+        for (int i = 0; i < BarCount; i++) values[i] = 100 + i;
+        data.ComponentData["line"] = values;
+
+        return WorkspaceState.Initial with
+        {
+            ActiveSeries = ImmutableList.Create(new ChartSeries(cfg, data)),
+            Data = new TimeSeriesBuffer<Ohlcv>(Bars(BarCount)),
+            FocusedSeriesId = "candles",
+            FocusedComponentIndex = 0,
+            CurrentDataIndex = 10,
+            ViewportStartIndex = 0,
+            ViewportLength = BarCount,
+            ViewportRange = (90, 130),
+            PaneRanges = ImmutableDictionary<string, (double Min, double Max)>.Empty.Add("Main", (90, 130)),
+            ChartVolume = 1f,
+        };
     }
 }

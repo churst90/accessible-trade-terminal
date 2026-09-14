@@ -1,6 +1,7 @@
 using AccessibleTrader.Core.Services;
 using AccessibleTrader.Core.Services.Audio;
 using AccessibleTrader.Sdk.Models;
+using NSubstitute;
 
 namespace AccessibleTrader.Tests;
 
@@ -133,6 +134,146 @@ public sealed class UiEarconSlotTests
         CrossEarcon.Fire(driver, direction: +1);
 
         Assert.Contains(driver.Calls, c => c.Slot == CrossEarcon.SlotA);
+    }
+
+    // ── The boundary itself, and not in terms of itself ─────────────────────────────
+
+    /// <summary>
+    /// <b>Every assertion above is written in terms of <c>EarconPatchPlayer.CueSlotStart</c>, so
+    /// moving that constant moves the assertions with it.</b>
+    ///
+    /// <para>
+    /// The A2g mutant set widened <c>CueSlotStart</c> from 26 to 30 — which is exactly the
+    /// original defect, since <c>NavigationSonifier.UiRoundRobinSlots</c> is derived from it, so
+    /// the round-robin grows to fourteen slots and reaches 30 and 31 again. Nothing went red:
+    /// "the round-robin stays below CueSlotStart" is true by construction whatever CueSlotStart
+    /// is, and "it uses UiRoundRobinSlots distinct slots" is true of any width. A guard that
+    /// derives its bound from the value under test cannot fail.
+    /// </para>
+    ///
+    /// <para>
+    /// The real constraint ties two INDEPENDENT constants together: the cue block must end before
+    /// the chirp pair begins, and the chirp pair is declared separately in <see cref="CrossEarcon"/>.
+    /// That is a relation between two things that can disagree, which is what makes it testable.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheCueBlockEndsBeforeTheChirpPairBegins()
+    {
+        // Four layers of cue (26-29), then the chirp's two (30, 31).
+        Assert.True(EarconPatchPlayer.CueSlotStart + 4 <= CrossEarcon.SlotA,
+            $"the level-cue block starts at {EarconPatchPlayer.CueSlotStart} and needs four slots, " +
+            $"but CrossEarcon's chirp begins at {CrossEarcon.SlotA} — they overlap, so a level cue " +
+            "and the cross chirp would cut each other off on exactly the bars where both fire.");
+
+        Assert.Equal(CrossEarcon.SlotA + 1, CrossEarcon.SlotB);
+        Assert.True(CrossEarcon.SlotB < AudioEngine.MaxVoices);
+    }
+
+    /// <summary>
+    /// And the round-robin's own ceiling, stated against the chirp slots rather than against the
+    /// constant that defines the round-robin. Two hundred notes is far more than any plausible
+    /// width, so if it can reach 30/31 at all it will.
+    /// </summary>
+    [Fact]
+    public void TheRoundRobinNeverReachesTheChirpSlots()
+    {
+        var driver = new SpyDriver();
+        var sonifier = Sonifier(driver);
+
+        for (int i = 0; i < 200; i++) sonifier.PlayNote(440 + i, 0.1, "sine", 0.2f, 0f);
+
+        var trespass = driver.Calls
+            .Where(c => c.Slot == CrossEarcon.SlotA || c.Slot == CrossEarcon.SlotB)
+            .ToList();
+
+        Assert.True(trespass.Count == 0,
+            $"{trespass.Count} UI notes landed on the cross-chirp slots {CrossEarcon.SlotA}/{CrossEarcon.SlotB}.");
+    }
+
+    // ── An override that cannot be resolved falls BACK, it does not fall SILENT ─────
+
+    /// <summary>A library holding the given earcon assignments and the given patches, and
+    /// answering null for anything else — which is the state this section is about.</summary>
+    private static ISoundPatchLibrary Library(EarconSettings overrides,
+        params AccessibleTrader.Sdk.Models.SoundPatch[] patches)
+    {
+        var lib = Substitute.For<ISoundPatchLibrary>();
+        lib.EarconOverrides.Returns(overrides);
+        lib.GetPatch(Arg.Any<string?>())
+           .Returns(ci => patches.FirstOrDefault(p => p.Id == ci.Arg<string?>()));
+        return lib;
+    }
+
+    private static EarconSettings Assigned(string earconKey, string patchId)
+        => new() { EarconPatchIds = new Dictionary<string, string> { [earconKey] = patchId } };
+
+    /// <summary>
+    /// <b><c>TryPlayOverride</c>'s return value is a claim, and the caller acts on it.</b>
+    ///
+    /// <para>
+    /// Every call site reads <c>if (!TryPlayOverride(...)) PlayTheBuiltInTone()</c>. So returning
+    /// true without having played anything does not merely lose the override — it suppresses the
+    /// fallback too, and the cue goes silent. The reachable way to get there is an earcon assigned
+    /// to a patch the user has since deleted: the id is still in <c>EarconPatchIds</c>, and
+    /// <c>GetPatch</c> answers null.
+    /// </para>
+    ///
+    /// <para>
+    /// Silence is the one failure this application's user cannot see. A broken reference must
+    /// sound like the default, not like nothing. The A2g mutant set flipped that null branch to
+    /// <c>true</c> and nothing failed.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AnEarconAssignedToAMissingPatchFallsBackToTheBuiltInTone()
+    {
+        // Assigned, but the patch it names is gone.
+        var library = Library(Assigned(EarconPatchPlayer.ApproachKey, "a_patch_that_was_deleted"));
+
+        var driver = new SpyDriver();
+        bool handled = EarconPatchPlayer.TryPlayOverride(library, driver,
+            EarconPatchPlayer.ApproachKey, volumeScale: 1f, pan: 0f);
+
+        Assert.False(handled,
+            "TryPlayOverride claimed it had played a patch that does not exist, so the caller " +
+            "skipped its built-in tone and the cue was silent.");
+        Assert.Empty(driver.Calls);
+    }
+
+    [Fact]
+    public void AnEarconWithNoOverrideAssignedFallsBackToTheBuiltInTone()
+    {
+        var driver = new SpyDriver();
+        bool handled = EarconPatchPlayer.TryPlayOverride(Library(new EarconSettings()), driver,
+            EarconPatchPlayer.CrossUpKey, volumeScale: 1f, pan: 0f);
+
+        Assert.False(handled);
+        Assert.Empty(driver.Calls);
+    }
+
+    /// <summary>The vacuity twin: an override that CAN be resolved really does play, and really
+    /// does land on the reserved cue slots. Without this, "returns false" would be satisfiable by
+    /// a method that never plays anything at all.</summary>
+    [Fact]
+    public void AnEarconAssignedToARealPatchPlaysItOnTheCueSlots()
+    {
+        var chime = new AccessibleTrader.Sdk.Models.SoundPatch
+        {
+            Id = "chime", Name = "chime", BaseFrequency = 880, FreqMultiplier = 1, Volume = 0.6f,
+            DurationSeconds = 0.1, EnvelopeType = "Ping",
+            Oscillators = new List<OscillatorLayer> { new() { Waveform = "sine", FreqRatio = 1.0, Gain = 1.0f } },
+        };
+        var library = Library(Assigned(EarconPatchPlayer.ApproachKey, "chime"), chime);
+
+        var driver = new SpyDriver();
+        bool handled = EarconPatchPlayer.TryPlayOverride(library, driver,
+            EarconPatchPlayer.ApproachKey, volumeScale: 1f, pan: 0f);
+
+        Assert.True(handled);
+        Assert.All(driver.Calls, c => Assert.InRange(c.Slot,
+            EarconPatchPlayer.CueSlotStart, EarconPatchPlayer.CueSlotStart + 3));
+        Assert.NotEmpty(driver.Calls);
     }
 
     // ── Staggered earcons ───────────────────────────────────────────────────────────

@@ -4,6 +4,84 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2g — the channel this terminal IS gets measured, and two guards turn out to be written in terms of themselves (2026-09-13, fifty-seventh pass)
+
+`Core/Services/Audio` is 19 files and 4,394 lines, and across six prior mutant campaigns and the
+browser audit **exactly one mutant had ever been applied to any of it**. Eight of its 32 declared
+types are never named by either test project. For a sighted user audio is decoration; for this one
+it is the chart — pitch is the value, pan is the bar's x-position, grit is the wick's length and
+the body's size, noise is the overbought zone, timbre is which indicator you are hearing. Every one
+of those rules is written in exactly one place in that directory.
+
+- **37 mutants, 23 caught, honest catch rate 62.2% — the lowest of the six campaigns**, against
+  A2d 73.1%, A2e 72.0% and A2f 69.2% on disjoint file sets. Baseline seen green immediately before
+  the run (7,680 passed), control run green after, every file restored byte-identical. The
+  false-catch audit is clean: every caught mutant is named by tests that are about the thing it
+  broke, so the naive rate is the honest one.
+- **All 14 survivors are closed and each is proved red by re-applying its mutant**
+  (`scratchpad/a2g_prove_kills.py`, 14/14). Suite 7,680 → **7,724**.
+
+**Two guards were true by construction, which is the finding of the pass.**
+
+- `PlaybackLayerTests` re-implemented `AudioSequencer.LayerVolume`'s switch *inside the test body*
+  and asserted that copy against its own `InlineData` — two hand-written copies of one table,
+  neither of them production code. Flattening Background from 0.60 to 1.00 in the sequencer broke
+  nothing. It now drives a real one-bar playback and measures the volume the sequencer hands the
+  driver. **An exemption that names a consumer is not a test of the consumer** — `PlaybackLayer` is
+  one of `DeclaredKnobObservabilityTests`' four exemptions, and the consumer it correctly names was
+  itself unguarded.
+- `UiEarconSlotTests` asserted that the UI round-robin stays below `EarconPatchPlayer.CueSlotStart`
+  — the constant the mutant moves. Widening it from 26 to 30 reintroduces the original defect (the
+  round-robin reaches the cross-chirp slots again) and the assertion moves with it. The boundary is
+  now stated between two **independent** constants: the cue block must end before `CrossEarcon`'s
+  chirp pair begins.
+
+**The rest of the survivors, by what they cost the user.**
+
+- **Hearing safety, two of them, on adjacent lines.** The engine-boundary clamps on frequency and
+  volume sit together; the frequency one was tested and the volume one was not, because it asserted
+  `Peak <= 1.0` — which the downstream brickwall limiter guarantees no matter what the clamp does.
+  The class docstring works that trap out for the frequency tests and the volume test walked into
+  it one method later. Now asserted relationally: asking for more than full scale must render
+  *identically* to asking for 1.0.
+- **`_stopAllFaded` is an EQUIVALENT MUTANT, and the comment above it was wrong.** A three-way
+  experiment (flag alone / literal alone / both) shows the protection is carried entirely by
+  re-arming to `_userMasterGain` instead of a hardcoded `1.0f`; dropping the flag changes nothing
+  observable, because re-arming to the user's own value is idempotent. The flag is kept for what it
+  says, the comment claiming it was the mechanism is corrected, and the new tests guard the half
+  that carries the weight.
+- **A muted series still sounded under the arrow keys.** `MuteIsAbsoluteTests` states in its own
+  docstring that the series mute is gated in `SyncNavigationSlots`, and tests the *component* mute
+  everywhere instead: dropping `comp.IsMuted` from the strategy turns 26 tests red, dropping
+  `series.IsMuted` from the sonifier turned none. The first draft of the replacement was green too,
+  for an instructive reason — the strategy zeroes a muted series' volume anyway, so "is anything
+  audible" cannot see the difference. What the early return guarantees is **no voice command at
+  all**, which is what is asserted now.
+- **A Ping stopped being a transient.** The envelope's decay rate can drop tenfold with nothing
+  red, smearing every dot, arrow and wick into the continuous bed they exist to stand out from.
+- **`AudioSequencer.IsPing` could go case-sensitive again** — the exact defect its own doc comment
+  records, where an imported `"ping"` becomes a continuous voice with duration 0: a playback slot
+  that never decays.
+- **`SilencePlaybackVoices` could stop covering the cloud slots (96–127)**, so `Stop` and pause
+  left the last bar's cloud chord ringing.
+- **A `Cross` marker could be dropped from `AudioConstants.MarkerDisplayTypes`** — a set read by
+  three channels at once (cluster ticks, signal speech, the Ping NaN guard), so losing a shape
+  makes it inaudible, unspoken, and no longer silenced on its empty bars.
+- **An explicitly EMPTY level subscription could subscribe to everything.** Second campaign
+  running: A2f found the same shape in the narration path. **The OFF value of a setting is the one
+  nobody writes a fixture for.**
+- **An earcon assigned to a deleted patch could go silent** rather than falling back to its
+  built-in tone — `TryPlayOverride`'s return value is a claim the caller acts on, and a broken
+  reference reading as silence is the one failure this user cannot see.
+- **A distribution series with no components could be treated as switched off** — the third
+  campaign in a row where a guard widened ON PURPOSE, with a comment explaining why, can be
+  narrowed back in silence. **A fix whose only record is a comment is not under test.**
+- **`WavetableLibraryService` had no test of any kind**, so the wavetable/sample classification
+  could invert: an AKWF single cycle would register as an unpitched one-shot click.
+- **8-bit WAV imports could arrive with a full-scale DC offset.** The existing test checks the
+  peak, and the peak is exactly where a clamp hides the offset; the zero crossing is where it
+  shows.
+
 ### A2f — the speech path is measured for the first time, and a knob that moves nothing is a lie the dialog tells (2026-09-13, fifty-sixth pass)
 
 Two pieces of work with one subject: **the parts of this terminal that talk had never been

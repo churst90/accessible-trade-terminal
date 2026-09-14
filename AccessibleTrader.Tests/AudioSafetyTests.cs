@@ -215,19 +215,239 @@ namespace AccessibleTrader.Tests
             Assert.InRange(BaselineRms(), 0.05, 0.6);
         }
 
-        [Fact]
-        public void An_out_of_range_volume_cannot_exceed_full_scale()
+        /// <summary>
+        /// Finite is not the same as in range. A volume of 50 is 50x full scale on a channel
+        /// nobody can turn down in time.
+        ///
+        /// <para>
+        /// <b>Asserted RELATIONALLY, and the reason is this file's own docstring.</b> The original
+        /// version checked <c>Peak &lt;= 1.0f</c>, which the brickwall limiter downstream
+        /// guarantees no matter what the clamp does — widen the clamp to <c>[0, 10]</c> and the
+        /// peak is still 1.0, because the limiter caught it. That is guarding the limiter, not the
+        /// clamp. The class docstring above works this trap out for the FREQUENCY tests and then
+        /// the volume test walked into it one method later; it is why the A2g mutant set could
+        /// widen this clamp tenfold with nothing going red.
+        /// </para>
+        ///
+        /// <para>
+        /// An absolute RMS bound does not fix it either: after the limiter a sine is still a sine,
+        /// so an over-loud one comes back at ceiling/√2 ≈ 0.70 rather than pinned at 0.99, and no
+        /// single threshold cleanly separates that from a legitimate 0.50. What DOES state the
+        /// contract is the relation: asking for more than full scale must give you <i>exactly
+        /// full scale</i> — identical output to asking for 1.0. Under the widened clamp the loud
+        /// voice engages the limiter and the two stop matching (0.50 against 0.70).
+        /// </para>
+        /// </summary>
+        [Theory]
+        [InlineData(1.5f)]
+        [InlineData(50f)]
+        [InlineData(1000f)]
+        public void An_out_of_range_volume_renders_exactly_as_full_scale_does(float volume)
         {
-            // Finite is not the same as in range. A volume of 50 is 50x full scale on a
-            // channel nobody can turn down in time.
+            double atFullScale = SteadyRms(1.0f);
+            double asked = SteadyRms(volume);
+
+            Assert.True(atFullScale > 0.05,
+                $"the full-scale reference was inaudible (RMS {atFullScale:F6}) — this proves nothing.");
+            Assert.True(Math.Abs(asked - atFullScale) < 0.02,
+                $"volume {volume} rendered at RMS {asked:F6} where volume 1.0 renders at {atFullScale:F6} — " +
+                "the clamp at the SetVoice boundary is not holding, and the limiter is absorbing the difference.");
+
+            static double SteadyRms(float vol)
+            {
+                var engine = new AudioEngine();
+                engine.SetMasterGain(1.0f);
+                engine.SetVoice(0, 440, vol, 0, "sine", continuous: true, durationSec: 10.0);
+                double rms = 0;
+                for (int i = 0; i < 40; i++) rms = Rms(ReadOneBuffer(engine));
+                return rms;
+            }
+        }
+
+        [Fact]
+        public void An_ordinary_voice_is_quieter_than_a_full_scale_one()
+        {
+            // Vacuity twin for the relation above: "matches full scale" would be satisfiable by
+            // an engine that rendered every volume identically. Half the volume must be quieter.
+            var loud = new AudioEngine();
+            loud.SetMasterGain(1.0f);
+            loud.SetVoice(0, 440, 1.0f, 0, "sine", continuous: true, durationSec: 10.0);
+
+            var quiet = new AudioEngine();
+            quiet.SetMasterGain(1.0f);
+            quiet.SetVoice(0, 440, 0.3f, 0, "sine", continuous: true, durationSec: 10.0);
+
+            double loudRms = 0, quietRms = 0;
+            for (int i = 0; i < 40; i++) { loudRms = Rms(ReadOneBuffer(loud)); quietRms = Rms(ReadOneBuffer(quiet)); }
+
+            Assert.True(quietRms < loudRms * 0.6,
+                $"volume 0.3 ({quietRms:F6}) was not meaningfully quieter than volume 1.0 ({loudRms:F6}).");
+        }
+
+        // ── The user's own zero ──────────────────────────────────────────────
+
+        /// <summary>
+        /// <b>A volume the user chose is not a condition to recover from.</b>
+        ///
+        /// <para>
+        /// <c>Read()</c> re-arms the master gain after a stop-all fade, because a stop-all drives
+        /// the target to zero and something has to bring it back. It used to re-arm to a hardcoded
+        /// <c>1.0f</c>, which could not tell "the stop-all just faded us to zero" from "the user
+        /// set the volume to zero": setting the volume to 0% and pressing one arrow key restored
+        /// FULL output, so a mute was never a mute — and the order-fill, stop-hit and boundary
+        /// earcons all pass fixed literal volumes, so they would fire at full scale on a master
+        /// the user had deliberately silenced.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>What actually protects the zero is re-arming to <c>_userMasterGain</c>.</b> The A2g
+        /// mutant set dropped the companion <c>&amp;&amp; _stopAllFaded</c> guard and nothing broke;
+        /// a three-way follow-up (flag alone / literal alone / both) showed why — the flag is
+        /// belt and braces, since re-arming to the user's own value is idempotent, while restoring
+        /// a literal is the defect. These tests are written against the half that carries the
+        /// weight, and they go red the moment that literal comes back.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void A_master_gain_the_user_set_to_zero_survives_the_next_voice_command()
+        {
             var engine = new AudioEngine();
             engine.SetMasterGain(1.0f);
-            engine.SetVoice(0, 440, 50f, 0, "sine", continuous: true, durationSec: 10.0);
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: true, durationSec: 10.0);
+            ReadOneBuffer(engine);                      // prime, so there is something to un-mute
 
-            float loudest = 0;
-            for (int i = 0; i < 40; i++) loudest = Math.Max(loudest, Peak(ReadOneBuffer(engine)));
+            engine.SetMasterGain(0f);                   // the user chooses silence
+            for (int i = 0; i < 40; i++) ReadOneBuffer(engine);   // let the fade complete
 
-            Assert.True(loudest <= 1.0f, $"volume 50 peaked at {loudest}.");
+            // An arrow key. An earcon. Anything at all.
+            engine.SetVoice(16, 880, 1.0f, 0, "sine", continuous: true, durationSec: 10.0);
+
+            double loudest = 0;
+            for (int i = 0; i < 40; i++) loudest = Math.Max(loudest, Rms(ReadOneBuffer(engine)));
+
+            Assert.True(loudest < 0.001,
+                $"a voice command restored output to RMS {loudest:F6} on a master the user had set to zero.");
+        }
+
+        [Fact]
+        public void A_master_gain_the_user_set_to_zero_survives_a_stop_all_as_well()
+        {
+            // The interaction the flag exists for: our own stop-all arrives while the user's zero
+            // is already in force, and the voice command behind it must not re-arm to full.
+            //
+            // The zero is allowed to SETTLE first, deliberately. Measuring from the instant
+            // SetMasterGain(0f) is called would catch the ~20 ms fade-down on its way to silence
+            // and report it as a failure — that ramp is the declick, and it is supposed to be
+            // there.
+            var engine = new AudioEngine();
+            engine.SetMasterGain(1.0f);
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: true, durationSec: 10.0);
+            ReadOneBuffer(engine);
+
+            engine.SetMasterGain(0f);
+            for (int i = 0; i < 40; i++) ReadOneBuffer(engine);   // the user's silence takes hold
+
+            engine.StopAll();
+            engine.SetVoice(16, 880, 1.0f, 0, "sine", continuous: true, durationSec: 10.0);
+
+            double loudest = 0;
+            for (int i = 0; i < 60; i++) loudest = Math.Max(loudest, Rms(ReadOneBuffer(engine)));
+
+            Assert.True(loudest < 0.001, $"output came back at RMS {loudest:F6} after a stop-all at user-zero.");
+        }
+
+        /// <summary>
+        /// Vacuity twin for both of the above: an engine that had simply latched itself off would
+        /// satisfy them, and a mute nobody can undo is its own bug.
+        ///
+        /// <para>
+        /// A voice is re-armed after the gain goes back up, because that is both what the app does
+        /// (the user raises the volume, then presses a key) and what the engine requires: once
+        /// <c>_masterGain</c> actually reaches zero the per-frame loop deactivates every voice, so
+        /// there is nothing left for a gain change alone to bring back.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void Raising_the_gain_again_does_bring_the_sound_back()
+        {
+            var engine = new AudioEngine();
+            engine.SetMasterGain(0f);
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: true, durationSec: 10.0);
+            for (int i = 0; i < 40; i++) ReadOneBuffer(engine);
+
+            engine.SetMasterGain(1.0f);
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: true, durationSec: 10.0);
+
+            double loudest = 0;
+            for (int i = 0; i < 40; i++) loudest = Math.Max(loudest, Rms(ReadOneBuffer(engine)));
+
+            Assert.True(loudest > 0.01, $"raising the master gain left the engine silent (RMS {loudest:F6}).");
+        }
+
+        // ── The Ping envelope ────────────────────────────────────────────────
+
+        /// <summary>
+        /// <b>A Ping is a transient, and the decay rate is what makes it one.</b>
+        ///
+        /// <para>
+        /// Markers — dots, arrows, wicks, signal shapes — are Ping-envelope voices, and the whole
+        /// reason they read as discrete events rather than notes is that <c>exp(-5·progress)</c>
+        /// drops them to ~0.7% of their onset level by the end of their duration. Flatten the
+        /// exponent and every marker holds most of its level for its whole duration, smearing the
+        /// sparse signals into the continuous bed they are supposed to stand out from.
+        /// </para>
+        ///
+        /// <para>
+        /// Asserted as a RATIO between the start and end of one ping rather than against a
+        /// magic number, so it states the shape rather than the constant: the tail must be a
+        /// small fraction of the onset. With the exponent at -0.5 the measured ratio is 0.61.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public void A_ping_decays_to_a_fraction_of_its_onset()
+        {
+            var engine = new AudioEngine();
+            engine.SetMasterGain(1.0f);
+            // Long enough that one buffer is a small slice of the envelope, so the first and
+            // last buffers really are the onset and the tail.
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: false, durationSec: 0.5,
+                            dataIndex: -1, envelope: "Ping");
+
+            double onset = 0, tail = 0;
+            const int Buffers = 20;          // 20 × 512 frames ≈ 0.23 s at 44.1 kHz
+            for (int i = 0; i < Buffers; i++)
+            {
+                double r = Rms(ReadOneBuffer(engine));
+                if (i == 1) onset = r;       // buffer 1: past the 12 ms attack fade, still early
+                tail = r;
+            }
+
+            Assert.True(onset > 0.01, $"the ping was inaudible at its onset (RMS {onset:F6}) — this proves nothing.");
+            Assert.True(tail < onset * 0.35,
+                $"a Ping held {tail / onset:P0} of its onset level to the end of its duration " +
+                $"(onset RMS {onset:F6}, tail RMS {tail:F6}) — that is a note, not a transient.");
+        }
+
+        [Fact]
+        public void A_sustain_voice_does_not_decay_like_a_ping()
+        {
+            // The contrast that makes the assertion above about the PING envelope specifically,
+            // rather than about any voice fading out on its own.
+            var engine = new AudioEngine();
+            engine.SetMasterGain(1.0f);
+            engine.SetVoice(0, 440, 0.9f, 0, "sine", continuous: true, durationSec: 10.0,
+                            dataIndex: -1, envelope: "Sustain");
+
+            double onset = 0, tail = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                double r = Rms(ReadOneBuffer(engine));
+                if (i == 1) onset = r;
+                tail = r;
+            }
+
+            Assert.True(tail > onset * 0.8,
+                $"a Sustain voice decayed from {onset:F6} to {tail:F6} — it is meant to hold.");
         }
     }
 }

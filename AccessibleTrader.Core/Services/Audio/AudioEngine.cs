@@ -225,9 +225,17 @@ namespace AccessibleTrader.Core.Services.Audio
         // never a mute: order-fill, stop-hit and boundary earcons pass fixed literal volumes and
         // would fire at full scale on a master that had been silenced deliberately.
         //
-        // _stopAllFaded is the flag the old test could not express: true only while the zero was
-        // OURS. The re-arm restores _userMasterGain, never a literal — so a user-chosen zero
-        // survives every subsequent command.
+        // THE LOAD-BEARING HALF IS `_userMasterGain`, not the flag. Measured 2026-09-13 (A2g):
+        // re-arming to a literal 1.0f is caught by AudioSafetyTests; dropping `&& _stopAllFaded`
+        // from the re-arm condition changes NOTHING observable, because re-arming to the user's
+        // own value is idempotent — doing it once after a stop-all and doing it on every command
+        // give the same target. `_targetMasterGain` differs from `_userMasterGain` only in the
+        // window a stop-all opens, which is exactly the window the re-arm exists to close.
+        //
+        // `_stopAllFaded` is kept because it STATES that window ("this zero is ours, not the
+        // user's") and that is worth saying out loud next to two floats that both hold gains. It
+        // is belt and braces, not the belt: an earlier version of this comment claimed the flag
+        // was what protected a user-chosen zero, and it is not.
         private float _userMasterGain = 1.0f;
         private volatile bool _stopAllFaded;
 

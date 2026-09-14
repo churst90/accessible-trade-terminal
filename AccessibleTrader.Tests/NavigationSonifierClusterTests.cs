@@ -161,6 +161,56 @@ namespace AccessibleTrader.Tests
             Assert.Equal(700, ticks[0].Frequency);
         }
 
+        /// <summary>
+        /// <b>Every marker shape is a signal, and each one is asserted separately.</b>
+        ///
+        /// <para>
+        /// <c>Cluster_SkipsNonMarkerDisplayTypes</c> above proves the exclusion side with a single
+        /// Dot standing in for the whole set, so <c>AudioConstants.MarkerDisplayTypes</c> could
+        /// lose any of its other seven members without a test noticing. The A2g mutant set deleted
+        /// <c>ComponentDisplayType.Cross</c> from it and nothing went red — and that set is read by
+        /// THREE channels, not one: cluster ticks here, signal speech in
+        /// <c>NavigationFeedbackManager</c>, and the Ping NaN guard that decides whether a
+        /// signal-less bar is silenced. Dropping a shape from it makes that shape inaudible,
+        /// unspoken, and no longer silenced on its empty bars, all at once.
+        /// </para>
+        ///
+        /// <para>
+        /// Listed by name rather than enumerated from the production set, deliberately: a test
+        /// that iterates the set under test agrees with it by construction. This is an
+        /// independent claim about which shapes a chart draws to mean "something happened here".
+        /// </para>
+        /// </summary>
+        [Theory]
+        [InlineData(ComponentDisplayType.Dot)]
+        [InlineData(ComponentDisplayType.ZeroDot)]
+        [InlineData(ComponentDisplayType.Arrow)]
+        [InlineData(ComponentDisplayType.Diamond)]
+        [InlineData(ComponentDisplayType.TriangleUp)]
+        [InlineData(ComponentDisplayType.TriangleDown)]
+        [InlineData(ComponentDisplayType.Square)]
+        [InlineData(ComponentDisplayType.Cross)]
+        public async Task Cluster_FiresForEveryMarkerShape(ComponentDisplayType shape)
+        {
+            var driver = new SpyAudioDriver();
+            var sonifier = BuildSonifier(driver);
+
+            // Two components: the focused one is excluded from re-firing, so the shape under
+            // test is the second and is the only thing that can produce a tick.
+            var focused = MakeMarker("focused", "Focused Dot", ComponentDisplayType.Dot, baseFreq: 300);
+            var marker  = MakeMarker("marker", "Buy Signal", shape, baseFreq: 700);
+            var series = MakeSeries("candles", "Main", new[] { focused, marker });
+            var state = StateWithSeries(series);
+
+            await sonifier.FireClusterTicksAsync(state, 0, series.Id, excludeComponentIndex: 0);
+
+            var ticks = driver.SetVoiceCalls.Where(c => c.Slot >= 3 && c.Slot <= 7).ToList();
+            Assert.True(ticks.Count == 1,
+                $"{shape} produced {ticks.Count} cluster ticks — it is a marker shape and must " +
+                "count as an active signal on a bar where it has a value.");
+            Assert.Equal(700, ticks[0].Frequency);
+        }
+
         [Fact]
         public async Task Cluster_FiresAtMostFiveTicks_OnSlotsThreeThroughSeven()
         {

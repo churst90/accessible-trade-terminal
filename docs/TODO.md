@@ -117,6 +117,65 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-13 (latest), FIFTY-SEVENTH pass — THE AUDIO PATH IS
+> MEASURED FOR THE FIRST TIME, AND TWO GUARDS TURN OUT TO BE WRITTEN IN TERMS OF THEMSELVES.)**
+> Suite **7,724**, 0 failing. No release cut — post-2.10.0 work in CHANGES `[Unreleased]`.
+> Full entry in `docs/CHANGES.md`.
+>
+> 1. **A2g: 37 mutants over `Core/Services/Audio`, 23 caught, 62.2% — the LOWEST of the six
+>    campaigns** (A2d 73.1%, A2e 72.0%, A2f 69.2%, all on disjoint file sets). 19 files, 4,394
+>    lines, **one mutant ever applied to any of it** before today. Baseline green before, control
+>    green after, every file restored byte-identical, false-catch audit clean.
+> 2. **All 14 survivors closed and proved red** (`scratchpad/a2g_prove_kills.py`, 14/14).
+>    Suite 7,680 → 7,724.
+> 3. **Quote the rate as ~68% measured over ~14% of the tree.** Six campaigns, six disjoint file
+>    sets, 73.1 / 72.0 / 69.2 / 62.2 — the number drifts DOWN as the sampling reaches areas
+>    chosen for being unmeasured, which is what you would expect and is the argument for
+>    continuing to choose them that way.
+>
+> ### THE METHOD LESSON: A GUARD WRITTEN IN TERMS OF THE VALUE UNDER TEST CANNOT FAIL
+>
+> Two of the fourteen were not gaps in coverage — they were tests that already existed, ran
+> green, and could not have gone red:
+>
+> - **`PlaybackLayerTests` re-implemented `AudioSequencer.LayerVolume`'s switch inside the test
+>   body** and asserted that copy against its own `InlineData`. Two hand-written copies of one
+>   table, no production code in the loop. It now drives a real one-bar playback.
+>   **An exemption that names a consumer is not a test of the consumer:** `PlaybackLayer` is one
+>   of `DeclaredKnobObservabilityTests`' four exemptions, its named consumer was correct, and
+>   that consumer was itself unguarded.
+> - **`UiEarconSlotTests` bounded the round-robin by `EarconPatchPlayer.CueSlotStart`** — the
+>   constant the mutant moves — so widening it reintroduces the original defect and takes the
+>   assertion along. The boundary is now stated between two INDEPENDENT constants.
+>
+> Third lesson, cheaper: **`_stopAllFaded` is an EQUIVALENT MUTANT.** A three-way experiment
+> (`scratchpad/a2g_g33_equivalence.py`) shows the user's zero is protected entirely by re-arming
+> to `_userMasterGain` rather than a literal `1.0f`; the flag adds nothing observable. Kept for
+> what it says, comment corrected, tests aimed at the half that carries the weight. **Not every
+> survivor is a missing test — check for equivalence before writing one.**
+>
+> ### NEXT
+>
+> 1. **Hear it.** NOTHING in this pass has been heard, and two of the fixes are audible in
+>    ordinary use: mute a series and arrow across it (it must be silent, not merely quiet), and
+>    assign an earcon to a patch then delete that patch (the cue must fall back to its built-in
+>    tone, not go silent).
+> 2. **`Services/Indicators` is the next campaign** — the last large body of code that is tied
+>    with Accessibility for size and has had only incidental mutation.
+> 3. **Audit the remaining suite for the two shapes this pass named.** Grep the test project for
+>    assertions whose expected value is read from the production constant they are checking, and
+>    for tests that restate a production `switch`/table inline. Both are green forever.
+> 4. **The two rendering holes named by the 48th pass are still open**: the surviving
+>    minimum-label-spacing mutant in `RenderYAxis`, and `RenderCandles`'s `hasPhaseOverride`
+>    branch, which has **no fixture at all**.
+> 5. **Navigation still does not honour `SubscribedLevelNames`** — speech, audio, narration and
+>    playback all do; `IndicatorCrossingEngine` does not.
+> 6. **The presence-vs-pairing gap for the non-drawing chords** (55th pass item 5) is unchanged.
+> 7. **`ComponentRoleMapper`'s name registry**, and **Cipher B's Money Flow Wave** wanting
+>    `IsAreaFill = true` (ask first).
+> 8. **The server agent still has not been told** about `sync-trader-docs.sh`'s blind `cp` and
+>    `/features`' now-false "three switches" sentence (55th pass item 2).
+
 > **START HERE (current as of 2026-09-13 (later), FIFTY-SIXTH pass — THE SPEECH PATH IS MEASURED
 > FOR THE FIRST TIME, AND A KNOB THAT MOVES NOTHING IS NOW A TEST FAILURE.)** Suite **7,680**,
 > 0 failing. No release cut — this is post-2.10.0 work sitting in CHANGES `[Unreleased]`.

@@ -1,0 +1,528 @@
+[
+ {
+  "id": "G01",
+  "area": "pan stops tracking the bar's pixel",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioConstants.cs",
+  "breaks": "the centre-of-slot mapping the renderer uses becomes an edge mapping: every bar's stereo position sits half a slot left of where it is drawn, and the audio/visual lockstep the doc comment claims is quietly false again",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AudioEngineSlotAndPanTests.CalculatePan_Centre_IsZero",
+   "AccessibleTrader.Tests.AudioEngineSlotAndPanTests.CalculatePan_FirstSlot_IsHalfASlotInFromTheLeftEdge",
+   "AccessibleTrader.Tests.AudioEngineSlotAndPanTests.CalculatePan_LastSlot_IsHalfASlotInFromTheRightEdge",
+   "AccessibleTrader.Tests.AudioEngineSlotAndPanTests.CalculatePan_MatchesTheRenderersBarCentre"
+  ],
+  "status": "CAUGHT",
+  "seconds": 204
+ },
+ {
+  "id": "G02",
+  "area": "a Cross marker stops counting as a signal",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioConstants.cs",
+  "breaks": "MarkerDisplayTypes is read by cluster ticks, signal speech AND the NaN guard: a component drawn as a cross fires no tick, is never spoken as a signal, and its silent bars stop being silenced \u2014 three channels, one set",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 203
+ },
+ {
+  "id": "G03",
+  "area": "the overbought zone sounds where the oversold one is",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioZoneHelper.cs",
+  "breaks": "roughness arrives exactly where the chart is calm and vanishes at the extremes \u2014 an RSI at 80 is a clean sine and an RSI at 50 is gritty",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7677,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OscillatorPatchTests.PatchedOscillator_InOverboughtZone_KeepsZoneTexture",
+   "AccessibleTrader.Tests.OscillatorPatchTests.PatchedOscillator_OutsideZones_HasNoTexture",
+   "AccessibleTrader.Tests.SonificationStrategyPatchTests.ZoneNoise_TakesMaxOfBaseAndZone"
+  ],
+  "status": "CAUGHT",
+  "seconds": 205
+ },
+ {
+  "id": "G04",
+  "area": "an explicitly EMPTY level subscription subscribes to everything",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioZoneHelper.cs",
+  "breaks": "a component that opted OUT of every level gets boundary clicks and cross chirps from all of them \u2014 the off value of a setting, which is the one nobody writes a fixture for",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "G05",
+  "area": "the most significant signal is ranked last",
+  "file": "AccessibleTrader.Core/Services/Audio/SignalTierClassifier.cs",
+  "breaks": "cluster ticks fire in tier order and stop at five: a main-pane SR/divergence diamond \u2014 the rarest and most important marker on the chart \u2014 is now the FIRST thing dropped when a bar is busy, which is exactly the bar where it matters",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationSonifierClusterTests.Cluster_OrdersByTierAscending"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "G06",
+  "area": "an up-cross falls and a down-cross rises",
+  "file": "AccessibleTrader.Core/Services/Audio/CrossEarcon.cs",
+  "breaks": "the one earcon whose entire job is to be unmistakable about direction now says the opposite: the terminal reports a breakdown as a breakout",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7678,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CrossEarconTests.Fire_DownCross_StartsHighOnSlot30",
+   "AccessibleTrader.Tests.CrossEarconTests.Fire_UpCross_StartsLowOnSlot30"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "G07",
+  "area": "assigning a patch silences the overbought texture",
+  "file": "AccessibleTrader.Core/Services/Audio/PatchLayerNoise.cs",
+  "breaks": "the zone cue rides layer 0 by contract; moved to layer 1 a single-layer patch (the common case) drops it entirely \u2014 the defect this class was extracted to prevent, back in both the navigation and playback renderers at once",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7678,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OscillatorPatchTests.Layer0_CarriesZoneNoise_WhenPatchIsClean",
+   "AccessibleTrader.Tests.OscillatorPatchTests.UpperLayers_NeverGetZoneNoise_NoDoubling"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "G08",
+  "area": "the UI round-robin walks back over the level-cue slots",
+  "file": "AccessibleTrader.Core/Services/Audio/EarconPatchPlayer.cs",
+  "breaks": "NavigationSonifier.UiRoundRobinSlots is derived from this constant: widen it and the eleventh UI note of a burst lands on 30/31 and cuts off the cross chirp \u2014 on precisely the bars where UI notes are busiest, which is what a level cross IS",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 205
+ },
+ {
+  "id": "G09",
+  "area": "a missing override patch silences the cue instead of falling back",
+  "file": "AccessibleTrader.Core/Services/Audio/EarconPatchPlayer.cs",
+  "breaks": "the return value means 'I played it, do not play yours'. A patch id pointing at a deleted patch now silences the approach/sustained/cross cue outright rather than falling back to the built-in tone \u2014 a broken reference reads as silence, the one failure this user cannot see",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 205
+ },
+ {
+  "id": "G10",
+  "area": "a muted series still sounds under the arrow keys",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "breaks": "mute is absolute in this app; here the series-level mute stops being consulted on the navigation path, so the one control for 'stop making this noise' does nothing under arrows",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 203
+ },
+ {
+  "id": "G11",
+  "area": "the text-label tick fires only while you stand still",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "breaks": "the de-duplication is inverted: arriving on a labelled bar is silent, and standing on one repeats the tick on every state push \u2014 the annotation marker announces everything except its own arrival",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.TextLabelAnnotationTests.ArrivingOnALabelledBar_PlaysTheLabelEarcon",
+   "AccessibleTrader.Tests.TextLabelAnnotationTests.LeavingAndReturningPlaysTheEarconAgain",
+   "AccessibleTrader.Tests.TextLabelAnnotationTests.TheEarconDoesNotRepeatWhileStandingOnTheLabel",
+   "AccessibleTrader.Tests.TextLabelAnnotationTests.TheEarconIsATwoNoteFigure"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "G12",
+  "area": "the close line's pitch leaves the number it is spoken as",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "breaks": "in Heikin-Ashi the price line would sweep to the smoothed average while the speech and the title bar quote the raw close: the two halves of one readout on different values",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PriceLineTransformAudioTests.ThePriceLineIsSonifiedFromTheRawBarWithHeikinAshiOn"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G13",
+  "area": "a distribution series with no components goes silent",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "breaks": "`All` on an empty list is true, so a profile or heatmap still loading its components is treated as deliberately switched off \u2014 the widened guard whose comment says exactly why it must not be, narrowed back",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 199
+ },
+ {
+  "id": "G14",
+  "area": "cross-indicator ticks move from playback to the arrow keys",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "breaks": "both directions wrong at once: arrowing one bar now fires every indicator's markers across the whole chart, and playback \u2014 where cross-indicator audio is the point \u2014 fires only the focused series'",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7678,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationSonifierClusterTests.Cluster_NavigationMode_OnlyScansFocusedSeries",
+   "AccessibleTrader.Tests.NavigationSonifierClusterTests.Cluster_PlaybackMode_ScansAllVisibleSeries"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "G15",
+  "area": "every bar carries full grit, so size is inaudible",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "BarGrit is THE encoding of magnitude for volume bars and every histogram \u2014 loudness is deliberately constant so texture can carry size. Pinned at full weight, a stub and a full-height bar are the same sound and the channel says nothing",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7677,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SonificationTimbreTests.HistogramGritGrowsWithMagnitude",
+   "AccessibleTrader.Tests.SonificationTimbreTests.HistogramLoudnessIsConstantAndIntensityIsTexture",
+   "AccessibleTrader.Tests.SonificationTimbreTests.VolumeLoudnessIsConstantAndIntensityIsTexture"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "G16",
+  "area": "both wicks are the same tone again",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "the exact defect reported from live use: every wick sonified as a LOWER wick \u2014 same 220 Hz pitch, and grit computed from the lower shadow even when the upper one is playing",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WickSonificationTests.ALongLowerWickIsRoughAndAMissingUpperOneIsClean",
+   "AccessibleTrader.Tests.WickSonificationTests.EachWicksGritTracksItsOwnLength",
+   "AccessibleTrader.Tests.WickSonificationTests.TwoWicksOfDifferentLengthOnOneCandleDiffer",
+   "AccessibleTrader.Tests.WickSonificationTests.UpperAndLowerWicksAreDifferentPitches"
+  ],
+  "status": "CAUGHT",
+  "seconds": 204
+ },
+ {
+  "id": "G17",
+  "area": "a muted component still sounds",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "the component-level mute stops reaching the volume on the one path both navigation and playback take \u2014 m on a component becomes a no-op everywhere at once",
+  "occurrences": 1,
+  "failed": 26,
+  "passed": 7654,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MuteIsAbsoluteTests.AMutedComponentIsSilent",
+   "AccessibleTrader.Tests.SonificationTimbreTests.AMutedOrHiddenComponentIsSilent"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "G18",
+  "area": "the cross chirp's direction is inverted at the source",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "CrossEarcon is fed from here by BOTH renderers, so one sign flip makes every cross chirp in the app \u2014 navigation and playback \u2014 announce the wrong direction",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7678,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SonificationStrategyPatchTests.CrossDirection_ReflectsLevelCross"
+  ],
+  "status": "CAUGHT",
+  "seconds": 204
+ },
+ {
+  "id": "G19",
+  "area": "entering a zone makes the sound CLEANER",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "the 'take the stronger' rule inverts to 'take the weaker': a component with its own base texture gets SMOOTHER on entering overbought, which is the old defect this comment documents, reintroduced",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OscillatorPatchTests.PatchedOscillator_InOverboughtZone_KeepsZoneTexture",
+   "AccessibleTrader.Tests.SonificationStrategyPatchTests.ZoneNoise_TakesMaxOfBaseAndZone",
+   "AccessibleTrader.Tests.SonificationTimbreTests.A_drawing_keeps_a_rougher_texture_of_its_own"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G20",
+  "area": "gradient and detuned voices lose their second slot",
+  "file": "AccessibleTrader.Core/Services/Audio/ISonificationStrategy.cs",
+  "breaks": "the playback voice plan reserves slots from this count: a gradient ribbon loses its blend waveform and a detuned bell loses its second voice under Space, while both still sound under the arrow keys \u2014 the same nav/playback divergence PatchLayerNoise exists to prevent",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7678,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SonificationStrategyPatchTests.ResolveComponentVoiceCount_DetunedRegistryPatch_IsTwo",
+   "AccessibleTrader.Tests.SonificationStrategyPatchTests.ResolveComponentVoiceCount_GradientComponent_IsTwo"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G21",
+  "area": "an imported \"ping\" becomes a permanent drone",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "breaks": "EnvelopeType is free text from provider metadata, saved workspaces and imported patch JSON. Case-sensitive here, a lowercase 'ping' is continuous with duration 0 \u2014 a playback slot that never decays, which is the failure this single helper was extracted to end",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 203
+ },
+ {
+  "id": "G22",
+  "area": "the Background playback layer stops sitting back",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "breaks": "Background and Foreground both render at full, so the three-way mix collapses to two: the knob that decides what sits behind what during a full-chart playback stops moving anything",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 202
+ },
+ {
+  "id": "G23",
+  "area": "a bar with no value drones instead of falling silent",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "breaks": "the NaN answer is exactly AudioPoint(0, 0, ...), so this guard never fires again: a drawing with NaN on both sides of its span glides in from 0 Hz and back out, twice a pass \u2014 'there is nothing here' stops sounding like anything",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingPlaybackVoiceTests.The_bars_outside_the_span_stop_the_voice_instead_of_gliding_through_them"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "G24",
+  "area": "muting a series leaves its cloud fills playing",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "breaks": "the cloud pass runs OUTSIDE the voice plan, which is where mutes are filtered \u2014 so this line is the only place a muted series' fills are stopped, and without it muting a series does not mute the series",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MuteIsAbsoluteTests.AMutedSeriesDoesNotSoundItsCloudFills"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "G25",
+  "area": "cloud fills keep ringing after playback stops",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "breaks": "slots 96-127 are left armed on Stop and on pause: the last bar's cloud chord drones on indefinitely, and the drone survives the thing that is supposed to end it",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 202
+ },
+ {
+  "id": "G26",
+  "area": "a chart announces a crossing that never happened",
+  "file": "AccessibleTrader.Core/Services/Audio/LevelCrossingMonitor.cs",
+  "breaks": "loading a chart whose price already sits above a hand-placed level fires the 'held beyond' tone a few bars later \u2014 the terminal reporting an event the market did not produce, which is worse than saying nothing",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.NoSustainedToneWithoutAnActualCrossing"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G27",
+  "area": "the approach ping fires from twenty times further out",
+  "file": "AccessibleTrader.Core/Services/Audio/LevelCrossingMonitor.cs",
+  "breaks": "the 5% proximity band becomes 100% of the level's value, so 'approaching 70' starts at 0 \u2014 a cue that fires everywhere carries no information and masks the one that means something",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.ApproachPing_FiresWithinFivePercentBand",
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.CrossingThenHoldingFiresTheSustainedToneExactlyOnce",
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.NoSustainedToneWithoutAnActualCrossing",
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.OverboughtStillOnlyWatchesAbove"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G28",
+  "area": "a level with the earcon switched off still fires",
+  "file": "AccessibleTrader.Core/Services/Audio/LevelCrossingMonitor.cs",
+  "breaks": "'Play Earcon on Crossing' is a per-level tick box; unread here, every visible level on every indicator starts firing approach and sustained cues, and the user's way to quieten a busy chart stops working",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelCrossingMonitorTests.IgnoresLevelsWithPlayEarconFalse"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "G29",
+  "area": "a theme overwrites the timbres that carry meaning",
+  "file": "AccessibleTrader.Core/Services/Audio/SoundThemes.cs",
+  "breaks": "candles, wicks, volume and histograms encode SIZE as grit computed per bar. Handing them a fixed factory patch silences that encoding \u2014 picking 'Orchestra' would quietly delete the wick-length and body-size channels",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7676,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SoundThemesTests.SemanticComponents_AreNeverThemed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G30",
+  "area": "histogram loudness encodes size again",
+  "file": "AccessibleTrader.Core/Services/Audio/SonificationProfileProvider.cs",
+  "breaks": "the 2026-09-11 decision reversed: a MACD bar gets LOUDER as it grows while a volume bar gets ROUGHER \u2014 two encodings of 'how big' for two kinds of bar, and the loud one drops small bars toward silence",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SonificationTimbreTests.HistogramLoudnessIsConstantAndIntensityIsTexture"
+  ],
+  "status": "CAUGHT",
+  "seconds": 197
+ },
+ {
+  "id": "G31",
+  "area": "series playback starts at bar zero instead of the cursor",
+  "file": "AccessibleTrader.Core/Services/Audio/PlaybackPlan.cs",
+  "breaks": "Shift+Space means 'play this series from where I am standing'. From bar zero it replays the whole history every time, and the spoken plan \u2014 which is generated from this same record \u2014 describes the run correctly while the audio does something else",
+  "occurrences": 1,
+  "failed": 14,
+  "passed": 7666,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Landmark_SeriesScope_SpeaksOnTheFirstRealStep",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Plan_SeriesAndComponentScope_StartAtTheCursor_AndPinTheComponent",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Start_ComponentScope_OnAMultiComponentSeries_NamesTheComponent",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Start_ComponentScope_OnAOneComponentSeries_DoesNotStutterTheName",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Start_SeriesScope_NamesTheFocusedSeries_FromTheCursor",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALandmarkAndASignalOnTheSameStep_AreONEUtterance",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALandmarkIsNeverRateLimitedAwayByARecentSignal",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ARarerSignalInsideTheWindow_SpeaksAnyway",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASecondSignalInsideTheWindow_IsDropped_NotQueued",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalBeyondTheWindow_Speaks",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalOnTheBarSteppedOnto_IsSpoken_AsItself",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ATemplateThatDoesNotNameItsComponent_IsIntroducedByIt",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TurningTimeLandmarksOff_KeepsTheSignalsAndStopsTheCalendar",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TwoCOMPONENTSOfOneSeries_AreEachTheirOwnClause_AndTheSeriesIsNotNamed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "G32",
+  "area": "stop-all stops nothing that is already sounding",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "breaks": "this is the user's 'make it stop'. Without the release, any voice command queued behind the stop-all re-arms the master gain, the deactivation never runs, and every voice keeps sounding \u2014 measured at RMS 0.397 after 40 buffers when the old version had this bug",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7679,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AudioSafetyTests.StopAll_silences_even_when_a_voice_command_arrives_right_behind_it"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "G33",
+  "area": "a volume the user set to zero comes back at full",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "breaks": "the flag is the only thing separating 'our stop-all fade' from 'the user chose silence'. Without it, setting the volume to 0% and pressing one arrow key restores full output \u2014 and the earcons that pass fixed literal volumes fire at full scale into headphones",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 198
+ },
+ {
+  "id": "G34",
+  "area": "a volume of fifty reaches the mix as ten",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "breaks": "the engine-boundary range check is the hearing-safety net under an imported patch whose fields nothing validates; widened tenfold it stops being one",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 199
+ },
+ {
+  "id": "G35",
+  "area": "a ping stops decaying",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "breaks": "the Ping envelope is what makes a marker a transient rather than a note; at a tenth of the decay rate every dot, arrow and wick holds most of its level for its whole duration and the sparse markers smear into the continuous bed",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "G36",
+  "area": "8-bit WAV imports arrive with a full-scale DC offset",
+  "file": "AccessibleTrader.Core/Services/Audio/WavFileReader.cs",
+  "breaks": "PCM8 is unsigned, so silence is 128. Read unsigned, an imported earcon sits between 0 and 2 instead of -1 and 1: a DC-offset blast that the clamp turns into a click and the limiter then ducks the whole mix for",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 199
+ },
+ {
+  "id": "G37",
+  "area": "a single-cycle wavetable imports as a one-shot sample",
+  "file": "AccessibleTrader.Core/Services/Audio/WavetableLibraryService.cs",
+  "breaks": "the classification inverts: an AKWF single cycle (~600 frames) registers as a SAMPLE \u2014 played once at natural speed with no pitch mapping, so a custom oscillator shape becomes an unpitched 14 ms click \u2014 and a long clip becomes a wavetable",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7680,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 200
+ }
+]

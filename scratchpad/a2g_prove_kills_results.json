@@ -1,0 +1,174 @@
+[
+ {
+  "id": "G02",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioConstants.cs",
+  "filter": "NavigationSonifierClusterTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 20,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationSonifierClusterTests.Cluster_FiresForEveryMarkerShape"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G04",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioZoneHelper.cs",
+  "filter": "LevelMeaningAndScopeTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 12,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelMeaningAndScopeTests.AComponentSubscribedToNoLinesReadsNone"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G08",
+  "file": "AccessibleTrader.Core/Services/Audio/EarconPatchPlayer.cs",
+  "filter": "UiEarconSlotTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 12,
+  "failing_tests": [
+   "AccessibleTrader.Tests.UiEarconSlotTests.TheCueBlockEndsBeforeTheChirpPairBegins"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G09",
+  "file": "AccessibleTrader.Core/Services/Audio/EarconPatchPlayer.cs",
+  "filter": "UiEarconSlotTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 12,
+  "failing_tests": [
+   "AccessibleTrader.Tests.UiEarconSlotTests.AnEarconAssignedToAMissingPatchFallsBackToTheBuiltInTone"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G10",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "filter": "MuteIsAbsoluteTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 113,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MuteIsAbsoluteTests.AMutedSeriesArmsNoNavigationVoiceAtAll"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G13",
+  "file": "AccessibleTrader.Core/Services/Audio/NavigationSonifier.cs",
+  "filter": "MuteIsAbsoluteTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 112,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MuteIsAbsoluteTests.ADistributionSeriesWithNoComponentsIsStillHeard",
+   "AccessibleTrader.Tests.MuteIsAbsoluteTests.AHeatmapSeriesWithNoComponentsIsStillHeard"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G21",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "filter": "PlaybackVoiceLifecycleTests",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackVoiceLifecycleTests.ALowercasePingIsArmedAsAOneShotWithADuration",
+   "AccessibleTrader.Tests.PlaybackVoiceLifecycleTests.EverySpellingOfPingIsAPing"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G22",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "filter": "PlaybackLayerTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 5,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackLayerTests.ThePlaybackLayerScalesTheVolumeTheSequencerArms",
+   "AccessibleTrader.Tests.PlaybackLayerTests.TheThreeLayersAreThreeDistinctLevels"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G25",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioSequencer.cs",
+  "filter": "PlaybackVoiceLifecycleTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 10,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackVoiceLifecycleTests.StopSilencesTheCloudSlotsAsWellAsTheComponentSlots"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G33",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "filter": "AudioSafetyTests",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 22,
+  "failing_tests": [],
+  "status": "STILL_GREEN"
+ },
+ {
+  "id": "G34",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "filter": "AudioSafetyTests",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 19,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AudioSafetyTests.An_out_of_range_volume_renders_exactly_as_full_scale_does"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G35",
+  "file": "AccessibleTrader.Core/Services/Audio/AudioEngine.cs",
+  "filter": "AudioSafetyTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 21,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AudioSafetyTests.A_ping_decays_to_a_fraction_of_its_onset"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G36",
+  "file": "AccessibleTrader.Core/Services/Audio/WavFileReader.cs",
+  "filter": "WavetableTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 13,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WavetableTests.WavReader_ReadsEightBitNegativeSamplesAsNegative",
+   "AccessibleTrader.Tests.WavetableTests.WavReader_ReadsEightBitSilenceAsSilence"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "G37",
+  "file": "AccessibleTrader.Core/Services/Audio/WavetableLibraryService.cs",
+  "filter": "WavetableTests",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 12,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WavetableTests.Import_ALongFileBecomesASample",
+   "AccessibleTrader.Tests.WavetableTests.Import_AShortFileBecomesAWavetable",
+   "AccessibleTrader.Tests.WavetableTests.Import_TheBoundaryIsInclusiveOnTheWavetableSide"
+  ],
+  "status": "RED"
+ }
+]
