@@ -261,7 +261,6 @@ namespace AccessibleTrader.Core.Services.Indicators
             double[] rngZ = ComputeRollingZ(rangePct, lookback);
 
             double[] bbLower = ComputeBollingerLower(data, 20, 2.0);
-            double[] bbUpper = ComputeBollingerUpper(data, 20, 2.0);
 
             double decayFactor = Math.Pow(0.5, 1.0 / distHalfLife);
             // Scale chosen so a textbook distribution scenario (sustained sideways

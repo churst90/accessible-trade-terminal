@@ -392,6 +392,74 @@ public sealed class CipherBSignalRulesTests
             $"gold fired on {orphans.Count} bars with no blue dot (bars {string.Join(", ", orphans.Take(6))}).");
     }
 
+    // ── The N-bar confirmation ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <b>ConfirmBars means the wave was ALREADY where the dot says it was.</b>
+    ///
+    /// <para>
+    /// A blue dot fires on a WT cross up while the wave is below oversold, and
+    /// <c>ConfirmBars</c> requires it to have been below oversold for the preceding bars too —
+    /// a dot on a one-bar spike is a dot on noise. The A2h mutant inverted the loop's test, so the
+    /// gate passed exactly when the setup had NOT happened; the only thing that went red was a
+    /// coverage-bookkeeping guard, whose natural repair is to edit a pinned list.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserted on the bars that fired: at a confirmation of three bars, the two bars before each
+    /// blue dot must also be below the oversold line in force at the dot.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Flavours))]
+    public void EveryBlueDotHasTheWaveBelowOversoldForItsConfirmationBars(int flavour)
+    {
+        const int ConfirmBars = 3;
+        var r = Run(flavour, Params(("ConfirmBars", ConfirmBars)));
+
+        var wt1 = Series(r, CipherBProvider.CompWT1);
+        var os = Series(r, CipherBProvider.CompAdaptiveOs);
+        var blue = FiredBars(r, CipherBProvider.CompBlue);
+
+        Assert.True(blue.Count > 0, $"no blue dots on series {flavour} — this proves nothing");
+
+        var unconfirmed = new List<string>();
+        foreach (int b in blue)
+        {
+            for (int k = 1; k < ConfirmBars && (b - k) >= 0; k++)
+            {
+                double v = wt1[b - k];
+                if (double.IsNaN(v) || v > os[b])
+                    unconfirmed.Add($"bar {b}: wave {v:F1} at b-{k} against oversold {os[b]:F1}");
+            }
+        }
+
+        Assert.True(unconfirmed.Count == 0,
+            $"{unconfirmed.Count} blue dots on series {flavour} fired without the wave having been " +
+            $"below oversold for the preceding {ConfirmBars - 1} bars:\n  " +
+            string.Join("\n  ", unconfirmed.Take(6)));
+    }
+
+    /// <summary>
+    /// And the requirement has to bite: demanding a longer run below oversold must not produce MORE
+    /// dots. Counted across the flavour set, since blue dots are sparse on any one of them.
+    /// </summary>
+    [Fact]
+    public void ALongerConfirmationNeverProducesMoreBlueDots()
+    {
+        int shortRun = 0, longRun = 0;
+        foreach (int flavour in CausalityProbeSeries.HourlyFlavours)
+        {
+            shortRun += FiredBars(Run(flavour, Params(("ConfirmBars", 1))), CipherBProvider.CompBlue).Count;
+            longRun += FiredBars(Run(flavour, Params(("ConfirmBars", 8))), CipherBProvider.CompBlue).Count;
+        }
+
+        Assert.True(shortRun > 0, "no blue dots at any confirmation length");
+        Assert.True(longRun < shortRun,
+            $"requiring eight confirmation bars produced as many blue dots as requiring one " +
+            $"({longRun} against {shortRun}) — the confirmation is not gating anything.");
+    }
+
     // ── The adaptive thresholds ─────────────────────────────────────────────────────
 
     /// <summary>

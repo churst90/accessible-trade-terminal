@@ -1,5 +1,138 @@
 [
  {
+  "id": "H01",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 37,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.AnchorSuppressionRemovesSomethingOnAtLeastOneSeries"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H02",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 35,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.RequiringMoreConfluenceProducesStrictlyFewerGoldDots"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H04",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 37,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.EveryPivotDivergenceHasBOTHLegsPastTheDepthThreshold"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H05",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 37,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.TheShallowDivergencesStayPutWhileThePivotOnesMove"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H06",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 35,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.ADivergenceAnchorIsALocalExtremeOfTheWave"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H07",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 35,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.TheMoneyFlowWaveStaysInsideThePane"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H08",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 37,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.TheAdaptiveThresholdsNeverComeInsideTheirFloor"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H10",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 23,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.AWeeklyValueIsNotCarriedAcrossAGapInTheData"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H11",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 23,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.TheLookbackWindowBoundsTheTrendStrengthGate"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H12",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 22,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.ALongerHoldDownProducesFewerMarkers",
+   "AccessibleTrader.Tests.PulseSignalRulesTests.ConsecutiveV2CrossesRespectTheHoldDown"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H13",
+  "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
+  "filter": "PulseSignalRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 23,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PulseSignalRulesTests.EveryV2LongEntrySitsInABullRegime"
+  ],
+  "status": "RED"
+ },
+ {
   "id": "H14",
   "file": "AccessibleTrader.Core/Services/Indicators/PulseProvider.cs",
   "filter": "PulseSignalRulesTests",
@@ -20,6 +153,240 @@
   "passed": 23,
   "failing_tests": [
    "AccessibleTrader.Tests.PulseSignalRulesTests.ASeriesSittingExactlyOnTheMidlineProducesNoCrosses"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H03",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherBProvider.cs",
+  "filter": "CipherBSignalRulesTests",
+  "occurrences": 1,
+  "failed": 13,
+  "passed": 25,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.AnchorSuppressionRemovesOnlyBlueDotsUnderABearishAnchor",
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.AnchorSuppressionRemovesSomethingOnAtLeastOneSeries",
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.EveryBlueDotHasTheWaveBelowOversoldForItsConfirmationBars",
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.EveryGoldDotSitsOnABlueDot",
+   "AccessibleTrader.Tests.CipherBSignalRulesTests.RequiringMoreConfluenceProducesStrictlyFewerGoldDots"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H17",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherSRProvider.cs",
+  "filter": "CipherSrZoneRulesTests",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 3,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherSrZoneRulesTests.ACloseThatReachesResistanceWithoutClearingItDoesNotBreakTheZone",
+   "AccessibleTrader.Tests.CipherSrZoneRulesTests.AZoneNeverAppearsBeforeItsPivotIsProvable"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H18",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherSRProvider.cs",
+  "filter": "CipherSrZoneRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherSrZoneRulesTests.ACloseThatReachesResistanceWithoutClearingItDoesNotBreakTheZone"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H19",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherSRProvider.cs",
+  "filter": "CipherSrZoneRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CipherSrZoneRulesTests.ADoubleTopWithEqualHighsIsNotAPivot"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H21",
+  "file": "AccessibleTrader.Core/Services/Indicators/TopBottomDetectorProvider.cs",
+  "filter": "IndicatorMarkerAndCacheRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorMarkerAndCacheRulesTests.AMarketFallingAwayFromItsHighIsNotDistributing"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H22",
+  "file": "AccessibleTrader.Core/Services/Indicators/TopBottomDetectorProvider.cs",
+  "filter": "IndicatorMarkerAndCacheRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorMarkerAndCacheRulesTests.ASustainedCapitulationStampsOneBottomNotOnePerBar"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H23",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherSProvider.cs",
+  "filter": "IndicatorMarkerAndCacheRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorMarkerAndCacheRulesTests.TheCycleDetectorDoesNotReRunUntilTheSeriesHasGrownMaterially"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H24",
+  "file": "AccessibleTrader.Core/Services/Indicators/CipherSProvider.cs",
+  "filter": "IndicatorMarkerAndCacheRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorMarkerAndCacheRulesTests.ASmallShiftInTheDetectedCycleIsNotAnnounced"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H26",
+  "file": "AccessibleTrader.Core/Services/Indicators/IchimokuProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.ATenkanKijunCrossThatImmediatelyReversesIsNotMarked"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H27",
+  "file": "AccessibleTrader.Core/Services/Indicators/AnchoredVwapProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 15,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.TheAnchoredVwapIsAVolumeWeightedMeanOfTheTypicalPrice",
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.TheHighAnchorDoesNotFollowPriceUpwards"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H28",
+  "file": "AccessibleTrader.Core/Services/Indicators/AnchoredVwapProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.TheAnchoredVwapIsAVolumeWeightedMeanOfTheTypicalPrice"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H30",
+  "file": "AccessibleTrader.Core/Services/Indicators/MACloudProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.ACloudWidthThatBarelyMovedIsNotDescribedAsExpanding"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H31",
+  "file": "AccessibleTrader.Core/Services/Indicators/FearGreedProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.TheFirstReadingOnAChartIsNotASentimentFlip"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H32",
+  "file": "AccessibleTrader.Core/Services/Indicators/FearGreedProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.ALowReadingIsFearAndAHighReadingIsGreed"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H33",
+  "file": "AccessibleTrader.Core/Services/Indicators/SkenderDetailFactProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.RsiRisingWhilePriceFallsIsSpokenAsABullishDivergence"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H34",
+  "file": "AccessibleTrader.Core/Services/Indicators/MovingAverageHelper.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.EveryMovingAverageTypeProducesADifferentSeries"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H35",
+  "file": "AccessibleTrader.Core/Services/Indicators/CrossSeriesCache.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.ExternalDataIsNotBackFilledOntoBarsThatPredateIt"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H37",
+  "file": "AccessibleTrader.Core/Services/Indicators/LoukasCyclesProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.AFlatBaseProducesAtMostOneDailyCycleLow"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "H36",
+  "file": "AccessibleTrader.Core/Services/Indicators/LoukasCyclesProvider.cs",
+  "filter": "IndicatorDefinitionRulesTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 16,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorDefinitionRulesTests.RepeatedCycleLowsAtTheSamePriceMintAtMostOneIntermediateLow"
   ],
   "status": "RED"
  }

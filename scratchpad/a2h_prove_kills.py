@@ -20,6 +20,21 @@ NO_MATCH = "No test matches the given testcase filter"
 A = "AccessibleTrader.Core/Services/Indicators/"
 
 # (id, file, find, replace, test filter)
+# H16 and H29 are EQUIVALENT MUTANTS and are deliberately absent, each established by measurement
+# rather than assumed:
+#
+#   H16 — Cipher A's `sustainedOs` conjunct. Over 4 flavours x 3,000 bars the mutant produces the
+#         IDENTICAL 466 signals: a cross UP means the wave turned up, so if it is still below the
+#         oversold line while rising, the previous bar was lower still. The second conjunct is
+#         implied by the crossover it is joined to.
+#   H29 — Hurst on raw differences instead of log returns. Median exponent 0.571 against 0.575 over
+#         1,100 values on a geometric walk spanning a 66x price range. Rescaled-range analysis
+#         divides a range by a standard deviation computed on the SAME window, so it is
+#         dimensionless and window-local: changing the units of the return series does not move it.
+#
+# Both keep a test (the sustained-state property, and the 0.5 calibration on a geometric walk)
+# because each states a real contract and would catch a future change that decoupled them — they
+# simply cannot be proved red by their own mutant.
 KILLS = [
     ("H01", A + "CipherBProvider.cs",
      "                    || !(ancPol[i] < 0 && wt1Anc[i] < -anchorSuppressDepth);",
@@ -89,6 +104,102 @@ KILLS = [
      "                bool bullCross = prev <  midline && cur >= midline;",
      "                bool bullCross = prev <= midline && cur >= midline;",
      "PulseSignalRulesTests"),
+
+    ("H03", A + "CipherBProvider.cs",
+     "                        if (double.IsNaN(wt1[i - k]) || wt1[i - k] > osHere) { sustained = false; break; }",
+     "                        if (double.IsNaN(wt1[i - k]) || wt1[i - k] < osHere) { sustained = false; break; }",
+     "CipherBSignalRulesTests"),
+
+    ("H17", A + "CipherSRProvider.cs",
+     "                if (isPivotHigh) { resistance[i] = data[i].High; resConfirmed[i + pb] = data[i].High; }",
+     "                if (isPivotHigh) { resistance[i] = data[i].High; resConfirmed[i] = data[i].High; }",
+     "CipherSrZoneRulesTests"),
+
+    ("H18", A + "CipherSRProvider.cs",
+     "                if (!newRes && !double.IsNaN(lastRes) && data[i].Close > lastRes * (1.0 + breakPct))",
+     "                if (!newRes && !double.IsNaN(lastRes) && data[i].Close > lastRes * (1.0 - breakPct))",
+     "CipherSrZoneRulesTests"),
+
+    ("H19", A + "CipherSRProvider.cs",
+     "                    if (data[i].High <= data[i - k].High || data[i].High <= data[i + k].High)",
+     "                    if (data[i].High < data[i - k].High || data[i].High < data[i + k].High)",
+     "CipherSrZoneRulesTests"),
+
+    ("H21", A + "TopBottomDetectorProvider.cs",
+     "                        atTop    = (winHigh - data[i].High) / winRange <= 0.20;",
+     "                        atTop    = (winHigh - data[i].High) / winRange >= 0.20;",
+     "IndicatorMarkerAndCacheRulesTests"),
+
+    ("H22", A + "TopBottomDetectorProvider.cs",
+     "                        if (double.IsNaN(prevCap) || prevCap < confirm)",
+     "                        if (true)",
+     "IndicatorMarkerAndCacheRulesTests"),
+
+    ("H23", A + "CipherSProvider.cs",
+     "                if (_detectionCache.TryGetValue(key, out var cached) && n < (int)(cached.dataCount * 1.5))",
+     "                if (_detectionCache.TryGetValue(key, out var cached) && n < cached.dataCount)",
+     "IndicatorMarkerAndCacheRulesTests"),
+
+    ("H24", A + "CipherSProvider.cs",
+     "                Math.Abs(suggested - lastDetected) / (double)lastDetected > 0.15;",
+     "                Math.Abs(suggested - lastDetected) / (double)lastDetected > 0.0;",
+     "IndicatorMarkerAndCacheRulesTests"),
+
+    ("H26", A + "IchimokuProvider.cs",
+     "                if (crossUpPrior && stillUp) tkBull[i] = kijun[i];",
+     "                if (crossUpPrior) tkBull[i] = kijun[i];",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H27", A + "AnchoredVwapProvider.cs",
+     "                        if (data[pIdx + k].High >= pH) isHigh = false;",
+     "                        if (data[pIdx + k].High >= pH) { }",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H28", A + "AnchoredVwapProvider.cs",
+     "                double typical = (data[i].High + data[i].Low + data[i].Close) / 3.0;",
+     "                double typical = (data[i].High + data[i].Low) / 2.0;",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H30", A + "MACloudProvider.cs",
+     "                if (was > 0 && now > was * 1.02) parts.Add(\"expanding\");",
+     "                if (was > 0 && now > was) parts.Add(\"expanding\");",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H31", A + "FearGreedProvider.cs",
+     "                if (previousSide != 0 && side != 0 && side != previousSide)",
+     "                if (side != 0 && side != previousSide)",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H32", A + "FearGreedProvider.cs",
+     "                if (v <= fearLevel)  fearSpan[i]  = v;\n                if (v >= greedLevel) greedSpan[i] = v;",
+     "                if (v >= fearLevel)  fearSpan[i]  = v;\n                if (v <= greedLevel) greedSpan[i] = v;",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H33", A + "SkenderDetailFactProvider.cs",
+     "                            if (rsiUp && !priceUp)  divergence = \" Bullish divergence hint.\";",
+     "                            if (rsiUp && !priceUp)  divergence = \" Bearish divergence hint.\";",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H34", A + "MovingAverageHelper.cs",
+     "                \"HMA\"  => Hma(source, period),",
+     "                \"HMA\"  => Sma(source, period),",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H35", A + "CrossSeriesCache.cs",
+     "                // First tick is later than this bar — leave NaN.\n"
+     "                if (ticks[tickIdx].Ts > barTs) continue;",
+     "                // First tick is later than this bar — leave NaN.",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H37", A + "LoukasCyclesProvider.cs",
+     "                        if (data[j].Low <= kLow) { isLocalMin = false; break; }",
+     "                        if (data[j].Low <  kLow) { isLocalMin = false; break; }",
+     "IndicatorDefinitionRulesTests"),
+
+    ("H36", A + "LoukasCyclesProvider.cs",
+     "                                    if (q >= 0 && dclLows[q] <= dclLows[^1]) isIcl = false;",
+     "                                    if (q >= 0 && dclLows[q] < dclLows[^1]) isIcl = false;",
+     "IndicatorDefinitionRulesTests"),
 ]
 
 

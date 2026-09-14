@@ -682,13 +682,15 @@ namespace AccessibleTrader.Core.Services.Indicators
                 clv[i] = r;
             }
             var mfSmooth  = IndicatorMath.Sma(clv, mfPeriod);
-            // Faster MF window for the gold-dot gate. The slow 60-bar SMA is used for
-            // the visible Money Flow wave, but the gold cross condition needs a window
-            // short enough to flip positive *inside* an oversold WT cycle — by definition
-            // OS happens at local price weakness, where the slow MF is almost always
-            // negative. A 14-bar SMA captures the recent shift toward bullish bodies
-            // that real MCB's gold gate is responding to (matches VuManChu/clone behavior).
-            var mfFast = IndicatorMath.Sma(clv, 14);
+            // A 14-bar "fast Money Flow" SMA was computed here — a full pass over the series on
+            // every recalculation — and READ BY NOTHING. Its comment explained at length why the
+            // gold gate needs a window short enough to flip positive inside an oversold WT cycle;
+            // the gold gate actually tests `clv[i] > 0`, the raw single-bar body/range sign.
+            // Found by a write-only-local sweep during the A2h campaign and deleted, because a
+            // computation nothing reads is not a feature and its comment is a false description of
+            // the gate three hundred lines below. Whether the gate SHOULD use a fast MF window is a
+            // separate question, and changing it would change which bars fire gold — see
+            // docs/TODO.md.
             var mfDisplay = new double[n];
             var mfSign    = new double[n];
             // Visual amplitude expansion: signed-sqrt mapping for the displayed wave

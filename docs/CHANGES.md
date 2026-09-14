@@ -4,6 +4,95 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2h — the maths this terminal is FOR gets measured, and the honest catch rate is 10.5% (2026-09-14, fifty-eighth pass)
+
+`Core/Services/Indicators` is 40+ files and 15,813 lines. Across seven prior mutant campaigns and
+the browser audit, mutants had reached exactly FIVE of its files, all small helpers. The eight
+largest providers — Pulse, Cipher B, Cipher C, Loukas, Top/Bottom, Cipher S, Cipher A, Cipher SR,
+some 7,000 lines of signal generation — had none, ever. Four more providers were named by no test
+at all.
+
+- **38 mutants, 6 caught naively, 4 honestly: 10.5%.** Against A2d 73.1, A2e 72.0, A2f 69.2 and
+  A2g 62.2 on disjoint file sets, that is a cliff rather than a drift, and it is where the
+  terminal's actual subject matter lives. Baseline green before (7,724), control green after,
+  every file restored byte-identical.
+- **The false-catch audit found a NEW mechanism.** Two of the six catches came only from
+  BOOKKEEPING guards — `TheBlindSpotsOfThisGuardAreTheOnesWeKnowAbout` and
+  `TheSuffixGuardComparesRealNumbersAndItsExemptionsAreStillEarned` — which fail because a mutant
+  changed which components produce values on the synthetic series, so a pinned list went stale.
+  Nothing asserted the rule. This is worse than A2's flaky catches: **the natural repair for that
+  failure is to edit the pinned list**, which restores green and leaves the defect.
+- **All four honest catches came from the causality contract or from one of the three providers
+  that happen to have behavioural test files.** The repo has a genuinely strong, reflective,
+  every-provider look-ahead guard and had almost nothing asking whether a signal fires where it
+  should.
+
+**32 of the 34 survivors are closed, each proved red by re-applying its mutant** (32/32,
+`scratchpad/a2h_prove_kills.py`). Suite 7,724 → **7,819**, across five new files:
+`CipherBSignalRulesTests`, `PulseSignalRulesTests`, `CipherSrZoneRulesTests`,
+`IndicatorMarkerAndCacheRulesTests` and `IndicatorDefinitionRulesTests`.
+
+**The shape of the gap, in one sentence: a helper with excellent tests and a caller free to stop
+calling it.** Cipher B's 1,381 lines had no test that ran `Calculate`; what it had was seventeen
+METADATA assertions and a file that exercises the `ShiftMarkersForwardExcept` helper directly and
+never calls the provider. One mutant changed the call site from the excepting form to the plain
+one — reintroducing the defect that helper exists to prevent — and every helper test stayed green.
+That is A2g's "an exemption that names a consumer is not a test of the consumer" in a new guise.
+
+**Three look-ahead mutants survived a guard built for look-ahead**, and the reasons are each
+instructive: a marker that is merely LATE is still causal (the prefix guard cannot see it); an
+INCOMPLETE weekly bucket only arises where bar spacing is irregular, and the prefix sweep uses the
+three regularly-spaced probe flavours; and a cross-series provider fed no external data produces
+nothing for the guard to compare.
+
+**FIVE FIXTURE LESSONS, each found by a test of mine passing under its own mutant.** These cost
+more time than the tests did and are the transferable part:
+
+- **A fixture can be too short to contain the case.** Over 600 bars, EVERY WaveTrend pivot pair
+  satisfying the divergence shape has both legs past the depth threshold, so the gate never changes
+  a verdict. The pairs that straddle it first appear past about a thousand bars — seven of them in
+  1,400.
+- **A fixture can be too smooth to contain the case.** A sine-based decline creates swing highs
+  that generate divergence evidence of their own (0.637 against the 0.000 a monotonic decline
+  gives); an oscillating post-peak stretch mints new pivots that silently replace the level under
+  test. Three separate tests needed strictly monotonic stretches.
+- **A fixture can be degenerate in a way that erases the distinction.** Bars built as
+  `(c+2, c-2, c)` have HLC3 and `(high+low)/2` equal to the same number, so a test of which price a
+  VWAP weights could not tell them apart. A flat series cannot sit ON an oscillator's midline
+  either — zero deviation makes the oscillator NaN and the comparison is never reached.
+- **A window can be too wide to produce a whipsaw.** A single spike keeps a nine-bar midpoint
+  elevated for nine bars, which is a cross and a later cross back. The one-bar reversal the
+  confirmation rule exists to refuse needs a one-bar window, and a baseline that declines so the
+  fast line is genuinely below the slow one first.
+- **A guard can be true by construction.** Asserting "neither leg is deep" does not test an
+  `AND`→`OR` change, because `OR` still requires one deep leg.
+
+**Two survivors are EQUIVALENT MUTANTS, established by measurement rather than assumed:**
+
+- **Cipher A's `sustainedOs` conjunct.** Over four flavours × 3,000 bars the mutant produces the
+  identical 466 signals. A cross UP means the wave turned up, so if it is still below the oversold
+  line while rising, the previous bar was lower still — the second conjunct is implied by the
+  crossover it is joined to.
+- **Hurst on raw differences instead of log returns.** Median exponent 0.571 against 0.575 over
+  1,100 values on a geometric walk spanning a 66× price range. Rescaled-range analysis divides a
+  range by a standard deviation computed on the SAME window, so it is dimensionless and
+  window-local: changing the units of the return series does not move it. The obvious test —
+  scale invariance — passes under BOTH forms for the same reason.
+
+Both keep a test, because each states a real contract and would catch a change that decoupled it.
+
+**Two dead computations, found by a write-only-local sweep before the campaign ran and deleted.**
+`CipherBProvider.mfFast` was a full 14-bar SMA over the series, recomputed on every pass and read
+by nothing, under an eight-line comment explaining why the gold-dot gate needs it — the gate tests
+`clv[i] > 0`, the raw single-bar body/range sign. `TopBottomDetectorProvider.bbUpper` was a full
+Bollinger upper band, computed and discarded. **Whether the gold gate SHOULD use a fast Money Flow
+window is left open on purpose: wiring it up would change which bars fire gold.**
+
+**Also recorded, not fixed: Cipher B's divergence depth gate is close to inert.** A WaveTrend pivot
+low IS a cycle extreme and cycle extremes are deep by construction, so the gate rejects something
+roughly seven times in fourteen hundred bars. Its comment says it filters "two shallow wiggles with
+price drift"; that shape barely occurs.
+
 ### A2g — the channel this terminal IS gets measured, and two guards turn out to be written in terms of themselves (2026-09-13, fifty-seventh pass)
 
 `Core/Services/Audio` is 19 files and 4,394 lines, and across six prior mutant campaigns and the

@@ -117,6 +117,66 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-14, FIFTY-EIGHTH pass — THE INDICATOR MATHS IS MEASURED FOR
+> THE FIRST TIME, AND THE HONEST CATCH RATE IS 10.5%.)** Suite **7,819**, 0 failing. No release cut
+> — post-2.10.0 work in CHANGES `[Unreleased]`. Full entry in `docs/CHANGES.md`.
+>
+> 1. **A2h: 38 mutants over `Core/Services/Indicators`, 6 caught naively, 4 HONESTLY — 10.5%.**
+>    40+ files, 15,813 lines, five ever mutated (all small helpers); the eight largest providers had
+>    ZERO. Baseline green before, control green after, every file restored byte-identical.
+> 2. **32 of 34 survivors closed and proved red** (`scratchpad/a2h_prove_kills.py`, 32/32).
+>    Two are EQUIVALENT MUTANTS, established by measurement. Suite 7,724 → 7,819.
+> 3. **Quote the rate as 73.1 / 72.0 / 69.2 / 62.2 / 10.5 across five disjoint file sets.** The
+>    last is a cliff, not a drift, and it is where the terminal's subject matter lives.
+>
+> ### THE METHOD LESSONS
+>
+> - **A NEW FALSE-CATCH MECHANISM: bookkeeping guards firing as proxies.** Two of six catches came
+>   only from `TheBlindSpotsOfThisGuardAreTheOnesWeKnowAbout` and
+>   `TheSuffixGuardComparesRealNumbersAndItsExemptionsAreStillEarned`, which fail because a mutant
+>   changed which components produce values, so a PINNED LIST went stale. Worse than a flaky catch:
+>   **the natural repair is to edit the list**, which restores green and keeps the defect. Audit
+>   every campaign's catches for this shape from now on.
+> - **A HELPER WITH EXCELLENT TESTS AND A CALLER FREE TO STOP CALLING IT.** Cipher B had 17 metadata
+>   assertions and a file testing `ShiftMarkersForwardExcept` directly, never `Calculate`.
+> - **FIVE FIXTURE FAILURE MODES**, each found by one of my own tests passing under its own mutant:
+>   too SHORT to contain the case (the depth-gate pairs first appear past ~1,000 bars); too SMOOTH
+>   (a sine creates the pivots and divergences you are trying to isolate); DEGENERATE (bars built
+>   `(c+2, c-2, c)` make HLC3 and the midpoint the same number; a flat series makes the oscillator
+>   NaN rather than sitting on its midline); too WIDE a window to produce a whipsaw; and an
+>   assertion TRUE BY CONSTRUCTION ("neither leg is deep" does not test AND→OR).
+> - **CHECK EQUIVALENCE BEFORE WRITING A TEST.** Two of 34 are equivalent: Cipher A's `sustainedOs`
+>   conjunct is implied by the crossover it is joined to (identical 466 signals over 12,000 bars),
+>   and Hurst on raw differences is indistinguishable because R/S is a dimensionless window-local
+>   ratio (0.571 against 0.575).
+>
+> ### OPEN QUESTIONS FOR CODY
+>
+> 1. **Should Cipher B's gold gate use a fast Money Flow window?** A 14-bar `mfFast` SMA was
+>    computed on every recalculation and read by NOTHING, under a comment saying the gold gate needs
+>    it. The gate tests `clv[i] > 0`, the raw single-bar body/range sign. The dead computation is
+>    deleted; **wiring it up would change which bars fire gold, so it is left alone pending a
+>    decision.**
+> 2. **Cipher B's divergence depth gate is close to inert** — a WT pivot low IS a cycle extreme, so
+>    the gate rejects something about seven times in 1,400 bars. Keep, drop, or retune?
+>
+> ### NEXT
+>
+> 1. **Hear it.** NOTHING in this pass has been heard, and little of it is audible directly — these
+>    are correctness guards, not behaviour changes. The two deletions change nothing a user can
+>    perceive.
+> 2. **Audit the rest of the suite for the two structural shapes A2g and A2h named**: assertions
+>    whose expected value is read from the production constant under test, and bookkeeping/pinned-list
+>    guards that will fire as proxies for unrelated changes.
+> 3. **`Services/Rendering` or `Services/Strategies` is the next campaign** — both large, both only
+>    incidentally mutated.
+> 4. **The two rendering holes from the 48th pass are still open**: the minimum-label-spacing mutant
+>    in `RenderYAxis`, and `RenderCandles`'s `hasPhaseOverride` branch, which has no fixture at all.
+> 5. **Navigation still does not honour `SubscribedLevelNames`** — `IndicatorCrossingEngine` does not.
+> 6. **The presence-vs-pairing gap for the non-drawing chords** (55th pass item 5) is unchanged.
+> 7. **The server agent still has not been told** about `sync-trader-docs.sh`'s blind `cp` and
+>    `/features`' now-false "three switches" sentence.
+
 > **START HERE (current as of 2026-09-13 (latest), FIFTY-SEVENTH pass — THE AUDIO PATH IS
 > MEASURED FOR THE FIRST TIME, AND TWO GUARDS TURN OUT TO BE WRITTEN IN TERMS OF THEMSELVES.)**
 > Suite **7,724**, 0 failing. No release cut — post-2.10.0 work in CHANGES `[Unreleased]`.
