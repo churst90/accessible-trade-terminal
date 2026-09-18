@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2i — the picture is measured, and it is the best-covered layer in the repo (2026-09-17, fifty-ninth pass)
+
+`Core/Services/Rendering` plus `ChartRenderer.cs` is 3,769 lines and decides every pixel of the
+chart. Across eight prior campaigns, mutants had reached exactly two rendering-adjacent files and
+neither was a renderer; `StandardRenderers.cs` (1,369) and `ChartRenderer.cs` (1,155) had none.
+
+Selected for a presentation rather than for even coverage: the 34 mutants are the ones a room
+looking at a projected chart would NOTICE — geometry that drifts, an axis whose labels float off
+its gridlines, a pane drawn under the x-axis strip, a colour that ignores the theme, a marker that
+swells over the bar it annotates.
+
+- **25 of 34 caught: 73.5%, the highest rate of any campaign** (73.1 / 72.0 / 69.2 / 62.2 / 10.5 /
+  **73.5**). Baseline green before, control green after, tree restored byte-identical, and the
+  false-catch audit is clean — no bookkeeping-only catches, every one named by tests that are about
+  the thing broken. The 48th pass's rendering work paid for itself here.
+- **Fully covered:** value-to-pixel mapping (3/3), marker sizing and anchoring (4/4), per-bar colour
+  rules (3/3), axis maths (3/3), pane layout (4/5).
+- **All nine survivors resolved** — seven closed and proved red, one closed against a corrected
+  mutant, one recorded as equivalent. Suite 7,819 → **7,831**.
+
+**The survivors clustered, and the cluster is the finding.** Horizontal placement was guarded;
+candle geometry beyond the x position was not. Nothing checked that a doji still draws, that a wick
+spans high to low rather than open to close, or that hollow-up-candles are not inverted. And the
+whole Cipher S phase-colour overlay had no fixture at all — grep the test project for `phaseData`
+before this pass and there is nothing.
+
+**A test answered by the wrong thing.** `ADojiReadsAsUp` renders a flat bar and asserts a bullish
+pixel exists — and it passes with the body suppressed entirely, because the theme's bullish WICK
+colour is within tolerance of its bullish BODY colour. The wick was answering a question about the
+body. The new tests give the wick a colour of its own so the assertion is about the thing it names.
+
+**Two equivalent mutants, both established by measurement, and one of them was my own
+mis-specification:**
+
+- `RenderCandles`' half-pixel alignment (`Math.Floor(xRaw) + 0.5f`) has no observable effect:
+  `SKPaintPool.Rent()` calls `Reset()` and `SKPaint.IsAntialias` defaults to FALSE, so across
+  twenty sub-pixel offsets the wick lands in the identical column every time. Its comment explains
+  a defect caused by anti-aliasing, which these paints do not use. The line is kept — it costs
+  nothing and becomes load-bearing the day AA is switched on — and a test now pins that PREMISE, so
+  whoever enables anti-aliasing is told the alignment has become real and needs a test of its own.
+- The y-axis swatch mutant rewrote `DrawRect(SKRect.Create(x, y, w, h))` as
+  `DrawRect(x, y, w, h)`. Those are byte-identical: the four-float overload IS `(x, y, w, h)`. The
+  historical defect — a 4x3 tick becoming a block that buried the price labels — came from passing
+  BOUNDS to it, which is a different edit. The mutant was wrong, not the defect absent, and the new
+  test is written against the correct one.
+
+**Two more fixture lessons, both found by a test of mine passing under its own mutant**, and both
+of the same family as A2h's five:
+
+- **A fixture can be too comfortable.** At three or four panes the axis labels land about twenty
+  pixels apart — above the minimum — so the spacing guard never fires and a test built on that
+  layout passes with the guard deleted. At eight panes each pane is under thirty pixels and the
+  smallest gap is 18 with the guard and 11 without.
+- **A helper can be the wrong shape.** A series whose component is display-type Line paints a line,
+  so a frame test looking for candle bodies finds none for a reason that has nothing to do with
+  what it asks.
+
 ### A2h — the maths this terminal is FOR gets measured, and the honest catch rate is 10.5% (2026-09-14, fifty-eighth pass)
 
 `Core/Services/Indicators` is 40+ files and 15,813 lines. Across seven prior mutant campaigns and

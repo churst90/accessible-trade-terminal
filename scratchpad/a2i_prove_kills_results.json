@@ -1,0 +1,14 @@
+[
+ {
+  "id": "I18",
+  "file": "AccessibleTrader.Core/Services/ChartRenderer.cs",
+  "filter": "ChartVisualStabilityTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 11,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartVisualStabilityTests.AxisLabelsNeverCrowdOnTopOfOneAnother"
+  ],
+  "status": "RED"
+ }
+]

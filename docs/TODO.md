@@ -117,6 +117,72 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-17, FIFTY-NINTH pass — THE PICTURE IS MEASURED, AND IT IS
+> THE BEST-COVERED LAYER IN THE REPO.)** Suite **7,831**, 0 failing. No release cut.
+> Full entry in `docs/CHANGES.md`.
+>
+> 1. **A2i: 34 mutants over `Core/Services/Rendering` + `ChartRenderer`, 25 caught — 73.5%, the
+>    HIGHEST of any campaign.** First time anything under Rendering had ever been mutated. Rates
+>    now read 73.1 / 72.0 / 69.2 / 62.2 / 10.5 / **73.5**. False-catch audit clean.
+> 2. **All nine survivors resolved**: seven closed and proved red, one closed against a corrected
+>    mutant, one recorded as equivalent (`scratchpad/a2i_prove_kills.py`). Suite 7,819 → 7,831.
+> 3. **Chosen for CODY'S PRESENTATION** rather than for even coverage — the mutants are what a room
+>    looking at a projected chart would notice. **Nothing found was a live defect; the nine were
+>    unguarded, not broken.** The current build renders correctly.
+>
+> ### WHAT THE CLUSTER SAID
+>
+> Horizontal placement, colour rules, marker sizing, axis maths and pane layout were all well
+> guarded. **Candle geometry beyond the x position was not guarded at all** (a doji vanishing, a
+> wick drawn from open/close, hollow-up-candles inverted), and **the Cipher S phase overlay had no
+> fixture whatsoever** — grep for `phaseData` before this pass and there is nothing.
+>
+> **A test answered by the wrong thing:** `ADojiReadsAsUp` passes with the body suppressed entirely,
+> because the theme's bullish WICK colour is within tolerance of its bullish BODY colour. The new
+> tests colour the wick separately so the assertion is about what it names.
+>
+> ### TWO EQUIVALENT MUTANTS, one of them MY OWN MIS-SPECIFICATION
+>
+> - `RenderCandles`' half-pixel alignment has NO observable effect: `SKPaintPool.Rent()` calls
+>   `Reset()` and `IsAntialias` defaults to FALSE, so the wick lands in the identical column across
+>   twenty sub-pixel offsets. Line kept; a test now pins the PREMISE so enabling anti-aliasing flags
+>   the alignment as newly load-bearing.
+> - The swatch mutant rewrote `DrawRect(SKRect.Create(x,y,w,h))` as `DrawRect(x,y,w,h)` — byte
+>   identical, because the four-float overload IS `(x,y,w,h)`. The historical bug passed BOUNDS.
+>   **The mutant was wrong, not the defect absent.**
+>
+> ### TWO MORE FIXTURE LESSONS (the A2h family, now seven)
+>
+> - **TOO COMFORTABLE.** At 3–4 panes axis labels sit ~20px apart, above the minimum, so the
+>   spacing guard never fires. At 8 panes the smallest gap is 18 with the guard and 11 without.
+> - **WRONG SHAPE.** A series whose component is display-type Line paints a line, so a frame test
+>   looking for candle bodies finds none for an unrelated reason.
+>
+> ### NEXT
+>
+> 1. **Run the real app and look at a chart before the presentation.** The suite is now a good
+>    reviewer of the rendering layer but it is not a pair of eyes, and nothing in this pass was
+>    seen on screen.
+> 2. **The Cipher B gold gate — DECISION MADE, deferred on purpose.** `mfFast` was deleted as dead
+>    code; the technically correct fix is to wire the gold confluence's "green bar" test to a fast
+>    Money Flow window rather than `clv[i] > 0`, because a single bar's body sign is close to a coin
+>    flip and that is noise rather than confluence. **Not landed this week: it changes which bars
+>    fire gold, which is the opposite of the visual stability asked for.** Do it straight after.
+> 3. **The volume/candle pitch collision** (`SonificationProfileProvider:47`): Volume declares 330 Hz
+>    with `PitchMapping.PriceDirection`, which never reads `BaseFrequency`, so the volume bed and the
+>    candle body play the SAME 440/220. `SonificationTimbreTests.TheHistogramAndTheVolumeBedAreDistinctInstruments`
+>    hardcodes both in its own helper and never compares `Frequency`, so it passes with the pitches
+>    identical — the mirror-test pathology again. Fix the collision, then fix the test.
+> 4. **Expose `PitchMapping` in the Properties dialog.** The property exists, the engine honours it,
+>    and `Value` already means "pitch tracks level". Exposing it lets Cody try a level-pitched candle
+>    body by ear without a redesign — see his question of 2026-09-17 about candles following the Y
+>    axis. Caveat to tell him: price has no declared bounds, so a level-pitched candle's pitch is
+>    relative to the auto-fitted viewport and shifts when he pans.
+> 5. **Next campaign: `Services/Strategies`** — large, and only incidentally mutated.
+> 6. **Sweep the suite for the three structural shapes now named**: assertions reading the production
+>    constant under test (A2g), bookkeeping/pinned-list guards firing as proxies (A2h), and a test
+>    answered by a neighbouring element of the same colour (A2i).
+
 > **START HERE (current as of 2026-09-14, FIFTY-EIGHTH pass — THE INDICATOR MATHS IS MEASURED FOR
 > THE FIRST TIME, AND THE HONEST CATCH RATE IS 10.5%.)** Suite **7,819**, 0 failing. No release cut
 > — post-2.10.0 work in CHANGES `[Unreleased]`. Full entry in `docs/CHANGES.md`.
