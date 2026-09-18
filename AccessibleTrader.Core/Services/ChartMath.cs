@@ -404,6 +404,29 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// Where a value sits within a range as a fraction 0..1 (0 = min, 1 = max), on the
+        /// linear or the logarithmic scale — the same guards and the same maths as
+        /// <see cref="MapY"/>, so a pitch derived from this lands where the pixel does. The
+        /// sonification normalised linearly whatever the chart's scale, so on a log-scaled chart
+        /// the eye and the ear disagreed: a price drawn at the vertical middle of a 10k–100k
+        /// pane sounded a quarter of the way up. Clamped, because audio has no off-canvas.
+        /// </summary>
+        public static double NormalizedPosition(double value, double min, double max, bool isLogScale)
+        {
+            if (isLogScale)
+            {
+                if (value <= 0) value = 0.00001;
+                if (min <= 0) min = 0.00001;
+                if (max <= 0) max = 0.00001;
+                if (Math.Abs(max - min) < 0.000001) return 0.5;
+                double pct = (Math.Log(value) - Math.Log(min)) / (Math.Log(max) - Math.Log(min));
+                return Math.Clamp(pct, 0, 1);
+            }
+            double span = Math.Max(0.01, max - min);
+            return Math.Clamp((value - min) / span, 0, 1);
+        }
+
+        /// <summary>
         /// Maps a numeric data value to a physical Y-coordinate within a bounded area.
         /// Supports both Linear and Logarithmic scaling.
         /// </summary>

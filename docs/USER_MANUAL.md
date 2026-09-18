@@ -515,7 +515,11 @@ unbounded pane, MACD or ATR, fits itself to the values in view. Seventeen indica
 their natural range and four declare a floor, and the difference matters by ear: RSI 70 is
 the same note on every chart, whereas a MACD reading is a note relative to whatever else is
 in the window. Alt+L switches the price pane's ruler to logarithmic, so equal distance means
-equal percentage, which is the honest ruler for a history in which price multiplied.
+equal percentage, which is the honest ruler for a history in which price multiplied. The ear
+follows the same ruler: a level-pitched component in the price pane, the close line for one, takes
+its pitch from where the value sits on the scale as drawn, so on a log chart the price halfway up
+the pane is the note halfway up the sweep. Indicator panes are never on the log scale, on screen
+or in sound.
 
 ### Series, components, strips
 

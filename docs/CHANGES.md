@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The sonification follows the log-scale toggle (2026-09-18, sixtieth pass, second commit)
+
+Cody's decision on the question answered earlier the same day: option (a). The audio path now
+normalises a value on the scale its pane is DRAWN on. `ChartMath.NormalizedPosition` is one
+normaliser with the same guards and maths as `MapY`, and a test pins that the two agree at
+five prices on both scales — the ear uses the eye's arithmetic rather than a copy of it.
+
+- `ISonificationStrategy` takes `isLogScale` on all three entry points (default `false`, so
+  no caller changed by accident — pinned). `ViewportRangeCalculator.IsLogScaleFor` answers
+  which panes the toggle reaches: the Main pane only, exactly as the renderer, so indicator
+  panes stay linear on screen and in sound.
+- Both real callers pass it — `NavigationSonifier` when arrowing onto a bar and
+  `AudioSequencer` during playback — and each is pinned by a test that goes red when the call
+  site passes `false` again (both proved). On a 10k–100k viewport the price 31,623 now sounds
+  at 600 Hz on log scale where it is drawn mid-pane, and 392 Hz on linear where it is drawn a
+  quarter of the way up. The façade `ISonificationManager.CreateAudioPoint` carries the flag.
+- Suite 7,840 → **7,858**. Nothing here is heard yet: Alt+L on a wide-range chart is the check.
+
 ### The chart is photographed for the first time, and the pictures find what 73.5% did not (2026-09-18, sixtieth pass)
 
 The day after the rendering campaign, the rendered chart was LOOKED AT. A new browser probe,

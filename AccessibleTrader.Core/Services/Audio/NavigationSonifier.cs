@@ -22,7 +22,7 @@ namespace AccessibleTrader.Core.Services.Audio
         // delegates to them for the two distribution display types.
         void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f);
         void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f);
-        AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null);
+        AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null, bool isLogScale = false);
         void StopNavigationVoice();
         void SetMasterGain(float gain);
         void Silence();
@@ -219,7 +219,9 @@ namespace AccessibleTrader.Core.Services.Audio
             bool followsCandleTransform = state.IsHeikinAshi && series.Id != CoreSeriesIds.Price;
             Ohlcv navPoint = ChartMath.BarAsDrawn(state.Data, idx, followsCandleTransform);
 
-            var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume);
+            // The log toggle reaches the ear for exactly the panes it reaches the eye: Main only.
+            bool isLogScale = ViewportRangeCalculator.IsLogScaleFor(state.IsLogScale, series.Pane);
+            var audioPt = CreateAudioPoint(series, cIdx, navPoint, idx - state.ViewportStartIndex, effectivePanWidth, range, idx, state.ChartVolume, isLogScale: isLogScale);
 
             // ── NaN guard for marker components ─────────────────────────────────
             // When a Ping-envelope (marker) component has no signal on this bar (value is NaN),
@@ -502,7 +504,7 @@ namespace AccessibleTrader.Core.Services.Audio
             PlayNote(1046.50, 0.055, "triangle", vol, pan, delay: 55); // C6
         }
 
-        public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null)
+        public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null, bool isLogScale = false)
         {
             if (componentIndex < 0 || componentIndex >= series.Components.Count) return new AudioPoint(0, 0, "sine", 0, "Sustain");
             var comp = series.Components[componentIndex];
@@ -520,7 +522,7 @@ namespace AccessibleTrader.Core.Services.Audio
                 prevVal = data[dataIndex - 1];
             }
             
-            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal);
+            return _strategy.CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, masterVolume, prevVal, isLogScale);
         }
 
         /// <summary>

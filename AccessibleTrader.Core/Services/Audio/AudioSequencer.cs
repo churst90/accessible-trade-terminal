@@ -266,7 +266,8 @@ namespace AccessibleTrader.Core.Services.Audio
             // range — see ViewportRangeCalculator.RangeFor.
             var range = ViewportRangeCalculator.RangeFor(state.PaneRanges, series.Pane, comp.SubPaneName, state.ViewportRange);
 
-            var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume);
+            bool isLogScale = ViewportRangeCalculator.IsLogScaleFor(state.IsLogScale, series.Pane);
+            var audioPt = _strategy.MapComponentToAudio(series, vp.CompIdx, i, data, i - state.ViewportStartIndex, effPanWidth, range, state.ChartVolume, isLogScale);
 
             // A bar the component has no value for: SILENCE, not a skip.
             //

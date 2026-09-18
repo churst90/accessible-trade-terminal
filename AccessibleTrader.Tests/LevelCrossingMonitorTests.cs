@@ -19,7 +19,7 @@ namespace AccessibleTrader.Tests
             public void SyncNavigationSlots(WorkspaceState state) { }
             public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1) { }
             public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1) { }
-            public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double? overrideValue = null)
+            public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1, double? overrideValue = null, bool isLogScale = false)
                 => new AudioPoint(0, 0, "sine", 0);
             public void StopNavigationVoice() { }
             public void SetMasterGain(float gain) { }

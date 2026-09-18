@@ -200,9 +200,9 @@ namespace AccessibleTrader.Core.Services
             _stateMachine.Fire(SonificationTrigger.Reset);
         }
 
-        public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null)
+        public AudioPoint CreateAudioPoint(ChartSeries series, int componentIndex, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, int dataIndex, float masterVolume = 1.0f, double? overrideValue = null, bool isLogScale = false)
         {
-            return _navigation.CreateAudioPoint(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, overrideValue);
+            return _navigation.CreateAudioPoint(series, componentIndex, point, relativeIndex, viewportWidth, viewportRange, dataIndex, masterVolume, overrideValue, isLogScale);
         }
 
         public void SetMasterVolume(float volume)

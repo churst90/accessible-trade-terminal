@@ -285,6 +285,15 @@ namespace AccessibleTrader.Core.Services
         /// restores it verbatim, so a stale-key miss is reachable.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Whether the chart's log-scale toggle applies to a series in <paramref name="pane"/>.
+        /// The renderer draws only the Main (price) pane on the log scale — every indicator pane
+        /// is linear whatever Alt+L says — and the audio path answers the same question here so
+        /// the ear follows exactly the panes the eye does.
+        /// </summary>
+        public static bool IsLogScaleFor(bool isLogScale, string? pane)
+            => isLogScale && (string.IsNullOrEmpty(pane) || string.Equals(pane, "Main", StringComparison.OrdinalIgnoreCase));
+
         public static (double Min, double Max) RangeFor(
             IReadOnlyDictionary<string, (double Min, double Max)>? paneRanges,
             string? pane,

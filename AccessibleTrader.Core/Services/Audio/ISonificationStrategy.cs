@@ -4,15 +4,19 @@ namespace AccessibleTrader.Core.Services.Audio
 {
     public interface ISonificationStrategy
     {
-        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null);
-        AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume);
+        /// <param name="isLogScale">
+        /// True when this component's pane is drawn on the logarithmic scale, so a level-pitched
+        /// component's pitch follows the picture. See <see cref="ChartMath.NormalizedPosition"/>.
+        /// </param>
+        AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false);
+        AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false);
         /// <summary>
         /// Maps a specific component at dataIndex to an AudioPoint.
         /// Unlike MapToAudio (which always picks the first visible component), this maps
         /// the component at <paramref name="componentIndex"/> so every component —
         /// including wicks — is sonified independently during playback.
         /// </summary>
-        AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume);
+        AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false);
 
         /// <summary>
         /// How many playback voice slots a component needs: the layer count of the largest multi-oscillator
@@ -89,7 +93,7 @@ namespace AccessibleTrader.Core.Services.Audio
         /// itself, which is the value the user is listening to.</summary>
         internal const float DrawingNoiseAmount = 0.22f;
 
-        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null)
+        public AudioPoint CreateAudioPoint(ChartSeries series, ComponentConfig comp, double val, Ohlcv point, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, double? prevVal = null, bool isLogScale = false)
         {
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
 
@@ -98,9 +102,10 @@ namespace AccessibleTrader.Core.Services.Audio
             
             double pan = AudioConstants.CalculatePan(relativeIndex, viewportWidth);
             
-            // 2. RANGE NORMALIZATION
-            double rangeSpan = Math.Max(0.01, viewportRange.Max - viewportRange.Min);
-            double normalizedValue = Math.Clamp((val - viewportRange.Min) / rangeSpan, 0, 1);
+            // 2. RANGE NORMALIZATION — on the scale the pane is DRAWN on. Until 2026-09-18 this
+            // was linear whatever Alt+L said, so on a log-scaled chart the ear and the eye
+            // disagreed about where a price sat in the pane.
+            double normalizedValue = ChartMath.NormalizedPosition(val, viewportRange.Min, viewportRange.Max, isLogScale);
             
             // 3. PITCH MAPPING
             double freq = comp.BaseFrequency;
@@ -465,7 +470,7 @@ namespace AccessibleTrader.Core.Services.Audio
                                   TriangleMix: triangleMix, SubSawMix: subSawMix);
         }
 
-        public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume)
+        public AudioPoint MapToAudio(ChartSeries series, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
         {
             if (dataIndex < 0 || dataIndex >= data.Count) return new AudioPoint(0, 0, "sine", 0);
 
@@ -477,10 +482,10 @@ namespace AccessibleTrader.Core.Services.Audio
             double val = (dataIndex < compData.Length) ? compData[dataIndex] : point.Close;
             double? prevVal = (dataIndex > 0 && dataIndex - 1 < compData.Length) ? compData[dataIndex - 1] : null;
 
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale);
         }
 
-        public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume)
+        public AudioPoint MapComponentToAudio(ChartSeries series, int componentIndex, int dataIndex, List<Ohlcv> data, int relativeIndex, int viewportWidth, (double Min, double Max) viewportRange, float chartVolume, bool isLogScale = false)
         {
             if (dataIndex < 0 || dataIndex >= data.Count) return new AudioPoint(0, 0, "sine", 0);
             if (componentIndex < 0 || componentIndex >= series.Components.Count) return new AudioPoint(0, 0, "sine", 0);
@@ -522,7 +527,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
 
             if (double.IsNaN(val)) return new AudioPoint(0, 0, "sine", 0);
-            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal);
+            return CreateAudioPoint(series, comp, val, point, relativeIndex, viewportWidth, viewportRange, chartVolume, prevVal, isLogScale);
         }
 
         public int ResolveComponentVoiceCount(ComponentConfig comp)

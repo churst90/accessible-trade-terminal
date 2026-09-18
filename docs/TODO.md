@@ -118,7 +118,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 ### What to do next, and why that order
 
 > **START HERE (current as of 2026-09-18, SIXTIETH pass — THE CHART IS PHOTOGRAPHED FOR THE
-> FIRST TIME, AND THE PICTURES FIND WHAT 73.5% DID NOT.)** Suite **7,840**, 0 failing. No release
+> FIRST TIME, AND THE PICTURES FIND WHAT 73.5% DID NOT.)** Suite **7,858**, 0 failing. No release
 > cut. Full entry in `docs/CHANGES.md`.
 >
 > 1. **`ChartScreenshotProbe` photographs nine states of the real chart** through the browser
@@ -143,10 +143,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > 31,623 is drawn mid-pane and sounds a quarter of the way up). Candle bodies are direction-pitched
 > and follow neither scale; only the price line tracks level. And Hz is linear where pitch
 > perception is log, so the sound is perceptually top-compressed even on a linear chart.
-> **Two options, Cody's call, NOT landed (both change what he hears this week):**
-> (a) make `normalizedValue` honour `IsLogScale` exactly as `ChartMath.MapY` does, so Alt+L moves
-> the ear with the eye; (b) map to semitones (`200 × 2^(n × k)`) so equal price steps are equal
-> pitch steps on a linear chart. (a) is a small change with one test; (b) is a retune.
+> **DECIDED AND LANDED the same day — option (a).** `ChartMath.NormalizedPosition` is the one
+> normaliser the eye and the ear share; the strategy takes `isLogScale`; both callers pass it for
+> the Main pane only (`ViewportRangeCalculator.IsLogScaleFor`), proved red at each call site.
+> **NOT HEARD.** Option (b), semitone mapping so equal price steps are equal pitch steps on a
+> linear chart, remains open: it is a retune of every level-pitched component.
 >
 > ### NEXT
 >
@@ -155,7 +156,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    it is the size of Indicators, which produced the 10.5% cliff; and it is the layer that
 >    decides what a blind user hears (narration, hit-testing, drawing interaction, the feedback
 >    coordinator). Strategies is 6,408 lines and follows it. Analysis (4,269, never mutated) after.
-> 2. **The log-scale sonification decision** above.
+> 2. **Hear Alt+L on a wide-range chart** (BTC daily is the natural one): the price line's pitch
+>    should now move with the toggle. Then decide on semitone mapping, option (b) above.
 > 3. **Seen on screen, not changed:** auto-fit follows the price series only, so Bollinger bands
 >    clip out of the pane when zoomed in — design question; the first-visit speech-choice banner
 >    pushes the toolbar down until any dialog has been used.
