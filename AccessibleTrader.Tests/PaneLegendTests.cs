@@ -197,9 +197,12 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void A_pane_too_short_for_the_computed_budget_still_gets_a_minimum_of_three_rows()
+        public void A_pane_too_short_for_the_computed_budget_still_gets_three_rows_when_it_can_hold_them()
         {
             // Better a cramped legend than none: with zero rows the reader has no key at all.
+            // 120px holds six rows outright but the 45% budget allows only two, so the floor is
+            // what gives the third. (It used to pin 20px → 3 rows, which is a 63px legend in a
+            // 20px pane; see AxisAndLegendCollisionTests for why that floor is now bounded.)
             var panes = new List<ChartSeries>
             {
                 Series("A",
@@ -209,7 +212,7 @@ namespace AccessibleTrader.Tests
                     ("BB Upper", ComponentDisplayType.Line)),
             };
 
-            Assert.Equal(3, ChartRenderer.BuildLegendRows(panes, 20f, Line, Pad).Count);
+            Assert.Equal(3, ChartRenderer.BuildLegendRows(panes, 120f, Line, Pad).Count);
         }
 
         // ── Honesty about truncation ─────────────────────────────────────

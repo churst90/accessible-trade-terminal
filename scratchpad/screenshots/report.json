@@ -1,0 +1,196 @@
+{
+  "added": [
+    "RSI",
+    "MACD",
+    "Bollinger Bands",
+    "Cipher S",
+    "ADX",
+    "Stochastic",
+    "CCI",
+    "MFI",
+    "ATR"
+  ],
+  "series": [
+    "Candles",
+    "Volume",
+    "Price",
+    "RSI",
+    "MACD",
+    "Bollinger Bands",
+    "Cipher S",
+    "ADX",
+    "Stochastic",
+    "CCI",
+    "MFI",
+    "ATR"
+  ],
+  "states": [
+    {
+      "srcLength": 52162,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "01_candles_linear",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price"
+      ]
+    },
+    {
+      "srcLength": 52162,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "02_candles_log",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price"
+      ]
+    },
+    {
+      "srcLength": 34790,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "03_zoomed_in",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price"
+      ]
+    },
+    {
+      "srcLength": 49122,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "04_heikin_ashi",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price"
+      ]
+    },
+    {
+      "srcLength": 64358,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "05_rsi_one_oscillator_pane",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price",
+        "RSI"
+      ]
+    },
+    {
+      "srcLength": 118782,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "06_presentation_set_four_indicators",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price",
+        "RSI",
+        "MACD",
+        "Bollinger Bands",
+        "Cipher S"
+      ]
+    },
+    {
+      "srcLength": 182286,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "07_eight_panes",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price",
+        "RSI",
+        "MACD",
+        "Bollinger Bands",
+        "Cipher S",
+        "ADX",
+        "Stochastic",
+        "CCI",
+        "MFI",
+        "ATR"
+      ]
+    },
+    {
+      "srcLength": 182390,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "08_eight_panes_log",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price",
+        "RSI",
+        "MACD",
+        "Bollinger Bands",
+        "Cipher S",
+        "ADX",
+        "Stochastic",
+        "CCI",
+        "MFI",
+        "ATR"
+      ]
+    },
+    {
+      "srcLength": 105010,
+      "naturalWidth": 1400,
+      "naturalHeight": 650,
+      "zoneWidth": 1400,
+      "zoneHeight": 650,
+      "dpr": 1,
+      "title": "\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal",
+      "state": "09_eight_panes_zoomed",
+      "series": [
+        "Candles",
+        "Volume",
+        "Price",
+        "RSI",
+        "MACD",
+        "Bollinger Bands",
+        "Cipher S",
+        "ADX",
+        "Stochastic",
+        "CCI",
+        "MFI",
+        "ATR"
+      ]
+    }
+  ]
+}

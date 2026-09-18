@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The chart is photographed for the first time, and the pictures find what 73.5% did not (2026-09-18, sixtieth pass)
+
+The day after the rendering campaign, the rendered chart was LOOKED AT. A new browser probe,
+`ChartScreenshotProbe`, loads the seeded 200-bar chart through the real WebHost and Chromium,
+walks it through linear and log scale, six zoom steps, Heikin Ashi, and then adds nine
+indicators through the real Add Indicator dialog — the first browser test ever to drive that
+dialog — photographing each state into `scratchpad/screenshots/`. Cody asked for verification
+screenshots after the sabotage pass; these are them, and they are repeatable in thirty seconds.
+
+**Four rendering defects were visible in almost every picture, and the suite that had just
+measured 73.5% on this layer saw none of them.** Every one is fixed, and every fix was proved
+red first (`AxisAndLegendCollisionTests`, nine cases; suite 7,831 → **7,840**).
+
+- **Y-axis labels drawn over each other.** `RenderYAxis` tested label spacing on the RAW
+  gridline position, then clamped the top label DOWN into the strip so it would not clip —
+  straight onto the label below it. On the log-scale price pane at eight panes "120.00" sat on
+  "115.00"; on a short oscillator pane "90.00" sat on "60.00". The spacing test now runs on the
+  baseline the text is drawn at.
+- **The crosshair's value badge painted over the nearest gridline label** in every indicator
+  pane ("957.71" over "1000.00", "4.82" over "4.00", "97.89" over "100.00"). The axis was drawn
+  first and never told where the badge would land. Each pane's badge position is now computed
+  before its axis, which leaves that label out.
+- **Zoomed in past the last bar, the x axis read "07/19 07/19 07/19".** Label slots sit at
+  fixed fractions of the strip and each slot's bar index was clamped to the last bar, so the
+  empty region to the right of the data was labelled with the last date three times. A date on
+  the axis is a claim that a bar sits above it: slots with no bar are skipped, and the last bar
+  is named exactly once, right-aligned at the bar.
+- **The legend's three-row floor ignored the pane's height.** At eight panes a pane is about
+  55px and three rows plus padding is 63px, so the legend ran out of the bottom of its own pane
+  and across the next pane's divider — "Signal" cut in half by the ADX pane's top edge. The
+  floor is now bounded by what the pane can physically hold; a one-row legend reads "Histogram
+  +2 more" rather than spending its only row on "+3 more"; a pane under 29px gets no legend.
+  The existing test that pinned "20px pane → 3 rows" was re-aimed at a pane that can hold them.
+
+**The test shape for text collisions, since nothing in the suite had one:** scan the axis
+strip for vertical runs of near-white rows; no run may be taller than one line of type. Two
+labels on the same rows — or a badge on a label — merge into one run taller than 12px. It
+needs no OCR and it catches any pair. "Did a label reach the strip" cannot.
+
+**Seen on screen and NOT changed:** the auto-fit range follows the price series only, so the
+Bollinger bands clip out of the pane when zoomed in (a design question, not a bug); and the
+first-visit speech-choice banner pushes the toolbar down until any dialog has been used.
+
+**Answered, not changed — does log scale change the sonification? No.**
+`ISonificationStrategy.CreateAudioPoint` normalises the value linearly across the viewport
+range and maps it to `200 + n × 800` Hz; nothing under `Services/Audio` reads `IsLogScale`. On a
+log-scaled chart the eye and the ear disagree: on a 10k–100k viewport the price 31,623 is drawn
+at the vertical middle and sounds a quarter of the way up. Candle bodies are direction-pitched
+(440/220) and never follow either scale; only the price line tracks level. Alt+L speaks "Log
+scale" and the layout describer says "logarithmic scale" — both true of the picture only. And
+because Hz is linear while pitch perception is logarithmic, the bottom 400 Hz of the range is
+about nineteen semitones and the top 400 about nine, so the sound is perceptually top-compressed
+even on a linear chart. Two candidate fixes are recorded in the TODO for Cody to choose between;
+neither is landed, because both change what he hears in the week of the presentation.
+
+**The next campaign is `Services/Accessibility`, not `Strategies`.** The census: Accessibility
+is 15,901 lines in 49 files with about five ever mutated — the size of Indicators, which
+produced the 10.5% cliff — and it is the layer that decides what a blind user hears.
+Strategies is 6,408 lines. The order in the TODO is changed and the reason recorded there.
+
 ### A2i — the picture is measured, and it is the best-covered layer in the repo (2026-09-17, fifty-ninth pass)
 
 `Core/Services/Rendering` plus `ChartRenderer.cs` is 3,769 lines and decides every pixel of the

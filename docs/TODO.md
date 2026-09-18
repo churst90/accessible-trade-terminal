@@ -117,6 +117,53 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-18, SIXTIETH pass — THE CHART IS PHOTOGRAPHED FOR THE
+> FIRST TIME, AND THE PICTURES FIND WHAT 73.5% DID NOT.)** Suite **7,840**, 0 failing. No release
+> cut. Full entry in `docs/CHANGES.md`.
+>
+> 1. **`ChartScreenshotProbe` photographs nine states of the real chart** through the browser
+>    harness — linear, log, zoomed, Heikin Ashi, one oscillator, the presentation's four
+>    indicators, eight panes, eight panes on log, eight panes zoomed — into
+>    `scratchpad/screenshots/`. Thirty seconds, repeatable, and the first browser test to drive
+>    the Add Indicator dialog. **Run it before the presentation and LOOK.**
+> 2. **Four rendering defects, visible in almost every picture, all fixed and proved red first**
+>    (`AxisAndLegendCollisionTests`): y-axis labels drawn over each other (spacing tested on the
+>    raw position, then the top label clamped down onto the next); the crosshair badge painted
+>    over the nearest gridline label in every indicator pane; "07/19 07/19 07/19" across the empty
+>    region when zoomed past the last bar; the legend's three-row floor spilling out of a 55px pane.
+> 3. **The sabotage suite measured 73.5% on this layer the day before and saw none of them.**
+>    Every axis assertion asked "did a label reach the strip", never "can it be read". The shape
+>    that works: no vertical run of text rows in a strip taller than one line of type.
+>
+> ### ANSWERED FOR CODY — log scale and the sonification
+>
+> **No, the sonification does not follow the log/linear toggle.** `CreateAudioPoint` normalises
+> linearly over the viewport range and maps to 200–1000 Hz; nothing in `Services/Audio` reads
+> `IsLogScale`. On a log-scaled chart the picture and the sound disagree (on a 10k–100k viewport,
+> 31,623 is drawn mid-pane and sounds a quarter of the way up). Candle bodies are direction-pitched
+> and follow neither scale; only the price line tracks level. And Hz is linear where pitch
+> perception is log, so the sound is perceptually top-compressed even on a linear chart.
+> **Two options, Cody's call, NOT landed (both change what he hears this week):**
+> (a) make `normalizedValue` honour `IsLogScale` exactly as `ChartMath.MapY` does, so Alt+L moves
+> the ear with the eye; (b) map to semitones (`200 × 2^(n × k)`) so equal price steps are equal
+> pitch steps on a linear chart. (a) is a small change with one test; (b) is a retune.
+>
+> ### NEXT
+>
+> 1. **Next campaign: `Services/Accessibility` — CHANGED from `Strategies`, and here is why.**
+>    Census 2026-09-18: Accessibility is 15,901 lines in 49 files with about five ever mutated;
+>    it is the size of Indicators, which produced the 10.5% cliff; and it is the layer that
+>    decides what a blind user hears (narration, hit-testing, drawing interaction, the feedback
+>    coordinator). Strategies is 6,408 lines and follows it. Analysis (4,269, never mutated) after.
+> 2. **The log-scale sonification decision** above.
+> 3. **Seen on screen, not changed:** auto-fit follows the price series only, so Bollinger bands
+>    clip out of the pane when zoomed in — design question; the first-visit speech-choice banner
+>    pushes the toolbar down until any dialog has been used.
+> 4. **The Cipher B gold gate** (decided, deferred past the presentation) and the **volume/candle
+>    pitch collision** and **`PitchMapping` in Properties** — carried from the 59th, unchanged.
+> 5. **Sweep the suite for the four structural shapes now named**: A2g, A2h, A2i, and "did it
+>    reach the strip" in place of "can it be read".
+
 > **START HERE (current as of 2026-09-17, FIFTY-NINTH pass — THE PICTURE IS MEASURED, AND IT IS
 > THE BEST-COVERED LAYER IN THE REPO.)** Suite **7,831**, 0 failing. No release cut.
 > Full entry in `docs/CHANGES.md`.

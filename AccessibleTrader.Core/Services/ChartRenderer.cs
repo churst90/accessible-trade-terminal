@@ -298,7 +298,13 @@ namespace AccessibleTrader.Core.Services
                     // Pass allPaneRanges so sub-panes can look up their composite-keyed ranges.
                     var indAxisRect = new SKRect(width - _axisWidth, currentY, width, currentY + indicatorPaneHeight);
                     RenderPane(canvas, paneRect, rawVisibleData, paneSeriesList, cursorIndex - viewportStart, viewportStart, group.Key, min, max, false, viewportLength, density, paneRanges, chartRect);
-                    RenderYAxis(canvas, indAxisRect, min, max, false, density);
+                    // Where RenderCrosshair will put this pane's value badge — same clamp, same
+                    // lookup — so the axis can keep its labels out from under it.
+                    float? badgeTextY = null;
+                    int badgeIndex = Math.Min(cursorIndex - viewportStart, visibleData.Count - 1);
+                    if (badgeIndex >= 0 && CrosshairValueAt(paneSeriesList, badgeIndex, viewportStart) is { } badgeValue)
+                        badgeTextY = ChartMath.MapY(badgeValue, paneRect.Top, paneRect.Bottom, min, max, false) + (4 * density);
+                    RenderYAxis(canvas, indAxisRect, min, max, false, density, badgeTextY);
                     RenderPaneLegend(canvas, paneRect, paneSeriesList, density);
                     RenderYAxisSwatches(canvas, indAxisRect, paneSeriesList, min, max, false, density);
                     indicatorPaneInfos.Add((paneRect, min, max, paneSeriesList));
@@ -473,7 +479,12 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density)
+        /// <param name="avoidTextY">
+        /// Baseline of the crosshair's value badge in this strip, when there is one. The badge is
+        /// painted last, over whatever label sits nearest — so the axis leaves that label out
+        /// rather than have two numbers share the same rows.
+        /// </param>
+        private void RenderYAxis(SKCanvas canvas, SKRect rect, double min, double max, bool isLogScale, float density, float? avoidTextY = null)
         {
             // Round-number anchors. The old algorithm labelled at fixed fractions (0, 0.25, 0.5,
             // 0.75, 1.0) of the raw min/max, producing labels like "76227.38" on a 64k–80k BTC
@@ -492,20 +503,26 @@ namespace AccessibleTrader.Core.Services
             if (niceStep <= 0) return;
 
             float minLabelSpacing = _textFont.Size + (4 * density);
-            float lastLabelY = float.MaxValue;
+            float lastTextY = float.MaxValue;
 
             double firstLine = Math.Ceiling(min / niceStep) * niceStep;
             int safety = 0;
             for (double v = firstLine; v <= max && safety < 200; v += niceStep, safety++)
             {
                 float y = ChartMath.MapY(v, rect.Top, rect.Bottom, min, max, isLogScale);
-                if (Math.Abs(y - lastLabelY) < minLabelSpacing) continue;
-                lastLabelY = y;
-                string label = ChartMath.FormatAxisValue(v, range);
-                float lx = rect.Left + (3 * density);
+                // The spacing test is on the BASELINE THE TEXT IS DRAWN AT, after the clamp that
+                // keeps a label inside its strip — not on the raw gridline position. The clamp
+                // can move a top label down by most of a line height, and it used to do so after
+                // the check had already passed: on a log-scale price pane "120.00" cleared
+                // "115.00" by 23px on the gridline and then landed 9px above it on the page.
                 float textY = Math.Clamp(y + (4 * density),
                     rect.Top + _textFont.Size + (6 * density),
                     rect.Bottom - (3 * density));
+                if (Math.Abs(textY - lastTextY) < minLabelSpacing) continue;
+                if (avoidTextY.HasValue && Math.Abs(textY - avoidTextY.Value) < minLabelSpacing) continue;
+                lastTextY = textY;
+                string label = ChartMath.FormatAxisValue(v, range);
+                float lx = rect.Left + (3 * density);
                 canvas.DrawText(label, lx, textY, SKTextAlign.Left, _textFont, _textPaint);
             }
         }
@@ -571,15 +588,26 @@ namespace AccessibleTrader.Core.Services
             var (primaryFormat, markDateBoundaries) =
                 ChartMath.XAxisFormat(visibleData[^1].Date - visibleData[0].Date);
 
+            // A label is a claim that a bar sits above it. The slots are laid at fixed fractions
+            // of the strip, and a slot to the right of the last bar used to clamp its bar index
+            // to the last one — so a chart zoomed in past its final bar read "07/19 07/19 07/19"
+            // across a region with nothing in it. Slots with no bar under them are skipped, and
+            // the last bar gets its own label, right-aligned at the bar, so the end of the data
+            // is always named exactly once.
             int labelCount = 5;
             float step = rect.Width / labelCount;
+            float textY = rect.Top + _textFont.Size + (6 * density);
             DateTime? prevLabelDate = null;
-            for (int i = 0; i <= labelCount; i++)
+            string? prevLabel = null;
+            float lastLabelRight = float.MinValue;
+            int lastLabelledIndex = -1;
+            for (int i = 0; i < labelCount; i++)
             {
                 float x = rect.Left + (i * step);
                 float barX = x - rect.Left;
                 int dIdx = (int)(barX / Math.Max(itemWidth, 1f));
-                dIdx = Math.Max(0, Math.Min(visibleData.Count - 1, dIdx));
+                if (dIdx >= visibleData.Count) break;
+                dIdx = Math.Max(0, dIdx);
                 var d = visibleData[dIdx].Date;
 
                 string label = d.ToString(primaryFormat);
@@ -590,15 +618,26 @@ namespace AccessibleTrader.Core.Services
                     label = d.ToString("MM/dd ") + label;
                 }
                 prevLabelDate = d;
+                prevLabel = label;
+                lastLabelledIndex = dIdx;
 
-                float textY = rect.Top + _textFont.Size + (6 * density);
-                // Rightmost label right-aligns so it doesn't overshoot the axis
-                // edge; all others left-align from the tick position. Prevents
-                // the final label from clipping against the canvas edge at tight
-                // viewport widths.
-                SKTextAlign align = (i == labelCount) ? SKTextAlign.Right : SKTextAlign.Left;
-                float textX = (i == labelCount) ? rect.Right - (2 * density) : x;
-                canvas.DrawText(label, textX, textY, align, _textFont, _textPaint);
+                canvas.DrawText(label, x, textY, SKTextAlign.Left, _textFont, _textPaint);
+                lastLabelRight = x + _textFont.MeasureText(label);
+            }
+
+            // The final bar, right-aligned at its own right edge (or the strip's, whichever is
+            // nearer), unless a slot already named it or there is no room beside the last label.
+            int lastIndex = visibleData.Count - 1;
+            if (lastIndex > lastLabelledIndex)
+            {
+                float lastBarRight = Math.Min(rect.Right, rect.Left + (lastIndex + 1) * itemWidth);
+                var d = visibleData[lastIndex].Date;
+                string label = d.ToString(primaryFormat);
+                if (markDateBoundaries && prevLabelDate.HasValue && d.Date != prevLabelDate.Value.Date)
+                    label = d.ToString("MM/dd ") + label;
+                float labelLeft = lastBarRight - (2 * density) - _textFont.MeasureText(label);
+                if (label != prevLabel && labelLeft > lastLabelRight + (8 * density))
+                    canvas.DrawText(label, lastBarRight - (2 * density), textY, SKTextAlign.Right, _textFont, _textPaint);
             }
         }
 
@@ -1061,13 +1100,27 @@ namespace AccessibleTrader.Core.Services
 
             // How many rows actually fit in the space the legend is allowed to have.
             int fits = (int)((paneHeight * MaxPaneFraction - pad * 2) / Math.Max(line, 1f));
-            int maxEntries = Math.Clamp(fits, MinEntries, HardMaxEntries);
+            // The three-row floor applies only when the pane can physically hold three rows. At
+            // eight panes a pane is about 55px and three rows plus padding is 63px, so the floor
+            // was drawing the legend out of the bottom of its own pane and across the next pane's
+            // divider — a key that covers the thing it is a key to. A pane that cannot hold even
+            // one row gets no legend; the object tree still names everything.
+            int holds = (int)((paneHeight - pad * 2) / Math.Max(line, 1f));
+            if (holds < 1) return new List<LegendRow>();
+            int maxEntries = Math.Clamp(fits, Math.Min(MinEntries, holds), HardMaxEntries);
 
             // OrderBy is a documented stable sort, so within a rank the series order the user
             // built is preserved.
             var shown = entries.OrderBy(e => e.Rank).ToList();
             int dropped = 0;
-            if (shown.Count > maxEntries)
+            if (shown.Count > maxEntries && maxEntries == 1)
+            {
+                // One row only: name the leading entry and count the rest on the same row, rather
+                // than spend the whole legend on "+3 more" and name nothing.
+                int rest = shown.Count - 1;
+                shown = new List<LegendRow> { shown[0] with { Label = $"{shown[0].Label.Trim()} +{rest} more" } };
+            }
+            else if (shown.Count > maxEntries)
             {
                 // One row is spent saying so, which is worth more than one more colour key:
                 // a legend showing a silent subset reads as a complete list of what is on the chart.
