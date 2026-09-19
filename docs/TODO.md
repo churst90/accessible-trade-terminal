@@ -117,6 +117,53 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-19, SIXTY-FIRST pass — THE PIN KEYS WERE DEAD IN THE
+> BROWSER, THE VOLUME BED SAT ON THE CANDLE BODY, AND CTRL+LEFT/RIGHT READ THE WRONG LINE ON
+> AROON.)** Suite **7,880**, 0 failing. No release cut. Full entry in `docs/CHANGES.md`.
+>
+> 1. **`;` and `Shift+;` never reached .NET from the browser.** Neither key was in `keyboard.js`'s
+>    trapped list, and Shift+; arrives as `:`, which nothing folded. The whole pin vocabulary was
+>    bound, documented and tested on the .NET side, and unreachable. Fixed on both sides; the
+>    normaliser now folds the WHOLE US shifted row; `ShortcutReachabilityTests`' browser model —
+>    which knew only the digit row and was therefore green — knows the whole row.
+> 2. **Volume declares 330/165**, a fourth below the body's 440/220, and `MigrateSeriesConfig`
+>    re-derives every declared directional pair on restore, because core series restore AS SAVED
+>    and Cody's resumed session would otherwise have kept the collision. NOT HEARD.
+> 3. **`IndicatorCrossingEngine` honours `SubscribedLevelNames`** and reads the FOCUSED component's
+>    data. Demonstrated on Aroon (Oscillator focused → landed on AroonUp's Midpoint cross). Empty
+>    subscription lists deliberately keep every line — see the note in `TargetLevels`.
+>
+> ### ANSWERED FOR CODY — overlays and the log scale
+>
+> Bollinger, EMAs and every other Main-pane overlay already draw and sound on the log scale: the
+> renderer maps them through the same `MapY` as the candles, and the sonification's
+> `IsLogScaleFor` is per pane, not per series. What does not follow them is the AUTO-FIT:
+> `ViewportRangeCalculator` sizes the price pane from OHLC alone (plus visible levels and declared
+> bounds), so a band that leaves the candles' range clips out of the pane. TradingView's default
+> is the opposite — every indicator on the price scale is included in auto-scale, and "Scale price
+> chart only" is the opt-out. **The trade-off for this terminal:** the viewport range IS the pitch
+> range, so including a band widens the range and compresses the price line's pitch swing.
+> Semitone pitch mapping (option (b) from the 60th) is skipped for now at Cody's direction.
+>
+> ### NEXT
+>
+> 1. **Decide the auto-fit rule** (above): include Main-pane overlay components in the price
+>    range as TradingView does, with a "price only" switch — or leave it. Not started.
+> 2. **Hear** the volume bed under the body (any chart, arrow onto an up bar then a down bar), the
+>    pin keys (`;` on a bar with overlapping formations, `Shift+;` to release), and Alt+L from the 60th.
+> 3. **Next campaign: `Services/Accessibility`** (14,704 lines, 43 files, 13 ever touched — mostly
+>    the A2f speech path). Then `Strategies` (5,999 / 33, 6 touched), `Analysis` (4,269 / 17,
+>    NONE — and today's pin bug lived in `Analysis/ChartPatternNavigator` + `Input`), `Trading`
+>    (2,600, 4), `Scripting` (2,564, 0). Outside Core: WebHost 12,187 lines (3 files ever),
+>    StrategyLab 25,804 (1), Sdk 9,881 (5). **Today's lesson for the campaign design:** the
+>    reachability guard was green because its model of the browser knew one row — a sabotage of
+>    `keyboard.js` would have been the only thing to catch it, and the JS harness has never been
+>    mutated at all.
+> 4. **The Cipher B gold gate** (decided, deferred past the presentation) and **`PitchMapping` in
+>    Properties** — carried, unchanged.
+> 5. **Sweep the suite for the structural shapes now named**: A2g, A2h, A2i, "did it reach the
+>    strip", and now "a guard whose model of the input is narrower than the input".
+
 > **START HERE (current as of 2026-09-18, SIXTIETH pass — THE CHART IS PHOTOGRAPHED FOR THE
 > FIRST TIME, AND THE PICTURES FIND WHAT 73.5% DID NOT.)** Suite **7,858**, 0 failing. No release
 > cut. Full entry in `docs/CHANGES.md`.

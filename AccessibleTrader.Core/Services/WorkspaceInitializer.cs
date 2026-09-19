@@ -661,6 +661,23 @@ namespace AccessibleTrader.Core.Services
             // re-built by hand. A drawing or core series never reaches this line (meta is null).
             config.Pane = PaneAssignmentService.PaneFor(meta);
 
+            // THE DIRECTIONAL PITCH PAIR IS DERIVED, NOT RESTORED — the same rule as the pane, for
+            // the same reason: no dialog writes BullishFrequency/BearishFrequency, so the saved
+            // numbers are the factory's answer as it stood when the file was written. Core series
+            // (Candles/Volume/Price) are restored as-is by RestoreSeriesFromSaved, so without this
+            // line a resumed session kept Volume on the body's 440/220 — the collision fixed on
+            // 2026-09-19 — for exactly the user who had been listening to it longest.
+            foreach (var compMeta in meta.Components)
+            {
+                if (!compMeta.DefaultBullishFrequency.HasValue && !compMeta.DefaultBearishFrequency.HasValue) continue;
+                foreach (var comp in config.Components)
+                {
+                    if (!comp.Name.Equals(compMeta.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (compMeta.DefaultBullishFrequency.HasValue) comp.BullishFrequency = compMeta.DefaultBullishFrequency.Value;
+                    if (compMeta.DefaultBearishFrequency.HasValue) comp.BearishFrequency = compMeta.DefaultBearishFrequency.Value;
+                }
+            }
+
             foreach (var fill in meta.DefaultCloudFills)
             {
                 bool exists = config.CloudFills.Any(f =>

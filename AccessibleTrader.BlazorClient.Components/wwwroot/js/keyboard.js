@@ -433,6 +433,11 @@ window.accessibleTrader = {
                 // without a modifier, and gated on chart focus below exactly like the single
                 // letters — they are ordinary printable characters and must stay typable.
                 ',', '.',
+                // Semicolon: pin one of the overlapping formations; Shift+; (which a browser
+                // reports as ':') releases it. Neither was in this list until 2026-09-19, so both
+                // returned here and never reached .NET — the pin vocabulary was documented,
+                // bound, tested on the .NET side, and unreachable from the browser.
+                ';', ':',
                 // Single-letter chart commands: H (hide), M (mute), N (narrate), P (properties).
                 // These are also trapped so they reach .NET even without a modifier.
                 // The form-control guard below (isFormControl && !isModified) still
@@ -559,11 +564,11 @@ window.accessibleTrader = {
             // modifier chords still fire everywhere for accessibility. This stops
             // a letter like 'h' from firing the "hide" command when the user is
             // typing into a custom Blazor input that isn't a native INPUT/TEXTAREA.
-            // Comma and period are included: they are printable characters bound to the chart
-            // formation jump, and firing them from a custom (non-native) editor would eat the
-            // user's punctuation.
+            // Comma, period and semicolon are included: they are printable characters bound to
+            // the chart formation keys (jump, jump, pin), and firing them from a custom
+            // (non-native) editor would eat the user's punctuation.
             const isSingleLetter = !isModified && !isShifted &&
-                e.key.length === 1 && /^[a-zA-Z0-9,.]$/.test(e.key);
+                e.key.length === 1 && /^[a-zA-Z0-9,.;]$/.test(e.key);
             if (isSingleLetter && !self._chartFocused) return;
 
             // For modifier chords (Ctrl/Alt/Ctrl+Shift), hard-stop the event so the WebView
@@ -602,6 +607,11 @@ window.accessibleTrader = {
             // Both land on OEM2, which NormalizeKey resolves back to '/'.
             else if (key === '/') key = 'OEM2';
             else if (key === '?') key = 'OEM2';
+            // Shift+; produces ':' the same way. Both land on OEM1, which NormalizeKey resolves
+            // back to ';' — the key that clears a pinned chart formation was unreachable until
+            // 2026-09-19 because ':' matched no binding.
+            else if (key === ';') key = 'OEM1';
+            else if (key === ':') key = 'OEM1';
             else if (key === 'Delete') key = 'DELETE';
             else if (key === 'Escape') key = 'ESCAPE';
             else if (key === 'ContextMenu') key = 'CONTEXTMENU';

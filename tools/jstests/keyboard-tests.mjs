@@ -446,6 +446,27 @@ test('letters in a text input stay typable even with the chart focused', () => {
   assert.deepEqual(keysSent(h.calls), []);
 });
 
+// ── The formation pin keys (2026-09-19) ─────────────────────────────────────
+//
+// Shift+; produces ':' in a browser. Nothing mapped it, so the key that releases a pinned
+// chart formation never resolved — and with one pinned, comma and period stop at its two edges
+// and the boundary message names Shift+semicolon as the way out. A dead key was the exit.
+
+test('Shift+; reaches the dispatcher as a shifted OEM1, the same key as the bare semicolon', () => {
+  const h = makeHarness();
+  h.api.setChartFocused(true);
+  assert.equal(h.press(':', h.node('DIV'), { shift: true }), true);
+  assert.equal(h.press(';', h.node('DIV')), true);
+  assert.deepEqual(h.calls.filter(c => c[0] === 'OnKeyDown').map(c => c.slice(1)),
+    [['OEM1', true, false, false], ['OEM1', false, false, false]]);
+});
+
+test('a bare semicolon is gated on chart focus, like comma and period', () => {
+  const h = makeHarness();
+  assert.equal(h.press(';', h.node('DIV')), false, 'chart not focused — ; must stay typable');
+  assert.deepEqual(keysSent(h.calls), []);
+});
+
 test('single-letter chart commands stay gated on chart focus', () => {
   const h = makeHarness();
   assert.equal(h.press('h', h.node('DIV')), false, 'chart not focused — h must stay typable');

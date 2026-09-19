@@ -41,12 +41,12 @@ public sealed class SonificationProfileProvider : ISonificationProfileProvider
         //     GRIT, not loudness — quiet bars stay clearly audible instead of dropping toward
         //     silence. Sub-octave rather than same-octave: the latter fizzes. A sustained envelope
         //     makes it a continuous bed during playback.
-        //     CAUTION: the 330 Hz base frequency below is NOT what you hear. PitchMapping
-        //     .PriceDirection replaces it outright with the component's Bullish/BearishFrequency
-        //     (see ISonificationStrategy's pitch block), which is the same pair the candle body
-        //     uses — so the volume bed does not sit under the body, it sits on top of it. That is
-        //     a real defect and it is written up in docs/TODO.md; the 330 here is dead weight
-        //     until the pitch mapping is changed.
+        //     The 330 Hz base frequency below is NOT what you hear. PitchMapping.PriceDirection
+        //     replaces it outright with the component's Bullish/BearishFrequency (see
+        //     ISonificationStrategy's pitch block). Until 2026-09-19 that pair was the factory
+        //     default, 440/220 — the candle body's — so the bed sat ON the body, one pitch. The
+        //     Volume component now declares 330/165 in CoreIndicatorProvider (a fourth below the
+        //     body on both sides); the 330 here merely agrees with the bullish half of it.
         if (role == ComponentRole.Volume)
             return new SonificationProfile("sine", "sine", "sine", AmplitudeMapping.None, PitchMapping.PriceDirection, 330, 1.0, false, "Sustain");
 

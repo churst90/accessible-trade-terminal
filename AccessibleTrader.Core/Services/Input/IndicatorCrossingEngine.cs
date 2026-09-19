@@ -171,7 +171,14 @@ namespace AccessibleTrader.Core.Services.Input
             //
             // SpeechFormatter.ResolveZone already worked this way — it skips a hidden level when
             // deciding the zone word — so this brings navigation into line with speech.
-            var seriesLevels = focusedSeries.Levels.Where(l => l.IsVisible).ToList();
+            //
+            // AND ONLY LINES THE FOCUSED COMPONENT SUBSCRIBES TO (2026-09-19). Aroon is one pane
+            // with two neutrals: Up and Down swing about a Midpoint at 50, the Oscillator about
+            // Zero. Each component declares which it answers to (SubscribedLevelNames) and the
+            // earcon and the zone word honoured that; this engine read the FIRST visible neutral
+            // and the FIRST visible component, so with the Oscillator focused Ctrl+Left/Right
+            // landed where AroonUp crossed 50 and called it a Midpoint cross of the Oscillator.
+            var seriesLevels = TargetLevels(state, focusedSeries);
             bool hasOB = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Overbought);
             bool hasOS = seriesLevels.Any(l => l.EffectiveRole == LevelRole.Oversold);
             if (hasOB && hasOS) return CrossingType.ThresholdLevel;
@@ -228,7 +235,9 @@ namespace AccessibleTrader.Core.Services.Input
 
         private void DoZeroLineCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
-            var primaryComp = focusedSeries.Components.FirstOrDefault(c =>
+            // The component the user is ON, when it has data; the series' first line otherwise.
+            var primaryComp = FocusedDataComponent(state, focusedSeries, requireData: true)
+                ?? focusedSeries.Components.FirstOrDefault(c =>
                 c.Role != ComponentRole.Level && c.DisplayType != ComponentDisplayType.Level &&
                 c.IsVisible && !double.IsNaN(GetFirstValidValue(focusedSeries.GetComponentData(c.Name))))
                 ?? focusedSeries.Components.FirstOrDefault(c =>
@@ -242,7 +251,7 @@ namespace AccessibleTrader.Core.Services.Input
             // The line to scan is the one the pane declares, not the number zero. A Fear & Greed
             // pane whose Neutral sits at 50 was scanned for sign changes about 0 and reported "no
             // crossing in view" for the entire history of the indicator.
-            var neutral = NeutralLevel(focusedSeries);
+            var neutral = NeutralLevel(state, focusedSeries);
             double neutralValue = neutral?.Value ?? primaryComp.ReferenceLevel ?? 0.0;
             string neutralName  = neutral?.Name ?? (neutralValue == 0 ? "Zero" : "Midpoint");
 
@@ -258,7 +267,8 @@ namespace AccessibleTrader.Core.Services.Input
 
         private void DoThresholdCrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
-            var primaryComp = focusedSeries.Components.FirstOrDefault(c =>
+            var primaryComp = FocusedDataComponent(state, focusedSeries, requireData: true)
+                ?? focusedSeries.Components.FirstOrDefault(c =>
                 c.Role != ComponentRole.Level && c.DisplayType != ComponentDisplayType.Level && c.IsVisible);
             if (primaryComp == null) { _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing in view")); return; }
 
@@ -277,11 +287,10 @@ namespace AccessibleTrader.Core.Services.Input
             // Crossing 50 is the momentum event an RSI reader is usually looking for. Generalising
             // once more is the same fix with the special cases removed.
             var candidates = new List<(int Index, string Message)>();
-            foreach (var level in focusedSeries.Levels)
+            // Switched-off lines, and lines the focused component does not answer to, are not
+            // targets — see the notes in Classify.
+            foreach (var level in TargetLevels(state, focusedSeries))
             {
-                // Switched-off lines are not targets — see the note in Classify.
-                if (!level.IsVisible) continue;
-
                 switch (level.EffectiveRole)
                 {
                     case LevelRole.Overbought:
@@ -335,8 +344,39 @@ namespace AccessibleTrader.Core.Services.Input
         /// The line this series swings about, by declared role rather than by name. Null when the
         /// series declares none — which is a real answer, not a reason to assume zero.
         /// </summary>
-        private static LevelConfig? NeutralLevel(ChartSeries series) =>
-            series.Levels.FirstOrDefault(l => l.IsVisible && l.EffectiveRole == LevelRole.Neutral);
+        private static LevelConfig? NeutralLevel(WorkspaceState state, ChartSeries series) =>
+            TargetLevels(state, series).FirstOrDefault(l => l.EffectiveRole == LevelRole.Neutral);
+
+        /// <summary>
+        /// The component the user is on — null when the focused index names nothing, or names a
+        /// level rather than a line. With <paramref name="requireData"/> it must also have data.
+        /// </summary>
+        private static ComponentConfig? FocusedDataComponent(WorkspaceState state, ChartSeries series, bool requireData)
+        {
+            int i = state.FocusedComponentIndex;
+            if (i < 0 || i >= series.Components.Count) return null;
+            var c = series.Components[i];
+            if (c.Role == ComponentRole.Level || c.DisplayType == ComponentDisplayType.Level || !c.IsVisible) return null;
+            if (requireData && double.IsNaN(GetFirstValidValue(series.GetComponentData(c.Name)))) return null;
+            return c;
+        }
+
+        /// <summary>
+        /// The lines this key may aim at: switched on, and — when the focused component NAMES the
+        /// levels it answers to — among those it named. A component that declares no list (null)
+        /// answers to every line, as it does for the earcon. A component that declares an EMPTY
+        /// list is left with every line too: the empty declarations in the catalogue were written
+        /// to silence the earcon on marker and state components, and a jump key with nothing to
+        /// aim at is a worse answer than a jump to the pane's own line.
+        /// </summary>
+        private static List<LevelConfig> TargetLevels(WorkspaceState state, ChartSeries series)
+        {
+            var focused = FocusedDataComponent(state, series, requireData: false);
+            bool names = focused?.SubscribedLevelNames is { Count: > 0 };
+            return series.Levels
+                .Where(l => l.IsVisible && (!names || Audio.AudioZoneHelper.ComponentSubscribesTo(focused!, l.Name)))
+                .ToList();
+        }
 
         private void DoMACrossJump(WorkspaceState state, ChartSeries focusedSeries, int current, int count, bool jumpRight)
         {
@@ -633,17 +673,6 @@ namespace AccessibleTrader.Core.Services.Input
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
-
-        private static double GetNamedLevelValue(ChartSeries series, params string[] nameFragments)
-        {
-            foreach (var level in series.Levels)
-            {
-                if (!level.IsVisible) continue;   // a switched-off line is not a target
-                foreach (var frag in nameFragments)
-                    if (level.Name.Contains(frag, StringComparison.OrdinalIgnoreCase)) return level.Value;
-            }
-            return double.NaN;
-        }
 
         private static double GetFirstValidValue(double[]? data)
         {

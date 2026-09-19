@@ -60,6 +60,17 @@ namespace AccessibleTrader.Tests
         // The layout-independent event.code forms resolve identically.
         [InlineData("Digit1", "1")]
         [InlineData("Numpad7", "7")]
+        // The rest of the shifted row, found one key at a time: Shift+; arrived as ":" and the
+        // key that clears a pinned chart formation matched nothing (2026-09-19).
+        [InlineData(":", ";")]
+        [InlineData("OEM1", ";")]
+        [InlineData("{", "[")]
+        [InlineData("}", "]")]
+        [InlineData("_", "-")]
+        [InlineData("+", "=")]
+        [InlineData("|", "\\")]
+        [InlineData("<", ",")]
+        [InlineData(">", ".")]
         public void Normalize_ShiftedDigitsAndDigitCodes_ReachTheSameBinding(string raw, string expected)
         {
             Assert.Equal(expected, new KeyNormalizationService().Normalize(raw));

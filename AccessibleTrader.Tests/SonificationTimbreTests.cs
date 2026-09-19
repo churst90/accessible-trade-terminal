@@ -307,6 +307,12 @@ public sealed class SonificationTimbreTests
 
         Assert.NotEqual(h.SquareMix, v.SquareMix);
         Assert.True(v.NoiseAmount > h.NoiseAmount, "only the volume bed is brown-tinged");
+
+        // This test is about TIMBRE only. It compares everything except pitch, and the helper
+        // above hard-codes one 440/220 pair onto both components — so until 2026-09-19 it was
+        // green while the volume bed and the candle body played the same note in the real app.
+        // Pitch is the factory's business (metadata → Bullish/BearishFrequency), and
+        // VolumePitchTests goes through that chain; nothing here claims to.
     }
 
     // ── The price line ──────────────────────────────────────────────────────────────

@@ -52,12 +52,18 @@ public class ShortcutReachabilityTests
     /// What a US-layout browser actually puts in <c>event.key</c> when the binding's key is pressed
     /// with the binding's modifiers. This is the bridge the production code was missing.
     /// </summary>
-    private static string BrowserKeyFor(string bindingKey, bool shift)
+    /// <remarks>
+    /// Until 2026-09-19 this table held the digit row only, so the guard was green on
+    /// Shift+; (ClearPatternFocus) while a browser was sending ":" and nothing answered — the
+    /// guard modelled the one row the original bug was on. A reachability test that knows less of
+    /// the keyboard than the browser does is a reachability test for part of the keyboard.
+    /// </remarks>
+    internal static string BrowserKeyFor(string bindingKey, bool shift)
     {
         if (!shift || bindingKey.Length != 1) return bindingKey;
 
-        const string unshifted = "1234567890";
-        const string shifted   = "!@#$%^&*()";
+        const string unshifted = "1234567890`-=[]\\;',./";
+        const string shifted   = "!@#$%^&*()~_+{}|:\"<>?";
         int i = unshifted.IndexOf(bindingKey[0]);
         return i >= 0 ? shifted[i].ToString() : bindingKey;
     }
@@ -116,6 +122,21 @@ public class ShortcutReachabilityTests
     /// The unshifted digit must still resolve. On layouts where digits require Shift (AZERTY) the
     /// key arrives as "1" directly, and on any layout the numeric keypad sends an unshifted digit.
     /// </summary>
+    /// <summary>
+    /// The key that releases a pinned chart formation. With one pinned, comma and period stop at
+    /// that formation's two edges only and the boundary message names this key as the way out —
+    /// so if it does not resolve, the user is walled in by a message pointing at a dead key.
+    /// </summary>
+    [Theory]
+    [InlineData(":",    true,  SystemCommand.ClearPatternFocus)]   // what a US browser sends for Shift+;
+    [InlineData("OEM1", true,  SystemCommand.ClearPatternFocus)]   // what keyboard.js sends for it
+    [InlineData(";",    false, SystemCommand.CyclePatternFocus)]
+    [InlineData("OEM1", false, SystemCommand.CyclePatternFocus)]
+    public void TheFormationPinKeysResolve(string browserKey, bool shift, SystemCommand expected)
+    {
+        Assert.Equal(expected, Fresh().GetCommand(browserKey, shift, ctrl: false, alt: false));
+    }
+
     [Fact]
     public void UnshiftedDigitsStillResolve()
         => Assert.Equal(SystemCommand.QuickArmRisk1, Fresh().GetCommand("1", shift: true, ctrl: true, alt: true));

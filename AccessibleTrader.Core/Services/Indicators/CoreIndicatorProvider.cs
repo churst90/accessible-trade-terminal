@@ -73,6 +73,14 @@ namespace AccessibleTrader.Core.Services.Indicators
                             Name = "Volume", Role = ComponentRole.Volume, DisplayType = ComponentDisplayType.Bar, DataMapping = "volume",
                             DefaultColorHex = "#26A69A", DefaultColorHexSecondary = "#EF5350", DefaultThickness = 1f,
                             DefaultColorSource = ColorSource.PriceAction,
+                            // The volume bed follows candle direction (PitchMapping.PriceDirection), and
+                            // that mapping plays the component's own Bullish/Bearish pair. Left at the
+                            // factory default the pair was 440/220 — the candle body's — so the bed did
+                            // not sit under the body, it sat ON it, and the two were one pitch. E4/E3:
+                            // a perfect fourth below A4/A3, a consonant interval that never lands on the
+                            // body (440/220) or either wick (880/220). Restored workspaces re-derive the
+                            // pair from here (WorkspaceInitializer.MigrateSeriesConfig).
+                            DefaultBullishFrequency = 330.0, DefaultBearishFrequency = 165.0,
                             SpeechTemplate = "{name}. {type}. {value:F2}."
                         }
                     }

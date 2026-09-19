@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The pin keys were dead in the browser, the volume bed sat on the candle body, and Ctrl+Left/Right read the wrong line on Aroon (2026-09-19, sixty-first pass)
+
+Six items from Cody, three of them defects; each fixed and proved red first. Suite 7,858 → **7,880**.
+
+**Shift+; could not release a pinned formation — and `;` could not pin one.** Cody: "pressing again
+doesn't seem to remove the pin and I'm stuck between 2 points in a chart pattern and can't nav out
+of it." Two causes in `keyboard.js`, one in the normaliser. Neither `;` nor `:` was in the browser's
+trapped-key list, so an unmodified press returned before reaching .NET at all — the whole pin
+vocabulary was documented, bound, tested on the .NET side, and unreachable from the browser. And a
+browser reports Shift+; as `:`, which nothing folded back to `;` — the same defect already fixed for
+`?` and `!`, one key at a time. With a formation pinned, comma and period stop at its two edges and
+the boundary message names Shift+semicolon as the way out, so the exit was a dead key.
+
+- `keyboard.js` traps `;` and `:`, sends both as `OEM1`, and gates the bare semicolon on chart
+  focus exactly like comma and period. `KeyNormalizationService` folds `OEM1` and `:` to `;` — and,
+  since the pattern is now four keys deep, the REST of the US shifted row too (`{ } _ + | " ~ < >`),
+  so no fifth key needs its own bug report.
+- **The guard that should have caught it was modelling one row.** `ShortcutReachabilityTests`
+  asked "does the key a browser sends resolve?" for every default binding, and its browser model
+  knew only the shifted digits. It now knows the whole row, and a named theory pins the four pin
+  keys by both spellings. `keyboard-tests.mjs` gains two cases (63/63).
+
+**The volume bed and the candle body were one pitch.** Volume's profile says
+`PitchMapping.PriceDirection`, which plays the component's Bullish/Bearish pair and never its
+BaseFrequency; the Volume component declared no pair, so the factory gave it the body's 440/220 and
+the profile's 330 was written up as "not what you hear" and left there. `SonificationTimbreTests`
+was green throughout because its helper hard-codes one 440/220 pair onto both components and
+compares everything except Frequency — the mirror-test pathology, carried from the 59th pass.
+
+- `CoreIndicatorProvider` declares Volume at **330/165** — E4/E3, a perfect fourth below the body's
+  A4/A3, an interval that lands on neither the body (440/220) nor a wick (880/220). Bullish bars
+  and bearish bars are now two notes each.
+- **A resumed session would have kept the collision.** Core series restore AS SAVED, and a workspace
+  written before the pair existed carries Volume on 440/220. `MigrateSeriesConfig` now re-derives
+  the directional pair from metadata wherever a component declares one — the same rule as the pane,
+  for the same reason: no dialog writes those two fields. `VolumePitchTests` (five cases) goes
+  through the real chain, metadata → factory → strategy, and pins the migration.
+
+**Ctrl+Left/Right did not honour `SubscribedLevelNames`** (carried in TODO since 2026-09-12,
+demonstrated today). Aroon is one pane with two neutrals — Up and Down swing about a Midpoint at
+50, the Oscillator about Zero — and each component declares which line it answers to. The earcon
+and the zone word honoured that; `IndicatorCrossingEngine` read the FIRST visible neutral and the
+FIRST visible component, so with the Oscillator focused the key landed where AroonUp crossed 50
+and announced a Midpoint cross of the Oscillator.
+
+- One `TargetLevels` for the classifier, the threshold scan and the neutral lookup: switched on,
+  and among the lines the focused component names. A component that declares no list keeps every
+  line; a component that declares an EMPTY list keeps every line too, on purpose — the empty
+  declarations in the catalogue were written to silence the earcon on marker and state components,
+  and a jump key with nothing to aim at is a worse answer than a jump to the pane's own line.
+- The scans now read the FOCUSED component's data when it has any, not the series' first line.
+  `SubscribedLevelNavigationTests`: on the Oscillator the jump lands on its zero cross and says so;
+  on Up it lands on the Midpoint; past its only line it says "No crossing in view" rather than
+  borrowing a sibling's; and without a declaration the first neutral wins, which is why Aroon
+  declares. A dead helper (`GetNamedLevelValue`, no callers) is deleted.
+
+**Answered, not changed.** Overlays on the price pane (Bollinger, EMAs) already draw and sound on
+the log scale — `OverlayLayer` maps every Main-pane line through the same `MapY` as the candles,
+and the 60th pass's `IsLogScaleFor` reaches every Main-pane series. What does NOT follow them is
+the auto-fit: `ViewportRangeCalculator` sizes the price pane from OHLC alone, so a band outside
+the candles' range clips. TradingView's default includes every indicator on the price scale in
+the auto-fit and offers "Scale price chart only" to opt out; the trade-off here is that the
+viewport range is also the pitch range. Cody's call — recorded in TODO.
+
 ### The sonification follows the log-scale toggle (2026-09-18, sixtieth pass, second commit)
 
 Cody's decision on the question answered earlier the same day: option (a). The audio path now
