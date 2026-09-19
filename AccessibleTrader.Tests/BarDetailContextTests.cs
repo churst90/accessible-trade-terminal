@@ -397,6 +397,80 @@ namespace AccessibleTrader.Tests
 
         // ── Fixtures ─────────────────────────────────────────────────────────
 
+        // ── The Bollinger volatility clause ────────────────────────────────
+        //
+        // Ctrl+Shift+D layers an interpretation after the raw component values: whether the
+        // bands are tighter or wider than their own 20-bar average. It is the one clause on this
+        // key that is a CLAIM rather than a reading, and it had no test — the A2j sabotage set
+        // (2026-09-19) inverted both thresholds at once and the whole suite stayed green, which
+        // means the detail key could have announced an expansion into a squeeze and a squeeze
+        // into an expansion without anything noticing. A squeeze is the setup the pattern is
+        // traded FOR; reporting the wrong one is worse than reporting nothing.
+
+        /// <summary>Bands much tighter than their own recent average: a squeeze.</summary>
+        [Fact]
+        public void BarDetail_BandsTighterThanTheirAverage_AnnounceASqueeze()
+        {
+            string said = BollingerDetail(lastWidth: 6.0, otherWidths: 10.0);
+
+            Assert.Contains("band squeezing", said, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("band expanding", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>And much wider is an expansion — the same fixture, the other direction.</summary>
+        [Fact]
+        public void BarDetail_BandsWiderThanTheirAverage_AnnounceAnExpansion()
+        {
+            string said = BollingerDetail(lastWidth: 20.0, otherWidths: 10.0);
+
+            Assert.Contains("band expanding", said, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("band squeezing", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The vacuity partner: bands that have not moved say neither word. Without it, a build
+        /// that emitted both clauses on every bar would satisfy the two tests above.
+        /// </summary>
+        [Fact]
+        public void BarDetail_BandsAtTheirAverageWidth_SayNeither()
+        {
+            string said = BollingerDetail(lastWidth: 10.0, otherWidths: 10.0);
+
+            Assert.DoesNotContain("band squeez", said, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("band expand", said, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("band narrow", said, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("band widen", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Twenty-five bars of Bollinger bands centred on 100, all <paramref name="otherWidths"/>
+        /// wide except the last, read at the last bar.
+        /// </summary>
+        private static string BollingerDetail(double lastWidth, double otherWidths)
+        {
+            const int bars = 25;
+            var upper = new double[bars];
+            var lower = new double[bars];
+            for (int i = 0; i < bars; i++)
+            {
+                double half = (i == bars - 1 ? lastWidth : otherWidths) / 2.0;
+                upper[i] = 100 + half;
+                lower[i] = 100 - half;
+            }
+
+            var cfg = new SeriesConfig { Id = "bb", Name = "Bollinger Bands", IndicatorCode = "BB", Pane = "Main" };
+            cfg.Components.Add(new ComponentConfig { Name = "Upper", DisplayName = "Upper", IsVisible = true });
+            cfg.Components.Add(new ComponentConfig { Name = "Lower", DisplayName = "Lower", IsVisible = true });
+            var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
+            buf.ComponentData["Upper"] = upper;
+            buf.ComponentData["Lower"] = lower;
+            var series = new ChartSeries(cfg, buf);
+
+            var bus = new SpyEventBus();
+            new BarDetailService(bus).AnnounceDetails(StateAtIndex(series, bars - 1));
+            return LastAnnouncement(bus);
+        }
+
         private static WorkspaceState BaseState() => WorkspaceState.Initial;
 
         private static WorkspaceState CandleState(TimeSeriesBuffer<Ohlcv> data, int idx)

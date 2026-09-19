@@ -117,6 +117,55 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-19, SIXTY-SECOND pass — THE LAYER THAT DECIDES WHAT A
+> BLIND USER HEARS IS MEASURED FOR THE FIRST TIME, AND 82.0% IS THE BEST RATE YET.)** Suite
+> **7,910**, 0 failing. No release cut. Full entry in `docs/CHANGES.md`.
+>
+> 1. **A2j: 50 mutants over `Core/Services/Accessibility`, 41 caught — 82.0%.** 15,898 lines,
+>    49 files, SIX ever mutated before today (three tiny formatters, `EarconService`,
+>    `DotpadTactileDriver`, `AccessibilityFeedbackCoordinator`); the seven largest had zero.
+>    Rates now read 73.1 / 72.0 / 69.2 / 62.2 / 10.5 / 73.5 / **82.0**. False-catch audit clean —
+>    every catch names the behaviour, no bookkeeping proxies.
+> 2. **All nine survivors closed and proved red** (`scratchpad/a2j_prove_kills.py`, 9/9), in two
+>    new files — `NarrationScanWindowTests`, `BinnedNavigationStrategyTests` — and four extended
+>    ones. Suite 7,880 → 7,910. None was equivalent.
+> 3. **Many mutants were RESTORATIONS of defects this repo already fixed**, and most were caught
+>    by the very test written at the time. That half of the layer is genuinely guarded.
+>
+> ### WHAT THE SURVIVORS SAID
+>
+> **Everything this layer SAYS is well guarded; WHEN it may speak, and WHICH KEY moved, were
+> not.** Three narration gates had no test on the line — the seed floor, the bar-close gate, the
+> first-sighting rule — so pressing N could recite history, an unconfirmed tick could announce a
+> cross that then un-happens, and switching narration on could fire a cross for every overlay.
+> `BinnedNavigationStrategy` had no test file at all: Up/Down inverted inside a volume profile,
+> and the profile's refusal of left/right disabled, both green.
+>
+> **A NEW FIXTURE SHAPE, and it is the sharpest thing this pass found: a SECOND memory covering
+> the first.** Two of the three narration gates look guarded because the seed ALSO records a
+> last-pivot index per marker and the side price is on per overlay. Any component that has
+> already printed, or any overlay that already has a value, is protected by that record whatever
+> the window says — so the gate itself is never exercised. The reachable case for both is
+> WARMUP (a pivot indicator NaN everywhere, an EMA in its first N bars), which is ordinary and
+> which no fixture had. **When a guard looks redundant, find the state in which the OTHER guard
+> is absent; that is the state the line was written for.**
+>
+> ### NEXT
+>
+> 1. **Next campaign: `Services/Strategies`** (5,999 lines, 33 files, 6 ever touched), then
+>    `Analysis` (4,269 / 17, NONE — and the 61st pass's pin bug lived there), `Trading` (2,600,
+>    4), `Scripting` (2,564, 0). Outside Core: WebHost 12,187 (3 files ever), StrategyLab 25,804
+>    (1), Sdk 9,881 (5). **The JS harness has still never been mutated** — carried from the 61st,
+>    and today's pass did not touch it either.
+> 2. **Carried unchanged from the 61st, none of it started:** decide the auto-fit rule for
+>    Main-pane overlays; the Cipher B gold gate (decided, deferred); `PitchMapping` in Properties.
+> 3. **Still NOT HEARD:** the volume bed at 330/165 under the body, the pin keys (`;` /
+>    `Shift+;`), Alt+L on a wide-range chart. Nothing in this pass changed behaviour — it is all
+>    tests — so the listening list is exactly the 61st's.
+> 4. **Sweep the suite for the structural shapes now named**: A2g, A2h, A2i, "did it reach the
+>    strip", "a guard whose model of the input is narrower than the input", and now **"a second
+>    memory covering the first"**.
+
 > **START HERE (current as of 2026-09-19, SIXTY-FIRST pass — THE PIN KEYS WERE DEAD IN THE
 > BROWSER, THE VOLUME BED SAT ON THE CANDLE BODY, AND CTRL+LEFT/RIGHT READ THE WRONG LINE ON
 > AROON.)** Suite **7,880**, 0 failing. No release cut. Full entry in `docs/CHANGES.md`.

@@ -153,6 +153,35 @@ namespace AccessibleTrader.Tests
             Assert.Equal("Phase. Max Euphoria.", msg);
         }
 
+        /// <summary>
+        /// A fractional phase is ROUNDED to the nearest phase, not truncated toward zero.
+        ///
+        /// <para>
+        /// The two tests above use 5.0 and 42.0 — both whole numbers, so a cast and a round give
+        /// the same answer and neither test can tell them apart. The A2j sabotage set (2026-09-19)
+        /// replaced the round with a bare cast and the whole suite stayed green. A sentiment phase
+        /// IS the component's entire content: 4.6 is Neutral, and speaking it as Mild Caution is
+        /// naming the wrong side of the middle to someone who cannot see the colour.
+        /// </para>
+        /// </summary>
+        [Theory]
+        [InlineData(4.6, "Neutral")]        // rounds up across the boundary
+        [InlineData(5.4, "Neutral")]        // rounds down to the same phase
+        [InlineData(2.6, "Caution")]        // and a truncating cast would say Concern, one phase down
+        public void Dispatch_CandleColor_FractionalPhase_RoundsToTheNearestPhase(double raw, string expected)
+        {
+            var series = SingleComponent(out var comp, c =>
+            {
+                c.Name = "phase";
+                c.DisplayName = "Phase";
+                c.DisplayType = ComponentDisplayType.CandleColor;
+                c.IsVisible = true;
+            }, values: new[] { raw });
+
+            var msg = Format(series, focusedCompIndex: 0);
+            Assert.Equal($"Phase. {expected}.", msg);
+        }
+
         // ── Strategy 4: MarkerSignalStrategy ──────────────────────────────────
 
         [Fact]

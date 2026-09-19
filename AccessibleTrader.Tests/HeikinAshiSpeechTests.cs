@@ -329,4 +329,66 @@ public sealed class HeikinAshiSpeechTests
         Assert.Contains(SpeechPriceFormatter.FormatPrice(HaClose), spoken);
         Assert.DoesNotContain(SpeechPriceFormatter.FormatPrice(RawClose), spoken);
     }
+
+    // ── The price line whose components are VIRTUAL ────────────────────────────────
+    //
+    // The primary price series does not always carry a component array: its components are
+    // virtual, and GetPointValue falls through to ChartMath.PriceComponentFallback, which reads
+    // the BAR it is handed. That is the branch `readsRawBar` exists for — and it is the only
+    // branch it governs, because a series that DOES carry a mapped array is answered by the
+    // array (always raw) before the bar is ever consulted.
+    //
+    // So the three tests above pass whatever `readsRawBar` says, and a build that quietly handed
+    // the Heikin-Ashi bar to the component reading was green: found by the A2j sabotage set,
+    // 2026-09-19. This fixture removes the array, which is the production shape the fallback was
+    // written for, and asks the same question of it.
+
+    /// <summary>A price series with no array of its own still reads the RAW close with HA on.</summary>
+    [Fact]
+    public void ThePriceLineWithVirtualComponents_StillReadsTheRawClose()
+    {
+        string spoken = SpeakVirtualPriceLine(heikinAshi: true);
+
+        Assert.Contains(SpeechPriceFormatter.FormatPrice(RawClose), spoken);
+        Assert.DoesNotContain(SpeechPriceFormatter.FormatPrice(HaClose), spoken);
+    }
+
+    /// <summary>
+    /// The control: with Heikin-Ashi OFF the two candidate numbers are the same number, so this
+    /// says the fixture reaches the fallback at all rather than saying something about HA.
+    /// </summary>
+    [Fact]
+    public void TheVirtualPriceLineReadsTheCloseWithHeikinAshiOff()
+    {
+        Assert.Contains(SpeechPriceFormatter.FormatPrice(RawClose), SpeakVirtualPriceLine(heikinAshi: false));
+    }
+
+    private static string SpeakVirtualPriceLine(bool heikinAshi)
+    {
+        var baseState = State(heikinAshi, InteractionContext.Component);
+
+        // Same config as PriceLineSeries, with the component array LEFT OUT.
+        var config = new SeriesConfig { Id = "price", IndicatorCode = "PRICE", Name = "Price" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "line", DisplayName = "Price", IsVisible = true,
+            DisplayType = ComponentDisplayType.Line, Role = ComponentRole.PriceAction,
+            DataMapping = "close", SpeechTemplate = "{name}. {type}. {value:price}.",
+        });
+        var price = new ChartSeries(config, new SeriesDataBuffer { SeriesId = config.Id });
+
+        var state = baseState with
+        {
+            ActiveSeries = baseState.ActiveSeries.Add(price),
+            FocusedSeriesId = price.Id,
+            FocusedComponentIndex = 0,
+        };
+
+        var spy = new SpySpeechRouter();
+        new NavigationFeedbackManager(spy, new SpeechFormatter()) { IsSpeechEnabled = true }
+            .HandleNavigationFeedback(state, isXMove: true, isYMove: false, prefixMessage: "");
+
+        Assert.NotEmpty(spy.SpokenTexts);
+        return string.Join(" ", spy.SpokenTexts);
+    }
 }

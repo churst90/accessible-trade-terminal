@@ -326,4 +326,48 @@ public sealed class DrawingSpeechContractTests
         Assert.Contains("sold half here", said, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("140.50", said);
     }
+
+    // ── §N "price on it" is decided by the SPOKEN price ───────────────────────
+    //
+    // The sentence above ("150.50, price on it.") is built from a line drawn through the closes,
+    // where the two numbers are equal to the last bit — so it passes just as well when the rule
+    // is a bare `close == drawingValue`. The A2j sabotage set (2026-09-19) made exactly that
+    // substitution and the suite stayed green.
+    //
+    // The rule is not equality. A line at 150.4999 under a close of 150.5001 is "price above" by
+    // arithmetic and indistinguishable by ear from "price on it" once both are read as 150.50,
+    // and on a line drawn through the closes this is the COMMON case, spoken many times per
+    // sweep. The ear is what the word has to match.
+
+    [Fact]
+    public void Two_Prices_That_Read_The_Same_Aloud_Are_Price_On_It()
+    {
+        double line = 150.4999, close = 150.5001;
+        Assert.Equal(SpeechPriceFormatter.FormatPrice(line), SpeechPriceFormatter.FormatPrice(close));   // the premise
+        Assert.NotEqual(line, close);                                                                    // and they are not equal
+
+        Assert.Equal("price on it", DrawingSpeech.RelationClause(line, close, null, null));
+    }
+
+    [Fact]
+    public void A_Difference_That_Is_Audible_Is_Still_A_Side()
+    {
+        // The vacuity partner: a gap big enough to hear keeps its side, so the test above is
+        // about precision rather than about "on it" having swallowed everything.
+        Assert.Equal("price above", DrawingSpeech.RelationClause(150.00, 151.00, null, null));
+        Assert.Equal("price below", DrawingSpeech.RelationClause(151.00, 150.00, null, null));
+    }
+
+    [Fact]
+    public void A_Cross_Is_Not_Announced_When_The_Two_Sides_Read_The_Same_Aloud()
+    {
+        // Price was below by a hair and is above by a hair, and both readings speak as 150.50.
+        // "Price crossed above" about a move of two ten-thousandths is a discrete event claimed
+        // out of rounding noise; the "at" test is what suppresses it.
+        string? said = DrawingSpeech.RelationClause(
+            drawingValue: 150.5000, close: 150.5001,
+            prevDrawingValue: 150.5000, prevClose: 150.4999);
+
+        Assert.Equal("price on it", said);
+    }
 }

@@ -71,7 +71,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (binCount == 0) return new NavigationResult(false, FeedbackType: FeedbackType.Error, FeedbackMessage: "No data");
 
             int currentBin = state.FocusedBinIndex < 0 ? binCount / 2 : state.FocusedBinIndex;
-            // delta > 0 is UP
+            // NavigationEngine sends UP as delta -1 (NAV_COMP_UP), and ProfileService emits bin 0
+            // at the LOWEST price — so subtracting the delta is what makes Up read a higher price.
+            // The comment here used to say "delta > 0 is UP", which is the opposite of what the
+            // caller sends; the code was right and the comment was not. BinnedNavigationStrategyTests
+            // pins the direction in PRICE rather than in bin index, so neither can drift alone again.
             int newBin = Math.Clamp(currentBin - delta, 0, binCount - 1);
 
             if (newBin == currentBin)

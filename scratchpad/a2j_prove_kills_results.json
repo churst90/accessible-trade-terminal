@@ -1,0 +1,120 @@
+[
+ {
+  "id": "J01",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "filter": "HeikinAshiSpeechTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 13,
+  "failing_tests": [
+   "AccessibleTrader.Tests.HeikinAshiSpeechTests.ThePriceLineWithVirtualComponents_StillReadsTheRawClose"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J13",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "filter": "SpeechFormatterDispatchTests",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 34,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SpeechFormatterDispatchTests.Dispatch_CandleColor_FractionalPhase_RoundsToTheNearestPhase",
+   "AccessibleTrader.Tests.SpeechFormatterDispatchTestsUnderDeDe.Dispatch_CandleColor_FractionalPhase_RoundsToTheNearestPhase"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J16",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "filter": "NarrationScanWindowTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NarrationScanWindowTests.ASignalPrintedOntoABarThatClosedBeforeNarrationWasSwitchedOn_IsNotAnnounced"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J17",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "filter": "NarrationScanWindowTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NarrationScanWindowTests.OnAnIntraBarTick_AConfirmedBarCrossIsNotSpoken"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J18",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "filter": "NarrationScanWindowTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 5,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NarrationScanWindowTests.AnOverlayStillWarmingUpWhenNarrationWasSwitchedOn_DoesNotFireACrossOnItsFirstValue"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J35",
+  "file": "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs",
+  "filter": "DrawingSpeechContractTests",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 15,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.A_Cross_Is_Not_Announced_When_The_Two_Sides_Read_The_Same_Aloud",
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.Two_Prices_That_Read_The_Same_Aloud_Are_Price_On_It"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J39",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BinnedNavigationStrategy.cs",
+  "filter": "BinnedNavigationStrategyTests",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 3,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BinnedNavigationStrategyTests.AtTheTopBin_UpRefusesRatherThanWrapping",
+   "AccessibleTrader.Tests.BinnedNavigationStrategyTests.Down_MovesToALowerPriceBin",
+   "AccessibleTrader.Tests.BinnedNavigationStrategyTests.Up_MovesToAHigherPriceBin",
+   "AccessibleTrader.Tests.BinnedNavigationStrategyTests.WithNoBinFocused_TheFirstMoveStartsFromTheMiddle"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J40",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BinnedNavigationStrategy.cs",
+  "filter": "BinnedNavigationStrategyTests",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 6,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BinnedNavigationStrategyTests.LeftAndRight_DoNotMoveInsideAProfile"
+  ],
+  "status": "RED"
+ },
+ {
+  "id": "J48",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BarDetailService.cs",
+  "filter": "BarDetailContextTests",
+  "occurrences": 1,
+  "failed": 6,
+  "passed": 34,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BarDetailContextTests.BarDetail_BandsAtTheirAverageWidth_SayNeither",
+   "AccessibleTrader.Tests.BarDetailContextTests.BarDetail_BandsTighterThanTheirAverage_AnnounceASqueeze",
+   "AccessibleTrader.Tests.BarDetailContextTests.BarDetail_BandsWiderThanTheirAverage_AnnounceAnExpansion",
+   "AccessibleTrader.Tests.BarDetailContextTestsUnderDeDe.BarDetail_BandsAtTheirAverageWidth_SayNeither",
+   "AccessibleTrader.Tests.BarDetailContextTestsUnderDeDe.BarDetail_BandsTighterThanTheirAverage_AnnounceASqueeze",
+   "AccessibleTrader.Tests.BarDetailContextTestsUnderDeDe.BarDetail_BandsWiderThanTheirAverage_AnnounceAnExpansion"
+  ],
+  "status": "RED"
+ }
+]

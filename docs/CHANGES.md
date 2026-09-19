@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2j — the layer that decides what a blind user HEARS gets measured, and 82.0% is the best rate yet (2026-09-19, sixty-second pass)
+
+`Core/Services/Accessibility` is 15,898 lines in 49 files — the size of Indicators, which
+produced the 10.5% cliff — and across eight prior mutant campaigns and the browser audit, mutants
+had reached exactly SIX of its files: the three tiny formatters, `EarconService`,
+`DotpadTactileDriver` and `AccessibilityFeedbackCoordinator`. The seven largest — the drawing
+interaction manager, `SpeechFormatter`, `NarrationScanner`, `TactileCanvasCoordinator`,
+`NavigationFeedbackManager`, the anchor-nudge partial and `PlaybackNarration` — had none, ever.
+
+- **50 mutants, 41 caught: 82.0%.** Rates now read 73.1 / 72.0 / 69.2 / 62.2 / 10.5 / 73.5 /
+  **82.0** across seven disjoint file sets. Baseline green before (7,880), control green after
+  (7,880), every file restored byte-identical. The false-catch audit is clean: every catch is by
+  a test that NAMES the behaviour — no bookkeeping guards firing as proxies, the A2h pathology.
+- **Mutants were chosen as sentences a user would file a bug about**, and many are restorations
+  of defects this repo has already fixed once: the Heikin-Ashi close line, the hidden-and-muted
+  lattice, the gold dot dropped by scan order, support and resistance decided by a tone
+  frequency, one NaN bin stripping every label off a profile. Most of those were caught by the
+  very test written when the defect was first fixed, which is the answer to "is the fix guarded,
+  or merely made?" for that half of the layer.
+
+**What the nine survivors have in common: they are not about WHAT is said but about WHEN, and by
+WHICH KEY.** Everything this layer says was well guarded. Three of the gates deciding whether it
+may speak at all had no test on the line itself, and three more sat on routes with no test file.
+
+- **The narration scan window — three gates, none guarded** (`NarrationScanWindowTests`, new).
+  The seed floor (`Math.Max(seedCount, …)`) turned into a `Math.Min` and nothing went red, so
+  pressing N could start reciting history. The bar-close gate (`if (!isBarClose) return;`) deleted
+  and nothing went red, so every confirmed-bar clause could fire on an unconfirmed tick — a wick
+  poking through an EMA announcing a cross that then un-happens; `NarrationCausalityTests` covers
+  the forward-looking rules and never this line. The first-sighting rule inverted and nothing went
+  red, so pressing N could announce a cross for every overlay at the moment the switch is flipped.
+- **Why the existing seeding tests could not see two of them, and it is the same shape twice: a
+  SECOND memory covering the first.** The seed records a last-pivot index per marker and the side
+  price is on per overlay, so any component that had already printed, or any overlay that already
+  had a value, is protected by that record whatever the window says. The reachable case for both
+  is WARMUP — a pivot indicator that is NaN everywhere, an EMA in its first N bars — which is
+  ordinary, and which no fixture in the suite had.
+- **`BinnedNavigationStrategy` had no tests at all** (`BinnedNavigationStrategyTests`, new). Up
+  and Down inverted inside a volume profile — on the one series where the Y axis IS the navigation
+  axis — and the suite stayed green; so did disabling the refusal that stops left and right moving
+  a profile that has no time axis. The new assertions are written in PRICE, not in bin index: the
+  index is `ProfileService`'s business, "Up reads a higher price" is the user's.
+- **A fixture too comfortable to separate rounding from truncation.** The two `CandleColor` tests
+  use phase values 5.0 and 42.0, both whole, so `(int)Math.Round(v)` and `(int)v` agree. A
+  fractional phase — 4.6 is Neutral, 2.6 is Caution — now pins it. This is the A2i shape again.
+- **"Price on it" was being tested where the two numbers are equal to the last bit.** The rule is
+  that a drawing's relation is decided on the SPOKEN price: a line at 150.4999 under a close of
+  150.5001 reads as 150.50 either way, and calling that "price above" — or worse, "price crossed
+  above" — is a claim made out of rounding noise. Three cases now pin the precision rule and the
+  cross suppression that rides on it.
+- **The Bollinger volatility clause of the detail key had no test**, so both thresholds could
+  invert together and announce a squeeze as an expansion and an expansion as a squeeze. A squeeze
+  is the setup the pattern is traded FOR.
+- **The price line's VIRTUAL components were the unguarded half of the Heikin-Ashi fix.** Four
+  tests pin that the close line reads the raw close with HA on, and all four pass whatever
+  `readsRawBar` says — because a series carrying a mapped array is answered by the array, which is
+  always raw, before the bar is consulted. The branch that flag actually governs is the fallback
+  for a price series with no array, which is the production shape it was written for.
+
+**All nine survivors closed and proved red by re-applying their mutants** (9/9,
+`scratchpad/a2j_prove_kills.py`). Suite 7,880 → **7,910**. None was equivalent; equivalence was
+checked first, per the A2h/A2i rule.
+
+**One production line changed, and it is a comment.** `BinnedNavigationStrategy` carried
+`// delta > 0 is UP` directly above the arithmetic — the opposite of what `NavigationEngine`
+sends (NAV_COMP_UP is `-1`). The code was right and the comment was not, which is exactly the
+drift that makes an inversion look like a fix to the next reader. It now says which caller sends
+what and why the subtraction is correct.
+
 ### The pin keys were dead in the browser, the volume bed sat on the candle body, and Ctrl+Left/Right read the wrong line on Aroon (2026-09-19, sixty-first pass)
 
 Six items from Cody, three of them defects; each fixed and proved red first. Suite 7,858 → **7,880**.

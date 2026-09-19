@@ -1,0 +1,790 @@
+[
+ {
+  "id": "J01",
+  "area": "the close line speaks the Heikin-Ashi close again",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "the three-disagreeing-prices defect restored: with HA on, the price line's summary reads an average of four prices that never traded while the browser title and the component path read the raw close",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 204
+ },
+ {
+  "id": "J02",
+  "area": "a hidden component stops saying so on a left/right scan",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "arrowing along a hidden component gives a bare name and no values with nothing to explain the silence \u2014 the state IS the message for a component that has no value to read",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.A_Hidden_Level_Is_Named_Once_By_Its_Own_Sentence"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J03",
+  "area": "mute is never spoken, only hidden",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "a muted component announces itself as though it were audible \u2014 the 2026-09-04 report ('if I hide and mute both at once, if I unhide it should say muted but it doesn't')",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.HiddenAndMutedAreBothSpokenTests.Both_flags_on_says_both_words",
+   "AccessibleTrader.Tests.HiddenAndMutedAreBothSpokenTests.Unhiding_a_muted_component_still_says_muted"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J04",
+  "area": "the date is never spoken when a reading crosses midnight",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "on an intraday chart every bar reads the bare time, so arrowing from 23:00 to 00:00 gives '23:00' then '00:00' with nothing to say a day was crossed",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7876,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationTimestampTests.CrossingBACKWARDSIntoThePreviousDay_AlsoNamesTheDay",
+   "AccessibleTrader.Tests.NavigationTimestampTests.CrossingIntoANewDay_NamesTheDay",
+   "AccessibleTrader.Tests.NavigationTimestampTests.OnAnHourChart_BarsInsideOneDayCarryTheTimeAlone",
+   "AccessibleTrader.Tests.NavigationTimestampTests.ReadingTheSameBarTwice_DoesNotRepeatTheDate"
+  ],
+  "status": "CAUGHT",
+  "seconds": 204
+ },
+ {
+  "id": "J05",
+  "area": "a daily chart reads a meaningless time again",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "daily bars fall out of the date-only branch and read '00:00' on every bar \u2014 the same time on every bar a daily chart has",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationTimestampTests.OnADailyChart_TheStampIsTheDateAlone"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J06",
+  "area": "a sub-1 volume rounds to nothing",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "a spot BTC candle carrying 0.35 BTC speaks 'Volume 0' and a bin holding 0.4 contracts speaks '0 contracts, 12.3 percent' \u2014 the crypto case, which is the common one here",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SpokenWordingFixTests.ASubUnitCryptoVolume_IsNotSpokenAsZero"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "J07",
+  "area": "the candle components read the raw array instead of the bar as drawn",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "with Heikin-Ashi on, the wick components answer with the RAW high and low while the series summary one keypress earlier described the HA candle \u2014 a lower wick of 19% reported for a candle drawn without one",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.HeikinAshiSpeechTests.TheLowerWickComponentReadsTheHeikinAshiLow"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J08",
+  "area": "overbought and oversold swap",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "RSI at 80 speaks no zone and RSI at 20 speaks 'Overbought' \u2014 a directional claim a trader acts on, inverted",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelMeaningAndScopeTests.AnExtremeDeclaredByRole_IsFoundUnderAnyName",
+   "AccessibleTrader.Tests.LevelMeaningAndScopeTests.AnOverboughtReadingBeatsABandLabel"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J09",
+  "area": "a component that subscribes to NO level answers to all of them",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "on a pane like Aroon's, where Up and Down run 0-100 about 50 and the Oscillator runs +-100 about zero, a level belonging to one component starts speaking a zone for the others",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelMeaningAndScopeTests.AComponentSubscribedToNoLinesReadsNone"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J10",
+  "area": "the band edge is the first one crossed rather than the tightest",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "ADX at 60 says 'Strong' rather than 'Very Strong' \u2014 the reading names a band the value left some time ago",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelMeaningAndScopeTests.Adx_SpeaksWhichBandItIsIn"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "J11",
+  "area": "a volume bar's direction inverts",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "the one word that says which way the bar the volume belongs to went, reversed \u2014 and the renderer still colours it the other way",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SpeechFormatterTests.Volume_BearishBar_SpeaksExactValueThenDown",
+   "AccessibleTrader.Tests.SpeechFormatterTests.Volume_BullishBar_SpeaksExactValueThenUp",
+   "AccessibleTrader.Tests.SpeechFormatterTests.Volume_WholeNumber_ReadsWithoutFakeDecimals"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J12",
+  "area": "'N signals in view' counts signals that are not in view",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "the landing announcement promises signals Ctrl+Left/Right cannot reach without panning \u2014 '12 signals in view' on a window holding two",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SparseMarkerCountTests.Counts_only_non_nan_within_the_viewport",
+   "AccessibleTrader.Tests.SparseMarkerCountTests.Zero_when_no_markers_in_view"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J13",
+  "area": "a sentiment phase is named one phase off",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "truncation instead of rounding, so a phase of 4.6 is spoken as phase 4's name \u2014 the component whose entire content is which phase it is in",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 202
+ },
+ {
+  "id": "J14",
+  "area": "a profile says nothing until the first Up or Down",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "the series-switch prefix is discarded with the overview, so adding a profile announces NOTHING \u2014 Cody, 2026-09-11: 'the series name isn't read until I start moving around'",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ProfileNarrationTests.WithNoBinFocused_theProfileSpeaksItsNameAndAnOverview_notNothing"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J15",
+  "area": "a borrowed order-book snapshot is announced at the user's own time",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SpeechFormatter.cs",
+  "breaks": "standing on Tuesday's bar and hearing the live snapshot's 14:30 becomes indistinguishable from the book actually being Tuesday's \u2014 the one thing the user cannot cross-check",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SpokenWordingFixTests.TheCaveatSurvivesTimestampsBeingTurnedOff",
+   "AccessibleTrader.Tests.SpokenWordingFixTests.WhenTheBookComesFromAnotherBar_TheReadingSaysSo"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "J16",
+  "area": "the scan window reaches back past the seed",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "pressing N announces history: the seed is the exclusive lower bound that stops the scanner reciting every signal already on the chart",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 204
+ },
+ {
+  "id": "J17",
+  "area": "confirmed-bar narration fires on every intra-bar tick",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "overlay crosses, level crosses, the volume reading and the oscillator zones all speak off an UNCONFIRMED bar, so a wick that pokes through an EMA announces a cross that then unhappens",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 204
+ },
+ {
+  "id": "J18",
+  "area": "a first sighting fires a cross",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "pressing N on a series announces 'price crossed above' for every overlay on it, at the moment the switch is flipped, about nothing that happened",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 203
+ },
+ {
+  "id": "J19",
+  "area": "an oscillator in its own pane is compared against the price",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "'Price crossed above RSI 14 at 64,900' \u2014 two different Y axes compared as though they were one, announced in the same grammar as a real cross",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.AnOverlayInAnotherPane_IsNotComparedToPrice"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "J20",
+  "area": "the volume reading at the close names the wrong direction",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "the headless reading and the arrow-key reading of the same bar now disagree about which way it went",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HeadlessNarrationTests.With_the_new_bar_switch_off_the_ladder_still_speaks_led_by_the_symbol"
+  ],
+  "status": "CAUGHT",
+  "seconds": 204
+ },
+ {
+  "id": "J21",
+  "area": "a component subscribing to no level narrates every level",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NarrationScanner.cs",
+  "breaks": "the same widening as J09 on the narration path: crossings of levels belonging to another component of the same pane are announced as this one's",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BandZoneNarrationTests.AComponentDeclaringAnEmptyLevelSubscription_NarratesNoLevelAtAll"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J22",
+  "area": "an empty component selection silences the whole series",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SeriesNarrationScope.cs",
+  "breaks": "the AND this class exists to refuse: every series that exists today has narration on with no component flagged, so narration deletes itself for all of them",
+  "occurrences": 1,
+  "failed": 64,
+  "passed": 7816,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AutoNarrationTests.ABrokenResistance_IsAnnouncedAsResistance_NotAsWhatPriceMadeItByBreakingIt",
+   "AccessibleTrader.Tests.AutoNarrationTests.ABrokenSupport_IsAnnouncedAsSupport",
+   "AccessibleTrader.Tests.AutoNarrationTests.ALevelAbovePrice_IsCalledResistance_WhateverItsSpelling",
+   "AccessibleTrader.Tests.AutoNarrationTests.ALevelBelowPrice_IsStillCalledSupport",
+   "AccessibleTrader.Tests.AutoNarrationTests.MarkerWithTemplate_UsesTemplateWithPriceToken",
+   "AccessibleTrader.Tests.AutoNarrationTests.NewMarkerOnClosedBar_IsAnnounced",
+   "AccessibleTrader.Tests.AutoNarrationTests.TheNameLosesToThePosition",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.AClauseThatDoesNotEndItselfIsGivenAFullStop",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.ACrowdedScanKeepsTheTopFiveClausesAndDropsTheRest",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.ASignalClauseIsIntroducedByItsComponent_NeverByItsSeries",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.ATemplateThatAlreadyNamesItsComponentIsLeftAlone",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.AnApproachToALevelPriceHasNotCrossedIsStillSpoken",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.AnApproachToALevelPriceJustCrossedIsNotSpoken",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.OneClausePerTierAllSurvive",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheBrokenLevelLeadsTheUtterance",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheTiersAreSpokenMostConsequentialFirst",
+   "AccessibleTrader.Tests.BandZoneNarrationTests.ALevelAtZeroThatIsNotCalledZero_KeepsItsNumber",
+   "AccessibleTrader.Tests.BandZoneNarrationTests.AnUnlabelledExtreme_StillNamesTheLineAndItsValue",
+   "AccessibleTrader.Tests.BandZoneNarrationTests.CrossingIntoABand_SpeaksTheBandYouEntered",
+   "AccessibleTrader.Tests.BandZoneNarrationTests.FallingOutOfABand_SpeaksTheBandBelow",
+   "AccessibleTrader.Tests.BandZoneNarrationTests.TheSameCrossingWithNoSubscriptionDeclared_DoesNarrate",
+   "AccessibleTrader.Tests.ComponentNarrationScopeTests.DeselectingTheLastOne_WidensBackOut_RatherThanGoingQuiet",
+   "AccessibleTrader.Tests.ComponentNarrationScopeTests.NoComponentSelected_MeansTheWholeSeries",
+   "AccessibleTrader.Tests.HeadlessChartTests.After_ShiftIndices_a_new_marker_beyond_the_old_bound_is_announced_and_the_old_one_is_not_repeated",
+   "AccessibleTrader.Tests.HeadlessChartTests.An_EMA_cross_at_the_close_is_narrated_under_its_DERIVED_name",
+   "AccessibleTrader.Tests.HiddenSeriesNarrationTests.AVisibleOscillator_NarratesTheTransition_TheVacuityFloor",
+   "AccessibleTrader.Tests.HiddenSeriesNarrationTests.Playback_SkipsAMutedSeriesAndAHiddenComponent",
+   "AccessibleTrader.Tests.HiddenSeriesNarrationTests.Playback_SpeaksTheVisibleSeriesAndNotTheHiddenOne",
+   "AccessibleTrader.Tests.NarrationRouteContractTests.EveryShippedIndicator_ActuallySpeaks_WhenNarrationIsOn",
+   "AccessibleTrader.Tests.NarrationSettingsTests.NarrateSignalsOnBarClose_On_LetsTheSameSignalThrough",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.TheCandleAndTheSignalAreOneUtterance_NotTwo",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.TheFirstBarToCloseAfterSwitchingNarrationOn_Speaks",
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.ADownwardCross_SaysBelow",
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.AZeroLevel_IsSpokenAsAWordNotANumber",
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.AnIndicatorWithItsOwnZoneVocabulary_KeepsIt_AndIsNotSaidTwice",
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.AnOscillatorCrossingItsOwnOverboughtLevel_IsAnnounced",
+   "AccessibleTrader.Tests.OverlayCrossNarrationTests.PriceCrossingAnEma_IsAnnouncedOnTheBarClose",
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.AnUnlabelledLineNamesTheLineItCrossed",
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.PlaybackSpeaksTheBandEnteredOnTheCrossingBar",
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.TheRarerEventLeadsWhenBothFireOnOneBar"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "J23",
+  "area": "a hidden, muted series narrates",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SeriesNarrationScope.cs",
+  "breaks": "a series the user has switched off keeps talking \u2014 the exact complaint of 2026-09-05, 'if a series or component is hidden, it should be excluded from the narration'",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 7875,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ComponentNarrationScopeTests.AHiddenOrMutedSeriesNarratesNothing_HoweverItIsFlagged",
+   "AccessibleTrader.Tests.HiddenSeriesNarrationTests.AHiddenOrMutedSeries_DoesNotNarrateAnOscillatorTransitionOnBarClose",
+   "AccessibleTrader.Tests.HiddenSeriesNarrationTests.AHiddenSeries_IsSilentEvenWhenTheAnalyserNamesAComponentItDoesNotHave"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "J24",
+  "area": "a signal series starts reading a value on every bar as well",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SeriesNarrationScope.cs",
+  "breaks": "a Cipher B narrating its markers also reads a running number at every close \u2014 the wall of speech the reading rule was scoped to avoid",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NarrationAbilityVsOccasionTests.ASeriesWithSignals_doesNotAlsoReadItsHistogram"
+  ],
+  "status": "CAUGHT",
+  "seconds": 208
+ },
+ {
+  "id": "J25",
+  "area": "playback drops the rarest signal again",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "the gold-dot defect restored: Cipher B computes its Triple Confluence inside two other branches, so declaration order fills the two-clause ceiling with the routine markers and the rarest signal on the chart is never spoken in any playback",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7876,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackSignalPriorityTests.TheCommonestMarker_IsWhatGetsDropped",
+   "AccessibleTrader.Tests.PlaybackSignalPriorityTests.TheGoldDot_IsSpoken_OnTheBarWhereAllThreeMarkersFire",
+   "AccessibleTrader.Tests.PlaybackSignalPriorityTests.TheRarestMarkerLeads",
+   "AccessibleTrader.Tests.PlaybackSignalPriorityTests.TheRarityOfWhatWasSaid_TravelsWithIt"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J26",
+  "area": "playback speaks a signal on every bar",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "at ten bars a second the rate limit is what keeps speech from running continuously over tones it is not about",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ACommonerSignalBehindARareOne_IsStillDropped",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASecondSignalInsideTheWindow_IsDropped_NotQueued",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.MinBarsBetweenSignals_ScalesWithPlaybackSpeed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J27",
+  "area": "a landmark is spoken on every bar",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "the unit is always Hour, so a 1-minute chart announces the clock sixty times a minute of playback instead of choosing a coarser calendar unit",
+  "occurrences": 1,
+  "failed": 26,
+  "passed": 7854,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Landmark_DailyBars_SpeaksEachNewMonth_WithoutInterrupting",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Landmark_SeriesScope_SpeaksOnTheFirstRealStep",
+   "AccessibleTrader.Tests.PlaybackNarrationTests.UnitFor_PicksTheFinestUnitThatKeepsLandmarksTwoSecondsApart",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ACommonerSignalBehindARareOne_IsStillDropped",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.AComponentWithNoSignalTemplate_StaysSilent",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.AHiddenComponent_StaysSilent",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALandmarkAndASignalOnTheSameStep_AreONEUtterance",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALandmarkIsNeverRateLimitedAwayByARecentSignal",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALineComponent_IsNotAMarker_AndStaysSilent",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.AMutedComponent_StaysSilent",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ARarerSignalInsideTheWindow_SpeaksAnyway",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASecondSignalInsideTheWindow_IsDropped_NotQueued",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASeriesTheUserDidNotFlagWithControlAltShiftN_StaysSilent",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalBeyondTheWindow_Speaks",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalOnABarThatIsNotSteppedOnto_SaysNothing",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalOnTheBarSteppedOnto_IsSpoken_AsItself",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ATemplateThatDoesNotNameItsComponent_IsIntroducedByIt",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TwoCOMPONENTSOfOneSeries_AreEachTheirOwnClause_AndTheSeriesIsNotNamed",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TwoSeriesFiringOnOneBar_AreIntroducedByTheirComponents_NeverTheirSeries"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J28",
+  "area": "a completed playback reports as stopped",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "'finished' and 'stopped' are different sentences on purpose \u2014 a user who hears 'finished' knows the whole range sounded, and now nobody ever does",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackNarrationTests.EndingOnTheLastBar_SaysFinished_WithoutInterrupting_AndWithAnEarcon"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J29",
+  "area": "the jump to the start bar speaks a landmark",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "the sequencer's first NavigateAction jumps the cursor from wherever the user left it to the plan's start, which is not a step through time, and the start sentence has already named that bar",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackNarrationTests.Landmark_IsNotSpokenOnTheFirstBarAfterStart"
+  ],
+  "status": "CAUGHT",
+  "seconds": 198
+ },
+ {
+  "id": "J30",
+  "area": "a level crossing is announced on every bar EXCEPT the crossing",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "ADX's 'very strong trend' is spoken on the four hundred bars where nothing happened and not on the handful where it crossed 25",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 7875,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.AnUnlabelledLineNamesTheLineItCrossed",
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.PlaybackSaysNothingOnANonCrossingBar",
+   "AccessibleTrader.Tests.PlaybackBandNarrationTests.PlaybackSpeaksTheBandEnteredOnTheCrossingBar"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J31",
+  "area": "the silent-signals disclosure goes missing in the case it was written for",
+  "file": "AccessibleTrader.Core/Services/Accessibility/PlaybackNarration.cs",
+  "breaks": "playing ONE un-narrated series while some other series on the chart is flagged makes 'no series is set to narrate' false, so the sentence that explains the silence is withheld",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PlaybackNarrationScopeTests.TheCaveat_AsksAboutTheSeriesYouPLAYED_NotTheChart"
+  ],
+  "status": "CAUGHT",
+  "seconds": 206
+ },
+ {
+  "id": "J32",
+  "area": "the utterance is ordered by scan order rather than by consequence",
+  "file": "AccessibleTrader.Core/Services/Accessibility/ScanUtterance.cs",
+  "breaks": "the five-clause cap then drops whatever was scanned last rather than the least consequential thing found, so a broken level loses its place to oscillator commentary",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheBrokenLevelLeadsTheUtterance",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheSeriesNameIsSpokenOnce",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheTiersAreSpokenMostConsequentialFirst"
+  ],
+  "status": "CAUGHT",
+  "seconds": 208
+ },
+ {
+  "id": "J33",
+  "area": "the series name is dropped from the first clause and stutters on the rest",
+  "file": "AccessibleTrader.Core/Services/Accessibility/ScanUtterance.cs",
+  "breaks": "exactly inverted: the opening clause arrives with no idea which series it is about, and every following clause about the same series repeats the name",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AutoNarrationTests.MarkerWithTemplate_UsesTemplateWithPriceToken",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheBrokenLevelLeadsTheUtterance",
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheSeriesNameIsSpokenOnce"
+  ],
+  "status": "CAUGHT",
+  "seconds": 209
+ },
+ {
+  "id": "J34",
+  "area": "price above and below a drawing swap",
+  "file": "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs",
+  "breaks": "'price above' on a line price is under, and the cross clause inverts with it \u2014 the narrator says the opposite of the chart about the user's own trend line",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.A_Cross_Replaces_The_Plain_Side_And_Never_Adds_A_Clause",
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.On_An_Anchor_Bar_The_Slot_Name_Is_Spoken_With_The_Word_Anchor"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J35",
+  "area": "'price on it' is decided by arithmetic rather than by the spoken price",
+  "file": "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs",
+  "breaks": "a line at 150.4999 under a close of 150.5001 is 'price above' while both read aloud as 150.50 \u2014 indistinguishable by ear from a lie",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 202
+ },
+ {
+  "id": "J36",
+  "area": "every component of a drawing reads its full name",
+  "file": "AccessibleTrader.Core/Services/Accessibility/DrawingSpeech.cs",
+  "breaks": "the seven fib levels go back to '0.0% Retracement', '23.6% Retracement' \u2026 \u2014 the shared tail repeated on every one of them, on every keypress",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingSpeechContractTests.Switching_Onto_A_Fib_Names_The_Level_About_To_Be_Read"
+  ],
+  "status": "CAUGHT",
+  "seconds": 205
+ },
+ {
+  "id": "J37",
+  "area": "one NaN bin silences every label in the profile",
+  "file": "AccessibleTrader.Core/Services/Accessibility/ProfileBinClassifier.cs",
+  "breaks": "the mean becomes NaN, `mean > 0` is false, and every bin classifies as Normal, whose label is the empty string \u2014 no Point of Control, no Value Area High, no Low Volume Node, and nothing said to indicate the classifier gave up",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SilentFailureBatchTests.ASingleNaNBin_DoesNotStripEveryStructuralLabelFromTheProfile"
+  ],
+  "status": "CAUGHT",
+  "seconds": 207
+ },
+ {
+  "id": "J38",
+  "area": "high and low volume nodes swap",
+  "file": "AccessibleTrader.Core/Services/Accessibility/ProfileBinClassifier.cs",
+  "breaks": "almost every bin in the profile is announced as a Low Volume Node, including the busiest \u2014 and the sonification pitches them at 220 Hz to match",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SilentFailureBatchTests.ASingleNaNBin_DoesNotStripEveryStructuralLabelFromTheProfile",
+   "AccessibleTrader.Tests.SilentFailureBatchTests.WithNoNaNBins_TheSameProfileClassifiesIdentically"
+  ],
+  "status": "CAUGHT",
+  "seconds": 203
+ },
+ {
+  "id": "J39",
+  "area": "Up and Down invert inside a profile",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BinnedNavigationStrategy.cs",
+  "breaks": "pressing Up walks DOWN the price bins \u2014 on the one series where the Y axis is the navigation axis",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "J40",
+  "area": "left and right start moving a volume profile",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BinnedNavigationStrategy.cs",
+  "breaks": "a profile aggregates across ALL time, so the cursor moves and the reading does not change \u2014 keys that appear to work and do nothing",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 201
+ },
+ {
+  "id": "J41",
+  "area": "an empty chart answers arrow keys with silence",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NavigationFeedbackManager.cs",
+  "breaks": "a user cannot tell an empty chart from a dead keyboard \u2014 the silent-refusal class the feedback contract forbids",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.EmptyComponentSpeechTests.An_arrow_key_before_data_loads_says_so_rather_than_nothing"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J42",
+  "area": "support and resistance swap in the proximity clause",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NavigationFeedbackManager.cs",
+  "breaks": "'near support at X' about a level above price \u2014 the 2026-08 BaseFrequency defect restored, and a directional claim a trader acts on",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 7877,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationUtteranceTests.AZoneTheBarActuallyTouches_IsStillAnnounced",
+   "AccessibleTrader.Tests.ZoneProximityClassificationTests.A_level_above_price_is_resistance_however_it_is_voiced",
+   "AccessibleTrader.Tests.ZoneProximityClassificationTests.A_level_below_price_is_support_however_it_is_voiced"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "J43",
+  "area": "the cross-series opt-out stops applying",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NavigationFeedbackManager.cs",
+  "breaks": "an indicator whose signals only mean something in its own context starts announcing them while the user reads the candles",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.NavigationUtteranceTests.ASeriesCanOptOutOfBeingAnnouncedFromAnotherSeries"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J44",
+  "area": "hidden-and-muted reports as hidden only",
+  "file": "AccessibleTrader.Core/Services/Accessibility/VisibilityStateSpeech.cs",
+  "breaks": "the reported defect itself: two flags, two keys, and a readout that names one of them guarantees a second wrong guess",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7876,
+  "failing_tests": [
+   "AccessibleTrader.Tests.HiddenAndMutedAreBothSpokenTests.Both_flags_on_says_both_words",
+   "AccessibleTrader.Tests.HiddenAndMutedAreBothSpokenTests.Every_combination_of_the_two_flags_has_its_own_words",
+   "AccessibleTrader.Tests.HiddenAndMutedAreBothSpokenTests.The_navigation_prefix_capitalises_and_terminates_it",
+   "AccessibleTrader.Tests.PaneModelAndTrailingSpeechTests.Hidden_and_muted_are_both_said_and_they_lead"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ },
+ {
+  "id": "J45",
+  "area": "every signal clause stutters its own name",
+  "file": "AccessibleTrader.Core/Services/Accessibility/SignalClauseSpeech.cs",
+  "breaks": "'Bullish Divergence: Bullish divergence' on 47 of the 61 shipped templates, on every signal, in the ladder and in playback alike",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 7869,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.ATemplateThatAlreadyNamesItsComponentIsLeftAlone",
+   "AccessibleTrader.Tests.PlaybackNarrationScopeTests.ComponentScope_SaysNothingAboutTheOtherComponentsOfTheSameSeries",
+   "AccessibleTrader.Tests.PlaybackSignalPriorityTests.ASelectedComponent_IsSpokenEvenWhenItIsTheRarestOfMany",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ACommonerSignalBehindARareOne_IsStillDropped",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ALandmarkAndASignalOnTheSameStep_AreONEUtterance",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ARarerSignalInsideTheWindow_SpeaksAnyway",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalBeyondTheWindow_Speaks",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.ASignalOnTheBarSteppedOnto_IsSpoken_AsItself",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TurningTimeLandmarksOff_KeepsTheSignalsAndStopsTheCalendar",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TwoCOMPONENTSOfOneSeries_AreEachTheirOwnClause_AndTheSeriesIsNotNamed",
+   "AccessibleTrader.Tests.PlaybackSignalSpeechTests.TwoSeriesFiringOnOneBar_AreIntroducedByTheirComponents_NeverTheirSeries"
+  ],
+  "status": "CAUGHT",
+  "seconds": 202
+ },
+ {
+  "id": "J46",
+  "area": "the forming bar is handed to the analyser as its own predecessor",
+  "file": "AccessibleTrader.Core/Services/Accessibility/CandlePatternSpeech.cs",
+  "breaks": "a bullish engulfing is tested against an earlier snapshot of the same bar, which it engulfs by construction as soon as the body grows \u2014 an engulfing announced on every growing bar",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 7879,
+  "failing_tests": [
+   "AccessibleTrader.Tests.CandlePatternOnePathTests.TheFormingBarIsNotHandedToTheAnalyserAsItsOwnPredecessor"
+  ],
+  "status": "CAUGHT",
+  "seconds": 201
+ },
+ {
+  "id": "J47",
+  "area": "the trailing context repeats the classified bar",
+  "file": "AccessibleTrader.Core/Services/Accessibility/CandlePatternSpeech.cs",
+  "breaks": "the same self-comparison on the ARROW-KEY route: the bar before the classified bar is the classified bar, so every multi-bar pattern is judged against a duplicate",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 7873,
+  "failing_tests": [
+   "AccessibleTrader.Tests.BarDetailContextTests.BarDetail_AMultiBarPattern_IsNamedWithItsSpanAndLean",
+   "AccessibleTrader.Tests.BarDetailContextTests.BarDetail_TheSameShapeInAnUptrend_IsAHangingMan",
+   "AccessibleTrader.Tests.BarDetailContextTestsUnderDeDe.BarDetail_AMultiBarPattern_IsNamedWithItsSpanAndLean",
+   "AccessibleTrader.Tests.BarDetailContextTestsUnderDeDe.BarDetail_TheSameShapeInAnUptrend_IsAHangingMan",
+   "AccessibleTrader.Tests.CandlePatternOnePathTests.ArrowKeys_NameAMultiBarPattern",
+   "AccessibleTrader.Tests.CandlePatternOnePathTests.EveryBarOfAThreeBarPattern_SaysWhereInItThisBarIs",
+   "AccessibleTrader.Tests.CandlePatternOnePathTests.TheArrowKeysCarryTheSameClause"
+  ],
+  "status": "CAUGHT",
+  "seconds": 199
+ },
+ {
+  "id": "J48",
+  "area": "a Bollinger squeeze is reported as an expansion",
+  "file": "AccessibleTrader.Core/Services/Accessibility/BarDetailService.cs",
+  "breaks": "the volatility clause of the detail key inverts, so the setup a squeeze is traded for is announced whenever it is NOT happening",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 7880,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 204
+ },
+ {
+  "id": "J49",
+  "area": "the layout description counts what is visible as hidden",
+  "file": "AccessibleTrader.Core/Services/Accessibility/ChartLayoutDescriber.cs",
+  "breaks": "Alt+Shift+L exists to explain a silent or empty-looking chart; it now reports every working component as switched off and says nothing about the ones that are",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 7876,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartLayoutDescriberTests.ItReportsHiddenAndMutedComponents",
+   "AccessibleTrader.Tests.ChartLayoutDescriberTests.ItStaysQuietAboutHiddenAndMutedWhenThereAreNone",
+   "AccessibleTrader.Tests.ChartLayoutDescriberTestsUnderDeDe.ItReportsHiddenAndMutedComponents",
+   "AccessibleTrader.Tests.ChartLayoutDescriberTestsUnderDeDe.ItStaysQuietAboutHiddenAndMutedWhenThereAreNone"
+  ],
+  "status": "CAUGHT",
+  "seconds": 197
+ },
+ {
+  "id": "J50",
+  "area": "an anchor cannot be nudged into the right margin",
+  "file": "AccessibleTrader.Core/Services/Accessibility/DrawingInteractionManager.Nudge.cs",
+  "breaks": "a trend line's forward anchor stops at the last bar, so the projection into empty space \u2014 the reason the right margin exists \u2014 cannot be built by keyboard",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 7878,
+  "failing_tests": [
+   "AccessibleTrader.Tests.DrawingAnchorNudgeTests.A_projected_anchor_says_how_far_past_the_last_bar_it_is",
+   "AccessibleTrader.Tests.DrawingAnchorNudgeTests.Right_past_the_last_bar_projects_into_the_margin_and_stops_at_its_end"
+  ],
+  "status": "CAUGHT",
+  "seconds": 200
+ }
+]
