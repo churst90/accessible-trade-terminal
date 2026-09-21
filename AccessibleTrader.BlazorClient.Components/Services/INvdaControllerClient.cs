@@ -63,7 +63,57 @@ namespace AccessibleTrader.BlazorClient.Services
 
         private static class Native
         {
-            private const string DllName = "nvdaControllerClient64.dll";
+            /// <summary>
+            /// <b>NV Access renamed this file, and the old name is the one every instruction
+            /// ever written for this app tells a user to look for.</b>
+            ///
+            /// <para>
+            /// Current <c>controllerClient</c> downloads ship <c>x64/nvdaControllerClient.dll</c>.
+            /// Releases from some years back shipped <c>nvdaControllerClient64.dll</c>, and that
+            /// is the name this code has always P/Invoked — including the copy that was
+            /// hand-dropped into a bin folder in March, which is why that one machine worked.
+            /// On 2026-09-21 Cody downloaded the current client, put it beside the executable
+            /// exactly as told, and the terminal stayed silent: the file was there and nothing
+            /// was looking for that name.
+            /// </para>
+            ///
+            /// <para>
+            /// A resolver rather than picking one name, because a user who already has the old
+            /// file must not be broken by the fix, and a user following NV Access's current
+            /// download must not have to rename anything. The bare name is tried first so the
+            /// normal .NET probing (which includes the application directory) still applies.
+            /// </para>
+            /// </summary>
+            private static readonly string[] CandidateNames =
+            {
+                "nvdaControllerClient.dll",      // current NV Access naming
+                "nvdaControllerClient64.dll",    // historical, and what this code used to demand
+            };
+
+            private const string DllName = "nvdaControllerClient.dll";
+
+            static Native()
+            {
+                try
+                {
+                    NativeLibrary.SetDllImportResolver(typeof(Native).Assembly, (name, asm, path) =>
+                    {
+                        if (!string.Equals(name, DllName, StringComparison.OrdinalIgnoreCase))
+                            return IntPtr.Zero;
+
+                        foreach (var candidate in CandidateNames)
+                            if (NativeLibrary.TryLoad(candidate, asm, path, out var handle))
+                                return handle;
+
+                        return IntPtr.Zero;
+                    });
+                }
+                catch (InvalidOperationException)
+                {
+                    // A resolver is already set for this assembly. Nothing to do: the first one
+                    // wins and setting it twice is the only error this call can raise.
+                }
+            }
 
             [DllImport(DllName, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, EntryPoint = "nvdaController_testIfRunning")]
             public static extern int TestIfRunning();

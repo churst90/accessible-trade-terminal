@@ -54,29 +54,29 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force -Path vendor/nvda | Out-Null
 
-          # Resolve the controllerClient asset from the latest NVDA release.
+          # The controller client is NOT a GitHub release asset — nvaccess/nvda releases
+          # carry only the installer .exe. It lives on NV Access's own download server, at
+          # a path keyed by the NVDA version, so the version comes from the GitHub tag
+          # ("release-2026.2") and the download comes from nvaccess.org.
           $headers = @{ 'User-Agent' = 'accessible-trade-terminal-ci' }
           $release = Invoke-RestMethod -Headers $headers `
             -Uri 'https://api.github.com/repos/nvaccess/nvda/releases/latest'
-          $asset = $release.assets | Where-Object { $_.name -like '*controllerClient*.zip' } | Select-Object -First 1
+          $version = $release.tag_name -replace '^release-', ''
+          $url = "https://www.nvaccess.org/files/nvda/releases/$version/nvda_${version}_controllerClient.zip"
 
-          if (-not $asset) {
-            Write-Host "::warning::No controllerClient asset on the latest NVDA release. The build will succeed and the desktop head will be MUTE."
-            exit 0
-          }
-
-          Write-Host "Downloading $($asset.name)"
-          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile controllerClient.zip
+          Write-Host "NVDA $version -> $url"
+          Invoke-WebRequest -Headers $headers -Uri $url -OutFile controllerClient.zip
           Expand-Archive -Path controllerClient.zip -DestinationPath controllerClient -Force
 
-          $dll = Get-ChildItem -Path controllerClient -Recurse -Filter 'nvdaControllerClient64.dll' | Select-Object -First 1
-          if (-not $dll) {
-            Write-Host "::warning::nvdaControllerClient64.dll not found in the archive. The desktop head will be MUTE."
-            exit 0
+          # x64 specifically: the archive also holds x86, arm64 and arm64ec builds, and the
+          # head publishes win-x64.
+          $dll = Join-Path controllerClient 'x64/nvdaControllerClient.dll'
+          if (-not (Test-Path $dll)) {
+            throw "x64/nvdaControllerClient.dll not found in $url. The archive layout changed; check it by hand."
           }
 
-          Copy-Item $dll.FullName -Destination vendor/nvda/nvdaControllerClient64.dll -Force
-          Write-Host "Staged $($dll.FullName)"
+          Copy-Item $dll -Destination vendor/nvda/nvdaControllerClient.dll -Force
+          Write-Host "Staged vendor/nvda/nvdaControllerClient.dll"
 
       - name: Publish MAUI Windows
         shell: pwsh
@@ -93,14 +93,17 @@ jobs:
       - name: Verify the NVDA client reached the publish output
         shell: pwsh
         run: |
-          if (Test-Path vendor/nvda/nvdaControllerClient64.dll) {
-            if (-not (Test-Path publish/maui-win/nvdaControllerClient64.dll)) {
-              Write-Error "nvdaControllerClient64.dll was staged in vendor/nvda but did NOT reach the publish output. CopyToPublishDirectory is not taking effect."
+          $staged = Get-ChildItem vendor/nvda -Filter 'nvdaControllerClient*.dll' -ErrorAction SilentlyContinue
+          if (-not $staged) {
+            Write-Error "No NVDA client was staged, so the produced build would be MUTE. Failing rather than shipping a silent diagnostic build."
+            exit 1
+          }
+          foreach ($f in $staged) {
+            if (-not (Test-Path (Join-Path 'publish/maui-win' $f.Name))) {
+              Write-Error "$($f.Name) was staged in vendor/nvda but did NOT reach the publish output. CopyToPublishDirectory is not taking effect."
               exit 1
             }
-            Write-Host "nvdaControllerClient64.dll is in the publish output."
-          } else {
-            Write-Host "::warning::No NVDA client was staged; the produced build will be mute."
+            Write-Host "$($f.Name) is in the publish output."
           }
 
       - name: Zip

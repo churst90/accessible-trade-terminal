@@ -380,7 +380,7 @@
     -->
     <Target Name="WarnIfNvdaControllerMissing"
             AfterTargets="Build"
-            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\vendor\nvda\nvdaControllerClient.dll') AND !Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
         <Message Importance="high" Text="NVDA Controller Client not found at vendor/nvda/nvdaControllerClient64.dll. NVDA-direct speech will be unavailable at runtime, and because the chart canvas is a native control the ARIA live-region fallback cannot reach a screen reader while the chart has focus — the chart will be SILENT. Download nvdaControllerClient from https://github.com/nvaccess/nvda/releases (controllerClient zip) and copy the x64 nvdaControllerClient64.dll into vendor/nvda/. See docs/PLATFORMS.md." />
     </Target>
 
@@ -391,7 +391,7 @@
         exactly like CopyDotPadSdkWindows above. That reaches a `dotnet build` and NOT a
         `dotnet publish`: $(PublishDir) is a separate directory and a loose file dropped into the
         build output by a custom target is not a publish item, so it does not travel. The release
-        zip is `dotnet publish --output publish/maui-win` zipped flat (.github/workflows/release.yml),
+        zip is a flat `dotnet publish` into publish/maui-win (.github/workflows/release.yml),
         so the fix would have worked on a developer's machine and shipped nothing — which is the
         same failure mode, one layer up, as the hand-dropped DLL it was written to replace.
 
@@ -399,8 +399,21 @@
         of the output rather than recreating ../vendor/nvda/ there, so it lands beside the
         executable where the default DLL search order will find it.
     -->
-    <ItemGroup Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
-        <None Include="..\vendor\nvda\nvdaControllerClient64.dll">
+    <ItemGroup Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows'">
+        <!--
+            BOTH accepted spellings, because NV Access renamed the file. Current
+            controllerClient downloads ship x64/nvdaControllerClient.dll; releases from
+            some years ago shipped nvdaControllerClient64.dll, and that older name is
+            what this code P/Invoked and what every instruction written for it said.
+            Whichever the vendor directory holds is staged; NvdaControllerClient resolves
+            either at load time.
+        -->
+        <None Include="..\vendor\nvda\nvdaControllerClient.dll" Condition="Exists('..\vendor\nvda\nvdaControllerClient.dll')">
+            <Link>nvdaControllerClient.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\vendor\nvda\nvdaControllerClient64.dll" Condition="Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
             <Link>nvdaControllerClient64.dll</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

@@ -187,10 +187,17 @@ search order**, which looks in the application's own folder first.
 1. Download `nvda_<version>_controllerClient.zip` from
    [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases)
    (it is listed among the assets on any release).
-2. Inside it, open the **`x64`** folder and take `nvdaControllerClient64.dll`.
+2. Inside it, open the **`x64`** folder and take `nvdaControllerClient.dll`.
 3. Drop that file into the folder you unzipped the terminal into — the one containing
    **`AccessibleTrader.BlazorClient.exe`**. Top level, beside the exe, not in a subfolder.
 4. Restart the terminal.
+
+> **If you are on 2.11.0 or earlier, rename it to `nvdaControllerClient64.dll`.** NV Access
+> renamed this file at some point; current downloads ship `nvdaControllerClient.dll` and older
+> ones shipped `nvdaControllerClient64.dll`. Builds up to and including 2.11.0 ask for the old
+> name only, so the current download sits beside the executable being ignored — the file is
+> there and nothing is looking for that name. From 2.12.0 either name works, because the load
+> is resolved against both.
 
 There is no `vendor/` folder in the zip and there should not be: `vendor/nvda/` is a *source-tree*
 staging location used at build time, not part of the shipped layout.
@@ -198,7 +205,8 @@ staging location used at build time, not part of the shipped layout.
 #### If you are building from source
 
 1. Download the same zip as above.
-2. Copy the **x64** `nvdaControllerClient64.dll` into `vendor/nvda/` relative to the repo root.
+2. Copy the **x64** `nvdaControllerClient.dll` into `vendor/nvda/` relative to the repo root.
+   (`nvdaControllerClient64.dll` is accepted there too, for anyone holding the older download.)
    It is gitignored — a third-party binary (NV Access, LGPL 2.1), vendored rather than committed
    for the same reason the Dot Pad SDK is.
 3. Build normally. The DLL is declared as a content item with `CopyToPublishDirectory`, so it
