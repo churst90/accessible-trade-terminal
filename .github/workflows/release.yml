@@ -86,10 +86,10 @@ jobs:
       matrix:
         rid: [linux-x64, win-x64, osx-x64, osx-arm64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.301'
 
@@ -119,7 +119,7 @@ jobs:
           ls -lh dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: webhost-${{ matrix.rid }}
           path: dist/*.zip
@@ -134,10 +134,10 @@ jobs:
     needs: meta
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.301'
 
@@ -168,7 +168,7 @@ jobs:
           Get-ChildItem dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: maui-windows
           path: dist/*.zip
@@ -183,7 +183,7 @@ jobs:
     needs: meta
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Pin the ENTIRE toolchain to .NET 10 GA so the SDK, the MAUI workload,
       # and the runtime packs are one coherent set. Pinning only the workload
@@ -202,7 +202,7 @@ jobs:
           xcodebuild -version
 
       - name: Setup .NET 10 GA
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.100'
 
@@ -259,7 +259,7 @@ jobs:
           ls -lh dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: maui-mac
           path: dist/*.zip
@@ -276,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: incoming
 

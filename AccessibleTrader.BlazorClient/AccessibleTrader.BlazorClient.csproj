@@ -120,6 +120,26 @@
         <!-- Patched SQLite native lib (SQLite 3.50.3) overriding the transitive 2.1.11 flagged by
              NU1903 / GHSA-2m69-gcr7-jv3q. See AccessibleTrader.Core.csproj for the rationale. -->
         <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
+        <!--
+            The SAME advisory, on the per-platform native builds, and the pin above does not
+            reach them: they are separate packages. This project is the only one that
+            multi-targets android and ios, so it is the only one that pulls
+            SQLitePCLRaw.lib.e_sqlite3.android / .ios, and both stayed on the flagged 2.1.11
+            while the desktop one was fixed. CVE-2025-6965 is a memory-corruption bug in SQLite
+            before 3.50.2.
+
+            2.1.13 is the newest published build of these two — there is no 3.x for them — and
+            it CLEARS the advisory: restoring 2.1.13 with NuGetAudit produces no NU1903 where
+            2.1.11 produces one per package (measured 2026-09-21, not assumed).
+
+            Worth knowing for anyone weighing the risk: neither android nor ios is SHIPPED. The
+            release workflow publishes net10.0-windows10.0.19041.0 and net10.0-maccatalyst only.
+            The TFMs exist so the heads keep compiling, so this was a real advisory against code
+            that reaches no user — which is exactly the kind of thing that sits unfixed because
+            each person who looks at it decides it is somebody else's.
+        -->
+        <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" Version="2.1.13" />
+        <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.ios" Version="2.1.13" Condition="!$([MSBuild]::IsOSPlatform('linux'))" />
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />

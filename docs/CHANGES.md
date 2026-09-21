@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Four build warnings, and one of them was hiding a silent speech defect (2026-09-21, sixty-eighth pass)
+
+Read off the first successful Windows CI build. Three were named from the run's summary; the
+fourth was a security advisory nobody had mentioned, and the one that looked most cosmetic turned
+out to be a live defect.
+
+- **`NU1903`, high severity — and it is the same "fixed in one place" shape again.**
+  `CVE-2025-6965`, a memory-corruption bug in SQLite before 3.50.2. The desktop native package was
+  pinned to 3.50.3 some time ago, with a comment; **the per-platform `.android` and `.ios` builds
+  are SEPARATE packages that the pin does not reach**, and both stayed on the flagged 2.1.11. Now
+  pinned to 2.1.13, the newest published build of each — there is no 3.x for them — and **2.1.13
+  demonstrably clears the advisory**: restoring it under `NuGetAudit` produces no `NU1903` where
+  2.1.11 produces one per package. Measured, not assumed. Worth stating for anyone weighing it:
+  neither android nor ios is shipped, so this was a real advisory against code that reaches no
+  user, which is exactly the kind of thing each person decides is somebody else's.
+
+- **`CS0618` — and this one was NOT cosmetic.** `PropertiesModal.razor` parsed the chart's
+  timeframe with the obsolete `Sdk.Configuration.TimeframeUtility`, whose `ToSeconds` is a fixed
+  **whitelist returning `-1`** for anything not on it. The call site reads
+  `barSeconds > 0 ? bar-range : spell-out-both-ends`, so **every timeframe outside that list — 2m,
+  10m, 45m, 8h, 2d, 2w and every custom one a venue offers — silently lost the anchored-VWAP
+  bar-range reading**, and the `try/catch` around it was guarding an exception the old parser never
+  throws. Switched to `Sdk.Models.TimeframeUtility`, which parses `<N><unit>` by regex.
+  **`TierBRegressionTests` has pinned this exact difference for months** — one of its own rows
+  carries the note *"8h is in the Models regex parser but NOT the legacy switch"*. The fact was
+  written down, tested and true, and a call site went on using the legacy parser anyway.
+  **Knowing the difference is not the same as enforcing it**, so
+  `ObsoleteTimeframeParserTests` now refuses any production use of it and demonstrates the six
+  ordinary timeframes where the two answers disagree.
+
+- **`CS8600` in the Coinbase order-REJECTION path.** `string reason = err?["message"]?.ToString();`
+  declared non-nullable and assigned a possibly-null value. Nothing behaved wrongly — the next
+  lines null-check it — but this is the same code that announced an insufficient-funds rejection
+  as a placed order until 2026-09-07, and a suppressed nullability warning in a live-money path is
+  one that will be ignored next to a line where it matters.
+
+- **Node 20 deprecation.** Every workflow was on `actions/checkout@v4`, `setup-dotnet@v4`,
+  `upload-artifact@v4` — all Node 20, forced onto Node 24 by the runner since 2025-09-19. Bumped
+  to v5, **deliberately not to the newest major of each** (checkout is on v7, download-artifact on
+  v8): v5 is the smallest step that clears the deprecation, and a larger jump is a behaviour change
+  that cannot be tested here except by breaking something. **`softprops/action-gh-release` stays on
+  v2 and is flagged rather than bumped** — it runs only when a real release is cut, so a fault in
+  it surfaces at the worst possible moment.
+
+Suite 7,974 → **7,981**. New: `ObsoleteTimeframeParserTests` (7).
+
+
 ### Three releases of the desktop head shipped 33 plugins and no manifest, and the fix was already in the other head (2026-09-21, sixty-seventh pass)
 
 **Speech on the desktop head is fixed and CONFIRMED BY EAR** — the first time this head has ever

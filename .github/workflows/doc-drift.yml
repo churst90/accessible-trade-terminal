@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Pinned, not 10.0.x: SDK 10.0.400's `rzc generate` (the classic Razor
       # path this repo is forced onto by dotnet/razor#13184) crashes
@@ -35,7 +35,7 @@ jobs:
       # built this tree locally hundreds of times without one crash. Bump the
       # pin only after verifying rzc against WebHost on the newer SDK.
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.301'
 

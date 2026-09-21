@@ -12,6 +12,16 @@ name: diagnostic-build
 # a screen reader for the life of the project.
 #
 # Trigger: Actions → diagnostic-build → Run workflow.
+#
+# ACTION VERSIONS: v5 across the board, which is the first major of each that
+# targets Node 24. The runner deprecated Node 20 on 2025-09-19 and was forcing
+# the v4 actions onto 24 anyway, which is a warning today and a breakage
+# whenever the shim is withdrawn. Deliberately NOT the newest major of each
+# (checkout is on v7, download-artifact on v8): v5 is the smallest step that
+# clears the deprecation, and a bigger jump is a behaviour change nobody here
+# can test except by breaking a release. softprops/action-gh-release stays on
+# v2 for the same reason and is the one to revisit — it only runs when a real
+# release is cut, so a fault in it surfaces at the worst possible moment.
 
 on:
   workflow_dispatch:
@@ -25,12 +35,12 @@ jobs:
   maui-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.301'
 
@@ -146,7 +156,7 @@ jobs:
           Get-ChildItem dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: AccessibleTrader-Windows-diagnostic
           path: dist/*.zip

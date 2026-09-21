@@ -901,8 +901,15 @@
             var start = DateTimeOffset.FromUnixTimeSeconds((long)from).UtcDateTime;
             var end = DateTimeOffset.FromUnixTimeSeconds((long)to).UtcDateTime;
             int barSeconds = 0;
-            try { barSeconds = AccessibleTrader.Sdk.Configuration.TimeframeUtility.ToSeconds(Store.State.Identity.Timeframe ?? ""); }
-            catch { /* an unknown timeframe just means "spell out both ends" */ }
+            // Sdk.Models, not the obsolete Sdk.Configuration one. The old parser is a fixed
+            // WHITELIST that answers -1 to anything not on it, and -1 falls to the "spell out
+            // both ends" branch below — silently. So every timeframe outside its list (2m, 10m,
+            // 45m, 8h, 2d, 2w, and every custom one a provider offers) lost the bar-range
+            // reading and nothing said why; the catch was there for an exception the old one
+            // never threw. The replacement parses <N><unit> by regex, so the answer depends on
+            // the timeframe rather than on whether someone remembered to add it to a switch.
+            try { barSeconds = AccessibleTrader.Sdk.Models.TimeframeUtility.ToSeconds(Store.State.Identity.Timeframe ?? ""); }
+            catch { /* an unparseable timeframe just means "spell out both ends" */ }
             string range = barSeconds > 0
                 ? AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatBarRange(start, end, barSeconds)
                 : $"{AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(start)} to {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(end)}";

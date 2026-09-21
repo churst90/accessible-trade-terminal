@@ -676,7 +676,14 @@ namespace AccessibleTrader.Plugins.Coinbase
                     if (json["success"]?.Type == JTokenType.Boolean && json["success"]!.Value<bool>() == false)
                     {
                         var err = json["error_response"];
-                        string reason = err?["message"]?.ToString();
+                        // string?, not string: `?.ToString()` on a possibly-absent token yields
+                        // null, and CS8600 was warning that the declared type said otherwise. The
+                        // three lines below already handle the null, so nothing behaved wrongly —
+                        // but this is the order-REJECTION path of a live-money venue, the same
+                        // code that announced an insufficient-funds rejection as a placed order
+                        // until 2026-09-07, and a suppressed nullability warning here is one that
+                        // will be ignored next to a line where it matters.
+                        string? reason = err?["message"]?.ToString();
                         if (string.IsNullOrWhiteSpace(reason)) reason = err?["error"]?.ToString() ?? "";
                         if (string.IsNullOrWhiteSpace(reason)) reason = "Coinbase rejected the order without saying why";
                         return $"ORDER_FAILED:{reason}";
