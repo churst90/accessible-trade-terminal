@@ -13,7 +13,7 @@ Diagrams of all of this — architecture, hosting topology, the data/order/feedb
 
 ## Download
 
-Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.10.0** — a stop can no longer open a position the other way, one rule decides whether a sentence is spoken here or arrives as a system notification, and every oscillator gets a pane of its own so an RSI beside a MACD is no longer flat) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
+Pre-built binaries are on the [Releases page](https://github.com/churst90/accessible-trade-terminal/releases) (latest release: **v2.11.0** — the pin keys `;` and `Shift+;` reach the terminal from the browser at last, the sonification follows the log-scale toggle so the ear and the eye read the same ruler, volume gets a note of its own a fourth below the candle body, and four drawing defects found by photographing the chart are fixed) and [`RELEASE_2.4.0_VERIFICATION.md`](RELEASE_2.4.0_VERIFICATION.md)). The cross-platform **WebHost** — `linux-x64`, `win-x64`, `osx-x64`, `osx-arm64`; run it and it opens in your browser — is the recommended distribution. Native MAUI desktop builds for Windows and macOS are also attached but are **unsigned** (expect a SmartScreen/Gatekeeper prompt). See [`PLATFORMS.md`](PLATFORMS.md#which-version-to-use) for which to choose. Build from source with `dotnet run --project AccessibleTrader.WebHost` (Linux) or the MAUI workloads (Windows/macOS).
 
 ## Core Philosophy
 
@@ -104,7 +104,46 @@ Press `F1` in the application to open the full Help dialog. Key bindings:
 
 Every one of these is also a toolbar button — row 1 opens panels, row 2 changes the chart.
 
-## Current Status — 2.10.0 (2026-09-13)
+## Current Status — 2.11.0 (2026-09-21)
+
+**2.11.0 is the release where two keys that were documented, bound and tested turned out never to
+have reached the terminal at all.** `;` and `Shift+;` choose which of several overlapping chart
+formations leads the readout and release that choice, and neither key was in the browser's
+trapped-key list — so a press returned before it reached .NET, and a browser reports `Shift+;` as
+`:`, which nothing folded back. Pinned between two points of a pattern with no way out was the
+symptom. Both keys arrive now, and the whole shifted top row is folded rather than the one key
+that broke. Ctrl+Left and Ctrl+Right also stop borrowing a sibling's line: on a pane with more
+than one reference line — Aroon, where Up and Down swing about 50 and the Oscillator about zero —
+the jump now uses the line the focused component declares and reads that component's own data.
+
+The ear follows the eye onto the log scale. Alt+L already changed the picture; now a level-pitched
+component in the price pane takes its pitch from where the value sits on the scale as drawn, using
+the renderer's own arithmetic rather than a copy of it. Volume, meanwhile, had been playing on the
+candle body's pitch — the bed sitting on the thing it was meant to sit under — and now sounds a
+perfect fourth below it, re-derived on restore so a workspace saved before this release heals
+itself.
+
+The rendered chart was photographed for the first time, by a probe that drives a real browser
+through both scales, six zoom steps, Heikin Ashi and nine indicators. Four drawing defects were
+visible in almost every picture and none of them had been caught by a suite that had just measured
+73.5% on that layer: y-axis labels drawn over each other, the crosshair badge painted over the
+nearest gridline label, an empty region to the right of the data labelled "07/19 07/19 07/19", and
+a legend running out of the bottom of its own pane.
+
+Underneath, the suite went from 7,666 to 7,910 across five break-it-and-see campaigns aimed at
+layers never tested that way. The accessibility layer — the code deciding what a blind user hears
+and when — scored 82%, the highest rate in this repo's history, and every gap it exposed was about
+*when* the terminal may speak: pressing N could start reciting history, an unconfirmed tick could
+announce a cross that then un-happens, and switching narration on could fire a cross for every
+overlay at once. All three now have a test on the line. The indicator maths scored 10.5%, the
+lowest ever measured here, and that number is published rather than buried; thirty-two of its
+thirty-four gaps are closed, each proved by re-breaking the code, and the other two change no
+behaviour. `Services/Strategies` is next.
+
+Anything that lands after this tag goes under a new `## [Unreleased]` heading in
+[`CHANGES.md`](CHANGES.md) and is not in the 2.11.0 binaries.
+
+### 2.10.0 — safer money, one rule for where words go, and a pane for every oscillator (2026-09-13)
 
 **2.10.0 is the release where money got safer, words got one rule about where they go, and every
 oscillator got a pane of its own.** Bracket legs are reduce-only and share one pair, so a stop
@@ -132,8 +171,7 @@ Two things this release could not verify on the machine it was built on: the Win
 and tray-on-close are still only compiled, never run, and the drawing prompts and their spoken
 answers have not yet been heard with a screen reader. Both are in `docs/TODO.md`.
 
-Anything that lands after this tag goes under a new `## [Unreleased]` heading in
-[`CHANGES.md`](CHANGES.md) and is not in the 2.10.0 binaries.
+What postdated that tag is in the 2.11.0 section above.
 
 ### 2.9.0 — the line goes where the line means something (2026-09-06)
 

@@ -117,6 +117,50 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-21, SIXTY-THIRD pass — v2.11.0 IS CUT.)** Suite **7,910**,
+> 0 failing. Docs passed over end to end and the doc-drift guard is green. Full entry in
+> `docs/CHANGES.md` under `## [2.11.0]`.
+>
+> 1. **v2.11.0 tagged.** `Directory.Build.props` 2.10.0 → 2.11.0, `BlazorClient.csproj`
+>    `ApplicationVersion` 10 → 11, `CHANGES.md` `[Unreleased]` → `[2.11.0] — 2026-09-21`,
+>    `WHATSNEW.md` rewritten for this release with 2.10.0's section deleted, `docs/README.md`
+>    Download pointer and Current Status updated with 2.10.0 demoted to `###`.
+> 2. **Minor, not patch, and the rule is unchanged since 2.8.0: minor when a default changes
+>    under the user without them touching a setting.** Two did — Volume's pitch pair moved to
+>    330/165 and is re-derived on restore even on a workspace saved before the change, and the
+>    sonification began following the log-scale toggle. The third change is larger than a default:
+>    a whole key vocabulary went from inert to live.
+> 3. **ALL THREE BEHAVIOUR CHANGES WERE HEARD BEFORE THE TAG.** Cody confirmed the pin keys, the
+>    volume bed and the log-scale sonification on a real chart on 2026-09-21. The listening list
+>    carried by the 61st and 62nd passes is now EMPTY — the first cut in several with nothing
+>    shipping unheard.
+> 4. **Docs touched beyond the five mechanical steps**, because three behaviours had landed with
+>    no user-doc entry: `SHORTCUTS.md` gains the `SubscribedLevelNames` rule under the
+>    Ctrl+Left/Right table and a note that the pin keys now reach the browser;
+>    `USER_MANUAL.md` gains Volume's pitch in the timbre passage and the multi-line-pane rule in
+>    "Scanning for events"; `QUICKSTART.md` gains a volume row in the sound table, the log-scale
+>    sentence beside Alt+L, and the same multi-line-pane clause. **The pin-key fix needed no doc
+>    change, which was the whole defect: the keys were already documented.**
+>
+> ### NEXT
+>
+> 1. **Next campaign: `Services/Strategies`** (5,999 lines, 33 files, 6 ever touched), then
+>    `Analysis` (4,269 / 17, NONE), `Trading` (2,600, 4), `Scripting` (2,564, 0). Outside Core:
+>    WebHost 12,187 (3 files ever), StrategyLab 25,804 (1), Sdk 9,881 (5). **The JS harness has
+>    still never been mutated** — carried from the 61st and 62nd.
+> 2. **Carried unchanged, none of it started:** decide the auto-fit rule for Main-pane overlays
+>    (include them in the price range as TradingView does, with a "price only" switch — the
+>    trade-off is that the viewport range IS the pitch range); the Cipher B gold gate (decided,
+>    deferred — and note that the 58th pass deleted the unread fast-MF average whose comment
+>    described a gate it did not feed, so the question is now asked against honest code);
+>    `PitchMapping` in Properties.
+> 3. **Sweep the suite for the structural shapes now named**: A2g, A2h, A2i, "did it reach the
+>    strip", "a guard whose model of the input is narrower than the input", and "a second memory
+>    covering the first".
+> 4. **The release step that still has no channel:** `sync-trader-docs.sh` does a blind `cp` from
+>    HEAD rather than `git show v<tag>:docs/...`, and `patches/` is gitignored, so there is no
+>    repo → server channel from this side. Carried from the 55th.
+
 > **START HERE (current as of 2026-09-19, SIXTY-SECOND pass — THE LAYER THAT DECIDES WHAT A
 > BLIND USER HEARS IS MEASURED FOR THE FIRST TIME, AND 82.0% IS THE BEST RATE YET.)** Suite
 > **7,910**, 0 failing. No release cut. Full entry in `docs/CHANGES.md`.

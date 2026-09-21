@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.11.0] — 2026-09-21
 
 ### A2j — the layer that decides what a blind user HEARS gets measured, and 82.0% is the best rate yet (2026-09-19, sixty-second pass)
 

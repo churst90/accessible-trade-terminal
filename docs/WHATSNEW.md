@@ -6,92 +6,87 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
-## 2.10.0 — safer money, one rule for where words go, and a pane for every oscillator
+## 2.11.0 — the pin keys work, the ear follows the eye, and the chart gets looked at
 
 *Everything before this release is in `CHANGES.md`.*
 
-### Money
+The three changes you will notice first — the pin keys arriving, volume getting its own note,
+and the sonification following the log scale — were each confirmed by ear on a real chart before
+the tag went up. Nothing in this release ships unheard.
 
-- **A stop can no longer open a position the other way.** Bracket legs are reduce-only and
-  share one pair, so a stop that fires after you closed by hand cannot become a fresh short.
-  A protective leg on the wrong side of the fill is refused out loud instead of attached.
-- **A key marked Paper on a venue with no practice environment is refused, never routed
-  live.** Bitstamp, Coinbase, Interactive Brokers, Kraken, Kraken Futures (its demo was
-  withdrawn on 2026-07-14), MEXC and Schwab have no sandbox; the refusal names the key and
-  the fix.
-- **The dashboard's key dropdown now chooses the key that signs.** It is labelled "API key
-  for this order"; options read "Live, real money" or "Paper, practice environment"; the
-  dashboard speaks the account when it opens. The status bar carries a **LIVE** badge beside
-  the PAPER one, because an absence is not a signal a screen reader can find.
-- **The live review re-arms if the ticket changes.** "Ticket changed since the review.
-  Nothing was sent."
-- **Every trading plugin is held to one conformance suite.** Thirty-three rows were red on
-  the first run; ten plugins were fixed. "Covered" now means events can arrive, not that a
-  subscribe call returned.
-- Order fills, stops and cancels reach you with the browser closed.
+### The keyboard
 
-### Where words go
+- **`;` and `Shift+;` work.** The whole pin vocabulary — choose which of several overlapping
+  formations leads the readout, then release the choice — was bound, documented and tested,
+  and **completely unreachable from the browser**: neither key was in the browser's trapped-key
+  list, so a press never reached the terminal at all, and a browser reports `Shift+;` as `:`,
+  which nothing folded back. If you ever found yourself pinned between two points of a chart
+  pattern with no way out, that was this. Both keys arrive now: `;` pins the formation you want
+  to lead, and `Shift+;` releases it so comma and period walk every formation again.
+- **The whole shifted top row is folded, not just the key that broke.** `{ } _ + | " ~ < >`
+  are all handled now, so the next binding on a shifted key does not need its own bug report.
+- **Ctrl+Left and Ctrl+Right jump on the line the focused component actually answers to.**
+  On a pane with more than one reference line this was reading the first one. Aroon is the
+  clear case: Up and Down swing about a Midpoint at 50 while the Oscillator swings about zero,
+  so with the Oscillator focused the key used to land where *AroonUp* crossed 50 and announce
+  it as the Oscillator's Midpoint cross. It now lands on the focused component's own crossing,
+  reads the focused component's own data, and says "No crossing in view" rather than borrowing
+  a sibling's.
 
-- **One rule.** Whatever is about the chart in front of you is spoken there. Everything else,
-  another tab, a symbol with no tab, the terminal with the browser closed, is a system
-  notification. Minimising the browser still counts as being there.
-- **One switch, on by default.** "Events you cannot see" in Alt+J → Delivery settings
-  replaces three default-off switches in a different dialog. The "shortest timeframe to
-  announce" floor beneath it now quietens the narration ladder as well as the bar close.
-- **Closing the browser tells you what happens next.** One notification, saying whether
-  anything will be watched and naming the switch if not. A reload does not trigger it.
-- **The monitor re-reads its switches** on every pass instead of once at start, says so once
-  when its polling fails and again when it recovers, and speaks a notification aloud if the
-  notification daemon did not take it.
-- **Alerts with the browser closed read a real chart.** Indicator, point-of-control, trend,
-  zone and condition-tree alerts are evaluated headless; the only unwatchable alert is one
-  scoped to "the current chart", or a POC alert on a chart with no profile. Bar closes and
-  the full narration ladder for your saved tabs arrive the same way. The hosted site never
-  runs any of this.
-- **Other open tabs get the full ladder**, not two clauses. Closing the browser no longer
-  tells you more than leaving it open.
-- **A resumed session did not know which symbol was on screen**, so the focused chart's bar
-  closes were notified and its alerts skipped. Fixed on resume and on tab switch.
-- **The Windows app's X button minimises to the tray by default** and says so. Settings →
-  General → "Minimize to tray on exit" turns it off. *Compiled, never run on a Windows
-  machine.*
-- The tray's silence item says what it silences, "alerts and bar closes", and order fills
-  always come through it. Ctrl+Alt+Shift+M reports both monitoring halves.
+### Sound
 
-### The chart
+- **The sonification follows the log-scale toggle.** Press **Alt+L** and the ear moves with the
+  eye: a level-pitched component in the price pane takes its pitch from where the value sits on
+  the scale *as drawn*. On a 10,000–100,000 window the price 31,623 is drawn halfway up the
+  pane and now sounds halfway up the sweep; before, it sounded a quarter of the way up while
+  the picture said middle. Indicator panes are never on the log scale, on screen or in sound,
+  which is unchanged.
+- **Volume has its own note.** The volume bars were playing on the candle body's pitch — the
+  bed sat directly on the thing it was meant to sit under. Volume now sounds at **E4/E3**, a
+  perfect fourth below the body's A4/A3, an interval that collides with neither the body nor a
+  wick. Up bars and down bars are two distinct notes.
+- **A workspace you saved before this release heals itself.** Core series are restored exactly
+  as they were saved, so a resumed session would have kept the old collision; the pitch pair is
+  now re-derived from the indicator's own declaration on restore, the same rule the pane
+  assignment already used.
 
-- **Every oscillator has a pane of its own.** Thirty indicators shared one scale, so RSI beside
-  MACD was almost flat. Saved workspaces heal on load; Alt+PageDown walks one more pane per
-  oscillator. The Add Indicator dialog says whether an indicator joins the price pane.
-- **Bounded indicators keep their full scale at every zoom.** Seventeen declare their natural
-  range (RSI, Stochastic, MFI, ADX, Williams %R, CMO, Aroon, Cipher B and more) and four
-  declare a floor (ATR, standard deviation, historical volatility, Ulcer); RSI 70 is the same
-  note on every chart.
-- **A level says what it is, what it means and whose it is.** ADX's 20, 25 and 50 and
-  Choppiness's 38.2 and 61.8 name the band you entered ("strong trend", "ranging");
-  Ctrl+Left and Ctrl+Right stop at those edges; playback speaks the crossing. A level you
-  hide stops being a navigation target, an earcon and a narration event. MFI draws the two
-  colours it declared.
-- **0 toggles the pane's declared neutral** (50 on RSI, zero on MACD, −50 on Williams %R);
-  it used to answer "already marks 50" forever. Axis labels sit on gridlines.
-- **Drawings left the Add Indicator dialog.** Fifteen entries there produced a series with
-  nothing in it. Drawings are placed with Alt+D or their chords, and every point is asked for
-  by name: "Risk Reward: entry at 64,100. Navigate to the stop loss and press the shortcut
-  again." The measure tool speaks its distance, percent and bar count; the risk/reward tool
-  speaks its ratio. Risk/reward is Alt+Shift+P; Alt+Shift+R is the rectangle. *The prompts and
-  the spoken answers are new in this release and have not yet been heard with a screen reader —
-  if one of them reads wrong, that is the reason.*
-- **Volume reads at the close**, with its direction, when you flag the volume series with N.
-  Volume and market profiles narrate their point of control, value area and POC moves at each
-  bar close; they say nothing during playback, by design.
-- **Playback speed survives a restart.**
-- Narration coherence: a switch that said "narrating" for a series with nothing to say now
-  refuses and names a way out; the forming candle and the forming formation each have their
-  own switch (formations off by default); Ctrl+Alt+Shift+N is gone, N is the switch.
-- The "Export Visual" and "Export Audio" buttons are gone from Settings. They promised a
-  whole tab as one file and saved only the current chart's component overrides. Share a
-  soundscape as patch JSON from the Sound Designer and a theme as text from the theme
-  editor; both work.
-- The toolbar dropdowns follow the chart, including after a restore. A closed tab no longer
-  keeps sending its alerts for three minutes. A market string that grew on every load
-  ("Crypto|Crypto|Spot") repairs itself.
+### The chart on screen
+
+The rendered chart was photographed for the first time — a new probe drives a real browser
+through linear and log scale, six zoom steps, Heikin Ashi and nine indicators, and saves a
+picture of each. **Four drawing defects were visible in almost every shot**, and all four are
+fixed:
+
+- **Y-axis labels drawn on top of each other.** Label spacing was tested at one position and
+  the text drawn at another, so at eight panes "120.00" sat on "115.00".
+- **The crosshair's value badge painted over the nearest gridline label** in every indicator
+  pane — "957.71" over "1000.00". The axis is now told where the badge will land and leaves
+  that one label out.
+- **Zoomed past the last bar, the date axis read "07/19 07/19 07/19".** Empty space to the
+  right of the data was being labelled with the last bar's date, repeatedly. A date on the
+  axis is a claim that a bar sits above it; slots with no bar are now skipped, and the last bar
+  is named exactly once.
+- **The legend ran out of the bottom of its own pane** at eight panes, across the next pane's
+  divider. Its row count is now bounded by the height the pane actually has.
+
+These are sighted-companion and screenshot concerns rather than things you hear, but a chart
+that photographs cleanly is a chart whose layout description can be trusted.
+
+### Underneath
+
+- **The suite went from 7,666 to 7,910 tests**, almost all of it from five deliberate
+  break-it-and-see campaigns aimed at layers that had never been tested that way: the speech
+  path, the audio path, the indicator maths, the renderer, and the accessibility layer itself.
+  The accessibility layer — the code that decides what you hear and when — scored the highest
+  catch rate in the repo's history at 82%, and every gap it exposed was about *when* the
+  terminal may speak rather than what it says. Three narration gates that had no test at all
+  now have one: pressing **N** can no longer start reciting history, an unconfirmed tick can no
+  longer announce a cross that then un-happens, and switching narration on no longer fires a
+  cross for every overlay at once.
+- **The indicator maths scored 10.5%**, by far the lowest, and that number is published rather
+  than buried. Thirty-two of the thirty-four gaps it exposed are closed and each was proved by
+  re-breaking the code; the other two change no behaviour. The shape of the gap in one sentence:
+  a helper with excellent tests and a caller free to stop calling it.
+- Two computations that nothing read — a Money Flow average in Cipher B and a Bollinger upper
+  band in the Top/Bottom detector, both a full pass over the series on every recalculation —
+  are deleted.

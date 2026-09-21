@@ -93,6 +93,16 @@ see the move has no way to detect.
 
 When no further event exists in the scan direction, speech announces: "No more [component name] signals in this direction." (This was silent until 2026-08-03 — boundary feedback carried the message but only played an earcon.)
 
+**On a pane with more than one reference line, the jump uses the line the focused component
+answers to.** A component may declare which lines it subscribes to, and since 2026-09-19 the
+classifier, the threshold scan and the neutral lookup all honour that declaration and read the
+focused component's own data. Aroon is the case that proved it: Up and Down swing about a Midpoint
+at 50 while the Oscillator swings about zero, and with the Oscillator focused the key used to land
+where *AroonUp* crossed 50 and announce it as the Oscillator's Midpoint cross. A component that
+declares no list — or declares an empty one, as the marker and state components do to silence the
+earcon — keeps every line, because a jump key with nothing to aim at is a worse answer than a jump
+to the pane's own line.
+
 ---
 
 ## Chart Formation Navigation (`,` and `.`)
@@ -108,6 +118,10 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 
 | `;` | Choose which overlapping formation leads the readout (press again for the next) |
 | `Shift+;` | Stop choosing; go back to largest-first |
+
+Both pin keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
+documented and tested on the .NET side and **never arrived**: neither was in the browser's
+trapped-key list, and a browser reports `Shift+;` as `:`, which nothing folded back to `;`.
 
 They require formation description to be on (Settings → General → *Describe chart patterns*). With it off they
 say so rather than moving you across the chart without explaining why — the announcement that would

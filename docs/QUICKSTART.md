@@ -43,6 +43,7 @@ bells for events. The terminal calls this the Hybrid Voice model. You can run ei
 | Brighter, reedy tone / softer, warmer tone | An oscillator above / below its midline |
 | Roughness (noise) on the tone | The reading is in an overbought or oversold zone |
 | A heavier, weightier candle tone | A bigger candle body; wick pings roughen with wick length |
+| A note a fourth under the candle | The volume bar: E4 up, E3 down, against the body's A4/A3 |
 | Sound moving left to right | Position in the visible window: leftmost bar hard left, newest bar hard right |
 | Short bells | Discrete events: crossovers (sine), divergences (triangle), levels (crystal), confluence (detuned pair), momentum (blend) |
 | Very short high ping / two-note chirp / low long tone | Approaching a level / crossing it / staying beyond it |
@@ -155,7 +156,9 @@ household picture of all this if you want one.
 **Jumps.** Ctrl+Left and Ctrl+Right skip to the previous or next event for the focused thing:
 a price crossing your trend line (on candles), a signal firing (on a dot or arrow), a crossing
 of the midline or an overbought/oversold line (on an oscillator), a band edge (on ADX or
-Choppiness), price crossing the average (on a moving average). A hidden level is not a target.
+Choppiness), price crossing the average (on a moving average). A hidden level is not a target,
+and on a pane with more than one reference line — Aroon's Midpoint at 50 and its Oscillator's
+zero — the jump uses the line the focused component answers to.
 At the end: "No more {component} signals in this direction."
 
 **Formations.** With **Describe chart patterns** on (Settings → General), `,` and `.` step
@@ -263,7 +266,9 @@ open, high, low and close, its open the midpoint of the previous smoothed candle
 as runs of one colour, so they are easier to hear. Two things to know: the smoothed prices
 are averages nobody traded at, so **every indicator, the close line and every formation level
 keep reading the raw candles**; and with HA on, the candle you hear and its pattern are the
-smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories.
+smoothed ones. **Alt+L** switches the price axis to logarithmic for long histories, and the
+sound follows it: a level-pitched component in the price pane takes its pitch from where the
+value sits on the scale as drawn.
 
 ---
 

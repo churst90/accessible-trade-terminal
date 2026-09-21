@@ -103,7 +103,11 @@ body's size — a big conviction candle sounds *heavier* than a doji at the same
 loudness, so size reads as character rather than volume — and wicks ring as clean
 pings whose grit grows with their length, the upper wick a bright tone and the lower
 a deep one, each roughening in proportion to its own reach so a candle with a long
-tail below and none above is unmistakable by ear. Meanwhile, and when a reading pushes into an
+tail below and none above is unmistakable by ear. The volume bars sit a perfect
+fourth below the body — E4 on an up bar, E3 on a down bar, against the body's A4 and
+A3 — so the bed is audibly under the candle rather than on it, and neither lands on a
+wick. Until 2.11.0 volume played on the body's own pitch, which is why a busy bar
+could sound like one thick note instead of two. And when a reading pushes into an
 overbought or oversold extreme — on a bounded oscillator such as RSI, Stochastics,
 MFI, CCI, Williams %R, or the Ultimate Oscillator — a noise texture roughens the
 tone so the extremity itself is audible. It is a pronounced roughness, not a faint
@@ -931,6 +935,15 @@ that signal fires. Press repeatedly to walk through every such event in turn; wh
 there are no more in that direction the terminal says "No more {component} signals in
 this direction." It turns a long history into a short list of the moments worth
 hearing.
+
+When a pane carries more than one reference line, the jump uses the line the focused
+component answers to, not the first line in the pane. Aroon is the case worth knowing:
+Up and Down swing about a Midpoint at 50 while the Oscillator swings about zero, so
+with the Oscillator focused the key lands on its zero cross and says so. Before 2.11.0
+it landed where AroonUp crossed 50 and announced that as the Oscillator's Midpoint
+cross — both halves of the sentence naming the wrong thing. Past a component's only
+line you now hear "No crossing in view" rather than a sibling's crossing offered as
+your own.
 
 ### Playback: listening to the market
 
