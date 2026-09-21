@@ -62,6 +62,24 @@ desktop client speaks — this pass makes the build and the app say so, it canno
 third-party binary. The dropdown needs its manifest checked on the installed copy. Neither is
 verified on Windows; nothing in this pass can be, from Linux.
 
+**A follow-up the same day, and it is the same defect one layer up.** The first cut staged the
+DLL with an `AfterTargets="Build"` copy into `$(OutDir)`, mirroring `CopyDotPadSdkWindows`
+directly above it. **That reaches a `dotnet build` and not a `dotnet publish`** — `$(PublishDir)`
+is a separate directory and a loose file dropped into the build output by a custom target is not
+a publish item. The release zip is `dotnet publish --output publish/maui-win` zipped flat, so the
+fix would have worked on a developer machine and shipped nothing, which is exactly what the
+hand-dropped DLL had been doing for seven months. It is a content item with
+`CopyToPublishDirectory` now. Found because Cody unzipped a release and asked where `vendor/`
+was — there is no `vendor/` in a zip, and there should not be.
+
+**Flagged, NOT fixed, and unverified:** every other native-staging target in that csproj has the
+same shape — `CopyDotPadSdkWindows` and `CopyScriptWorker` both copy to `$(OutDir)` only, and
+nothing in the project gives their files `CopyToPublishDirectory`. If that reasoning holds, the
+Dot Pad SDK has never reached a released Windows build, only a local `dotnet build` — which
+would sit squarely on top of the report card's standing note that the Braille tab has never
+rendered on the head the Dot Pad attaches to. Not demonstrated: it needs the vendor SDK present
+and a Windows publish to observe, and neither is available from here.
+
 Suite 7,942 → **7,956**. New: `SpeechOutputPathTests` (12), `PluginTrustRefusalReportingTests` (2).
 
 

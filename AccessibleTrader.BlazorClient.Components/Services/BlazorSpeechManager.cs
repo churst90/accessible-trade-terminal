@@ -114,8 +114,9 @@ namespace AccessibleTrader.BlazorClient.Services
                 _logger.LogWarning(
                     "nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. "
                   + "On the desktop head the chart canvas is a native control, so the ARIA live-region "
-                  + "fallback cannot reach a screen reader while the chart has focus. Place the DLL in "
-                  + "vendor/nvda/ and rebuild — see docs/PLATFORMS.md.");
+                  + "fallback cannot reach a screen reader while the chart has focus. Copy the x64 "
+                  + "nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe "
+                  + "(from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.");
             }
         }
 
@@ -208,8 +209,10 @@ namespace AccessibleTrader.BlazorClient.Services
 
             const string message =
                 "The terminal has no way to speak: the NVDA Controller Client is not loadable and no "
-              + "live region is attached. Speech is being written to the journal only. On the desktop "
-              + "head, stage nvdaControllerClient64.dll (see docs/PLATFORMS.md).";
+              + "live region is attached. Speech is being written to the journal only. Copy the x64 "
+              + "nvdaControllerClient64.dll from the NVDA controllerClient download into the "
+              + "application folder, beside AccessibleTrader.BlazorClient.exe, and restart. "
+              + "See docs/PLATFORMS.md.";
 
             // Error, not warning: on this application a dead speech channel is a dead application.
             _logger.LogError(message);

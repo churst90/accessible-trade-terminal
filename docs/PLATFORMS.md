@@ -179,12 +179,33 @@ project file, and absent from every publish. A single copy had been dropped by h
 every published install was silent. Found the first time the head was put in front of a screen
 reader.
 
+#### If you have a released zip (no repo)
+
+This is the common case, and it needs no rebuild — the DLL is found by the **default Windows DLL
+search order**, which looks in the application's own folder first.
+
 1. Download `nvda_<version>_controllerClient.zip` from
-   [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases).
+   [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases)
+   (it is listed among the assets on any release).
+2. Inside it, open the **`x64`** folder and take `nvdaControllerClient64.dll`.
+3. Drop that file into the folder you unzipped the terminal into — the one containing
+   **`AccessibleTrader.BlazorClient.exe`**. Top level, beside the exe, not in a subfolder.
+4. Restart the terminal.
+
+There is no `vendor/` folder in the zip and there should not be: `vendor/nvda/` is a *source-tree*
+staging location used at build time, not part of the shipped layout.
+
+#### If you are building from source
+
+1. Download the same zip as above.
 2. Copy the **x64** `nvdaControllerClient64.dll` into `vendor/nvda/` relative to the repo root.
    It is gitignored — a third-party binary (NV Access, LGPL 2.1), vendored rather than committed
    for the same reason the Dot Pad SDK is.
-3. Build normally. `CopyNvdaControllerWindows` stages it alongside the app binary.
+3. Build normally. The DLL is declared as a content item with `CopyToPublishDirectory`, so it
+   reaches both `dotnet build` output **and** `dotnet publish` output — which is what puts it in a
+   release zip. *(The first cut of this staged it with a `Copy` into `$(OutDir)`, mirroring
+   `CopyDotPadSdkWindows`. That reaches a build and not a publish, so it would have worked on a
+   developer machine and shipped nothing.)*
 
 A build without it still succeeds, and `WarnIfNvdaControllerMissing` prints a high-importance
 MSBuild message saying the result will be silent. At runtime the condition is reported too rather

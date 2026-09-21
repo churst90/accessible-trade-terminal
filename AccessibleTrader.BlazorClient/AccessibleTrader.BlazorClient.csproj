@@ -384,17 +384,28 @@
         <Message Importance="high" Text="NVDA Controller Client not found at vendor/nvda/nvdaControllerClient64.dll. NVDA-direct speech will be unavailable at runtime, and because the chart canvas is a native control the ARIA live-region fallback cannot reach a screen reader while the chart has focus — the chart will be SILENT. Download nvdaControllerClient from https://github.com/nvaccess/nvda/releases (controllerClient zip) and copy the x64 nvdaControllerClient64.dll into vendor/nvda/. See docs/PLATFORMS.md." />
     </Target>
 
-    <Target Name="CopyNvdaControllerWindows"
-            AfterTargets="Build"
-            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
-        <ItemGroup>
-            <NvdaControllerBinaries Include="..\vendor\nvda\nvdaControllerClient64.dll" />
-        </ItemGroup>
-        <Copy SourceFiles="@(NvdaControllerBinaries)"
-              DestinationFolder="$(OutDir)"
-              SkipUnchangedFiles="true"
-              Condition=" '@(NvdaControllerBinaries)' != '' " />
-    </Target>
+    <!--
+        A CONTENT ITEM, not a Copy to $(OutDir), and the difference is the whole point.
+
+        The first cut of this staged the DLL with an AfterTargets="Build" copy into $(OutDir),
+        exactly like CopyDotPadSdkWindows above. That reaches a `dotnet build` and NOT a
+        `dotnet publish`: $(PublishDir) is a separate directory and a loose file dropped into the
+        build output by a custom target is not a publish item, so it does not travel. The release
+        zip is `dotnet publish --output publish/maui-win` zipped flat (.github/workflows/release.yml),
+        so the fix would have worked on a developer's machine and shipped nothing — which is the
+        same failure mode, one layer up, as the hand-dropped DLL it was written to replace.
+
+        CopyToPublishDirectory is what makes it travel. The Link metadata flattens it to the root
+        of the output rather than recreating ../vendor/nvda/ there, so it lands beside the
+        executable where the default DLL search order will find it.
+    -->
+    <ItemGroup Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
+        <None Include="..\vendor\nvda\nvdaControllerClient64.dll">
+            <Link>nvdaControllerClient64.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+    </ItemGroup>
 
     <Target Name="CopyScriptWorker"
             AfterTargets="Build"
