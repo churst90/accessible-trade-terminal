@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The desktop head had no log at all in Release, which is why it stayed unmeasured (2026-09-21, sixty-sixth pass)
+
+Cody dropped the NVDA Controller Client beside the executable and the terminal was **still**
+silent. That refuted the first diagnosis — the DLL genuinely was staged by nothing, and fixing it
+was right, but it was not the cause — and sent the search back to the thing that made the whole
+head undiagnosable.
+
+- **`MauiProgram` registered its logging providers inside `#if DEBUG`.** A RELEASE build of the
+  desktop head therefore had **zero** logging providers: every `LogError` and `LogWarning` in the
+  entire application went nowhere. The 2026-08-24 audit filed *"MAUI Release has no logging
+  providers"* as a finding and it has sat in the backlog since; **what nobody followed through was
+  what it COSTS.** `AppStartupService.InitializeAsync` is launched through `SafeFireAndForget`,
+  whose entire contract is *catch it and log it* — so on this head that contract reduces to
+  *catch it*. A startup that throws produces an application that is half-built and says nothing.
+- **And the ORDER of the startup body is what makes a partial failure look like two bugs.** It
+  resolves in dependency order: the provider list is step 1, the accessibility coordinator — the
+  thing that makes the terminal speak at all — is step 4. Fail in between and you get an
+  application that lists providers and never says a word. **That is exactly the pair of symptoms
+  reported from the VM**, and reading them as two faults is what sent the first pass after the
+  speech path alone.
+- **`RollingFileLoggerProvider`**, registered in every configuration, writing to
+  `<LocalAppData>/AccessibleTrader/logs/terminal.log`. Hand-rolled and dependency-free on purpose:
+  it has to work in the one configuration nobody can attach a debugger to, and **a logger that can
+  break the thing it is watching is worse than none** — an unwritable path disables it for the
+  session rather than throwing on every log statement in the application.
+- **`IAppStartupService.StartupFault` makes a half-failed startup a value anyone can ASK for**,
+  and the failure now reports through two channels chosen for a user who cannot see the screen and
+  whose terminal may have just lost its ability to speak: the **journal**, which is ordinary DOM a
+  screen reader can read at leisure, and the **Error feedback channel**, which is
+  `SpeechChannel.Critical` and cannot be muted. It still rethrows — this adds channels, it does
+  not replace the one that exists, and swallowing here would trade one silence for another.
+
+**The shape, and it is the second time in two passes:** the WebHost has had console logging all
+along, which is precisely why it is the head that gets diagnosed. A head with no output channel
+does not report fewer bugs; it reports none, and the absence reads as health.
+
+Suite 7,956 → **7,965**. New: `StartupFailureIsReachableTests` (5), `RollingFileLoggerProviderTests` (4).
+
+
 ### The desktop head was put in front of a screen reader for the first time, and it was mute (2026-09-21, sixty-fifth pass)
 
 The oldest unaddressed item on the report card — *"the MAUI head has never been measured with a

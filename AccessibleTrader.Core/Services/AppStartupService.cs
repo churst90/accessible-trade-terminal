@@ -15,6 +15,23 @@ namespace AccessibleTrader.Core.Services
         /// application startup before any user interaction.
         /// </summary>
         Task InitializeAsync();
+
+        /// <summary>
+        /// The exception that ended startup early, or null if it completed.
+        ///
+        /// <para>
+        /// <b>A value anyone can ASK for, which is the whole point.</b> This method is launched
+        /// through <see cref="SafeFireAndForget"/>, whose contract is "catch it and log it" — and
+        /// on the desktop head in Release there were no logging providers at all until
+        /// 2026-09-21, so a throw here produced an application that was HALF-BUILT and silent
+        /// about it. The steps run in dependency order, so what survives depends on where it
+        /// stopped: fail before step 4 and no accessibility coordinator is ever resolved, which
+        /// means the terminal never speaks a word, while the provider dropdown still shows
+        /// whatever was registered in step 1. That is a bug report about two unrelated features,
+        /// and it is one fault.
+        /// </para>
+        /// </summary>
+        Exception? StartupFault { get; }
     }
 
     /// <summary>
@@ -41,9 +58,61 @@ namespace AccessibleTrader.Core.Services
             _logger = logger;
         }
 
+        public Exception? StartupFault { get; private set; }
+
         public Task InitializeAsync()
         {
-            lock (_initLock) { return _initTask ??= InitializeCoreAsync(); }
+            lock (_initLock) { return _initTask ??= RunGuardedAsync(); }
+        }
+
+        /// <summary>
+        /// Runs the startup body and, if it throws, makes the failure REACHABLE before rethrowing.
+        ///
+        /// <para>
+        /// Rethrows rather than swallowing, so <see cref="SafeFireAndForget"/> still logs it and
+        /// any caller awaiting the task still sees it — this adds channels, it does not replace
+        /// the one that exists. The channels are chosen for a user who cannot see the screen and
+        /// whose terminal may have just lost its ability to speak: the journal, which is ordinary
+        /// DOM a screen reader can read at leisure, and the Error feedback channel, which is
+        /// <c>SpeechChannel.Critical</c> and therefore cannot be muted — on the chance that
+        /// speech came up before the failure point and can still carry a sentence.
+        /// </para>
+        /// </summary>
+        private async Task RunGuardedAsync()
+        {
+            try
+            {
+                await InitializeCoreAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                StartupFault = ex;
+
+                string message =
+                    "The terminal did not finish starting up, so some of it is not working: "
+                  + ex.GetType().Name + " — " + ex.Message
+                  + ". Features initialised after the failure are absent rather than broken, which "
+                  + "is why the symptoms may look unrelated. The full stack trace is in the log at "
+                  + RollingFileLoggerProvider.DefaultLogPath() + ".";
+
+                _logger.LogError(ex, "Application startup failed partway through. {Message}", message);
+
+                try
+                {
+                    _services.GetService<IJournalService>()?.Add(new JournalEntry(
+                        DateTime.Now, JournalEntryKind.Error, "Startup", null, message));
+                }
+                catch { /* the report must not itself throw */ }
+
+                try
+                {
+                    _services.GetService<IEventBus>()?.Publish(
+                        new FeedbackRequestEvent(FeedbackType.Error, message));
+                }
+                catch { /* ditto */ }
+
+                throw;
+            }
         }
 
         /// <summary>

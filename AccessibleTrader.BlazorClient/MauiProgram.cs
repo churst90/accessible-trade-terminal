@@ -69,6 +69,24 @@ public static class MauiProgram
                 global::Android.App.Application.Context));
 #endif
 
+		// ── A log, in EVERY configuration ───────────────────────────────────────
+		//
+		// This used to be inside the #if DEBUG below, which meant a RELEASE build of this head
+		// had ZERO logging providers: every LogError and LogWarning in the application went
+		// nowhere. AppStartupService.InitializeAsync runs through SafeFireAndForget, whose
+		// entire contract is "catch it and log it", so a startup that threw halfway produced an
+		// application that was half-built and said nothing — the provider dropdown holding only
+		// what had been registered before the failure, the terminal never speaking, and no
+		// channel anywhere to ask why. Reported from a Windows VM on 2026-09-21; the audit had
+		// filed "MAUI Release has no logging providers" back on 2026-08-24 without following
+		// through to what it cost.
+		//
+		// The WebHost has had console logging all along, which is exactly why it is the head
+		// that gets diagnosed.
+		builder.Logging.AddProvider(
+			new AccessibleTrader.Core.Services.RollingFileLoggerProvider(
+				AccessibleTrader.Core.Services.RollingFileLoggerProvider.DefaultLogPath()));
+
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
