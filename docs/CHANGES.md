@@ -40,7 +40,30 @@ head undiagnosable.
 along, which is precisely why it is the head that gets diagnosed. A head with no output channel
 does not report fewer bugs; it reports none, and the absence reads as health.
 
-Suite 7,956 → **7,965**. New: `StartupFailureIsReachableTests` (5), `RollingFileLoggerProviderTests` (4).
+**The journal settled it, and refuted the startup theory.** Asked to open it on the silent
+machine, Cody reported it full — every line present. So speech was being GENERATED and none of it
+DELIVERED, which means the accessibility coordinator came up fine and the failure is purely in the
+output path. The startup reporting above stays: it is right on its own terms and the logging gap
+was real, but it was not this bug.
+
+**So the journal now says which way speech is leaving**, because it is the one channel
+demonstrated to reach a user whose speech is broken. On the first utterance, and again whenever it
+changes, it records the path and the three booleans that determine it — client library present,
+reader running, live region attached. All three rather than the conclusion, because each
+combination is a different problem with a different fix: a reader running with no library is a
+staging problem, a library with no reader is NVDA not started, and a live region attached while
+the chart has focus is the case that LOOKS like working speech and is not.
+
+**A `diagnostic-build` workflow**, dispatchable by hand, builds the MAUI Windows head on a Windows
+runner and uploads it as an artifact — no tag, no release. The head cannot be built anywhere but
+Windows, so a developer on Linux previously had no way to produce a testable binary at all, which
+is a large part of why it went unmeasured for the life of the project. It fetches the NVDA
+Controller Client from the latest NVDA release rather than vendoring it, and **fails the build if
+the DLL does not reach the publish output** — the exact defect found earlier today, now guarded in
+CI rather than trusted.
+
+Suite 7,956 → **7,969**. New: `StartupFailureIsReachableTests` (5), `RollingFileLoggerProviderTests` (4),
+`SpeechPathIsReportedTests` (4).
 
 
 ### The desktop head was put in front of a screen reader for the first time, and it was mute (2026-09-21, sixty-fifth pass)

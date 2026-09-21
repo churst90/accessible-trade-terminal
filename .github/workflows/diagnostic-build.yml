@@ -1,0 +1,118 @@
+name: diagnostic-build
+
+# Builds the MAUI Windows head on demand and uploads it as a workflow ARTIFACT.
+# No tag, no GitHub Release, nothing public — this exists so a fix can be put in
+# front of a real screen reader on a real Windows machine without cutting a
+# release for it.
+#
+# Why it exists at all: the MAUI Windows head CANNOT be built anywhere but
+# Windows (net10.0-windows10.0.19041.0 needs the Windows SDK), so a developer on
+# Linux has no way to produce a testable binary. Before 2026-09-21 that meant the
+# only way to get one was a release, which is why this head went unmeasured with
+# a screen reader for the life of the project.
+#
+# Trigger: Actions → diagnostic-build → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or SHA to build'
+        required: false
+        default: 'main'
+
+jobs:
+  maui-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.301'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui
+
+      # ── The NVDA Controller Client ────────────────────────────────────────
+      #
+      # Fetched rather than committed. It is a third-party binary (NV Access,
+      # LGPL 2.1) and vendoring it into the repo is a distribution decision that
+      # has not been taken; downloading it here keeps the provenance explicit and
+      # the build reproducible, at the cost of one network call.
+      #
+      # Without it the desktop head is MUTE while the chart has focus — the chart
+      # is a native SkiaSharp canvas over the BlazorWebView, so a reader following
+      # focus onto it is not reading the web view's DOM and the ARIA live region
+      # announces to nobody. See docs/PLATFORMS.md.
+      - name: Fetch NVDA Controller Client
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path vendor/nvda | Out-Null
+
+          # Resolve the controllerClient asset from the latest NVDA release.
+          $headers = @{ 'User-Agent' = 'accessible-trade-terminal-ci' }
+          $release = Invoke-RestMethod -Headers $headers `
+            -Uri 'https://api.github.com/repos/nvaccess/nvda/releases/latest'
+          $asset = $release.assets | Where-Object { $_.name -like '*controllerClient*.zip' } | Select-Object -First 1
+
+          if (-not $asset) {
+            Write-Host "::warning::No controllerClient asset on the latest NVDA release. The build will succeed and the desktop head will be MUTE."
+            exit 0
+          }
+
+          Write-Host "Downloading $($asset.name)"
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile controllerClient.zip
+          Expand-Archive -Path controllerClient.zip -DestinationPath controllerClient -Force
+
+          $dll = Get-ChildItem -Path controllerClient -Recurse -Filter 'nvdaControllerClient64.dll' | Select-Object -First 1
+          if (-not $dll) {
+            Write-Host "::warning::nvdaControllerClient64.dll not found in the archive. The desktop head will be MUTE."
+            exit 0
+          }
+
+          Copy-Item $dll.FullName -Destination vendor/nvda/nvdaControllerClient64.dll -Force
+          Write-Host "Staged $($dll.FullName)"
+
+      - name: Publish MAUI Windows
+        shell: pwsh
+        run: |
+          dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
+            --framework net10.0-windows10.0.19041.0 `
+            --configuration Release `
+            -p:ReleasePublish=true `
+            --output publish/maui-win
+
+      # The whole point of the NVDA work is that this file reaches a PUBLISH and
+      # not merely a build. Fail loudly here rather than shipping a silent zip:
+      # a diagnostic build that cannot speak tells us nothing.
+      - name: Verify the NVDA client reached the publish output
+        shell: pwsh
+        run: |
+          if (Test-Path vendor/nvda/nvdaControllerClient64.dll) {
+            if (-not (Test-Path publish/maui-win/nvdaControllerClient64.dll)) {
+              Write-Error "nvdaControllerClient64.dll was staged in vendor/nvda but did NOT reach the publish output. CopyToPublishDirectory is not taking effect."
+              exit 1
+            }
+            Write-Host "nvdaControllerClient64.dll is in the publish output."
+          } else {
+            Write-Host "::warning::No NVDA client was staged; the produced build will be mute."
+          }
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path publish/maui-win/* -DestinationPath "dist/AccessibleTrader-Windows-diagnostic.zip" -Force
+          Get-ChildItem dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AccessibleTrader-Windows-diagnostic
+          path: dist/*.zip
+          retention-days: 14

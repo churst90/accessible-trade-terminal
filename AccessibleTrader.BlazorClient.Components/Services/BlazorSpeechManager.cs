@@ -36,6 +36,7 @@ namespace AccessibleTrader.BlazorClient.Services
         private DateTime _lastReaderProbeUtc = DateTime.MinValue;
         private bool _readerRunning;
         private bool _muteReported;
+        private SpeechOutputStatus? _reportedStatus;
 
         public bool IsActive => OutputStatus != SpeechOutputStatus.Mute;
 
@@ -163,6 +164,8 @@ namespace AccessibleTrader.BlazorClient.Services
             // sentence it could not say.
             try { Journal?.AddSpeech(text); } catch { /* never let journal break speech */ }
 
+            ReportPathIfChanged();
+
             if (IsNvdaUsable())
             {
                 try
@@ -200,6 +203,50 @@ namespace AccessibleTrader.BlazorClient.Services
             if (!LiveRegionEnabled) return;
             _queuedText = text;
             ReportMuteOnce();
+        }
+
+        /// <summary>
+        /// <b>Writes WHICH WAY speech is leaving into the journal, once, and again whenever it
+        /// changes.</b>
+        ///
+        /// <para>
+        /// The journal earns this specifically. On 2026-09-21 the desktop head was silent and the
+        /// question was whether speech was not being GENERATED or not being DELIVERED; the journal
+        /// answered it in one keystroke, because it holds every sentence the terminal composed
+        /// whether or not anything carried it. It is therefore the one channel known to reach a
+        /// user whose speech is broken — which makes it the right place to say why.
+        /// </para>
+        ///
+        /// <para>
+        /// Three booleans fully determine the answer, so all three are printed rather than the
+        /// conclusion alone: a reader that is running with no library present is a staging
+        /// problem, a library present with no reader running is NVDA not started, and a live
+        /// region attached while the chart has focus is the case that looks like working speech
+        /// and is not — on this head the chart is a native canvas over the web view, so nothing
+        /// is watching that region while the user is on the chart.
+        /// </para>
+        /// </summary>
+        private void ReportPathIfChanged()
+        {
+            var status = OutputStatus;
+            if (_reportedStatus == status) return;
+            _reportedStatus = status;
+
+            string detail =
+                $"Speech output path: {SpeechMode}. "
+              + $"NVDA client library present: {(_nvda.IsClientLibraryAvailable ? "yes" : "no")}. "
+              + $"NVDA running: {(_readerRunning ? "yes" : "no")}. "
+              + $"Live region attached: {(OnSpeak != null ? "yes" : "no")}"
+              + (LiveRegionEnabled ? "" : " (live region disabled by the browser-voice setting)")
+              + ".";
+
+            _logger.LogInformation("{Detail}", detail);
+            try
+            {
+                Journal?.Add(new JournalEntry(DateTime.Now, JournalEntryKind.Info,
+                                              "Speech", null, detail));
+            }
+            catch { /* best-effort */ }
         }
 
         private void ReportMuteOnce()

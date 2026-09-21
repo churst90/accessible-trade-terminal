@@ -309,3 +309,121 @@ public sealed class SpeechOutputPathTests
     }
 
 }
+
+/// <summary>
+/// <b>The speech path, written into the one channel known to reach a user whose speech is
+/// broken.</b>
+///
+/// <para>
+/// On 2026-09-21 the desktop head was silent and the open question was whether speech was not
+/// being GENERATED or not being DELIVERED. The journal settled it in one keystroke — it was full,
+/// so every sentence had been composed and none had been carried. That makes the journal the
+/// right place to say WHY, because it is the channel demonstrated to work when the speech channel
+/// does not.
+/// </para>
+/// </summary>
+public sealed class SpeechPathIsReportedTests
+{
+    private sealed class FakeNvda : INvdaControllerClient
+    {
+        public bool LibraryPresent;
+        public bool ReaderRunning;
+        public bool IsClientLibraryAvailable => LibraryPresent;
+        public bool IsReaderRunning() => ReaderRunning;
+        public void Speak(string text) { }
+        public void CancelSpeech() { }
+    }
+
+    private sealed class RecordingJournal : IJournalService
+    {
+        public List<JournalEntry> Entries { get; } = new();
+        public int Capacity => 1000;
+        public event Action<JournalEntry>? EntryAdded;
+        public void Add(JournalEntry entry) { Entries.Add(entry); EntryAdded?.Invoke(entry); }
+        public void AddSpeech(string text) => Add(new JournalEntry(DateTime.Now, JournalEntryKind.Speech, "TTS", null, text));
+        public IReadOnlyList<JournalEntry> Snapshot() => Entries;
+        public void Clear() => Entries.Clear();
+    }
+
+    private sealed class JournalOnlyProvider : IServiceProvider
+    {
+        private readonly IJournalService _journal;
+        public JournalOnlyProvider(IJournalService journal) => _journal = journal;
+        public object? GetService(Type serviceType) => serviceType == typeof(IJournalService) ? _journal : null;
+    }
+
+    private static (BlazorSpeechManager Sut, FakeNvda Nvda, RecordingJournal Journal) Build(
+        bool libraryPresent, bool readerRunning)
+    {
+        var nvda = new FakeNvda { LibraryPresent = libraryPresent, ReaderRunning = readerRunning };
+        var journal = new RecordingJournal();
+        var sut = new BlazorSpeechManager(
+            NullLogger<BlazorSpeechManager>.Instance, new JournalOnlyProvider(journal), nvda, TimeSpan.Zero);
+        return (sut, nvda, journal);
+    }
+
+    private static List<string> PathLines(RecordingJournal j) =>
+        j.Entries.Where(e => e.Kind == JournalEntryKind.Info && e.Source == "Speech")
+                 .Select(e => e.Text).ToList();
+
+    /// <summary>
+    /// All three booleans, not just the conclusion. Each combination is a DIFFERENT problem with a
+    /// different fix, and "ARIA Live" on its own does not say which.
+    /// </summary>
+    [Fact]
+    public void ThePathReportNamesTheLibraryTheReaderAndTheLiveRegion()
+    {
+        var (sut, _, journal) = Build(libraryPresent: false, readerRunning: false);
+        sut.OnSpeak = _ => { };
+
+        sut.Speak("RSI 62");
+
+        var line = Assert.Single(PathLines(journal));
+        Assert.Contains("ARIA Live", line, StringComparison.Ordinal);
+        Assert.Contains("library present: no", line, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NVDA running: no", line, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Live region attached: yes", line, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Once, not per utterance — the journal is a review surface, not a trace log.</summary>
+    [Fact]
+    public void ItIsReportedOncePerPath_NotPerUtterance()
+    {
+        var (sut, _, journal) = Build(libraryPresent: true, readerRunning: true);
+
+        for (int i = 0; i < 20; i++) sut.Speak($"bar {i}");
+
+        Assert.Single(PathLines(journal));
+    }
+
+    /// <summary>
+    /// And again when it CHANGES, because the interesting moment is the transition: a reader
+    /// starting, a reader dying, a live region attaching as a layout renders.
+    /// </summary>
+    [Fact]
+    public void AChangeOfPathIsReportedAgain()
+    {
+        var (sut, nvda, journal) = Build(libraryPresent: true, readerRunning: false);
+        sut.OnSpeak = _ => { };
+
+        sut.Speak("on the live region");
+        nvda.ReaderRunning = true;
+        sut.Speak("now on NVDA");
+
+        var lines = PathLines(journal);
+        Assert.Equal(2, lines.Count);
+        Assert.Contains("ARIA Live", lines[0], StringComparison.Ordinal);
+        Assert.Contains("NVDA Direct", lines[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AMuteTerminalSaysSoInThePathReportAsWellAsTheError()
+    {
+        var (sut, _, journal) = Build(libraryPresent: false, readerRunning: false);
+
+        sut.Speak("nobody hears this");
+
+        Assert.Contains(PathLines(journal), l => l.Contains("None", StringComparison.Ordinal));
+        Assert.Contains(journal.Entries, e => e.Kind == JournalEntryKind.Error);
+    }
+}
