@@ -93,6 +93,10 @@ namespace AccessibleTrader.WebHost
             // BrowserSpeakRequest event so BrowserSpeechBridge can call
             // window.speechSynthesis. Without the JS-side speech, Orca on
             // Linux+Firefox does not reliably announce live-region updates.
+            // The WebHost never speaks through NVDA directly — the whole surface is the DOM
+            // there, so the live region reaches the reader — and the null client says so rather
+            // than leaving a Windows-only P/Invoke on a server path.
+            services.AddScoped<INvdaControllerClient, NullNvdaControllerClient>();
             services.AddScoped<BlazorSpeechManager>();
             services.AddScoped<ISpeechManager>(sp =>
                 new WebHostSpeechManager(

@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using AccessibleTrader.Core.Services;
 
@@ -8,12 +7,56 @@ namespace AccessibleTrader.BlazorClient.Services
     {
         private readonly ILogger<BlazorSpeechManager> _logger;
         private readonly IServiceProvider _services;
+        private readonly INvdaControllerClient _nvda;
         private IJournalService? _journal; // resolved lazily to avoid construction-order coupling
-        private bool? _isNvdaAvailable;
         private string _queuedText = string.Empty;
 
-        public bool IsActive => (_isNvdaAvailable == true) || OnSpeak != null;
-        public string SpeechMode => (_isNvdaAvailable == true) ? "NVDA Direct" : (OnSpeak != null ? "ARIA Live" : "None");
+        /// <summary>
+        /// How long a "is NVDA running" answer is trusted before it is asked again.
+        ///
+        /// <para>
+        /// There used to be no such interval, because the question was asked exactly once, in the
+        /// constructor, and the answer latched for the life of the process — a singleton on the
+        /// desktop head, so for the life of the app. A user who started NVDA after the terminal,
+        /// or restarted it after a crash, stayed on the fallback path for ever with nothing said.
+        /// The constructor's own comment promised "Immediate check, then background monitor" and
+        /// there was no monitor.
+        /// </para>
+        ///
+        /// <para>
+        /// Two seconds rather than per-utterance: the P/Invoke is cheap but not free, and speech
+        /// here is driven by arrow-key repeat, so per-utterance would put a native call on the
+        /// hot path of the most common interaction in the application.
+        /// </para>
+        /// </summary>
+        internal static readonly TimeSpan DefaultReaderProbeInterval = TimeSpan.FromSeconds(2);
+
+        private readonly TimeSpan _readerProbeInterval;
+
+        private DateTime _lastReaderProbeUtc = DateTime.MinValue;
+        private bool _readerRunning;
+        private bool _muteReported;
+
+        public bool IsActive => OutputStatus != SpeechOutputStatus.Mute;
+
+        /// <summary>
+        /// <b>Which channel speech is leaving by, or that it is not leaving at all.</b> A value
+        /// anyone can ask for, which is the point: before 2026-09-21 the equivalent was a string
+        /// nothing in the application ever read, so "the terminal is mute" was a state the user
+        /// could only infer from the absence of sound.
+        /// </summary>
+        public SpeechOutputStatus OutputStatus =>
+            IsNvdaUsable() ? SpeechOutputStatus.NvdaDirect
+            : (LiveRegionEnabled && OnSpeak != null) ? SpeechOutputStatus.LiveRegion
+            : SpeechOutputStatus.Mute;
+
+        public string SpeechMode => OutputStatus switch
+        {
+            SpeechOutputStatus.NvdaDirect => "NVDA Direct",
+            SpeechOutputStatus.LiveRegion => "ARIA Live",
+            _ => "None",
+        };
+
         public bool IsSpeechEnabled { get; set; } = true;
 
         /// <summary>
@@ -23,12 +66,12 @@ namespace AccessibleTrader.BlazorClient.Services
         /// MAUI never touches it.
         /// </summary>
         public bool LiveRegionEnabled { get; set; } = true;
-        
+
         private Action<string>? _onSpeak;
-        public Action<string>? OnSpeak 
-        { 
-            get => _onSpeak; 
-            set 
+        public Action<string>? OnSpeak
+        {
+            get => _onSpeak;
+            set
             {
                 _onSpeak = value;
                 if (_onSpeak != null && !string.IsNullOrEmpty(_queuedText))
@@ -36,15 +79,44 @@ namespace AccessibleTrader.BlazorClient.Services
                     _onSpeak(_queuedText);
                     _queuedText = string.Empty;
                 }
-            } 
+                // A live region arriving is a recovery from Mute, so a later loss of every path
+                // is worth reporting again rather than being swallowed as "already said".
+                if (_onSpeak != null) _muteReported = false;
+            }
         }
 
-        public BlazorSpeechManager(ILogger<BlazorSpeechManager> logger, IServiceProvider services)
+        public BlazorSpeechManager(ILogger<BlazorSpeechManager> logger, IServiceProvider services,
+                                   INvdaControllerClient? nvda = null, TimeSpan? readerProbeInterval = null)
         {
             _logger = logger;
             _services = services;
-            // Immediate check, then background monitor
-            _isNvdaAvailable = CheckNvdaNative();
+            _nvda = nvda ?? new NvdaControllerClient();
+            // A PARAMETER rather than a const, so a test can drive the re-probe without sleeping
+            // and without reaching into a private field. The first draft of the tests did reach
+            // in — it reset the probe stamp directly — and a sabotage restoring the old
+            // ask-once-and-latch behaviour passed, because the stamp the helper poked was the
+            // very field the latch keyed on. A test that reaches into an implementation detail
+            // ends up agreeing with any implementation that shares it.
+            _readerProbeInterval = readerProbeInterval ?? DefaultReaderProbeInterval;
+
+            // ── The install-level fact, asked once and reported once ────────────────────
+            //
+            // Whether the CLIENT LIBRARY is present is a fact about the build, not about the
+            // user, and it cannot change while the process runs. It is worth one line at
+            // startup because on the desktop head it decides whether the chart can speak at
+            // all: the chart is a native SkiaSharp canvas on top of the BlazorWebView, so a
+            // reader focused on the chart is not reading the web view's DOM and the live-region
+            // fallback cannot reach it. Reported from Cody's Windows VM on 2026-09-21 — the
+            // chart was silent, F2 said nothing, and the same build served over the web was
+            // fine, which is exactly the shape this difference produces.
+            if (!_nvda.IsClientLibraryAvailable)
+            {
+                _logger.LogWarning(
+                    "nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. "
+                  + "On the desktop head the chart canvas is a native control, so the ARIA live-region "
+                  + "fallback cannot reach a screen reader while the chart has focus. Place the DLL in "
+                  + "vendor/nvda/ and rebuild — see docs/PLATFORMS.md.");
+            }
         }
 
         private IJournalService? Journal
@@ -61,18 +133,23 @@ namespace AccessibleTrader.BlazorClient.Services
             }
         }
 
-        private bool CheckNvdaNative()
+        /// <summary>
+        /// Whether the NVDA path can carry this utterance: the library is present AND a reader
+        /// answered recently. The two are deliberately separate — the first is permanent and the
+        /// second is not, and collapsing them into one latched bool is what made a reader started
+        /// after the terminal invisible for ever.
+        /// </summary>
+        private bool IsNvdaUsable()
         {
-            try
+            if (!_nvda.IsClientLibraryAvailable) return false;
+
+            var now = DateTime.UtcNow;
+            if (now - _lastReaderProbeUtc >= _readerProbeInterval)
             {
-                // Test if DLL is reachable and NVDA is running
-                return NvdaNative.TestIfRunning() == 0;
+                _lastReaderProbeUtc = now;
+                _readerRunning = _nvda.IsReaderRunning();
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"NVDA DLL not found or incompatible: {ex.Message}");
-                return false;
-            }
+            return _readerRunning;
         }
 
         public void Speak(string text, bool interrupt = false)
@@ -80,59 +157,81 @@ namespace AccessibleTrader.BlazorClient.Services
             if (string.IsNullOrWhiteSpace(text) || !IsSpeechEnabled) return;
 
             // Mirror every spoken phrase into the journal so it can be reviewed/copied later.
-            // Done before the NVDA call so even speech that's interrupted is captured.
+            // Done before the NVDA call so even speech that's interrupted is captured — and,
+            // since 2026-09-21, so that a MUTE terminal still has a written record of every
+            // sentence it could not say.
             try { Journal?.AddSpeech(text); } catch { /* never let journal break speech */ }
 
-            // Always try NVDA first
-            if (_isNvdaAvailable == true)
+            if (IsNvdaUsable())
             {
                 try
                 {
-                    if (interrupt) NvdaNative.CancelSpeech();
-                    NvdaNative.SpeakText(text);
-                    return; // Exit if NVDA handled it
+                    if (interrupt) _nvda.CancelSpeech();
+                    _nvda.Speak(text);
+                    return;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    _isNvdaAvailable = false; // Fallback to ARIA
+                    // A throw here is the library going away mid-session (NVDA crashed, the DLL
+                    // was replaced). Drop the cached "running" answer so the next probe asks
+                    // again, and fall through to the live region for THIS utterance rather than
+                    // losing it.
+                    _readerRunning = false;
+                    _lastReaderProbeUtc = DateTime.MinValue;
+                    _logger.LogWarning(ex, "NVDA-direct speech failed; falling back to the live region.");
                 }
             }
 
-            // Fallback to ARIA Live
-            if (!LiveRegionEnabled) return;
-            if (OnSpeak != null)
+            if (LiveRegionEnabled && OnSpeak != null)
             {
                 OnSpeak(text);
+                return;
             }
-            else
-            {
-                _queuedText = text;
-            }
+
+            // ── Nothing carried it ──────────────────────────────────────────────────────
+            //
+            // Queue it, exactly as before, so a live region attaching a moment later still says
+            // the first thing the terminal wanted to say. But queuing is not delivery, and the
+            // old code's silence about that is the defect: a desktop launch with no DLL and no
+            // rendered layout dropped every sentence into a one-deep buffer and told nobody.
+            // The queue is one utterance, so the second onwards are LOST, and this is the only
+            // place that knows it.
+            if (!LiveRegionEnabled) return;
+            _queuedText = text;
+            ReportMuteOnce();
         }
-public void Silence()
-{
-    if (_isNvdaAvailable == true)
-    {
-        try { NvdaNative.CancelSpeech(); } catch { }
-    }
 
-    OnSpeak?.Invoke("");
-    _queuedText = "";
-}
-        public void Dispose() { }
-
-        private static class NvdaNative
+        private void ReportMuteOnce()
         {
-            private const string DllName = "nvdaControllerClient64.dll";
+            if (_muteReported) return;
+            _muteReported = true;
 
-            [DllImport(DllName, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, EntryPoint = "nvdaController_testIfRunning")]
-            public static extern int TestIfRunning();
+            const string message =
+                "The terminal has no way to speak: the NVDA Controller Client is not loadable and no "
+              + "live region is attached. Speech is being written to the journal only. On the desktop "
+              + "head, stage nvdaControllerClient64.dll (see docs/PLATFORMS.md).";
 
-            [DllImport(DllName, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, EntryPoint = "nvdaController_speakText")]
-            public static extern int SpeakText(string text);
-
-            [DllImport(DllName, CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, EntryPoint = "nvdaController_cancelSpeech")]
-            public static extern int CancelSpeech();
+            // Error, not warning: on this application a dead speech channel is a dead application.
+            _logger.LogError(message);
+            try
+            {
+                Journal?.Add(new JournalEntry(DateTime.Now, JournalEntryKind.Error,
+                                              "Speech", null, message));
+            }
+            catch { /* best-effort */ }
         }
+
+        public void Silence()
+        {
+            if (IsNvdaUsable())
+            {
+                try { _nvda.CancelSpeech(); } catch { /* best-effort */ }
+            }
+
+            OnSpeak?.Invoke("");
+            _queuedText = "";
+        }
+
+        public void Dispose() { }
     }
 }

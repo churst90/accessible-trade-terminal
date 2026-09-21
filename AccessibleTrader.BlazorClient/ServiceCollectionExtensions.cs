@@ -76,6 +76,13 @@ namespace AccessibleTrader.BlazorClient
 
             // Native UI drivers — platform-specific implementations of core SDK interfaces.
             services.AddSingleton<IInputService, BlazorInputService>();
+            // The NVDA Controller Client, as a registration rather than three DllImports reached
+            // from inside the speech manager. Windows only: everywhere else the library cannot
+            // exist, and saying so up front spares a failing P/Invoke per utterance.
+            services.AddSingleton<INvdaControllerClient>(_ =>
+                OperatingSystem.IsWindows()
+                    ? new NvdaControllerClient()
+                    : new NullNvdaControllerClient());
             services.AddSingleton<ISpeechManager, BlazorSpeechManager>();
             services.AddSingleton<IAudioDriver, BlazorAudioDriver>();
 

@@ -158,3 +158,36 @@ The build also runs WITHOUT the SDK present — `WarnIfDotPadSdkMissing`
 emits a one-line MSBuild message and Dot Pad support is simply
 unavailable at runtime (`DotpadTactileDriver` reports not-connected via
 the `NullDotPadNative` fallback).
+
+### NVDA Controller Client (required for speech on the Windows desktop head)
+
+**This one is not optional in the way the Dot Pad SDK is.** Without it the desktop head is
+effectively mute while the chart has focus, which is most of the time.
+
+`BlazorSpeechManager` P/Invokes `nvdaControllerClient64.dll` to speak directly to NVDA. That path
+matters here in a way it does not on the WebHost, because of how this head is assembled: the chart
+is a native SkiaSharp canvas sitting **on top of** the `BlazorWebView`. When the user focuses the
+chart, the screen reader is following focus onto a native control and is not reading the web
+view's DOM at all — so the ARIA live region inside it, which is the fallback everywhere else,
+announces to nobody. On the WebHost the entire surface is the DOM and the fallback works, which is
+why the same build served over the web reads correctly through NVDA while the desktop client says
+nothing.
+
+Until 2026-09-21 **nothing in the build staged this file**: it was untracked by git, named by no
+project file, and absent from every publish. A single copy had been dropped by hand into a
+`bin/Debug` folder on 2026-03-03, so exactly one machine could speak and every fresh build and
+every published install was silent. Found the first time the head was put in front of a screen
+reader.
+
+1. Download `nvda_<version>_controllerClient.zip` from
+   [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases).
+2. Copy the **x64** `nvdaControllerClient64.dll` into `vendor/nvda/` relative to the repo root.
+   It is gitignored — a third-party binary (NV Access, LGPL 2.1), vendored rather than committed
+   for the same reason the Dot Pad SDK is.
+3. Build normally. `CopyNvdaControllerWindows` stages it alongside the app binary.
+
+A build without it still succeeds, and `WarnIfNvdaControllerMissing` prints a high-importance
+MSBuild message saying the result will be silent. At runtime the condition is reported too rather
+than being left as an absence of sound: `BlazorSpeechManager.OutputStatus` answers
+`NvdaDirect` / `LiveRegion` / `Mute`, a `Mute` terminal writes an error into the journal naming
+this file, and every sentence it could not say is still journalled so nothing is lost.

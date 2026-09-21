@@ -359,6 +359,43 @@
               Condition=" '@(DotPadSdkIpadic)' != '' " />
     </Target>
 
+    <!--
+        Stage the NVDA Controller Client alongside the host binary on Windows.
+
+        BlazorSpeechManager P/Invokes nvdaControllerClient64.dll for NVDA-direct speech, and
+        that path is not a nicety on this head: the chart is a native SkiaSharp canvas sitting
+        ON TOP of the BlazorWebView, so when the user focuses the chart the screen reader is not
+        looking at the WebView's DOM at all and the ARIA live-region fallback cannot reach it.
+        No DLL means no speech from the chart, which is the whole application.
+
+        Until 2026-09-21 NOTHING in the build staged this file. One copy had been dropped by
+        hand into bin/Debug on 2026-03-03 and never tracked, referenced by any project file, or
+        included in a publish — so the developer's own machine spoke and every fresh build and
+        every published install was mute. Reported from the Windows VM, 2026-09-21.
+
+        Vendored rather than committed, exactly like the Dot Pad SDK above: it is a third-party
+        binary (NV Access, LGPL 2.1). The Exists() guard and the warning below keep a fresh
+        clone building; NVDA-direct speech is simply unavailable until the file is placed. See
+        docs/PLATFORMS.md.
+    -->
+    <Target Name="WarnIfNvdaControllerMissing"
+            AfterTargets="Build"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
+        <Message Importance="high" Text="NVDA Controller Client not found at vendor/nvda/nvdaControllerClient64.dll. NVDA-direct speech will be unavailable at runtime, and because the chart canvas is a native control the ARIA live-region fallback cannot reach a screen reader while the chart has focus — the chart will be SILENT. Download nvdaControllerClient from https://github.com/nvaccess/nvda/releases (controllerClient zip) and copy the x64 nvdaControllerClient64.dll into vendor/nvda/. See docs/PLATFORMS.md." />
+    </Target>
+
+    <Target Name="CopyNvdaControllerWindows"
+            AfterTargets="Build"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
+        <ItemGroup>
+            <NvdaControllerBinaries Include="..\vendor\nvda\nvdaControllerClient64.dll" />
+        </ItemGroup>
+        <Copy SourceFiles="@(NvdaControllerBinaries)"
+              DestinationFolder="$(OutDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(NvdaControllerBinaries)' != '' " />
+    </Target>
+
     <Target Name="CopyScriptWorker"
             AfterTargets="Build"
             BeforeTargets="GeneratePluginTrustManifest"

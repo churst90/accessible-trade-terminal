@@ -121,3 +121,5 @@ dist/
 # Personal research notes on a YouTube trader's calls — not part of the product.
 docs/CAMEL_TRACK_RECORD.md
 scratchpad/__pycache__/
+# Vendored third-party binaries, not committed.
+vendor/nvda/*.dll

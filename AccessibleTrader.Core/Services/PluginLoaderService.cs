@@ -215,6 +215,10 @@ namespace AccessibleTrader.Core.Services
             var dlls = Directory.GetFiles(directory, searchPattern, SearchOption.AllDirectories);
             _logger.LogDebug("Found {Count} matching plugin DLLs.", dlls.Length);
 
+            // Counted so the "every single one was refused" case can be reported as ITSELF rather
+            // than as a per-DLL warning nobody reads. See the summary below the loop.
+            int refusedForTrust = 0;
+
             foreach (var dll in dlls)
             {
                 try
@@ -226,6 +230,7 @@ namespace AccessibleTrader.Core.Services
                     {
                         if (_trust.RequireTrusted)
                         {
+                            refusedForTrust++;
                             _logger.LogWarning(
                                 "Plugin {Dll} (sha256 {Hash}) is not in the trusted allow-list. " +
                                 "Skipping load (PluginTrustPolicy.RequireTrusted=true).",
@@ -268,6 +273,32 @@ namespace AccessibleTrader.Core.Services
                 {
                     _logger.LogError(ex, "Error loading plugin DLL {Dll}.", dll);
                 }
+            }
+
+            // ── EVERY plugin refused is a different fact from SOME plugin refused ────────
+            //
+            // Reported from the Windows VM on 2026-09-21: the market dropdown offered only the
+            // built-in providers — My Data and the analytics tabs — and nothing said why. That
+            // is what an empty allow-list looks like from the outside. The manifest ships next to
+            // the binary and is generated against $(OutDir) at build time, so an install whose
+            // manifest did not travel with it, or whose DLLs were rebuilt after it, refuses the
+            // entire fleet; the policy's own comment calls this "exactly what we want when the
+            // manifest is supposed to be there but isn't", and it is — the refusal is right. What
+            // was wrong is that it was announced only as one LogWarning per DLL, into a logger
+            // that the MAUI Release head registers no providers for. The user saw an empty list.
+            //
+            // A per-DLL warning cannot carry this: the interesting quantity is the RATIO, and no
+            // single iteration of the loop knows it.
+            if (refusedForTrust > 0 && found.Count == 0)
+            {
+                _logger.LogError(
+                    "All {Refused} plugin DLL(s) in {Directory} were refused because their hashes are not in " +
+                    "the trusted allow-list, so NO plugins loaded from there and the application will behave " +
+                    "as though none are installed. Either plugins_trusted.manifest did not ship alongside the " +
+                    "binary, or the DLLs were rebuilt after it was generated. Regenerate it with " +
+                    "tools/generate-plugin-trust-manifest, or set ACCESSIBLETRADER_ALLOW_UNVERIFIED_PLUGINS=1 " +
+                    "to load them unverified.",
+                    refusedForTrust, directory);
             }
 
             return found;

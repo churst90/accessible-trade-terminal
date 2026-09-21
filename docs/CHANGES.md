@@ -4,6 +4,67 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The desktop head was put in front of a screen reader for the first time, and it was mute (2026-09-21, sixty-fifth pass)
+
+The oldest unaddressed item on the report card — *"the MAUI head has never been measured with a
+screen reader"* — was measured, on a Windows VM, and produced three findings in the first minutes:
+focusing the chart said nothing, F2 said nothing, and the market dropdown offered only the
+built-in providers. The same build served over the web through NVDA was fine.
+
+**Two roots, and they are the same shape: a head that fails loudly into a log with no providers,
+and silently to the user.**
+
+- **`nvdaControllerClient64.dll` was staged by NOTHING.** Not tracked by git, not named by any
+  csproj, absent from every publish. One copy had been dropped by hand into a `bin/Debug` folder
+  on 2026-03-03, so exactly one machine could speak and every fresh build and every published
+  install was silent. **And this head cannot fall back the way the WebHost can:** the chart is a
+  native SkiaSharp canvas sitting ON TOP of the `BlazorWebView`, so a reader following focus onto
+  the chart is not reading the web view's DOM and the ARIA live region inside it announces to
+  nobody. On the WebHost the whole surface IS the DOM, which is exactly why the web build was
+  unaffected. Staged now by `CopyNvdaControllerWindows`, warned about by
+  `WarnIfNvdaControllerMissing`, vendored to `vendor/nvda/` and documented in `docs/PLATFORMS.md`
+  — the same pattern the Dot Pad SDK has had all along.
+- **A second bug outlived the first, and would have survived the DLL arriving.** NVDA
+  availability was decided ONCE, in the constructor, and latched — on a head where the speech
+  manager is a SINGLETON, so for the life of the app. A user who started NVDA after the terminal,
+  or restarted it after a crash, was on the fallback path for ever with nothing said. The
+  constructor's own comment promised "Immediate check, then background monitor" and there was no
+  monitor. The two facts are now separate, because they are different KINDS of fact: whether the
+  client library loads is about the INSTALL and cannot change; whether a reader is running is
+  about the USER and changes constantly. The second is re-probed on a throttle.
+- **The terminal now says when it cannot speak.** `SpeechOutputStatus` is `NvdaDirect` /
+  `LiveRegion` / `Mute` — a value anyone can ask for, where the old `SpeechMode` string was read
+  by nothing in the application, so "mute" was a state the user could only infer from silence. A
+  `Mute` terminal writes one error into the journal naming the missing file, and every sentence it
+  could not say is still journalled, so nothing is lost.
+- **Every plugin being refused is now reported as its own fact.** The empty market dropdown is
+  what an empty trusted allow-list looks like from outside: `plugins_trusted.manifest` is
+  generated against the build output, so an install whose manifest did not travel with it — or
+  whose DLLs were rebuilt after it — refuses the whole fleet. **The refusal is correct and
+  deliberate**; what was wrong is that its only account was one warning per DLL. A per-DLL warning
+  cannot carry this, because the interesting quantity is the RATIO and no iteration of the loop
+  knows it.
+- **The P/Invoke is now a PARAMETER** (`INvdaControllerClient`), which is the only reason any of
+  the above has tests: it was three `DllImport`s and a bool in a constructor, so none of it could
+  be exercised without a Windows box, so none of it ever was. Same lesson as the notifier seam in
+  the background monitor.
+
+**Two of the four sabotages against the new tests SURVIVED on the first run, and both were
+defects in the tests.** One helper reached into the private probe stamp to skip the throttle — and
+that stamp is the very field the old latch keyed on, so restoring the latch left the helper
+re-enabling the probe and the test green. *A test that reaches into an implementation detail ends
+up agreeing with any implementation that shares it;* the interval is a constructor parameter now.
+The other let the reader come back immediately after a mid-session throw, so "re-probed and found
+it" and "never re-probed and assumed it" produced identical observations. Both go red now.
+
+**Still open on this head, and not fixed here:** Cody must place the DLL and rebuild before the
+desktop client speaks — this pass makes the build and the app say so, it cannot supply a
+third-party binary. The dropdown needs its manifest checked on the installed copy. Neither is
+verified on Windows; nothing in this pass can be, from Linux.
+
+Suite 7,942 → **7,956**. New: `SpeechOutputPathTests` (12), `PluginTrustRefusalReportingTests` (2).
+
+
 ### The price pane fits what is drawn on it, and the pitch band is laid out the way an ear reads it (2026-09-21, sixty-fourth pass)
 
 Two changes that are one change, because on this terminal the price pane's range is also the
