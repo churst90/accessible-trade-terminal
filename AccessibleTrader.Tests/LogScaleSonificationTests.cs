@@ -15,7 +15,7 @@ namespace AccessibleTrader.Tests;
 /// Until 2026-09-18 the audio path normalised a value linearly across the viewport range
 /// whatever Alt+L said; nothing under <c>Services/Audio</c> read <c>IsLogScale</c>. So on a
 /// log-scaled 10k–100k chart the price 31,623 was DRAWN at the vertical middle of the pane and
-/// SOUNDED a quarter of the way up (392 Hz of a 200–1000 Hz sweep). The chart said "Log scale"
+/// SOUNDED a quarter of the way up the 200–1000 Hz band. The chart said "Log scale"
 /// when the key was pressed, and the words were true of the pixels only.
 /// </para>
 ///
@@ -31,6 +31,23 @@ public sealed class LogScaleSonificationTests
 {
     // The geometric midpoint of 10k–100k: drawn at the vertical middle on a log scale.
     private const double Lo = 10_000, Hi = 100_000, Mid = 31_622.7766;
+
+    // ── What Mid SOUNDS like on each scale, derived rather than observed ──────────
+    //
+    // The pitch band is 200–1000 Hz and, since 2026-09-21, a value's position in the pane maps
+    // to it EXPONENTIALLY — linear in pitch, not in hertz. See AudioConstants.PitchForPosition
+    // for why; the consequence here is that these two numbers are geometric, not arithmetic.
+    //
+    // LOG SCALE: Mid is the geometric mean of the range, so it is drawn at exactly half the pane
+    // height, so it sounds at exactly half the pitch band — and half of a band that is
+    // geometric IS the geometric mean of its ends: sqrt(200 × 1000) = 447.21 Hz. Under the old
+    // hertz-linear ramp the same half-pane sounded at the ARITHMETIC mean, 600 Hz, which is a
+    // major sixth above the true midpoint of the band rather than a tritone.
+    //
+    // LINEAR SCALE: Mid sits (31622.7766 − 10000) / 90000 = 0.24025 of the way up the pane, so
+    // 200 × 5^0.24025 = 294.41 Hz.
+    private const double MidOnLogHz    = 447.21;   // sqrt(200 * 1000)
+    private const double MidOnLinearHz = 294.41;   // 200 * 5^0.24025
 
     // ── The normaliser is the pixel mapping's ─────────────────────────────────
 
@@ -83,9 +100,10 @@ public sealed class LogScaleSonificationTests
         var linear = strategy.CreateAudioPoint(series, PriceLine(), Mid, Bar(Mid), 5, 20, (Lo, Hi), 1f, isLogScale: false);
         var log    = strategy.CreateAudioPoint(series, PriceLine(), Mid, Bar(Mid), 5, 20, (Lo, Hi), 1f, isLogScale: true);
 
-        // 200 + n × 800: a quarter of the way up on linear, halfway on log.
-        Assert.InRange(linear.Frequency, 390, 395);
-        Assert.InRange(log.Frequency, 599, 601);
+        // A quarter of the way up the pane on linear, exactly halfway on log — and the pane's
+        // height maps to PITCH, so "halfway" is the band's geometric mean.
+        Assert.InRange(linear.Frequency, MidOnLinearHz - 1, MidOnLinearHz + 1);
+        Assert.InRange(log.Frequency, MidOnLogHz - 1, MidOnLogHz + 1);
     }
 
     [Fact]
@@ -96,7 +114,7 @@ public sealed class LogScaleSonificationTests
             new SeriesDataBuffer { SeriesId = "price" });
 
         var pt = strategy.CreateAudioPoint(series, PriceLine(), Mid, Bar(Mid), 5, 20, (Lo, Hi), 1f);
-        Assert.InRange(pt.Frequency, 390, 395);
+        Assert.InRange(pt.Frequency, MidOnLinearHz - 1, MidOnLinearHz + 1);
     }
 
     // ── Which panes ───────────────────────────────────────────────────────────
@@ -189,15 +207,15 @@ public sealed class LogScaleSonificationTests
     [Fact]
     public void ArrowingOntoABar_PitchFollowsTheToggle_InTheMainPane()
     {
-        Assert.InRange(NavigationPitch("Main", isLogScale: false), 390, 395);
-        Assert.InRange(NavigationPitch("Main", isLogScale: true), 599, 601);
+        Assert.InRange(NavigationPitch("Main", isLogScale: false), MidOnLinearHz - 1, MidOnLinearHz + 1);
+        Assert.InRange(NavigationPitch("Main", isLogScale: true), MidOnLogHz - 1, MidOnLogHz + 1);
     }
 
     [Fact]
     public void ArrowingOntoABar_AnIndicatorPaneIgnoresTheToggle()
     {
-        Assert.InRange(NavigationPitch("Pane_X", isLogScale: false), 390, 395);
-        Assert.InRange(NavigationPitch("Pane_X", isLogScale: true), 390, 395);
+        Assert.InRange(NavigationPitch("Pane_X", isLogScale: false), MidOnLinearHz - 1, MidOnLinearHz + 1);
+        Assert.InRange(NavigationPitch("Pane_X", isLogScale: true), MidOnLinearHz - 1, MidOnLinearHz + 1);
     }
 
     private static async Task<List<double>> PlaybackPitches(string pane, bool isLogScale)
@@ -221,8 +239,8 @@ public sealed class LogScaleSonificationTests
         var log = await PlaybackPitches("Main", isLogScale: true);
         Assert.NotEmpty(linear);
         Assert.NotEmpty(log);
-        Assert.All(linear, f => Assert.InRange(f, 390, 395));
-        Assert.All(log, f => Assert.InRange(f, 599, 601));
+        Assert.All(linear, f => Assert.InRange(f, MidOnLinearHz - 1, MidOnLinearHz + 1));
+        Assert.All(log, f => Assert.InRange(f, MidOnLogHz - 1, MidOnLogHz + 1));
     }
 
     [Fact]
@@ -230,6 +248,6 @@ public sealed class LogScaleSonificationTests
     {
         var log = await PlaybackPitches("Pane_X", isLogScale: true);
         Assert.NotEmpty(log);
-        Assert.All(log, f => Assert.InRange(f, 390, 395));
+        Assert.All(log, f => Assert.InRange(f, MidOnLinearHz - 1, MidOnLinearHz + 1));
     }
 }

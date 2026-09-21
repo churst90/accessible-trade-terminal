@@ -244,6 +244,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportLength = state.ViewportLength,
                 IsHeikinAshi = state.IsHeikinAshi,
                 IsLogScale = state.IsLogScale,
+                ScalePriceOnly = state.ScalePriceOnly,
                 Series = state.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = state.PaneHeightRatios != null
                     ? new Dictionary<string, float>(state.PaneHeightRatios)
@@ -263,6 +264,7 @@ namespace AccessibleTrader.Core.Services
                 ViewportLength = snap.ViewportLength,
                 IsHeikinAshi = snap.IsHeikinAshi,
                 IsLogScale = snap.IsLogScale,
+                ScalePriceOnly = snap.ScalePriceOnly,
                 Series = snap.ActiveSeries.Select(CaptureConfig).ToList(),
                 PaneHeightRatios = snap.PaneHeightRatios != null
                     ? new Dictionary<string, float>(snap.PaneHeightRatios)

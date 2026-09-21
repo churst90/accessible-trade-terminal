@@ -121,9 +121,18 @@ namespace AccessibleTrader.Core.Services
                 var candidate = Reduce(_currentState, action);
 
                 // Auto-calculate ViewportRange if viewport parameters or data changed
+                //
+                // ScalePriceOnly belongs in this list and IsLogScale does NOT, and the
+                // difference is the whole distinction between the two toggles: log scale
+                // changes how the range is MAPPED to the pane (ChartMath.MapY /
+                // NormalizedPosition read the flag at draw and at sound time), where
+                // ScalePriceOnly changes what the range IS. A toggle that moves the numbers
+                // and is missing here is silent until the next tick happens to recompute —
+                // which on a paused or closed market is never.
                 if (candidate.Data != _currentState.Data ||
                     candidate.ViewportStartIndex != _currentState.ViewportStartIndex ||
                     candidate.ViewportLength != _currentState.ViewportLength ||
+                    candidate.ScalePriceOnly != _currentState.ScalePriceOnly ||
                     candidate.ActiveSeries != _currentState.ActiveSeries)
                 {
                     var result = _rangeCalculator.Calculate(candidate);
@@ -336,6 +345,7 @@ namespace AccessibleTrader.Core.Services
                 // shortcuts silently did nothing (found live 2026-07-23).
                 or ToggleEventSpeechAction or ToggleEarconsAction
                 or ToggleHeikinAshiAction or ToggleLogScaleAction
+                or ToggleScalePriceOnlyAction
                 => PlaybackReducer.Reduce(state, action),
 
             // ── Tabs + pane layout ───────────────────────────────────────────

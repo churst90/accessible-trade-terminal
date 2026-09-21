@@ -525,6 +525,35 @@ its pitch from where the value sits on the scale as drawn, so on a log chart the
 the pane is the note halfway up the sweep. Indicator panes are never on the log scale, on screen
 or in sound.
 
+**"Halfway up the sweep" means halfway in PITCH, not halfway in hertz.** From 2.12.0 a value's
+height in its pane maps to the 200–1000 Hz band exponentially, so equal fractions of the pane are
+equal musical intervals wherever in the pane you are: a tenth of the pane is always the same step,
+about two and a third semitones, whether you are down near the low of the window or up at the
+high. It used to be a straight line in hertz, which sounds like a straight line only if you hear
+in hertz — the bottom quarter of every pane carried a whole octave and the top quarter carried a
+major third, so a price riding high in the window moved a long way on screen and barely at all in
+the ear. The floor and the ceiling of the band are unchanged, so the extremes sound exactly as
+they always did; it is the middle that has been redistributed, and the midpoint of a pane now
+sounds at 447 Hz where it used to sound at 600.
+
+**What the price pane fits, and why it is your choice (Alt+F).** By default the price pane sizes
+itself to hold everything drawn on it: the candles *and* every visible overlay. A Bollinger band
+or a Keltner channel that swings wider than the bars widens the pane rather than running off it.
+That is not only a picture question, because the pane's range is also the pitch range — anything
+outside the pane is not merely invisible, it is silent, and a band that has gone quiet sounds
+exactly like a band sitting still. Press **Alt+F** and the pane fits the price bars alone; the
+terminal says "fitting price only". Overlays may then leave the pane, and go quiet when they do,
+but the price line has the whole 200–1000 Hz band to itself, which is what you want when you are
+listening for small moves in price rather than watching a band. Press Alt+F again to go back. It
+is per tab, it is saved with the workspace, and a new tab inherits it.
+
+The trade is worth stating plainly, because it is the reason this is a switch and not a decision
+made for you. Adding a wide band to the price pane compresses the price line into a smaller share
+of the pane, and therefore into a smaller share of the pitch band. Under the interval-even mapping
+above that compression is a constant transposition — a price line occupying a third of the pane
+gets a third of the octaves, wherever in the pane it sits — so it is a cost you can predict and
+reason about rather than one that changes depending on where price happens to be standing.
+
 ### Series, components, strips
 
 Inside a pane the structure continues. A **series** is one thing you added: the candles, an

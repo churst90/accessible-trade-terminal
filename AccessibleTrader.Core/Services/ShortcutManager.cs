@@ -376,6 +376,11 @@ namespace AccessibleTrader.Core.Services
             // Chart display toggles (Alt+key) — require no data gate, so always work.
             s.Add(new(SystemCommand.ToggleHeikinAshi, "C", Alt: true)); // Alt+C
             s.Add(new(SystemCommand.ToggleLogScale,   "L", Alt: true)); // Alt+L
+            // Alt+F for FIT — the third member of the axis family beside Alt+C and Alt+L, and
+            // the one that decides what the axis is fitted TO. Alt+Shift+L would have read
+            // better and is DrawLabel; Alt+F is free on every head and, being a modifier chord,
+            // is hard-stopped by keyboard.js before the browser's own Alt+F menu sees it.
+            s.Add(new(SystemCommand.ToggleScalePriceOnly, "F", Alt: true)); // Alt+F
 
             // Modal shortcuts (Alt+key)
             s.Add(new(SystemCommand.OpenObjectTree,       "O", Alt: true)); // Alt+O

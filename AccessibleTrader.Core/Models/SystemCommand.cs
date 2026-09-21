@@ -127,6 +127,7 @@ namespace AccessibleTrader.Core.Models
         // Chart Settings
         ToggleHeikinAshi,
         ToggleLogScale,
+        ToggleScalePriceOnly, // Alt+F — whether auto-fit sees Main-pane overlays or price only
         ToggleIndicatorVisibility, // H
         ToggleIndicatorAudio, // M
         ToggleHeatmap, // Alt+H

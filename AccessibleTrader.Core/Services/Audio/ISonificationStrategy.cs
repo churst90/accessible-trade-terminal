@@ -119,7 +119,10 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else if (comp.PitchMapping == PitchMapping.Value)
             {
-                freq = 200 + (normalizedValue * 800);
+                // LINEAR IN PITCH, not in hertz — see AudioConstants.PitchForPosition. The
+                // fraction of the pane comes from the same normaliser the renderer uses; this
+                // turns it into a frequency the ear reads as that same fraction.
+                freq = AudioConstants.PitchForPosition(normalizedValue);
                 freq *= comp.FreqMultiplier;
             }
             else if (comp.PitchMapping == PitchMapping.Direction || comp.PitchMapping == PitchMapping.PriceDirection)
@@ -137,7 +140,7 @@ namespace AccessibleTrader.Core.Services.Audio
             }
             else if (comp.PitchMapping == PitchMapping.Price)
             {
-                freq = 200 + (normalizedValue * 800);
+                freq = AudioConstants.PitchForPosition(normalizedValue);
                 freq *= comp.FreqMultiplier;
             }
             else

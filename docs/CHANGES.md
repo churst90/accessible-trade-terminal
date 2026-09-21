@@ -2,6 +2,68 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### The price pane fits what is drawn on it, and the pitch band is laid out the way an ear reads it (2026-09-21, sixty-fourth pass)
+
+Two changes that are one change, because on this terminal the price pane's range is also the
+price pane's PITCH range.
+
+- **Auto-fit sees Main-pane overlays now, and there is a switch (Alt+F).** Until today the price
+  pane was sized from the OHLC buffer, visible reference levels and declared bounds, and nothing
+  else — every indicator pane had expanded to fit its components since the beginning, and the
+  price pane alone never did. A Bollinger band, a Keltner or Donchian channel, an MA cloud or a
+  Chandelier Exit stop that swung wider than the candles was drawn OUTSIDE the pane. **Clipping
+  here is not only a visual defect:** `ChartMath.NormalizedPosition` normalises across exactly
+  this range and the sonification turns the result into a frequency, so off the pane is also
+  SILENT — and a band that has gone quiet sounds exactly like a band sitting still.
+  `WorkspaceState.ScalePriceOnly` (Alt+F, "fitting price only") is TradingView's "Scale price
+  chart only" and restores the old behaviour deliberately. **Default OFF — include — because the
+  other failure is the silent one**, and a user cannot investigate something they were never
+  told about.
+- **Three conditions on what may move the axis, each of them "what the eye is shown":** the
+  series and the component must be VISIBLE (hiding a band must not leave its footprint behind);
+  a sub-pane strip is its own axis; and the value must plausibly be a PRICE, by the same
+  span-multiple guard the reference levels already use — a series whose `Pane` is unset falls
+  back to "Main", and `LoukasCyclesProvider`'s day-counts on a BTC chart is the worked example of
+  what that costs. The guard is measured against the ORIGINAL price span, not the running one, so
+  a ladder of ever-wider components cannot walk the axis out one plausible step at a time. All
+  five were proved red by sabotage, individually.
+- **`ScalePriceOnly` is in `WorkspaceStore`'s recompute gate and `IsLogScale` is not, and the
+  difference is the distinction between the two toggles.** Log scale changes how the range is
+  MAPPED; this changes what the range IS. A toggle that moves the numbers and is missing from
+  that gate is silent until the next tick happens to recompute — which on a closed market is
+  never.
+
+- **The pitch band is now linear in PITCH rather than in hertz, which is the second half of the
+  log-scale fix that landed on 2026-09-18.** That first half gave the eye and the ear one
+  normaliser. It did not touch the step after — turning a fraction of the pane into a frequency —
+  which was `200 + n × 800`. Pitch perception is logarithmic in frequency, so a hertz-linear ramp
+  is not a straight line to the ear: **the bottom quarter of every pane carried a whole octave
+  (200→400 Hz) and the top quarter carried a major third (800→1000)**, so the same gesture up the
+  pane sounded five times larger at the bottom than at the top, and a price riding high in the
+  window moved a long way on screen and barely at all in the ear.
+  `AudioConstants.PitchForPosition` maps the fraction exponentially instead. **The band is
+  unchanged at 200–1000 Hz — the floor and the ceiling sound exactly as they always have and only
+  the interior is redistributed** — and the midpoint of a pane now sounds at 447 Hz, the band's
+  geometric mean, where it used to sound at 600.
+- **This had to land WITH the auto-fit change rather than after it.** Including overlays widens
+  the range and so compresses the price line into a smaller share of the pane. Under the new
+  mapping that is a constant transposition — a third of the pane is a third of the octaves,
+  wherever in the pane it sits — so the cost of Alt+F is one a user can predict. Under the old
+  ramp the identical compression cost two and three-quarter times as much pitch at the top of the
+  pane as at the bottom, a penalty nobody could have reasoned about.
+
+**NOT HEARD.** Both behaviours change what a saved chart sounds like without the user touching a
+setting.
+
+Suite 7,910 → **7,942**. New: `PriceAutoFitScopeTests` (11), `PerceptualPitchMappingTests` (20).
+`LogScaleSonificationTests`' six pinned frequencies were rewritten in terms of the geometric
+mean rather than re-observed. Four existing guards went red on the change and were the reason
+each loose end got tied: `ShortcutHelpParityTests` (twice — Alt+F undocumented in the help
+dialog and in `SHORTCUTS.md`), `Phase5KeyboardScopeTests` (the new command uncategorised),
+`WorkspaceProjectionTests` (the new state field said nothing to the script sandbox).
+
 ## [2.11.0] — 2026-09-21
 
 ### A2j — the layer that decides what a blind user HEARS gets measured, and 82.0% is the best rate yet (2026-09-19, sixty-second pass)

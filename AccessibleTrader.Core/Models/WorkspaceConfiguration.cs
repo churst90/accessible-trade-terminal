@@ -17,6 +17,10 @@ namespace AccessibleTrader.Core.Models
         public int ViewportLength { get; set; }
         public bool IsHeikinAshi { get; set; }
         public bool IsLogScale { get; set; }
+        /// <summary>See <see cref="Sdk.Models.WorkspaceState.ScalePriceOnly"/>. Absent from a
+        /// workspace saved before 2026-09-21 and deserialising to false, which is the default and
+        /// is therefore the right answer for an old file.</summary>
+        public bool ScalePriceOnly { get; set; }
         public List<SeriesConfig> Series { get; set; } = new();
         public Dictionary<string, float> PaneHeightRatios { get; set; } = new();
 

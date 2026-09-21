@@ -663,6 +663,7 @@ namespace AccessibleTrader.Core.Services.Input
             {
                 case SystemCommand.ToggleHeikinAshi: _store.Dispatch(new ToggleHeikinAshiAction()); break;
                 case SystemCommand.ToggleLogScale: _store.Dispatch(new ToggleLogScaleAction()); break;
+                case SystemCommand.ToggleScalePriceOnly: _store.Dispatch(new ToggleScalePriceOnlyAction()); break;
                 case SystemCommand.ToggleHeatmap:
                     _eventBus.Publish(new ToggleToolEvent(ToolType.Heatmap));
                     break;
@@ -949,6 +950,7 @@ namespace AccessibleTrader.Core.Services.Input
                 case SystemCommand.PlaySpeedDown:
                 case SystemCommand.ToggleHeikinAshi:
                 case SystemCommand.ToggleLogScale:
+                case SystemCommand.ToggleScalePriceOnly:
                 case SystemCommand.ToggleHeatmap:
                 case SystemCommand.ToggleIndicatorVisibility:
                 case SystemCommand.ToggleIndicatorAudio:

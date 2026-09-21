@@ -330,7 +330,19 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 |-----|--------|
 | Alt+C | Toggle Heikin-Ashi candle mode |
 | Alt+L | Toggle logarithmic (log) scale |
+| Alt+F | Toggle what the price axis fits: price and overlays, or price only |
 | Alt+H | Toggle volume heatmap overlay |
+
+**Alt+F, and why it is an audio key as much as a visual one.** By default the price pane sizes
+itself to hold everything drawn on it — the candles *and* every visible overlay, so a Bollinger
+band or a Keltner channel that swings wider than the bars widens the pane instead of running off
+it. That matters to the ear as well as the eye, because the pane's range is also the *pitch*
+range: anything outside the pane is not merely invisible, it is silent.
+
+Press Alt+F and the pane fits the price bars alone ("fitting price only"). Overlays may then run
+off the top or bottom — and go quiet when they do — but the price line gets the whole pitch range
+to itself, which is what you want when you are listening for small moves. Press it again to go
+back. The setting is per tab, it is saved with the workspace, and a new tab inherits it.
 
 ---
 

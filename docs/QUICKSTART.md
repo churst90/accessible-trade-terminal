@@ -39,7 +39,7 @@ bells for events. The terminal calls this the Hybrid Voice model. You can run ei
 
 | You hear | It means |
 |---|---|
-| Rising or falling pitch | Value going up or down. Every pane has its own scale, so RSI 70 is the same note on every chart. |
+| Rising or falling pitch | Value going up or down. Every pane has its own scale, so RSI 70 is the same note on every chart. Equal steps up the pane are equal musical intervals, so a move near the top of the window is as audible as the same move near the bottom. |
 | Brighter, reedy tone / softer, warmer tone | An oscillator above / below its midline |
 | Roughness (noise) on the tone | The reading is in an overbought or oversold zone |
 | A heavier, weightier candle tone | A bigger candle body; wick pings roughen with wick length |
@@ -270,6 +270,13 @@ smoothed ones. **Alt+L** switches the price axis to logarithmic for long histori
 sound follows it: a level-pitched component in the price pane takes its pitch from where the
 value sits on the scale as drawn.
 
+**Alt+F** decides what the price pane is sized to hold. By default it holds the candles *and*
+every visible overlay, so a Bollinger band that swings wider than the bars widens the pane
+instead of running off it — which matters to the ear as much as the eye, because anything
+outside the pane is silent as well as invisible. Press Alt+F for "fitting price only": overlays
+may leave the pane and go quiet, but the price line gets the whole pitch range, which is what
+you want when you are listening for small moves. Press it again to go back.
+
 ---
 
 ## 9. Drawing tools
@@ -497,7 +504,7 @@ Windows.
 | 0 | Toggle the pane's neutral level, or mark the price under the cursor |
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
-| Alt+C / Alt+L / Alt+H | Heikin-Ashi / log scale / volume heatmap |
+| Alt+C / Alt+L / Alt+F / Alt+H | Heikin-Ashi / log scale / fit price only / volume heatmap |
 
 **Drawings**
 

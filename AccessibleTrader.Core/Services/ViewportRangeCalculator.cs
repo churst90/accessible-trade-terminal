@@ -46,6 +46,8 @@ namespace AccessibleTrader.Core.Services
             // the visible data range is plausibly the same quantity; one sixty times outside it is
             // measuring something else.
             double dataSpan = mainMax - mainMin;
+            double priceMin = mainMin;
+            double priceMax = mainMax;
             foreach (var s in state.ActiveSeries)
             {
                 string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
@@ -53,9 +55,72 @@ namespace AccessibleTrader.Core.Services
                 foreach (var lvl in s.Levels)
                 {
                     if (!lvl.IsVisible) continue;
-                    if (!IsPlausiblySamePane(lvl.Value, mainMin, mainMax, dataSpan)) continue;
+                    if (!IsPlausiblySamePane(lvl.Value, priceMin, priceMax, dataSpan)) continue;
                     if (lvl.Value < mainMin) mainMin = lvl.Value;
                     if (lvl.Value > mainMax) mainMax = lvl.Value;
+                }
+            }
+
+            // ── Main-pane COMPONENT data expands the price range ──────────────────
+            //
+            // Until 2026-09-21 it did not, and the price pane was sized from OHLC plus levels
+            // plus declared bounds and nothing else. Every indicator pane has expanded to fit
+            // its components since the beginning (see the loop below); the price pane alone did
+            // not, so a Bollinger band, a Keltner channel, a Donchian channel, an MA cloud or a
+            // Chandelier Exit stop that left the candles' range was drawn OUTSIDE the pane —
+            // clipped, and therefore also SILENT, because the same range is the pitch range.
+            //
+            // <b>The cost, stated plainly, because there is one.</b> The viewport range IS the
+            // pitch range: ChartMath.NormalizedPosition maps a value to 0..1 across exactly this
+            // span and the sonification turns that into a frequency. Widening the range to hold a
+            // band therefore compresses the price line's pitch swing. That compression is
+            // TRUTHFUL — the candles genuinely occupy less of the pane, and a sighted trader sees
+            // exactly the same thing — and the ear and the eye stay in agreement, which is the
+            // property the 2026-09-18 log-scale fix bought and which clipping silently broke. A
+            // user who wants the resolution back says so: ScalePriceOnly, Alt+Shift+L.
+            //
+            // <b>Three conditions, and each one is "what the eye is shown".</b>
+            //   (1) VISIBLE. A hidden series or hidden component is not drawn, so it must not
+            //       move the axis — otherwise hiding a band would leave its footprint behind.
+            //       (The indicator-pane loop below does not test this; it is being fixed here
+            //       rather than there because on Main the consequence is the price bars moving.)
+            //   (2) MAIN AREA, not a sub-pane strip. A sub-pane is its own axis.
+            //   (3) PLAUSIBLY A PRICE, by the same span-multiple guard the levels above use, and
+            //       for the same reason — a series whose Pane is unset defaults to "Main", and
+            //       LoukasCyclesProvider's day-counts on a BTC chart is the worked example of
+            //       what that costs. A band 3 spans outside the candles is not a band.
+            // The guard is measured against the ORIGINAL price span (priceMin/priceMax/dataSpan)
+            // rather than the running one, so a chain of ever-wider components cannot walk the
+            // axis out one plausible step at a time.
+            if (!state.ScalePriceOnly)
+            {
+                foreach (var s in state.ActiveSeries)
+                {
+                    string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
+                    if (paneName != "Main") continue;
+                    if (!s.IsVisible) continue;
+
+                    foreach (var comp in s.Components)
+                    {
+                        if (!comp.IsVisible) continue;
+                        if (!string.IsNullOrEmpty(comp.SubPaneName)) continue;
+
+                        var data = s.GetComponentData(comp.Name);
+                        if (data == null || data.Length == 0) continue;
+
+                        int cEnd = Math.Min(start + state.ViewportLength, data.Length);
+                        for (int i = start; i < cEnd; i++)
+                        {
+                            double val = data[i];
+                            // NaN is WARMUP, and warmup is universal — an EMA's first N bars, a
+                            // pivot indicator's every-bar-but-a-few. Skipping it is not a special
+                            // case, it is the normal state of the left edge of the window.
+                            if (double.IsNaN(val)) continue;
+                            if (!IsPlausiblySamePane(val, priceMin, priceMax, dataSpan)) continue;
+                            if (val < mainMin) mainMin = val;
+                            if (val > mainMax) mainMax = val;
+                        }
+                    }
                 }
             }
 
