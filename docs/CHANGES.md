@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Three releases of the desktop head shipped 33 plugins and no manifest, and the fix was already in the other head (2026-09-21, sixty-seventh pass)
+
+**Speech on the desktop head is fixed and CONFIRMED BY EAR** — the first time this head has ever
+spoken with a screen reader in a released build. The cause was not staging, in the end, but a
+NAME: **NV Access renamed the file.** Current `controllerClient` downloads ship
+`x64/nvdaControllerClient.dll`; this code has always P/Invoked `nvdaControllerClient64.dll`, the
+historical name — and the name on the copy hand-dropped into a `bin/Debug` folder in March, which
+is exactly why that one machine worked and nothing else ever did. Cody placed the current file
+beside the executable as instructed and the terminal stayed silent: it was there, and nothing was
+looking for that name. A `DllImportResolver` accepts both now, so neither the user holding the old
+file nor the one following NV Access's current download has to know any of this.
+
+**And the market dropdown, demonstrated rather than reasoned.** Unzipping the artifact the
+diagnostic build produced: **33 plugin DLLs present, `plugins_trusted.manifest` absent.** With
+`RequireTrusted` enforcing an empty allow-list that refuses all 33, so the head behaves exactly as
+though no plugins were installed — a symptom nobody reads as "a manifest is missing".
+
+- **The cause is the same one, a third time in one day.** `GeneratePluginTrustManifest` runs
+  `AfterTargets="Build"` into `$(OutDir)`, and a publish does not carry a loose file a custom
+  target dropped there. Same shape as the NVDA DLL, and as the `AfterTargets="Build"` copy this
+  pass's own first fix used.
+- **The fix already existed, in the WebHost, with a comment explaining precisely this.**
+  `GeneratePluginTrustManifestOnPublish` has been in `AccessibleTrader.WebHost.csproj` since its
+  own publish shipped without a manifest. It was never applied to the desktop head. **The heads
+  have separate project files, so a fix landed in one of them is not a fix — it is a fix in one
+  place**, and that is what `PublishStagingParityTests` now enforces across every head: a
+  build-time manifest with no publish-time counterpart is a test failure, and the publish-time one
+  must hash `$(PublishDir)` so the digests describe the bytes that actually ship.
+- **Two known exceptions are PINNED rather than left to be rediscovered:**
+  `CopyDotPadSdkWindows` and `CopyScriptWorker` still stage into `$(OutDir)` only. Neither is
+  demonstrated broken — observing it needs the vendor SDK and a Windows publish — so they are
+  recorded as OPEN. The Dot Pad one matters: it is the device this application exists for.
+- **CI verifies both payloads now**, rather than trusting them: the diagnostic build fails if the
+  NVDA client or the manifest does not reach the publish output, and fails if any published plugin
+  DLL's digest is missing from the manifest.
+
+**Two mistakes of mine in this pass, both worth recording.** A csproj comment contained a literal
+`--output`, which is illegal inside an XML comment, so the project would not load and the first
+diagnostic build failed outright — I had edited a project file I cannot build on this machine and
+had not validated it. And the workflow looked for the controller client among
+`nvaccess/nvda`'s GitHub release assets, which carry only the installer; it lives on NV Access's
+own download server. That step warned and continued, which would have produced a build that looked
+fine and was mute. **It throws now** — the same "silent failure" shape this whole pass is about,
+authored into the fix for it.
+
+Suite 7,969 → **7,974**. New: `PublishStagingParityTests` (5).
+
+
 ### The desktop head had no log at all in Release, which is why it stayed unmeasured (2026-09-21, sixty-sixth pass)
 
 Cody dropped the NVDA Controller Client beside the executable and the terminal was **still**

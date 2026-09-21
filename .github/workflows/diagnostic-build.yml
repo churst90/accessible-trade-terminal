@@ -106,6 +106,38 @@ jobs:
             Write-Host "$($f.Name) is in the publish output."
           }
 
+      # Demonstrated on 2026-09-21 by unzipping the previous artifact: 33 plugin DLLs
+      # present, plugins_trusted.manifest absent. With RequireTrusted enforcing an empty
+      # allow-list that refuses all 33, and the application then behaves exactly as though
+      # no plugins were installed — a symptom nobody reads as "a manifest is missing".
+      - name: Verify the plugin trust manifest reached the publish output
+        shell: pwsh
+        run: |
+          $dlls = @(Get-ChildItem publish/maui-win -Filter 'AccessibleTrader.Plugins.*.dll' -ErrorAction SilentlyContinue)
+          if ($dlls.Count -eq 0) {
+            Write-Error "No plugin DLLs in the publish output at all."
+            exit 1
+          }
+          if (-not (Test-Path publish/maui-win/plugins_trusted.manifest)) {
+            Write-Error "$($dlls.Count) plugin DLLs shipped with NO plugins_trusted.manifest. PluginTrustPolicy.RequireTrusted will refuse every one of them and the market dropdown will offer only the built-in providers."
+            exit 1
+          }
+
+          # The manifest must describe the files that actually ship, not the ones in the
+          # build output: a digest over the wrong bytes produces a refusal identical to a
+          # missing manifest.
+          $manifest = Get-Content publish/maui-win/plugins_trusted.manifest
+          $missing = @()
+          foreach ($dll in $dlls) {
+            $hash = (Get-FileHash $dll.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if (-not ($manifest -match $hash)) { $missing += $dll.Name }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "These published plugin DLLs are not in the manifest, so they will be refused at runtime: $($missing -join ', ')"
+            exit 1
+          }
+          Write-Host "All $($dlls.Count) published plugin DLLs are covered by the manifest."
+
       - name: Zip
         shell: pwsh
         run: |

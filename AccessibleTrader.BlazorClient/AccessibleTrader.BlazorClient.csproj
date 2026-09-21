@@ -295,6 +295,31 @@
     </Target>
 
     <!--
+        Publish-time manifest, and the desktop head went without it for its entire life.
+
+        The Build-time target above writes to $(OutDir), which a `dotnet publish` does NOT
+        carry into the publish output. So every released zip of this head shipped 33 plugin
+        DLLs and NO plugins_trusted.manifest, the policy loaded an empty allow-list,
+        RequireTrusted refused all 33, and the market dropdown offered only the built-in
+        providers. Reported from a Windows VM on 2026-09-21 as "the market dropdown only
+        shows My Data and analytics", and confirmed by unzipping the artifact: 33 DLLs
+        present, manifest absent.
+
+        The WebHost has had exactly this target since its own publish shipped without one,
+        comment and all. It was never applied here — which is the finding worth keeping:
+        the two heads have separate project files and a fix landed in one of them is not a
+        fix, it is a fix in one place. Hashing the PUBLISHED DLLs rather than the built ones
+        also keeps the digests matching what actually ships.
+    -->
+    <Target Name="GeneratePluginTrustManifestOnPublish"
+            AfterTargets="Publish"
+            Condition=" '$(PublishDir)' != '' ">
+        <HashPluginDlls
+            PluginsDir="$(PublishDir)"
+            ManifestPath="$(PublishDir)plugins_trusted.manifest" />
+    </Target>
+
+    <!--
         Copy the built ScriptWorker output next to the host binary so
         RoslynScriptingService's DefaultWorkerPathResolver finds the exe at
         AppContext.BaseDirectory. The ScriptWorker targets plain net10.0 so
