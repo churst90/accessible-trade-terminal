@@ -371,18 +371,6 @@
                     <option value="M" selected="@(_tfUnit == "M")">mo</option>
                 </select>
             }
-            @if (MarketOrchestrator.AvailableTimeframes.Count > 1)
-            {
-                <div style="display:inline-flex; flex-wrap:wrap; gap:3px;">
-                    @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
-                    {
-                        <button style="padding:2px 5px; font-size:0.8rem;"
-                                aria-label="Set timeframe to @tf"
-                                title="Set timeframe to @tf"
-                                @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
-                    }
-                </div>
-            }
         }
 
         @* My Data: contextual import affordance — appears only when the user's
@@ -403,6 +391,27 @@
         @if (_loadError != null)
         {
             <span role="alert" style="color: #f44; font-size: 0.85rem; margin-left: 8px;">@_loadError</span>
+        }
+
+        @* ── Timeframe quick-picks, AFTER Load ───────────────────────────────
+           They used to sit between the composer and Load. On a 1000px window (Cody's
+           screenshot, 2026-09-22) the thirteen Bitstamp pills filled the rest of the row and
+           Load chart wrapped ALONE onto a third line — 44px of toolbar for one button. Last in
+           the row, the pills are what wraps, onto a 30px line of their own, and the cascade
+           reads Market → Provider → Symbol → Time → Load with no thirteen tab stops between
+           Time and Load. A pill sets the timeframe and does not load, so "…or pick one of
+           these, then Load" is what the order says too. *@
+        @if (MarketOrchestrator.AvailableTimeframes.Count > 1)
+        {
+            <div role="group" aria-label="Timeframe quick picks" style="display:inline-flex; flex-wrap:wrap; gap:3px;">
+                @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
+                {
+                    <button style="padding:2px 5px; font-size:0.8rem;"
+                            aria-label="Set timeframe to @tf"
+                            title="Set timeframe to @tf"
+                            @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>
+                }
+            </div>
         }
 
     </div>

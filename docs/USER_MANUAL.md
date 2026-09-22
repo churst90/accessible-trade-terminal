@@ -344,8 +344,10 @@ of pointing you to Alt+K at exactly the moment it matters.
 **Time** is two controls working together: a multiplier you type (1 to 999) and a
 unit you choose — min, hr, day, wk, or mo. Together they read as a timeframe such
 as 1 hr or 15 min; the default is 1 hr. When a provider advertises a set of common
-timeframes, quick-pick buttons appear alongside the two fields so you can jump
-straight to, for example, "Set timeframe to 1h" without touching the multiplier.
+timeframes, quick-pick buttons appear at the end of the row, after **Load chart**,
+so you can jump straight to, for example, "Set timeframe to 1h" without touching the
+multiplier — and so that Tab reaches Load right after the unit, not after a dozen
+pills. A quick-pick sets the timeframe; Load still loads it.
 The quick-picks are always the provider's *own* list — a button you can press is a
 timeframe that provider genuinely serves. Two consequences follow. When a provider
 offers exactly one timeframe (most analytics feeds — Fear and Greed, COT

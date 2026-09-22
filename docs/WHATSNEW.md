@@ -73,7 +73,11 @@ release is the one that makes it work.**
   takes it back, like text size.
 - **The toolbar's two rows now divide as buttons, then the chart cascade.** Pan, zoom and the
   four display toggles moved from the end of the symbol row to the end of the button row, so
-  Tab reaches them after Help and before Market. Nothing else about the order changed.
+  Tab reaches them after Help and before Market. The timeframe quick-picks moved to the end of
+  the cascade row, after **Load chart**: Tab now goes Market, Provider, Symbol, Time, Load,
+  with the provider's pills after — before, a provider with thirteen timeframes put thirteen
+  tab stops between Time and Load, and on a narrow window the Load button wrapped onto a line
+  of its own.
 - **Why the price pane looked as small as an indicator pane.** With three indicator panes at
   the old height, every pane was floored to the same size and the price pane's larger share
   could not show at all. It shows now, because the chart has the height to spend.

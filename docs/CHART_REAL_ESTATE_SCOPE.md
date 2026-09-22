@@ -27,6 +27,14 @@ the toolbar is one row of buttons and one row of cascade, **3c** and **3d** ever
 padding went 5→3px and `.toolbar-group` lost its vertical padding. The tab order changed in one
 place: pan/zoom and the toggles now follow Help and precede Market.
 
+**Same day, from Cody's first launch (a restored window of about 1000×610):** the thirteen
+Bitstamp pills filled the cascade row and Load chart wrapped alone onto a third line. The
+quick-picks now come AFTER Load, so they are what wraps. The guard carries that window as a
+second case at a 50% bar (measured 53.9%: the chrome is a fixed cost and the four toggles wrap
+the button row below ~1100px). **The pane floor is the visible cost there**: three indicator
+panes at 80 CSS px leave the price pane at its 25% floor in a 610px window, so 3e is the next
+lever if the restored window matters as much as the maximised one.
+
 **3e–3g were not needed** for the bar and were left alone; the renderer's pane arithmetic is
 untouched. §4 (formation labels) is untouched too.
 

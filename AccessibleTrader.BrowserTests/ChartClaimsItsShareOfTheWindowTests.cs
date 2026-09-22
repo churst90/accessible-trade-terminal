@@ -47,16 +47,31 @@ public sealed class ChartClaimsItsShareOfTheWindowTests
     private const int Height = 672;
 
     /// <summary>
+    /// The maximised window the defect was measured on, and the restored window Cody launched
+    /// into on 2026-09-22 (about 1000x610 CSS px, where the thirteen Bitstamp timeframe pills
+    /// wrap the cascade row and the four toggles wrap the button row). The chrome is a fixed
+    /// cost, so a shorter window gives the chart a smaller fraction by arithmetic: 55% is the
+    /// maximised bar; the restored window measured 53.9% on the day and carries 50%, so a
+    /// regression there is caught without pretending the two windows are the same case.
+    /// </summary>
+    public static TheoryData<int, int, double> Windows() => new()
+    {
+        { Width, Height, RequiredShare },
+        { 1000, 610, 0.50 },
+    };
+
+    /// <summary>
     /// The bar. 41.5% is where it started; TradingView sits above 85%. 55% is the point at
     /// which, with three indicator panes, the price pane's 2:1 weight becomes visible again.
     /// </summary>
     private const double RequiredShare = 0.55;
 
-    [BrowserFact]
-    public async Task WithVolumeRsiAndMacd_TheChartGetsMostOfAMaximisedWindow()
+    [BrowserTheory]
+    [MemberData(nameof(Windows))]
+    public async Task WithVolumeRsiAndMacd_TheChartGetsMostOfTheWindow(int width, int height, double requiredShare)
     {
         await using var t = await _fixture.NewPageAsync();
-        await t.Page.SetViewportSizeAsync(Width, Height);
+        await t.Page.SetViewportSizeAsync(width, height);
         await t.LoadSeededChartAsync();
         await t.FocusChartAsync();
         await t.WaitForPaintAsync();
@@ -78,7 +93,7 @@ public sealed class ChartClaimsItsShareOfTheWindowTests
         var box = await t.Page.Locator("#chart-interact-zone").BoundingBoxAsync();
         Assert.NotNull(box);
 
-        double share = box!.Height / Height;
+        double share = box!.Height / height;
         var bands = await t.ShellBandsAsync();
 
         // A picture beside the number, for whoever changes the chrome next: the band table
@@ -94,13 +109,13 @@ public sealed class ChartClaimsItsShareOfTheWindowTests
         Directory.CreateDirectory(shotDir);
         await t.Page.ScreenshotAsync(new PageScreenshotOptions
         {
-            Path = Path.Combine(shotDir, $"10_maximised_{Width}x{Height}_volume_rsi_macd.png"),
+            Path = Path.Combine(shotDir, $"10_window_{width}x{height}_volume_rsi_macd.png"),
             FullPage = false,
         });
 
-        Assert.True(share >= RequiredShare,
-            $"At {Width}x{Height} with Volume + RSI + MACD the chart gets {box.Height:F0}px of "
-          + $"{Height}: {share:P1}, below the {RequiredShare:P0} bar. The shell's bands, top to "
+        Assert.True(share >= requiredShare,
+            $"At {width}x{height} with Volume + RSI + MACD the chart gets {box.Height:F0}px of "
+          + $"{height}: {share:P1}, below the {requiredShare:P0} bar. The shell's bands, top to "
           + "bottom:\n    " + string.Join("\n    ", bands)
           + "\n  Every pixel in a band that is not the chart is a pixel the chart does not get.");
     }
