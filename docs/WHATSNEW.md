@@ -60,6 +60,24 @@ release is the one that makes it work.**
 - **The price chart gets more room.** With one indicator it was an even split with volume; the
   price pane now takes about two thirds. With four or more indicator panes nothing changes.
 
+### The chart gets its window back
+
+- **The chart is most of the window now.** On a maximised 1280×781 window carrying candles,
+  volume, RSI and MACD, the terminal's own toolbars and bars took 394 pixels and the chart
+  got 279 — 41.5% of the space. The same window now gives the chart about 65%. Three things
+  changed, none of them audible: the toolbar's icons no longer carry a text caption (the
+  spoken name and the tooltip are exactly as before), the two rows of icons became one, and
+  the padding between every band was trimmed.
+- **Toolbar captions are a setting.** *Settings → Appearance → Toolbar captions* puts the text
+  label back under every icon for anyone who reads them. It previews as you tick it and Cancel
+  takes it back, like text size.
+- **The toolbar's two rows now divide as buttons, then the chart cascade.** Pan, zoom and the
+  four display toggles moved from the end of the symbol row to the end of the button row, so
+  Tab reaches them after Help and before Market. Nothing else about the order changed.
+- **Why the price pane looked as small as an indicator pane.** With three indicator panes at
+  the old height, every pane was floored to the same size and the price pane's larger share
+  could not show at all. It shows now, because the chart has the height to spend.
+
 ### If you use the hosted terminal
 
 - **A dropped connection is announced.** When the circuit to the server was lost, a screen

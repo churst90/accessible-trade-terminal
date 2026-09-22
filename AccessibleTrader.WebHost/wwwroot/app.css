@@ -95,7 +95,7 @@ html, body {
 }
 
 .app-footer {
-    padding: 5px 12px;
+    padding: 3px 12px;
     background: var(--bg-footer-end);
     font-size: 0.82rem;
     border-top: 1px solid var(--border-color);
@@ -111,7 +111,10 @@ html, body {
        want continuity, which is what makes the seam above the canvas disappear. */
     background: linear-gradient(to bottom, var(--bg-toolbar), var(--bg-toolbar-end));
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
-    padding: 5px 12px;
+    /* 3px, not 5px, and every vertical pad in this shell is now on the same diet. Measured
+       2026-09-22 on a maximised 1280x781 window: our own chrome came to 394 CSS px against
+       279 for the chart, and the padding between bands alone was ~80 of it. */
+    padding: 3px 8px;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -128,7 +131,7 @@ html, body {
 .indicator-bar {
     background: linear-gradient(to bottom, var(--bg-footer), var(--bg-footer-end));
     border-top: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
-    padding: 5px 12px;
+    padding: 3px 8px;
     display: flex;
     gap: 8px;
     align-items: center;
@@ -696,15 +699,21 @@ label {
     border: none;
     margin: 0;
 
-    /* Layout: glyph circle stacked over label */
+    /* Layout: glyph circle stacked over label. ICON-ONLY BY DEFAULT since 2026-09-22 — the
+       caption is still rendered (see .icon-btn-label) but takes no height unless <html>
+       carries .toolbar-captions, which Settings → Appearance → Toolbar captions toggles.
+       The accessible name is aria-label and the tooltip is title, so neither the spoken name
+       nor the hover text depends on the caption; what the caption cost was 13px on every
+       icon row and the width that wrapped the symbol row onto a third line. The 44px box is
+       the WCAG 2.5.5 target size, disc plus padding. */
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 3px;
-    padding: 2px 4px;
+    gap: 0;
+    padding: 2px;
     cursor: pointer;
-    min-width: 52px;
+    min-width: 44px;
 
     --btn-color: var(--btn-neutral);
     color: var(--btn-color);
@@ -758,6 +767,20 @@ label {
 .icon-btn-label {
     color: var(--text-primary);
     letter-spacing: 0.01em;
+    /* Hidden, not removed: `display: none` keeps it out of the accessibility tree too, which
+       is right — the name is aria-label. Do NOT swap this for .visually-hidden: that would
+       leave the caption as a second text node under the button. */
+    display: none;
+}
+
+/* Captions on (Settings → Appearance → Toolbar captions): the 2026-09-21 look. */
+html.toolbar-captions .icon-btn {
+    gap: 3px;
+    padding: 2px 4px;
+    min-width: 52px;
+}
+html.toolbar-captions .icon-btn-label {
+    display: inline;
 }
 
 /* Focus ring: 3 px solid outer ring at full variant color. Replaces the
@@ -803,9 +826,11 @@ label {
 .toolbar-group {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
     align-items: flex-start;
-    padding: 2px 10px;
+    /* No vertical pad: the row's height is the button's. 4px sides, so the 23-button icon
+       row fits a 1280px window in one line with the wallet pair on top of it. */
+    padding: 0 4px;
 }
 
 .toolbar-group + .toolbar-group {

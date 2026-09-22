@@ -101,6 +101,18 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
     public const int SeededBarCount = 200;
 
     /// <summary>
+    /// A second dataset at WEEKLY spacing, so the provider offers two timeframes. With one, the
+    /// toolbar hides its whole timeframe area — the composer and the quick-pick pills — and the
+    /// symbol row is a third shorter than the one every real exchange provider produces. That
+    /// is why the chart-share defect measured on 2026-09-22 (the symbol row wrapping onto a
+    /// third line and taking 42px with it) could not be reproduced here until this existed.
+    /// Weekly rather than hourly on purpose: the orchestrator coerces a missing "1h" to "1d",
+    /// so the daily dataset still loads at its own spacing without any test clicking a pill.
+    /// </summary>
+    public const string SeededWeeklySymbol = "Harness Weekly";
+    public const int SeededWeeklyBarCount = 60;
+
+    /// <summary>
     /// Writes one OHLCV dataset into the throwaway data root BEFORE the host is built, so the
     /// terminal boots with a market it can chart offline.
     ///
@@ -135,16 +147,17 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
         var store = new MyDataStore(paths,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<MyDataStore>.Instance);
         store.ImportAsync(SeededSymbol, BuildOhlcvCsv(SeededBarCount)).GetAwaiter().GetResult();
+        store.ImportAsync(SeededWeeklySymbol, BuildOhlcvCsv(SeededWeeklyBarCount, daysPerBar: 7)).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// A deterministic daily OHLCV series. Deterministic — a fixed seed, not
+    /// A deterministic OHLCV series, one bar per <paramref name="daysPerBar"/> days. Deterministic — a fixed seed, not
     /// <see cref="Random.Shared"/> — because a failure in this suite has to be reproducible from
     /// its name alone; and shaped rather than flat, because a constant close makes every
     /// range-dependent assertion (viewport min/max, sonification pitch, "value" readback) pass
     /// for the wrong reason.
     /// </summary>
-    private static string BuildOhlcvCsv(int bars)
+    private static string BuildOhlcvCsv(int bars, int daysPerBar = 1)
     {
         var rng = new Random(20260904);
         var sb = new System.Text.StringBuilder("date,open,high,low,close,volume\n");
@@ -158,7 +171,7 @@ internal sealed class TerminalServerFactory : WebApplicationFactory<WebHostDemoM
             double high = Math.Round(Math.Max(open, close) + rng.NextDouble() * 0.9, 2);
             double low  = Math.Round(Math.Min(open, close) - rng.NextDouble() * 0.9, 2);
             double vol  = Math.Round(500 + rng.NextDouble() * 500, 2);
-            sb.Append(day.AddDays(i).ToString("yyyy-MM-dd"))
+            sb.Append(day.AddDays((long)i * daysPerBar).ToString("yyyy-MM-dd"))
               .Append(',').Append(open.ToString(System.Globalization.CultureInfo.InvariantCulture))
               .Append(',').Append(high.ToString(System.Globalization.CultureInfo.InvariantCulture))
               .Append(',').Append(low.ToString(System.Globalization.CultureInfo.InvariantCulture))

@@ -81,8 +81,13 @@ public sealed class ChartSurvivesASmallWindowTests
     [BrowserFact]
     public async Task WhenTheFloorForcesOverflow_TheShellScrollsRatherThanClipping()
     {
+        // 400px, not the 536 of the report: after the 2026-09-22 chrome diet the toolbar, tab
+        // bar, indicator bar, status line and footer come to ~235px, and 235 plus the 260px
+        // floor FITS a 536px window — so the overflow this test exists to observe no longer
+        // happened there and the assertion went red against an improvement. The window has to
+        // be shorter than the chrome plus the floor by construction, whatever the chrome costs.
         await using var t = await _fixture.NewPageAsync();
-        await t.Page.SetViewportSizeAsync(946, 536);
+        await t.Page.SetViewportSizeAsync(946, 400);
         await t.LoadSeededChartAsync();
         await t.Page.WaitForTimeoutAsync(400);
 

@@ -52,6 +52,8 @@ namespace AccessibleTrader.Core.Services
 
         public const string ColorVisionSafe    = "appearance.colorVisionSafe";
         public const string HollowUpCandles    = "appearance.hollowUpCandles";
+        /// <summary>Show the text caption under every toolbar icon. Default FALSE (icon-only).</summary>
+        public const string ToolbarCaptions    = "appearance.toolbarCaptions";
         /// <summary>Auto-add the Market Structure overlay to new OHLCV charts. Default TRUE.</summary>
         public const string MarketStructureOnByDefault = "analysis.marketStructureDefault";
         public const string UiScale            = "appearance.uiScale";

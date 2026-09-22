@@ -389,6 +389,19 @@
                 _layoutLogger.LogDebug(ex, "UI scale apply failed (non-fatal).");
             }
 
+            // Toolbar captions (Settings → Appearance → Toolbar captions). Off is the CSS
+            // default and needs no call; only an opt-in has to reach the page.
+            try
+            {
+                bool captions = _settings.GetSetting(SettingsKeys.ToolbarCaptions)?.ToObject<bool>() ?? false;
+                if (captions)
+                    await JSRuntime.InvokeVoidAsync("accessibleTrader.setToolbarCaptions", true);
+            }
+            catch (Exception ex)
+            {
+                _layoutLogger.LogDebug(ex, "Toolbar caption apply failed (non-fatal).");
+            }
+
             // Re-instantiate every saved strategy whose IsAutoActivate flag is true. Idempotent —
             // calling LoadAllAsync() a second time is a no-op. Wrapped in try/catch so a single bad
             // spec can never block the app from finishing initial render.

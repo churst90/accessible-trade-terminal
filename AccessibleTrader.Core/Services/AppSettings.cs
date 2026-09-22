@@ -45,6 +45,16 @@ namespace AccessibleTrader.Core.Services
         // Appearance
         bool ColorVisionSafe { get; set; }
         bool HollowUpCandles { get; set; }
+        /// <summary>
+        /// Show the text caption under every toolbar icon. Default FALSE, and the default is the
+        /// whole point: on a maximised 1280x781 window the terminal's own chrome took 394 CSS px
+        /// against 279 for the chart (2026-09-22), and the captions were the single largest
+        /// avoidable cost — 13px per icon row, two rows, plus the width that forced a third. The
+        /// accessible name never lived in the caption (it is <c>aria-label</c>), so a screen-reader
+        /// user loses nothing; a low-vision sighted user who reads the captions can turn them on.
+        /// Named positively so a bare NSubstitute fake (which answers false) agrees with the default.
+        /// </summary>
+        bool ShowToolbarCaptions { get; set; }
 
         // Analysis
         /// <summary>
@@ -187,6 +197,11 @@ namespace AccessibleTrader.Core.Services
         {
             get => GetBool(SettingsKeys.HollowUpCandles);
             set => Set(SettingsKeys.HollowUpCandles, value);
+        }
+        public bool ShowToolbarCaptions
+        {
+            get => GetBool(SettingsKeys.ToolbarCaptions);
+            set => Set(SettingsKeys.ToolbarCaptions, value);
         }
         public int UiScale
         {

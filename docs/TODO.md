@@ -117,6 +117,32 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-22, SEVENTY-FOURTH pass — THE CHART HAS ITS WINDOW BACK:
+> 44.9% → 65.0% by the guard, and v2.12.0 IS UNBLOCKED PENDING CODY'S OWN CHECK.)** Suite
+> **8,027**, browser **224**, 0 failing.
+>
+> `docs/CHART_REAL_ESTATE_SCOPE.md` §0 has the before/after table. Steps 1–7 of its order are
+> done: the guard `ChartClaimsItsShareOfTheWindowTests` (red at 44.9% once the harness could
+> render timeframe pills, green at 65.0%), captions off by default behind a new
+> `Settings → Appearance → Toolbar captions` switch, the icon rows merged (pan/zoom and the
+> toggles now end the button row), and every band's padding trimmed. 3e–3g untouched.
+>
+> **What this pass could not verify:** the Windows head positions its native canvas from a
+> JS-reported rect (`canvasRegion.js`); the chrome above the chart changed height, so that rect
+> changed. It tracks resize and a ResizeObserver, so it should follow — re-check on Windows.
+> Nothing here was heard: the change is visual and the spoken names and tooltips are unchanged.
+>
+> ### NEXT
+>
+> 1. **Cody tests** — maximised window, three indicator panes, and the Settings switch both
+>    ways (it previews live and Cancel takes it back).
+> 2. **Then cut 2.12.0** — the steps are in the previous block's NEXT 2 and 3, unchanged.
+>
+> ### CARRIED
+>
+> Unchanged from the previous block.
+
+
 > **START HERE (current as of 2026-09-22 — THE CHART GETS 41.5% OF A MAXIMISED WINDOW, AND THAT
 > BLOCKS v2.12.0 AT CODY'S DIRECTION.)** Suite **8,027**, browser **222**, 0 failing.
 >

@@ -935,6 +935,16 @@ window.accessibleTrader = {
     },
 
     /**
+     * Shows or hides the text caption under every toolbar icon (Settings → Appearance →
+     * Toolbar captions). A class on <html>, not a per-button re-render: the caption span is
+     * always in the DOM and app.css decides whether it takes any height. Off is the default
+     * and needs no call, so an icon-only user never sees captions flash on first paint.
+     */
+    setToolbarCaptions: function (show) {
+        document.documentElement.classList.toggle('toolbar-captions', !!show);
+    },
+
+    /**
      * Reports the chart surface's CSS size and devicePixelRatio so the server
      * can render the chart PNG at native resolution (HiDPI sharpness).
      */

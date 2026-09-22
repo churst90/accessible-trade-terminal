@@ -6,6 +6,39 @@ chosen so each step is verifiable on its own.
 
 ---
 
+## 0. Result — steps 1–7 done the same day, guard green at 65%
+
+Measured by the guard itself (`ChartClaimsItsShareOfTheWindowTests`, 1280×672 — the app's share
+of a maximised 1280×781 window — Candles + Volume + RSI + MACD, timeframe pills present):
+
+| band | before | after |
+|---|---:|---:|
+| Toolbar (both rows) | 214 | 101 |
+| Tab bar | 30 | 30 |
+| **Chart** | **302 (44.9%)** | **437 (65.0%)** |
+| Indicator bar | 71 | 53 |
+| Status line | 29 | 29 |
+| Footer | 26 | 22 |
+
+What changed: **3a** captions are hidden by default (`Settings → Appearance → Toolbar captions`
+restores them; `html.toolbar-captions` in both `app.css` copies; live preview, reverted by
+Cancel), **3b** the pan/zoom group and the four toggles moved to the end of the button row so
+the toolbar is one row of buttons and one row of cascade, **3c** and **3d** every band's vertical
+padding went 5→3px and `.toolbar-group` lost its vertical padding. The tab order changed in one
+place: pan/zoom and the toggles now follow Help and precede Market.
+
+**3e–3g were not needed** for the bar and were left alone; the renderer's pane arithmetic is
+untouched. §4 (formation labels) is untouched too.
+
+**Two harness gaps closed on the way.** The harness's seeded provider had ONE timeframe, so the
+composer and the pills never rendered and the symbol row never wrapped — the guard passed at
+55.4% on the unchanged code until `TerminalServerFactory` seeded a second, weekly dataset; then
+it read 44.9%, matching the screenshot. And `ChartSurvivesASmallWindowTests`' overflow case
+assumed 536px was short enough to force a scroll; after the diet it is not, so that test now
+uses 400px, short by construction.
+
+---
+
 ## 1. The measurement, and it is the whole argument
 
 Taken from `~/Desktop/212.png` — a **maximised** Brave window on the Gentoo box, 2560×1562 at 2×

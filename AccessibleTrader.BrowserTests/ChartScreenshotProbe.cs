@@ -70,7 +70,7 @@ public sealed class ChartScreenshotProbe
         await using var t = await _fixture.NewPageAsync();
         await t.LoadSeededChartAsync();
         await t.FocusChartAsync();
-        await WaitForPaintAsync(t);
+        await t.WaitForPaintAsync();
 
         await Snap(t, outDir, report, "01_candles_linear");
 
@@ -93,7 +93,7 @@ public sealed class ChartScreenshotProbe
         var added = new List<string>();
         foreach (var name in IndicatorsToAdd)
         {
-            var picked = await AddIndicatorAsync(t, name);
+            var picked = await t.AddIndicatorAsync(name);
             added.Add(picked);
             if (added.Count == 1) await Snap(t, outDir, report, "05_rsi_one_oscillator_pane");
             if (added.Count == 4) await Snap(t, outDir, report, "06_presentation_set_four_indicators");
@@ -121,41 +121,9 @@ public sealed class ChartScreenshotProbe
     /// <summary>Press a chord on the chart and wait for the chart image to repaint.</summary>
     private static async Task Toggle(TerminalPage t, string chord)
     {
-        var before = await ImageSrcLengthAsync(t);
+        var before = await t.ImageSrcLengthAsync();
         await t.PressAsync(chord);
-        await WaitForPaintAsync(t, before);
-    }
-
-    private static Task<int> ImageSrcLengthAsync(TerminalPage t) =>
-        t.Page.EvaluateAsync<int>(
-            "() => { const i = document.querySelector('#chart-interact-zone img'); return i ? i.getAttribute('src').length : -1; }");
-
-    /// <summary>
-    /// The chart is a server-rendered PNG pushed into an &lt;img&gt; as a data URL, so "it
-    /// repainted" is observable as the src changing. A blank 1×1 placeholder is under 200
-    /// bytes; a rendered frame is tens of kilobytes. Waits for a real frame whose src differs
-    /// from <paramref name="previousLength"/>; a state change that happens to encode to the
-    /// same byte count is tolerated after a settle, since the point is a picture, not a proof.
-    /// </summary>
-    private static async Task WaitForPaintAsync(TerminalPage t, int previousLength = -1)
-    {
-        try
-        {
-            await t.Page.WaitForFunctionAsync(
-                @"prev => { const i = document.querySelector('#chart-interact-zone img');
-                            if (!i) return false;
-                            const n = i.getAttribute('src').length;
-                            return n > 1000 && n !== prev; }",
-                previousLength,
-                new PageWaitForFunctionOptions { Timeout = 5_000 });
-        }
-        catch (TimeoutException)
-        {
-            // Same-length re-encode, or a chord that did not change the picture. Let the
-            // circuit settle and photograph whatever is there; the JSON records the length so
-            // a reviewer can see which states did not move.
-        }
-        await Task.Delay(300);
+        await t.WaitForPaintAsync(before);
     }
 
     private static async Task Snap(TerminalPage t, string outDir, List<Dictionary<string, object?>> report, string name)
@@ -189,39 +157,5 @@ public sealed class ChartScreenshotProbe
         facts["state"] = name;
         facts["series"] = await t.ActiveSeriesNamesAsync();
         report.Add(facts);
-    }
-
-    /// <summary>
-    /// Opens the Add Indicator dialog from the indicator bar, picks the first list entry whose
-    /// visible name contains <paramref name="nameContains"/>, adds it, and waits for the dialog
-    /// to close and the chart to repaint. Returns the exact name that was picked.
-    /// </summary>
-    private static async Task<string> AddIndicatorAsync(TerminalPage t, string nameContains)
-    {
-        var before = await t.ActiveSeriesNamesAsync();
-        var srcBefore = await ImageSrcLengthAsync(t);
-
-        await t.Page.ClickAsync("button[aria-label='Add indicator to chart']");
-        Assert.True(await t.WaitForDialogAsync(), "Add Indicator dialog did not open.");
-
-        var optionsJson = await t.Page.EvaluateAsync<string>(
-            "() => JSON.stringify([...document.querySelectorAll('#indicator-name option')].map(o => [o.value, o.textContent.trim()]))");
-        var options = JsonSerializer.Deserialize<List<string[]>>(optionsJson) ?? new List<string[]>();
-        var pick = options.FirstOrDefault(o => o[1].Equals(nameContains, StringComparison.OrdinalIgnoreCase))
-            ?? options.FirstOrDefault(o => o[1].Contains(nameContains, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException(
-                $"No indicator named like '{nameContains}' in the Add Indicator list. The list holds: "
-                + string.Join(" / ", options.Select(o => o[1])));
-
-        await t.Page.SelectOptionAsync("#indicator-name", pick[0]);
-        await t.Page.ClickAsync("button[aria-label='Add selected indicator to chart']");
-        Assert.True(await t.WaitForNoDialogAsync(), $"Add Indicator dialog did not close after adding {pick[1]}.");
-
-        await t.Page.WaitForFunctionAsync(
-            "n => document.querySelectorAll('#indicator-select option').length > n",
-            before.Count, new PageWaitForFunctionOptions { Timeout = 15_000 });
-        await t.FocusChartAsync();
-        await WaitForPaintAsync(t, srcBefore);
-        return pick[1];
     }
 }

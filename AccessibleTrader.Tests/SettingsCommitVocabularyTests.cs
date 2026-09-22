@@ -53,6 +53,7 @@ namespace AccessibleTrader.Tests
             "OnColorVisionChanged",
             "OnUiScaleChanged",
             "OnHollowCandlesChanged",
+            "OnToolbarCaptionsChanged",
         };
 
         /// <summary>
@@ -157,6 +158,7 @@ namespace AccessibleTrader.Tests
                 "_visualEarconsInitial",
                 "_colorVisionSafeInitial",
                 "_hollowUpCandlesInitial",
+                "_toolbarCaptionsInitial",
                 "_selectedThemeInitial",
             };
             foreach (var field in mustRestore)
@@ -261,7 +263,7 @@ namespace AccessibleTrader.Tests
                 "_touchNavMode", "_bgMonitoring", "_bgPollSeconds", "_liveBgTabs", "_resumeSession",
                 "_speechEnabled", "_sonificationEnabled", "_panningGranularity",
                 "_showPatternVisuals", "_visualEarcons", "_colorVisionSafe", "_hollowUpCandles",
-                "_uiScale",
+                "_toolbarCaptions", "_uiScale",
             })
                 Assert.True(Regex.IsMatch(reset, @"\b" + Regex.Escape(field) + @"\s*="),
                     $"ResetLocal never assigns {field}, so reopening Settings shows a stale value for it.");

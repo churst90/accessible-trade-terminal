@@ -104,9 +104,10 @@ namespace AccessibleTrader.Tests
         [Fact]
         public void Replay_sitsOnTheSecondRowWithTheOtherChartToggles()
         {
-            // Row 1 opens panels; row 2 changes how the chart behaves. Replay belongs to the
-            // second group, next to Heatmap / Heikin / Log — pinned so a later edit doesn't
-            // scatter it back into the panel row.
+            // The button row opens panels and, since 2026-09-22, ends with the chart-view
+            // controls; the second row is the cascade that builds a chart. Replay belongs with
+            // the visual toggles, next to Heatmap / Heikin / Log — pinned so a later edit
+            // doesn't scatter it back among the panel openers.
             string toolbar = Toolbar();
 
             int logScale = toolbar.IndexOf("Icon=\"log-scale\"", StringComparison.Ordinal);

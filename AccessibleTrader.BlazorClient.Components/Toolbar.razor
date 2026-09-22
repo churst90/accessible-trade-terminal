@@ -39,9 +39,9 @@
    purpose: it told assistive tech to expect arrows that do nothing.
    Dropping the role recovers the landmark, withdraws the false promise, and changes
    no runtime behaviour whatsoever. *@
-<nav class="toolbar" data-background-region style="flex-direction: column; gap: 4px;" aria-label="Main toolbar">
+<nav class="toolbar" data-background-region style="flex-direction: column; gap: 2px;" aria-label="Main toolbar">
 
-    @* ── Row 1: Chart setup | Analysis | Workspace | Meta ────────────────
+    @* ── Row 1: Chart setup | Analysis | Workspace | Meta | Chart view | Toggles ───
        Trading and Analytics are no longer a mode toggle here — the two are unified.
        Pick "Analytics" in the Market dropdown (Row 2) to chart economic/on-chain/
        derivatives/sentiment data; everything else is a tradeable market. *@
@@ -184,9 +184,63 @@
                               OnClick="() => EventBus.Publish(new OpenHelpEvent())" />
         </div>
 
+        @* ── Chart view controls (pan / zoom) ──────────────────────────────
+           Mouse-accessible equivalents of the keyboard viewport commands. Routed
+           through IViewportManager so they behave exactly like the keys: pan-left
+           triggers proactive history backfill and each action emits descriptive
+           spoken feedback. Not gated by IsTradingTab — panning/zooming applies to
+           analytics line charts too. Gated until data is loaded.
+
+           ON THE BUTTON ROW, NOT THE SYMBOL ROW, since 2026-09-22. With captions the two
+           icon rows plus the cascade needed three lines at 1280px and the chart was left
+           41.5% of a maximised window; icon-only, every button fits one line. The split is
+           still by purpose — this row is BUTTONS, the next row is the cascade that builds a
+           chart — and Tab order follows: Help, then pan/zoom, then the toggles, then Market. *@
+        <div class="toolbar-group" role="group" aria-label="Chart view">
+            <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
+                              Gate="ChartDataGate"
+                              Tooltip="Pan left, back in time, Left arrow"
+                              OnClick="PanLeft" />
+            <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
+                              Gate="ChartDataGate"
+                              Tooltip="Pan right, forward in time, Right arrow"
+                              OnClick="PanRight" />
+            <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
+                              Gate="ChartDataGate"
+                              Tooltip="Zoom in, Plus key"
+                              OnClick="ZoomIn" />
+            <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
+                              Gate="ChartDataGate"
+                              Tooltip="Zoom out, Minus key"
+                              OnClick="ZoomOut" />
+        </div>
+
+        @* ── Visual Toggles (trading-only) ───────────────────────────────── *@
+        @if (IsTradingTab)
+        {
+            <div class="toolbar-group">
+                <ToolbarIconButton Icon="heatmap" Label="Heatmap" Variant="data"
+                                  IsToggleOn="@(IsHeatmapVisible == "true")"
+                                  Tooltip="Toggle liquidity heatmap, Alt plus H"
+                                  OnClick="AddHeatmap" />
+                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
+                                  IsToggleOn="@(Store.State.IsHeikinAshi)"
+                                  Tooltip="Toggle Heikin Ashi candles"
+                                  OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
+                <ToolbarIconButton Icon="log-scale" Label="Log scale" Variant="data"
+                                  IsToggleOn="@(Store.State.IsLogScale)"
+                                  Tooltip="Toggle the logarithmic price scale"
+                                  OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
+                <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
+                                  IsToggleOn="@IsReplayActive"
+                                  Tooltip="Toggle bar replay, step forward one bar at a time, Control plus Alt plus Shift plus P"
+                                  OnClick="ToggleReplay" />
+            </div>
+        }
+
     </div>
 
-    @* ── Row 2: Market pipeline | separator | Visual toggles ─────────────── *@
+    @* ── Row 2: Market pipeline | import | Load ─────────────── *@
     <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
 
         @* ── Market Pipeline ──────────────────────────────────────────────── *@
@@ -349,55 +403,6 @@
         @if (_loadError != null)
         {
             <span role="alert" style="color: #f44; font-size: 0.85rem; margin-left: 8px;">@_loadError</span>
-        }
-
-        @* ── Chart view controls (pan / zoom) ──────────────────────────────
-           Mouse-accessible equivalents of the keyboard viewport commands. Routed
-           through IViewportManager so they behave exactly like the keys: pan-left
-           triggers proactive history backfill and each action emits descriptive
-           spoken feedback. Not gated by IsTradingTab — panning/zooming applies to
-           analytics line charts too. Disabled until data is loaded. *@
-        <div class="toolbar-separator" aria-hidden="true"></div>
-        <div class="toolbar-group" role="group" aria-label="Chart view">
-            <ToolbarIconButton Icon="pan-left" Label="Pan left" Variant="neutral"
-                              Gate="ChartDataGate"
-                              Tooltip="Pan left, back in time, Left arrow"
-                              OnClick="PanLeft" />
-            <ToolbarIconButton Icon="pan-right" Label="Pan right" Variant="neutral"
-                              Gate="ChartDataGate"
-                              Tooltip="Pan right, forward in time, Right arrow"
-                              OnClick="PanRight" />
-            <ToolbarIconButton Icon="zoom-in" Label="Zoom in" Variant="neutral"
-                              Gate="ChartDataGate"
-                              Tooltip="Zoom in, Plus key"
-                              OnClick="ZoomIn" />
-            <ToolbarIconButton Icon="zoom-out" Label="Zoom out" Variant="neutral"
-                              Gate="ChartDataGate"
-                              Tooltip="Zoom out, Minus key"
-                              OnClick="ZoomOut" />
-        </div>
-
-        @* ── Visual Toggles (trading-only) ───────────────────────────────── *@
-        @if (IsTradingTab)
-        {
-            <div class="toolbar-group">
-                <ToolbarIconButton Icon="heatmap" Label="Heatmap" Variant="data"
-                                  IsToggleOn="@(IsHeatmapVisible == "true")"
-                                  Tooltip="Toggle liquidity heatmap, Alt plus H"
-                                  OnClick="AddHeatmap" />
-                <ToolbarIconButton Icon="heikin-ashi" Label="Heikin Ashi" Variant="data"
-                                  IsToggleOn="@(Store.State.IsHeikinAshi)"
-                                  Tooltip="Toggle Heikin Ashi candles"
-                                  OnClick="() => Store.Dispatch(new ToggleHeikinAshiAction())" />
-                <ToolbarIconButton Icon="log-scale" Label="Log scale" Variant="data"
-                                  IsToggleOn="@(Store.State.IsLogScale)"
-                                  Tooltip="Toggle the logarithmic price scale"
-                                  OnClick="() => Store.Dispatch(new ToggleLogScaleAction())" />
-                <ToolbarIconButton Icon="replay" Label="Replay" Variant="data"
-                                  IsToggleOn="@IsReplayActive"
-                                  Tooltip="Toggle bar replay, step forward one bar at a time, Control plus Alt plus Shift plus P"
-                                  OnClick="ToggleReplay" />
-            </div>
         }
 
     </div>

@@ -235,7 +235,7 @@ restored when you stop.
 | Shift+F9 | Hide the last revealed bar |
 | F10 | Play / pause auto-advance |
 
-Also on the toolbar's second row as **Replay**, which shows its own pressed state.
+Also at the end of the toolbar's button row as **Replay**, which shows its own pressed state.
 
 On the WebHost, use `Ctrl+Alt+Shift+P` rather than `F11` — browsers own F11 for fullscreen
 and page-level `preventDefault` on it is not reliable.

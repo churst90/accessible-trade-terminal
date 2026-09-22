@@ -971,6 +971,20 @@
                     </div>
 
                     <div class="modal-row">
+                        <label for="s-toolbar-captions">Toolbar captions</label>
+                        <input id="s-toolbar-captions" type="checkbox"
+                               checked="@_toolbarCaptions"
+                               @onchange="OnToolbarCaptionsChanged"
+                               aria-describedby="s-toolbar-captions-hint" />
+                    </div>
+                    <div class="modal-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span id="s-toolbar-captions-hint" style="font-size:0.85rem;color:var(--text-muted);">
+                            Shows a text label under every toolbar icon. Off by default so the chart
+                            gets the height; the tooltip and the spoken name are unchanged either way.
+                        </span>
+                    </div>
+
+                    <div class="modal-row">
                         <label for="s-ui-scale">Text size</label>
                         <select id="s-ui-scale"
                                 value="@_uiScale"
@@ -1275,6 +1289,7 @@
         new("Visual earcons", "Appearance", "s-visual-earcons", "deaf hearing badge flash cue notification"),
         new("Color-vision-safe chart colors", "Appearance", "s-colorvision", "colorblind deuteranopia protanopia red green blue orange"),
         new("Hollow up-candles", "Appearance", "s-hollow-candles", "colorblind outline shape candle"),
+        new("Toolbar captions", "Appearance", "s-toolbar-captions", "label text icon button caption chart height room space"),
         new("Text size", "Appearance", "s-ui-scale", "font zoom scale magnify low vision bigger"),
         new("Keyboard shortcuts", "Keyboard", "tab-keyboard", "rebind keys hotkey remap reference"),
         new("License", "License", "tab-license", "tier supporter key gpl donate donation support cash app paypal"),
@@ -1501,6 +1516,28 @@
             _hollowUpCandles ? "Hollow up-candles on." : "Hollow up-candles off.", true));
     }
 
+    /// <summary>
+    /// Live preview, like text size: a layout setting you cannot see while deciding is not one
+    /// you can judge. Applied through the same JS hook the boot path uses, so what the checkbox
+    /// shows is what the next start shows.
+    /// </summary>
+    private async Task OnToolbarCaptionsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _toolbarCaptions = e.Value is bool b && b;
+        App.ShowToolbarCaptions = _toolbarCaptions;
+        App.Save();
+        await SafeSetToolbarCaptionsAsync(_toolbarCaptions);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _toolbarCaptions ? "Toolbar captions on." : "Toolbar captions off.", true));
+    }
+
+    private async Task SafeSetToolbarCaptionsAsync(bool show)
+    {
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setToolbarCaptions", show); }
+        catch (Exception) { /* pre-render or a dead circuit: the boot path re-applies the setting */ }
+    }
+
+    private bool _toolbarCaptions;
     private bool _paperTradingMode;
     private int _quickSizingMode;
 
@@ -1518,6 +1555,7 @@
     private bool   _visualEarconsInitial;
     private bool   _colorVisionSafeInitial;
     private bool   _hollowUpCandlesInitial;
+    private bool   _toolbarCaptionsInitial;
     private string? _selectedThemeInitial;
     private bool _paperTradingModeInitial;
     private bool _bgMonitoring;
@@ -1873,6 +1911,7 @@
         _showPatternVisuals = App.ShowChartPatternVisuals;
         _colorVisionSafe = App.ColorVisionSafe;
         _hollowUpCandles = App.HollowUpCandles;
+        _toolbarCaptions = App.ShowToolbarCaptions;
         _uiScale         = App.UiScale;
         _speechEnabled        = Store.State.IsSpeechEnabled;
         _sonificationEnabled  = Store.State.IsSonificationEnabled;
@@ -1887,6 +1926,7 @@
         _visualEarconsInitial      = _visualEarcons;
         _colorVisionSafeInitial    = _colorVisionSafe;
         _hollowUpCandlesInitial    = _hollowUpCandles;
+        _toolbarCaptionsInitial    = _toolbarCaptions;
         _selectedThemeInitial      = _selectedTheme;
     }
 
@@ -2000,6 +2040,13 @@
         {
             _hollowUpCandles = _hollowUpCandlesInitial;
             App.HollowUpCandles = _hollowUpCandles;
+            changed = true;
+        }
+        if (_toolbarCaptions != _toolbarCaptionsInitial)
+        {
+            _toolbarCaptions = _toolbarCaptionsInitial;
+            App.ShowToolbarCaptions = _toolbarCaptions;
+            _ = SafeSetToolbarCaptionsAsync(_toolbarCaptions);
             changed = true;
         }
 

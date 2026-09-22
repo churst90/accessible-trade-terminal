@@ -264,14 +264,18 @@ missing — you do not have to memorise which providers need one.
 The toolbar has two rows and they divide by purpose, which is worth learning once
 because it tells you where to look for anything.
 
-The **first row opens things.** Left to right it holds the object tree and the sound
-designer; then the trading dashboard, order book, strategies, **Watch** (watchlists and
-the screener), **Levels** (the respect report), **Journal** and **AI**; then alerts and
-API keys; then save and load workspace; and finally settings and help. The things you
-put *on* a chart — **Add indicator**, **Drawing tools** and **Scripts** — sit on the bar
-under the chart instead. Every one of these opens a dialog, and every one
-has a keyboard shortcut named in its tooltip, so the toolbar is how you *find* a
-feature and the shortcut is how you reach it once you know it is there.
+The **first row is the buttons.** Left to right it holds the object tree and the sound
+designer; then the trading dashboard, order book, strategies, **Watch lists** (and
+the screener), **Levels** (the respect report), **Trade journal** and **AI analyst**;
+then alerts and API keys; then save and load workspace; then settings and help. After
+those come the controls that change how the chart is shown — pan left and right, zoom
+in and out, and the four display toggles: heatmap, Heikin Ashi, log scale and
+**Replay**. The last four are pressed-state toggles, so your screen reader announces
+whether each is currently on. The things you put *on* a chart — **Add indicator**,
+**Drawing tools** and **Scripts** — sit on the bar under the chart instead. Every
+button that opens a dialog has a keyboard shortcut named in its tooltip, so the
+toolbar is how you *find* a feature and the shortcut is how you reach it once you
+know it is there.
 
 While a dialog is open, the rest of the terminal is switched off — not merely covered
 over. The toolbar, the tab bar, the chart, the indicator bar, the status bar and the
@@ -282,15 +286,17 @@ chart if that was the last dialog, or the dialog underneath if you had two open.
 one thing that keeps speaking is the terminal's own announcements — those live outside
 the switched-off region on purpose.
 
-The **second row builds and changes the chart**: the market cascade described
-below, then import and load, then pan and zoom, then the display toggles —
-heatmap, Heikin Ashi, log scale and **Replay**. The last four are pressed-state
-toggles, so your screen reader announces whether each is currently on.
+The **second row builds the chart**: the market cascade described below, then
+import (for your own data) and **Load chart**.
 
-Buttons are labelled with an abbreviation on screen and a full name for your
-screen reader, so "Watch" reads as "Watch lists and screener" and "AI" reads as
-"AI Analyst". Some buttons only appear when they apply — drawing tools and the
-chart toggles are hidden on analytics charts, where they mean nothing.
+The buttons are icons. Each one's name is what your screen reader announces and
+what its tooltip shows on hover, so nothing is lost by the icons carrying no text;
+what was gained is the height — with a caption under every icon the toolbar took
+three lines on an ordinary window and the chart was left less than half of it. If
+you would rather see the names on screen, **Settings → Appearance → Toolbar
+captions** puts a caption under every icon again. Some buttons only appear when
+they apply — drawing tools and the chart toggles are hidden on analytics charts,
+where they mean nothing.
 
 ### Choosing what to chart
 
@@ -1162,7 +1168,7 @@ whether a setup you like the look of was actually readable at the time or only
 looks obvious with the rest of the chart in view.
 
 Start it with **Ctrl+Alt+Shift+P** (or **F11** on the desktop), or with the
-**Replay** button on the toolbar's second row. Replay begins at the bar your
+**Replay** button at the end of the toolbar's button row. Replay begins at the bar your
 cursor is on, and everything after it disappears.
 
 | Key | Action |
@@ -3554,6 +3560,9 @@ and saves the moment you toggle it:
   overrides any per-indicator direction colours so one switch covers the whole chart.
 - **Hollow up-candles** draws rising candles as outlines and falling candles filled,
   making direction readable by shape alone, with any colours.
+- **Toolbar captions** puts a text label under every toolbar icon. Off by default
+  because the captions cost the chart a third of its height on an ordinary window;
+  the spoken name and the hover tooltip are the same either way.
 
 The same group holds a **Text size** selector (85% to 175%) that scales the
 interface text throughout the terminal — browser zoom still works on top of it. And

@@ -11,7 +11,7 @@
       "Interrupt": false
     }
   ],
-  "liveRegionAfterAltO": "|Object tree dialog opened",
+  "liveRegionAfterAltO": "Object tree dialog opened|",
   "ttsRadioFound": 1,
   "spokenAfterChoosingBrowserVoice": [
     {
@@ -25,7 +25,7 @@
       "Interrupt": false
     }
   ],
-  "liveRegionAfterAltO_inBrowserVoiceMode": "Object tree dialog closed|",
+  "liveRegionAfterAltO_inBrowserVoiceMode": "|Object tree dialog closed",
   "controlProbe": [
     {
       "Text": "control probe",

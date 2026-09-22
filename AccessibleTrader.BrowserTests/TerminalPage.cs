@@ -797,6 +797,104 @@ internal sealed class TerminalPage : IAsyncDisposable
         return true;
     }
 
+    // ── Chart content and paint helpers ─────────────────────────────────────────────
+    // Lifted from ChartScreenshotProbe on 2026-09-22 so the chart-share guard could add
+    // indicators through the real dialog without a second copy of the routine.
+
+    /// <summary>
+    /// Opens the Add Indicator dialog from the indicator bar, picks the first list entry whose
+    /// visible name equals (or failing that, contains) <paramref name="nameContains"/>, adds it,
+    /// and waits for the dialog to close, the series picker to grow and the chart to repaint.
+    /// Returns the exact name that was picked.
+    /// </summary>
+    public async Task<string> AddIndicatorAsync(string nameContains)
+    {
+        var before = await ActiveSeriesNamesAsync();
+        var srcBefore = await ImageSrcLengthAsync();
+
+        await Page.ClickAsync("button[aria-label='Add indicator to chart']");
+        if (!await WaitForDialogAsync())
+            throw new InvalidOperationException("Add Indicator dialog did not open.");
+
+        var optionsJson = await Page.EvaluateAsync<string>(
+            "() => JSON.stringify([...document.querySelectorAll('#indicator-name option')].map(o => [o.value, o.textContent.trim()]))");
+        var options = System.Text.Json.JsonSerializer.Deserialize<List<string[]>>(optionsJson) ?? new List<string[]>();
+        var pick = options.FirstOrDefault(o => o[1].Equals(nameContains, StringComparison.OrdinalIgnoreCase))
+            ?? options.FirstOrDefault(o => o[1].Contains(nameContains, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"No indicator named like '{nameContains}' in the Add Indicator list. The list holds: "
+                + string.Join(" / ", options.Select(o => o[1])));
+
+        await Page.SelectOptionAsync("#indicator-name", pick[0]);
+        await Page.ClickAsync("button[aria-label='Add selected indicator to chart']");
+        if (!await WaitForNoDialogAsync())
+            throw new InvalidOperationException($"Add Indicator dialog did not close after adding {pick[1]}.");
+
+        await Page.WaitForFunctionAsync(
+            "n => document.querySelectorAll('#indicator-select option').length > n",
+            before.Count, new PageWaitForFunctionOptions { Timeout = 15_000 });
+        await FocusChartAsync();
+        await WaitForPaintAsync(srcBefore);
+        return pick[1];
+    }
+
+    /// <summary>Length of the chart image's data URL, or -1 when there is no image yet.</summary>
+    public Task<int> ImageSrcLengthAsync() =>
+        Page.EvaluateAsync<int>(
+            "() => { const i = document.querySelector('#chart-interact-zone img'); return i && i.getAttribute('src') ? i.getAttribute('src').length : -1; }");
+
+    /// <summary>
+    /// The chart is a server-rendered PNG pushed into an &lt;img&gt; as a data URL, so "it
+    /// repainted" is observable as the src changing. A blank 1×1 placeholder is under 200
+    /// bytes; a rendered frame is tens of kilobytes. Waits for a real frame whose src differs
+    /// from <paramref name="previousLength"/>; a state change that happens to encode to the
+    /// same byte count is tolerated after a settle, since the point is a picture, not a proof.
+    /// </summary>
+    public async Task WaitForPaintAsync(int previousLength = -1)
+    {
+        try
+        {
+            await Page.WaitForFunctionAsync(
+                @"prev => { const i = document.querySelector('#chart-interact-zone img');
+                            if (!i) return false;
+                            const n = i.getAttribute('src').length;
+                            return n > 1000 && n !== prev; }",
+                previousLength,
+                new PageWaitForFunctionOptions { Timeout = 5_000 });
+        }
+        catch (TimeoutException)
+        {
+            // Same-length re-encode, or a chord that did not change the picture. Let the
+            // circuit settle; callers that need a proof assert on the picture themselves.
+        }
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Every band the shell stacks vertically — each direct child of <c>.app-container</c> that
+    /// takes up height — as "tag.class(aria-label) NNpx", top to bottom. This is the honest
+    /// answer to "where did the window go": a failure message that says the chart is 41% says
+    /// nothing about which 59% to take it back from.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ShellBandsAsync()
+    {
+        var json = await Page.EvaluateAsync<string>(@"() => {
+            const root = document.querySelector('.app-container');
+            if (!root) return '[]';
+            const rows = [];
+            for (const el of root.children) {
+                const r = el.getBoundingClientRect();
+                if (r.height < 0.5) continue;
+                const name = el.tagName.toLowerCase()
+                    + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/)[0] : '')
+                    + (el.getAttribute('aria-label') ? '(' + el.getAttribute('aria-label') + ')' : '');
+                rows.push(name + ' ' + Math.round(r.height) + 'px');
+            }
+            return JSON.stringify(rows);
+        }");
+        return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+    }
+
     public async ValueTask DisposeAsync()
     {
         try { await _context.CloseAsync(); } catch { /* the browser may already be gone */ }
