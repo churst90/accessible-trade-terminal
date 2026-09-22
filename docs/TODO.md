@@ -117,6 +117,60 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-22 — THE CHART GETS 41.5% OF A MAXIMISED WINDOW, AND THAT
+> BLOCKS v2.12.0 AT CODY'S DIRECTION.)** Suite **8,027**, browser **222**, 0 failing.
+>
+> **Read `docs/CHART_REAL_ESTATE_SCOPE.md` first — it is the whole work item, written to be
+> picked up cold.** Measured on a maximised 1280x781 window carrying Candles + Volume + RSI +
+> MACD: our own chrome is **394 CSS px** against **279** for the chart. TradingView's equivalent
+> vertical chrome is about 70px. **The user is not asking too much of the chart** — three
+> indicator panes is a mid-range-normal setup.
+>
+> **The pane weighting (`DefaultMainPaneWeight = 2f`) is NOT broken**; it is invisible because the
+> 80 CSS px indicator-pane floor, at 2x density, needs 480 of the 558 device px available, so the
+> crowded rebalance flattens every pane to an equal share. Predicted `main=140,
+> indicators=[140,140,140]`; measured four panes at ~140. The chart needs about **100 more CSS px**
+> before the weight can express itself at all.
+>
+> **Definition of done, as one number:** a new guard
+> `ChartClaimsItsShareOfTheWindowTests` asserting the chart is **>= 55%** of the viewport at
+> 1280x781 with three indicator panes. **Red today at 41.5%.** Write it FIRST.
+>
+> **Why no test ever saw this:** `TerminalBrowserFixture` opens every page at 1400x950 — including
+> `ChartScreenshotProbe`, the pass that photographed nine chart states specifically to find what
+> the tests could not.
+>
+> ### NEXT
+>
+> 1. **Work `docs/CHART_REAL_ESTATE_SCOPE.md` in its stated order** — guard, baseline
+>    screenshots, then 3a→3d measuring after each. Stop when the guard goes green; 3e-3g are
+>    optional beyond that.
+> 2. **Then cut 2.12.0.** `Directory.Build.props` 2.11.0 -> 2.12.0, `BlazorClient.csproj`
+>    `ApplicationVersion` 11 -> 12, WHATSNEW's `## Unreleased` heading gains the version (it must
+>    carry NO bare `x.y.z` until then — the marketing site parses the first such heading as
+>    `softwareVersion`), then the five steps in `docs/RELEASING.md`.
+> 3. **Two hand-offs after the tag:** tell the server agent that `/terminal/healthz` and
+>    `/app/healthz` now exist, so he can add an `ExecStartPost` readiness probe instead of us
+>    taking a `UseSystemd()` dependency (his question in
+>    `patches/2026-09-21-TERMINAL-AVAILABILITY-AND-AEO.md` §1a); and regenerate `llms-full.txt`,
+>    since QUICKSTART, USER_MANUAL, PLATFORMS and WHATSNEW all changed.
+>
+> ### CARRIED
+>
+> 1. **Reconnection back-off is NOT done** and the reason is in `App.razor`: `autostart="false"` +
+>    `Blazor.start()` stopped the circuit booting entirely and the cause was never established.
+> 2. **`ipadic/` (187MB, MeCab Japanese) excluded from the Dot Pad payload.** If a device ever
+>    fails to initialise with everything else present, add it back first. Cody has no Dot Pad.
+> 3. **The two `app.css` copies have drifted** — the same "fixed in one place" shape that produced
+>    five defects on 2026-09-21.
+> 4. **The segfault watch has CLEARED ITS OWN BAR** (deploy notes §7g: ~168h threshold, zero
+>    across four deploys on 09-12). Worth closing as measured on the report card.
+> 5. `softprops/action-gh-release@v2` wants a deliberate bump behind a throwaway pre-release tag.
+> 6. `PitchMapping` in Properties; the workspace-persistence clone sweep (nine hand-written
+>    clones, C+ for four report cards); Prism (deferred — JAWS closed the gap that justified it);
+>    the `Services/Strategies` campaign; **the JS harness has still never been mutated.**
+
+
 > **START HERE (current as of 2026-09-22, SEVENTY-SECOND pass — THE WINDOWS CLIENT WAS PUT IN
 > FRONT OF A SCREEN READER FOR THE FIRST TIME, AND ALMOST NOTHING ABOUT IT WORKED.)** Suite
 > **8,015**, browser **222**, 0 failing. No release cut yet — see NEXT.
