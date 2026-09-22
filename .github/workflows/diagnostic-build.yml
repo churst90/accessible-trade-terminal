@@ -13,15 +13,27 @@ name: diagnostic-build
 #
 # Trigger: Actions → diagnostic-build → Run workflow.
 #
-# ACTION VERSIONS: v5 across the board, which is the first major of each that
-# targets Node 24. The runner deprecated Node 20 on 2025-09-19 and was forcing
-# the v4 actions onto 24 anyway, which is a warning today and a breakage
-# whenever the shim is withdrawn. Deliberately NOT the newest major of each
-# (checkout is on v7, download-artifact on v8): v5 is the smallest step that
-# clears the deprecation, and a bigger jump is a behaviour change nobody here
-# can test except by breaking a release. softprops/action-gh-release stays on
-# v2 for the same reason and is the one to revisit — it only runs when a real
-# release is cut, so a fault in it surfaces at the worst possible moment.
+# ACTION VERSIONS: the LOWEST major of each that actually runs on Node 24, which
+# is not the same number for each action and is not v5 across the board. The
+# runner deprecated Node 20 on 2025-09-19 and forces those actions onto 24
+# anyway — a warning today, a breakage when the shim is withdrawn.
+#
+#   checkout          v5   (v4 = node20)
+#   setup-dotnet      v5   (v4 = node20)
+#   upload-artifact   v6   (v4 AND v5 = node20)
+#   download-artifact v7   (v4, v5, v6 = node20)
+#   setup-python      v6   (v5 = node20)
+#
+# The first pass at this assumed v5 was the Node 24 boundary everywhere and
+# bumped all of them to v5. CI then still warned, naming upload-artifact@v5 —
+# because upload-artifact stayed on node20 through v5. Each action's own
+# action.yml is the only authority for which major moved; the version NUMBERS
+# do not line up across actions and guessing from one of them is how you ship a
+# fix that half-works. Checked per action, not inferred.
+#
+# softprops/action-gh-release stays on v2 deliberately and is the one left to
+# revisit: it runs only when a real release is cut, so a fault in it surfaces at
+# the worst possible moment and deserves a throwaway pre-release tag of its own.
 
 on:
   workflow_dispatch:
@@ -156,7 +168,7 @@ jobs:
           Get-ChildItem dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: AccessibleTrader-Windows-diagnostic
           path: dist/*.zip
