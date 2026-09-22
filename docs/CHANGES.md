@@ -117,8 +117,16 @@ by GitHub Actions, which had neither. **The fix landed on one machine and not on
     'Contents/MonoBundle/plugins_trusted.manifest', it's different between the input app
     bundles.` A Mac Catalyst universal publish LIPO-merges the two per-RID bundles and demands
     byte-identical non-binary files; two manifests never are, since they carry a timestamp and
-    hash different builds. Only the OUTER build — the one that runs after the merge, and the
-    only one whose bundle ships — writes into a bundle now.
+    hash different builds. **The first guard for this failed too, on the fourth attempt, and the
+    reason is worth keeping:** it asked "is `RuntimeIdentifier` set AND `RuntimeIdentifiers`
+    set?", on the theory that an inner build has both — but the SDK drives `RuntimeIdentifiers`
+    as a GLOBAL property in the inner build, so it is not visible there and the csproj's own
+    assignment loses. *A condition that depends on a property another layer controls is a
+    condition you cannot reason about from here.* The rule is now blunt and checkable: **a
+    RID-specific build never writes a manifest inside a `.app`**. The outer universal build has
+    no RID and does write; Windows and the WebHosts are RID-specific and have no bundles, so it
+    costs them nothing — which is its own test case, because if that one ever goes red the rule
+    has quietly become "do not write" for every head that is not macOS.
 - **The payload list lives in ONE place.** `packaging/release-payloads.json` is read both by that
   script and by `PublishStagingParityTests`, whose payload theory is no longer its own InlineData
   list — because a list of required payloads kept in two places has the same shape as a build

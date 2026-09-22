@@ -257,8 +257,13 @@ public sealed class PluginTrustManifestTaskTests : IDisposable
     {
         var (_, bundle) = BuildDuplicateNameLayout();
 
-        RunPublishTarget(_root, runtimeIdentifier: "maccatalyst-x64",
-                                runtimeIdentifiers: "maccatalyst-x64;maccatalyst-arm64");
+        // ONLY RuntimeIdentifier. The first version of this test also set RuntimeIdentifiers,
+        // and so did the condition it was checking — which is why both agreed and both were
+        // wrong: the SDK drives RuntimeIdentifiers as a GLOBAL property in the inner build, so
+        // it is not visible there at all, and the macOS job failed a second time with the same
+        // merge error. A test that mirrors the production condition's assumptions cannot
+        // falsify them.
+        RunPublishTarget(_root, runtimeIdentifier: "maccatalyst-x64", runtimeIdentifiers: null);
 
         Assert.False(File.Exists(Path.Combine(bundle, "plugins_trusted.manifest")),
             "an inner per-RID build wrote a manifest into its app bundle. That bundle is an INPUT "
@@ -276,8 +281,7 @@ public sealed class PluginTrustManifestTaskTests : IDisposable
     {
         var (_, bundle) = BuildDuplicateNameLayout();
 
-        string output = RunPublishTarget(_root, runtimeIdentifier: null,
-                                                runtimeIdentifiers: "maccatalyst-x64;maccatalyst-arm64");
+        string output = RunPublishTarget(_root, runtimeIdentifier: null, runtimeIdentifiers: null);
 
         Assert.True(File.Exists(Path.Combine(bundle, "plugins_trusted.manifest")),
             $"the outer universal build did not write into the bundle, so the shipped .app has no "
@@ -285,8 +289,11 @@ public sealed class PluginTrustManifestTaskTests : IDisposable
     }
 
     /// <summary>
-    /// A single-RID head — Windows, and all four WebHosts — declares no RuntimeIdentifiers, so
-    /// it is never mistaken for an inner build and keeps writing beside its plugins.
+    /// <b>The load-bearing case for how blunt the rule is.</b> Windows and all four WebHosts are
+    /// RID-specific too, so the guard above applies to them — and it must cost them nothing,
+    /// because they have no app bundles. If this ever goes red, the rule has stopped being
+    /// "do not write inside a .app" and become "do not write", which switches the whole feature
+    /// off for every head that is not macOS.
     /// </summary>
     [Fact]
     public void ASingleRidHeadIsNotMistakenForAnInnerBuild()

@@ -36,6 +36,11 @@
         without the targets needing to know what an .app is.
       -->
       <WriteBesidePlugins ParameterType="System.Boolean" Required="false" />
+      <!--
+        Do not write inside a .app bundle. Set for any RID-specific build, because on Mac
+        Catalyst those bundles are merge INPUTS; see the comment above the properties below.
+      -->
+      <SkipAppBundles ParameterType="System.Boolean" Required="false" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System" />
@@ -121,6 +126,17 @@
             var destination = Path.GetFullPath(Path.Combine(group.Key, "plugins_trusted.manifest"));
             if (string.Equals(destination, manifestFull, StringComparison.OrdinalIgnoreCase)) continue;
 
+            // IndexOf, not Contains(string, StringComparison): the RoslynCodeTaskFactory host
+            // compiles against an older surface on some build SDKs, the same reason
+            // SHA256.HashData is avoided above. It fails at BUILD time with CS1501, which is at
+            // least loud.
+            if (SkipAppBundles && destination.Replace('\\', '/').IndexOf(".app/", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Log.LogMessage(MessageImportance.Normal,
+                    $"Not writing a manifest into {destination}: this is a RID-specific build and that bundle is an input to the universal merge.");
+                continue;
+            }
+
             var local = new StringBuilder();
             local.AppendLine("# AccessibleTrader plugin trust manifest");
             local.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
@@ -170,9 +186,25 @@
     at all, so both are unaffected.
   -->
   <PropertyGroup>
-    <_AttInnerRidBuildOfUniversalPublish Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifiers)' != ''">true</_AttInnerRidBuildOfUniversalPublish>
-    <_AttWriteManifestBesidePlugins Condition="'$(_AttInnerRidBuildOfUniversalPublish)' == 'true'">false</_AttWriteManifestBesidePlugins>
-    <_AttWriteManifestBesidePlugins Condition="'$(_AttWriteManifestBesidePlugins)' == ''">true</_AttWriteManifestBesidePlugins>
+    <!--
+      A RID-SPECIFIC BUILD NEVER WRITES INTO A .app BUNDLE, and the condition is deliberately
+      this blunt.
+
+      The first attempt at this asked "is RuntimeIdentifier set AND RuntimeIdentifiers set?",
+      reasoning that an inner build of a universal publish is the one that has both. The macOS
+      job failed again with the same merge error, because RuntimeIdentifiers is NOT visible in
+      the inner build — the SDK drives it as a global property, and a global property wins over
+      the csproj's own assignment. A condition that depends on a property another layer controls
+      is a condition you cannot reason about from here.
+
+      RuntimeIdentifier alone is something we can be sure of: the inner per-RID builds have it,
+      the outer universal build does not. Every other head is RID-specific too, which is exactly
+      why this is scoped to .app bundles rather than to writing in general: Windows and the four
+      WebHosts have no bundles, so nothing changes for them, and the one case it disables is the
+      one that breaks the build.
+    -->
+    <_AttSkipAppBundleManifests Condition="'$(RuntimeIdentifier)' != ''">true</_AttSkipAppBundleManifests>
+    <_AttSkipAppBundleManifests Condition="'$(_AttSkipAppBundleManifests)' == ''">false</_AttSkipAppBundleManifests>
   </PropertyGroup>
 
   <!--
@@ -181,7 +213,8 @@
   <Target Name="GeneratePluginTrustManifest" AfterTargets="Build" Condition=" '$(OutDir)' != '' ">
     <HashPluginDlls PluginsDir="$(OutDir)"
                     ManifestPath="$(OutDir)plugins_trusted.manifest"
-                    WriteBesidePlugins="$(_AttWriteManifestBesidePlugins)" />
+                    WriteBesidePlugins="true"
+                    SkipAppBundles="$(_AttSkipAppBundleManifests)" />
   </Target>
 
   <!--
@@ -197,7 +230,8 @@
   <Target Name="GeneratePluginTrustManifestOnPublish" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
     <HashPluginDlls PluginsDir="$(PublishDir)"
                     ManifestPath="$(PublishDir)plugins_trusted.manifest"
-                    WriteBesidePlugins="$(_AttWriteManifestBesidePlugins)" />
+                    WriteBesidePlugins="true"
+                    SkipAppBundles="$(_AttSkipAppBundleManifests)" />
   </Target>
 
 </Project>

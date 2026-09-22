@@ -175,7 +175,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > its apphost landed in `publish/maui-win/win-x64/` instead of the root — **a real feature
 > broken while chasing a startup optimisation**, caught by the payload check. And writing a
 > manifest into each per-RID bundle broke the universal macOS build outright, because the LIPO
-> merge demands byte-identical files and two manifests never are. **R2R IS NOT FIXED**; its rule
+> merge demands byte-identical files and two manifests never are. **The guard for THAT failed on
+> the fourth attempt as well**: it keyed on `RuntimeIdentifiers`, which the SDK drives as a
+> global property in the inner build and which is therefore invisible there — *a condition that
+> depends on a property another layer controls is one you cannot reason about from here.* The
+> rule is now "a RID-specific build never writes a manifest inside a `.app`". **R2R IS NOT FIXED**; its rule
 > is now advisory (`"severity": "warn"`) so it reports without blocking a release whose other
 > payloads are correct.
 >
