@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A "Zero" level saved three weeks ago was still flattening the price axis (2026-09-22)
+
+Cody's chart kept coming back with its y-axis running `0.00 … 80000.00` and the candles crushed
+into the top quarter. **Two wrong diagnoses before anyone read the file:** first the Bollinger
+non-price components (real, fixed, and not this), then a stale binary (not that either). The
+cause was in his saved workspace:
+
+```
+LEVEL on Candles: value=0.0  name='Zero'  visible=True
+```
+
+**The key that created it was fixed on 2026-09-06.** `ReferenceLevelPlacement` already places a
+level at the CURSOR PRICE on a price pane, because a price pane has no meaningful constant, and
+its own doc comment describes finding the bug from a screenshot of a BTC chart with exactly this
+entry in `__last-session__.json`. **What was never done is clearing the ones already saved** — so
+three weeks later the chart was still broken at every launch. *A fix to the writer does nothing
+for the data the old writer produced, and nobody re-derives a level by hand.*
+
+- **`MigrateSeriesConfig` drops zero and NaN levels from price panes on restore**, alongside the
+  other healings it already performs. Scoped to price panes only: an oscillator's zero is
+  meaningful — MACD crosses it, Cipher B swings about it.
+- **And the axis is no longer wreckable by one**, because the magnitude clause added for
+  components now guards levels too. A level at 0 on a 60,000–86,000 chart sits 2.31 spans below
+  the low, inside the three-span allowance levels have always had; a support line at 52,000 is
+  four-tenths of a span away and still admitted. **Two independent fixes for one defect is
+  deliberate here**: the healing removes the artifact the user can see, and the guard means the
+  next source of an implausible level — a drawing, an import, a provider — cannot flatten a chart
+  before anyone notices.
+
+Suite 8,021 → **8,026**. New: `StaleZeroLevelHealingTests` (3), plus two levels cases in
+`PriceAutoFitScopeTests`.
+
+
 ### A non-price component dragged the price axis to zero — a regression from this file's own change (2026-09-22)
 
 Caught by Cody from a screenshot before the tag, which is the only thing that could have caught

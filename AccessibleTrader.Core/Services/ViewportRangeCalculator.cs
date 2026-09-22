@@ -55,7 +55,16 @@ namespace AccessibleTrader.Core.Services
                 foreach (var lvl in s.Levels)
                 {
                     if (!lvl.IsVisible) continue;
-                    if (!IsPlausiblySamePane(lvl.Value, priceMin, priceMax, dataSpan)) continue;
+                    // Same test the components use, and for the same reason. A reference level
+                    // named "Zero" at 0.0 on a BTC chart at 60,000–86,000 sits 2.31 spans below
+                    // the low — inside the three-span allowance — and pulled the whole price
+                    // axis down to nothing, with the candles crushed into the top quarter of the
+                    // pane and the price line's pitch swing crushed with them. Found in Cody's
+                    // saved workspace on 2026-09-22 after two wrong guesses at the cause: a
+                    // level on the Candles series, presumably from pressing 0 on the price pane,
+                    // where zero is not a meaningful neutral. The user can delete it from the
+                    // Object Tree; the axis should not have been wreckable by it either way.
+                    if (!IsPlausiblyTheSameQuantity(lvl.Value, priceMin, priceMax, dataSpan)) continue;
                     if (lvl.Value < mainMin) mainMin = lvl.Value;
                     if (lvl.Value > mainMax) mainMax = lvl.Value;
                 }

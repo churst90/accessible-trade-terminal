@@ -297,6 +297,66 @@ public sealed class PriceAutoFitScopeTests
     }
 
     /// <summary>
+    /// <b>The level that actually broke Cody's chart, found in his saved workspace.</b>
+    ///
+    /// <para>
+    /// <c>LEVEL on Candles: value=0.0 name='Zero'</c> — presumably from pressing <c>0</c> on the
+    /// price pane, where zero is not a meaningful neutral. On BTC at 60,000–86,000 it sits 2.31
+    /// spans below the low, inside the three-span allowance reference levels have always had, so
+    /// it dragged the axis to nothing. Two wrong guesses preceded finding it: the Bollinger
+    /// components (real, fixed, and not this) and a stale binary (it was not that either).
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AZeroLevelOnThePriceSeriesCannotDragTheAxis()
+    {
+        var bars = Enumerable.Range(0, BarCount)
+            .Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddHours(i), 73000, 86000, 60000, 73000, 1000))
+            .ToList();
+
+        var cfg = new SeriesConfig { Id = "candles", Name = "Candles", Pane = "Main", IsVisible = true, Volume = 1f };
+        cfg.Levels.Add(new LevelConfig { Name = "Zero", Value = 0.0, IsVisible = true });
+
+        var state = WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars),
+            ActiveSeries = ImmutableList.Create(new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "candles" })),
+            ViewportStartIndex = 0,
+            ViewportLength = BarCount,
+        };
+
+        var (min, _) = new ViewportRangeCalculator().Calculate(state).MainRange;
+
+        Assert.True(min > 50000,
+            $"a 'Zero' level pulled the price floor to {min:F0}, so the candles occupy the top "
+          + "sliver of the pane — and of the pitch range with it");
+    }
+
+    /// <summary>A support level just under the candles is a price and must still widen the pane;
+    /// the clause must not throw out the levels it exists to admit.</summary>
+    [Fact]
+    public void ASupportLevelNearThePriceStillWidensThePane()
+    {
+        var bars = Enumerable.Range(0, BarCount)
+            .Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddHours(i), 73000, 86000, 60000, 73000, 1000))
+            .ToList();
+
+        var cfg = new SeriesConfig { Id = "candles", Name = "Candles", Pane = "Main", IsVisible = true, Volume = 1f };
+        cfg.Levels.Add(new LevelConfig { Name = "Support", Value = 52000, IsVisible = true });
+
+        var state = WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars),
+            ActiveSeries = ImmutableList.Create(new ChartSeries(cfg, new SeriesDataBuffer { SeriesId = "candles" })),
+            ViewportStartIndex = 0,
+            ViewportLength = BarCount,
+        };
+
+        var (min, _) = new ViewportRangeCalculator().Calculate(state).MainRange;
+        Assert.True(min <= 52000, $"the support level at 52,000 was excluded; the pane bottoms at {min:F0}");
+    }
+
+    /// <summary>
     /// The magnitude clause only ever TIGHTENS. A pane straddling zero has no meaningful
     /// magnitude to compare against, so it must fall back to the span rule rather than rejecting
     /// everything — an oscillator that found its way onto Main would otherwise lose its own data.
@@ -353,5 +413,65 @@ public sealed class PriceAutoFitScopeTests
 
         store.Dispatch(new ToggleScalePriceOnlyAction());
         Assert.Equal(included.Max, store.State.ViewportRange.Max, 9);
+    }
+}
+
+/// <summary>
+/// <b>A fix to the writer does nothing for the data the old writer produced.</b>
+///
+/// <para>
+/// The <c>0</c> key used to add a level at literal zero on whatever series held focus, because it
+/// was written for oscillators. On the price series that left
+/// <c>{"Name":"Zero","Value":0.0}</c> on CANDLES, and levels persist — so the chart came back with
+/// its y-axis running from the origin at every launch. <b>The key was fixed on 2026-09-06</b>
+/// (<c>ReferenceLevelPlacement</c>: on a price pane the level goes at the cursor price, because a
+/// price pane has no meaningful constant). What was never done is clearing the ones already
+/// saved, and Cody's workspace still carried one three weeks later — at the cost of two wrong
+/// diagnoses before anyone read the file.
+/// </para>
+/// </summary>
+public sealed class StaleZeroLevelHealingTests
+{
+    private static SeriesConfig PriceSeriesWith(params (string Name, double Value)[] levels)
+    {
+        var cfg = new SeriesConfig { Id = "candles", Name = "Candles", IndicatorCode = "CANDLES", Pane = "Main" };
+        foreach (var (n, v) in levels) cfg.Levels.Add(new LevelConfig { Name = n, Value = v, IsVisible = true });
+        return cfg;
+    }
+
+    [Fact]
+    public void AZeroLevelOnThePriceSeriesIsDroppedOnRestore()
+    {
+        var cfg = PriceSeriesWith(("Zero", 0.0));
+
+        WorkspaceInitializer.MigrateSeriesConfig(cfg, new List<IndicatorMetadata>());
+
+        Assert.Empty(cfg.Levels);
+    }
+
+    /// <summary>A support line is exactly what the feature is for and must survive.</summary>
+    [Fact]
+    public void ARealPriceLevelSurvivesRestore()
+    {
+        var cfg = PriceSeriesWith(("Support", 52000), ("Zero", 0.0), ("Resistance", 91000));
+
+        WorkspaceInitializer.MigrateSeriesConfig(cfg, new List<IndicatorMetadata>());
+
+        Assert.Equal(new[] { "Support", "Resistance" }, cfg.Levels.Select(l => l.Name));
+    }
+
+    /// <summary>
+    /// An oscillator's zero is meaningful — MACD crosses it, Cipher B swings about it — so the
+    /// healing must be scoped to price panes and nowhere else.
+    /// </summary>
+    [Fact]
+    public void AZeroLevelOnAnOscillatorPaneIsLeftAlone()
+    {
+        var cfg = new SeriesConfig { Id = "macd", Name = "MACD", IndicatorCode = "MACD", Pane = "Pane_MACD" };
+        cfg.Levels.Add(new LevelConfig { Name = "Zero", Value = 0.0, IsVisible = true });
+
+        WorkspaceInitializer.MigrateSeriesConfig(cfg, new List<IndicatorMetadata>());
+
+        Assert.Single(cfg.Levels);
     }
 }

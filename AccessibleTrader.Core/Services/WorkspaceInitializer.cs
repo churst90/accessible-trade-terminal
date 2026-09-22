@@ -619,6 +619,32 @@ namespace AccessibleTrader.Core.Services
         /// restore does — a saved "Candle Body" is "body" in both places or in neither.</remarks>
         public static void MigrateSeriesConfig(SeriesConfig config, List<IndicatorMetadata> allMeta)
         {
+            // ── Heal a price pane poisoned by a zero level ──────────────────────────────
+            //
+            // The 0 key used to add a level at LITERAL ZERO whatever series held focus, because
+            // it was written for oscillators. Pressing it on the price series left
+            // {"Name":"Zero","Value":0.0} on CANDLES, and levels persist — so the chart came back
+            // with its y-axis running from the origin at every launch, price action crushed into
+            // the top sliver of the pane, and the price line's pitch swing crushed with it.
+            //
+            // The KEY was fixed on 2026-09-06 (see ReferenceLevelPlacement: on a price pane the
+            // level goes at the cursor price, because a price pane has no meaningful constant).
+            // What was never done is clearing the ones ALREADY SAVED. Cody's workspace still
+            // carried one on 2026-09-22, three weeks later, and it cost two wrong diagnoses
+            // before anyone thought to read the file: a fix to the writer does nothing for the
+            // data the old writer produced, and nobody re-derives a level by hand.
+            //
+            // Only levels that cannot be prices go. A support line at 52,000 on a 60,000 chart is
+            // exactly what this feature is for and stays; the test is the one the axis itself
+            // uses, so the two cannot drift apart.
+            if (Input.ReferenceLevelPlacement.IsPricePane(config.Pane) && config.Levels.Count > 0)
+            {
+                var doomed = config.Levels
+                    .Where(l => l.Value == 0.0 || double.IsNaN(l.Value))
+                    .ToList();
+                foreach (var l in doomed) config.Levels.Remove(l);
+            }
+
             // Phase 5 (2026-04-09): rename legacy Candles/Price component names to the
             // new snake_case machine names introduced in Phase 2. Old workspaces saved
             // "Candle Body" / "Upper Wick" / "Lower Wick" / "Close" as component Names;
