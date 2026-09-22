@@ -2,7 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.12.0] — 2026-09-22
+
+### The chart gets its window back — 41.5% of a maximised window to about 65% (2026-09-22)
+
+Measured from a screenshot of a maximised 1280×781 window carrying Candles + Volume + RSI + MACD:
+the terminal's own chrome took **394 CSS px** and the chart got **279** — 41.5% of the app.
+TradingView's equivalent vertical chrome is about 70. The pane weighting could not show at all,
+because three indicator panes at their 80px floor consumed the stack and the crowded rebalance
+flattened every pane to an equal quarter. Scope in `docs/CHART_REAL_ESTATE_SCOPE.md`; every step
+of it landed the same day, across four commits (`16e21add`, `6365de5d`, `a8b817c1`, `24d16179`).
+
+- **A guard first.** `ChartClaimsItsShareOfTheWindowTests` measures the chart's share of the
+  viewport at 1280×672 (the app's part of that window) with Volume, RSI and MACD added through
+  the real dialog, and prints every band of the shell with its height when it fails. **It passed
+  on the unchanged code at 55.4%**: the harness's seeded provider had one timeframe, so the
+  composer and pills never rendered and the symbol row never wrapped. `TerminalServerFactory`
+  seeds a weekly dataset as well now; the guard then read 44.9%, the number from the screenshot.
+  A second case carries the restored window Cody launched into (1000×610) at a 50% bar.
+- **Toolbar captions are off by default**, behind a new `Settings → Appearance → Toolbar
+  captions` switch (`appearance.toolbarCaptions`, `IAppSettings.ShowToolbarCaptions`, previewed
+  live, reverted by Cancel, a search-registry row). The accessible name was always `aria-label`
+  and the tooltip `title`, so nothing spoken changes. `html.toolbar-captions` restores them, in
+  BOTH `app.css` copies. The button box is 44px.
+- **The two icon rows are one.** Pan/zoom and the four display toggles end the button row; the
+  second row is the cascade and Load. Tab order: Help → pan/zoom → toggles → Market. The
+  timeframe quick-picks come AFTER Load in a labelled group, so Tab goes Market → Provider →
+  Symbol → Time → Load with no thirteen stops between Time and Load, and on a narrow window the
+  pills wrap rather than the Load button. They are compact: thirteen were ~8px too wide to
+  share the row at 1280.
+- **Every band's vertical padding is 3px**; `.toolbar-group` has none.
+- **The indicator-pane floor is 60 CSS px**, down from 80.
+- **The crowded path keeps the weight.** When the floors did not fit it pinned the price pane at
+  exactly 25% and scaled the indicators into the rest, discarding the 2:1 weight at the moment it
+  mattered. Now the price pane takes 2 of (2 + count), floored at 15%. The divider test that
+  pinned four equal quarters now pins the price pane as clearly the tallest.
+- **Focus mode, Alt+Z** (`SystemCommand.ToggleFocusMode`, global). Toolbar, tab bar, indicator
+  bar, touch nav and footer hidden via `.app-container.focus-mode`; the status line stays and
+  gains an **Exit focus mode** button; a **Focus mode** button sits on the indicator bar. Both
+  directions announced, naming the chord; focus is put on the chart on entry. Browser-tested at
+  ≥85% of the window and back.
+- **Formation labels.** Only the dominant formation labels its target and floor
+  (`ChartFormationLayer.LabelsEverything(rank)`); the renderer measures the pane legend BEFORE the
+  pane draws and hands it to the layer as `RenderContext.Avoid`, so labels step below it instead of
+  being painted over. **"bull flag" twice was a detector defect**: `Flags` re-reported the same
+  pole with a consolidation one bar longer; one pole reports one flag, and the test shows three
+  without the dedupe.
+- `ChartSurvivesASmallWindowTests`' overflow case assumed 946×536 was short enough to force a
+  scroll; with 235px of chrome plus the 260px floor it now fits, so that case uses 400px.
+
+Suite 8,026 → **8,034**; browser 222 → **226**. New: `ChartClaimsItsShareOfTheWindowTests` (4),
+crowded-path and density cases in `PaneHeightAllocationTests`, `AFlagIsReportedOnce…`,
+`ALabelUnderTheLegendStepsBelowIt`. **Unverified:** the Windows head's native canvas is
+positioned from a page-reported rect that the shorter chrome and focus mode both move; it tracks
+resize and a ResizeObserver and has not been looked at since.
 
 ### A "Zero" level saved three weeks ago was still flattening the price axis (2026-09-22)
 

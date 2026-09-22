@@ -136,6 +136,10 @@ describes the whole layout: how many panes, what is in each, what is hidden or m
 **Shift+F1** says where you are. The manual's "How a chart is laid out" chapter has the
 household picture of all this if you want one.
 
+**Alt+Z is focus mode:** the toolbar, tabs, indicator bar and footer disappear and the chart
+takes their height; the status line stays, with an **Exit focus mode** button. Every shortcut
+still works. Press Alt+Z again to bring the bands back — the terminal says so both ways.
+
 ---
 
 ## 4. Moving around
@@ -412,7 +416,8 @@ headless monitor.
 Speech, Narration, Sonification, Braille, Appearance, Keyboard, License, About. A search box
 at the top jumps to any setting. **Nothing is saved until you press Save**; Escape and Cancel
 discard. Appearance choices preview immediately and are put back on Cancel; keyboard rebinds
-save immediately. Speech is how the terminal says what you asked for; Narration is what it
+save immediately. The toolbar's icons carry no text by default — the spoken name and the
+tooltip are unchanged — and **Appearance → Toolbar captions** puts the labels back. Speech is how the terminal says what you asked for; Narration is what it
 says when you pressed nothing.
 
 **Workspaces.** Every tab, its symbol and timeframe, indicators with their settings and sounds,
@@ -511,6 +516,7 @@ Windows.
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
 | Alt+C / Alt+L / Alt+F / Alt+H | Heikin-Ashi / log scale / fit price only / volume heatmap |
+| Alt+Z | Focus mode: hide the toolbar, tabs and indicator bar, or show them again |
 
 **Drawings**
 
