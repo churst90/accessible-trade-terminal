@@ -100,10 +100,9 @@ namespace AccessibleTrader.Core.Services
         /// 86px against its own 80px minimum — technically legal and visibly cramped. At 2 the
         /// price pane takes two thirds with one indicator and a half with two, and no indicator
         /// pane is pushed below its floor until three are open, which is where the floor governs
-        /// anyway. <b>From FOUR indicator panes on, this constant changes nothing at all</b>: the
-        /// 80px indicator floor and the 25% main floor already decide the layout, and the weight
-        /// is not consulted. So the setting affects exactly the one, two and three-pane charts,
-        /// which is where there is spare height to distribute.
+        /// anyway. Since 2026-09-22 the weight is consulted in the CROWDED path too: when the
+        /// floors do not fit, the price pane keeps 2 of (2 + count) rather than dropping to the
+        /// 25% floor, so a deep stack still shows the price pane as the largest.
         /// </para>
         /// </summary>
         internal const float DefaultMainPaneWeight = 2f;
@@ -125,7 +124,12 @@ namespace AccessibleTrader.Core.Services
             float density,
             float mainPaneWeight = DefaultMainPaneWeight)
         {
-            const float MinIndicatorPaneHeightPx = 80f;
+            // 60, down from 80 on 2026-09-22. A 60 CSS px oscillator pane is legible — the
+            // screenshot probe's RSI at 65px reads fine — and 80 was the number that flattened
+            // Cody's maximised window: three indicator panes at 80 needed 240 of the ~279 CSS px
+            // the chart had, so the crowded path below handed every pane an equal quarter and
+            // the price pane's 2:1 weight never reached the screen. The crowded floor is 30.
+            const float MinIndicatorPaneHeightPx = 60f;
             float minIndicatorPaneHeight = MinIndicatorPaneHeightPx * density;
             int count = indicatorPaneNames.Count;
 
@@ -148,12 +152,21 @@ namespace AccessibleTrader.Core.Services
 
             float mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.25f);
 
-            // Guard against overflow: when saved pane ratios are large and the 25% main-pane
-            // floor kicks in, the sum of all pane heights can exceed totalPaneHeight, pushing
-            // the last indicator pane (typically Cipher B) off-screen or into the X-axis strip.
-            // Scale all indicator panes down proportionally so everything fits within the canvas.
+            // CROWDED: the indicator floors plus the price pane's 25% floor do not fit. Until
+            // 2026-09-22 this branch scaled the indicators into whatever was left of a main pane
+            // pinned at exactly 25%, so the WEIGHT WAS DISCARDED at the moment it mattered most —
+            // with three indicator panes on a maximised window the price pane landed on the same
+            // height as each indicator, and a screenshot of it read as "the weight is broken".
+            // It was not; it was never consulted here. Now the price pane keeps its weighted
+            // share (2 of 2+count: 40% with three panes, 25% with six), floored at 15% when the
+            // stack is very deep, and the indicators share the rest in proportion to what they
+            // had, each no smaller than the crowded floor. Saved pane ratios are scaled like the
+            // rest — the user resized the pane relative to a canvas that has since shrunk.
+            // Overflow after the crowded floor engages is the FINAL FIT's job, below.
             if (mainPaneHeight + usedByIndicators > totalPaneHeight)
             {
+                float weighted = totalPaneHeight * mainPaneWeight / (mainPaneWeight + count);
+                mainPaneHeight = Math.Max(weighted, totalPaneHeight * 0.15f);
                 float available = totalPaneHeight - mainPaneHeight;
                 if (available > 0f && usedByIndicators > available)
                 {
@@ -162,8 +175,6 @@ namespace AccessibleTrader.Core.Services
                     for (int pi = 0; pi < indHeights.Length; pi++)
                         indHeights[pi] = Math.Max(indHeights[pi] * scale, crowdedMin);
                     usedByIndicators = indHeights.Sum();
-                    // Re-evaluate main pane after rebalance (lower floor to 15% in crowded layouts).
-                    mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.15f);
                 }
             }
 
@@ -297,8 +308,6 @@ namespace AccessibleTrader.Core.Services
                 // chart rather than restarting in every pane.
                 var chartRect = new SKRect(0, mainPaneRect.Top, width - _axisWidth, height - _axisHeight);
 
-                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect);
-                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
                 // Legend for main-pane indicator overlays (e.g. Cipher A, Cipher SR).
                 // Exclude core series (candles, price line, volume) AND any volume-profile
                 // series (VPVR / VPFR / TPO / any .IsProfile series) — those are their own
@@ -308,6 +317,17 @@ namespace AccessibleTrader.Core.Services
                     .Where(s => !s.IsProfile)
                     .Where(s => s.IndicatorCode?.ToUpperInvariant() is not ("CANDLES" or "PRICE" or "VOLUME" or "HEATMAP"))
                     .ToList();
+                // Measured BEFORE the pane draws, because the formation layer places its labels
+                // inside the pane and the legend is painted on top of it afterwards. Until
+                // 2026-09-22 the layer did not know the legend existed, so "ascending triangle"
+                // staggered its labels straight underneath the box and the box covered them —
+                // visible in a screenshot, invisible to every test.
+                SKRect? legendRect = mainOverlaySeries.Count > 0
+                    ? MeasureLegendBox(mainPaneRect, mainOverlaySeries, density)
+                    : null;
+
+                RenderPane(canvas, mainPaneRect, visibleData, mainSeries, cursorIndex - viewportStart, viewportStart, "Main", mainMin, mainMax, isLogScale, viewportLength, density, chartRect: chartRect, avoid: legendRect);
+                RenderYAxis(canvas, mainAxisRect, mainMin, mainMax, isLogScale, density);
                 if (mainOverlaySeries.Count > 0)
                     RenderPaneLegend(canvas, mainPaneRect, mainOverlaySeries, density);
                 // Small colored ticks on the Y-axis at each visible line indicator's
@@ -378,7 +398,7 @@ namespace AccessibleTrader.Core.Services
         private static bool IsHeatmapSeries(ChartSeries s) =>
             s.Components.Any(c => c.DisplayType == ComponentDisplayType.Heatmap);
 
-        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null, SKRect? chartRect = null)
+        private void RenderPane(SKCanvas canvas, SKRect rect, List<Ohlcv> visibleData, List<ChartSeries> series, int localCursorIndex, int viewportStart, string paneName, double min, double max, bool isLogScale, int viewportLength, float density, IReadOnlyDictionary<string, (double Min, double Max)>? allPaneRanges = null, SKRect? chartRect = null, SKRect? avoid = null)
         {
             if (viewportLength <= 0) return;
 
@@ -405,7 +425,7 @@ namespace AccessibleTrader.Core.Services
             // ── Main area pass ────────────────────────────────────────────────
             var mainRect         = new SKRect(rect.Left, rect.Top, rect.Right, rect.Top + mainAreaHeight);
             var adjustedMainRect = new SKRect(rect.Left, mainRect.Top, rect.Right, mainRect.Bottom);
-            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect);
+            var ctx = new RenderContext(canvas, adjustedMainRect, visibleData, viewportStart, viewportLength, min, max, isLogScale, itemWidth, density, paneName, localCursorIndex, _theme.Current, ChartRect: chartRect, Avoid: avoid);
 
             canvas.Save(); canvas.ClipRect(mainRect);
             for (int li = 0; li < _layers.Count; li++)
@@ -803,18 +823,23 @@ namespace AccessibleTrader.Core.Services
         /// exactly the wrong thing for it to imply.
         /// </para>
         /// </summary>
-        private void RenderPaneLegend(SKCanvas canvas, SKRect paneRect, List<ChartSeries> paneSeries, float density)
-        {
-            const float KeyPx  = 14f;   // width of the key column — a line stub or a glyph
-            const float PadPx  = 6f;
-            const float LinePx = 17f;
+        private const float LegendKeyPx  = 14f;   // width of the key column — a line stub or a glyph
+        private const float LegendPadPx  = 6f;
+        private const float LegendLinePx = 17f;
 
-            float key  = KeyPx  * density;
-            float pad  = PadPx  * density;
-            float line = LinePx * density;
+        /// <summary>
+        /// The legend's rows and the box they occupy — ONE computation, shared by the pass that
+        /// reserves the space and the pass that paints it, so the rect the formation layer avoids
+        /// is the rect the legend actually draws.
+        /// </summary>
+        private (List<LegendRow> Rows, SKRect Box) MeasureLegend(SKRect paneRect, List<ChartSeries> paneSeries, float density)
+        {
+            float key  = LegendKeyPx  * density;
+            float pad  = LegendPadPx  * density;
+            float line = LegendLinePx * density;
 
             var rows = BuildLegendRows(paneSeries, paneRect.Height, line, pad, _theme.Current);
-            if (rows.Count == 0) return;
+            if (rows.Count == 0) return (rows, SKRect.Empty);
 
             // Hard ceiling on width, independent of what anything calls itself. The row budget
             // already stops the legend growing DOWN into the chart; without this it just grew
@@ -831,6 +856,29 @@ namespace AccessibleTrader.Core.Services
             float boxH = pad + rows.Count * line + pad;
             float bx   = paneRect.Left + pad;
             float by   = paneRect.Top  + pad;
+            return (rows, new SKRect(bx, by, bx + boxW, by + boxH));
+        }
+
+        /// <summary>Where the pane's legend will be painted, or null when it has no rows.</summary>
+        private SKRect? MeasureLegendBox(SKRect paneRect, List<ChartSeries> paneSeries, float density)
+        {
+            var (rows, box) = MeasureLegend(paneRect, paneSeries, density);
+            return rows.Count == 0 ? null : box;
+        }
+
+        private void RenderPaneLegend(SKCanvas canvas, SKRect paneRect, List<ChartSeries> paneSeries, float density)
+        {
+            float key  = LegendKeyPx  * density;
+            float pad  = LegendPadPx  * density;
+            float line = LegendLinePx * density;
+
+            var (rows, box) = MeasureLegend(paneRect, paneSeries, density);
+            if (rows.Count == 0) return;
+
+            float boxW = box.Width;
+            float boxH = box.Height;
+            float bx   = box.Left;
+            float by   = box.Top;
 
             // Reads as an overlay rather than a dialog parked on the chart: near-opaque so text
             // stays legible over candles, but a hairline border instead of a heavy outline.

@@ -95,6 +95,11 @@ namespace AccessibleTrader.Core.Models
     /// </summary>
     public record RequestChartFocusEvent();
 
+    /// <summary>Alt+Z, or the Focus mode button: hide every band but the chart and the status line, or bring them back.</summary>
+    public record ToggleFocusModeEvent();
+    /// <summary>Published by the shell after it flips, so the status bar can show the way back.</summary>
+    public record FocusModeChangedEvent(bool On);
+
     /// <summary>
     /// Published when the user presses Ctrl+Alt+Shift+T (FocusTabBar). Asks the
     /// workspace <c>TabBar</c> to move keyboard focus onto the tab switcher bar so

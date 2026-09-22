@@ -545,6 +545,13 @@ namespace AccessibleTrader.Core.Services.Analysis
             const double PoleAtr = 4.0;          // the impulse must be genuinely large
             const double FlagRetraceMax = 0.5;   // and the drift genuinely shallow
 
+            // The last bar of the last flag reported. A pole can satisfy the shape again a few
+            // bars later with a longer consolidation — same impulse, same drift, one more bar of
+            // it — and until 2026-09-22 that was reported as a SECOND flag: "bull flag" twice,
+            // stacked, on a real BTC hourly chart. A flag whose pole begins inside a flag already
+            // reported is that flag, not a new one.
+            int lastReportedEnd = -1;
+
             for (int end = PoleBars + FlagMin; end < bars.Count; end++)
             {
                 for (int flagLen = FlagMin; flagLen <= FlagMax; flagLen++)
@@ -552,6 +559,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                     int flagStart = end - flagLen + 1;
                     int poleStart = flagStart - PoleBars;
                     if (poleStart < 1) break;
+                    if (poleStart <= lastReportedEnd) break;
 
                     double a = atr[flagStart];
                     if (a <= 0) continue;
@@ -589,6 +597,7 @@ namespace AccessibleTrader.Core.Services.Analysis
                         bars[poleStart].Date, bars[end].Date, p.CompletedAt,
                         expires, BreaksBelow: !bull, MeasuredTarget: target);
 
+                    lastReportedEnd = end;
                     end += flagLen;   // one flag per region — otherwise every length reports the same shape
                     break;
                 }

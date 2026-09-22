@@ -60,6 +60,38 @@ public class ChartPatternDetectorTests
 
     // ── Shapes ──────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// One pole, one drift, ONE flag. Seen on a real BTC hourly chart on 2026-09-22 as "bull flag"
+    /// twice, stacked: the detector walked past a reported flag, found the same pole with a
+    /// consolidation one bar longer, and reported it again as a new formation. A flag whose pole
+    /// begins inside a flag already reported is that flag.
+    /// </summary>
+    [Fact]
+    public void AFlagIsReportedOnce_NotOnceForEveryLengthOfItsDrift()
+    {
+        // The detector returns early with fewer than three confirmed swings, so the flag needs
+        // some ordinary structure in front of it. None of these legs is a flag: each reverses
+        // hard, which is the opposite of a shallow drift.
+        var closes = Leg(100, 90, 10).Concat(Leg(90, 110, 10)).Concat(Leg(110, 95, 10)).Concat(Leg(95, 100, 10))
+            .Concat(Enumerable.Repeat(100.0, 20))   // quiet base so ATR is small
+            .Concat(Leg(100, 112, 8))               // the pole: 12 points in 8 bars
+            .Concat(Leg(112, 111, 24))              // a long, shallow drift
+            .Concat(Enumerable.Repeat(111.0, 10));
+        var bars = Bars(closes);
+
+        // The preamble's second leg is itself a (legitimate) flag — a rise, then a few bars of
+        // shallow give-back before the drop steepens — so the assertion is scoped to the pole
+        // this test built, at bar 60.
+        var flags = Detector.Detect(bars)
+            .Where(p => p.Kind == ChartPatternKind.BullFlag && p.StartBarIndex >= 50)
+            .ToList();
+
+        Assert.True(flags.Count >= 1, "the fixture did not produce a bull flag at all");
+        Assert.True(flags.Count == 1,
+            $"one pole and one drift were reported as {flags.Count} flags: "
+            + string.Join(" / ", flags.Select(f => $"pole@{f.StartBarIndex} end@{f.EndBarIndex}")));
+    }
+
     [Fact]
     public void FindsADoubleTop_AndNamesTheTroughAsTheNeckline()
     {

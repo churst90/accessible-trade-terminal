@@ -52,6 +52,15 @@
     <div class="status-content">
         <span class="status-text">@_lastMessage</span>
     </div>
+    @* Only while the toolbar is hidden. The Focus mode button that turned it on went with the
+       indicator bar, so this is the one VISIBLE control that turns it off; the chord is in its
+       name for whoever finds it by ear. *@
+    @if (_focusMode)
+    {
+        <button type="button" class="status-action"
+                title="Show the toolbar, tabs and indicator bar again, Alt plus Z"
+                @onclick="() => EventBus.Publish(new ToggleFocusModeEvent())">Exit focus mode (Alt+Z)</button>
+    }
     @if (_paperMode)
     {
         <span class="paper-indicator" role="img" aria-label="Paper trading enabled" title="Paper trading enabled">
@@ -127,6 +136,8 @@
     private bool _liveCapable;
     private IDisposable? _eventSub;
     private IDisposable? _paperSub;
+    private IDisposable? _focusSub;
+    private bool _focusMode;
     private IDisposable? _keysSub;
 
     protected override void OnInitialized()
@@ -146,6 +157,10 @@
 
         _paperSub = EventBus.Subscribe<PaperModeToggledEvent>(ev => {
             _paperMode = ev.Enabled;
+            InvokeAsync(StateHasChanged);
+        });
+        _focusSub = EventBus.Subscribe<FocusModeChangedEvent>(ev => {
+            _focusMode = ev.On;
             InvokeAsync(StateHasChanged);
         });
 
@@ -176,6 +191,7 @@
     {
         _eventSub?.Dispose();
         _paperSub?.Dispose();
+        _focusSub?.Dispose();
         _keysSub?.Dispose();
     }
 }

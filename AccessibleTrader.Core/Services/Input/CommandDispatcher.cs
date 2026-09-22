@@ -507,6 +507,12 @@ namespace AccessibleTrader.Core.Services.Input
                     _eventBus.Publish(new ContextSummaryRequestEvent());
                     return;
                 case SystemCommand.MonitoringStatus: _eventBus.Publish(new AnnounceMonitoringStatusEvent()); return;
+                case SystemCommand.ToggleFocusMode:
+                    // MainLayout owns the shell and flips the class; it announces the result
+                    // and puts focus on the chart, since the control that had focus may have
+                    // just been hidden.
+                    _eventBus.Publish(new ToggleFocusModeEvent());
+                    return;
                 case SystemCommand.ChartFocus:
                     // Ask ChartArea to programmatically focus the chart element. The
                     // resulting native focus event will fire ChartFocusEvent as a side

@@ -72,7 +72,7 @@
    HeadOutlet on the web host; harmless on MAUI (the native window title is set separately). *@
 <PageTitle>@GetBrowserTitle()</PageTitle>
 
-<div class="app-container">
+<div class="app-container @(_focusMode ? "focus-mode" : "")">
 
     @* Icon sprite injected once — <use href="#icon-*"> in every button references these symbols. *@
     <IconSprite />
@@ -230,6 +230,31 @@
     private CancellationTokenSource? _speechClearCts;
 
     private IDisposable? _stateSub;
+    private IDisposable? _focusModeSub;
+
+    /// <summary>
+    /// Focus mode: the toolbar, the tab bar, the indicator bar and the footer are hidden and the
+    /// chart takes their height. Session-only on purpose — it is a way of looking, not a setting.
+    /// The status line stays: it is the visual mirror of what was just spoken, and the button that
+    /// leaves focus mode lives there so a mouse user is never stranded with no visible way back.
+    /// </summary>
+    private bool _focusMode;
+
+    private async Task ToggleFocusModeAsync()
+    {
+        _focusMode = !_focusMode;
+        StateHasChanged();
+        _eventBus.Publish(new FocusModeChangedEvent(_focusMode));
+        // Say it, and say the way back — the bands just hidden are also the tab stops just hidden.
+        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            _focusMode
+                ? "Focus mode on. Toolbar, tabs and indicator bar hidden; press Alt plus Z to show them."
+                : "Focus mode off. Toolbar, tabs and indicator bar shown.",
+            true));
+        // Whatever had focus may be gone now; the chart is the one thing that is still there.
+        if (_focusMode) _eventBus.Publish(new RequestChartFocusEvent());
+        await Task.CompletedTask;
+    }
     private IDisposable? _modalSub;
     private IDisposable? _dataSub;
 
@@ -258,6 +283,9 @@
 
         // Re-render on every store state change so the header title stays current.
         _stateSub = Store.StateStream.Subscribe(_ => InvokeAsync(StateHasChanged));
+
+        _focusModeSub = _eventBus.AsObservable<ToggleFocusModeEvent>()
+            .Subscribe(_ => InvokeAsync(ToggleFocusModeAsync));
 
         // The browser-tab title carries the live price, and live ticks arrive on
         // DataStream (StateStream doesn't fire per tick). Sample at 1s so a busy
@@ -477,6 +505,7 @@
     public void Dispose()
     {
         _stateSub?.Dispose();
+        _focusModeSub?.Dispose();
         _modalSub?.Dispose();
         ModalStack.Changed -= OnModalStackChanged;
         _dataSub?.Dispose();

@@ -78,9 +78,20 @@ release is the one that makes it work.**
   with the provider's pills after — before, a provider with thirteen timeframes put thirteen
   tab stops between Time and Load, and on a narrow window the Load button wrapped onto a line
   of its own.
-- **Why the price pane looked as small as an indicator pane.** With three indicator panes at
-  the old height, every pane was floored to the same size and the price pane's larger share
-  could not show at all. It shows now, because the chart has the height to spend.
+- **The price pane is the largest pane again, at every window size.** Two things conspired to
+  make it the same height as each indicator pane: an 80-pixel floor under every indicator pane,
+  and a fallback that gave up the price pane's 2:1 share the moment the floors did not fit. The
+  floor is 60 now, and when a stack is crowded the price pane keeps its share — 40% with three
+  indicator panes — instead of dropping to a quarter.
+- **Focus mode.** Press **Alt+Z**, or the **Focus mode** button on the bar under the chart,
+  and the toolbar, tabs, indicator bar and footer disappear; the chart takes their height. The
+  status line stays and carries an **Exit focus mode** button. Both directions are announced.
+  This is the feature F11 was standing in for: F11 only recovers the browser's chrome.
+- **Formation labels stopped piling up.** Three drawn formations used to produce six labels, a
+  name and a "target" each, stacked in the corner and half under the pane legend. Only the
+  dominant formation labels its target and floor now, and every label steps clear of the
+  legend. And a flag was being reported twice — once for the consolidation and again for the
+  same consolidation one bar longer. It is reported once.
 
 ### If you use the hosted terminal
 

@@ -157,6 +157,7 @@ namespace AccessibleTrader.Tests
         [InlineData(SystemCommand.MonitoringStatus)]
         // ChartFocus itself MUST be global — it's the way to get focus to the chart
         [InlineData(SystemCommand.ChartFocus)]
+        [InlineData(SystemCommand.ToggleFocusMode)]   // Alt+Z — must work from the toolbar it hides
         // Tab management
         [InlineData(SystemCommand.AddTab)]
         [InlineData(SystemCommand.CloseTab)]
@@ -247,7 +248,7 @@ namespace AccessibleTrader.Tests
                 SystemCommand.VolSeriesUp, SystemCommand.VolSeriesDown,
                 SystemCommand.VolChartUp, SystemCommand.VolChartDown,
                 SystemCommand.ContextSummary, SystemCommand.MonitoringStatus,
-                SystemCommand.ChartFocus,
+                SystemCommand.ChartFocus, SystemCommand.ToggleFocusMode,
                 SystemCommand.AddTab, SystemCommand.CloseTab,
                 SystemCommand.SwitchTabNext, SystemCommand.SwitchTabPrev,
                 SystemCommand.FocusTabBar,

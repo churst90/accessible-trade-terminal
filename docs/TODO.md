@@ -117,15 +117,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-22, SEVENTY-FOURTH pass — THE CHART HAS ITS WINDOW BACK:
-> 44.9% → 65.0% by the guard, and v2.12.0 IS UNBLOCKED PENDING CODY'S OWN CHECK.)** Suite
-> **8,027**, browser **224**, 0 failing.
+> **START HERE (current as of 2026-09-22, SEVENTY-FIFTH pass — THE WHOLE CHART REAL-ESTATE
+> SCOPE IS DONE, and Cody wants it POLISHED FOR A PRESENTATION before any release talk.)**
+> Suite **8,034**, browser **226**, 0 failing.
 >
-> `docs/CHART_REAL_ESTATE_SCOPE.md` §0 has the before/after table. Steps 1–7 of its order are
-> done: the guard `ChartClaimsItsShareOfTheWindowTests` (red at 44.9% once the harness could
-> render timeframe pills, green at 65.0%), captions off by default behind a new
-> `Settings → Appearance → Toolbar captions` switch, the icon rows merged (pan/zoom and the
-> toggles now end the button row), and every band's padding trimmed. 3e–3g untouched.
+> `docs/CHART_REAL_ESTATE_SCOPE.md` §0 has everything: the guard (44.9% → 65.0%), captions off
+> by default behind `Settings → Appearance → Toolbar captions`, icon rows merged, pills after
+> Load and compact, pane floor 60, the crowded path keeps the 2:1 weight, **Alt+Z focus mode**,
+> and the formation labels (dominant-only levels, legend avoidance, and the "bull flag twice"
+> detector defect). Two screenshots from Cody drove the last two rounds; ask for a third.
 >
 > **What this pass could not verify:** the Windows head positions its native canvas from a
 > JS-reported rect (`canvasRegion.js`); the chrome above the chart changed height, so that rect
@@ -134,9 +134,10 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### NEXT
 >
-> 1. **Cody tests** — maximised window, three indicator panes, and the Settings switch both
->    ways (it previews live and Cancel takes it back).
-> 2. **Then cut 2.12.0** — the steps are in the previous block's NEXT 2 and 3, unchanged.
+> 1. **Cody tests** — maximised window with Volume+RSI+MACD (price pane should be visibly the
+>    largest), Alt+Z both ways, the Settings captions switch both ways, and the formation labels
+>    on a live BTC chart.
+> 2. **Then cut 2.12.0** — the steps are in the earlier block's NEXT 2 and 3, unchanged.
 >
 > ### CARRIED
 >

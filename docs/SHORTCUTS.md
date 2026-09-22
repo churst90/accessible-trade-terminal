@@ -292,6 +292,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | Shift+F4 | Open the Settings dialog on its **Braille** tab, with focus on the tab (desktop only — the tab does not exist on the web head, where no display can attach) | — |
 | Shift+F1 | Announce context summary (moved from F4 in 1.10). Names the focused series, the PANE it is in and where that pane sits in the stack, the strip inside it when you are standing in a component, and the drawing anchor a nudge would move. The pane comes from the same model the navigation keys read, so it cannot disagree with where Alt+Page Up / Alt+Page Down just put you | "{Symbol} on {Provider}, {Timeframe}. Focused on Volume, Volume pane, 2 of 3" |
 | Ctrl+Alt+Shift+C | Focus chart area + announce context summary | "{Symbol} context summary" |
+| Alt+Z | Toggle focus mode: the toolbar, tab bar, indicator bar and footer are hidden and the chart takes their height. The status line stays, with an **Exit focus mode** button in it. Also the **Focus mode** button on the indicator bar | "Focus mode on. Toolbar, tabs and indicator bar hidden; press Alt plus Z to show them." |
 
 ---
 

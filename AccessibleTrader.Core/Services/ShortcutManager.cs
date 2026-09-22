@@ -381,6 +381,12 @@ namespace AccessibleTrader.Core.Services
             // better and is DrawLabel; Alt+F is free on every head and, being a modifier chord,
             // is hard-stopped by keyboard.js before the browser's own Alt+F menu sees it.
             s.Add(new(SystemCommand.ToggleScalePriceOnly, "F", Alt: true)); // Alt+F
+            // Alt+Z for focus mode — what TradingView users call "zen": every toolbar and bar
+            // hidden and the chart given the whole window. F11 was what Cody reached for, and
+            // F11 only recovers the BROWSER's chrome (about 109px); ours was 394. Alt+Z is
+            // free on both heads and, being a modifier chord, is stopped by keyboard.js before
+            // the browser sees it. Global, not chart-scoped: it has to work from the toolbar.
+            s.Add(new(SystemCommand.ToggleFocusMode, "Z", Alt: true)); // Alt+Z
 
             // Modal shortcuts (Alt+key)
             s.Add(new(SystemCommand.OpenObjectTree,       "O", Alt: true)); // Alt+O

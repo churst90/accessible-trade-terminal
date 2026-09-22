@@ -485,12 +485,21 @@ public sealed class ChartFrameRenderingTests
     }
 
     /// <summary>
-    /// Three indicator panes plus the price pane split the canvas into four, so the dividers land
-    /// near the quarter marks — and every one of them above the x-axis strip, because a divider
-    /// inside the strip is a drag handle for a pane that is not there.
+    /// Three indicator panes on a 300px canvas: the 60px indicator floor binds, the price pane
+    /// takes what is left (about 36% of the plot rather than a quarter), and every divider lands
+    /// above the x-axis strip, because a divider inside the strip is a drag handle for a pane
+    /// that is not there.
+    ///
+    /// <para>
+    /// Until 2026-09-22 this pinned four EQUAL quarters — the signature of the crowded path
+    /// discarding the price pane's weight, which was the layout the renderer really produced
+    /// and the one a screenshot of Cody's maximised window showed. The floor is 60 now and the
+    /// crowded path keeps the weight, so the expectation is stated from the floor rule rather
+    /// than from the arithmetic that hid the defect.
+    /// </para>
     /// </summary>
     [Fact]
-    public void ThreeIndicatorPanes_PutTheirDividersAtTheQuarters_AllAboveTheAxisStrip()
+    public void ThreeIndicatorPanes_GiveThePriceMoreThanAQuarter_AllDividersAboveTheAxisStrip()
     {
         var (renderer, layout) = Renderer();
         var data = Bars(40, i => (100 + i % 3, 102 + i % 3));
@@ -512,15 +521,25 @@ public sealed class ChartFrameRenderingTests
         Assert.Equal(new[] { "Pane_A", "Pane_B", "Pane_C" }, layout.Dividers.Select(d => d.BelowPaneName));
 
         float plotFraction = 1f - layout.AxisHeightFraction;
-        float share = plotFraction / 4f;
+        // The floor as a fraction of the canvas. The renderer scales it by the density it
+        // derives from the canvas, so the tolerance is loose; the SHAPE is the assertion.
+        float indicator = 60f / H;
         for (int i = 0; i < 3; i++)
         {
-            float expected = share * (i + 1);
+            float expected = plotFraction - (3 - i) * indicator;
             Assert.True(Math.Abs(layout.Dividers[i].DividerFraction - expected) < 0.03f,
                 $"divider {i} at {layout.Dividers[i].DividerFraction}, expected about {expected}");
             Assert.True(layout.Dividers[i].DividerFraction < plotFraction,
                 $"divider {i} is inside the x-axis strip");
         }
+
+        // The signature to look for on screen: the price pane (above the first divider) is
+        // clearly taller than an indicator pane (between two dividers). Four equal panes is
+        // the old crowded-path layout and would fail here.
+        float price = layout.Dividers[0].DividerFraction;
+        float pane = layout.Dividers[2].DividerFraction - layout.Dividers[1].DividerFraction;
+        Assert.True(price > pane * 1.2f,
+            $"the price pane ({price:F3}) is not clearly taller than an indicator pane ({pane:F3}); the weight is not reaching the screen");
     }
 
     /// <summary>

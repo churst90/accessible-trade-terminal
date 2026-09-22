@@ -32,7 +32,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         // pane repeat the full light-to-dark fade, so a chart with a volume pane showed a hard
         // seam where the volume pane restarted at the light end. The fade has to be computed
         // against the whole canvas and merely CLIPPED to each pane.
-        SKRect? ChartRect = null
+        SKRect? ChartRect = null,
+        // A rect something else will paint OVER this pane after the layers run — today the
+        // pane legend, which the renderer measures before the pane draws. Layers that place
+        // text (the formation layer) keep their labels out of it. Null means nothing to avoid.
+        SKRect? Avoid = null
     ) {
         public float Width => PaneRect.Width;
         public float Height => PaneRect.Height;

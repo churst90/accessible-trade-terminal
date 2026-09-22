@@ -298,6 +298,16 @@ captions** puts a caption under every icon again. Some buttons only appear when
 they apply — drawing tools and the chart toggles are hidden on analytics charts,
 where they mean nothing.
 
+### Focus mode
+
+Press **Alt+Z**, or the **Focus mode** button on the bar under the chart, and the toolbar,
+the tab bar, the indicator bar and the footer disappear; the chart takes their height. The
+status line stays, because it is the visual mirror of what was just spoken, and it gains an
+**Exit focus mode** button so there is always a visible way back. The terminal announces
+both directions and names the chord when it turns on, since the controls it just hid were
+also tab stops. Every shortcut still works in focus mode; only the bands are gone. It is
+not saved — the next start opens with everything showing.
+
 ### Choosing what to chart
 
 Everything you select to build a chart lives on the toolbar's second row, in the

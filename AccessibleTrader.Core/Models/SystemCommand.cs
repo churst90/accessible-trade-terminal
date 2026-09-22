@@ -36,6 +36,7 @@ namespace AccessibleTrader.Core.Models
         ContextSummary,
         MonitoringStatus,   // Ctrl+Alt+Shift+M: speak the background-workspace monitoring summary
         ChartFocus,         // Ctrl+Alt+Shift+C: explicit chart focus + context summary
+        ToggleFocusMode,    // Alt+Z: hide the toolbar, tab bar and indicator bar so the chart gets the window
         
         // Accessibility Toggles
         ToggleSpeech,        // F2: interactive/command speech

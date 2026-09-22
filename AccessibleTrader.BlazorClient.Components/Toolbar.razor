@@ -403,10 +403,12 @@
            these, then Load" is what the order says too. *@
         @if (MarketOrchestrator.AvailableTimeframes.Count > 1)
         {
-            <div role="group" aria-label="Timeframe quick picks" style="display:inline-flex; flex-wrap:wrap; gap:3px;">
+            @* Compact on purpose: thirteen of them (Bitstamp) came to ~450px, eight more than the
+               room left beside the cascade at 1280px, and took a third line for the difference. *@
+            <div role="group" aria-label="Timeframe quick picks" style="display:inline-flex; flex-wrap:wrap; gap:2px;">
                 @foreach (var tf in MarketOrchestrator.AvailableTimeframes)
                 {
-                    <button style="padding:2px 5px; font-size:0.8rem;"
+                    <button style="padding:1px 4px; font-size:0.75rem; line-height:1.3;"
                             aria-label="Set timeframe to @tf"
                             title="Set timeframe to @tf"
                             @onclick="() => ApplyQuickPickTimeframe(tf)">@tf</button>

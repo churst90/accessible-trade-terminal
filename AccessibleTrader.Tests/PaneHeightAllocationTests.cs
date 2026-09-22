@@ -77,30 +77,76 @@ public sealed class PaneHeightAllocationTests
     {
         var a = Allocate(RealWindow, count);
 
-        Assert.All(a.IndicatorHeights, h => Assert.True(h >= 80f - 0.5f,
-            $"an indicator pane got {h:F0}px, below the 80px minimum"));
+        Assert.All(a.IndicatorHeights, h => Assert.True(h >= 60f - 0.5f,
+            $"an indicator pane got {h:F0}px, below the 60px minimum"));
     }
 
     /// <summary>
-    /// <b>And from four indicator panes on, the weight changes NOTHING.</b> Cody's question was
-    /// what happens with four indicators each in its own pane; the answer is that the 80px
-    /// indicator floor and the 25% main floor have already decided the layout by then and the
-    /// weight is never consulted. Whatever that chart looked like before, it looks identical now.
+    /// <b>When the stack is crowded the price pane KEEPS its weighted share.</b> Until 2026-09-22
+    /// the crowded path pinned the price pane at exactly 25% and scaled the indicators into the
+    /// rest, so from four panes on the weight was never consulted — and on Cody's maximised
+    /// window, where three panes at the old 80px floor already crowded the stack, four panes of
+    /// equal height was the result. Now the price pane takes 2 of (2 + count), floored at 15%.
     /// </summary>
     [Theory]
-    [InlineData(4)]
-    [InlineData(5)]
+    [InlineData(5)]     // 5 x 60 = 300 of 344: the 25% main floor cannot be honoured — crowded
     [InlineData(6)]
     [InlineData(8)]
-    public void FromFourIndicatorsOn_TheWeightIsNotConsultedAtAll(int count)
+    [InlineData(12)]    // 12 x 30 = 360 > 344: even the crowded floor gives, via the final fit
+    public void WhenCrowded_ThePricePaneKeepsItsWeightedShare(int count)
     {
-        var now = Allocate(RealWindow, count);
-        var old = Allocate(RealWindow, count, weight: 1f);
+        var a = Allocate(RealWindow, count);
 
-        Assert.Equal(old.MainHeight, now.MainHeight, 2);
-        Assert.Equal(old.IndicatorHeights.Length, now.IndicatorHeights.Length);
-        for (int i = 0; i < now.IndicatorHeights.Length; i++)
-            Assert.Equal(old.IndicatorHeights[i], now.IndicatorHeights[i], 2);
+        float expected = Math.Max(2f / (2f + count), 0.15f);
+        Assert.InRange(a.MainHeight / RealWindow, expected - 0.02f, expected + 0.02f);
+        Assert.True(a.MainHeight > a.IndicatorHeights.Max(),
+            $"with {count} panes the price pane ({a.MainHeight:F0}px) is not the largest pane");
+        Assert.All(a.IndicatorHeights, h => Assert.True(h > 0f, "a pane was allocated nothing"));
+        Assert.True(a.MainHeight + a.IndicatorHeights.Sum() <= RealWindow + 0.5f, "the panes overflow the canvas");
+    }
+
+    /// <summary>
+    /// Four panes at 344px is NOT crowded any more: 4 x 60 = 240 leaves the price pane 104, above
+    /// its 25% floor, so the floors decide and the price pane gets 30%. Pinned so the boundary
+    /// between "floors bind" and "crowded" is stated rather than implied.
+    /// </summary>
+    [Fact]
+    public void FourPanes_TheFloorsBindAndThePriceGetsWhatIsLeft()
+    {
+        var a = Allocate(RealWindow, 4);
+
+        Assert.All(a.IndicatorHeights, h => Assert.InRange(h, 59.5f, 60.5f));
+        Assert.InRange(a.MainHeight, RealWindow - 240f - 0.5f, RealWindow - 240f + 0.5f);
+    }
+
+    /// <summary>
+    /// <b>The maximised window, at the display's real density.</b> 2560x1562 at 2x: after the
+    /// chrome diet the chart stack is about 360 CSS px, 720 device px, and the floors scale with
+    /// density. Three indicator panes, price pane at 40% — the number the scope document set
+    /// out to make true on screen, stated here at the density that hid it.
+    /// </summary>
+    [Fact]
+    public void OnTheMaximisedWindowAtTwoTimesDensity_ThreePanesGiveThePriceFortyPercent()
+    {
+        var names = new[] { "Volume", "RSI", "MACD" };
+        var a = ChartRenderer.AllocatePaneHeights(720f, names, null, density: 2f);
+
+        Assert.InRange(a.MainHeight / 720f, 0.38f, 0.42f);
+        Assert.All(a.IndicatorHeights, h => Assert.True(h >= 120f - 0.5f, "an indicator pane fell below 60 CSS px at 2x"));
+    }
+
+    /// <summary>
+    /// The same three panes on the 279 CSS px the chart had BEFORE the diet, at 2x: the floors
+    /// bind, and the price pane gets 35% rather than the equal quarter it used to. This is the
+    /// case the 2026-09-22 screenshot showed as four equal panes.
+    /// </summary>
+    [Fact]
+    public void OnTheOldCrowdedWindow_ThePriceIsStillClearlyTheLargestPane()
+    {
+        var a = ChartRenderer.AllocatePaneHeights(558f, new[] { "Volume", "RSI", "MACD" }, null, density: 2f);
+
+        Assert.True(a.MainHeight > a.IndicatorHeights.Max() * 1.4f,
+            $"price {a.MainHeight:F0} vs indicators {string.Join("/", a.IndicatorHeights.Select(h => h.ToString("F0")))}");
     }
 
     // ── The invariants the two bug-fix comments are about ──────────────────────

@@ -137,6 +137,31 @@ html, body {
     align-items: center;
 }
 
+/* ── Focus mode (Alt+Z) ───────────────────────────────────────────────────────
+   The chart and the status line, nothing else. display:none rather than a visually-hidden
+   trick, because the hidden bands must leave the tab order and the accessibility tree too —
+   a screen reader walking landmarks in focus mode should find the chart, the status line and
+   the (visually hidden) banner, not four regions it cannot see. */
+.app-container.focus-mode .toolbar,
+.app-container.focus-mode .tab-bar,
+.app-container.focus-mode .indicator-bar,
+.app-container.focus-mode .touch-nav,
+.app-container.focus-mode .app-footer {
+    display: none;
+}
+
+.status-action {
+    margin-left: 12px;
+    padding: 1px 8px;
+    font-size: 0.8rem;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.status-action:focus-visible { outline: 3px solid var(--focus-outline-color, #ffff00); outline-offset: 1px; }
+
 /* ── Tab bar ──────────────────────────────────────────────────────────────── */
 
 .tab-bar {

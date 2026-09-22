@@ -66,11 +66,22 @@ namespace AccessibleTrader.Core.Services.Rendering
             // triggers sit at nearly the same price do not overprint into an unreadable smear —
             // which is exactly what the first version produced on a real BTC chart.
             var takenLabelRows = new List<float>();
-            foreach (var p in onScreen) Draw(ctx, p, firstVisible, lastVisible, takenLabelRows);
+            for (int rank = 0; rank < onScreen.Count; rank++)
+                Draw(ctx, onScreen[rank], firstVisible, lastVisible, takenLabelRows, LabelsEverything(rank));
         }
 
+        /// <summary>
+        /// Whether a formation at this dominance rank labels its floor and target as well as its
+        /// name. Only the DOMINANT one does: three formations used to produce up to SIX labels
+        /// (name + "target" each), which is a stack of text no stagger can make readable — visible
+        /// in a screenshot of a real BTC chart carrying an ascending triangle, a symmetrical
+        /// triangle and a flag. The others still draw their lines; they just say their name once.
+        /// The spoken readout makes the same choice — describe one, count the rest.
+        /// </summary>
+        internal static bool LabelsEverything(int rank) => rank == 0;
+
         private static void Draw(RenderContext ctx, ChartPattern p, int firstVisible, int lastVisible,
-            List<float> takenLabelRows)
+            List<float> takenLabelRows, bool labelLevels)
         {
             var theme = ctx.Theme;
 
@@ -131,7 +142,8 @@ namespace AccessibleTrader.Core.Services.Rendering
             {
                 float yBottom = YFor(ctx, bottom);
                 ctx.Canvas.DrawLine(x1, yBottom, xEnd, yBottom, trigger);
-                Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} floor", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
+                if (labelLevels)
+                    Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} floor", x1 + 4 * ctx.Density, yBottom, theme.Accent, takenLabelRows);
             }
 
             // ── The measured target: faint, dashed, and labelled as a convention ─
@@ -155,8 +167,9 @@ namespace AccessibleTrader.Core.Services.Rendering
                 ctx.Canvas.DrawLine(x1, yTarget, xEnd, yTarget, targetPaint);
                 // Named, because a chart carrying three formations drew three lines all labelled
                 // "measured target" and none of them said whose.
-                Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} target", x1 + 4 * ctx.Density, yTarget,
-                      new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
+                if (labelLevels)
+                    Label(ctx, $"{ChartPatternNarrator.Name(p.Kind)} target", x1 + 4 * ctx.Density, yTarget,
+                          new SKColor(theme.Accent.Red, theme.Accent.Green, theme.Accent.Blue, 150), takenLabelRows);
             }
         }
 
@@ -175,10 +188,11 @@ namespace AccessibleTrader.Core.Services.Rendering
         private static void Label(RenderContext ctx, string text, float x, float y, SKColor colour,
             List<float> taken)
         {
-            float row = NextLabelRow(ctx, taken, y);
-
             using var font = new SKFont(SKTypeface.Default, 10f * ctx.Density);
             using var paint = new SKPaint { IsAntialias = true, Color = colour };
+
+            float width = font.MeasureText(text);
+            float row = NextLabelRow(ctx, taken, y, x, width);
 
             // A backing plate, because these labels land on top of candles. In the screenshot that
             // prompted this, "head and shoulders" ran straight across a green candle body and
@@ -186,7 +200,6 @@ namespace AccessibleTrader.Core.Services.Rendering
             // said. Staggering them fixed labels colliding with EACH OTHER; this fixes them
             // colliding with the chart.
             float pad = 3f * ctx.Density;
-            float width = font.MeasureText(text);
             var plate = new SKRect(x - pad, row - font.Size, x + width + pad, row + pad);
 
             using var platePaint = new SKPaint
@@ -214,16 +227,29 @@ namespace AccessibleTrader.Core.Services.Rendering
         /// public surface while letting the assertion reach the real thing.
         /// </para>
         /// </summary>
-        internal static float NextLabelRow(RenderContext ctx, List<float> taken, float y)
+        internal static float NextLabelRow(RenderContext ctx, List<float> taken, float y,
+            float x = float.NaN, float width = 0f)
         {
             float lineHeight = 12f * ctx.Density;
             float row = y - 3 * ctx.Density;
 
-            // Push down past anything already occupying this row.
-            while (taken.Any(t => Math.Abs(t - row) < lineHeight)) row += lineHeight;
+            // Push down past anything already occupying this row — and past the rect the
+            // renderer says it will paint over this pane (the legend), when the label's own
+            // horizontal extent overlaps it. The legend sits top-left, and so does the label of
+            // any formation running off the left edge, which is most of them on a live chart.
+            bool Blocked(float r) =>
+                taken.Any(t => Math.Abs(t - r) < lineHeight)
+                || (ctx.Avoid is SKRect a && !float.IsNaN(x)
+                    && x < a.Right && x + width > a.Left
+                    && r > a.Top && r - lineHeight < a.Bottom);
 
-            // Never outside the pane: a label drawn above the top edge is simply lost.
-            row = Math.Clamp(row, ctx.PaneRect.Top + lineHeight, ctx.PaneRect.Bottom - 2 * ctx.Density);
+            // Never above the pane: a label drawn above the top edge is simply lost. Clamped
+            // BEFORE the collision walk, because a label pushed up to the top row lands in the
+            // legend's corner — clamping afterwards put it back on top of the thing it had
+            // just stepped away from.
+            row = Math.Max(row, ctx.PaneRect.Top + lineHeight);
+            while (Blocked(row)) row += lineHeight;
+            row = Math.Min(row, ctx.PaneRect.Bottom - 2 * ctx.Density);
             taken.Add(row);
             return row;
         }

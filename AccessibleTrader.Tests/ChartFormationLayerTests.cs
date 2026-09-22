@@ -220,6 +220,42 @@ public class ChartFormationLayerTests : IDisposable
         Assert.True(Math.Abs(a - c) >= 10f, $"labels overlapped at {a} and {c}");
     }
 
+    /// <summary>
+    /// The renderer paints the pane legend in the top-left corner AFTER the formation layer
+    /// draws, and a formation running off the left edge puts its label in exactly that corner.
+    /// Seen 2026-09-22: "ascending triangle" and its target stacked under the legend box, the
+    /// box painted over them. The label steps below the rect the renderer says it will cover.
+    /// </summary>
+    [Fact]
+    public void ALabelUnderTheLegendStepsBelowIt()
+    {
+        var legend = new SKRect(6, 6, 200, 80);
+        var ctx = Ctx() with { Avoid = legend };
+        var rows = new List<float>();
+
+        // A trigger near the top of the range, labelled at the left edge: exactly where the legend is.
+        double frac = (149.0 - ctx.Min) / (ctx.Max - ctx.Min);
+        float y = ctx.PaneRect.Bottom - (float)(frac * ctx.PaneRect.Height);
+        float row = ChartFormationLayer.NextLabelRow(ctx, rows, y, x: 4f, width: 90f);
+
+        Assert.True(row - 12f >= legend.Bottom - 0.5f,
+            $"the label's row {row} still overlaps the legend, which ends at {legend.Bottom}");
+
+        // The same label placed to the RIGHT of the legend is not pushed at all.
+        var free = new List<float>();
+        float rowRight = ChartFormationLayer.NextLabelRow(ctx, free, y, x: 400f, width: 90f);
+        Assert.True(rowRight < legend.Bottom, $"a label clear of the legend was moved anyway, to {rowRight}");
+    }
+
+    /// <summary>Only the dominant formation labels its target and floor; the rest say their name once.</summary>
+    [Fact]
+    public void OnlyTheDominantFormationLabelsItsLevels()
+    {
+        Assert.True(ChartFormationLayer.LabelsEverything(0));
+        Assert.False(ChartFormationLayer.LabelsEverything(1));
+        Assert.False(ChartFormationLayer.LabelsEverything(2));
+    }
+
     /// <summary>A label near the top of the range must stay inside the pane, not above it.</summary>
     [Fact]
     public void LabelsStayInsideThePane()

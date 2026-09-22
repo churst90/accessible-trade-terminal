@@ -121,6 +121,63 @@ public sealed class ChartClaimsItsShareOfTheWindowTests
     }
 
     /// <summary>
+    /// <b>Focus mode is the feature F11 was impersonating.</b> Alt+Z hides the toolbar, the tab
+    /// bar, the indicator bar and the footer; the chart takes their height and the status line
+    /// stays with a visible way back. This asserts all four things a user meets: the share, the
+    /// hidden bands leaving the accessibility tree, the announcement, and the round trip.
+    /// </summary>
+    [BrowserFact]
+    public async Task FocusMode_GivesTheChartNearlyTheWholeWindow_AndComesBack()
+    {
+        await using var t = await _fixture.NewPageAsync();
+        await t.Page.SetViewportSizeAsync(Width, Height);
+        await t.LoadSeededChartAsync();
+        await t.FocusChartAsync();
+        await t.WaitForPaintAsync();
+
+        var before = await t.Page.Locator("#chart-interact-zone").BoundingBoxAsync();
+        Assert.NotNull(before);
+
+        await t.ClearSpokenAsync();
+        await t.PressAsync("Alt+z");
+        await t.Page.WaitForFunctionAsync(
+            "() => document.querySelector('.app-container')?.classList.contains('focus-mode') === true",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+        await t.Page.WaitForTimeoutAsync(400);
+
+        var after = await t.Page.Locator("#chart-interact-zone").BoundingBoxAsync();
+        Assert.NotNull(after);
+        double share = after!.Height / Height;
+        Assert.True(share >= 0.85,
+            $"In focus mode the chart gets {after.Height:F0}px of {Height}: {share:P1}, below 85%. Bands:\n    "
+          + string.Join("\n    ", await t.ShellBandsAsync()));
+
+        // Hidden means gone from the accessibility tree, not merely transparent.
+        var toolbarVisible = await t.Page.Locator("nav[aria-label='Main toolbar']").IsVisibleAsync();
+        var indicatorBarVisible = await t.Page.Locator("nav[aria-label='Indicator controls']").IsVisibleAsync();
+        Assert.False(toolbarVisible, "the main toolbar is still visible in focus mode");
+        Assert.False(indicatorBarVisible, "the indicator bar is still visible in focus mode");
+
+        // The way back is visible, and the chord was spoken.
+        Assert.True(await t.Page.Locator("button:has-text('Exit focus mode')").IsVisibleAsync(),
+            "no visible way out of focus mode");
+        var spoken = await t.SpokenAsync();
+        Assert.Contains(spoken, u => u.Text.Contains("Focus mode on", StringComparison.OrdinalIgnoreCase)
+                                  && u.Text.Contains("Alt plus Z", StringComparison.OrdinalIgnoreCase));
+
+        // And back, from the chart, which is where focus was put.
+        await t.PressAsync("Alt+z");
+        await t.Page.WaitForFunctionAsync(
+            "() => document.querySelector('.app-container')?.classList.contains('focus-mode') === false",
+            null, new PageWaitForFunctionOptions { Timeout = 5_000 });
+        Assert.True(await t.Page.Locator("nav[aria-label='Main toolbar']").IsVisibleAsync(),
+            "the toolbar did not come back");
+        var restored = await t.Page.Locator("#chart-interact-zone").BoundingBoxAsync();
+        Assert.NotNull(restored);
+        Assert.InRange(restored!.Height, before!.Height - 2, before.Height + 2);
+    }
+
+    /// <summary>
     /// The share only means something if the chart is DRAWN into it: an empty region of the
     /// right size is what the small-window bug looked like, and a layout change that grew the
     /// box while starving the renderer would pass the test above.

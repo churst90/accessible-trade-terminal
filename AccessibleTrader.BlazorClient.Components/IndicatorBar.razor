@@ -57,6 +57,14 @@
 
     <div style="flex: 1;" aria-hidden="true"></div>
 
+    @* The button half of Alt+Z. It hides this very bar, so it carries no pressed state — the
+       way back is the chord, spoken when it turns on, and the "Exit focus mode" button that
+       appears in the status line. Here rather than on the top toolbar because that row is
+       one button short of wrapping at 1280px, and because this is the bar about the chart. *@
+    <ToolbarIconButton Icon="focus-mode" Label="Focus mode" Variant="neutral"
+                      Tooltip="Hide the toolbar, tabs and indicator bar so the chart gets the window, Alt plus Z"
+                      OnClick="() => EventBus.Publish(new ToggleFocusModeEvent())" />
+
     <ToolbarIconButton Icon="add-indicator" Label="Add" Variant="data" Primary="true"
                       Tooltip="Add indicator to chart"
                       AriaLabel="Add indicator to chart"

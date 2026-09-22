@@ -35,8 +35,24 @@ the button row below ~1100px). **The pane floor is the visible cost there**: thr
 panes at 80 CSS px leave the price pane at its 25% floor in a 610px window, so 3e is the next
 lever if the restored window matters as much as the maximised one.
 
-**3e–3g were not needed** for the bar and were left alone; the renderer's pane arithmetic is
-untouched. §4 (formation labels) is untouched too.
+**Later the same day, at Cody's direction ("the other sections fixed before discussing a
+release"), 3e, 3f, 3g and §4 were done too:**
+
+- **3e** `MinIndicatorPaneHeightPx` 80 → 60. Judged with eyes on the probe's 65px RSI.
+- **3f** The crowded path keeps the weight: the price pane takes 2 of (2 + count), floored at
+  15%, and the indicators share the rest proportionally down to the 30px crowded floor; the
+  final fit still owns overflow. `PaneHeightAllocationTests` pins 40% at 2× on a 720-device-px
+  stack (the maximised window after the diet) and 35% on the 558 it had before.
+- **3g** Focus mode, **Alt+Z** (`SystemCommand.ToggleFocusMode`, global): `.app-container.focus-mode`
+  hides toolbar, tab bar, indicator bar, touch nav and footer; the status line stays and grows an
+  **Exit focus mode** button; a **Focus mode** button sits on the indicator bar; both directions
+  are announced with the chord. Browser-tested at ≥85% of the window and back.
+- **§4** (1) only the dominant formation labels its target and floor (`LabelsEverything(rank)`);
+  (2) the renderer measures the legend box before the pane draws and hands it to the layer as
+  `RenderContext.Avoid`, and `NextLabelRow` steps below it; (3) **"bull flag" twice WAS a detector
+  defect** — the same pole re-reported with a longer drift; one pole now reports one flag, and the
+  test shows three without the fix.
+- The timeframe pills were made compact (they were ~8px too wide to share the cascade row at 1280).
 
 **Two harness gaps closed on the way.** The harness's seeded provider had ONE timeframe, so the
 composer and the pills never rendered and the symbol row never wrapped — the guard passed at
