@@ -152,12 +152,36 @@
   </UsingTask>
 
   <!--
+    WHEN NOT TO WRITE INTO A BUNDLE, and it took a failed release to learn it.
+
+    A universal Mac Catalyst publish builds the app once per RID and then LIPO-merges the two
+    bundles, and that merge requires every non-binary file to be BYTE-IDENTICAL between them.
+    Two per-RID manifests never are: they carry a generation timestamp, and the plugin
+    assemblies they hash are different builds. So writing the manifest into each inner bundle
+    turned "the macOS app has no manifest" into "the macOS app does not build":
+
+        error : Unable to merge the file 'Contents/MonoBundle/plugins_trusted.manifest',
+                it's different between the input app bundles.
+
+    The inner per-RID build is an INPUT to that merge; only the outer build runs after it, and
+    only the outer build's bundle is the one that ships. An inner build is the case where a RID
+    is pinned AND the project declares several — the outer universal build has RuntimeIdentifier
+    empty, and every single-RID head (Windows, all four WebHosts) declares no RuntimeIdentifiers
+    at all, so both are unaffected.
+  -->
+  <PropertyGroup>
+    <_AttInnerRidBuildOfUniversalPublish Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifiers)' != ''">true</_AttInnerRidBuildOfUniversalPublish>
+    <_AttWriteManifestBesidePlugins Condition="'$(_AttInnerRidBuildOfUniversalPublish)' == 'true'">false</_AttWriteManifestBesidePlugins>
+    <_AttWriteManifestBesidePlugins Condition="'$(_AttWriteManifestBesidePlugins)' == ''">true</_AttWriteManifestBesidePlugins>
+  </PropertyGroup>
+
+  <!--
     Build-time manifest, for running out of bin/. Not the one that ships.
   -->
   <Target Name="GeneratePluginTrustManifest" AfterTargets="Build" Condition=" '$(OutDir)' != '' ">
     <HashPluginDlls PluginsDir="$(OutDir)"
                     ManifestPath="$(OutDir)plugins_trusted.manifest"
-                    WriteBesidePlugins="true" />
+                    WriteBesidePlugins="$(_AttWriteManifestBesidePlugins)" />
   </Target>
 
   <!--
@@ -173,7 +197,7 @@
   <Target Name="GeneratePluginTrustManifestOnPublish" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
     <HashPluginDlls PluginsDir="$(PublishDir)"
                     ManifestPath="$(PublishDir)plugins_trusted.manifest"
-                    WriteBesidePlugins="true" />
+                    WriteBesidePlugins="$(_AttWriteManifestBesidePlugins)" />
   </Target>
 
 </Project>

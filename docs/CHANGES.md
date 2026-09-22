@@ -101,10 +101,24 @@ by GitHub Actions, which had neither. **The fix landed on one machine and not on
     build side. `PluginTrustManifestTaskTests` RUNS the real task through MSBuild over a
     duplicate-name tree and sabotage-reproduces exactly this.
   - The Windows zip was still IL-only despite `PublishReadyToRun=true` in the csproj under a
-    condition that held. Something in the MAUI/WinUI import chain assigns it, so it is now also
-    passed on the `dotnet publish` command line — a **global** property, which no imported
-    `.targets` can overwrite. The csproj keeps the declaration; the artifact check reads the
-    shipped PE headers and is the arbiter either way.
+    condition that demonstrably held. **This is not fixed, and the attempt to fix it is the
+    more useful record.** Passing it as a command-line GLOBAL property (which no imported
+    `.targets` can overwrite) did not restore R2R either — and a global property flows into
+    every referenced project, so the SDK inferred a RuntimeIdentifier for the ScriptWorker,
+    moved its output to `bin/Release/net10.0/win-x64/`, and the staging wildcard carried the
+    apphost into `publish/maui-win/win-x64/` instead of the root. **The third re-cut attempt
+    failed on a MISSING ScriptWorker.exe — a real feature broken while chasing a startup
+    optimisation.** Reverted. The R2R rule is now `"severity": "warn"`: it reports as an
+    advisory and does not block, because every other rule in that manifest names a payload
+    without which a feature is silently dead, and this one is about how fast the app starts. A
+    corrected release must not be held hostage to it. Open item in `docs/TODO.md`.
+  - **A third failure, from the SAME fix.** Writing a manifest into each per-RID bundle broke
+    the universal build outright: `error : Unable to merge the file
+    'Contents/MonoBundle/plugins_trusted.manifest', it's different between the input app
+    bundles.` A Mac Catalyst universal publish LIPO-merges the two per-RID bundles and demands
+    byte-identical non-binary files; two manifests never are, since they carry a timestamp and
+    hash different builds. Only the OUTER build — the one that runs after the merge, and the
+    only one whose bundle ships — writes into a bundle now.
 - **The payload list lives in ONE place.** `packaging/release-payloads.json` is read both by that
   script and by `PublishStagingParityTests`, whose payload theory is no longer its own InlineData
   list — because a list of required payloads kept in two places has the same shape as a build
@@ -145,7 +159,7 @@ plot area, which is the real estate this same release spent a whole scope reclai
 `NoYAxisLabelRunsPastTheRightEdgeOfTheCanvas` sabotage-tested: type reaches x=399 on a 400px
 canvas without the fix, and the four-digit case passes either way.
 
-Suite 8,034 → **8,077**; browser harness **226/226** (unchanged), 0 failing. New: `ReleasePayloadManifestTests` (9), `PluginTrustManifestTaskTests` (4),
+Suite 8,034 → **8,080**; browser harness **226/226** (unchanged), 0 failing. New: `ReleasePayloadManifestTests` (9), `PluginTrustManifestTaskTests` (7 — they RUN the real task and the real target through MSBuild rather than grepping the targets file, which is what let the broken version pass),
 `PublishStagingParityTests` 12 → 20 (the payload theory is now driven by
 `packaging/release-payloads.json` and deduplicated — two rules resolved to one staged name and
 xUnit was SILENTLY SKIPPING the duplicate test ID, which is the same failure mode in the guard

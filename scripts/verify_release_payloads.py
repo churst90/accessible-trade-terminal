@@ -27,6 +27,11 @@ Exit status is 0 when every asset present satisfies its rules, 1 otherwise. An a
 not built at all is reported and skipped rather than failed: release.yml publishes whatever
 heads succeeded, so a missing macOS zip is a failed macOS job's business, not this script's. A
 zip that IS present and is missing a payload is always a failure.
+
+One rule reports without blocking, marked `"severity": "warn"` in the manifest: the ReadyToRun
+check. Every other rule names a payload without which a feature is silently dead; that one is
+about how fast the app starts, and a corrected release must not be held hostage to an unrelated
+performance regression. It prints as an advisory and as a GitHub ::warning::.
 """
 
 from __future__ import annotations
@@ -124,19 +129,29 @@ def entries_under_root(names: list[str], root: str) -> list[str] | None:
     return out
 
 
-def check_asset(path: Path, spec: dict) -> list[str]:
-    """Returns a list of human-readable failures; empty means the asset is good."""
+def check_asset(path: Path, spec: dict) -> tuple[list[str], list[str]]:
+    """
+    Returns (failures, advisories). A failure blocks the release; an advisory is printed and
+    does not.
+
+    The distinction exists because one rule is genuinely different in kind. Every `required`
+    entry names a payload without which a feature is silently dead — a mute chart, an inert
+    Braille tab, a market dropdown with no providers. The ReadyToRun check is about how fast
+    the app starts. Both are worth knowing; only one is worth refusing to ship over, and
+    conflating them would mean a corrected release blocked by an unrelated regression.
+    """
     failures: list[str] = []
+    advisories: list[str] = []
     with zipfile.ZipFile(path) as zf:
         raw_names = [i.filename for i in zf.infolist() if not i.is_dir()]
         names = entries_under_root(raw_names, spec.get("root", ""))
         if names is None:
-            return [
+            return ([
                 f"nothing inside the asset matches the expected root '{spec['root']}'. "
                 f"The asset is not shaped the way packaging/release-payloads.json expects, so "
                 f"no payload could be checked at all. Top-level entries: "
                 f"{sorted({n.split('/')[0] for n in raw_names})[:6]}"
-            ]
+            ], [])
 
         lower = {n.lower(): n for n in names}
 
@@ -165,6 +180,7 @@ def check_asset(path: Path, spec: dict) -> list[str]:
 
         r2r = spec.get("readyToRun")
         if r2r:
+            sink = advisories if r2r.get("severity") == "warn" else failures
             for asm in r2r["assemblies"]:
                 real = lower.get(asm.lower())
                 if real is None:
@@ -174,13 +190,13 @@ def check_asset(path: Path, spec: dict) -> list[str]:
                 member = next(n for n in raw_names if n.endswith(real))
                 verdict = is_ready_to_run(zf.read(member))
                 if verdict is None:
-                    failures.append(f"{asm} could not be read as a managed PE")
+                    sink.append(f"{asm} could not be read as a managed PE")
                 elif not verdict:
-                    failures.append(
+                    sink.append(
                         f"{asm} is IL-only — the publish is not ReadyToRun. "
-                        + " ".join(r2r["why"]))
+                        + " ".join(w for w in r2r["why"] if w))
 
-    return failures
+    return failures, advisories
 
 
 def main(argv: list[str]) -> int:
@@ -209,17 +225,23 @@ def main(argv: list[str]) -> int:
 
         for asset in matches:
             checked += 1
-            problems = check_asset(asset, spec)
+            problems, advisories = check_asset(asset, spec)
+
             if problems:
                 failed = True
                 print(f"FAIL {asset.name}  [{spec['head']}]")
                 for p in problems:
                     print(f"     - {p}")
                     print(f"::error file={asset.name}::{p}")
-                print()
             else:
                 n = len(spec["required"]) + len(spec.get("readyToRun", {}).get("assemblies", []))
                 print(f"ok   {asset.name}  [{spec['head']}] — {n} checks")
+
+            for a in advisories:
+                print(f"     ~ (advisory) {a}")
+                print(f"::warning file={asset.name}::{a}")
+            if problems or advisories:
+                print()
 
     print()
     if failed:

@@ -196,4 +196,107 @@ public sealed class PluginTrustManifestTaskTests : IDisposable
 
         Assert.False(File.Exists(manifestPath));
     }
+
+    /// <summary>
+    /// Runs one of the REAL targets (not just the task) so the conditions on it are exercised,
+    /// with the RID properties a given publish shape would carry.
+    /// </summary>
+    private string RunPublishTarget(string publishDir, string? runtimeIdentifier, string? runtimeIdentifiers)
+    {
+        string project = Path.Combine(_root, "target-probe.proj");
+        File.WriteAllText(project, $"""
+            <Project>
+              <Import Project="{Path.Combine(RepoRoot(), "packaging", "PluginTrustManifest.targets")}" />
+            </Project>
+            """);
+
+        var psi = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = _root };
+        psi.ArgumentList.Add("msbuild");
+        psi.ArgumentList.Add(project);
+        psi.ArgumentList.Add("-t:GeneratePluginTrustManifestOnPublish");
+        psi.ArgumentList.Add($"-p:PublishDir={publishDir}{Path.DirectorySeparatorChar}");
+        if (runtimeIdentifier is not null) psi.ArgumentList.Add($"-p:RuntimeIdentifier={runtimeIdentifier}");
+        // %3B, not ';'. A semicolon on an MSBuild command line separates PROPERTIES, so
+        // -p:RuntimeIdentifiers=a;b parses as "-p:RuntimeIdentifiers=a" plus a stray "b" and
+        // fails with MSB1006. The escape is how a list value reaches a single property.
+        if (runtimeIdentifiers is not null)
+            psi.ArgumentList.Add($"-p:RuntimeIdentifiers={runtimeIdentifiers.Replace(";", "%3B")}");
+        psi.ArgumentList.Add("-nologo");
+        psi.ArgumentList.Add("-v:normal");
+
+        using var proc = Process.Start(psi)!;
+        string output = proc.StandardOutput.ReadToEnd() + proc.StandardError.ReadToEnd();
+        proc.WaitForExit(milliseconds: 180_000);
+        Assert.True(proc.ExitCode == 0, $"MSBuild failed running the real target:\n{output}");
+        return output;
+    }
+
+    /// <summary>
+    /// <b>An INNER per-RID build of a universal publish must not write into its bundle.</b>
+    ///
+    /// <para>
+    /// A universal Mac Catalyst publish builds once per RID and LIPO-merges the two bundles, and
+    /// that merge demands every non-binary file be byte-identical between them. Two per-RID
+    /// manifests never are — they carry a generation timestamp, and they hash different builds
+    /// of the same assemblies. Writing one into each inner bundle turned "the macOS app has no
+    /// manifest" into "the macOS app does not build":
+    /// </para>
+    ///
+    /// <code>
+    /// error : Unable to merge the file 'Contents/MonoBundle/plugins_trusted.manifest',
+    ///         it's different between the input app bundles.
+    /// </code>
+    ///
+    /// <para>
+    /// Caught by the release job on the second re-cut attempt, which is one layer later than it
+    /// should have been — hence this test.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AnInnerRidBuildOfAUniversalPublishWritesNothingIntoTheBundle()
+    {
+        var (_, bundle) = BuildDuplicateNameLayout();
+
+        RunPublishTarget(_root, runtimeIdentifier: "maccatalyst-x64",
+                                runtimeIdentifiers: "maccatalyst-x64;maccatalyst-arm64");
+
+        Assert.False(File.Exists(Path.Combine(bundle, "plugins_trusted.manifest")),
+            "an inner per-RID build wrote a manifest into its app bundle. That bundle is an INPUT "
+          + "to the universal merge, which requires byte-identical files, so this does not produce "
+          + "a wrong manifest — it produces a macOS head that does not build at all.");
+    }
+
+    /// <summary>
+    /// And the outer universal build — the one that runs after the merge, and the only one whose
+    /// bundle ships — does write it. Without this case the fix above is indistinguishable from
+    /// switching the feature off.
+    /// </summary>
+    [Fact]
+    public void TheOuterUniversalBuildDoesWriteIntoTheBundle()
+    {
+        var (_, bundle) = BuildDuplicateNameLayout();
+
+        string output = RunPublishTarget(_root, runtimeIdentifier: null,
+                                                runtimeIdentifiers: "maccatalyst-x64;maccatalyst-arm64");
+
+        Assert.True(File.Exists(Path.Combine(bundle, "plugins_trusted.manifest")),
+            $"the outer universal build did not write into the bundle, so the shipped .app has no "
+          + $"manifest and refuses every plugin in it.\n{output}");
+    }
+
+    /// <summary>
+    /// A single-RID head — Windows, and all four WebHosts — declares no RuntimeIdentifiers, so
+    /// it is never mistaken for an inner build and keeps writing beside its plugins.
+    /// </summary>
+    [Fact]
+    public void ASingleRidHeadIsNotMistakenForAnInnerBuild()
+    {
+        var (loose, _) = BuildDuplicateNameLayout();
+
+        RunPublishTarget(_root, runtimeIdentifier: "win-x64", runtimeIdentifiers: null);
+
+        Assert.True(File.Exists(Path.Combine(loose, "plugins_trusted.manifest")),
+            "a single-RID publish stopped writing beside its plugins — the inner-build guard is "
+          + "too broad and has switched the feature off for every head that is not macOS.");
+    }
 }

@@ -118,7 +118,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 ### What to do next, and why that order
 
 > **START HERE (current as of 2026-09-22, SEVENTY-SEVENTH pass — v2.12.0 WAS PUBLISHED WITHOUT
-> THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,077**, 0 failing. The tag,
+> THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,080**, 0 failing. The tag,
 > the release and the six zips were all replaced; **SHA256SUMS changed**, so anyone holding the
 > 22 September download has different bytes.
 >
@@ -168,6 +168,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > `PublishReadyToRun` is now a command-line global property as well. `PluginTrustManifestTaskTests`
 > now RUNS the task through MSBuild over a duplicate-name tree instead of grepping the targets
 > file for a string, which is what let the broken version pass.
+>
+> **THE THIRD ATTEMPT FAILED TOO, and both failures came out of the R2R fix.** Passing
+> `PublishReadyToRun=true` as a command-line GLOBAL property did not restore R2R, and because a
+> global property flows into every referenced project the SDK gave the ScriptWorker a RID and
+> its apphost landed in `publish/maui-win/win-x64/` instead of the root — **a real feature
+> broken while chasing a startup optimisation**, caught by the payload check. And writing a
+> manifest into each per-RID bundle broke the universal macOS build outright, because the LIPO
+> merge demands byte-identical files and two manifests never are. **R2R IS NOT FIXED**; its rule
+> is now advisory (`"severity": "warn"`) so it reports without blocking a release whose other
+> payloads are correct.
 >
 > **NOT HEARD, NOT SEEN.** Nothing here was run on Windows or with a screen reader. The whole
 > point of the pass is that the payloads are now IN the zip; whether the Dot Pad SDK then loads

@@ -260,19 +260,20 @@ jobs:
           # dependency projects or the android/ios heads. We pass nothing
           # RID-related on the command line — only the flag and the TFM select.
           #
-          # PublishReadyToRun IS on the command line, deliberately, and it is stated in the
-          # csproj as well. The csproj is where the intent belongs; a command-line property is
-          # a GLOBAL property, which no imported .targets can overwrite — and the first re-cut
-          # of v2.12.0 proved that necessary. The csproj property was set, the condition held,
-          # and the artifact still came out IL-only, so something in the MAUI/WinUI import chain
-          # is assigning it. The payload check reads the shipped PE headers rather than either
-          # declaration, so if this is ever removed the release fails instead of quietly
-          # regressing the way 2.11.0 -> 2.12.0 did.
+          # NO -p:PublishReadyToRun HERE, and the attempt is worth recording. The csproj sets it
+          # under a condition that demonstrably holds, and the artifact still comes out IL-only,
+          # so something in the MAUI/WinUI import chain is assigning it. Passing it as a
+          # command-line GLOBAL property looked like the fix, because no imported .targets can
+          # overwrite one. It did not restore R2R — and a global property flows into every
+          # referenced project, so the SDK inferred a RuntimeIdentifier for the ScriptWorker,
+          # moved its output to bin/Release/net10.0/win-x64/, and the staging wildcard carried
+          # the apphost into publish/maui-win/win-x64/ instead of the root. The release then
+          # failed on a MISSING ScriptWorker.exe, which is a real feature, to chase a startup
+          # optimisation. The payload check caught it; see docs/TODO.md for the open item.
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
             --framework net10.0-windows10.0.19041.0 `
             --configuration Release `
             -p:ReleasePublish=true `
-            -p:PublishReadyToRun=true `
             -p:Version=${{ needs.meta.outputs.version }} `
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} `
             --output publish/maui-win

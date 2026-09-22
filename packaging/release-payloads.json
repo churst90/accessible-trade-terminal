@@ -129,13 +129,28 @@
           "Microsoft.CodeAnalysis.CSharp.dll"
         ],
         "why": [
+          "ADVISORY, NOT BLOCKING, and honestly so: as of the v2.12.0 re-cut this is NOT FIXED.",
+          "",
           "v2.11.0's Windows app was precompiled and v2.12.0's was not, with nothing in the repo",
-          "setting PublishReadyToRun either way — an implicit default moved under us, and the only",
-          "trace was the zip falling 148.4 -> 130.8 MB while gaining seven files. It costs startup",
-          "and first-use JIT on the head with the slowest start already. The property is now set",
-          "explicitly in the csproj; this asserts the bytes rather than the intent, by reading each",
-          "PE's CLI header for a non-empty ManagedNativeHeader."
-        ]
+          "setting PublishReadyToRun either way — an implicit default moved under us. Confirmed by",
+          "reading the CLI header's ManagedNativeHeader out of both published zips: non-empty in",
+          "2.11.0, zero in 2.12.0. It costs startup and first-use JIT on the head with the slowest",
+          "start already.",
+          "",
+          "PublishReadyToRun=true is now set in the csproj under a condition that demonstrably",
+          "holds, and the artifact STILL comes out IL-only, so something in the MAUI/WinUI import",
+          "chain assigns it. Passing it as a command-line global property did not restore R2R",
+          "either, and it broke something real on the way: a global property flows into every",
+          "referenced project, the SDK inferred a RuntimeIdentifier for the ScriptWorker, and the",
+          "apphost ended up in publish/maui-win/win-x64/ instead of the root — a missing FEATURE,",
+          "chased for a startup optimisation.",
+          "",
+          "So this reports and does not block. Every other rule in this file is about a feature",
+          "that is silently dead without it; this one is about how fast the app starts, and a",
+          "corrected release must not be held hostage to it. Turn severity back to 'fail' the day",
+          "the shipped bytes actually carry a ManagedNativeHeader."
+        ],
+        "severity": "warn"
       }
     },
     {
