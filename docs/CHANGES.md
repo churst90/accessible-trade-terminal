@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### The packaging fixes did not reach the packages — v2.12.0 re-cut (2026-09-22)
 
-**This release was tagged, published, and then re-cut the same day.** The first six assets were
+**This release was tagged, published, and then re-cut FOUR TIMES the same day — the payload gate refused the first three and nothing was published on any of them.** The first six assets were
 read off the GitHub release from the VPS — central directory over an HTTP range request, no
 downloading, no trusting the green run — and two of the release's headline claims were untrue of
 every one of them. Write-up in `patches/2026-09-22-PACKAGING-AUDIT-AND-HEALTHZ.md` §0 and

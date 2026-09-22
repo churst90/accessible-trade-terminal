@@ -187,28 +187,40 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > point of the pass is that the payloads are now IN the zip; whether the Dot Pad SDK then loads
 > and drives a real device is still unproven and has never been proven.
 >
+> **v2.12.0 IS RE-CUT AND PUBLISHED.** Cut commit `5ebc4469`, release run `35707424299`, all
+> eight jobs green, **8 assets**. Verified by reading the PUBLISHED zips over range requests
+> rather than trusting the run — the Windows asset is 135.9 MB / 1,066 entries (was 130.8 MB /
+> 637) and carries `nvdaControllerClient.dll`, `DotPadSDK-3.0.0.dll`, `liblouis.dll`, 419
+> LibLouis tables, `msvcp140.dll`, the manifest and `ScriptWorker.exe`; the macOS `.app` carries
+> `Contents/MonoBundle/plugins_trusted.manifest` beside its 33 plugins; every WebHost carries
+> the worker. **It took four attempts and the gate caught all three failures before publishing.**
+>
 > ### NEXT
 >
-> 1. **Push the tag and watch the release run.** The payload check is new and runs in the
->    `release` job; if it fails, it fails loudly and nothing is published, which is the point.
-> 2. **Tell the server agent it is done** — `patches/2026-09-22-PACKAGING-FIXED-REPLY.md` asks
+> 1. **Tell the server agent it is done** — `patches/2026-09-22-PACKAGING-FIXED-REPLY.md` asks
 >    him to put the simpler `/download` sentences back and refresh the checksums. The two
 >    hand-offs from the previous block (healthz exists; regenerate `llms-full.txt`) still stand.
-> 3. **Verify on Windows**, which is now two things and not one: the chrome diet / focus mode
+> 2. **Verify on Windows**, which is now two things and not one: the chrome diet / focus mode
 >    canvas rect from the seventy-sixth pass, AND whether the shipped Dot Pad SDK actually loads.
-> 4. **§5p — the demo declares a default chart and nothing reads it.** `DemoPolicy` has
+> 3. **§5p — the demo declares a default chart and nothing reads it.** `DemoPolicy` has
 >    `DefaultMarket`/`DefaultProvider`/`DefaultSymbol` and `grep -rn` finds no caller for any of
 >    the three, so `/app/` opens on an empty symbol box and four interactions. Left out of this
 >    cut deliberately: it changes what a visitor lands on, which is a product decision.
-> 5. **§5s — two `CS8604` in `WebHostBrowserCircuitHandler.cs` (357, 372)**, pre-existing from
+> 4. **§5s — two `CS8604` in `WebHostBrowserCircuitHandler.cs` (357, 372)**, pre-existing from
 >    `00be000f`. Raised only because `ca071690`'s lesson was that the cosmetic warning was the
 >    live defect.
-> 6. **`/download` should say the Windows desktop app needs the .NET 10 Desktop Runtime.** It is
+> 5. **`/download` should say the Windows desktop app needs the .NET 10 Desktop Runtime.** It is
 >    framework-dependent by design (a self-contained host referencing a non-self-contained
 >    ScriptWorker fails NETSDK1150) and has been in every release; confirmed by reading both the
 >    2.11.0 and 2.12.0 zips. **The technique that fixed the WebHost worker — forward the RID and
 >    `SelfContained` through the ProjectReference — would let this head go self-contained too.**
 >    Not attempted; it would want measuring.
+> 6. **ReadyToRun is UNRESOLVED and now advisory.** `PublishReadyToRun=true` is set in the
+>    csproj under a condition that demonstrably holds and the artifact is still IL-only; the
+>    command-line global-property route does not work either and broke the ScriptWorker staging
+>    on the way. Something in the MAUI/WinUI import chain assigns it. The rule is
+>    `"severity": "warn"` in `packaging/release-payloads.json`; turn it back to `fail` the day
+>    the shipped bytes carry a `ManagedNativeHeader`.
 > 7. Then the carried campaigns: `Services/Strategies`, `Analysis`, the JS harness.
 >
 > ### CARRIED
