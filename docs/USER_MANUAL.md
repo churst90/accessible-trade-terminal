@@ -67,6 +67,19 @@ when you land on a candle; an indicator's exact reading when you move to it; dia
 labels, menu items and settings; and the confirmation messages after you act. If
 you need a number, the screen reader is where it comes from.
 
+**On the Windows desktop client, the terminal speaks to NVDA and JAWS directly**, rather than
+through the page. That is not a preference, it is a necessity: the chart there is drawn on a
+native canvas laid over the web view, so while the chart has focus your screen reader is not
+reading the page at all and anything announced through the page reaches nobody. Whichever of the
+two is running is used, and one started *after* the terminal is picked up within a couple of
+seconds. Nothing needs configuring; if neither is running the terminal falls back to the page,
+and if that cannot work either it says so in the Journal (Ctrl+Alt+Shift+J) rather than simply
+going quiet. The Journal also records which of the three routes is carrying speech, which is the
+first thing to look at if the terminal is ever silent.
+
+On the web host there is no such split — the whole surface is the page — so any screen reader
+that reads a web page works without special handling.
+
 The sonification engine handles everything continuous and structural: the rising and
 falling pitch of price as it moves through time, the tonal texture of an oscillator
 as it swings overbought or oversold, distinct bell tones for events like crossovers

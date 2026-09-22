@@ -544,6 +544,29 @@ app.UseRouting();
 // build and the Blazor circuit never boots ("no data loaded"). (Deploy-only fix.)
 app.MapStaticAssets();
 
+// ── Liveness, and it is deliberately the cheapest endpoint in the application ───────
+//
+// Mapped HERE: after UsePathBase (so it lands at /terminal/healthz and /app/healthz rather
+// than at the origin root) and BEFORE the auth middleware (so it answers without a session).
+//
+// Asked for by the server on 2026-09-21, and the reason is a real outage rather than tidiness.
+// The systemd unit is Type=simple, so `systemctl restart` returns when the process is SPAWNED,
+// not when Kestrel is LISTENING. In that window nginx got connection-refused and every browser
+// sitting on /terminal/ retried as fast as it could: 100 of 141 negotiate requests returned 502
+// between 7 and 20 September, in bursts of ten-plus within the same second. From the user's side
+// that is silence — no speech, no message, nothing to act on.
+//
+// The endpoint exists so the unit can gate readiness on the socket actually accepting, and so
+// the server's unavailable page can poll something that means "ready" instead of HEAD / (which
+// answers 302 and is a clumsier signal). Its honesty depends on it staying trivial: NO database
+// call, NO provider call, no auth, no logging noise. Before the app can serve, the correct
+// answer is not to be listening at all, and that is exactly what the proxy keys off.
+app.MapGet("/healthz", (HttpContext ctx) =>
+{
+    ctx.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+    return Results.Text("ok", "text/plain");
+}).AllowAnonymous();
+
 // Rate limiter + auth middleware run only when accounts are enabled. The limiter goes
 // first so floods are shed before auth/Identity work (cheap brute-force/DoS guard).
 if (accountsEnabled)

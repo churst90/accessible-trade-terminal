@@ -6,6 +6,67 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## Unreleased — the Windows desktop client, put in front of a screen reader for the first time
+
+*Everything before this is in `CHANGES.md`.*
+
+The desktop client had never been run with a screen reader. It was run on 2026-09-21, and
+almost everything below is what that one session found. **If you use the Windows client, this
+release is the one that makes it work.**
+
+### Speech on the Windows client
+
+- **It speaks.** The client shipped without the NVDA controller library, so on every release
+  before this one the chart said nothing at all. It is in the download now, under both the names
+  NV Access has used for it, so nothing needs renaming or placing by hand.
+- **JAWS is supported.** Previously JAWS users got silence with no workaround — and it was not a
+  setting they could have found, because the chart is drawn on a native canvas that a browser
+  live region cannot reach. The terminal now speaks to JAWS directly. Nothing to install: if JAWS
+  is running, it is used.
+- **A screen reader started *after* the terminal is picked up.** It used to be ignored for the
+  rest of the session.
+- **The terminal says when it cannot speak.** The Journal (Ctrl+Alt+Shift+J) records which
+  route speech is taking — NVDA, JAWS, or the browser's live region — and says so plainly if
+  none of them is available, rather than simply going quiet. Every sentence it could not say is
+  still written down there.
+
+### The rest of the Windows client
+
+- **The market dropdown lists every provider again.** The download was missing the file that
+  vouches for the bundled providers, so all 33 were refused and only the built-in sources
+  appeared. Nothing was wrong with your installation.
+- **Custom indicators and strategies run.** The script worker was missing from the download, so
+  user-compiled code could not execute at all.
+- **Braille and Dot Pad support is actually in the download.** The tactile SDK had never been
+  included, so the Braille tab rendered and the device could never connect.
+- **The chart no longer disappears in a small window.** Below a certain height the toolbar took
+  the whole window and the chart was squeezed to nothing. It now keeps a minimum height and the
+  page scrolls instead.
+- **There is a log file**, at `%LocalAppData%\AccessibleTrader\logs\terminal.log`. The Windows
+  client previously wrote no log of any kind, which is why these problems went unnoticed for so
+  long.
+
+### The chart, on every platform
+
+- **Indicators drawn on the price chart stay inside it.** A Bollinger band or Keltner channel
+  wider than the candles used to be clipped off the pane — and because the pane's range is also
+  the *pitch* range, it went silent as well as invisible. Press **Alt+F** for the old behaviour
+  ("fitting price only"), which gives the price line the full pitch range at the cost of letting
+  bands run off the edge.
+- **Pitch is spaced the way the ear hears it.** Equal steps up a pane are now equal musical
+  intervals wherever you are in it. Before, the bottom of a pane carried a whole octave in its
+  first quarter and the top a mere third in its last, so a price high in the window barely moved
+  in pitch. The extremes are unchanged; the middle has been redistributed.
+- **The price chart gets more room.** With one indicator it was an even split with volume; the
+  price pane now takes about two thirds. With four or more indicator panes nothing changes.
+
+### If you use the hosted terminal
+
+- **A dropped connection is announced.** When the circuit to the server was lost, a screen
+  reader user was told nothing at all — the reconnect banner had no live region. It now speaks
+  each attempt, says whether the server is restarting, and answers the question that actually
+  matters: **orders already placed are held at the venue and are unaffected.**
+
 ## 2.11.0 — the pin keys work, the ear follows the eye, and the chart gets looked at
 
 *Everything before this release is in `CHANGES.md`.*

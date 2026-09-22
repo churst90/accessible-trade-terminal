@@ -35,6 +35,12 @@ The built-in audio engine plays the shape of the market: pitch for value, timbre
 bells for events. The terminal calls this the Hybrid Voice model. You can run either alone
 (F2 for speech, F3 for sound) or both together.
 
+On the **Windows desktop client** the terminal talks to NVDA and JAWS directly, because the
+chart there is a native canvas your screen reader cannot read through the page. Nothing to set
+up — whichever is running gets used, including one you start after the terminal. If the terminal
+is ever silent, open the Journal (**Ctrl+Alt+Shift+J**): it records which route speech is taking
+and says plainly when none is available.
+
 **The sound vocabulary, in one table.**
 
 | You hear | It means |

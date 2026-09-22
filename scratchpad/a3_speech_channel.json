@@ -40,7 +40,7 @@
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit opened (1 active).",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Shortcuts: applied 4 browser-host override(s) \u2014 reserved single-Ctrl tab chords dropped, plus any legacy Ctrl\u002BShift\u002Bletter binding moved to Alt\u002BShift\u002Bletter.",
     "[Warning] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. On the desktop head the chart canvas is a native control, so the ARIA live-region fallback cannot reach a screen reader while the chart has focus. Copy the x64 nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe (from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. Live region attached: yes.",
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes.",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit closed (0 active).",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during Dispose failed. || ObjectDisposedException: Cannot access a disposed object.",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during DisposeAsync failed. || ObjectDisposedException: Cannot access a disposed object.",
@@ -48,7 +48,7 @@
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit opened (1 active).",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Shortcuts: applied 4 browser-host override(s) \u2014 reserved single-Ctrl tab chords dropped, plus any legacy Ctrl\u002BShift\u002Bletter binding moved to Alt\u002BShift\u002Bletter.",
     "[Warning] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. On the desktop head the chart canvas is a native control, so the ARIA live-region fallback cannot reach a screen reader while the chart has focus. Copy the x64 nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe (from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. Live region attached: yes.",
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes.",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit closed (0 active).",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during Dispose failed. || ObjectDisposedException: Cannot access a disposed object.",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during DisposeAsync failed. || ObjectDisposedException: Cannot access a disposed object.",
@@ -56,7 +56,7 @@
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit opened (1 active).",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Shortcuts: applied 4 browser-host override(s) \u2014 reserved single-Ctrl tab chords dropped, plus any legacy Ctrl\u002BShift\u002Bletter binding moved to Alt\u002BShift\u002Bletter.",
     "[Warning] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. On the desktop head the chart canvas is a native control, so the ARIA live-region fallback cannot reach a screen reader while the chart has focus. Copy the x64 nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe (from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. Live region attached: yes.",
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes.",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit closed (0 active).",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during Dispose failed. || ObjectDisposedException: Cannot access a disposed object.",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during DisposeAsync failed. || ObjectDisposedException: Cannot access a disposed object.",
@@ -64,7 +64,7 @@
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit opened (1 active).",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Shortcuts: applied 4 browser-host override(s) \u2014 reserved single-Ctrl tab chords dropped, plus any legacy Ctrl\u002BShift\u002Bletter binding moved to Alt\u002BShift\u002Bletter.",
     "[Warning] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. On the desktop head the chart canvas is a native control, so the ARIA live-region fallback cannot reach a screen reader while the chart has focus. Copy the x64 nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe (from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. Live region attached: yes.",
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes.",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit closed (0 active).",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during Dispose failed. || ObjectDisposedException: Cannot access a disposed object.",
     "[Warning] AccessibleTrader.Core.Services.LiveStreamManager: DisconnectAsync during DisposeAsync failed. || ObjectDisposedException: Cannot access a disposed object.",
@@ -72,7 +72,7 @@
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Browser circuit opened (1 active).",
     "[Information] AccessibleTrader.WebHost.Services.WebHostBrowserCircuitHandler: Shortcuts: applied 4 browser-host override(s) \u2014 reserved single-Ctrl tab chords dropped, plus any legacy Ctrl\u002BShift\u002Bletter binding moved to Alt\u002BShift\u002Bletter.",
     "[Warning] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. On the desktop head the chart canvas is a native control, so the ARIA live-region fallback cannot reach a screen reader while the chart has focus. Copy the x64 nvdaControllerClient64.dll into this folder, beside AccessibleTrader.BlazorClient.exe (from a source build: vendor/nvda/, then rebuild). See docs/PLATFORMS.md.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. Live region attached: yes.",
-    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: None. NVDA client library present: no. NVDA running: no. Live region attached: yes (live region disabled by the browser-voice setting)."
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: ARIA Live. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes.",
+    "[Information] AccessibleTrader.BlazorClient.Services.BlazorSpeechManager: Speech output path: None. NVDA client library present: no. NVDA running: no. JAWS running: no. Live region attached: yes (live region disabled by the browser-voice setting)."
   ]
 }

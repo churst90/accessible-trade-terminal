@@ -111,8 +111,17 @@ public sealed class LiveRegionInventoryBrowserTests
         Assert.All(speech, r => Assert.Equal("assertive", r.Live));
 
         // Blazor's own error alert is part of the framework's shell, not the app's speech.
+        //
+        // #reconnect-status is exempt for a reason worth stating, because "it is a special case"
+        // is how this guard would rot. The hazard it protects against is TWO ANNOUNCERS FOR ONE
+        // SENTENCE — a mirror of what the terminal just said, racing the buffers. The reconnect
+        // status is not a mirror of anything: it reports the state of the TRANSPORT, and it has
+        // to work at the one moment the speech buffers cannot, because the circuit that renders
+        // them is the thing that just died. Routing it through them would mean the announcement
+        // is available exactly when it is not needed. It also never carries app speech — its
+        // whole vocabulary is four sentences about the connection (see js/reconnect.js).
         var others = regions
-            .Where(r => r.Id is not ("aria-speech-1" or "aria-speech-2" or "blazor-error-ui"))
+            .Where(r => r.Id is not ("aria-speech-1" or "aria-speech-2" or "blazor-error-ui" or "reconnect-status"))
             .Where(r => !r.Cls.Contains("boot-screen"))
             .ToList();
 

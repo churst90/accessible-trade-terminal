@@ -52,7 +52,61 @@
         <span class="dismiss" role="button" tabindex="0" aria-label="Dismiss error">&#x2715;</span>
     </div>
 
+    @* ── The circuit reconnect overlay ──────────────────────────────────────────
+       Until 2026-09-21 this markup did not exist, so Blazor's DEFAULT overlay applied:
+       a plain div, no live region, no focus management. When the circuit dropped, a
+       blind trader was told nothing at all. The element right above has carried
+       role="alert" aria-live="assertive" all along, so the accessible treatment was
+       deliberate for unhandled errors and simply never extended to reconnects.
+
+       The ids and class names are the framework's — it drives this element by adding
+       components-reconnect-{show,hide,failed,rejected,refused} to it — so the markup is
+       presentational only. The ANNOUNCEMENT is owned by reconnect.js, because a live
+       region that is merely unhidden does not reliably re-announce and the transitions
+       that matter here (attempt 1 → 2 → 3 → failed) carry no text change at all. *@
+    <div id="components-reconnect-modal" data-nosnippet>
+        <span class="components-reconnect-show">
+            Connection to the terminal was lost. Reconnecting&hellip;
+            attempt <span id="components-reconnect-current-attempt"></span>
+            of <span id="components-reconnect-max-retries"></span>.
+            Your chart and any orders already placed are unaffected.
+        </span>
+        <span class="components-reconnect-failed">
+            Could not reconnect to the terminal. The server may be restarting.
+            <a href="" class="components-reconnect-button">Retry now</a>
+        </span>
+        <span class="components-reconnect-rejected">
+            Your session ended while you were disconnected. Orders already placed are held
+            at the venue and are not affected.
+            <a href="" class="components-reconnect-button">Reload the terminal</a>
+        </span>
+    </div>
+
+    @* The node that actually speaks. Its TEXT is rewritten on every transition, which is
+       what makes each one a genuine change a screen reader will announce. Visually hidden
+       because the overlay above is the visual presentation of the same state. *@
+    <div id="reconnect-status" role="status" aria-live="assertive" aria-atomic="true"
+         class="visually-hidden" data-nosnippet></div>
+
+    @* RECONNECTION BACK-OFF: NOT DONE, and deliberately so.
+
+       The framework's default retry policy is what produced the storm in the server's logs —
+       100 of 141 negotiate requests 502 between 7 and 20 September, in bursts of ten-plus
+       within the same second — and nginx now answers the transport with Retry-After: 15, so
+       there is a clear right answer to configure.
+
+       Configuring it means autostart="false" plus an explicit Blazor.start(), and that was
+       tried here on 2026-09-21: it stopped the circuit booting at all. Every browser test went
+       red with "the terminal never loaded". The cause was not established — this machine could
+       not get a console out of the harness — and an unverified change to the BOOT PATH is not
+       something to ship on a guess, least of all in the same release as the fix for a page that
+       would not load.
+
+       What the storm actually costs is now much smaller anyway: the proxy answers 503 with
+       Retry-After instead of a bare 502, so the retries are cheap and the user is told what is
+       happening. Worth doing properly, with a console, as its own change. *@
     <script src="_framework/blazor.web.js"></script>
+    <script src="js/reconnect.js"></script>
     <script src="_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b"></script>
     <script src="_content/AccessibleTrader.BlazorClient.Components/js/canvasRegion.js?v=20260716b"></script>
     <script src="_content/AccessibleTrader.BlazorClient.Components/js/treeKeyboard.js?v=20260716b"></script>

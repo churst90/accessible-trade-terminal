@@ -117,6 +117,72 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-22, SEVENTY-SECOND pass — THE WINDOWS CLIENT WAS PUT IN
+> FRONT OF A SCREEN READER FOR THE FIRST TIME, AND ALMOST NOTHING ABOUT IT WORKED.)** Suite
+> **8,015**, browser **222**, 0 failing. No release cut yet — see NEXT.
+>
+> **Every defect below was invisible to ~8,000 passing tests, and they share three causes.**
+>
+> 1. **`$(OutDir)` staging never reaches a `dotnet publish` — FIVE instances, one of them in my
+>    own first fix.** The NVDA controller client, `plugins_trusted.manifest`, the Dot Pad SDK and
+>    the script worker had all never shipped. Consequences: the client was MUTE, the market
+>    dropdown offered only built-ins (all 33 plugin DLLs refused against an empty allow-list),
+>    tactile was permanently disabled, and no user-compiled indicator or strategy could run.
+>    `PublishStagingParityTests` now enforces it per head and CI verifies it per build.
+> 2. **A NAME.** NV Access renamed `nvdaControllerClient64.dll` → `nvdaControllerClient.dll`. The
+>    one machine that ever spoke had a hand-dropped copy from March under the old name. A
+>    `DllImportResolver` accepts both now.
+> 3. **The head had NO LOGGING PROVIDERS IN RELEASE** (`#if DEBUG`), and `AppStartupService` runs
+>    under `SafeFireAndForget`, whose contract is "catch it and log it". **A head with no output
+>    channel does not report fewer bugs; it reports none, and the absence reads as health.**
+>
+> **Also landed:** the chart no longer collapses to 30px in a small window (`flex:1` had no
+> floor; the harness had only ever run at 1400x950); the price pane takes ~2/3 rather than half
+> with one indicator; auto-fit includes Main-pane overlays (Alt+F opts out); the pitch band is
+> linear in PITCH not hertz; **JAWS support** via `FreedomSci.JawsApi` COM, nothing shipped; the
+> hosted reconnect overlay is announced; `/healthz` exists.
+>
+> ### NEXT — before cutting 2.12.0
+>
+> 1. **HEAR the 64th pass's two changes.** Auto-fit including overlays and the perceptual pitch
+>    band both change what a saved chart sounds like with no setting touched, and neither has
+>    been heard. An arrow-key pass on a chart with a Bollinger band settles it. **This is the
+>    only thing actually gating the tag.**
+> 2. **Bump `Directory.Build.props` to 2.12.0 and `ApplicationVersion` 11 → 12**, then the five
+>    mechanical steps in `docs/RELEASING.md`. WHATSNEW's `## Unreleased` heading must gain the
+>    version — and must NOT carry a bare `x.y.z` until it does, because the marketing site parses
+>    the first `## <major>.<minor>.<patch>` as `softwareVersion`.
+> 3. **Tell the server agent** (`patches/2026-09-21-TERMINAL-AVAILABILITY-AND-AEO.md`): `/healthz`
+>    exists, so he can add the `ExecStartPost` readiness probe rather than us taking a
+>    `UseSystemd()` dependency; the reconnect overlay is announced; and the Dot Pad `featureList`
+>    claim on the site is TRUE for the first time. His `highContrastDisplay` and
+>    `noMotionSimulationHazard` claims both check out — verified against `ThemeType` and the
+>    `prefers-reduced-motion` block.
+> 4. **`llms-full.txt` needs regenerating** after this docs refresh (`~/bin/att-llms-full.sh` on
+>    the box) — QUICKSTART, USER_MANUAL, PLATFORMS and WHATSNEW all changed.
+>
+> ### CARRIED, not started
+>
+> 1. **Reconnection back-off is NOT done and the reason is recorded in `App.razor`:**
+>    `autostart="false"` + `Blazor.start()` stopped the circuit booting at all and the cause was
+>    not established. An unverified change to the boot path does not ship in the same release as
+>    the fix for a page that would not load.
+> 2. **`ipadic/` (187MB, MeCab Japanese) is excluded from the Dot Pad payload.** If a Dot Pad
+>    fails to initialise with everything else present, add it back first. Untestable here: Cody
+>    has no device.
+> 3. **`softprops/action-gh-release@v2`** wants a deliberate bump behind a throwaway pre-release
+>    tag — it only runs when a real release is cut.
+> 4. **The two `app.css` copies have drifted** (BlazorClient vs WebHost) — the same "fixed in one
+>    place" risk this pass hit five times.
+> 5. **The segfault watch (§7g of the deploy notes) has CLEARED ITS OWN BAR** — it set ~168h of
+>    clean runtime as the evidence threshold and the 09-12 re-measurement reports zero across four
+>    deploys. Worth closing as measured on the report card.
+> 6. **Carried from before:** `PitchMapping` in Properties; the workspace-persistence clone sweep
+>    (nine hand-written clones, C+ for four report cards); Prism (deferred — JAWS closed the gap
+>    that justified it); the `Services/Strategies` mutation campaign; **the JS harness has still
+>    never been mutated.**
+
+
 > **START HERE (current as of 2026-09-21, SIXTY-THIRD pass — v2.11.0 IS CUT.)** Suite **7,910**,
 > 0 failing. Docs passed over end to end and the doc-drift guard is green. Full entry in
 > `docs/CHANGES.md` under `## [2.11.0]`.

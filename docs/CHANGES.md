@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The hosted terminal says when the connection drops, and something can finally ask if it is up (2026-09-22, seventy-second pass)
+
+Both asked for by the server after a log review. Between 7 and 20 September **100 of 141**
+requests to `/terminal/_blazor/negotiate` returned 502 — bursts of ten-plus within the same
+second, from one browser sitting on an open page while the app restarted. From the user's side
+that is silence: no speech, no message, nothing to act on.
+
+- **The silence was literal.** There was **no `#components-reconnect-modal` anywhere in the
+  repository**, so Blazor's default overlay applied — a plain `div`, no live region, no focus
+  management — while `#blazor-error-ui` a few lines above it in the same file has carried
+  `role="alert" aria-live="assertive"` all along. The accessible treatment was deliberate for
+  unhandled errors and simply never extended to the case that actually happens.
+- **The markup alone would not have fixed it**, which is why `js/reconnect.js` exists. A live
+  region that is merely UNHIDDEN does not reliably re-announce, and the transitions that matter
+  — attempt 1 → 2 → 3 → failed — carry no text change of their own at all. A MutationObserver
+  watches the framework's own state classes and REWRITES a dedicated status node, so every
+  transition is a genuine text change carrying a whole sentence.
+- **The copy answers the question a trader is actually asking.** When the screen goes quiet the
+  urgent thing is not the transport, it is whether an order was lost: *"orders already placed are
+  held at the venue and are not affected."*
+- **`/healthz`** — unauthenticated, mapped after `UsePathBase` and before auth so it lands at
+  `/terminal/healthz` and `/app/healthz`. No DB call, no provider call, no auth. There was no
+  health endpoint anywhere in the solution, so the systemd unit had nothing to gate readiness on
+  and the restart window could not be closed.
+
+**The reconnection back-off is NOT done, and the reason is in the code.** Configuring it needs
+`autostart="false"` plus an explicit `Blazor.start()`; that was tried and **stopped the circuit
+booting at all** — every browser test went red with "the terminal never loaded". The cause was
+not established, and an unverified change to the boot path has no business shipping in the same
+release as the fix for a page that would not load. A test now pins the decision so the next
+person reads the reason instead of rediscovering the failure.
+
+**An existing guard caught the new live region, and it was right to.**
+`Only_the_two_speech_buffers_announce_app_speech` exists because a second announcer of the same
+sentence makes a screen reader drop one — measured on the AT-SPI bus in the 9th pass. The
+exemption is recorded with its justification rather than waved through: the reconnect status is
+not a mirror of app speech, it reports the TRANSPORT, and it has to work at the one moment the
+speech buffers cannot — because the circuit that renders them is the thing that just died.
+
+Docs brought up to date across the board: `WHATSNEW.md` gains an `## Unreleased` section written
+for users rather than maintainers (and deliberately carries **no** bare version number, because
+the marketing site parses the first `## x.y.z` heading as `softwareVersion`); `USER_MANUAL.md`
+and `QUICKSTART.md` explain why the desktop client speaks to NVDA and JAWS directly and point at
+the Journal when it is silent; `PLATFORMS.md` documents the JAWS route; `TODO.md` opens a new
+START HERE block.
+
+Suite **8,015**; browser harness 216 → **222**. New: `ReconnectAndHealthBrowserTests` (6).
+
+
 ### JAWS, and it costs nothing to ship (2026-09-21, seventy-first pass)
 
 **A whole category of user could not use the desktop head.** On that head the chart is a native
