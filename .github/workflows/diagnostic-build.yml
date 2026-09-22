@@ -175,6 +175,19 @@ jobs:
             Write-Host "::warning::tables/ (LibLouis) is not in the publish output; text-to-braille will not work."
           }
 
+      # A size report, because a wildcard that over-copies is invisible in a green build. The
+      # first build to carry the script worker grew by 354MB — 243MB of it debug symbols for
+      # RIDs this head does not target — and nothing failed, nothing warned, and the only
+      # evidence was the artifact being suspiciously large.
+      - name: Report publish size
+        shell: pwsh
+        run: |
+          $mb = [math]::Round((Get-ChildItem publish/maui-win -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
+          Write-Host "publish output: $mb MB"
+          $pdb = [math]::Round((Get-ChildItem publish/maui-win -Recurse -File -Filter *.pdb | Measure-Object Length -Sum).Sum / 1MB, 1)
+          Write-Host "  of which .pdb: $pdb MB"
+          if ($mb -gt 700) { Write-Host "::warning::publish output is $mb MB — check for an over-copying wildcard." }
+
       - name: Zip
         shell: pwsh
         run: |

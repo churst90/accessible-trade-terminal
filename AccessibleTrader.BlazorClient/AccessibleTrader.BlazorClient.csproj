@@ -473,7 +473,20 @@
             AfterTargets="Publish"
             Condition="'$(PublishDir)' != '' AND ('$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' or '$(TargetFramework)' == 'net10.0')">
         <ItemGroup>
-            <PublishedScriptWorkerFiles Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*" />
+            <!--
+                EXCLUDE runtimes/ and *.pdb, and the numbers are the argument. The worker's build
+                output is a full app output, so a bare **\*.* wildcard drags in a runtimes/ tree
+                with SkiaSharp native binaries and DEBUG SYMBOLS for every RID the package
+                supports — win-x86, win-arm64, osx, five flavours of iOS. Measured on the first
+                build that shipped it: 354MB added to the artifact, 243MB of that .pdb files, for
+                a payload that actually needs FIVE FILES totalling 0.2MB.
+                Everything else was already in the host publish, which is the same application
+                with the same dependencies; the wildcard only "added" the parts the host had no
+                reason to publish in the first place.
+            -->
+            <PublishedScriptWorkerFiles
+                Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*"
+                Exclude="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\runtimes\**\*.*;..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.pdb" />
         </ItemGroup>
         <Copy SourceFiles="@(PublishedScriptWorkerFiles)"
               DestinationFolder="$(PublishDir)%(RecursiveDir)"
@@ -547,7 +560,10 @@
             BeforeTargets="GeneratePluginTrustManifest"
             Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' or '$(TargetFramework)' == 'net10.0'">
         <ItemGroup>
-            <ScriptWorkerFiles Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*" />
+            <!-- Same exclusions as CopyScriptWorkerOnPublish below; see the note there. -->
+            <ScriptWorkerFiles
+                Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*"
+                Exclude="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\runtimes\**\*.*;..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.pdb" />
         </ItemGroup>
         <Copy SourceFiles="@(ScriptWorkerFiles)"
               DestinationFolder="$(OutDir)%(RecursiveDir)"
