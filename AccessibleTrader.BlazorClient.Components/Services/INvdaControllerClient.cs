@@ -148,6 +148,8 @@ namespace AccessibleTrader.BlazorClient.Services
     {
         /// <summary>Speaking through the NVDA Controller Client.</summary>
         NvdaDirect,
+        /// <summary>Speaking through the JAWS COM automation object.</summary>
+        JawsDirect,
         /// <summary>Speaking into the ARIA live region for whatever reader is watching the DOM.</summary>
         LiveRegion,
         /// <summary>

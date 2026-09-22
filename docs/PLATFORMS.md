@@ -179,6 +179,19 @@ project file, and absent from every publish. A single copy had been dropped by h
 every published install was silent. Found the first time the head was put in front of a screen
 reader.
 
+### JAWS
+
+Nothing to install and nothing to configure. JAWS registers a COM automation object
+(`FreedomSci.JawsApi`) when it installs, and the terminal speaks through it directly — the same
+route it uses for NVDA, and for the same reason: the chart is a native canvas, so a reader
+following focus onto it is not reading the web view's DOM and the live region cannot reach it.
+
+No vendored binary ships for this and no build step stages one. On a machine without JAWS the
+object simply does not resolve and the terminal uses whatever else is available.
+
+If both JAWS and NVDA are running, NVDA carries the speech. They are not normally both up; the
+order is a tie-break so that two readers cannot talk over each other.
+
 #### If you have a released zip (no repo)
 
 This is the common case, and it needs no rebuild — the DLL is found by the **default Windows DLL

@@ -8,6 +8,7 @@ namespace AccessibleTrader.BlazorClient.Services
         private readonly ILogger<BlazorSpeechManager> _logger;
         private readonly IServiceProvider _services;
         private readonly INvdaControllerClient _nvda;
+        private readonly IJawsApiClient _jaws;
         private IJournalService? _journal; // resolved lazily to avoid construction-order coupling
         private string _queuedText = string.Empty;
 
@@ -33,8 +34,15 @@ namespace AccessibleTrader.BlazorClient.Services
 
         private readonly TimeSpan _readerProbeInterval;
 
-        private DateTime _lastReaderProbeUtc = DateTime.MinValue;
+        // ONE TIMESTAMP PER READER, and that is not incidental. The first cut of the JAWS path
+        // shared a single stamp between both probes, so asking about JAWS reset the clock that
+        // decided whether to re-ask about NVDA — a probe forced after NVDA threw was silently
+        // consumed by the JAWS check on the very next line, and the NVDA answer stayed stale.
+        // Two callers sharing one piece of throttle state is not a throttle, it is a race.
+        private DateTime _lastReaderProbeUtc = DateTime.MinValue;   // NVDA
+        private DateTime _lastJawsProbeUtc = DateTime.MinValue;
         private bool _readerRunning;
+        private bool _jawsRunning;
         private bool _muteReported;
         private SpeechOutputStatus? _reportedStatus;
 
@@ -48,12 +56,14 @@ namespace AccessibleTrader.BlazorClient.Services
         /// </summary>
         public SpeechOutputStatus OutputStatus =>
             IsNvdaUsable() ? SpeechOutputStatus.NvdaDirect
+            : IsJawsUsable() ? SpeechOutputStatus.JawsDirect
             : (LiveRegionEnabled && OnSpeak != null) ? SpeechOutputStatus.LiveRegion
             : SpeechOutputStatus.Mute;
 
         public string SpeechMode => OutputStatus switch
         {
             SpeechOutputStatus.NvdaDirect => "NVDA Direct",
+            SpeechOutputStatus.JawsDirect => "JAWS Direct",
             SpeechOutputStatus.LiveRegion => "ARIA Live",
             _ => "None",
         };
@@ -87,11 +97,18 @@ namespace AccessibleTrader.BlazorClient.Services
         }
 
         public BlazorSpeechManager(ILogger<BlazorSpeechManager> logger, IServiceProvider services,
-                                   INvdaControllerClient? nvda = null, TimeSpan? readerProbeInterval = null)
+                                   INvdaControllerClient? nvda = null, TimeSpan? readerProbeInterval = null,
+                                   IJawsApiClient? jaws = null)
         {
             _logger = logger;
             _services = services;
             _nvda = nvda ?? new NvdaControllerClient();
+            // NVDA is tried first only because it is the reader this application was developed
+            // against; the two are never both running in practice, so the order is a tie-break
+            // and not a preference.
+            _jaws = jaws ?? (OperatingSystem.IsWindows()
+                ? new JawsApiClient()
+                : (IJawsApiClient)new NullJawsApiClient());
             // A PARAMETER rather than a const, so a test can drive the re-probe without sleeping
             // and without reaching into a private field. The first draft of the tests did reach
             // in — it reset the probe stamp directly — and a sabotage restoring the old
@@ -141,8 +158,16 @@ namespace AccessibleTrader.BlazorClient.Services
         /// second is not, and collapsing them into one latched bool is what made a reader started
         /// after the terminal invisible for ever.
         /// </summary>
+        /// <summary>
+        /// Whether the NVDA path can carry this utterance: the library is present AND a reader
+        /// answered recently. The two are deliberately separate — the first is permanent and the
+        /// second is not, and collapsing them into one latched bool is what made a reader started
+        /// after the terminal invisible for ever.
+        /// </summary>
         private bool IsNvdaUsable()
         {
+            // Guarded before the throttle: a missing client library is a fact about the INSTALL
+            // and must never cost a failing P/Invoke per probe.
             if (!_nvda.IsClientLibraryAvailable) return false;
 
             var now = DateTime.UtcNow;
@@ -152,6 +177,22 @@ namespace AccessibleTrader.BlazorClient.Services
                 _readerRunning = _nvda.IsReaderRunning();
             }
             return _readerRunning;
+        }
+
+        /// <summary>
+        /// Whether JAWS can carry this utterance. There is no install-level fact to cache
+        /// separately: the COM object exists only while JAWS is running, so "installed" and
+        /// "running" are one question.
+        /// </summary>
+        private bool IsJawsUsable()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastJawsProbeUtc >= _readerProbeInterval)
+            {
+                _lastJawsProbeUtc = now;
+                _jawsRunning = _jaws.IsReaderRunning();
+            }
+            return _jawsRunning;
         }
 
         public void Speak(string text, bool interrupt = false)
@@ -183,6 +224,21 @@ namespace AccessibleTrader.BlazorClient.Services
                     _readerRunning = false;
                     _lastReaderProbeUtc = DateTime.MinValue;
                     _logger.LogWarning(ex, "NVDA-direct speech failed; falling back to the live region.");
+                }
+            }
+
+            if (IsJawsUsable())
+            {
+                try
+                {
+                    _jaws.Speak(text, interrupt);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _jawsRunning = false;
+                    _lastJawsProbeUtc = DateTime.MinValue;
+                    _logger.LogWarning(ex, "JAWS speech failed; falling back to the live region.");
                 }
             }
 
@@ -236,6 +292,7 @@ namespace AccessibleTrader.BlazorClient.Services
                 $"Speech output path: {SpeechMode}. "
               + $"NVDA client library present: {(_nvda.IsClientLibraryAvailable ? "yes" : "no")}. "
               + $"NVDA running: {(_readerRunning ? "yes" : "no")}. "
+              + $"JAWS running: {(_jawsRunning ? "yes" : "no")}. "
               + $"Live region attached: {(OnSpeak != null ? "yes" : "no")}"
               + (LiveRegionEnabled ? "" : " (live region disabled by the browser-voice setting)")
               + ".";
@@ -276,6 +333,10 @@ namespace AccessibleTrader.BlazorClient.Services
             if (IsNvdaUsable())
             {
                 try { _nvda.CancelSpeech(); } catch { /* best-effort */ }
+            }
+            else if (IsJawsUsable())
+            {
+                try { _jaws.StopSpeech(); } catch { /* best-effort */ }
             }
 
             OnSpeak?.Invoke("");

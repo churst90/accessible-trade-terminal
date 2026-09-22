@@ -97,6 +97,9 @@ namespace AccessibleTrader.WebHost
             // there, so the live region reaches the reader — and the null client says so rather
             // than leaving a Windows-only P/Invoke on a server path.
             services.AddScoped<INvdaControllerClient, NullNvdaControllerClient>();
+            // Nor JAWS: the WebHost's whole surface is the DOM, so the live region reaches the
+            // reader and a COM call has no place on a server path.
+            services.AddScoped<IJawsApiClient, NullJawsApiClient>();
             services.AddScoped<BlazorSpeechManager>();
             services.AddScoped<ISpeechManager>(sp =>
                 new WebHostSpeechManager(

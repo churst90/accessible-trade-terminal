@@ -83,6 +83,13 @@ namespace AccessibleTrader.BlazorClient
                 OperatingSystem.IsWindows()
                     ? new NvdaControllerClient()
                     : new NullNvdaControllerClient());
+            // JAWS, via the COM object its installer registers. Nothing is shipped for this —
+            // no vendored DLL, no per-RID native asset — and on a machine without JAWS the
+            // ProgID simply does not resolve.
+            services.AddSingleton<IJawsApiClient>(_ =>
+                OperatingSystem.IsWindows()
+                    ? new JawsApiClient()
+                    : new NullJawsApiClient());
             services.AddSingleton<ISpeechManager, BlazorSpeechManager>();
             services.AddSingleton<IAudioDriver, BlazorAudioDriver>();
 

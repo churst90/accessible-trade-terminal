@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### JAWS, and it costs nothing to ship (2026-09-21, seventy-first pass)
+
+**A whole category of user could not use the desktop head.** On that head the chart is a native
+SkiaSharp canvas over the `BlazorWebView`, so a reader following focus onto the chart is not
+reading the DOM and the ARIA live region announces to nobody. NVDA got a direct path out of that
+earlier the same day; JAWS had none — so a JAWS user met exactly the silence the day began with,
+permanently, with no workaround and nothing anywhere saying why.
+
+- **`FreedomSci.JawsApi`**, the COM automation object the JAWS installer registers, late-bound by
+  ProgID. **No vendored binary, no per-RID native asset, no build staging** — which is the point:
+  every staging mechanism in this repository was found broken at least once today, and the
+  cheapest payload is the one that does not exist. On a machine without JAWS the ProgID does not
+  resolve and nothing changes.
+- **`SpeechOutputStatus` gains `JawsDirect`**, so the journal's speech-path line now reports which
+  of the two readers is carrying the words, and the mute report cannot fire while JAWS is talking.
+- **Absence is never cached.** JAWS started after the terminal, or restarted after a crash, is
+  found — the latch that kept the NVDA path dead for a whole session is not repeated. NVDA wins a
+  tie; they are not normally both running, so the order is a tie-break rather than a preference,
+  and it is pinned so two readers cannot talk over each other.
+
+**One timestamp per reader, and the first cut got that wrong.** Both probes shared a single
+throttle stamp, so asking about JAWS reset the clock deciding whether to re-ask about NVDA: a
+re-probe forced after NVDA threw was silently consumed by the JAWS check on the next line, and
+the stale answer survived. The NVDA test written that afternoon caught it. **Two callers sharing
+one piece of throttle state is not a throttle, it is a race.**
+
+**And a sabotage survived because a test had disabled the thing it was testing.** The JAWS
+re-probe test ran with a zero probe interval, so every call re-probed anyway and deleting the
+invalidation changed nothing observable. It runs with a real interval now. *A throttle has to be
+ON for "this forced a re-probe" to mean anything.*
+
+Suite 8,007 → **8,015**. New: `JawsSpeechPathTests` (8).
+
+
 ### The Dot Pad SDK and the script worker reach a release, and the price pane stops sharing evenly (2026-09-21, seventieth pass)
 
 **Two features that have never existed in a released build.** Demonstrated by unzipping the CI

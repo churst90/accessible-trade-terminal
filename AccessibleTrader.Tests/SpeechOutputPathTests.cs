@@ -427,3 +427,195 @@ public sealed class SpeechPathIsReportedTests
         Assert.Contains(journal.Entries, e => e.Kind == JournalEntryKind.Error);
     }
 }
+
+/// <summary>
+/// <b>JAWS, the reader this application could not speak to at all.</b>
+///
+/// <para>
+/// On the desktop head the chart is a native SkiaSharp canvas over the <c>BlazorWebView</c>, so a
+/// reader following focus onto the chart is not reading the DOM and the ARIA live region reaches
+/// nobody. NVDA got a direct path out of that on 2026-09-21. JAWS had none — so a JAWS user met
+/// exactly the silence that day began with, permanently, with no workaround and nothing anywhere
+/// saying why. That is not a missing nicety; it is a whole category of user who could not use the
+/// application.
+/// </para>
+///
+/// <para>
+/// <c>FreedomSci.JawsApi</c> is registered by the JAWS installer, so this costs no shipped bytes:
+/// no vendored binary, no per-RID native asset, no build staging. Which matters, because every
+/// staging mechanism in this repository has been found broken at least once in a single day, and
+/// the cheapest payload is the one that does not exist.
+/// </para>
+/// </summary>
+public sealed class JawsSpeechPathTests
+{
+    private sealed class FakeNvda : INvdaControllerClient
+    {
+        public bool LibraryPresent, ReaderRunning;
+        public bool IsClientLibraryAvailable => LibraryPresent;
+        public bool IsReaderRunning() => ReaderRunning;
+        public void Speak(string text) { }
+        public void CancelSpeech() { }
+    }
+
+    private sealed class FakeJaws : IJawsApiClient
+    {
+        public bool Running;
+        public bool ThrowOnSpeak;
+        public int Probes;
+        public int Stops;
+        public List<(string Text, bool Interrupt)> Spoken { get; } = new();
+
+        public bool IsReaderRunning() { Probes++; return Running; }
+        public void Speak(string text, bool interrupt)
+        {
+            if (ThrowOnSpeak) throw new InvalidOperationException("JAWS went away");
+            Spoken.Add((text, interrupt));
+        }
+        public void StopSpeech() => Stops++;
+    }
+
+    private sealed class NoServices : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
+    }
+
+    private static (BlazorSpeechManager Sut, FakeNvda Nvda, FakeJaws Jaws) Build(
+        bool nvdaLibrary = false, bool nvdaRunning = false, bool jawsRunning = true,
+        TimeSpan? probeInterval = null)
+    {
+        var nvda = new FakeNvda { LibraryPresent = nvdaLibrary, ReaderRunning = nvdaRunning };
+        var jaws = new FakeJaws { Running = jawsRunning };
+        var sut = new BlazorSpeechManager(
+            NullLogger<BlazorSpeechManager>.Instance, new NoServices(), nvda,
+            probeInterval ?? TimeSpan.Zero, jaws);
+        return (sut, nvda, jaws);
+    }
+
+    [Fact]
+    public void WithJawsRunningAndNoNvda_SpeechGoesToJaws_NotTheLiveRegion()
+    {
+        var (sut, _, jaws) = Build();
+        var live = new List<string>();
+        sut.OnSpeak = live.Add;
+
+        sut.Speak("RSI 62", interrupt: true);
+
+        Assert.Equal(new[] { ("RSI 62", true) }, jaws.Spoken);
+        Assert.Empty(live);
+        Assert.Equal(SpeechOutputStatus.JawsDirect, sut.OutputStatus);
+        Assert.Equal("JAWS Direct", sut.SpeechMode);
+    }
+
+    /// <summary>
+    /// The interrupt flag has to reach JAWS, because it is what stops an arrow key truncating
+    /// itself: <c>SayString(text, flush)</c> with flush false queues behind whatever is still
+    /// being said.
+    /// </summary>
+    [Fact]
+    public void TheInterruptFlagIsPassedThrough()
+    {
+        var (sut, _, jaws) = Build();
+
+        sut.Speak("one", interrupt: false);
+        sut.Speak("two", interrupt: true);
+
+        Assert.Equal(new[] { ("one", false), ("two", true) }, jaws.Spoken);
+    }
+
+    /// <summary>NVDA wins when both are somehow up. They are never both running in practice, so
+    /// this pins a tie-break rather than a preference — but an unpinned tie-break is how you get
+    /// two readers talking over each other.</summary>
+    [Fact]
+    public void WhenBothAreRunning_OnlyOneCarriesTheUtterance()
+    {
+        var (sut, nvda, jaws) = Build(nvdaLibrary: true, nvdaRunning: true, jawsRunning: true);
+
+        sut.Speak("RSI 62");
+
+        Assert.Empty(jaws.Spoken);
+        Assert.Equal(SpeechOutputStatus.NvdaDirect, sut.OutputStatus);
+    }
+
+    [Fact]
+    public void WithNeitherReader_ItStillFallsBackToTheLiveRegion()
+    {
+        var (sut, _, jaws) = Build(jawsRunning: false);
+        var live = new List<string>();
+        sut.OnSpeak = live.Add;
+
+        sut.Speak("RSI 62");
+
+        Assert.Empty(jaws.Spoken);
+        Assert.Equal(new[] { "RSI 62" }, live);
+        Assert.Equal(SpeechOutputStatus.LiveRegion, sut.OutputStatus);
+    }
+
+    /// <summary>
+    /// JAWS started after the terminal must be found — the latch bug that kept the NVDA path
+    /// dead for a whole session, not repeated here.
+    /// </summary>
+    [Fact]
+    public void JawsStartedAfterTheTerminalIsPickedUp()
+    {
+        var (sut, _, jaws) = Build(jawsRunning: false);
+        var live = new List<string>();
+        sut.OnSpeak = live.Add;
+
+        sut.Speak("before");
+        Assert.Empty(jaws.Spoken);
+
+        jaws.Running = true;
+        sut.Speak("after");
+
+        Assert.Equal(new[] { ("after", false) }, jaws.Spoken);
+    }
+
+    /// <summary>JAWS dying mid-session costs one utterance, which falls through to the live
+    /// region, and the next probe re-asks rather than latching.</summary>
+    [Fact]
+    public void JawsThrowingMidSession_FallsThroughAndReprobes()
+    {
+        // A REAL interval, deliberately. With a zero interval every call re-probes anyway, so
+        // the invalidation in the catch block would be dead code that no test could see — and a
+        // sabotage deleting it passed for exactly that reason. The throttle has to be ON for
+        // "the throw forced a re-probe" to mean anything.
+        var (sut, _, jaws) = Build(probeInterval: TimeSpan.FromSeconds(30));
+        var live = new List<string>();
+        sut.OnSpeak = live.Add;
+
+        jaws.ThrowOnSpeak = true;
+        sut.Speak("during the crash");
+        Assert.Equal(new[] { "during the crash" }, live);
+
+        jaws.ThrowOnSpeak = false;
+        jaws.Running = false;
+        int before = jaws.Probes;
+        sut.Speak("after the crash");
+
+        Assert.True(jaws.Probes > before, "JAWS was not re-probed after it threw");
+        Assert.Equal(new[] { "during the crash", "after the crash" }, live);
+    }
+
+    [Fact]
+    public void SilenceStopsJawsSpeaking()
+    {
+        var (sut, _, jaws) = Build();
+
+        sut.Speak("something long");
+        sut.Silence();
+
+        Assert.Equal(1, jaws.Stops);
+    }
+
+    /// <summary>A JAWS user is not a mute terminal. The Mute state exists to report a real
+    /// fault, and reporting one while a reader is speaking would make the signal worthless.</summary>
+    [Fact]
+    public void AJawsUserIsNotReportedAsMute()
+    {
+        var (sut, _, _) = Build();
+
+        Assert.NotEqual(SpeechOutputStatus.Mute, sut.OutputStatus);
+        Assert.True(sut.IsActive);
+    }
+}
