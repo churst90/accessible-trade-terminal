@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The Dot Pad SDK and the script worker reach a release, and the price pane stops sharing evenly (2026-09-21, seventieth pass)
+
+**Two features that have never existed in a released build.** Demonstrated by unzipping the CI
+artifact rather than reasoned: none of `DotPadSDK-3.0.0.dll`, `TTBEngine.dll`, `Mecab.dll`,
+`jsoncpp.dll`, `liblouis.dll`, `mecabrc` or `tables/` was in it, and neither was
+`AccessibleTrader.ScriptWorker.exe`. Same `$(OutDir)`-only staging as the NVDA client and the
+plugin manifest — the fourth and fifth instances in a day.
+
+- **Tactile support has been off in every release.** `WindowsDotPadNative` logs *"NativeLibrary.
+  TryLoad failed … Tactile DISABLED"* and falls back to `NullDotPadNative`. **The Braille tab
+  renders perfectly regardless** — it is ordinary DOM — so the feature has looked present and been
+  inert, which is harder to notice than a feature that is plainly missing.
+- **And no user-compiled indicator or strategy could run at all.**
+  `RoslynScriptingService.DefaultWorkerPathResolver` launches the worker from beside the host
+  binary, and Release refuses the in-process path by design, so with the worker absent the
+  scripting surface was dead end to end.
+- **`ipadic/` is deliberately excluded.** It is the MeCab **Japanese** dictionary and **187MB of
+  the SDK's 204MB** staged footprint; without it the payload is ~18MB. Whether the SDK loads it at
+  init regardless of language needs a Windows box and a device to answer, and 187MB in every
+  release zip is not a cost to pay on a guess. If a Dot Pad ever fails to initialise with
+  everything else present, that is the first thing to add back.
+
+**The price pane stops sharing the window evenly.** The split was
+`total / (1 + indicatorCount)` — "each pane gets the same vertical space" — so a chart carrying
+Volume and nothing else gave the candles half the window and the volume bars the other half.
+Measured on the real screenshot: price 171px, volume 171px. `DefaultMainPaneWeight = 2`.
+
+- **2, not 3, and the floors are the reason.** At weight 3 a lone Volume pane lands on 86px
+  against its own 80px minimum. At 2 the price pane takes two thirds with one indicator and a half
+  with two, and **no indicator pane is pushed below its floor**.
+- **From FOUR indicator panes on the weight is not consulted at all** — the 80px indicator floor
+  and the 25% main floor have already decided the layout. The four-indicator chart looks exactly
+  as it did. Both facts are tests, not claims.
+- **The allocation is a pure function now** (`ChartRenderer.AllocatePaneHeights`), extracted so it
+  could be tested: it carried two bug-fix comments describing a pane drawn under the x-axis strip
+  and a pane pushed off the canvas, and **zero tests** — defects nothing but a screenshot could
+  catch.
+
+**Two of my own sabotages survived first time, and the guard was the problem.** The staging test
+asked whether a payload's name appeared within 400 characters of the string
+`CopyToPublishDirectory`; deleting the real one still passed, because the name also occurs in the
+OutDir target, the warning text and the comments, and one of those sat near a different item's
+metadata. It parses the csproj as XML now. *A guard over a file format should read the format.*
+It also covers every SDK companion file, because staging the entry DLL alone leaves it just as
+unable to load.
+
+Suite 7,981 → **8,007**. New: `PaneHeightAllocationTests` (19); `PublishStagingParityTests` 6 → 12.
+
+
 ### A chart terminal with no chart: the toolbar ate the window (2026-09-21, sixty-ninth pass)
 
 From a screenshot off the Windows VM. At 946x536 the terminal showed its toolbar, symbol row,

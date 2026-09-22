@@ -82,6 +82,123 @@ namespace AccessibleTrader.Core.Services
             _profileLayer = new ProfileRenderLayer();
         }
 
+
+        /// <summary>How much taller the price pane is than one indicator pane when nothing has
+        /// been resized by hand.
+        ///
+        /// <para>
+        /// Until 2026-09-21 this was effectively 1: the split was
+        /// <c>totalPaneHeight / (1 + indicatorCount)</c> with the comment "each pane gets the
+        /// same vertical space", so a chart with Volume and nothing else gave the CANDLES half
+        /// the window and the volume bars the other half. Measured on a real screenshot from the
+        /// Windows head: price 171px, volume 171px. No charting convention does that, and the
+        /// price pane is the one carrying the candles, the price line and every overlay.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>2, not 3, and the floors are why.</b> At weight 3 a single Volume pane lands on
+        /// 86px against its own 80px minimum — technically legal and visibly cramped. At 2 the
+        /// price pane takes two thirds with one indicator and a half with two, and no indicator
+        /// pane is pushed below its floor until three are open, which is where the floor governs
+        /// anyway. <b>From FOUR indicator panes on, this constant changes nothing at all</b>: the
+        /// 80px indicator floor and the 25% main floor already decide the layout, and the weight
+        /// is not consulted. So the setting affects exactly the one, two and three-pane charts,
+        /// which is where there is spare height to distribute.
+        /// </para>
+        /// </summary>
+        internal const float DefaultMainPaneWeight = 2f;
+
+        /// <summary>The heights a stack of panes gets, given the space and how many there are.</summary>
+        internal readonly record struct PaneAllocation(float MainHeight, float[] IndicatorHeights);
+
+        /// <summary>
+        /// <b>Every pane's height, as a pure function.</b> Extracted from <c>Render</c> on
+        /// 2026-09-21 so it could be tested: the three-stage negotiation below (weighted share,
+        /// rebalance, final fit) had accumulated two bug-fix comments and zero tests, and the
+        /// defects those comments describe — a pane drawn under the x-axis strip, a pane pushed
+        /// off the canvas entirely — are invisible to everything except a screenshot.
+        /// </summary>
+        internal static PaneAllocation AllocatePaneHeights(
+            float totalPaneHeight,
+            IReadOnlyList<string> indicatorPaneNames,
+            IReadOnlyDictionary<string, float>? paneHeightRatios,
+            float density,
+            float mainPaneWeight = DefaultMainPaneWeight)
+        {
+            const float MinIndicatorPaneHeightPx = 80f;
+            float minIndicatorPaneHeight = MinIndicatorPaneHeightPx * density;
+            int count = indicatorPaneNames.Count;
+
+            if (count == 0) return new PaneAllocation(totalPaneHeight, Array.Empty<float>());
+
+            // A WEIGHTED share: the price pane counts as mainPaneWeight panes, each indicator as
+            // one. A hand-saved ratio still wins outright — the user resized it on purpose.
+            float share = totalPaneHeight / (mainPaneWeight + count);
+
+            float[] indHeights = new float[count];
+            float usedByIndicators = 0f;
+            for (int pi = 0; pi < count; pi++)
+            {
+                float ph = paneHeightRatios != null && paneHeightRatios.TryGetValue(indicatorPaneNames[pi], out float ratio)
+                    ? Math.Max(ratio * totalPaneHeight, minIndicatorPaneHeight)
+                    : Math.Max(share, minIndicatorPaneHeight);
+                indHeights[pi] = ph;
+                usedByIndicators += ph;
+            }
+
+            float mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.25f);
+
+            // Guard against overflow: when saved pane ratios are large and the 25% main-pane
+            // floor kicks in, the sum of all pane heights can exceed totalPaneHeight, pushing
+            // the last indicator pane (typically Cipher B) off-screen or into the X-axis strip.
+            // Scale all indicator panes down proportionally so everything fits within the canvas.
+            if (mainPaneHeight + usedByIndicators > totalPaneHeight)
+            {
+                float available = totalPaneHeight - mainPaneHeight;
+                if (available > 0f && usedByIndicators > available)
+                {
+                    float scale = available / usedByIndicators;
+                    float crowdedMin = 30f * density; // tighter floor when many panes compete
+                    for (int pi = 0; pi < indHeights.Length; pi++)
+                        indHeights[pi] = Math.Max(indHeights[pi] * scale, crowdedMin);
+                    usedByIndicators = indHeights.Sum();
+                    // Re-evaluate main pane after rebalance (lower floor to 15% in crowded layouts).
+                    mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.15f);
+                }
+            }
+
+            // FINAL FIT, and it is not redundant with the rebalance above.
+            //
+            // That block hands the indicator panes whatever the main pane is not using, then
+            // re-raises the main pane to its 15% floor — WITHOUT re-checking that everything
+            // still fits. When the floor engages, it takes its share from a total that had
+            // already been spent, and the sum exceeds the canvas by exactly that much. The
+            // renderer lays panes out top-down by accumulating heights, so the whole overflow
+            // lands on the LAST indicator pane, which is drawn underneath the x-axis strip.
+            //
+            // Nine panes on a 300px canvas is the demonstration: main 42 + eight at the 30px
+            // crowded floor is 282 against 280 available, and the bottom pane loses the
+            // difference plus the strip's own height — about half of it. That is not exotic
+            // any more: since every oscillator got a pane of its own (2026-09-11) a chart with
+            // eight indicators is an ordinary chart, and Alt+PageDown walks to a pane that is
+            // not on the screen.
+            //
+            // The main pane is at its floor by this point, so the indicators are what gives.
+            // No floor on this pass: at some density the panes genuinely do not fit, and the
+            // honest answer is every pane equally small, not one pane invisible.
+            if (mainPaneHeight + usedByIndicators > totalPaneHeight)
+            {
+                float excess = mainPaneHeight + usedByIndicators - totalPaneHeight;
+                if (usedByIndicators > excess)
+                {
+                    float fit = (usedByIndicators - excess) / usedByIndicators;
+                    for (int pi = 0; pi < indHeights.Length; pi++) indHeights[pi] *= fit;
+                }
+            }
+
+            return new PaneAllocation(mainPaneHeight, indHeights);
+        }
+
         public void Render(SKCanvas canvas, int width, int height, IReadOnlyList<Ohlcv> data, IReadOnlyList<ChartSeries> seriesList, int cursorIndex, int viewportStart, int viewportLength, (double Min, double Max) viewportRange, IReadOnlyDictionary<string, (double Min, double Max)> paneRanges, bool isHeikinAshi = false, bool isLogScale = false, float density = 1.0f, ImmutableDictionary<string, float>? paneHeightRatios = null, int rightMarginBars = 10, IReadOnlyList<Analysis.ChartPattern>? formations = null)
         {
             try
@@ -164,81 +281,10 @@ namespace AccessibleTrader.Core.Services
                 float totalPaneHeight = height - _axisHeight;
                 if (totalPaneHeight <= 0) return;
 
-                const float MinIndicatorPaneHeightPx = 80f;
-                float minIndicatorPaneHeight = MinIndicatorPaneHeightPx * density;
-
-                // Compute per-pane heights: use stored ratio when present, otherwise equal-weight split.
-                // Equal-weight: totalHeight / (1 + numIndicatorPanes) — each pane gets the same vertical space.
-                float equalShare = indicatorSeries.Count > 0
-                    ? totalPaneHeight / (1f + indicatorSeries.Count)
-                    : totalPaneHeight;
-
-                float[] indHeights = new float[indicatorSeries.Count];
-                float usedByIndicators = 0f;
-                for (int pi = 0; pi < indicatorSeries.Count; pi++)
-                {
-                    string paneName = indicatorSeries[pi].Key;
-                    float ph;
-                    if (paneHeightRatios != null && paneHeightRatios.TryGetValue(paneName, out float ratio))
-                        ph = Math.Max(ratio * totalPaneHeight, minIndicatorPaneHeight);
-                    else
-                        ph = Math.Max(equalShare, minIndicatorPaneHeight);
-                    indHeights[pi] = ph;
-                    usedByIndicators += ph;
-                }
-
-                float mainPaneHeight = indicatorSeries.Any()
-                    ? Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.25f)
-                    : totalPaneHeight;
-
-                // Guard against overflow: when saved pane ratios are large and the 25% main-pane
-                // floor kicks in, the sum of all pane heights can exceed totalPaneHeight, pushing
-                // the last indicator pane (typically Cipher B) off-screen or into the X-axis strip.
-                // Scale all indicator panes down proportionally so everything fits within the canvas.
-                if (indicatorSeries.Any() && mainPaneHeight + usedByIndicators > totalPaneHeight)
-                {
-                    float available = totalPaneHeight - mainPaneHeight;
-                    if (available > 0f && usedByIndicators > available)
-                    {
-                        float scale = available / usedByIndicators;
-                        float crowdedMin = 30f * density; // tighter floor when many panes compete
-                        for (int pi = 0; pi < indHeights.Length; pi++)
-                            indHeights[pi] = Math.Max(indHeights[pi] * scale, crowdedMin);
-                        usedByIndicators = indHeights.Sum();
-                        // Re-evaluate main pane after rebalance (lower floor to 15% in crowded layouts).
-                        mainPaneHeight = Math.Max(totalPaneHeight - usedByIndicators, totalPaneHeight * 0.15f);
-                    }
-                }
-
-                // FINAL FIT, and it is not redundant with the rebalance above.
-                //
-                // That block hands the indicator panes whatever the main pane is not using, then
-                // re-raises the main pane to its 15% floor — WITHOUT re-checking that everything
-                // still fits. When the floor engages, it takes its share from a total that had
-                // already been spent, and the sum exceeds the canvas by exactly that much. The
-                // renderer lays panes out top-down by accumulating heights, so the whole overflow
-                // lands on the LAST indicator pane, which is drawn underneath the x-axis strip.
-                //
-                // Nine panes on a 300px canvas is the demonstration: main 42 + eight at the 30px
-                // crowded floor is 282 against 280 available, and the bottom pane loses the
-                // difference plus the strip's own height — about half of it. That is not exotic
-                // any more: since every oscillator got a pane of its own (2026-09-11) a chart with
-                // eight indicators is an ordinary chart, and Alt+PageDown walks to a pane that is
-                // not on the screen.
-                //
-                // The main pane is at its floor by this point, so the indicators are what gives.
-                // No floor on this pass: at some density the panes genuinely do not fit, and the
-                // honest answer is every pane equally small, not one pane invisible.
-                if (indicatorSeries.Any() && mainPaneHeight + usedByIndicators > totalPaneHeight)
-                {
-                    float excess = mainPaneHeight + usedByIndicators - totalPaneHeight;
-                    if (usedByIndicators > excess)
-                    {
-                        float fit = (usedByIndicators - excess) / usedByIndicators;
-                        for (int pi = 0; pi < indHeights.Length; pi++) indHeights[pi] *= fit;
-                        usedByIndicators = indHeights.Sum();
-                    }
-                }
+                var paneNames = indicatorSeries.Select(g => g.Key).ToList();
+                var alloc = AllocatePaneHeights(totalPaneHeight, paneNames, paneHeightRatios, density);
+                float mainPaneHeight = alloc.MainHeight;
+                float[] indHeights = alloc.IndicatorHeights;
 
                 float currentY = 0;
 

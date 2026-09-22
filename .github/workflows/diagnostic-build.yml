@@ -160,6 +160,21 @@ jobs:
           }
           Write-Host "All $($dlls.Count) published plugin DLLs are covered by the manifest."
 
+      # The Dot Pad SDK is gitignored vendor binaries (~853MB for the whole tree), so a CI
+      # runner has no copy and the produced zip legitimately has no tactile support. Say so
+      # rather than letting the absence pass as normal — the Braille tab renders either way,
+      # which is exactly what makes this one easy to miss.
+      - name: Report which optional native payloads made it
+        shell: pwsh
+        run: |
+          foreach ($f in 'DotPadSDK-3.0.0.dll','liblouis.dll','AccessibleTrader.ScriptWorker.exe') {
+            if (Test-Path (Join-Path 'publish/maui-win' $f)) { Write-Host "present: $f" }
+            else { Write-Host "::warning::$f is NOT in the publish output." }
+          }
+          if (-not (Test-Path 'publish/maui-win/tables')) {
+            Write-Host "::warning::tables/ (LibLouis) is not in the publish output; text-to-braille will not work."
+          }
+
       - name: Zip
         shell: pwsh
         run: |

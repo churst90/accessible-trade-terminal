@@ -405,6 +405,83 @@
     </Target>
 
     <!--
+        The SAME payloads again, as PUBLISH items this time, and without them neither feature
+        exists in a released build.
+
+        The two targets above copy into $(OutDir). A `dotnet publish` does not carry a loose file
+        a custom target dropped there, so every released Windows zip has shipped with no Dot Pad
+        SDK and no script worker. Demonstrated 2026-09-21 by unzipping the CI artifact: none of
+        DotPadSDK-3.0.0.dll, TTBEngine.dll, Mecab.dll, jsoncpp.dll, liblouis.dll, mecabrc,
+        tables/ or ipadic/ was in it, and neither was AccessibleTrader.ScriptWorker.exe.
+
+        What that costs, concretely:
+          - WindowsDotPadNative logs "NativeLibrary.TryLoad failed ... Tactile DISABLED" and the
+            app falls back to NullDotPadNative. The Braille tab still RENDERS — it is ordinary
+            DOM — so the feature looks present and is inert, which is the worst of the two.
+          - RoslynScriptingService.DefaultWorkerPathResolver looks for the worker beside the host
+            binary, and Release builds refuse the in-process path by design, so user-compiled
+            indicators and strategies cannot run at all.
+
+        Neither payload is in the repo (the Dot Pad SDK is gitignored vendor binaries; the worker
+        is build output), so every item is guarded by Exists() and a build without them still
+        succeeds — the warning targets above say so.
+    -->
+    <ItemGroup Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows'">
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll')">
+            <Link>DotPadSDK-3.0.0.dll</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\TTBEngine.dll" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\TTBEngine.dll')">
+            <Link>TTBEngine.dll</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\Mecab.dll" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\Mecab.dll')">
+            <Link>Mecab.dll</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\jsoncpp.dll" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\jsoncpp.dll')">
+            <Link>jsoncpp.dll</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\liblouis.dll" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\liblouis.dll')">
+            <Link>liblouis.dll</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\mecabrc" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\mecabrc')">
+            <Link>mecabrc</Link><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <!--
+            LibLouis translation tables (~14MB). Needed for text-to-braille: the driver binds
+            DOT_PAD_BRAILLE_DISPLAY among its REQUIRED exports, so the text path is live, not
+            optional.
+
+            ipadic/ — the MeCab JAPANESE dictionary, 187MB of the SDK's 204MB staged footprint —
+            is deliberately NOT here. Whether the SDK loads it at init regardless of the selected
+            language is an empirical question that needs a Windows box and a device to answer,
+            and 187MB in every release zip is not a cost to pay on a guess. If a Dot Pad ever
+            fails to initialise with everything else present, this is the first thing to add back.
+        -->
+        <None Include="..\dotpad-sdk\Windows\dotpad-3.0.0\tables\**\*.*" Condition="Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\tables')">
+            <Link>tables\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+    </ItemGroup>
+
+    <!--
+        The script worker, published. It is a ProjectReference, so its ASSEMBLIES travel, but the
+        standalone .exe and its runtimeconfig.json — which is what
+        RoslynScriptingService.DefaultWorkerPathResolver actually launches — were staged only into
+        $(OutDir) by CopyScriptWorker. AfterTargets="Publish" rather than an item group because
+        the worker's own output does not exist until its project has built.
+    -->
+    <Target Name="CopyScriptWorkerOnPublish"
+            AfterTargets="Publish"
+            Condition="'$(PublishDir)' != '' AND ('$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' or '$(TargetFramework)' == 'net10.0')">
+        <ItemGroup>
+            <PublishedScriptWorkerFiles Include="..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(PublishedScriptWorkerFiles)"
+              DestinationFolder="$(PublishDir)%(RecursiveDir)"
+              SkipUnchangedFiles="true"
+              Condition=" '@(PublishedScriptWorkerFiles)' != '' " />
+    </Target>
+
+    <!--
         Stage the NVDA Controller Client alongside the host binary on Windows.
 
         BlazorSpeechManager P/Invokes nvdaControllerClient64.dll for NVDA-direct speech, and

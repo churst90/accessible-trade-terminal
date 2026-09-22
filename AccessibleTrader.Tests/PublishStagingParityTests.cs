@@ -23,8 +23,10 @@ namespace AccessibleTrader.Tests;
 /// offering only the built-in providers. <b>The WebHost had had the publish-time target for this
 /// since its own publish shipped without one, comment and all; the desktop head never got
 /// it.</b></item>
-/// <item>The Dot Pad SDK and the ScriptWorker, still staged into <c>$(OutDir)</c> only, and
-/// pinned below as known exceptions rather than left to be rediscovered.</item>
+/// <item>The Dot Pad SDK and the ScriptWorker — recorded here as undemonstrated exceptions when
+/// this file was written, and demonstrated a few hours later by unzipping the CI artifact:
+/// neither was in it. Tactile support has been disabled in every released Windows build, and no
+/// user-compiled indicator or strategy could run at all.</item>
 /// </list>
 ///
 /// <para>
@@ -104,37 +106,68 @@ public sealed class PublishStagingParityTests
     }
 
     /// <summary>
-    /// <b>The known exceptions, pinned rather than left to be rediscovered.</b> Both of these
-    /// stage native payloads into <c>$(OutDir)</c> only and therefore do not reach a published
-    /// build. Neither has been demonstrated broken — showing it needs the vendor SDK present and
-    /// a Windows publish to observe — so they are recorded here as OPEN rather than asserted
-    /// either way. When one is fixed, delete its line; when this list is empty, delete the test.
+    /// <b>Every runtime payload the desktop head loads by PATH must reach the publish output.</b>
+    ///
+    /// <para>
+    /// These two were recorded here as known, undemonstrated exceptions when this file was
+    /// written, and demonstrated a few hours later by unzipping the CI artifact: neither the Dot
+    /// Pad SDK nor <c>AccessibleTrader.ScriptWorker.exe</c> was in it. So every released Windows
+    /// build has had tactile support disabled (the driver's own log line is "NativeLibrary.TryLoad
+    /// failed ... Tactile DISABLED") and no way to run a user-compiled indicator or strategy,
+    /// because Release refuses the in-process path by design.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The Braille tab is why this needed a test rather than a note.</b> It is ordinary DOM,
+    /// so it renders perfectly on a build that cannot load the SDK — the feature looks present
+    /// and is inert, which is harder to notice than a feature that is plainly missing.
+    /// </para>
     /// </summary>
-    [Fact]
-    public void TheRemainingOutDirOnlyStagingIsRecorded()
+    [Theory]
+    // The Dot Pad SDK is not one file. Its modules expect to find each other in the same
+    // directory, so staging the entry DLL alone leaves it just as unable to load — and the
+    // driver binds DOT_PAD_BRAILLE_DISPLAY among its REQUIRED exports, which is why the
+    // LibLouis tables are on this list and not treated as optional extras.
+    [InlineData("DotPadSDK-3.0.0.dll", "the Dot Pad tactile SDK — the device this application exists for")]
+    [InlineData("TTBEngine.dll", "the Dot Pad SDK's text-to-braille engine")]
+    [InlineData("Mecab.dll", "a Dot Pad SDK module its siblings expect beside them")]
+    [InlineData("jsoncpp.dll", "a Dot Pad SDK module its siblings expect beside them")]
+    [InlineData("liblouis.dll", "the braille translator behind DOT_PAD_BRAILLE_DISPLAY")]
+    [InlineData("mecabrc", "the MeCab config the SDK reads at init")]
+    [InlineData("tables", "the LibLouis translation tables — without them there is no text-to-braille")]
+    [InlineData("AccessibleTrader.ScriptWorker", "the out-of-process Roslyn script worker")]
+    public void EveryNativePayloadTheDesktopHeadLoadsByPath_ReachesThePublishOutput(string payload, string what)
     {
-        var text = File.ReadAllText(Path.Combine(
-            RepoRoot(), "AccessibleTrader.BlazorClient", "AccessibleTrader.BlazorClient.csproj"));
+        var doc = XDocument.Parse(File.ReadAllText(Path.Combine(
+            RepoRoot(), "AccessibleTrader.BlazorClient", "AccessibleTrader.BlazorClient.csproj")));
 
-        var known = new[]
-        {
-            "CopyDotPadSdkWindows", // the Dot Pad tactile SDK — the device this app is built for
-            "CopyScriptWorker",     // the out-of-process Roslyn script worker
-        };
+        // PARSED, not pattern-matched. The first draft of this asked whether the payload's name
+        // appeared within 400 characters of the string "CopyToPublishDirectory", and a sabotage
+        // that deleted the real one passed — because the name also occurs in the OutDir-only
+        // target, in the missing-SDK warning text and in the comments, and one of those landed
+        // near a DIFFERENT item's metadata. A guard over a file format should read the format.
+        bool publishItem = doc.Descendants()
+            .Where(e => e.Name.LocalName == "None")
+            .Where(e => ((string?)e.Attribute("Include") ?? "").Contains(payload, StringComparison.OrdinalIgnoreCase))
+            .Any(e => e.Elements().Any(c => c.Name.LocalName == "CopyToPublishDirectory")
+                   || e.Attribute("CopyToPublishDirectory") != null);
 
-        foreach (var name in known)
-        {
-            Assert.True(text.Contains($"Name=\"{name}\"", StringComparison.Ordinal),
-                $"{name} is gone from the csproj. If it was fixed or removed, drop it from this list; "
-              + "it is recorded here because it stages a runtime payload into $(OutDir) only and so "
-              + "does not reach a published build.");
-        }
+        // …or a target that runs after Publish and copies the payload INTO $(PublishDir).
+        bool publishTarget = doc.Descendants()
+            .Where(e => e.Name.LocalName == "Target")
+            .Where(e => Regex.IsMatch((string?)e.Attribute("AfterTargets") ?? "", @"\bPublish\b"))
+            .Any(e =>
+            {
+                var body = e.ToString();
+                return body.Contains(payload, StringComparison.OrdinalIgnoreCase)
+                    && body.Contains("$(PublishDir)", StringComparison.Ordinal);
+            });
 
-        // If one of these ever gains a publish-time counterpart, this test should stop claiming it
-        // is outstanding.
-        var publishTargets = TargetsWith(text, afterTargets: "Publish");
-        Assert.DoesNotContain(publishTargets,
-            t => t.Contains("DotPadSdk", StringComparison.Ordinal) || t.Contains("ScriptWorker", StringComparison.Ordinal));
+        Assert.True(publishItem || publishTarget,
+            $"{payload} ({what}) is staged into $(OutDir) only, so it reaches a `dotnet build` and "
+          + "NOT a `dotnet publish` — the released zip ships without it and the feature is inert. "
+          + "Give it a <None> item with a CopyToPublishDirectory child, or an "
+          + "AfterTargets=\"Publish\" target that copies it into $(PublishDir).");
     }
 
     /// <summary>The bodies of every <c>&lt;Target&gt;</c> whose AfterTargets names the given target.</summary>
