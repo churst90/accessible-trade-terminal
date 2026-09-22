@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A non-price component dragged the price axis to zero — a regression from this file's own change (2026-09-22)
+
+Caught by Cody from a screenshot before the tag, which is the only thing that could have caught
+it: the suite was green and the chart was wrong.
+
+**Bollinger Bands declares SEVEN components on the Main pane, and three of them are not prices**
+— `PercentB` (0 to 1), `ZScore` (about ±3) and `Width` (a ratio). On BTC at 60,000–86,000 the
+visible span is 26,000, so a value of `0.5` sits **2.31 spans** below the low — comfortably
+inside the three-span allowance the reference levels use. The price axis was pulled down to
+`0.00`, the candles were crushed into the top quarter of the pane, and because the pane's range
+is also the PITCH range the price line lost most of its swing at the same time.
+
+**It is a regression from 2026-09-21**, when Main-pane components were first allowed to expand
+the price range at all. Before that these three were merely drawn flat along the bottom — ugly,
+and audible as flat tones, which is why Cody had already muted them by hand.
+
+- **The span rule cannot express what is wrong here**, because nothing is wrong with the
+  distance. `IsPlausiblyTheSameQuantity` adds the clause that can: **a price is the same ORDER OF
+  MAGNITUDE as other prices.** Measured against the data's midpoint, because that is what "how
+  big are the numbers here" means — a span can be arbitrarily small on a quiet day without making
+  faraway values any more plausible.
+- **It only ever TIGHTENS.** Both tests must pass, so nothing the span rule already rejected
+  becomes acceptable and no axis can widen because of it. A pane straddling zero has no
+  meaningful magnitude and falls back to the span rule alone, so an oscillator that finds its way
+  onto Main does not lose its own data.
+
+**Left alone deliberately: those three components are still on the Main pane.** They are real
+Bollinger outputs on a scale of their own, and the right home for them is their own strip rather
+than the price pane — but Main-pane sub-panes get no range computed today, so that is a change
+with its own failure modes and it does not belong in the hour before a tag. Muting them, which is
+what Cody did unprompted, remains the correct workaround.
+
+Suite 8,015 → **8,021**.
+
+
 ### The hosted terminal says when the connection drops, and something can finally ask if it is up (2026-09-22, seventy-second pass)
 
 Both asked for by the server after a log review. Between 7 and 20 September **100 of 141**

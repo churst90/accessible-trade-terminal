@@ -243,6 +243,84 @@ public sealed class PriceAutoFitScopeTests
         Assert.Equal(withFlagOn.Max, withFlagOff.Max, 9);
     }
 
+    /// <summary>
+    /// <b>Cody's chart, 2026-09-22, and it is a regression this file's own change caused.</b>
+    ///
+    /// <para>
+    /// Bollinger Bands declares SEVEN components on the Main pane and three of them are not
+    /// prices: PercentB (0 to 1), ZScore (about ±3) and Width (a ratio). On BTC at 60,000–86,000
+    /// the span is 26,000, so 0.5 sits 2.31 spans below the low — INSIDE the three-span
+    /// allowance the reference levels use. The price axis was dragged to zero and the candles
+    /// crushed into the top quarter of the pane. Before the components could expand the range at
+    /// all they were merely drawn flat along the bottom, which is ugly and audible but not this.
+    /// </para>
+    ///
+    /// <para>
+    /// The span rule cannot express what is wrong, because nothing is wrong with the DISTANCE —
+    /// it is that a price is the same order of magnitude as other prices, and 0.5 is not.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(0.5, "PercentB")]
+    [InlineData(0.2, "ZScore")]
+    [InlineData(0.06, "Width")]
+    public void AnIndicatorsNonPriceComponentCannotDragThePriceAxis(double value, string name)
+    {
+        // BTC, as photographed: candles 60,000–86,000.
+        var bars = Enumerable.Range(0, BarCount)
+            .Select(i => new Ohlcv(new DateTime(2026, 1, 1).AddHours(i), 73000, 86000, 60000, 73000, 1000))
+            .ToList();
+
+        var cfg = new SeriesConfig { Id = "bb", Name = "Bollinger Bands", Pane = "Main", IsVisible = true, Volume = 1f };
+        cfg.Components.Add(new ComponentConfig { Name = "UpperBand", IsVisible = true, IsEnabled = true });
+        cfg.Components.Add(new ComponentConfig { Name = name, IsVisible = true, IsEnabled = true });
+        var buf = new SeriesDataBuffer { SeriesId = "bb" };
+        buf.ComponentData["UpperBand"] = Enumerable.Repeat(88000.0, BarCount).ToArray();
+        buf.ComponentData[name] = Enumerable.Repeat(value, BarCount).ToArray();
+
+        var state = WorkspaceState.Initial with
+        {
+            Data = new TimeSeriesBuffer<Ohlcv>(bars),
+            ActiveSeries = ImmutableList.Create(Candles(), new ChartSeries(cfg, buf)),
+            ViewportStartIndex = 0,
+            ViewportLength = BarCount,
+        };
+
+        var (min, max) = new ViewportRangeCalculator().Calculate(state).MainRange;
+
+        Assert.True(min > 50000,
+            $"{name} at {value} dragged the price floor to {min:F0}. The axis then runs from "
+          + "nothing to the high and the candles occupy the top sliver of the pane — which is "
+          + "also the top sliver of the PITCH range, so the price line loses most of its swing.");
+        // The band above the candles is a price and must still be included.
+        Assert.True(max >= 88000, $"the upper band at 88,000 was excluded; the pane tops out at {max:F0}");
+    }
+
+    /// <summary>
+    /// The magnitude clause only ever TIGHTENS. A pane straddling zero has no meaningful
+    /// magnitude to compare against, so it must fall back to the span rule rather than rejecting
+    /// everything — an oscillator that found its way onto Main would otherwise lose its own data.
+    /// </summary>
+    [Fact]
+    public void APaneStraddlingZeroFallsBackToTheSpanRule()
+    {
+        Assert.True(ViewportRangeCalculator.IsPlausiblyTheSameQuantity(
+            value: -40, dataMin: -50, dataMax: 50, dataSpan: 100));
+        Assert.True(ViewportRangeCalculator.IsPlausiblyTheSameQuantity(
+            value: 120, dataMin: -50, dataMax: 50, dataSpan: 100));
+    }
+
+    /// <summary>A genuine band outside the candles is still a price and still included — the
+    /// clause must not undo the change it is correcting.</summary>
+    [Theory]
+    [InlineData(95000.0)]
+    [InlineData(55000.0)]
+    public void ABandTenPercentOutsideTheCandlesIsStillAPrice(double bandValue)
+    {
+        Assert.True(ViewportRangeCalculator.IsPlausiblyTheSameQuantity(
+            bandValue, dataMin: 60000, dataMax: 86000, dataSpan: 26000));
+    }
+
     // ── The toggle reaches the numbers ───────────────────────────────────────────
 
     /// <summary>

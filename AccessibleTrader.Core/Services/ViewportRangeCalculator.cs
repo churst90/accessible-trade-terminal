@@ -116,7 +116,7 @@ namespace AccessibleTrader.Core.Services
                             // pivot indicator's every-bar-but-a-few. Skipping it is not a special
                             // case, it is the normal state of the left edge of the window.
                             if (double.IsNaN(val)) continue;
-                            if (!IsPlausiblySamePane(val, priceMin, priceMax, dataSpan)) continue;
+                            if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
                             if (val < mainMin) mainMin = val;
                             if (val > mainMax) mainMax = val;
                         }
@@ -412,5 +412,59 @@ namespace AccessibleTrader.Core.Services
 
         /// <summary>How many multiples of the visible data span a reference level may sit outside it.</summary>
         internal const double MaxLevelSpanMultiple = 3.0;
+
+        /// <summary>
+        /// How far outside the data a COMPONENT may sit, as a fraction of the data's own
+        /// magnitude rather than of its span.
+        /// </summary>
+        internal const double MaxComponentMagnitudeFraction = 0.5;
+
+        /// <summary>
+        /// <b>Whether a component's value is the same KIND of quantity as the pane's data.</b>
+        ///
+        /// <para>
+        /// The span-multiple test above is right for a reference LEVEL — a level is a single
+        /// declared constant and "is it near the data" is the whole question. It is the wrong
+        /// shape for a component, and Bollinger Bands is the proof. That indicator declares
+        /// SEVEN components on the Main pane, and three of them are not prices at all: PercentB
+        /// (0 to 1), ZScore (about ±3) and Width (a ratio). On BTC at 60,000–86,000 the span is
+        /// 26,000, so a value of 0.5 sits 2.31 spans below the low — <b>inside</b> a three-span
+        /// allowance, and the price axis was dragged down to zero with the candles crushed into
+        /// the top quarter of the pane. Reported from a screenshot on 2026-09-22, and it is a
+        /// regression from the 2026-09-21 change that let components expand the price range at
+        /// all; before that they were merely drawn flat along the bottom.
+        /// </para>
+        ///
+        /// <para>
+        /// The extra clause states the thing the span rule cannot: <b>a price is the same order
+        /// of magnitude as other prices.</b> A band 10% outside the candles is a price; a value
+        /// five orders of magnitude below them is a different measurement that happens to share
+        /// a pane. Measured against the data's MIDPOINT, because that is what "how big are the
+        /// numbers here" means, and a span can be arbitrarily small on a quiet day without
+        /// making faraway values any more plausible.
+        /// </para>
+        ///
+        /// <para>
+        /// It only ever TIGHTENS: both tests must pass. So nothing the span rule already
+        /// rejected becomes acceptable, and the fix cannot widen an axis anywhere.
+        /// </para>
+        /// </summary>
+        internal static bool IsPlausiblyTheSameQuantity(double value, double dataMin, double dataMax, double dataSpan)
+        {
+            if (!IsPlausiblySamePane(value, dataMin, dataMax, dataSpan)) return false;
+
+            double distance = value < dataMin ? dataMin - value
+                            : value > dataMax ? value - dataMax
+                            : 0;
+            if (distance == 0) return true;
+
+            // A pane straddling zero (an oscillator that found its way onto Main, a spread) has
+            // a midpoint near nothing and no meaningful magnitude to compare against. Fall back
+            // to the span rule alone rather than rejecting everything.
+            double magnitude = Math.Abs((dataMin + dataMax) / 2.0);
+            if (magnitude < dataSpan) return true;
+
+            return distance <= magnitude * MaxComponentMagnitudeFraction;
+        }
 }
 }
