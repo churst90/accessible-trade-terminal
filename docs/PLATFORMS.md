@@ -138,26 +138,56 @@ across the family:
   root — captures COM-port + USB inventory + Dot Pad device info to a
   log file. Useful when the driver can't find the device on first plug-in.
 
-### SDK installation (required for Dot Pad support)
+### SDK installation
 
-The Dot Inc SDK is **not committed to the repo** (~850MB, vendor-licensed
-binaries). To enable Dot Pad support locally:
+**If you have a released zip, there is nothing to do.** From the 2.12.0 re-cut the SDK travels
+in the Windows download, fetched by `release.yml` from Dot Inc's own public repository and
+pinned by SHA-256. This section is about building from source.
 
-1. Download the sample-code bundle from
-   [https://github.com/dotincorp/dotpad-sample-code](https://github.com/dotincorp/dotpad-sample-code)
-   (or the Dot Inc developer portal).
-2. Place the `Windows/3.0.0/` directory at
-   `dotpad-sdk/Windows/dotpad-3.0.0/` relative to the repo root.
-   The build expects to find `DotPadSDK-3.0.0.dll`, `TTBEngine.dll`,
-   `Mecab.dll`, `jsoncpp.dll`, `liblouis.dll`, `mecabrc`, and the
-   `tables/` + `ipadic/` extracted directories there.
-3. Build normally. The `CopyDotPadSdkWindows` MSBuild target stages
-   everything alongside the app binary.
+The Dot Inc SDK is **not committed to the repo** (~296MB for Windows 3.0.0 alone,
+vendor-licensed binaries). To enable Dot Pad support in a source build:
 
-The build also runs WITHOUT the SDK present — `WarnIfDotPadSdkMissing`
-emits a one-line MSBuild message and Dot Pad support is simply
-unavailable at runtime (`DotpadTactileDriver` reports not-connected via
-the `NullDotPadNative` fallback).
+1. Take `Windows/3.0.0/` from
+   [https://github.com/dotincorp/dotpad-sdk-guide](https://github.com/dotincorp/dotpad-sdk-guide)
+   (or the Dot Inc developer portal). **Note the path: `Windows/3.0.0`, not
+   `Windows/dotpad-3.0.0`** — the repo's directory is named for the version, ours is named for
+   the product, and a URL built from the local name 404s.
+2. Place it at `dotpad-sdk/Windows/dotpad-3.0.0/` relative to the repo root.
+   The build expects `DotPadSDK-3.0.0.dll`, `TTBEngine.dll`, `Mecab.dll`, `jsoncpp.dll`,
+   `liblouis.dll`, `mecabrc` and the extracted `tables/` directory there.
+3. Build normally. `CopyDotPadSdkWindows` stages everything alongside the app binary at build
+   time; the `<None>` items with `CopyToPublishDirectory` are what carry it into a publish.
+
+**What ships, and what does not.** Eighteen megabytes of the SDK ship; `ipadic/` — 187MB of
+MeCab's *Japanese* dictionary — does not. Three pieces of evidence, all from the binaries:
+
+- `WindowsDotPadNative` binds exports on `DotPadSDK-3.0.0.dll` only, and never touches TTBEngine
+  or MeCab.
+- `DotPadSDK-3.0.0.dll` has **no static dependency** on TTBEngine, MeCab, liblouis or jsoncpp —
+  its PE import table names only the VC++ runtime. It `LoadLibrary`s the rest, and says so:
+  `[OK] liblouis.dll loaded from:` / `DOT_ERROR_LIBLOUIS_DLL_COULD_NOT_LOAD`.
+- MeCab is reached only from `TTBEngine`'s `mecab_new2("-u ./ipadic/user.dic")`, and **there is
+  no `user.dic` anywhere in the 187MB `ipadic/` directory** — the vendor does not ship one. Both
+  that path and `mecabrc`'s `dicdir = ./ipadic` are relative to the *working directory*, not the
+  install, so they would miss regardless.
+
+If a real Dot Pad ever fails to initialise with everything else present, `ipadic/` is the first
+thing to add back. The 14MB of LibLouis `tables/` **do** ship in full: the SDK points
+`lou_setDataPath` at a `\tables` directory beside itself, names 35 specific `.ctb`/`.utb` files,
+and the tables include each other transitively, so trimming them breaks one braille code
+silently for 13MB.
+
+**The VC++ runtime ships with the SDK.** `DotPadSDK-3.0.0.dll` statically imports `MSVCP140`,
+`VCRUNTIME140` and `VCRUNTIME140_1` — a .NET publish carries none of them. Without them the SDK
+does not load on a machine that has no Visual Studio and no redistributable, and the Braille tab
+looks exactly as healthy as it does when everything works. `release.yml` stages them from the
+runner into `vendor/vcruntime/`; see that directory's README for a hand-built release.
+
+An ordinary source build still runs WITHOUT the SDK present — `WarnIfDotPadSdkMissing` emits a
+one-line MSBuild message and Dot Pad support is unavailable at runtime (`DotpadTactileDriver`
+reports not-connected via the `NullDotPadNative` fallback). **A RELEASE build does not.** Under
+`-p:ReleasePublish=true` the missing SDK is an error, because v2.12.0 shipped once with the
+message printed in a green log that nobody read, telling users the SDK was in the download.
 
 ### NVDA Controller Client (required for speech on the Windows desktop head)
 
@@ -179,6 +209,16 @@ project file, and absent from every publish. A single copy had been dropped by h
 every published install was silent. Found the first time the head was put in front of a screen
 reader.
 
+**And the first fix for that did not reach the download either.** The csproj items were correct,
+but the DLL is gitignored and the items are `Exists()`-guarded, so the GitHub Actions runner —
+which had no copy — built a perfectly valid mute release and said nothing. v2.12.0 was published
+telling users the DLL was "in the download now" when it was in none of the six assets. From the
+2.12.0 re-cut, `release.yml` fetches
+`nvda_<version>_controllerClient.zip` from NV Access, pinned by SHA-256, a release build with no
+controller client is a hard **error**, and `scripts/verify_release_payloads.py` refuses to
+publish a zip that does not contain it. *A release that ships mute is worse than a release that
+fails.*
+
 ### JAWS
 
 Nothing to install and nothing to configure. JAWS registers a COM automation object
@@ -194,8 +234,12 @@ order is a tie-break so that two readers cannot talk over each other.
 
 #### If you have a released zip (no repo)
 
-This is the common case, and it needs no rebuild — the DLL is found by the **default Windows DLL
-search order**, which looks in the application's own folder first.
+**From the 2.12.0 re-cut you do not need to do any of this** — the controller client is in the
+download. Everything below applies to 2.12.0-as-first-published and to every release before it,
+where the DLL has to be placed by hand.
+
+The DLL is found by the **default Windows DLL search order**, which looks in the application's
+own folder first, so no rebuild is involved.
 
 1. Download `nvda_<version>_controllerClient.zip` from
    [https://github.com/nvaccess/nvda/releases](https://github.com/nvaccess/nvda/releases)

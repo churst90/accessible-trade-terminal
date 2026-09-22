@@ -1,5 +1,6 @@
 using AccessibleTrader.BlazorClient.Services;
 using AccessibleTrader.Core.Services;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AccessibleTrader.Tests;
@@ -308,6 +309,74 @@ public sealed class SpeechOutputPathTests
         Assert.Equal(2, journal.Entries.Count(e => e.Kind == JournalEntryKind.Error));
     }
 
+
+    // ── Where the "the DLL is missing" warning is worth saying ──────────────────
+
+    /// <summary>
+    /// <b>On a platform with no NVDA channel at all, the terminal says nothing about the DLL.</b>
+    ///
+    /// <para>
+    /// This manager is SCOPED — one instance per Blazor circuit, which on a hosted head means
+    /// one per VISITOR. Its own comment claimed the library check was "asked once and reported
+    /// once … one line at startup", and that was never true; it did not matter while the line
+    /// was actionable. Then the hosted head became Linux, and accessibletrader.com logged, at
+    /// every single visitor, an instruction to copy <c>nvdaControllerClient64.dll</c> next to
+    /// <c>AccessibleTrader.BlazorClient.exe</c> — advice about a Windows DLL and a Windows
+    /// binary, given to a Linux server, that nobody could act on. Found on the VPS after the
+    /// v2.12.0 deploy.
+    /// </para>
+    ///
+    /// <para>
+    /// The distinction the fix draws is between a MISSING library and an INAPPLICABLE one. A
+    /// NullNvdaControllerClient is what a non-Windows host gets, and it is not a build that
+    /// forgot a file — it is a platform where that file means nothing. JawsApiClient had been
+    /// gated this way all along, three lines above.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void OnAPlatformWithNoNvdaChannel_NothingIsLoggedAboutTheMissingDll()
+    {
+        var logger = new CollectingLogger();
+
+        _ = new BlazorSpeechManager(logger, new JournalOnlyProvider(new RecordingJournal()),
+                                    new NullNvdaControllerClient());
+
+        Assert.DoesNotContain(logger.Warnings, w =>
+            w.Contains("nvdaControllerClient", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// And the other half, which is what stops the fix above from being "delete the warning":
+    /// where the channel DOES exist and the library is absent, the line is still said. That is
+    /// the Windows desktop case, where it is the only warning anyone gets that the chart will
+    /// be silent.
+    /// </summary>
+    [Fact]
+    public void WhereTheChannelExistsAndTheLibraryDoesNot_TheWarningIsStillLogged()
+    {
+        var logger = new CollectingLogger();
+
+        _ = new BlazorSpeechManager(logger, new JournalOnlyProvider(new RecordingJournal()),
+                                    new FakeNvda { LibraryPresent = false });
+
+        Assert.Contains(logger.Warnings, w =>
+            w.Contains("nvdaControllerClient", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A logger that keeps what it was told, so a test can ask what the user saw.</summary>
+    private sealed class CollectingLogger : ILogger<BlazorSpeechManager>
+    {
+        public List<string> Warnings { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                                Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Warning) Warnings.Add(formatter(state, exception));
+        }
+    }
 }
 
 /// <summary>

@@ -165,6 +165,59 @@ public sealed class ChartAxisMathTests
     public void FormatAxisValue_KeepsARealNegative(double value, double range)
         => Assert.StartsWith("-", ChartMath.FormatAxisValue(value, range));
 
+    // ── The short form, for a strip that cannot hold nine digits ─────────────
+
+    /// <summary>
+    /// The form a person would say. US large-cap share volume is routinely nine digits, so
+    /// "120000000.00" is the COMMON case on a volume axis, not an outlier — and the strip is
+    /// 60 CSS px wide.
+    /// </summary>
+    [Theory]
+    [InlineData(120_000_000.0, "120M")]
+    [InlineData(100_000_000.0, "100M")]
+    [InlineData(1_500_000.0, "1.5M")]
+    [InlineData(950_000.0, "950K")]
+    [InlineData(2_500_000_000.0, "2.5B")]
+    [InlineData(1_200_000_000_000.0, "1.2T")]
+    [InlineData(440.0, "440")]
+    [InlineData(0.0, "0")]
+    public void FormatAxisValueCompact_SaysTheNumberTheWayAPersonWould(double value, string expected)
+        => Assert.Equal(expected, ChartMath.FormatAxisValueCompact(value));
+
+    /// <summary>
+    /// Whatever else it does, the short form is SHORTER for the values it exists for. If it
+    /// were not, the renderer's measurement would keep the full text and this whole path would
+    /// be dead code that still passed its own unit tests.
+    /// </summary>
+    [Theory]
+    [InlineData(120_000_000.0, 140_000_000.0)]
+    [InlineData(1_500_000.0, 2_000_000.0)]
+    [InlineData(2_500_000_000.0, 3_000_000_000.0)]
+    public void FormatAxisValueCompact_IsShorterThanTheFullForm(double value, double range)
+        => Assert.True(
+            ChartMath.FormatAxisValueCompact(value).Length < ChartMath.FormatAxisValue(value, range).Length,
+            $"compact '{ChartMath.FormatAxisValueCompact(value)}' is not shorter than full "
+          + $"'{ChartMath.FormatAxisValue(value, range)}'");
+
+    /// <summary>A real negative keeps its sign here too.</summary>
+    [Theory]
+    [InlineData(-120_000_000.0, "-120M")]
+    [InlineData(-2_500.0, "-2.5K")]
+    public void FormatAxisValueCompact_KeepsARealNegative(double value, string expected)
+        => Assert.Equal(expected, ChartMath.FormatAxisValueCompact(value));
+
+    /// <summary>
+    /// And the same negative-zero rule as the full form: a minus sign in front of a zero is a
+    /// rounding residue, not a quantity. Note the boundary — <c>-0.4</c> is a real value and
+    /// keeps both its sign and its digit; only what ROUNDS to zero loses the sign.
+    /// </summary>
+    [Theory]
+    [InlineData(-0.0000001, "0")]
+    [InlineData(-0.04, "0")]
+    [InlineData(-0.4, "-0.4")]
+    public void FormatAxisValueCompact_NeverReturnsANegativeZero(double value, string expected)
+        => Assert.Equal(expected, ChartMath.FormatAxisValueCompact(value));
+
     // ── The x axis ───────────────────────────────────────────────────────────
 
     /// <summary>

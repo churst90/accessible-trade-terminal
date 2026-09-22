@@ -79,6 +79,25 @@
         -->
         <SelfContained>false</SelfContained>
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <!--
+            STATED, because it stopped being true without anyone changing it.
+
+            The v2.11.0 Windows app was precompiled and the v2.12.0 one was not. Nothing in this
+            repository set PublishReadyToRun either way, so an implicit default moved underneath
+            us — the candidates are the action bumps in 9e262b6e (setup-dotnet v4→v5, checkout
+            v4→v5) or a windows-latest image roll; the cause was never established. The only
+            trace it left was the zip falling 148.4 → 130.8 MB while GAINING seven files, with
+            109 assemblies shrinking: Microsoft.CodeAnalysis.CSharp.dll 18.5 → 6.8 MB,
+            AccessibleTrader.Core.dll 6.0 → 2.4 MB. Confirmed by reading the PE CLI headers out
+            of both published zips — 2.11.0 carries a ManagedNativeHeader, 2.12.0 has none.
+
+            What it costs is startup and first-use JIT on the head with the slowest start
+            already, which on this application is the difference between a chart that speaks
+            when you open it and one that speaks a few seconds later. Wanted, therefore set
+            here rather than inherited; and asserted on the artifact rather than on the
+            intention, by the readyToRun block in packaging/release-payloads.json.
+        -->
+        <PublishReadyToRun>true</PublishReadyToRun>
     </PropertyGroup>
     <PropertyGroup Condition="'$(ReleasePublish)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
         <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers>
@@ -227,117 +246,18 @@
     </ItemGroup>
 
     <!--
-        Plugin trust manifest generation.
+        Plugin trust manifest generation, shared with the WebHost head.
 
-        After every build (Debug + Release), walk OutDir for
-        AccessibleTrader.Plugins.*.dll files, hash each with SHA-256, and emit
-        plugins_trusted.manifest into OutDir so PluginTrustPolicy picks it up
-        at app startup. Running on every config means the dev workflow stays
-        in sync with the shipping default RequireTrusted=true — otherwise a
-        local Debug run would silently block every plugin.
-
-        Runs via an inline task written in C#. No external scripts required,
-        so the same csproj builds cleanly on Windows, Linux, and macOS CI.
+        This used to be a copy of the WebHost's inline task and targets, and the copying is the
+        point: the publish-time target existed there for its whole life and was never applied
+        here, so every released desktop zip shipped 33 plugin DLLs with no manifest and the
+        market dropdown offered only the built-in providers. Copying it across then inherited a
+        second assumption — that the manifest belongs at $(PublishDir) — which is false on Mac
+        Catalyst, where the plugins and AppContext.BaseDirectory are both inside
+        AppBundle.app/Contents/MonoBundle. Stated once, in one file, the rule is simply "the
+        manifest goes where the plugins are". See packaging/PluginTrustManifest.targets.
     -->
-    <UsingTask TaskName="HashPluginDlls"
-               TaskFactory="RoslynCodeTaskFactory"
-               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-        <ParameterGroup>
-            <PluginsDir ParameterType="System.String" Required="true" />
-            <ManifestPath ParameterType="System.String" Required="true" />
-        </ParameterGroup>
-        <Task>
-            <Using Namespace="System" />
-            <Using Namespace="System.IO" />
-            <Using Namespace="System.Linq" />
-            <Using Namespace="System.Security.Cryptography" />
-            <Using Namespace="System.Text" />
-            <Code Type="Fragment" Language="cs">
-                <![CDATA[
-                if (!Directory.Exists(PluginsDir))
-                {
-                    Log.LogMessage(MessageImportance.Normal, $"Plugins dir {PluginsDir} not found — skipping manifest generation.");
-                    return true;
-                }
-
-                var dlls = Directory
-                    .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
-                    .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
-                    .Select(p => new { Path = p, Name = Path.GetFileName(p) })
-                    .GroupBy(x => x.Name)
-                    .Select(g => g.First())
-                    .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                if (dlls.Count == 0)
-                {
-                    Log.LogMessage(MessageImportance.Normal, $"No AccessibleTrader.Plugins.*.dll found under {PluginsDir} — skipping manifest generation.");
-                    return true;
-                }
-
-                var sb = new StringBuilder();
-                sb.AppendLine("# AccessibleTrader plugin trust manifest");
-                sb.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
-                sb.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
-                sb.AppendLine("# Generated automatically by the BlazorClient Release build target.");
-                sb.AppendLine();
-
-                // SHA256.HashData(stream) is .NET 5+ and isn't available inside
-                // the RoslynCodeTaskFactory host on some build SDKs. Use the
-                // broadly-compatible Create()+ComputeHash() pair instead so the
-                // task compiles under every supported MSBuild runtime.
-                using (var sha = SHA256.Create())
-                {
-                    foreach (var dll in dlls)
-                    {
-                        byte[] hash;
-                        using (var fs = File.OpenRead(dll.Path))
-                            hash = sha.ComputeHash(fs);
-                        var hex = BitConverter.ToString(hash).Replace("-", "");
-                        sb.Append(hex).Append("  # ").AppendLine(dll.Name);
-                    }
-                }
-
-                Directory.CreateDirectory(Path.GetDirectoryName(ManifestPath));
-                File.WriteAllText(ManifestPath, sb.ToString());
-                Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {ManifestPath}");
-                ]]>
-            </Code>
-        </Task>
-    </UsingTask>
-
-    <Target Name="GeneratePluginTrustManifest"
-            AfterTargets="Build"
-            Condition=" '$(OutDir)' != '' ">
-        <HashPluginDlls
-            PluginsDir="$(OutDir)"
-            ManifestPath="$(OutDir)plugins_trusted.manifest" />
-    </Target>
-
-    <!--
-        Publish-time manifest, and the desktop head went without it for its entire life.
-
-        The Build-time target above writes to $(OutDir), which a `dotnet publish` does NOT
-        carry into the publish output. So every released zip of this head shipped 33 plugin
-        DLLs and NO plugins_trusted.manifest, the policy loaded an empty allow-list,
-        RequireTrusted refused all 33, and the market dropdown offered only the built-in
-        providers. Reported from a Windows VM on 2026-09-21 as "the market dropdown only
-        shows My Data and analytics", and confirmed by unzipping the artifact: 33 DLLs
-        present, manifest absent.
-
-        The WebHost has had exactly this target since its own publish shipped without one,
-        comment and all. It was never applied here — which is the finding worth keeping:
-        the two heads have separate project files and a fix landed in one of them is not a
-        fix, it is a fix in one place. Hashing the PUBLISHED DLLs rather than the built ones
-        also keeps the digests matching what actually ships.
-    -->
-    <Target Name="GeneratePluginTrustManifestOnPublish"
-            AfterTargets="Publish"
-            Condition=" '$(PublishDir)' != '' ">
-        <HashPluginDlls
-            PluginsDir="$(PublishDir)"
-            ManifestPath="$(PublishDir)plugins_trusted.manifest" />
-    </Target>
+    <Import Project="$(MSBuildThisFileDirectory)..\packaging\PluginTrustManifest.targets" />
 
     <!--
         Copy the built ScriptWorker output next to the host binary so
@@ -374,7 +294,23 @@
     <Target Name="WarnIfDotPadSdkMissing"
             AfterTargets="Build"
             Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll')">
-        <Message Importance="high" Text="Dot Pad SDK not found at dotpad-sdk/Windows/dotpad-3.0.0/. Tactile-display support will be unavailable at runtime. Download the SDK from https://github.com/dotincorp/dotpad-sample-code and extract Windows/3.0.0/ into dotpad-sdk/Windows/dotpad-3.0.0/. See docs/PLATFORMS.md." />
+        <!--
+            AN ERROR ON A RELEASE PUBLISH, a message everywhere else, and v2.12.0 is why.
+
+            That release told users "Braille and Dot Pad support is actually in the download".
+            It was not in any of the six published assets: dotpad-sdk/ is gitignored, every item
+            below is Exists()-guarded so a build without it succeeds in silence, and the release
+            is built by GitHub Actions, which had no copy. A green run, a published release, and
+            an inert feature — and the Braille tab renders fine on a build that cannot load the
+            SDK, so nothing about the running application says otherwise.
+
+            A release that ships a dead feature is worse than a release that fails, so on
+            ReleasePublish=true this stops the build. release.yml fetches the SDK from the
+            vendor's own public repository, pinned by SHA-256, before it publishes.
+        -->
+        <Error Condition="'$(ReleasePublish)' == 'true'"
+               Text="RELEASE BUILD WITH NO DOT PAD SDK. dotpad-sdk/Windows/dotpad-3.0.0/DotPadSDK-3.0.0.dll is absent, so this release would ship with tactile output inert while the Braille tab still renders — which is exactly what v2.12.0 did. release.yml's 'Fetch Dot Pad SDK runtime' step supplies it; if you are publishing by hand, download Windows/3.0.0/ from https://github.com/dotincorp/dotpad-sdk-guide into dotpad-sdk/Windows/dotpad-3.0.0/. See docs/PLATFORMS.md." />
+        <Message Importance="high" Text="Dot Pad SDK not found at dotpad-sdk/Windows/dotpad-3.0.0/. Tactile-display support will be unavailable at runtime. Download the SDK from https://github.com/dotincorp/dotpad-sdk-guide and extract Windows/3.0.0/ into dotpad-sdk/Windows/dotpad-3.0.0/. See docs/PLATFORMS.md." />
     </Target>
 
     <Target Name="CopyDotPadSdkWindows"
@@ -516,6 +452,19 @@
     <Target Name="WarnIfNvdaControllerMissing"
             AfterTargets="Build"
             Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND !Exists('..\vendor\nvda\nvdaControllerClient.dll') AND !Exists('..\vendor\nvda\nvdaControllerClient64.dll')">
+        <!--
+            AN ERROR ON A RELEASE PUBLISH. Same reasoning as WarnIfDotPadSdkMissing above, and
+            the stakes are higher: on this head the chart is a native SkiaSharp canvas over the
+            BlazorWebView, so with no controller client a chart that has focus is SILENT, and
+            silence is this application's total failure. v2.12.0 shipped exactly that while its
+            notes said "It is in the download now, under both the names NV Access has used for
+            it, so nothing needs renaming or placing by hand."
+
+            "A release that ships mute is worse than a release that fails" — the VPS note that
+            found it, and the rule this line encodes.
+        -->
+        <Error Condition="'$(ReleasePublish)' == 'true'"
+               Text="RELEASE BUILD WITH NO NVDA CONTROLLER CLIENT. Neither vendor/nvda/nvdaControllerClient.dll nor nvdaControllerClient64.dll exists, so this release would ship MUTE for every NVDA user: the chart canvas is a native control, the ARIA live-region fallback cannot reach a reader focused on it, and there is no other path. release.yml's 'Fetch NVDA controller client' step supplies it; if you are publishing by hand, take the x64 DLL from https://www.nvaccess.org/files/nvda/releases/&lt;version&gt;/nvda_&lt;version&gt;_controllerClient.zip into vendor/nvda/. See docs/PLATFORMS.md." />
         <Message Importance="high" Text="NVDA Controller Client not found at vendor/nvda/nvdaControllerClient64.dll. NVDA-direct speech will be unavailable at runtime, and because the chart canvas is a native control the ARIA live-region fallback cannot reach a screen reader while the chart has focus — the chart will be SILENT. Download nvdaControllerClient from https://github.com/nvaccess/nvda/releases (controllerClient zip) and copy the x64 nvdaControllerClient64.dll into vendor/nvda/. See docs/PLATFORMS.md." />
     </Target>
 
@@ -554,6 +503,50 @@
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </None>
     </ItemGroup>
+
+    <!--
+        The Visual C++ runtime, because the Dot Pad SDK is a C++ library and we now ship it.
+
+        Read out of DotPadSDK-3.0.0.dll's PE import table on 2026-09-22: its only non-system
+        imports are MSVCP140.dll, VCRUNTIME140.dll and VCRUNTIME140_1.dll. A .NET publish carries
+        none of the three — the published v2.12.0 Windows zip has 637 entries and not one of them
+        is a VC++ runtime file. On a machine without the Visual C++ 2015-2022 redistributable
+        installed, NativeLibrary.TryLoad therefore fails, WindowsDotPadNative logs "Tactile
+        DISABLED", and the Braille tab renders as though everything were fine.
+
+        That is the same silent-inert-feature failure that staging the SDK is meant to end, so
+        staging the SDK without its runtime would fix the symptom on developer machines (which
+        all have the redistributable, because Visual Studio installs it) and leave it in place
+        for the users least likely to have it. App-local deployment of these three files is a
+        supported Microsoft deployment mode; release.yml copies them off the runner's VC redist
+        directory into vendor/vcruntime/.
+
+        Exists()-guarded like every other vendored payload, so a fresh clone still builds; the
+        release check in scripts/verify_release_payloads.py is what makes their absence loud.
+    -->
+    <ItemGroup Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows'">
+        <None Include="..\vendor\vcruntime\msvcp140.dll" Condition="Exists('..\vendor\vcruntime\msvcp140.dll')">
+            <Link>msvcp140.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\vendor\vcruntime\vcruntime140.dll" Condition="Exists('..\vendor\vcruntime\vcruntime140.dll')">
+            <Link>vcruntime140.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+        <None Include="..\vendor\vcruntime\vcruntime140_1.dll" Condition="Exists('..\vendor\vcruntime\vcruntime140_1.dll')">
+            <Link>vcruntime140_1.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+    </ItemGroup>
+
+    <Target Name="ErrorIfVcRuntimeMissingOnRelease"
+            AfterTargets="Build"
+            Condition="'$([MSBuild]::GetTargetPlatformIdentifier(&quot;$(TargetFramework)&quot;))' == 'windows' AND '$(ReleasePublish)' == 'true' AND Exists('..\dotpad-sdk\Windows\dotpad-3.0.0\DotPadSDK-3.0.0.dll') AND !Exists('..\vendor\vcruntime\msvcp140.dll')">
+        <Error Text="RELEASE BUILD SHIPPING THE DOT PAD SDK WITHOUT THE VC++ RUNTIME. DotPadSDK-3.0.0.dll statically imports MSVCP140/VCRUNTIME140/VCRUNTIME140_1 and a .NET publish carries none of them, so on any machine without the Visual C++ 2015-2022 redistributable the SDK will not load and tactile output will be silently inert. release.yml's 'Stage the VC++ runtime' step supplies them into vendor/vcruntime/." />
+    </Target>
 
     <Target Name="CopyScriptWorker"
             AfterTargets="Build"

@@ -102,7 +102,18 @@ namespace AccessibleTrader.BlazorClient.Services
         {
             _logger = logger;
             _services = services;
-            _nvda = nvda ?? new NvdaControllerClient();
+            // Gated on the OS exactly as JAWS is below, and it was not until 2026-09-22.
+            //
+            // NvdaControllerClient probes by P/Invoking a WINDOWS DLL and catching the failure.
+            // On a Linux host that probe can only ever fail, and this manager is SCOPED — one
+            // instance per Blazor circuit, which on a hosted head means one per visitor. So
+            // accessibletrader.com logged the "copy nvdaControllerClient64.dll next to
+            // AccessibleTrader.BlazorClient.exe" warning at every single visitor, advising a
+            // Linux server to place a Windows DLL beside a binary it does not have. Found on
+            // the VPS after the v2.12.0 deploy.
+            _nvda = nvda ?? (OperatingSystem.IsWindows()
+                ? new NvdaControllerClient()
+                : (INvdaControllerClient)new NullNvdaControllerClient());
             // NVDA is tried first only because it is the reader this application was developed
             // against; the two are never both running in practice, so the order is a tie-break
             // and not a preference.
@@ -117,17 +128,30 @@ namespace AccessibleTrader.BlazorClient.Services
             // ends up agreeing with any implementation that shares it.
             _readerProbeInterval = readerProbeInterval ?? DefaultReaderProbeInterval;
 
-            // ── The install-level fact, asked once and reported once ────────────────────
+            // ── The install-level fact, reported where it can be acted on ───────────────
             //
             // Whether the CLIENT LIBRARY is present is a fact about the build, not about the
-            // user, and it cannot change while the process runs. It is worth one line at
-            // startup because on the desktop head it decides whether the chart can speak at
-            // all: the chart is a native SkiaSharp canvas on top of the BlazorWebView, so a
-            // reader focused on the chart is not reading the web view's DOM and the live-region
-            // fallback cannot reach it. Reported from Cody's Windows VM on 2026-09-21 — the
-            // chart was silent, F2 said nothing, and the same build served over the web was
-            // fine, which is exactly the shape this difference produces.
-            if (!_nvda.IsClientLibraryAvailable)
+            // user, and it cannot change while the process runs. It is worth saying because on
+            // the desktop head it decides whether the chart can speak at all: the chart is a
+            // native SkiaSharp canvas on top of the BlazorWebView, so a reader focused on the
+            // chart is not reading the web view's DOM and the live-region fallback cannot reach
+            // it. Reported from Cody's Windows VM on 2026-09-21 — the chart was silent, F2 said
+            // nothing, and the same build served over the web was fine, which is exactly the
+            // shape this difference produces.
+            //
+            // THIS COMMENT USED TO SAY "asked once and reported once … one line at startup",
+            // and that was never true: the manager is SCOPED, so on a hosted head it is one
+            // line per VISITOR. That did not matter while the line was actionable, and it
+            // mattered a great deal once the hosted head was Linux, where it advised a server
+            // to copy a Windows DLL beside a binary it does not have. The OS gate on _nvda
+            // above is what fixes it; this line is left honest about the rest.
+            //
+            // A NullNvdaControllerClient is not a missing library — it is a platform with no
+            // NVDA channel at all, and there is nothing for anyone to do about that. Tested
+            // against the TYPE rather than OperatingSystem.IsWindows() so the warning stays
+            // reachable from a test with a substituted client on any machine; a substitute is
+            // not the null client, so it still reports.
+            if (_nvda is not NullNvdaControllerClient && !_nvda.IsClientLibraryAvailable)
             {
                 _logger.LogWarning(
                     "nvdaControllerClient64.dll could not be loaded, so NVDA-direct speech is unavailable. "

@@ -144,6 +144,114 @@ jobs:
       - name: Install MAUI workload
         run: dotnet workload install maui
 
+      # ───────────────────────────────────────────────────────────────────────
+      # THE THIRD-PARTY PAYLOADS, FETCHED HERE BECAUSE THE REPOSITORY CANNOT
+      # HOLD THEM.
+      #
+      # v2.12.0 is the release that found four runtime payloads staged into
+      # $(OutDir) and never into the publish, and fixed the MSBuild correctly.
+      # Two of the four are vendor binaries that are gitignored, every csproj
+      # item is Exists()-guarded so a build without them succeeds in silence,
+      # and this workflow had no step that supplied them. So the fix landed on
+      # one developer's machine and not on the artifact, and the release notes
+      # told NVDA users the DLL was "in the download now" when it was in none
+      # of the six published assets. The chart stayed silent.
+      #
+      # Both are pinned by SHA-256. A vendor who re-cuts a file under the same
+      # URL gets a failed release rather than a silently different payload.
+      # ───────────────────────────────────────────────────────────────────────
+      - name: Fetch NVDA controller client (pinned)
+        shell: pwsh
+        run: |
+          # NV Access publishes the controller client per release, separately from the
+          # installer, at a predictable URL. LGPL 2.1 — redistributable with the app.
+          $version = '2026.2'
+          $sha256  = '510736F021AEFA33378076FA342A4524B586BC1C6B096DB9479AF42B28AAC649'
+          $url = "https://www.nvaccess.org/files/nvda/releases/$version/nvda_${version}_controllerClient.zip"
+
+          Write-Host "Fetching $url"
+          Invoke-WebRequest -Uri $url -OutFile nvda_controllerClient.zip -UseBasicParsing
+
+          $got = (Get-FileHash nvda_controllerClient.zip -Algorithm SHA256).Hash
+          if ($got -ne $sha256) {
+            throw "NVDA controller client SHA-256 mismatch.`n  expected $sha256`n  got      $got`nRefusing to ship an unverified binary into the speech path."
+          }
+
+          Expand-Archive nvda_controllerClient.zip -DestinationPath nvda_controllerClient -Force
+          New-Item -ItemType Directory -Force -Path vendor/nvda | Out-Null
+          # The x64 build, under the name NV Access currently uses. The csproj stages either
+          # spelling and NvdaControllerClient resolves either at load time.
+          Copy-Item nvda_controllerClient/x64/nvdaControllerClient.dll vendor/nvda/nvdaControllerClient.dll -Force
+          Get-ChildItem vendor/nvda
+
+      - name: Fetch Dot Pad SDK runtime (pinned)
+        shell: pwsh
+        run: |
+          # Dot Inc publish the Windows SDK runtime in their own public repository. We take the
+          # eight files the SDK actually loads and NOT ipadic/ — 187 MB of MeCab's JAPANESE
+          # dictionary, reached only through TTBEngine's mecab_new2("-u ./ipadic/user.dic"),
+          # whose argument names a user.dic the vendor does not ship and whose path is relative
+          # to the working directory rather than the install. 296 MB on disk, 18 MB that does
+          # anything. If a real Dot Pad ever fails to initialise with everything else present,
+          # ipadic is the first thing to add back.
+          $base = 'https://raw.githubusercontent.com/dotincorp/dotpad-sdk-guide/main/Windows/3.0.0'
+          $dest = 'dotpad-sdk/Windows/dotpad-3.0.0'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          $payload = @{
+            'DotPadSDK-3.0.0.dll' = 'B1694939DF3E9A42FBFB069A87C08F76E1146DCB71A95510A79777DBB240C0BA'
+            'TTBEngine.dll'       = 'C43EDCEEF4BE387476B7EB6703718592E57D5F781D8167B31BEBFD6DAEB13FDE'
+            'Mecab.dll'           = '636497FA8820EE6C8736EC923F3E1824700D6B3E7CDBFDA82ABE9FDA1F42BD6F'
+            'jsoncpp.dll'         = '2FD141BDE708815D186B4A1260D2A1E6B75410746C948BF3F927F25E4173EA29'
+            'liblouis.dll'        = '587BE27A03AF74308D2BA2D80294F44E3886F50E1FC098DDCFF527FCAA210EE4'
+            'mecabrc'             = '1E9E52D4DE8520D34F97747C12DB0DCB6FB13EF27C4F284BA0B7DE63C1CDCFE4'
+            'tables.zip'          = '55F37D9B3B357C8FB93435384A89EABD5AA0B2B2B5814F3E138CD267B47C3516'
+          }
+
+          foreach ($name in $payload.Keys) {
+            $out = Join-Path $dest $name
+            Write-Host "Fetching $name"
+            Invoke-WebRequest -Uri "$base/$name" -OutFile $out -UseBasicParsing
+            $got = (Get-FileHash $out -Algorithm SHA256).Hash
+            if ($got -ne $payload[$name]) {
+              throw "Dot Pad SDK $name SHA-256 mismatch.`n  expected $($payload[$name])`n  got      $got"
+            }
+          }
+
+          # tables.zip unpacks to tables/ — 419 LibLouis translation tables. The SDK points
+          # lou_setDataPath at a \tables directory beside itself and names 35 specific .ctb/.utb
+          # files; the tables include each other transitively, so the whole set ships.
+          Expand-Archive (Join-Path $dest 'tables.zip') -DestinationPath $dest -Force
+          Remove-Item (Join-Path $dest 'tables.zip')
+          $n = (Get-ChildItem (Join-Path $dest 'tables') -File -Recurse).Count
+          Write-Host "Dot Pad SDK staged: $n LibLouis tables"
+          if ($n -lt 400) { throw "Expected at least 400 LibLouis tables, unpacked $n." }
+
+      - name: Stage the VC++ runtime beside the Dot Pad SDK
+        shell: pwsh
+        run: |
+          # DotPadSDK-3.0.0.dll statically imports MSVCP140/VCRUNTIME140/VCRUNTIME140_1 — its
+          # only non-system imports. A .NET publish carries none of them, so without these the
+          # SDK does not load on a machine that lacks the VC++ redistributable and tactile
+          # output is silently inert. App-local deployment is a supported mode.
+          New-Item -ItemType Directory -Force -Path vendor/vcruntime | Out-Null
+          $names = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+
+          # Prefer the VC redist directory the runner's Visual Studio install ships; fall back
+          # to the system copies, which are the same redistributable already installed.
+          $redist = Get-ChildItem 'C:\Program Files*\Microsoft Visual Studio\*\*\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT' -Directory -ErrorAction SilentlyContinue |
+                    Sort-Object FullName | Select-Object -Last 1
+
+          foreach ($n in $names) {
+            $src = $null
+            if ($redist) { $c = Join-Path $redist.FullName $n; if (Test-Path $c) { $src = $c } }
+            if (-not $src) { $c = Join-Path $env:SystemRoot 'System32' | Join-Path -ChildPath $n; if (Test-Path $c) { $src = $c } }
+            if (-not $src) { throw "Could not find $n on the runner. Tactile support would ship unloadable." }
+            Copy-Item $src (Join-Path 'vendor/vcruntime' $n) -Force
+            Write-Host "$n <- $src"
+          }
+          Get-ChildItem vendor/vcruntime
+
       - name: Publish MAUI Windows
         shell: pwsh
         run: |
@@ -251,9 +359,38 @@ jobs:
       - name: Locate + zip .app
         run: |
           mkdir -p dist
-          APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 4 -name '*.app' -type d | head -1)"
+
+          # PREFER THE PUBLISHED BUNDLE, and that preference is the fix.
+          #
+          # This step used to take `find ... -maxdepth 4 -name '*.app' | head -1`. A
+          # maccatalyst build leaves a bundle in bin/Release/net10.0-maccatalyst/<rid>/ AND the
+          # publish writes one under <rid>/publish/, so `head -1` picked whichever the
+          # filesystem happened to return first — and the shallower BUILD output usually wins a
+          # breadth-first walk. Only the published bundle has the publish-time work in it.
+          #
+          # The v2.12.0 .app went out with 33 plugin DLLs in Contents/MonoBundle and no
+          # plugins_trusted.manifest, so PluginTrustPolicy.RequireTrusted refused every one of
+          # them and the market dropdown offered only the built-in providers. Ordering this
+          # search is half the fix; the other half is packaging/PluginTrustManifest.targets
+          # writing the manifest where the PLUGINS are rather than where $(PublishDir) is.
+          APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 5 -type d -name '*.app' -path '*/publish/*' | head -1)"
+          if [ -z "$APP" ]; then
+            echo "::warning::No .app under a publish/ directory; falling back to the build output."
+            APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 4 -type d -name '*.app' | head -1)"
+          fi
           if [ -z "$APP" ]; then echo "::error::No .app bundle found"; exit 1; fi
           echo "Found app bundle: $APP"
+
+          # Say out loud whether the thing we are about to ship can load its own plugins. The
+          # release job's payload check enforces this; this line makes the macOS log answer the
+          # question without downloading the artifact.
+          if [ -f "$APP/Contents/MonoBundle/plugins_trusted.manifest" ]; then
+            echo "plugin trust manifest: present ($(grep -c '^[0-9A-Fa-f]' "$APP/Contents/MonoBundle/plugins_trusted.manifest") hashes)"
+          else
+            echo "::error::$APP/Contents/MonoBundle/plugins_trusted.manifest is missing — this bundle would refuse every plugin."
+            exit 1
+          fi
+
           NAME="AccessibleTrader-macOS-${{ needs.meta.outputs.version }}-universal.zip"
           ditto -c -k --keepParent "$APP" "dist/$NAME"
           ls -lh dist
@@ -288,6 +425,33 @@ jobs:
           (cd release && sha256sum *.zip > SHA256SUMS.txt)
           echo "=== Release contents ==="
           ls -lh release
+
+      # ─────────────────────────────────────────────────────────────────────
+      # THE CHECK THAT READS THE ARTIFACT, and the only one that could have
+      # caught v2.12.0.
+      #
+      # PublishStagingParityTests parses the csproj as XML and verifies the
+      # RULES; whether the file existed on the machine that ran the release is
+      # a different question, and no test that reads the repository can answer
+      # it. v2.12.0 passed every test, went green, published six assets, and
+      # two of its headline claims were untrue of all six: NVDA-direct speech
+      # absent so the chart was still silent, the Dot Pad SDK absent so tactile
+      # was still inert, no ScriptWorker on the WebHost so user code could not
+      # run, and no plugin manifest in the macOS bundle so it refused all 33
+      # providers. Every one of those is visible in the zip's central
+      # directory, and nobody looked until a week later.
+      #
+      # This runs BEFORE the release is published. The list lives in
+      # packaging/release-payloads.json and is read by the test suite too, so
+      # the build rules and the artifact check cannot drift apart.
+      # ─────────────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v5
+        with:
+          path: src
+
+      - name: Verify every asset carries its runtime payloads
+        shell: bash
+        run: python3 src/scripts/verify_release_payloads.py release
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

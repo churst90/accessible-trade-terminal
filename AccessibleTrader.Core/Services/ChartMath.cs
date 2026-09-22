@@ -107,6 +107,59 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// The same value in the short form a person would say out loud: <c>120M</c>, <c>1.5M</c>,
+        /// <c>950K</c>, <c>2.5B</c>.
+        ///
+        /// <para>
+        /// This exists because of the axis STRIP, which is a fixed width — 60 CSS px by theme —
+        /// and because nine-digit numbers are not an edge case on this axis: US large-cap share
+        /// volume is routinely nine digits, so on a TSLA daily the volume labels came out as
+        /// <c>120000000.00</c> and ran past the right edge of the canvas while the price pane's
+        /// <c>440.00</c> stopped five pixels short. Seen in the site screenshots before and after
+        /// v2.12.0, so not a regression — the 2.11.0 axis pass measured labels against each other
+        /// and against the crosshair badge, and never against the edge they were drawn at.
+        /// </para>
+        ///
+        /// <para>
+        /// Widening the strip is the other obvious fix and it is the wrong one here: the axis
+        /// width is charged to every pane and comes straight out of the plot area, which is the
+        /// real estate v2.12.0 spent a whole scope taking BACK (44.9% to 65.0% of the window).
+        /// Fifty more pixels of gutter to spell out a number nobody reads digit by digit is a bad
+        /// trade. <b>The renderer asks for this form only when the full one does not fit</b>, so a
+        /// price axis — which never approaches ten million — is untouched, and the decision
+        /// follows the theme's axis width and the display density rather than a magnitude
+        /// threshold guessed here.
+        /// </para>
+        /// </summary>
+        public static string FormatAxisValueCompact(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return value.ToString();
+
+            double abs = Math.Abs(value);
+
+            (double divisor, string suffix) =
+                abs >= 1e12 ? (1e12, "T") :
+                abs >= 1e9 ? (1e9, "B") :
+                abs >= 1e6 ? (1e6, "M") :
+                abs >= 1e3 ? (1e3, "K") :
+                (1.0, "");
+
+            double scaled = value / divisor;
+
+            // One decimal only where it says something. 120M and 1.5M both read cleanly; 120.0M
+            // is longer for no information, and the whole point of this form is length.
+            string text = Math.Abs(scaled) >= 100 || scaled == Math.Floor(scaled)
+                ? scaled.ToString("0")
+                : scaled.ToString("0.#");
+
+            // Same negative-zero guard as FormatAxisValue: -0.4M rounds to "-0" without it, and a
+            // minus sign in front of a zero on an axis is just noise.
+            if (text is "-0") text = "0";
+
+            return text + suffix;
+        }
+
+        /// <summary>
         /// The date format the x axis uses for a visible span, and whether it should call out
         /// midnight.
         ///

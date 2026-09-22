@@ -263,4 +263,61 @@ public sealed class AxisAndLegendCollisionTests
         Assert.Contains("+2 more", row.Label);
         Assert.DoesNotContain("  ", row.Label);
     }
+
+    // ── The y axis: a label also has to fit the strip it is drawn in ─────────
+
+    /// <summary>
+    /// <b>Every other check in this file compares labels with each OTHER. This one compares a
+    /// label with the EDGE it is drawn at,</b> which is the measurement the axis never had.
+    ///
+    /// <para>
+    /// Visible in the site screenshots either side of v2.12.0, so not a regression — just never
+    /// looked for: on a TSLA daily the volume pane's gridline labels ran to and past the right
+    /// edge of the canvas while the price pane's "440.00" stopped five pixels short. The strip
+    /// is a fixed width and nine digits do not fit in it, and nine-digit volume is the COMMON
+    /// case for a US large cap, not an outlier. The 2.11.0 axis pass measured labels against
+    /// each other and against the crosshair badge; nothing measured them against the canvas.
+    /// </para>
+    ///
+    /// <para>
+    /// The pane range here is a real one — Tesla trades around 120 million shares a day.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(140_000_000.0, "nine-digit US large-cap share volume")]
+    [InlineData(3_200_000_000.0, "ten-digit volume, an index or a penny stock")]
+    [InlineData(1_400.0, "an ordinary four-digit range, which must be untouched")]
+    public void NoYAxisLabelRunsPastTheRightEdgeOfTheCanvas(double paneMax, string what)
+    {
+        var (renderer, layout) = Renderer();
+        var data = Bars(30, i => (100 + i % 4, 103 + i % 4));
+        var series = new List<ChartSeries>
+        {
+            IndicatorSeries("candles", "Main", Array.Empty<double>()),
+            IndicatorSeries("vol", "Pane_0", Enumerable.Repeat(paneMax * 0.8, 30).ToArray()),
+        };
+        var ranges = new Dictionary<string, (double Min, double Max)>
+        {
+            ["Main"] = (95.0, 110.0),
+            ["Pane_0"] = (0, paneMax),
+        };
+
+        using var bmp = RenderFrame(renderer, series, data, ranges, (95.0, 110.0));
+
+        int axisLeft = (int)((1f - layout.AxisWidthFraction) * W);
+        int axisBottom = (int)((1f - layout.AxisHeightFraction) * H);
+
+        // The rightmost column holding type anywhere in the strip. A label that overflows is
+        // CLIPPED by the canvas, so the symptom is type running into the final columns.
+        int rightmost = -1;
+        for (int x = axisLeft; x < W; x++)
+            for (int y = 0; y < axisBottom; y++)
+                if (IsTextPixel(bmp.GetPixel(x, y))) { rightmost = Math.Max(rightmost, x); break; }
+
+        Assert.True(rightmost >= 0, $"no axis type rendered at all for {what} — the test proves nothing");
+        Assert.True(rightmost < W - 1,
+            $"axis type reaches x={rightmost} on a {W}px canvas for {what}: the label is running off "
+          + "the right edge and the digits past it are simply not shown. Either the strip has to "
+          + "hold the number or the number has to be said shorter.");
+    }
 }

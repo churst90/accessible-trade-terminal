@@ -4,6 +4,135 @@ All notable changes to this project will be documented in this file.
 
 ## [2.12.0] — 2026-09-22
 
+### The packaging fixes did not reach the packages — v2.12.0 re-cut (2026-09-22)
+
+**This release was tagged, published, and then re-cut the same day.** The first six assets were
+read off the GitHub release from the VPS — central directory over an HTTP range request, no
+downloading, no trusting the green run — and two of the release's headline claims were untrue of
+every one of them. Write-up in `patches/2026-09-22-PACKAGING-AUDIT-AND-HEALTHZ.md` §0 and
+`patches/HOSTED-DEPLOY-NOTES.md` §5t. **The tag and the zips were replaced; SHA256SUMS changed.**
+
+**The defect class is the one this release was written about, recurring inside it.** 2.12.0 found
+four runtime payloads staged into `$(OutDir)` and never into the publish, and fixed the MSBuild
+correctly. But two of the four are third-party binaries that are not in the repository, every
+item is `Exists()`-guarded so a build without them succeeds in silence, and the release is built
+by GitHub Actions, which had neither. **The fix landed on one machine and not on the artifact.**
+
+| published asset | manifest | ScriptWorker | NVDA DLL | Dot Pad SDK |
+|---|---|---|---|---|
+| `…-Windows-2.12.0-win-x64.zip` | yes | yes | **no** | **no** |
+| `…-macOS-2.12.0-universal.zip` | **no** | n/a | n/a | n/a |
+| `…-WebHost-2.12.0-*` (all four) | yes | **no** | n/a | n/a |
+
+- **The NVDA controller client and the Dot Pad SDK are fetched by `release.yml`, pinned by
+  SHA-256.** Both turned out to be publicly fetchable, which the audit had assumed the Dot Pad
+  SDK was not: NV Access publish the controller client per release
+  (`nvda_<ver>_controllerClient.zip`, LGPL 2.1), and Dot Inc publish the Windows SDK runtime in
+  their own repository at `dotincorp/dotpad-sdk-guide` under `Windows/3.0.0` — **not**
+  `Windows/dotpad-3.0.0`, which is what the local vendor directory is called and why the first
+  URL tried returned 404. All seven Dot Pad files and all 419 LibLouis tables fetched from the
+  vendor are byte-identical to the local copy the code was developed against.
+- **18 MB of the SDK ships, not 296.** `ipadic/` — 187 MB of MeCab's **Japanese** dictionary,
+  plus a 42 MB zipped copy — stays out, and the evidence is now stronger than the earlier guess.
+  `WindowsDotPadNative` binds exports on `DotPadSDK-3.0.0.dll` only; that DLL has **no static
+  dependency** on TTBEngine, MeCab, liblouis or jsoncpp (read from its PE import table) and
+  `LoadLibrary`s them, reporting `DOT_ERROR_LIBLOUIS_DLL_COULD_NOT_LOAD` by name when it cannot;
+  MeCab is reached only through `TTBEngine`'s `mecab_new2("-u ./ipadic/user.dic")`, **whose
+  argument names a `user.dic` the vendor does not ship**, by a path relative to the working
+  directory rather than the install. The other 2.5 MB (TTBEngine, Mecab, jsoncpp, mecabrc) does
+  ship, as cheap insurance for a CJK path that cannot be traced from Linux. If a real Dot Pad
+  ever fails to initialise with everything else present, `ipadic` is the first thing to add back.
+- **THE VC++ RUNTIME SHIPS WITH IT, and nothing had noticed it was needed.**
+  `DotPadSDK-3.0.0.dll`'s only non-system imports are `MSVCP140`, `VCRUNTIME140` and
+  `VCRUNTIME140_1`. A .NET publish carries none of them — the published Windows zip has 637
+  entries and not one is a VC++ runtime file — so on a machine without the redistributable the
+  SDK does not load and tactile is silently inert: **the exact symptom shipping the SDK was
+  meant to end.** Staged app-local from the runner's redist directory into `vendor/vcruntime/`.
+  Every developer machine has the redistributable because Visual Studio installs it, which is
+  why this could only ever have been found on a user's machine or in the import table.
+- **`AccessibleTrader.WebHost.csproj` now references the ScriptWorker at all.** `grep -n
+  ScriptWorker` found nothing in it, while `RoslynScriptingService.DefaultWorkerPathResolver`
+  resolves the worker from `AppContext.BaseDirectory` on every head and Release refuses the
+  in-process path by design. **The RID and `SelfContained` are forwarded to it**, and that is
+  the difference between a worker that starts and one that does not: this head publishes
+  self-contained, so a framework-dependent apphost beside it would resolve its runtime through
+  hostfxr's *install* search, never the sibling private runtime, and fail on exactly the
+  machines the head exists for. **Measured on linux-x64: the worker's self-contained publish is
+  284 files / 115.1 MB, of which FIVE (0.15 MB) are not already in the host's publish
+  byte-for-byte.** `CopyScriptWorkerOnPublish` copies only what the destination lacks —
+  an `Exists()` filter rather than a five-name list, so a future unique dependency travels too.
+  Verified by running the staged apphost: it prints `worker ready` and exits 0.
+- **The plugin-trust manifest goes where the PLUGINS are.** The macOS `.app` shipped 33 plugin
+  DLLs in `Contents/MonoBundle` and no manifest: the publish-time target ran and wrote it into
+  `$(PublishDir)`, one directory *outside* the bundle the workflow zips, while
+  `AppContext.BaseDirectory` on that head is MonoBundle. The rule is now stated once —
+  `WriteBesidePlugins="true"` — in **`packaging/PluginTrustManifest.targets`**, imported by both
+  heads. That file replaces the inline task and two targets that had been **copied** into each
+  csproj, which is what produced both this bug and the one before it: the publish-time target
+  existed on the WebHost for its whole life and was never applied to the desktop head.
+  `release.yml` also prefers the `.app` under `publish/` (its `find | head -1` could return the
+  shallower **build** output) and fails the macOS job if the bundle has no manifest.
+- **`PublishReadyToRun` is set explicitly.** 2.11.0's Windows app was precompiled and 2.12.0's
+  was not, with nothing in the repo asking either way — an implicit default moved. Confirmed by
+  reading the CLI header's `ManagedNativeHeader` out of both published zips (2.11.0 non-empty,
+  2.12.0 zero), which is also how the release now asserts it.
+- **A release build with no vendored payload is an ERROR, not a message.**
+  `WarnIfNvdaControllerMissing` and `WarnIfDotPadSdkMissing` were high-importance build messages
+  printed into a green log nobody read. Under `ReleasePublish=true` they now fail the build: *a
+  release that ships mute is worse than a release that fails.*
+- **`scripts/verify_release_payloads.py` reads the finished zips and fails the release job before
+  anything is published**, driven by `packaging/release-payloads.json`. **This is the check that
+  had to exist**, and `PublishStagingParityTests` structurally could not be it: parsing the
+  csproj as XML verifies the *rules*, and whether the file existed on the release runner is a
+  different question no test reading this repository can answer. Demonstrated by reconstructing
+  the six published v2.12.0 assets from their central directories as stub zips — it reproduces
+  the table above exactly, row for row, and exits 1.
+- **The payload list lives in ONE place.** `packaging/release-payloads.json` is read both by that
+  script and by `PublishStagingParityTests`, whose payload theory is no longer its own InlineData
+  list — because a list of required payloads kept in two places has the same shape as a build
+  target kept in two places, which is the defect the whole file is about. New
+  `ReleasePayloadManifestTests` covers the seam: that `release.yml` *supplies* every gitignored
+  payload the csproj can only conditionally stage, that every fetch is checksum-pinned, and that
+  the artifact check runs **before** the publish step. All four guards sabotage-tested.
+
+### The NVDA-absent warning is gated on Windows (2026-09-22)
+
+`BlazorSpeechManager` constructed a real `NvdaControllerClient` on every platform, and that class
+probes by P/Invoking a Windows DLL and catching the failure. The manager is **scoped** — one per
+Blazor circuit, so one per *visitor* on a hosted head — so accessibletrader.com logged, at every
+visitor, an instruction to copy `nvdaControllerClient64.dll` next to
+`AccessibleTrader.BlazorClient.exe`: advice about a Windows DLL and a Windows binary, given to a
+Linux server. `JawsApiClient` three lines above had been gated on `OperatingSystem.IsWindows()`
+all along. The warning is now suppressed for a `NullNvdaControllerClient` — *an inapplicable
+channel is not a missing library* — tested against the TYPE rather than the OS so it stays
+reachable from a test with a substituted client on any machine. The comment claiming the check
+was "asked once and reported once … one line at startup" was never true and now says so.
+
+### Volume axis labels no longer run off the canvas (2026-09-22)
+
+On a TSLA daily the volume pane's gridline labels (`120000000`, `100000000`, …) ran to and past
+the right edge of the canvas while the price pane's `440.00` stopped ~5px short. Visible in the
+site screenshots before *and* after this release, so not a regression — just never looked for:
+**every check in `AxisAndLegendCollisionTests` compared labels with each OTHER**, and nothing
+compared one with the edge it is drawn at. Nine-digit volume is the common case for a US large
+cap, not an outlier.
+
+`ChartMath.FormatAxisValueCompact` gives the form a person says — `120M`, `1.5M`, `950K`,
+`2.5B` — and `ChartRenderer.FitAxisLabel` uses it **only when the full number does not fit**, so
+the decision follows the theme's axis width, the display density and the font rather than a
+magnitude threshold, and a price axis is never touched. Not `Ellipsize`: a truncated number is a
+*wrong* number, where an abbreviated one is the same quantity. Widening the strip was the other
+option and the wrong one — the axis width is charged to every pane and comes straight out of the
+plot area, which is the real estate this same release spent a whole scope reclaiming.
+`NoYAxisLabelRunsPastTheRightEdgeOfTheCanvas` sabotage-tested: type reaches x=399 on a 400px
+canvas without the fix, and the four-digit case passes either way.
+
+Suite 8,034 → **8,073**; browser harness **226/226** (unchanged), 0 failing. New: `ReleasePayloadManifestTests` (9),
+`PublishStagingParityTests` 12 → 20 (the payload theory is now driven by
+`packaging/release-payloads.json` and deduplicated — two rules resolved to one staged name and
+xUnit was SILENTLY SKIPPING the duplicate test ID, which is the same failure mode in the guard
+itself), `ChartAxisMathTests` +14, `AxisAndLegendCollisionTests` +3, `SpeechOutputPathTests` +2.
+
 ### The chart gets its window back — 41.5% of a maximised window to about 65% (2026-09-22)
 
 Measured from a screenshot of a maximised 1280×781 window carrying Candles + Volume + RSI + MACD:

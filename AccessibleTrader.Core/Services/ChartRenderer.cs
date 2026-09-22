@@ -587,8 +587,14 @@ namespace AccessibleTrader.Core.Services
                 if (Math.Abs(textY - lastTextY) < minLabelSpacing) continue;
                 if (avoidTextY.HasValue && Math.Abs(textY - avoidTextY.Value) < minLabelSpacing) continue;
                 lastTextY = textY;
-                string label = ChartMath.FormatAxisValue(v, range);
                 float lx = rect.Left + (3 * density);
+                // MEASURED AGAINST THE EDGE IT IS DRAWN AT, which is the check this axis never
+                // had. The strip is a fixed width, so a nine-digit volume label ("120000000.00")
+                // simply ran off the right of the canvas while the price pane's "440.00" sat
+                // comfortably inside. Everything else here — the spacing test, the clamp, the
+                // crosshair-badge avoidance — compares labels with each OTHER.
+                string label = FitAxisLabel(ChartMath.FormatAxisValue(v, range), v,
+                                            rect.Right - lx - (3 * density));
                 canvas.DrawText(label, lx, textY, SKTextAlign.Left, _textFont, _textPaint);
             }
         }
@@ -780,8 +786,11 @@ namespace AccessibleTrader.Core.Services
                 canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, haloPaint);
                 canvas.DrawLine(paneRect.Left, iy, paneRect.Right, iy, indPaint);
 
-                // Y-value label at the right edge of the pane (matches RenderYAxis style)
-                string label = ChartMath.FormatAxisValue(val.Value, paneMax - paneMin);
+                // Y-value label at the right edge of the pane (matches RenderYAxis style, and
+                // that includes fitting the strip: this badge is drawn INTO the axis strip too,
+                // so a nine-digit volume reading overflowed the canvas here as well.)
+                string label = FitAxisLabel(ChartMath.FormatAxisValue(val.Value, paneMax - paneMin),
+                                            val.Value, _axisWidth - (8 * density));
                 float labelW = _textFont.MeasureText(label);
                 float labelH = _textFont.Size + (4 * density);
                 float lx = paneRect.Right + (2 * density);
@@ -1003,6 +1012,33 @@ namespace AccessibleTrader.Core.Services
                     canvas.DrawCircle(cx, cy, r, paint);
                     break;
             }
+        }
+
+        /// <summary>
+        /// The axis label that fits the strip: the full number where it fits, and the spoken
+        /// short form (<c>120M</c>) where it does not.
+        ///
+        /// <para>
+        /// Not <see cref="Ellipsize"/>, and the difference matters: a truncated number is a
+        /// WRONG number. "120000000.00" cut to "1200000…" reads as a different quantity, where
+        /// "120M" reads as the same one. Ellipsis is right for a name and never for a value.
+        /// </para>
+        ///
+        /// <para>
+        /// The abbreviation is chosen by MEASUREMENT rather than by a magnitude threshold, so a
+        /// theme with a wider axis, a larger display density, or a smaller font each move the
+        /// point at which it kicks in — and a price axis, which never reaches the widths that
+        /// trip it, is never touched.
+        /// </para>
+        /// </summary>
+        private string FitAxisLabel(string full, double value, float maxPx)
+        {
+            if (maxPx <= 0 || _textFont.MeasureText(full) <= maxPx) return full;
+
+            string compact = ChartMath.FormatAxisValueCompact(value);
+            // Only if it actually helps. On a pathologically narrow strip neither fits, and the
+            // full number is the more honest thing to overflow with.
+            return _textFont.MeasureText(compact) < _textFont.MeasureText(full) ? compact : full;
         }
 
         /// <summary>Trims a label to fit a pixel budget, ending in an ellipsis when cut.</summary>

@@ -1,0 +1,141 @@
+<Project>
+
+  <!--
+    THE PLUGIN TRUST MANIFEST, ONCE, FOR EVERY HEAD.
+
+    This logic used to exist twice — the same inline task and the same two targets, copied into
+    AccessibleTrader.WebHost.csproj and AccessibleTrader.BlazorClient.csproj. That duplication is
+    not a tidiness complaint; it is the exact defect this repository keeps paying for:
+
+      - The WebHost gained GeneratePluginTrustManifestOnPublish when its own publish shipped
+        without a manifest. The desktop head did not, and went its entire life shipping 33 plugin
+        DLLs with no manifest — PluginTrustPolicy.RequireTrusted enforcing an empty allow-list and
+        refusing all 33, the market dropdown offering only the built-in providers. Found from a
+        Windows VM on 2026-09-21, not by a test.
+      - When that was fixed by copying the target across, the copy inherited the assumption that
+        the manifest belongs at $(PublishDir). On Mac Catalyst it does not: the plugins live in
+        AppBundle.app/Contents/MonoBundle and so does AppContext.BaseDirectory, while $(PublishDir)
+        is the directory the bundle sits IN. So the target ran, wrote a manifest, and the workflow
+        zipped the bundle without it. Found on 2026-09-22 by reading the published v2.12.0 .app.
+
+    Both bugs are the same bug: the manifest has to be where the PLUGINS are, and that is not a
+    constant across heads. So the rule is now stated once, as a rule —
+    WriteBesidePlugins="true" puts the manifest in the directory the plugin DLLs were actually
+    found in — and imported by both heads instead of remembered by both authors.
+  -->
+
+  <UsingTask TaskName="HashPluginDlls"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <PluginsDir ParameterType="System.String" Required="true" />
+      <ManifestPath ParameterType="System.String" Required="true" />
+      <!--
+        Also write the manifest into the directory the plugin DLLs were found in, when that is
+        not already where ManifestPath points. This is what makes the Mac Catalyst bundle work
+        without the targets needing to know what an .app is.
+      -->
+      <WriteBesidePlugins ParameterType="System.Boolean" Required="false" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        if (!Directory.Exists(PluginsDir))
+        {
+            Log.LogMessage(MessageImportance.Normal, $"Plugins dir {PluginsDir} not found — skipping manifest generation.");
+            return true;
+        }
+
+        var dlls = Directory
+            .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
+            .Select(p => new { Path = p, Name = Path.GetFileName(p) })
+            .GroupBy(x => x.Name)
+            .Select(g => g.First())
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (dlls.Count == 0)
+        {
+            Log.LogMessage(MessageImportance.Normal, $"No AccessibleTrader.Plugins.*.dll found under {PluginsDir} — skipping manifest generation.");
+            return true;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# AccessibleTrader plugin trust manifest");
+        sb.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
+        sb.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
+        sb.AppendLine("# Generated automatically by packaging/PluginTrustManifest.targets.");
+        sb.AppendLine();
+
+        // SHA256.HashData(stream) is .NET 5+ and isn't available inside the RoslynCodeTaskFactory
+        // host on some build SDKs. Use the broadly-compatible Create()+ComputeHash() pair so the
+        // task compiles under every supported MSBuild runtime.
+        using (var sha = SHA256.Create())
+        {
+            foreach (var dll in dlls)
+            {
+                byte[] hash;
+                using (var fs = File.OpenRead(dll.Path))
+                    hash = sha.ComputeHash(fs);
+                var hex = BitConverter.ToString(hash).Replace("-", "");
+                sb.Append(hex).Append("  # ").AppendLine(dll.Name);
+            }
+        }
+
+        var text = sb.ToString();
+
+        // Every distinct directory the manifest has to land in. ManifestPath always; the
+        // plugins' own directories as well when asked. A HashSet because on a flat head the two
+        // are the same place and writing twice would be silly.
+        var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.GetFullPath(ManifestPath) };
+
+        if (WriteBesidePlugins)
+        {
+            foreach (var dir in dlls.Select(d => Path.GetDirectoryName(d.Path)).Distinct(StringComparer.OrdinalIgnoreCase))
+                destinations.Add(Path.GetFullPath(Path.Combine(dir, "plugins_trusted.manifest")));
+        }
+
+        foreach (var destination in destinations)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            File.WriteAllText(destination, text);
+            Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {destination}");
+        }
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+    Build-time manifest, for running out of bin/. Not the one that ships.
+  -->
+  <Target Name="GeneratePluginTrustManifest" AfterTargets="Build" Condition=" '$(OutDir)' != '' ">
+    <HashPluginDlls PluginsDir="$(OutDir)"
+                    ManifestPath="$(OutDir)plugins_trusted.manifest"
+                    WriteBesidePlugins="true" />
+  </Target>
+
+  <!--
+    Publish-time manifest, and the one that decides whether a released build has any providers.
+
+    A `dotnet publish` does NOT carry a file a custom target dropped into $(OutDir), and a
+    self-contained RID publish copies the plugin DLLs into PublishDir, so the manifest has to be
+    generated THERE, against the published DLLs — the digests then describe the bytes that
+    actually ship. Without this the released zip has the plugin DLLs and no manifest,
+    RequireTrusted refuses every one of them, and the application behaves exactly as though no
+    plugins were installed, which is not a symptom anyone reads as "a manifest is missing".
+  -->
+  <Target Name="GeneratePluginTrustManifestOnPublish" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
+    <HashPluginDlls PluginsDir="$(PublishDir)"
+                    ManifestPath="$(PublishDir)plugins_trusted.manifest"
+                    WriteBesidePlugins="true" />
+  </Target>
+
+</Project>

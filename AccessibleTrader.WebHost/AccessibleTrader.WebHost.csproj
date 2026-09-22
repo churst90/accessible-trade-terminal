@@ -109,11 +109,62 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.2" />
   </ItemGroup>
 
+  <!--
+    Where the script worker's output lands, and what to build it as. Both answers depend on
+    whether this publish carries a RID: with one, the SDK writes the worker's output under a
+    per-RID subdirectory and can emit an apphost for that RID (cross-building win-x64 and osx-*
+    from the Ubuntu release runner is fine — the apphost comes from a NuGet pack, not the build
+    host). Without one — a developer's plain `dotnet build` — the output is the flat net10.0
+    directory and the worker is framework-dependent, which is correct there because so is the
+    host.
+  -->
+  <PropertyGroup>
+    <_ScriptWorkerBuildProps Condition="'$(RuntimeIdentifier)' != ''">RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained)</_ScriptWorkerBuildProps>
+    <_ScriptWorkerOutDir Condition="'$(RuntimeIdentifier)' != ''">$(MSBuildThisFileDirectory)..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\$(RuntimeIdentifier)\</_ScriptWorkerOutDir>
+    <_ScriptWorkerOutDir Condition="'$(RuntimeIdentifier)' == ''">$(MSBuildThisFileDirectory)..\AccessibleTrader.ScriptWorker\bin\$(Configuration)\net10.0\</_ScriptWorkerOutDir>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AccessibleTrader.BlazorClient.Components\AccessibleTrader.BlazorClient.Components.csproj" />
     <ProjectReference Include="..\AccessibleTrader.Core\AccessibleTrader.Core.csproj" />
     <ProjectReference Include="..\AccessibleTrader.Sdk\AccessibleTrader.Sdk.csproj" />
     <ProjectReference Include="..\AccessibleTrader.ScriptSandbox\AccessibleTrader.ScriptSandbox.csproj" />
+    <!--
+      The script worker, and this head went without it for its entire life.
+
+      `grep -n ScriptWorker AccessibleTrader.WebHost.csproj` found NOTHING until 2026-09-22,
+      while RoslynScriptingService.DefaultWorkerPathResolver resolves the worker from
+      AppContext.BaseDirectory on EVERY head and Release refuses the in-process path by design.
+      So user-compiled indicators and strategies could not run at all on the package the site
+      recommends first. Reported from the VPS after reading the published v2.12.0 assets.
+
+      This is the same lesson as GeneratePluginTrustManifestOnPublish below, in the other
+      direction: that target existed here and not on the desktop head, this reference existed on
+      the desktop head and not here. Two heads, two project files, and a fix landed in one of
+      them is not a fix — it is a fix in one place. The parity is now asserted by
+      PublishStagingParityTests rather than remembered.
+
+      RuntimeIdentifier and SelfContained are FORWARDED, and that is the whole difference between
+      a worker that starts and one that does not. This head publishes self-contained per-RID
+      (release.yml passes self-contained), so its directory carries a private .NET runtime and
+      the user is promised they need no .NET install. A framework-dependent worker apphost
+      dropped beside it resolves its runtime through hostfxr's INSTALL search — never through the
+      sibling private runtime — so it would fail to start on exactly the machines this head
+      exists for. Built for the same RID and self-contained, it shares the host's runtime files
+      instead.
+
+      Measured on linux-x64, 2026-09-22: the worker's self-contained publish is 284 files /
+      115.1 MB, and FIVE of them (0.15 MB) are not already in the host's publish byte-for-byte —
+      the apphost, the worker dll, its deps.json and runtimeconfig.json, and the macOS sandbox
+      profile. CopyScriptWorkerOnPublish below copies only the ones the host does not have, so
+      the promise the ScriptWorker csproj makes in its own comment — "this costs no shipped
+      bytes" — is now true here and measured rather than asserted.
+    -->
+    <ProjectReference Include="..\AccessibleTrader.ScriptWorker\AccessibleTrader.ScriptWorker.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <AdditionalProperties>$(_ScriptWorkerBuildProps)</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -155,87 +206,56 @@
   </ItemGroup>
 
   <!--
-    Plugin trust manifest generation. Identical inline-task pattern to the MAUI
-    head's csproj — walks OutDir for AccessibleTrader.Plugins.*.dll, hashes
-    each with SHA-256, writes plugins_trusted.manifest alongside the host
-    binary so PluginTrustPolicy accepts them on first run.
+    Plugin trust manifest generation, and the script-worker staging that has to happen before it.
+    Both live in packaging/PluginTrustManifest.targets so this head and the MAUI head cannot
+    drift: the previous copy-paste is what let the desktop head ship for its whole life with no
+    manifest at all. See that file's header.
   -->
-  <UsingTask TaskName="HashPluginDlls" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <PluginsDir ParameterType="System.String" Required="true" />
-      <ManifestPath ParameterType="System.String" Required="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System" />
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Linq" />
-      <Using Namespace="System.Security.Cryptography" />
-      <Using Namespace="System.Text" />
-      <Code Type="Fragment" Language="cs">
-        <![CDATA[
-        if (!Directory.Exists(PluginsDir))
-        {
-            Log.LogMessage(MessageImportance.Normal, $"Plugins dir {PluginsDir} not found — skipping manifest generation.");
-            return true;
-        }
-
-        var dlls = Directory
-            .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
-            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
-            .Select(p => new { Path = p, Name = Path.GetFileName(p) })
-            .GroupBy(x => x.Name)
-            .Select(g => g.First())
-            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (dlls.Count == 0)
-        {
-            Log.LogMessage(MessageImportance.Normal, $"No AccessibleTrader.Plugins.*.dll found under {PluginsDir} — skipping manifest generation.");
-            return true;
-        }
-
-        var sb = new StringBuilder();
-        sb.AppendLine("# AccessibleTrader plugin trust manifest");
-        sb.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
-        sb.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
-        sb.AppendLine("# Generated automatically by the WebHost build target.");
-        sb.AppendLine();
-
-        using (var sha = SHA256.Create())
-        {
-            foreach (var dll in dlls)
-            {
-                byte[] hash;
-                using (var fs = File.OpenRead(dll.Path))
-                    hash = sha.ComputeHash(fs);
-                var hex = BitConverter.ToString(hash).Replace("-", "");
-                sb.Append(hex).Append("  # ").AppendLine(dll.Name);
-            }
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(ManifestPath));
-        File.WriteAllText(ManifestPath, sb.ToString());
-        Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {ManifestPath}");
-        ]]>
-      </Code>
-    </Task>
-  </UsingTask>
-
-  <Target Name="GeneratePluginTrustManifest" AfterTargets="Build" Condition=" '$(OutDir)' != '' ">
-    <HashPluginDlls PluginsDir="$(OutDir)" ManifestPath="$(OutDir)plugins_trusted.manifest" />
-  </Target>
+  <Import Project="$(MSBuildThisFileDirectory)..\packaging\PluginTrustManifest.targets" />
 
   <!--
-    Publish-time manifest. The Build-time target above writes to OutDir, which a
-    `dotnet publish` does NOT carry into the publish output — and a self-contained
-    RID publish copies the plugin DLLs into PublishDir, so the manifest must be
-    (re)generated there against the published DLLs. Without this, the released zip
-    ships with no plugins_trusted.manifest and PluginTrustPolicy.RequireTrusted
-    refuses every plugin → "no data". Hashes the published DLLs, so the digests
-    always match what actually ships.
+    Stage the script worker beside the host binary, at BUILD and at PUBLISH, because the two are
+    different directories and only one of them ships.
+
+    COPY WHAT THE DESTINATION DOES NOT ALREADY HAVE, rather than an explicit file list. Both
+    obvious alternatives are wrong in a way this repository has already paid for:
+
+      - Copy everything (the desktop head's target, with its runtimes/ and *.pdb exclusions).
+        Here the worker's self-contained output IS the .NET runtime, 115 MB of files the host
+        published moments earlier from the same build. Copying them over the host's own copies
+        is 115 MB of churn to land 0.15 MB of new bytes, and it lets the worker's view of a
+        shared assembly version overwrite the host's.
+
+      - Name the five files. That is a list which is correct today and silently wrong the first
+        time the worker gains a dependency the host does not carry — the exact shape of every
+        defect this file's comments are about. An Exists() filter keeps the list honest: a new
+        unique dependency is simply not in the destination, so it is copied.
+
+    The Exclude keeps .pdb out (0.8 MB on linux-x64, and a released head has no use for them).
   -->
-  <Target Name="GeneratePluginTrustManifestOnPublish" AfterTargets="Publish" Condition=" '$(PublishDir)' != '' ">
-    <HashPluginDlls PluginsDir="$(PublishDir)" ManifestPath="$(PublishDir)plugins_trusted.manifest" />
+  <Target Name="CopyScriptWorkerOnBuild" AfterTargets="Build"
+          BeforeTargets="GeneratePluginTrustManifest"
+          Condition=" '$(OutDir)' != '' AND Exists('$(_ScriptWorkerOutDir)') ">
+    <ItemGroup>
+      <_WorkerBuildCandidates Include="$(_ScriptWorkerOutDir)**\*.*" Exclude="$(_ScriptWorkerOutDir)**\*.pdb" />
+      <_WorkerBuildNew Include="@(_WorkerBuildCandidates)"
+                       Condition="!Exists('$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WorkerBuildNew)" DestinationFolder="$(OutDir)%(RecursiveDir)"
+          SkipUnchangedFiles="true" Condition=" '@(_WorkerBuildNew)' != '' " />
+  </Target>
+
+  <Target Name="CopyScriptWorkerOnPublish" AfterTargets="Publish"
+          Condition=" '$(PublishDir)' != '' AND Exists('$(_ScriptWorkerOutDir)') ">
+    <ItemGroup>
+      <_WorkerPublishCandidates Include="$(_ScriptWorkerOutDir)**\*.*" Exclude="$(_ScriptWorkerOutDir)**\*.pdb" />
+      <_WorkerPublishNew Include="@(_WorkerPublishCandidates)"
+                         Condition="!Exists('$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WorkerPublishNew)" DestinationFolder="$(PublishDir)%(RecursiveDir)"
+          SkipUnchangedFiles="true" Condition=" '@(_WorkerPublishNew)' != '' " />
+    <Message Importance="high"
+             Text="Staged @(_WorkerPublishNew->Count()) script-worker file(s) into $(PublishDir) (the rest were already there from the host's own publish)." />
   </Target>
 
 </Project>

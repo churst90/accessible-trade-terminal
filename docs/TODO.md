@@ -117,6 +117,82 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-22, SEVENTY-SEVENTH pass — v2.12.0 WAS PUBLISHED WITHOUT
+> THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,073**, 0 failing. The tag,
+> the release and the six zips were all replaced; **SHA256SUMS changed**, so anyone holding the
+> 22 September download has different bytes.
+>
+> **The finding is the server agent's, and it is the defect class this release was written
+> about, recurring inside it.** 2.12.0 found four runtime payloads staged into `$(OutDir)` and
+> never into the publish, and fixed the MSBuild correctly. Two of the four are third-party
+> binaries that are not in the repo, every item is `Exists()`-guarded so a build without them
+> succeeds in silence, and **the release is built by GitHub Actions, which had neither**. Green
+> run, published release, and two headline claims in WHATSNEW untrue of every asset: NVDA users
+> still got a silent chart, the Braille tab was still inert. Read off the published zips by
+> range request from the VPS — `patches/2026-09-22-PACKAGING-AUDIT-AND-HEALTHZ.md` §0 and
+> `patches/HOSTED-DEPLOY-NOTES.md` §5t. My reply, with what each recommendation became, is
+> `patches/2026-09-22-PACKAGING-FIXED-REPLY.md`.
+>
+> **THE LESSON, and it is the one to carry: VERIFYING THE RULES IS NOT VERIFYING THE ARTIFACT.**
+> `PublishStagingParityTests` parses the csproj as XML and was right about everything it
+> checked. Whether the file exists on the machine that runs the release is a DIFFERENT QUESTION
+> and no test that reads this repository can answer it. The check has to read the zip.
+> `scripts/verify_release_payloads.py` does, driven by `packaging/release-payloads.json`, in the
+> release job, **before** the publish step — validated by reconstructing the six published
+> v2.12.0 assets from their central directories as stub zips, where it reproduces the audit's
+> table row for row.
+>
+> **Two things nobody had found, either side:**
+> - **The Dot Pad SDK IS fetchable** — Dot Inc's own public repo, path `Windows/3.0.0` (not
+>   `Windows/dotpad-3.0.0`, which is what our vendor directory is called and why the obvious URL
+>   404s). All seven files and all 419 tables are byte-identical to Cody's local copy. **18 MB
+>   ships, not 296:** `ipadic/` is MeCab's Japanese dictionary, reached only through
+>   `mecab_new2("-u ./ipadic/user.dic")` — **and the vendor ships no `user.dic`**.
+> - **`DotPadSDK-3.0.0.dll` statically imports the VC++ runtime** and nothing carried it. Every
+>   developer machine has the redistributable because Visual Studio installs it, so this could
+>   only have been found on a user's machine or in the PE import table. Shipping the SDK without
+>   it would have left the exact silent-inert-feature failure we were fixing.
+>
+> Also this pass: the WebHost had **no ScriptWorker reference at all** (RID and `SelfContained`
+> forwarded, measured at 5 files / 0.15 MB, apphost run and confirmed); the macOS manifest goes
+> **inside** the bundle via one shared `packaging/PluginTrustManifest.targets` replacing the
+> copy-paste in both csprojs; `PublishReadyToRun` stated explicitly; §5q (the NVDA warning told
+> a Linux server to copy a Windows DLL, once per visitor) and §5r (nine-digit volume labels ran
+> off the canvas) both fixed and sabotage-tested.
+>
+> **NOT HEARD, NOT SEEN.** Nothing here was run on Windows or with a screen reader. The whole
+> point of the pass is that the payloads are now IN the zip; whether the Dot Pad SDK then loads
+> and drives a real device is still unproven and has never been proven.
+>
+> ### NEXT
+>
+> 1. **Push the tag and watch the release run.** The payload check is new and runs in the
+>    `release` job; if it fails, it fails loudly and nothing is published, which is the point.
+> 2. **Tell the server agent it is done** — `patches/2026-09-22-PACKAGING-FIXED-REPLY.md` asks
+>    him to put the simpler `/download` sentences back and refresh the checksums. The two
+>    hand-offs from the previous block (healthz exists; regenerate `llms-full.txt`) still stand.
+> 3. **Verify on Windows**, which is now two things and not one: the chrome diet / focus mode
+>    canvas rect from the seventy-sixth pass, AND whether the shipped Dot Pad SDK actually loads.
+> 4. **§5p — the demo declares a default chart and nothing reads it.** `DemoPolicy` has
+>    `DefaultMarket`/`DefaultProvider`/`DefaultSymbol` and `grep -rn` finds no caller for any of
+>    the three, so `/app/` opens on an empty symbol box and four interactions. Left out of this
+>    cut deliberately: it changes what a visitor lands on, which is a product decision.
+> 5. **§5s — two `CS8604` in `WebHostBrowserCircuitHandler.cs` (357, 372)**, pre-existing from
+>    `00be000f`. Raised only because `ca071690`'s lesson was that the cosmetic warning was the
+>    live defect.
+> 6. **`/download` should say the Windows desktop app needs the .NET 10 Desktop Runtime.** It is
+>    framework-dependent by design (a self-contained host referencing a non-self-contained
+>    ScriptWorker fails NETSDK1150) and has been in every release; confirmed by reading both the
+>    2.11.0 and 2.12.0 zips. **The technique that fixed the WebHost worker — forward the RID and
+>    `SelfContained` through the ProjectReference — would let this head go self-contained too.**
+>    Not attempted; it would want measuring.
+> 7. Then the carried campaigns: `Services/Strategies`, `Analysis`, the JS harness.
+>
+> ### CARRIED
+>
+> Unchanged from the previous block.
+
+
 > **START HERE (current as of 2026-09-22, SEVENTY-SIXTH pass — v2.12.0 IS TAGGED AND
 > PUBLISHED: the Windows client speaks, and the chart gets its window back.)** Cut commit
 > `4cdb66af`, release run `35689816213` all eight jobs green, **8 assets, Latest, not a

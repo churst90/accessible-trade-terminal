@@ -1,0 +1,203 @@
+{
+  "$comment": [
+    "WHAT EVERY PUBLISHED ASSET MUST CONTAIN — the list, in one place, read by two readers.",
+    "",
+    "Written 2026-09-22, after v2.12.0 shipped with two of its headline claims untrue of the",
+    "zips people downloaded. That release was the one that found four runtime payloads staged",
+    "into $(OutDir) and never into the publish, and it fixed the MSBuild correctly. But two of",
+    "the four are third-party binaries that are not in the repository, every item is Exists()-",
+    "guarded so a build without them succeeds in silence, and the release is built by GitHub",
+    "Actions, which did not have them. The fix landed on one machine and not on the artifact.",
+    "",
+    "PublishStagingParityTests cannot catch that and is not at fault: parsing the csproj as XML",
+    "verifies the RULES, and whether the file exists on the release runner is a different",
+    "question that no test reading this repository can answer. The check has to be on the",
+    "artifact. scripts/verify_release_payloads.py applies this file to the built zips inside the",
+    "release job, before anything is published.",
+    "",
+    "The same file is read by ReleasePayloadManifestTests, which asserts that everything named",
+    "here is also staged by the csproj that owns it — so the two halves cannot drift: a payload",
+    "added to the build without being added to the artifact check, or vice versa, is a test",
+    "failure rather than a discovery made by reading a published zip six months later."
+  ],
+  "assets": [
+    {
+      "id": "maui-windows",
+      "match": "AccessibleTrader-Windows-*-win-x64.zip",
+      "root": "",
+      "head": "the MAUI Windows desktop app",
+      "required": [
+        {
+          "file": "plugins_trusted.manifest",
+          "why": "without it PluginTrustPolicy.RequireTrusted enforces an empty allow-list and refuses all 33 plugin DLLs — the market dropdown offers only the built-in providers, with nothing saying why",
+          "stagedBy": "msbuild-target"
+        },
+        {
+          "glob": "AccessibleTrader.Plugins.*.dll",
+          "min": 33,
+          "why": "the provider and analytics plugins the manifest above vouches for",
+          "stagedBy": "project-reference"
+        },
+        {
+          "file": "AccessibleTrader.ScriptWorker.exe",
+          "why": "RoslynScriptingService resolves the worker from AppContext.BaseDirectory and Release refuses the in-process path by design, so without the exe no user-compiled indicator or strategy can run at all",
+          "stagedBy": "msbuild-target",
+          "stagedAs": "AccessibleTrader.ScriptWorker",
+          "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
+        },
+        {
+          "file": "AccessibleTrader.ScriptWorker.runtimeconfig.json",
+          "why": "the apphost will not start without it",
+          "stagedBy": "msbuild-target",
+          "stagedAs": "AccessibleTrader.ScriptWorker",
+          "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
+        },
+        {
+          "anyOf": [
+            "nvdaControllerClient.dll",
+            "nvdaControllerClient64.dll"
+          ],
+          "why": "NVDA-direct speech. The chart is a native SkiaSharp canvas over the BlazorWebView, so a reader focused on the chart is not reading the DOM and the ARIA live-region fallback cannot reach it. NO DLL MEANS THE CHART IS SILENT — which is the whole application. NV Access renamed the file, so either spelling counts.",
+          "stagedBy": "csproj-item",
+          "vendorDir": "vendor/nvda"
+        },
+        {
+          "file": "DotPadSDK-3.0.0.dll",
+          "why": "the tactile SDK entry point WindowsDotPadNative binds its exports on; absent, the driver logs 'NativeLibrary.TryLoad failed ... Tactile DISABLED' and falls back to NullDotPadNative while the Braille tab keeps rendering, which is the worst of the two",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "liblouis.dll",
+          "why": "the braille translator behind DOT_PAD_BRAILLE_DISPLAY. The SDK LoadLibrary's it by name and reports DOT_ERROR_LIBLOUIS_DLL_COULD_NOT_LOAD when it is missing.",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "glob": "tables/*",
+          "min": 400,
+          "why": "the LibLouis translation tables. The SDK calls lou_setDataPath at a \\tables directory beside itself and names 35 specific .ctb/.utb files; without them there is no text-to-braille. 419 files at 3.0.0.",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "TTBEngine.dll",
+          "why": "the SDK's text-to-braille engine, LoadLibrary'd by DotPadSDK at runtime",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "Mecab.dll",
+          "why": "a STATIC import of TTBEngine.dll — read out of its PE import table, so TTBEngine cannot load without it beside it",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "jsoncpp.dll",
+          "why": "a Dot Pad SDK module its siblings expect beside them",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "mecabrc",
+          "why": "the MeCab config the SDK reads at init",
+          "stagedBy": "csproj-item",
+          "vendorDir": "dotpad-sdk/Windows/dotpad-3.0.0"
+        },
+        {
+          "file": "msvcp140.dll",
+          "why": "DotPadSDK-3.0.0.dll STATICALLY imports MSVCP140/VCRUNTIME140/VCRUNTIME140_1 — read out of its PE import table. A .NET publish carries none of them, so on a machine without the VC++ 2015-2022 redistributable NativeLibrary.TryLoad fails and tactile is silently disabled: the exact symptom shipping the SDK is meant to end.",
+          "stagedBy": "csproj-item",
+          "vendorDir": "vendor/vcruntime"
+        },
+        {
+          "file": "vcruntime140.dll",
+          "why": "see msvcp140.dll",
+          "stagedBy": "csproj-item",
+          "vendorDir": "vendor/vcruntime"
+        },
+        {
+          "file": "vcruntime140_1.dll",
+          "why": "see msvcp140.dll",
+          "stagedBy": "csproj-item",
+          "vendorDir": "vendor/vcruntime"
+        }
+      ],
+      "readyToRun": {
+        "assemblies": [
+          "AccessibleTrader.Core.dll",
+          "Microsoft.CodeAnalysis.CSharp.dll"
+        ],
+        "why": [
+          "v2.11.0's Windows app was precompiled and v2.12.0's was not, with nothing in the repo",
+          "setting PublishReadyToRun either way — an implicit default moved under us, and the only",
+          "trace was the zip falling 148.4 -> 130.8 MB while gaining seven files. It costs startup",
+          "and first-use JIT on the head with the slowest start already. The property is now set",
+          "explicitly in the csproj; this asserts the bytes rather than the intent, by reading each",
+          "PE's CLI header for a non-empty ManagedNativeHeader."
+        ]
+      }
+    },
+    {
+      "id": "maui-macos",
+      "match": "AccessibleTrader-macOS-*-universal.zip",
+      "root": "*.app/Contents/MonoBundle/",
+      "head": "the MAUI macOS (Mac Catalyst) app",
+      "required": [
+        {
+          "file": "plugins_trusted.manifest",
+          "why": "the published v2.12.0 .app carried 33 plugin DLLs in Contents/MonoBundle and no manifest. The publish-time target DID run — it wrote the manifest beside the bundle, into $(PublishDir), while the workflow zipped the bundle. A payload one directory outside the thing you ship is not shipped.",
+          "stagedBy": "msbuild-target"
+        },
+        {
+          "glob": "AccessibleTrader.Plugins.*.dll",
+          "min": 33,
+          "why": "the plugins the manifest vouches for; AppContext.BaseDirectory is MonoBundle on this head, so both must be there",
+          "stagedBy": "project-reference"
+        }
+      ],
+      "$note": [
+        "No ScriptWorker here, and that is deliberate rather than an omission:",
+        "RoslynScriptingService.CreateDefaultLauncher returns RefusingScriptWorkerLauncher",
+        "(\"macCatalyst\"), so there is no external exe to stage. No NVDA or Dot Pad payload",
+        "either — both are Windows-only."
+      ]
+    },
+    {
+      "id": "webhost",
+      "match": "AccessibleTrader-WebHost-*.zip",
+      "root": "",
+      "head": "the self-contained WebHost (the package the site recommends first)",
+      "required": [
+        {
+          "file": "plugins_trusted.manifest",
+          "why": "as above — an absent manifest reads to the user as 'this application has no providers'",
+          "stagedBy": "msbuild-target"
+        },
+        {
+          "glob": "AccessibleTrader.Plugins.*.dll",
+          "min": 33,
+          "why": "the plugins the manifest vouches for",
+          "stagedBy": "project-reference"
+        },
+        {
+          "anyOf": [
+            "AccessibleTrader.ScriptWorker",
+            "AccessibleTrader.ScriptWorker.exe"
+          ],
+          "why": "this head had NO ScriptWorker reference at all until 2026-09-22 while the resolver looked for one on every head, so user code could not run on the package the site recommends first. The apphost is named with .exe on the win-x64 RID and without one everywhere else.",
+          "stagedBy": "msbuild-target",
+          "stagedAs": "AccessibleTrader.ScriptWorker",
+          "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
+        },
+        {
+          "file": "AccessibleTrader.ScriptWorker.runtimeconfig.json",
+          "why": "the apphost will not start without it",
+          "stagedBy": "msbuild-target",
+          "stagedAs": "AccessibleTrader.ScriptWorker",
+          "$stagedAsNote": "The staging target copies the worker's whole output directory by wildcard, so no individual filename appears in the csproj. The parity test matches on the project name the wildcard is rooted at; the ARTIFACT check still demands this exact file, which is the half that matters."
+        }
+      ]
+    }
+  ]
+}
