@@ -155,6 +155,25 @@ public sealed class PaneHeightAllocationTests
         Assert.Equal(RealWindow * 0.5f, a.IndicatorHeights[0], 1);
     }
 
+    /// <summary>
+    /// <b>Cody's 1h chart: Volume, RSI and MACD.</b> Pinned as an end-to-end expectation rather
+    /// than arithmetic, because on 2026-09-22 a screenshot of exactly this configuration showed
+    /// four panes of equal height — the weight-1 signature — and the only way to tell a stale
+    /// binary from a broken wiring is to state what the current code must produce.
+    /// </summary>
+    [Fact]
+    public void ThreeIndicatorPanes_ThePriceGetsFortyPercentAndTheRestShareEvenly()
+    {
+        var a = Allocate(440f, 3);
+
+        Assert.InRange(a.MainHeight / 440f, 0.38f, 0.42f);
+        Assert.All(a.IndicatorHeights, h => Assert.InRange(h, 85f, 91f));
+        // The signature to look for on screen: the price pane is visibly TALLER than each
+        // indicator pane. Equal heights means the running build predates the weight.
+        Assert.True(a.MainHeight > a.IndicatorHeights.Max() * 1.5f,
+            "the price pane must be clearly taller than an indicator pane, not the same height");
+    }
+
     [Fact]
     public void WithNoIndicatorPanesThePriceTakesEverything()
     {
