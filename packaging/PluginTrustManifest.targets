@@ -52,9 +52,15 @@
             return true;
         }
 
-        var dlls = Directory
+        // Kept UNDEDUPLICATED as well: the same plugin legitimately exists more than once under
+        // a publish tree (loose per-RID output and again inside an .app bundle), and which copy
+        // a name-deduplicated list keeps is an artefact of walk order.
+        var allFiles = Directory
             .EnumerateFiles(PluginsDir, "AccessibleTrader.Plugins.*.dll", SearchOption.AllDirectories)
             .Where(p => !p.Contains(Path.DirectorySeparatorChar + "ref" + Path.DirectorySeparatorChar))
+            .ToList();
+
+        var dlls = allFiles
             .Select(p => new { Path = p, Name = Path.GetFileName(p) })
             .GroupBy(x => x.Name)
             .Select(g => g.First())
@@ -89,24 +95,56 @@
             }
         }
 
-        var text = sb.ToString();
+        var manifestFull = Path.GetFullPath(ManifestPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestFull));
+        File.WriteAllText(manifestFull, sb.ToString());
+        Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {manifestFull}");
 
-        // Every distinct directory the manifest has to land in. ManifestPath always; the
-        // plugins' own directories as well when asked. A HashSet because on a flat head the two
-        // are the same place and writing twice would be silly.
-        var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.GetFullPath(ManifestPath) };
+        if (!WriteBesidePlugins) return true;
 
-        if (WriteBesidePlugins)
+        // ONE MANIFEST PER DIRECTORY THAT HOLDS PLUGINS, HASHING THAT DIRECTORY'S OWN FILES.
+        //
+        // Two mistakes are possible here and the first draft made both. The list above is
+        // deduplicated BY FILE NAME across the whole tree, which is right for a single manifest
+        // and fatally wrong as a list of destinations: on Mac Catalyst the same plugin exists
+        // loose in bin/<rid>/ AND inside YourApp.app/Contents/MonoBundle, so the GroupBy kept
+        // whichever the walk reached first and the bundle was never seen at all. That is exactly
+        // how the v2.12.0 .app shipped with 33 plugins and no manifest, and the first fix for it
+        // reproduced the bug one layer in.
+        //
+        // The second is subtler and worse: writing the deduplicated digests into a directory
+        // whose copies are DIFFERENT BYTES. PluginTrustPolicy would then refuse every plugin
+        // there — a manifest that is present and wrong, which is harder to diagnose than one
+        // that is absent. So each directory is hashed on its own terms.
+        foreach (var group in allFiles.GroupBy(f => Path.GetDirectoryName(f), StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var dir in dlls.Select(d => Path.GetDirectoryName(d.Path)).Distinct(StringComparer.OrdinalIgnoreCase))
-                destinations.Add(Path.GetFullPath(Path.Combine(dir, "plugins_trusted.manifest")));
-        }
+            var destination = Path.GetFullPath(Path.Combine(group.Key, "plugins_trusted.manifest"));
+            if (string.Equals(destination, manifestFull, StringComparison.OrdinalIgnoreCase)) continue;
 
-        foreach (var destination in destinations)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(destination));
-            File.WriteAllText(destination, text);
-            Log.LogMessage(MessageImportance.High, $"Wrote {dlls.Count} trusted plugin hashes to {destination}");
+            var local = new StringBuilder();
+            local.AppendLine("# AccessibleTrader plugin trust manifest");
+            local.AppendLine("# Generated: " + DateTime.UtcNow.ToString("u"));
+            local.AppendLine("# One SHA-256 hex digest per line. '#' starts a comment.");
+            local.AppendLine("# Generated automatically by packaging/PluginTrustManifest.targets.");
+            local.AppendLine();
+
+            var here = group.Select(f => new { Path = f, Name = Path.GetFileName(f) })
+                            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+
+            using (var sha = SHA256.Create())
+            {
+                foreach (var dll in here)
+                {
+                    byte[] hash;
+                    using (var fs = File.OpenRead(dll.Path))
+                        hash = sha.ComputeHash(fs);
+                    local.Append(BitConverter.ToString(hash).Replace("-", "")).Append("  # ").AppendLine(dll.Name);
+                }
+            }
+
+            File.WriteAllText(destination, local.ToString());
+            Log.LogMessage(MessageImportance.High, $"Wrote {here.Count} trusted plugin hashes to {destination}");
         }
         ]]>
       </Code>

@@ -87,6 +87,24 @@ by GitHub Actions, which had neither. **The fix landed on one machine and not on
   different question no test reading this repository can answer. Demonstrated by reconstructing
   the six published v2.12.0 assets from their central directories as stub zips — it reproduces
   the table above exactly, row for row, and exits 1.
+- **THE GATE CAUGHT A REAL BUG ON ITS FIRST RUN, AND THE BUG WAS IN THIS FIX.** The re-cut was
+  attempted, the release job failed, and nothing was published — which is the whole design, so it
+  is recorded rather than tidied away. Two findings, both from the artifact:
+  - The macOS bundle STILL had no manifest. `WriteBesidePlugins` derived its destination
+    directories from the file list that had already been **deduplicated by file name** across the
+    tree. On Mac Catalyst the same plugin exists loose in `bin/<rid>/` *and* inside
+    `.app/Contents/MonoBundle/`, so the `GroupBy` kept whichever the walk reached first and the
+    bundle was never a destination at all — the original defect, reproduced one layer inside its
+    own fix. Each directory holding plugins now gets a manifest hashing **its own bytes**, which
+    also closes the worse failure the first draft could have caused: a manifest that is present
+    and describes a different copy refuses every plugin beside it, and looks healthy from the
+    build side. `PluginTrustManifestTaskTests` RUNS the real task through MSBuild over a
+    duplicate-name tree and sabotage-reproduces exactly this.
+  - The Windows zip was still IL-only despite `PublishReadyToRun=true` in the csproj under a
+    condition that held. Something in the MAUI/WinUI import chain assigns it, so it is now also
+    passed on the `dotnet publish` command line — a **global** property, which no imported
+    `.targets` can overwrite. The csproj keeps the declaration; the artifact check reads the
+    shipped PE headers and is the arbiter either way.
 - **The payload list lives in ONE place.** `packaging/release-payloads.json` is read both by that
   script and by `PublishStagingParityTests`, whose payload theory is no longer its own InlineData
   list — because a list of required payloads kept in two places has the same shape as a build
@@ -127,7 +145,7 @@ plot area, which is the real estate this same release spent a whole scope reclai
 `NoYAxisLabelRunsPastTheRightEdgeOfTheCanvas` sabotage-tested: type reaches x=399 on a 400px
 canvas without the fix, and the four-digit case passes either way.
 
-Suite 8,034 → **8,073**; browser harness **226/226** (unchanged), 0 failing. New: `ReleasePayloadManifestTests` (9),
+Suite 8,034 → **8,077**; browser harness **226/226** (unchanged), 0 failing. New: `ReleasePayloadManifestTests` (9), `PluginTrustManifestTaskTests` (4),
 `PublishStagingParityTests` 12 → 20 (the payload theory is now driven by
 `packaging/release-payloads.json` and deduplicated — two rules resolved to one staged name and
 xUnit was SILENTLY SKIPPING the duplicate test ID, which is the same failure mode in the guard

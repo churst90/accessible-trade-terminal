@@ -118,7 +118,7 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 ### What to do next, and why that order
 
 > **START HERE (current as of 2026-09-22, SEVENTY-SEVENTH pass — v2.12.0 WAS PUBLISHED WITHOUT
-> THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,073**, 0 failing. The tag,
+> THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,077**, 0 failing. The tag,
 > the release and the six zips were all replaced; **SHA256SUMS changed**, so anyone holding the
 > 22 September download has different bytes.
 >
@@ -159,6 +159,15 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > copy-paste in both csprojs; `PublishReadyToRun` stated explicitly; §5q (the NVDA warning told
 > a Linux server to copy a Windows DLL, once per visitor) and §5r (nine-digit volume labels ran
 > off the canvas) both fixed and sabotage-tested.
+>
+> **THE GATE CAUGHT THE FIRST RE-CUT, AND WHAT IT CAUGHT WAS IN THIS FIX.** The release job
+> failed and published nothing. Two findings, both only visible in the artifact: the macOS
+> bundle still had no manifest, because `WriteBesidePlugins` derived its destinations from a
+> list already DEDUPLICATED BY FILE NAME — the original defect reproduced one layer inside its
+> own fix — and the Windows zip was still IL-only despite the csproj property, so
+> `PublishReadyToRun` is now a command-line global property as well. `PluginTrustManifestTaskTests`
+> now RUNS the task through MSBuild over a duplicate-name tree instead of grepping the targets
+> file for a string, which is what let the broken version pass.
 >
 > **NOT HEARD, NOT SEEN.** Nothing here was run on Windows or with a screen reader. The whole
 > point of the pass is that the payloads are now IN the zip; whether the Dot Pad SDK then loads

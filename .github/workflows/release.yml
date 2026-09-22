@@ -259,10 +259,20 @@ jobs:
           # gated on ReleasePublish=true, so it can't contaminate the net10.0
           # dependency projects or the android/ios heads. We pass nothing
           # RID-related on the command line — only the flag and the TFM select.
+          #
+          # PublishReadyToRun IS on the command line, deliberately, and it is stated in the
+          # csproj as well. The csproj is where the intent belongs; a command-line property is
+          # a GLOBAL property, which no imported .targets can overwrite — and the first re-cut
+          # of v2.12.0 proved that necessary. The csproj property was set, the condition held,
+          # and the artifact still came out IL-only, so something in the MAUI/WinUI import chain
+          # is assigning it. The payload check reads the shipped PE headers rather than either
+          # declaration, so if this is ever removed the release fails instead of quietly
+          # regressing the way 2.11.0 -> 2.12.0 did.
           dotnet publish AccessibleTrader.BlazorClient/AccessibleTrader.BlazorClient.csproj `
             --framework net10.0-windows10.0.19041.0 `
             --configuration Release `
             -p:ReleasePublish=true `
+            -p:PublishReadyToRun=true `
             -p:Version=${{ needs.meta.outputs.version }} `
             -p:ApplicationDisplayVersion=${{ needs.meta.outputs.display_version }} `
             --output publish/maui-win
@@ -360,23 +370,25 @@ jobs:
         run: |
           mkdir -p dist
 
-          # PREFER THE PUBLISHED BUNDLE, and that preference is the fix.
+          # WHERE THE UNIVERSAL BUNDLE ACTUALLY IS, measured on the runner rather than assumed.
           #
-          # This step used to take `find ... -maxdepth 4 -name '*.app' | head -1`. A
-          # maccatalyst build leaves a bundle in bin/Release/net10.0-maccatalyst/<rid>/ AND the
-          # publish writes one under <rid>/publish/, so `head -1` picked whichever the
-          # filesystem happened to return first — and the shallower BUILD output usually wins a
-          # breadth-first walk. Only the published bundle has the publish-time work in it.
+          # A `dotnet publish -f net10.0-maccatalyst -p:CreatePackage=false` for the two-RID
+          # universal build leaves per-RID output in bin/Release/net10.0-maccatalyst/<rid>/ and
+          # assembles the LIPO'd bundle at the TFM root:
+          #     bin/Release/net10.0-maccatalyst/AccessibleTrader.BlazorClient.app
+          # There is no publish/ subdirectory in this layout at all. The `publish/*` probe is
+          # kept first in case that ever changes — and if it does, the manifest check below is
+          # what will tell us, rather than a user finding an empty market dropdown.
           #
           # The v2.12.0 .app went out with 33 plugin DLLs in Contents/MonoBundle and no
           # plugins_trusted.manifest, so PluginTrustPolicy.RequireTrusted refused every one of
-          # them and the market dropdown offered only the built-in providers. Ordering this
-          # search is half the fix; the other half is packaging/PluginTrustManifest.targets
-          # writing the manifest where the PLUGINS are rather than where $(PublishDir) is.
+          # them. The real fix is in packaging/PluginTrustManifest.targets — the manifest goes
+          # where the PLUGINS are, per directory, hashing that directory's own bytes. This check
+          # is the backstop that failed the job when the first attempt at that was still wrong.
           APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 5 -type d -name '*.app' -path '*/publish/*' | head -1)"
           if [ -z "$APP" ]; then
-            echo "::warning::No .app under a publish/ directory; falling back to the build output."
-            APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 4 -type d -name '*.app' | head -1)"
+            echo "No .app under a publish/ directory (expected for this layout); using the TFM-root bundle."
+            APP="$(find AccessibleTrader.BlazorClient/bin/Release/net10.0-maccatalyst -maxdepth 2 -type d -name '*.app' | head -1)"
           fi
           if [ -z "$APP" ]; then echo "::error::No .app bundle found"; exit 1; fi
           echo "Found app bundle: $APP"
