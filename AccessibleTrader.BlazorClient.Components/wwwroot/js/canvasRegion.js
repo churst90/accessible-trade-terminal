@@ -38,6 +38,16 @@ window.canvasRegion = (function () {
             }
             window.addEventListener('resize', scheduleReport);
 
+            // SCROLL, and it matters as much as resize: the rect this reports is a VIEWPORT
+            // rect, so it moves whenever anything between the chart and the viewport scrolls —
+            // not only when something is resized. Before 2026-09-21 nothing scrolled, so the
+            // omission was invisible; the chart-area minimum height added that day means the
+            // page CAN scroll on a short window, and without this the native Skia canvas on the
+            // desktop head would stay where it was painted while the interaction zone slid out
+            // from under it. Capture phase, because the scrolling element may be an ancestor and
+            // scroll does not bubble. Passive, because this only reads layout.
+            window.addEventListener('scroll', scheduleReport, { capture: true, passive: true });
+
             // Kick off an initial report after the current layout pass settles.
             scheduleReport();
         },
@@ -45,6 +55,7 @@ window.canvasRegion = (function () {
             if (!started) return;
             started = false;
             window.removeEventListener('resize', scheduleReport);
+            window.removeEventListener('scroll', scheduleReport, { capture: true });
             if (ro) { try { ro.disconnect(); } catch (e) { } ro = null; }
             dotnetRef = null;
         }

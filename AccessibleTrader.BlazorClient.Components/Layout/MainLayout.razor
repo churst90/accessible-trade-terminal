@@ -90,7 +90,12 @@
 
     <TabBar />
 
-    <main role="main" data-background-region style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: transparent; position: relative;">
+    @* min-height is the whole point of this line. `flex: 1` alone means "take what is LEFT",
+       and what is left can be nothing: the toolbar wraps to more rows as the window narrows, so
+       on a short window the chrome consumed the lot and the chart was handed 30 pixels with
+       nothing drawn in it (reported from Windows, 2026-09-21 — maximising brought it back).
+       With a floor the flex column overflows instead, and .app-container scrolls. *@
+    <main role="main" data-background-region style="flex: 1; min-height: var(--chart-min-height); display: flex; flex-direction: column; overflow: hidden; background: transparent; position: relative;">
         <ChartArea />
     </main>
 

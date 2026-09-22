@@ -14,46 +14,54 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027help-title\u0027\u003E \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
-    "axFocusedAt2500": "role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
     "samples": {
-      "\u002B250ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B1000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B2500ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B4000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]"
+      "\u002B250ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
+      "\u002B1000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
+      "\u002B4000ms": "\u003Cbody (no id)\u003E \u201CHow should the terminal speak?                      Pick the\u2026\u201D  [body]"
     },
     "stillOnHeadingAt4000": false,
     "trail": [
       {
         "$id": "1",
-        "t": 16,
+        "t": 18,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#help-title \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 18,
+        "t": 22,
         "type": "focusin",
         "target": "H2#help-title \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "3",
-        "t": 178,
+        "t": 56,
         "type": "focusout",
         "target": "H2#help-title \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
-        "related": "BUTTON \u201CAsk me next visit\u201D",
+        "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
       },
       {
         "$id": "4",
-        "t": 178,
+        "t": 56,
         "type": "focusin",
-        "target": "BUTTON \u201CAsk me next visit\u201D",
+        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#help-title \u201CHelp \u2014 Guide \u0026 Keyboard Reference\u201D",
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+      },
+      {
+        "$id": "5",
+        "t": 2819,
+        "type": "focusout",
+        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
+        "related": "(null)",
         "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
       }
     ],
@@ -65,8 +73,13 @@
       },
       {
         "$id": "2",
-        "t": 200,
-        "el": "BUTTON \u201CAsk me next visit\u201D"
+        "t": 100,
+        "el": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D"
+      },
+      {
+        "$id": "3",
+        "t": 2850,
+        "el": "BODY"
       }
     ]
   },
@@ -77,59 +90,38 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027settings-title\u0027\u003E \u201CSettings\u201D",
-    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027Settings\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027Settings\u0027 focusable=True focused=True",
     "samples": {
-      "\u002B250ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B1000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B2500ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B4000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]"
+      "\u002B250ms": "\u003Ch2 id=\u0027settings-title\u0027\u003E \u201CSettings\u201D  [live]",
+      "\u002B1000ms": "\u003Ch2 id=\u0027settings-title\u0027\u003E \u201CSettings\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027settings-title\u0027\u003E \u201CSettings\u201D  [live]",
+      "\u002B4000ms": "\u003Ch2 id=\u0027settings-title\u0027\u003E \u201CSettings\u201D  [live]"
     },
-    "stillOnHeadingAt4000": false,
+    "stillOnHeadingAt4000": true,
     "trail": [
       {
         "$id": "1",
-        "t": 49,
+        "t": 63,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#settings-title \u201CSettings\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 49,
+        "t": 65,
         "type": "focusin",
         "target": "H2#settings-title \u201CSettings\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
-      },
-      {
-        "$id": "3",
-        "t": 112,
-        "type": "focusout",
-        "target": "H2#settings-title \u201CSettings\u201D",
-        "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "4",
-        "t": 113,
-        "type": "focusin",
-        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "related": "H2#settings-title \u201CSettings\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
       {
         "$id": "1",
-        "t": 61,
+        "t": 85,
         "el": "H2#settings-title \u201CSettings\u201D"
-      },
-      {
-        "$id": "2",
-        "t": 150,
-        "el": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D"
       }
     ]
   },
@@ -140,47 +132,31 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027objtree-title\u0027\u003E \u201CObject Tree\u201D",
-    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027Object Tree\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027Object Tree\u0027 focusable=True focused=True",
     "samples": {
-      "\u002B250ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B1000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B2500ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B4000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]"
+      "\u002B250ms": "\u003Ch2 id=\u0027objtree-title\u0027\u003E \u201CObject Tree\u201D  [live]",
+      "\u002B1000ms": "\u003Ch2 id=\u0027objtree-title\u0027\u003E \u201CObject Tree\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027objtree-title\u0027\u003E \u201CObject Tree\u201D  [live]",
+      "\u002B4000ms": "\u003Ch2 id=\u0027objtree-title\u0027\u003E \u201CObject Tree\u201D  [live]"
     },
-    "stillOnHeadingAt4000": false,
+    "stillOnHeadingAt4000": true,
     "trail": [
       {
         "$id": "1",
-        "t": 44,
+        "t": 22,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#objtree-title \u201CObject Tree\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 46,
+        "t": 25,
         "type": "focusin",
         "target": "H2#objtree-title \u201CObject Tree\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
-      },
-      {
-        "$id": "3",
-        "t": 61,
-        "type": "focusout",
-        "target": "H2#objtree-title \u201CObject Tree\u201D",
-        "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "4",
-        "t": 61,
-        "type": "focusin",
-        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "related": "H2#objtree-title \u201CObject Tree\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
@@ -188,11 +164,6 @@
         "$id": "1",
         "t": 50,
         "el": "H2#objtree-title \u201CObject Tree\u201D"
-      },
-      {
-        "$id": "2",
-        "t": 100,
-        "el": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D"
       }
     ]
   },
@@ -215,19 +186,19 @@
     "trail": [
       {
         "$id": "1",
-        "t": 26,
+        "t": 18,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#trade-title \u201CTrading Dashboard\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 31,
+        "t": 23,
         "type": "focusin",
         "target": "H2#trade-title \u201CTrading Dashboard\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
@@ -245,59 +216,38 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D",
-    "axFocusedAt2500": "role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027Order Book \u2014 Harness Candles\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027Order Book \u2014 Harness Candles\u0027 focusable=True focused=True",
     "samples": {
-      "\u002B250ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B1000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B2500ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B4000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]"
+      "\u002B250ms": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D  [live]",
+      "\u002B1000ms": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D  [live]",
+      "\u002B4000ms": "\u003Ch2 id=\u0027orderbook-title\u0027\u003E \u201COrder Book \u2014 Harness Candles\u201D  [live]"
     },
-    "stillOnHeadingAt4000": false,
+    "stillOnHeadingAt4000": true,
     "trail": [
       {
         "$id": "1",
-        "t": 25,
+        "t": 26,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#orderbook-title \u201COrder Book \u2014 Harness Candles\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 26,
+        "t": 28,
         "type": "focusin",
         "target": "H2#orderbook-title \u201COrder Book \u2014 Harness Candles\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
-      },
-      {
-        "$id": "3",
-        "t": 189,
-        "type": "focusout",
-        "target": "H2#orderbook-title \u201COrder Book \u2014 Harness Candles\u201D",
-        "related": "BUTTON \u201CAsk me next visit\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "4",
-        "t": 189,
-        "type": "focusin",
-        "target": "BUTTON \u201CAsk me next visit\u201D",
-        "related": "H2#orderbook-title \u201COrder Book \u2014 Harness Candles\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
       {
         "$id": "1",
-        "t": 51,
+        "t": 50,
         "el": "H2#orderbook-title \u201COrder Book \u2014 Harness Candles\u201D"
-      },
-      {
-        "$id": "2",
-        "t": 200,
-        "el": "BUTTON \u201CAsk me next visit\u201D"
       }
     ]
   },
@@ -308,55 +258,31 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D",
-    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027How should the terminal speak?\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027API Keys\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027API Keys\u0027 focusable=True focused=True",
     "samples": {
       "\u002B250ms": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D  [live]",
-      "\u002B1000ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B2500ms": "\u003Ch2 id=\u0027speech-prompt-title\u0027\u003E \u201CHow should the terminal speak?\u201D  [live]",
-      "\u002B4000ms": "\u003Cbody (no id)\u003E \u201CHow should the terminal speak?                      Pick the\u2026\u201D  [body]"
+      "\u002B1000ms": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D  [live]",
+      "\u002B4000ms": "\u003Ch2 id=\u0027apikeys-title\u0027\u003E \u201CAPI Keys\u201D  [live]"
     },
-    "stillOnHeadingAt4000": false,
+    "stillOnHeadingAt4000": true,
     "trail": [
       {
         "$id": "1",
-        "t": 20,
+        "t": 28,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#apikeys-title \u201CAPI Keys\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 23,
+        "t": 31,
         "type": "focusin",
         "target": "H2#apikeys-title \u201CAPI Keys\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
-      },
-      {
-        "$id": "3",
-        "t": 707,
-        "type": "focusout",
-        "target": "H2#apikeys-title \u201CAPI Keys\u201D",
-        "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "4",
-        "t": 708,
-        "type": "focusin",
-        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "related": "H2#apikeys-title \u201CAPI Keys\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "5",
-        "t": 3036,
-        "type": "focusout",
-        "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "related": "(null)",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
@@ -364,16 +290,6 @@
         "$id": "1",
         "t": 50,
         "el": "H2#apikeys-title \u201CAPI Keys\u201D"
-      },
-      {
-        "$id": "2",
-        "t": 750,
-        "el": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D"
-      },
-      {
-        "$id": "3",
-        "t": 3050,
-        "el": "BODY"
       }
     ]
   },
@@ -384,47 +300,31 @@
     "opened": true,
     "landedOnHeading": true,
     "atLand": "\u003Ch2 id=\u0027drawing-tools-title\u0027\u003E \u201CDrawing Tools\u201D",
-    "axFocusedAt2500": "role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
-    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027button\u0027 name=\u0027Ask me next visit\u0027 focusable=True focused=True",
+    "axFocusedAt2500": "role=\u0027heading\u0027 name=\u0027Drawing Tools\u0027 focusable=True focused=True",
+    "axAllFocusedNodesAt2500": "role=\u0027RootWebArea\u0027 name=\u0027\u25B2 118.97 Harness Candles 1d on My Data - Accessible Trade Terminal\u0027 focusable=True focused=True ;; role=\u0027heading\u0027 name=\u0027Drawing Tools\u0027 focusable=True focused=True",
     "samples": {
-      "\u002B250ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B1000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B2500ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]",
-      "\u002B4000ms": "\u003Cbutton (no id)\u003E \u201CAsk me next visit\u201D  [live]"
+      "\u002B250ms": "\u003Ch2 id=\u0027drawing-tools-title\u0027\u003E \u201CDrawing Tools\u201D  [live]",
+      "\u002B1000ms": "\u003Ch2 id=\u0027drawing-tools-title\u0027\u003E \u201CDrawing Tools\u201D  [live]",
+      "\u002B2500ms": "\u003Ch2 id=\u0027drawing-tools-title\u0027\u003E \u201CDrawing Tools\u201D  [live]",
+      "\u002B4000ms": "\u003Ch2 id=\u0027drawing-tools-title\u0027\u003E \u201CDrawing Tools\u201D  [live]"
     },
-    "stillOnHeadingAt4000": false,
+    "stillOnHeadingAt4000": true,
     "trail": [
       {
         "$id": "1",
-        "t": 17,
+        "t": 20,
         "type": "focusout",
         "target": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
         "related": "H2#drawing-tools-title \u201CDrawing Tools\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       },
       {
         "$id": "2",
-        "t": 17,
+        "t": 21,
         "type": "focusin",
         "target": "H2#drawing-tools-title \u201CDrawing Tools\u201D",
         "related": "H2#speech-prompt-title \u201CHow should the terminal speak?\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1001:20) |     at Object.focusElement (http://127.0.0.1:40513/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:9) |     at b.processJSCall (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:40513/terminal/_framework/blazor.web.js:1:4125)"
-      },
-      {
-        "$id": "3",
-        "t": 177,
-        "type": "focusout",
-        "target": "H2#drawing-tools-title \u201CDrawing Tools\u201D",
-        "related": "BUTTON \u201CAsk me next visit\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
-      },
-      {
-        "$id": "4",
-        "t": 178,
-        "type": "focusin",
-        "target": "BUTTON \u201CAsk me next visit\u201D",
-        "related": "H2#drawing-tools-title \u201CDrawing Tools\u201D",
-        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24)"
+        "stack": "    at HTMLDocument.eval (eval at evaluate (:291:30), \u003Canonymous\u003E:20:24) |     at attempt (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1011:20) |     at Object.focusElement (http://127.0.0.1:39929/terminal/_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b:1021:9) |     at b.processJSCall (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4448) |     at b.beginInvokeJSFromDotNet (http://127.0.0.1:39929/terminal/_framework/blazor.web.js:1:4125)"
       }
     ],
     "pollTrail": [
@@ -432,11 +332,6 @@
         "$id": "1",
         "t": 50,
         "el": "H2#drawing-tools-title \u201CDrawing Tools\u201D"
-      },
-      {
-        "$id": "2",
-        "t": 200,
-        "el": "BUTTON \u201CAsk me next visit\u201D"
       }
     ]
   }

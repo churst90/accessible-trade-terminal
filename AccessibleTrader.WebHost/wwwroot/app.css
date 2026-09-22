@@ -50,10 +50,34 @@ html, body {
     --crosshair-color: #ffd65c;
 
     --focus-outline: 2px solid var(--focus-outline-color);
+
+    /* The least vertical space the chart may be reduced to before the page scrolls instead.
+       Enough for a readable price pane plus the x-axis strip — below this the renderer is
+       drawing something nobody can use, and the 30px it was handed on 2026-09-21 drew nothing
+       at all. A number rather than a guess per breakpoint: the chrome above the chart grows as
+       the window narrows (the icon toolbar wraps to a second row, the timeframe pills to a
+       third), so what is left over is not predictable from the window height alone. */
+    --chart-min-height: 260px;
 }
 
 .app-container {
+    /* min-height, not height, and the container SCROLLS. See --chart-min-height below: once the
+       chart has a floor, the chrome plus that floor can exceed the window, and a fixed 100vh
+       flex column would resolve that overflow by crushing the flexible child — which is the
+       chart. Reported from a Windows VM on 2026-09-21: at 946x536 the toolbar wrapped to two
+       icon rows plus a separate timeframe row, and the chart area was left THIRTY PIXELS tall
+       with nothing drawn in it. Maximising the window brought it back. WCAG 1.4.10 calls that
+       loss of content on reflow; more plainly, a chart terminal had no chart.
+
+       height, NOT min-height, and that distinction is the whole fix. `html` and `body` are
+       `overflow: hidden` here (deliberately — the shell is not a scrolling document), so a
+       container that GREW past the window would simply have its tail clipped: the indicator
+       bar, the status line and the footer unreachable, which is the same defect wearing
+       different clothes. A fixed-height container with overflow-y:auto is a SCROLLPORT: the
+       chart's floor pushes the flex content past it and the container scrolls. Measured, not
+       reasoned — the first attempt used min-height and the browser test caught the clipping. */
     height: 100vh;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     /* Three INDEPENDENT bands, each painting its own fade: the toolbar band, the Skia canvas,

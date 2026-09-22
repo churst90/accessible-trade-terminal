@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A chart terminal with no chart: the toolbar ate the window (2026-09-21, sixty-ninth pass)
+
+From a screenshot off the Windows VM. At 946x536 the terminal showed its toolbar, symbol row,
+timeframe pills, tab bar, indicator bar, status line and footer — and a **thirty-pixel strip of
+flat background where the chart should be, with nothing in it.** The title bar read
+`BTCUSDT 1d on Bitstamp` and the data was loaded. Maximising brought the chart straight back,
+which is what identified it as layout rather than rendering.
+
+- **`.app-container` was a `height: 100vh` flex column and `<main>` was `flex: 1` with no
+  floor.** `flex: 1` means "take what is LEFT", and **the chrome above the chart GROWS as the
+  window narrows** — the icon toolbar wraps to a second row, the timeframe pills to a third — so
+  what is left is not predictable from the window height at all. With no minimum, the flex column
+  resolved its overflow by crushing its one flexible child, which is the chart. `<main>` now
+  carries `--chart-min-height` (260px, one declared number rather than a guess per breakpoint)
+  and the container is a scrollport.
+- **`height`, not `min-height`, and the browser test caught the difference.** The first attempt
+  used `min-height: 100vh`, which lets the container GROW past the window — and `html`/`body` are
+  `overflow: hidden` here by design, so the tail was simply clipped: indicator bar, status line
+  and footer unreachable. That is the same defect wearing different clothes, and the test written
+  for the original bug failed on it. A fixed-height container with `overflow-y: auto` is a
+  scrollport; the floor pushes content past it and it scrolls. Measured in the real browser, not
+  reasoned.
+- **`canvasRegion.js` now listens for `scroll`, and it had to land BEFORE the floor.** The rect
+  the desktop head positions its native Skia canvas from is a VIEWPORT rect, so it moves whenever
+  anything between the chart and the viewport scrolls — not only on resize. It listened to
+  `resize` and a `ResizeObserver` and nothing else, which was invisible while nothing could
+  scroll. Introducing the floor made scrolling reachable; without the listener the chart pixels on
+  Windows would have stayed put while the interaction zone slid out from under them. **A latent
+  bug that only becomes reachable because of your own fix is still your fix's bug.**
+
+**Why the suite could never have seen this.** `TerminalBrowserFixture` opens every page at
+1400x950 — **including `ChartScreenshotProbe`, the pass that photographed nine chart states
+specifically to find what the tests could not.** Every picture this project has ever taken of
+itself was taken at a comfortable size. *A harness with one viewport is a harness that has never
+met a small window.* `ChartSurvivesASmallWindowTests` drives three ordinary small windows and
+asserts the floor, that the overflow is reachable, that the chart is actually PAINTED and not
+merely allotted space, and that the scroll listener exists. All three parts of the fix proved red
+by sabotage.
+
+Suite 7,981; browser harness 209 → **216**.
+
+
 ### Four build warnings, and one of them was hiding a silent speech defect (2026-09-21, sixty-eighth pass)
 
 Read off the first successful Windows CI build. Three were named from the run's summary; the
