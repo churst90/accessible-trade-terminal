@@ -117,9 +117,28 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-22, SEVENTY-FIFTH pass — THE WHOLE CHART REAL-ESTATE
-> SCOPE IS DONE, and Cody wants it POLISHED FOR A PRESENTATION before any release talk.)**
-> Suite **8,034**, browser **226**, 0 failing.
+> **START HERE (current as of 2026-09-22, SEVENTY-SIXTH pass — v2.12.0 IS TAGGED AND
+> PUBLISHED: the Windows client speaks, and the chart gets its window back.)** Cut commit
+> `4cdb66af`, release run `35689816213` all eight jobs green, **8 assets, Latest, not a
+> prerelease** (WebHost linux/win/osx-x64/osx-arm64, MAUI Windows 124 MB, MAUI macOS 29 MB,
+> `SHA256SUMS.txt`, `plugins_trusted.manifest`). Suite **8,034**, browser **226**, 0 failing.
+>
+> **Two hand-offs after the tag, still with no channel from here:** tell the server agent that
+> `/terminal/healthz` and `/app/healthz` exist (his §1a) and that v2.12.0 is out; regenerate
+> `llms-full.txt` on the box (`~/bin/att-llms-full.sh` is not on this machine) — QUICKSTART,
+> USER_MANUAL, SHORTCUTS and WHATSNEW all changed. **Unverified in this release:** the Windows
+> MAUI head after the chrome diet and focus mode (native canvas rect from `canvasRegion.js`).
+>
+> **Lessons from the cut:** four same-day commits had NO `CHANGES.md` entry — check
+> `git log <lasttag>..HEAD --stat -- docs/CHANGES.md` against the commit list; QUICKSTART missed
+> Alt+Z and the captions setting while SHORTCUTS and the manual had them (three user docs, every
+> cut); `git add -A` committed the browser harness's `scratchpad/a3_*.json` rewrites — use
+> `git add -A ':!scratchpad'`.
+>
+> *The seventy-fifth pass, kept below for the record:*
+>
+> **THE WHOLE CHART REAL-ESTATE SCOPE IS DONE** (2026-09-22). Suite **8,034**, browser
+> **226**, 0 failing.
 >
 > `docs/CHART_REAL_ESTATE_SCOPE.md` §0 has everything: the guard (44.9% → 65.0%), captions off
 > by default behind `Settings → Appearance → Toolbar captions`, icon rows merged, pills after
@@ -134,10 +153,9 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >
 > ### NEXT
 >
-> 1. **Cody tests** — maximised window with Volume+RSI+MACD (price pane should be visibly the
->    largest), Alt+Z both ways, the Settings captions switch both ways, and the formation labels
->    on a live BTC chart.
-> 2. **Then cut 2.12.0** — the steps are in the earlier block's NEXT 2 and 3, unchanged.
+> 1. **The two hand-offs above** (server agent; `llms-full.txt`).
+> 2. **Look at the Windows head** after the layout change — `diagnostic-build.yml` builds it.
+> 3. Then the carried campaigns: `Services/Strategies`, `Analysis`, the JS harness (never mutated).
 >
 > ### CARRIED
 >
