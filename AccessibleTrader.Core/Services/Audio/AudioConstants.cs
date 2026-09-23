@@ -96,7 +96,7 @@ namespace AccessibleTrader.Core.Services.Audio
         ///
         /// <para>
         /// <b>This is also what makes the price range's WIDTH an honest cost rather than a
-        /// trap.</b> With <c>WorkspaceState.ScalePriceOnly</c> off, adding a wide Bollinger band
+        /// trap.</b> The price pane fits every visible overlay, so adding a wide Bollinger band
         /// widens the pane's range and so compresses the price line into a smaller fraction of it.
         /// Under this mapping that compression is a constant transposition — a price line
         /// occupying a third of the pane gets a third of the octaves wherever in the pane it sits.

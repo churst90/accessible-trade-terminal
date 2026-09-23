@@ -66,11 +66,6 @@ public static class WorkspaceProjection
         nameof(WorkspaceState.LastInteractionContext),
         nameof(WorkspaceState.IsHeikinAshi),
         nameof(WorkspaceState.IsLogScale),
-        // Carried for the same reason IsLogScale is, and it matters more: ScalePriceOnly is the
-        // only switch that changes what ViewportRange (also carried) actually CONTAINS. A script
-        // handed a range that silently widened when an overlay was added, with no field able to
-        // say why, would be reading a number it cannot account for.
-        nameof(WorkspaceState.ScalePriceOnly),
         nameof(WorkspaceState.BackgroundColor),
         nameof(WorkspaceState.SpeakTimestamps),
         nameof(WorkspaceState.TimestampReadLocation),
@@ -226,7 +221,6 @@ public static class WorkspaceProjection
         Wire.WriteBool(s, state.IsReplaying);
         // APPENDED 2026-09-21. New fields go at the TAIL of the frame so the reader's fixed
         // order below stays valid for everything written before them.
-        Wire.WriteBool(s, state.ScalePriceOnly);
     }
 
     public static WorkspaceState Read(ref WireReader r)
@@ -282,7 +276,6 @@ public static class WorkspaceProjection
         var currentDataShape      = (ProviderDataShape)r.ReadI32();
         string symbolDisplayName  = r.ReadString();
         bool isReplaying          = r.ReadBool();
-        bool scalePriceOnly       = r.ReadBool();
 
         // The not-carried three keep Initial's defaults. Stated here rather than left implicit
         // because "a strategy sees an empty PaneRanges in the worker" is a behaviour, not an
@@ -338,7 +331,6 @@ public static class WorkspaceProjection
             CurrentDataShape = currentDataShape,
             SymbolDisplayName = symbolDisplayName,
             IsReplaying = isReplaying,
-            ScalePriceOnly = scalePriceOnly,
         };
     }
 

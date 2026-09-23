@@ -872,6 +872,7 @@ html.toolbar-captions .icon-btn-label {
     background: var(--bg-primary, #121212);
     border-top: 1px solid #333;
     justify-content: center;
+    flex-wrap: wrap; /* narrow phones wrap the button row instead of overflowing */
 }
 @media (pointer: coarse) {
     .touch-nav { display: flex; }
@@ -919,6 +920,14 @@ html.toolbar-captions .icon-btn-label {
     select, input[type="checkbox"], input[type="radio"] { min-height: 32px; min-width: 32px; }
 }
 
+
+/* ══ WEB-ONLY BELOW THIS LINE ══════════════════════════════════════════════════
+   Everything ABOVE this marker must be byte-identical to
+   AccessibleTrader.BlazorClient/wwwroot/app.css — SharedStylesheetParityTests
+   enforces it. The two copies drifted once (2026-07-26: the touch-nav flex-wrap
+   phone fix reached only the desktop copy, and phones visit the web one). Shared
+   rules go in BOTH files; only rules for things the desktop head cannot have —
+   the first-visit speech chooser and the circuit reconnect overlay — go below. */
 
 /* ── First-visit speech-output chooser (double-speech fix) ─────────────── */
 .speech-prompt {

@@ -347,16 +347,6 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsLogScale != _previousState.IsLogScale)
                 _speechRouter.Speak(state.IsLogScale ? "Log scale" : "Linear scale", interrupt: true);
 
-            // The sentence names the CONSEQUENCE, not the setting, because the setting's name
-            // ("scale price only") says nothing about what the user will notice — which is
-            // whether a band can leave the pane, and whether the price line's pitch swing just
-            // changed under them. Both halves of that are said.
-            if (state.ScalePriceOnly != _previousState.ScalePriceOnly)
-                _speechRouter.Speak(state.ScalePriceOnly
-                    ? "Fitting price only. Overlays may run off the pane, and the price line gets the full pitch range."
-                    : "Fitting price and overlays. Everything stays in the pane, and the price line's pitch range narrows to share it.",
-                    interrupt: true);
-
             // PLAYBACK. Every word the user hears about playback is spoken from here, and it has
             // to sit ABOVE the gate below because the gate is exactly what playback engages.
             //

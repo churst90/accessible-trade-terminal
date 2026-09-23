@@ -130,6 +130,7 @@ namespace AccessibleTrader.Core.Services
                         return;
                     }
 
+                    json = DropRetiredCommands(json);
                     var profile = JsonConvert.DeserializeObject<ShortcutProfile>(json);
                     if (profile != null)
                     {
@@ -145,6 +146,29 @@ namespace AccessibleTrader.Core.Services
                 // Same defect class already fixed in ChartCommandManager.
                 _logger?.LogError(ex, "Failed to load shortcuts from {Path}; falling back to defaults", _filepath);
             }
+        }
+
+        /// <summary>
+        /// Removes every binding whose command NAME is no longer a <see cref="SystemCommand"/>.
+        /// <see cref="ShortcutDefinition"/>'s StringEnumConverter throws on an unknown name, and
+        /// the load's catch then falls back to the defaults — so retiring one command
+        /// (ToggleScalePriceOnly, Alt+F, 2026-09-23) would otherwise have discarded every
+        /// customisation in every profile saved while it existed. The retired key is simply
+        /// unbound; the rest of the profile loads.
+        /// </summary>
+        internal static string DropRetiredCommands(string json)
+        {
+            var root = Newtonsoft.Json.Linq.JToken.Parse(json) as Newtonsoft.Json.Linq.JObject;
+            if (root?["Shortcuts"] is not Newtonsoft.Json.Linq.JArray list) return json;
+
+            var retired = list
+                .Where(t => t["Command"] is Newtonsoft.Json.Linq.JValue { Type: Newtonsoft.Json.Linq.JTokenType.String } v
+                            && !Enum.TryParse<SystemCommand>((string)v!, ignoreCase: true, out _))
+                .ToList();
+            if (retired.Count == 0) return json;
+
+            foreach (var t in retired) t.Remove();
+            return root.ToString(Formatting.None);
         }
 
         /// <summary>
@@ -376,11 +400,9 @@ namespace AccessibleTrader.Core.Services
             // Chart display toggles (Alt+key) — require no data gate, so always work.
             s.Add(new(SystemCommand.ToggleHeikinAshi, "C", Alt: true)); // Alt+C
             s.Add(new(SystemCommand.ToggleLogScale,   "L", Alt: true)); // Alt+L
-            // Alt+F for FIT — the third member of the axis family beside Alt+C and Alt+L, and
-            // the one that decides what the axis is fitted TO. Alt+Shift+L would have read
-            // better and is DrawLabel; Alt+F is free on every head and, being a modifier chord,
-            // is hard-stopped by keyboard.js before the browser's own Alt+F menu sees it.
-            s.Add(new(SystemCommand.ToggleScalePriceOnly, "F", Alt: true)); // Alt+F
+            // Alt+F is deliberately UNBOUND. It toggled "fit price only" from 2026-09-21 until
+            // Cody retired that mode on 2026-09-23 (see WorkspaceState). It is the File menu in
+            // nearly every Windows program, so it stays free rather than being reused.
             // Alt+Z for focus mode — what TradingView users call "zen": every toolbar and bar
             // hidden and the chart given the whole window. F11 was what Cody reached for, and
             // F11 only recovers the BROWSER's chrome (about 109px); ours was 394. Alt+Z is

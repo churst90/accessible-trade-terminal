@@ -79,11 +79,7 @@ namespace AccessibleTrader.Sdk.Models
         // Resolved via IMarketDataProvider.GetSymbolDisplayName at load time.
         // Used to label the Price series on analytics tabs so speech/UI reads
         // "Fear and Greed Index" instead of generic "Price".
-        string SymbolDisplayName = "",
-        // ── Auto-fit scope (per tab, like IsLogScale) ────────────────────────
-        // See WorkspaceState.ScalePriceOnly for the whole account. Per-tab because
-        // it is an axis rule, and the axis belongs to the chart.
-        bool ScalePriceOnly = false
+        string SymbolDisplayName = ""
     );
 
     public record WorkspaceState(
@@ -239,26 +235,15 @@ namespace AccessibleTrader.Sdk.Models
         // subordinate to NarrateDuringPlayback, which remains the master switch.
         bool SpeakPlaybackLandmarks = true,
         /// <summary>Speak the date on every bar, rather than only when the day changes.</summary>
-        bool SpeakDateOnEveryBar = false,
-        // ── What the price pane's auto-fit is allowed to see ─────────────────
-        //
-        // FALSE (the default) means every VISIBLE component of every Main-pane series is
-        // included in the price range, so a Bollinger band that leaves the candles' range
-        // widens the pane instead of clipping out of it. TRUE is TradingView's "Scale price
-        // chart only": the axis is sized from the price bars alone and an overlay may leave
-        // the pane.
-        //
-        // <b>It is an AUDIO setting as much as a visual one, and that is why it needs a
-        // switch at all.</b> The viewport range IS the pitch range — ChartMath.NormalizedPosition
-        // is the one normaliser the eye and the ear share — so including a wide band widens the
-        // range and therefore compresses the price line's pitch swing. That compression is
-        // truthful (the candles really do occupy less of the pane) but it costs pitch resolution,
-        // and a user listening for small moves in price may want it back. Alt+Shift+L.
-        //
-        // Default FALSE because the alternative failure is SILENT: a clipped band is neither
-        // drawn nor sounded, and nothing tells the user it left. A compressed price line is at
-        // least still audible.
-        bool ScalePriceOnly = false
+        bool SpeakDateOnEveryBar = false
+        // ScalePriceOnly (Alt+F, "fit price only") lived here from 2026-09-21 to 2026-09-23 and
+        // was retired at Cody's decision: the price pane fits every VISIBLE Main-pane component,
+        // always. A user who wants the price line's full pitch range back hides the band — a
+        // hidden component is not in the fit (ViewportRangeCalculator). An overlay allowed off
+        // the pane is not silent, it CLAMPS to the pitch floor or ceiling, which sounds like a
+        // band sitting still; that is worse than a compressed price line, and a mode that
+        // produces it was a trap. Old saved workspaces carrying the field load unchanged — the
+        // serialisers ignore an unknown member.
     )
     {
         public static WorkspaceState Initial => new WorkspaceState(
@@ -293,7 +278,6 @@ namespace AccessibleTrader.Sdk.Models
             NarrateDuringPlayback: true,
             SpeakPlaybackLandmarks: true,
             SpeakDateOnEveryBar: false,
-            ScalePriceOnly: false,
             IsSpeechEnabled: true,
             IsSonificationEnabled: true,
             IsEventSpeechEnabled: true,
@@ -405,9 +389,6 @@ namespace AccessibleTrader.Sdk.Models
     public record TogglePauseAction() : WorkspaceAction;
     public record ToggleHeikinAshiAction() : WorkspaceAction;
     public record ToggleLogScaleAction() : WorkspaceAction;
-    /// <summary>Flips <see cref="WorkspaceState.ScalePriceOnly"/> — whether the price pane's
-    /// auto-fit sees Main-pane overlay components or only the price bars.</summary>
-    public record ToggleScalePriceOnlyAction() : WorkspaceAction;
     public record AddSeriesAction(ChartSeries Series) : WorkspaceAction;
     public record RemoveSeriesAction(string SeriesId) : WorkspaceAction;
     /// <summary>Adds a reference level line to an existing indicator series.</summary>

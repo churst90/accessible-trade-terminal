@@ -483,8 +483,6 @@ namespace AccessibleTrader.Core.Services
                     _store.Dispatch(new ToggleHeikinAshiAction());
                 if (tab.IsLogScale != _store.State.IsLogScale)
                     _store.Dispatch(new ToggleLogScaleAction());
-                if (tab.ScalePriceOnly != _store.State.ScalePriceOnly)
-                    _store.Dispatch(new ToggleScalePriceOnlyAction());
 
                 // Restore series
                 RestoreSeriesFromTab(tab, allMeta);

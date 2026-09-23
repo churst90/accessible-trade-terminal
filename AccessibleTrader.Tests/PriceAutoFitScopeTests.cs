@@ -19,11 +19,11 @@ namespace AccessibleTrader.Tests;
 /// </para>
 ///
 /// <para>
-/// The switch (<see cref="WorkspaceState.ScalePriceOnly"/>, Alt+F) exists because the two
-/// answers trade against each other and neither is free: including a wide band widens the range
-/// and so compresses the price line's share of the pitch band. Default OFF — include — because
-/// that failure is AUDIBLE where the other is silent, and a user cannot investigate something
-/// they were never told about.
+/// Including a wide band widens the range and so compresses the price line's share of the pitch
+/// band. There was a switch for that ("fit price only", Alt+F) from 2026-09-21 until it was
+/// retired on 2026-09-23: an overlay allowed off the pane clamps to the pitch floor or ceiling
+/// and sounds like a band sitting still. The way back to the price line's full range is to HIDE
+/// the band, and the last two tests here pin that.
 /// </para>
 /// </summary>
 public sealed class PriceAutoFitScopeTests
@@ -79,38 +79,36 @@ public sealed class PriceAutoFitScopeTests
         return new ChartSeries(cfg, data);
     }
 
-    private static WorkspaceState StateWith(bool scalePriceOnly, params ChartSeries[] series) =>
+    private static WorkspaceState StateWith(params ChartSeries[] series) =>
         WorkspaceState.Initial with
         {
             Data = new TimeSeriesBuffer<Ohlcv>(Bars()),
             ActiveSeries = ImmutableList.CreateRange(series),
             ViewportStartIndex = 0,
             ViewportLength = BarCount,
-            ScalePriceOnly = scalePriceOnly,
         };
 
-    private static (double Min, double Max) MainRange(bool scalePriceOnly, params ChartSeries[] series)
-        => new ViewportRangeCalculator().Calculate(StateWith(scalePriceOnly, series)).MainRange;
+    private static (double Min, double Max) MainRange(params ChartSeries[] series)
+        => new ViewportRangeCalculator().Calculate(StateWith(series)).MainRange;
 
     // ── The defect, stated as the difference between the two answers ─────────────
 
     [Fact]
     public void ABandWiderThanTheCandles_IsInsideThePane_ByDefault()
     {
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), Band(upper: 110, lower: 90));
+        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90));
 
         Assert.True(max >= 110, $"the upper band at 110 must be inside the pane; the pane tops out at {max}");
         Assert.True(min <= 90, $"the lower band at 90 must be inside the pane; the pane bottoms out at {min}");
     }
 
     [Fact]
-    public void ThatIsAChange_TheOldBehaviourClippedIt_AndScalePriceOnlyStillDoes()
+    public void HidingTheBand_GivesThePriceItsWholeRangeBack()
     {
-        var (min, max) = MainRange(scalePriceOnly: true, Candles(), Band(upper: 110, lower: 90));
+        // The replacement for the retired "fit price only" switch: what is not shown is not fitted.
+        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90, seriesVisible: false));
 
-        // The pre-2026-09-21 answer, which the switch preserves: OHLC 95–105 plus the 5% buffer.
-        Assert.True(max < 110, "with ScalePriceOnly the band must be allowed off the pane, or the switch does nothing");
-        Assert.True(min > 90, "with ScalePriceOnly the band must be allowed off the pane, or the switch does nothing");
+        // OHLC 95–105 plus the 5% buffer — the candles alone.
         Assert.InRange(max, 105, 106);
         Assert.InRange(min, 94, 95);
     }
@@ -122,10 +120,10 @@ public sealed class PriceAutoFitScopeTests
     /// mute at the edge and stays mute however far past it travels.
     /// </summary>
     [Fact]
-    public void ClippedMeansMute_WhichIsWhyTheDefaultIncludesOverlays()
+    public void ClippedMeansMute_WhichIsWhyOverlaysAlwaysFit()
     {
-        var clipped  = MainRange(scalePriceOnly: true,  Candles(), Band(upper: 110, lower: 90));
-        var included = MainRange(scalePriceOnly: false, Candles(), Band(upper: 110, lower: 90));
+        var clipped  = MainRange(Candles());   // the axis a price-only fit would give
+        var included = MainRange(Candles(), Band(upper: 110, lower: 90));
 
         double at110 = ChartMath.NormalizedPosition(110, clipped.Min, clipped.Max, isLogScale: false);
         double at200 = ChartMath.NormalizedPosition(200, clipped.Min, clipped.Max, isLogScale: false);
@@ -142,7 +140,7 @@ public sealed class PriceAutoFitScopeTests
     [Fact]
     public void AHiddenSeriesDoesNotMoveTheAxis()
     {
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), Band(upper: 110, lower: 90, seriesVisible: false));
+        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90, seriesVisible: false));
 
         Assert.InRange(max, 105, 106);
         Assert.InRange(min, 94, 95);
@@ -151,7 +149,7 @@ public sealed class PriceAutoFitScopeTests
     [Fact]
     public void AHiddenComponentDoesNotMoveTheAxis_ButItsVisibleSiblingStillDoes()
     {
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), Band(upper: 110, lower: 90, upperVisible: false));
+        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90, upperVisible: false));
 
         Assert.True(max < 110, "the hidden upper band must not leave its footprint on the axis");
         Assert.True(min <= 90, "the visible lower band must still be inside the pane");
@@ -160,7 +158,7 @@ public sealed class PriceAutoFitScopeTests
     [Fact]
     public void ASubPaneStripIsItsOwnAxis_AndDoesNotMoveTheMainOne()
     {
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), Band(upper: 110, lower: 90, subPane: "Strip"));
+        var (min, max) = MainRange(Candles(), Band(upper: 110, lower: 90, subPane: "Strip"));
 
         Assert.InRange(max, 105, 106);
         Assert.InRange(min, 94, 95);
@@ -176,7 +174,7 @@ public sealed class PriceAutoFitScopeTests
     [Fact]
     public void AComponentThatIsObviouslyNotAPrice_IsRefused()
     {
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), Band(upper: 90_000, lower: 0));
+        var (min, max) = MainRange(Candles(), Band(upper: 90_000, lower: 0));
 
         Assert.InRange(max, 105, 106);
         Assert.InRange(min, 94, 95);
@@ -202,7 +200,7 @@ public sealed class PriceAutoFitScopeTests
             ladder.Add(new ChartSeries(cfg, buf));
         }
 
-        var (_, max) = MainRange(scalePriceOnly: false, ladder.ToArray());
+        var (_, max) = MainRange(ladder.ToArray());
 
         // Measured against the ORIGINAL span, only the first rung (125) is admissible: the guard
         // allows three spans of 10, so it stops at 135. Measured against a RUNNING span it would
@@ -226,21 +224,21 @@ public sealed class PriceAutoFitScopeTests
         for (int i = 20; i < BarCount; i++) data[i] = 108;      // warmup, then real values
         buf.ComponentData["line"] = data;
 
-        var (min, max) = MainRange(scalePriceOnly: false, Candles(), new ChartSeries(cfg, buf));
+        var (min, max) = MainRange(Candles(), new ChartSeries(cfg, buf));
 
         Assert.False(double.IsNaN(min) || double.IsNaN(max), "a warmup prefix must not reach the axis");
         Assert.True(max >= 108, "the EMA's real values must still be inside the pane");
     }
 
-    /// <summary>A series with no overlay at all must be bit-for-bit what it always was.</summary>
+    /// <summary>A hidden overlay must leave no footprint: bit-for-bit the candles-only axis.</summary>
     [Fact]
-    public void WithNoOverlays_TheAnswerIsUnchangedByTheNewPass()
+    public void AHiddenOverlay_LeavesTheAxisExactlyAsTheCandlesAlone()
     {
-        var withFlagOff = MainRange(scalePriceOnly: false, Candles());
-        var withFlagOn  = MainRange(scalePriceOnly: true,  Candles());
+        var candlesOnly = MainRange(Candles());
+        var bandHidden  = MainRange(Candles(), Band(upper: 110, lower: 90, seriesVisible: false));
 
-        Assert.Equal(withFlagOn.Min, withFlagOff.Min, 9);
-        Assert.Equal(withFlagOn.Max, withFlagOff.Max, 9);
+        Assert.Equal(candlesOnly.Min, bandHidden.Min, 9);
+        Assert.Equal(candlesOnly.Max, bandHidden.Max, 9);
     }
 
     /// <summary>
@@ -381,19 +379,15 @@ public sealed class PriceAutoFitScopeTests
             bandValue, dataMin: 60000, dataMax: 86000, dataSpan: 26000));
     }
 
-    // ── The toggle reaches the numbers ───────────────────────────────────────────
+    // ── Hiding reaches the numbers ───────────────────────────────────────────────
 
     /// <summary>
-    /// <b>The bug this one exists for, and it is the reason the toggle needed a line in the
-    /// store rather than only a reducer case.</b> <c>WorkspaceStore</c> recomputes
-    /// <c>ViewportRange</c> only when the data, the viewport or the series list changes.
-    /// <c>IsLogScale</c> rightly is not in that list — it changes how the range is MAPPED, not
-    /// what it is — but <c>ScalePriceOnly</c> changes the numbers themselves, so a toggle that
-    /// is missing from the gate does nothing visible or audible until the next tick happens to
-    /// recompute, which on a closed market is never.
+    /// <c>WorkspaceStore</c> recomputes <c>ViewportRange</c> only when the data, the viewport or
+    /// the series list changes. Hiding a band is a series-list change, so the range must follow
+    /// at once — on a closed market there is no next tick to do it later.
     /// </summary>
     [Fact]
-    public void PressingTheToggle_RecomputesTheRangeImmediately()
+    public void HidingTheBand_RecomputesTheRangeImmediately()
     {
         var store = new WorkspaceStore(
             new SpyEventBus(), new ViewportRangeCalculator(),
@@ -403,15 +397,13 @@ public sealed class PriceAutoFitScopeTests
         store.Dispatch(new AddSeriesAction(Band(upper: 110, lower: 90)));
 
         var included = store.State.ViewportRange;
-        Assert.True(included.Max >= 110, "precondition: the band is in the pane before the toggle");
+        Assert.True(included.Max >= 110, "precondition: the band is in the pane before it is hidden");
 
-        store.Dispatch(new ToggleScalePriceOnlyAction());
-
-        Assert.True(store.State.ScalePriceOnly);
+        store.Dispatch(new ToggleHideAction("bb"));
         Assert.True(store.State.ViewportRange.Max < 110,
-            "the range did not recompute when ScalePriceOnly flipped — check WorkspaceStore's recompute gate");
+            "the range did not recompute when the band was hidden — check WorkspaceStore's recompute gate");
 
-        store.Dispatch(new ToggleScalePriceOnlyAction());
+        store.Dispatch(new ToggleHideAction("bb"));
         Assert.Equal(included.Max, store.State.ViewportRange.Max, 9);
     }
 }
@@ -473,5 +465,28 @@ public sealed class StaleZeroLevelHealingTests
         WorkspaceInitializer.MigrateSeriesConfig(cfg, new List<IndicatorMetadata>());
 
         Assert.Single(cfg.Levels);
+    }
+}
+
+/// <summary>
+/// A workspace saved while "fit price only" existed (2026-09-21 to 2026-09-23) carries
+/// <c>"ScalePriceOnly"</c> on each tab. The field is gone; the file must still load, tabs intact.
+/// </summary>
+public sealed class RetiredScalePriceOnlyFieldTests
+{
+    [Fact]
+    public void A_workspace_saved_with_the_retired_field_still_loads()
+    {
+        const string json = """
+            { "Tabs": [ { "Market": "Crypto", "Provider": "Bitstamp", "Symbol": "BTC/USD",
+                          "Timeframe": "1d", "IsLogScale": true, "ScalePriceOnly": true } ] }
+            """;
+
+        var cfg = Newtonsoft.Json.JsonConvert.DeserializeObject<AccessibleTrader.Core.Models.WorkspaceConfiguration>(json);
+
+        Assert.NotNull(cfg);
+        var tab = Assert.Single(cfg!.Tabs);
+        Assert.Equal("BTC/USD", tab.Symbol);
+        Assert.True(tab.IsLogScale);
     }
 }

@@ -86,7 +86,10 @@ namespace AccessibleTrader.Core.Services
             // TRUTHFUL — the candles genuinely occupy less of the pane, and a sighted trader sees
             // exactly the same thing — and the ear and the eye stay in agreement, which is the
             // property the 2026-09-18 log-scale fix bought and which clipping silently broke. A
-            // user who wants the resolution back says so: ScalePriceOnly, Alt+Shift+L.
+            // user who wants the resolution back HIDES the band (condition 1 below). There was a
+            // "fit price only" switch (Alt+F) from 2026-09-21 to 2026-09-23; it was retired
+            // because an overlay off the pane clamps to the pitch floor or ceiling and sounds
+            // like a band sitting still. Everything visible fits, always.
             //
             // <b>Three conditions, and each one is "what the eye is shown".</b>
             //   (1) VISIBLE. A hidden series or hidden component is not drawn, so it must not
@@ -101,34 +104,31 @@ namespace AccessibleTrader.Core.Services
             // The guard is measured against the ORIGINAL price span (priceMin/priceMax/dataSpan)
             // rather than the running one, so a chain of ever-wider components cannot walk the
             // axis out one plausible step at a time.
-            if (!state.ScalePriceOnly)
+            foreach (var s in state.ActiveSeries)
             {
-                foreach (var s in state.ActiveSeries)
+                string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
+                if (paneName != "Main") continue;
+                if (!s.IsVisible) continue;
+
+                foreach (var comp in s.Components)
                 {
-                    string paneName = string.IsNullOrEmpty(s.Pane) ? "Main" : s.Pane;
-                    if (paneName != "Main") continue;
-                    if (!s.IsVisible) continue;
+                    if (!comp.IsVisible) continue;
+                    if (!string.IsNullOrEmpty(comp.SubPaneName)) continue;
 
-                    foreach (var comp in s.Components)
+                    var data = s.GetComponentData(comp.Name);
+                    if (data == null || data.Length == 0) continue;
+
+                    int cEnd = Math.Min(start + state.ViewportLength, data.Length);
+                    for (int i = start; i < cEnd; i++)
                     {
-                        if (!comp.IsVisible) continue;
-                        if (!string.IsNullOrEmpty(comp.SubPaneName)) continue;
-
-                        var data = s.GetComponentData(comp.Name);
-                        if (data == null || data.Length == 0) continue;
-
-                        int cEnd = Math.Min(start + state.ViewportLength, data.Length);
-                        for (int i = start; i < cEnd; i++)
-                        {
-                            double val = data[i];
-                            // NaN is WARMUP, and warmup is universal — an EMA's first N bars, a
-                            // pivot indicator's every-bar-but-a-few. Skipping it is not a special
-                            // case, it is the normal state of the left edge of the window.
-                            if (double.IsNaN(val)) continue;
-                            if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
-                            if (val < mainMin) mainMin = val;
-                            if (val > mainMax) mainMax = val;
-                        }
+                        double val = data[i];
+                        // NaN is WARMUP, and warmup is universal — an EMA's first N bars, a
+                        // pivot indicator's every-bar-but-a-few. Skipping it is not a special
+                        // case, it is the normal state of the left edge of the window.
+                        if (double.IsNaN(val)) continue;
+                        if (!IsPlausiblyTheSameQuantity(val, priceMin, priceMax, dataSpan)) continue;
+                        if (val < mainMin) mainMin = val;
+                        if (val > mainMax) mainMax = val;
                     }
                 }
             }

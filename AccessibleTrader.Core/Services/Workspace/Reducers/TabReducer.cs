@@ -67,8 +67,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             CoordinateEntryAnchor1Index: -1,
             PrimarySeriesId: s.PrimarySeriesId,
             CurrentDataShape: s.CurrentDataShape,
-            SymbolDisplayName: s.SymbolDisplayName,
-            ScalePriceOnly: s.ScalePriceOnly
+            SymbolDisplayName: s.SymbolDisplayName
         );
 
         /// <summary>Restores all per-tab fields from a TabSnapshot into a WorkspaceState.</summary>
@@ -99,8 +98,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             CoordinateEntryAnchor1Index = -1,
             PrimarySeriesId = snap.PrimarySeriesId,
             CurrentDataShape = snap.CurrentDataShape,
-            SymbolDisplayName = snap.SymbolDisplayName,
-            ScalePriceOnly = snap.ScalePriceOnly
+            SymbolDisplayName = snap.SymbolDisplayName
         };
 
         private static WorkspaceState AddTab(WorkspaceState state)
@@ -140,10 +138,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 CoordinateEntryAnchor1Index: -1,
                 PrimarySeriesId: "candles",
                 CurrentDataShape: Sdk.Plugins.ProviderDataShape.Ohlcv,
-                SymbolDisplayName: "",
-                // Carried over like ViewportLength and RightMarginBars, and unlike IsLogScale:
-                // it is a statement about how this user reads ANY chart, not about this symbol.
-                ScalePriceOnly: state.ScalePriceOnly
+                SymbolDisplayName: ""
             )) with
             {
                 TabSnapshots = newSnapshots,

@@ -275,15 +275,6 @@ public sealed class ChartHitTesterAndRangeTests
         const float height = 720f;
         float plotBottomPx = height * (1f - axisHeight);
 
-        // SCALE PRICE ONLY, and the fixture cannot work without it since 2026-09-21: with
-        // auto-fit including Main-pane overlays, placing a line AT the current range minimum
-        // pushes the minimum below it, so the line is no longer at the bottom of the pane and
-        // the click computed from it lands above the strip rather than inside it. Pinning the
-        // axis to the price bars makes the geometry a function of the fixture alone, which is
-        // what a test of the HIT TESTER wants — the auto-fit policy is tested elsewhere.
-        h.Store.Dispatch(new ToggleScalePriceOnlyAction());
-        Assert.True(h.Store.State.ScalePriceOnly);
-
         // The line sits at the BOTTOM of the viewport, so it maps to the very bottom edge of the
         // plot area — right up against the strip. Any higher and a click inside the strip is out
         // of grab range anyway, and the test passes for the wrong reason: the first draft of this
@@ -291,7 +282,14 @@ public sealed class ChartHitTesterAndRangeTests
         // null and the mutant survived its own kill.
         double lineValue = h.Store.State.ViewportRange.Min;
         h.AddOverlayLine("floor", "Floor", constantValue: lineValue);
-        var state = h.Store.State;
+        // Pin the range floor to the line. Auto-fit includes Main-pane overlays, so adding a line
+        // AT the range minimum pushes the minimum below it and the line leaves the bottom edge.
+        // A test of the HIT TESTER wants the geometry to be a function of the fixture alone —
+        // the auto-fit policy is tested in PriceAutoFitScopeTests.
+        var state = h.Store.State with
+        {
+            ViewportRange = (lineValue, h.Store.State.ViewportRange.Max),
+        };
 
         float lineY = ChartMath.MapY(lineValue, 0, plotBottomPx,
                                      state.ViewportRange.Min, state.ViewportRange.Max, false);

@@ -68,7 +68,6 @@ namespace AccessibleTrader.Tests
         // Indicator / display toggles
         [InlineData(SystemCommand.ToggleHeikinAshi)]
         [InlineData(SystemCommand.ToggleLogScale)]
-        [InlineData(SystemCommand.ToggleScalePriceOnly)]
         [InlineData(SystemCommand.ToggleHeatmap)]
         [InlineData(SystemCommand.ToggleIndicatorVisibility)]
         [InlineData(SystemCommand.ToggleIndicatorAudio)]
@@ -216,7 +215,6 @@ namespace AccessibleTrader.Tests
                 SystemCommand.PlayPause, SystemCommand.PlayStop,
                 SystemCommand.PlaySpeedUp, SystemCommand.PlaySpeedDown,
                 SystemCommand.ToggleHeikinAshi, SystemCommand.ToggleLogScale,
-                SystemCommand.ToggleScalePriceOnly,
                 SystemCommand.ToggleHeatmap, SystemCommand.ToggleIndicatorVisibility,
                 SystemCommand.ToggleIndicatorAudio, SystemCommand.ToggleNarration,
                 SystemCommand.AddReferenceLevel, SystemCommand.OpenProperties,

@@ -27,7 +27,6 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             // Chart display toggles
             ToggleHeikinAshiAction      => state with { IsHeikinAshi = !state.IsHeikinAshi },
             ToggleLogScaleAction        => state with { IsLogScale = !state.IsLogScale },
-            ToggleScalePriceOnlyAction  => state with { ScalePriceOnly = !state.ScalePriceOnly },
 
             _ => state
         };

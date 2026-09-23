@@ -10,6 +10,11 @@
 
 - **The online demo opens on a chart.** Visiting the demo now lands straight on a live Bitcoin
   daily chart that already speaks, instead of an empty symbol box and four steps to get there.
+- **Alt+F is gone, and everything you can see always fits the price pane.** Alt+F let bands run
+  off the top or bottom of the pane to give the price line more pitch range. A band off the pane
+  sits at the top or bottom pitch and sounds as if it had stopped moving, which is misleading. To
+  give the price line the whole pitch range, hide the band with H instead. Alt+F is now left free,
+  since it is the File menu in most Windows programs. Custom key settings you saved are kept.
 - **A new tab no longer empties the Symbol box.** Opening a blank tab, or starting the app for the
   first time, used to clear the symbol you had selected, so Load Chart had nothing to load.
 
@@ -87,9 +92,8 @@ release is the one that makes it work.**
   only when the full number will not fit, so price labels are untouched.
 - **Indicators drawn on the price chart stay inside it.** A Bollinger band or Keltner channel
   wider than the candles used to be clipped off the pane — and because the pane's range is also
-  the *pitch* range, it went silent as well as invisible. Press **Alt+F** for the old behaviour
-  ("fitting price only"), which gives the price line the full pitch range at the cost of letting
-  bands run off the edge.
+  the *pitch* range, it went silent as well as invisible. (This release also added Alt+F to turn
+  that off; it has since been removed — see *Unreleased* above.)
 - **Pitch is spaced the way the ear hears it.** Equal steps up a pane are now equal musical
   intervals wherever you are in it. Before, the bottom of a pane carried a whole octave in its
   first quarter and the top a mere third in its last, so a price high in the window barely moved

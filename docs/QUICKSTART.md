@@ -280,12 +280,10 @@ smoothed ones. **Alt+L** switches the price axis to logarithmic for long histori
 sound follows it: a level-pitched component in the price pane takes its pitch from where the
 value sits on the scale as drawn.
 
-**Alt+F** decides what the price pane is sized to hold. By default it holds the candles *and*
-every visible overlay, so a Bollinger band that swings wider than the bars widens the pane
-instead of running off it — which matters to the ear as much as the eye, because anything
-outside the pane is silent as well as invisible. Press Alt+F for "fitting price only": overlays
-may leave the pane and go quiet, but the price line gets the whole pitch range, which is what
-you want when you are listening for small moves. Press it again to go back.
+The price pane always holds the candles *and* every visible overlay, so a Bollinger band that
+swings wider than the bars widens the pane instead of running off it. That matters to the ear as
+much as the eye, because the pane's range is also its pitch range. To give the price line the
+whole pitch range, hide the band with H; a hidden overlay is not counted.
 
 ---
 
@@ -515,7 +513,7 @@ Windows.
 | 0 | Toggle the pane's neutral level, or mark the price under the cursor |
 | Delete | Remove the focused series |
 | Ctrl+Z / Ctrl+Y | Undo / redo a chart edit |
-| Alt+C / Alt+L / Alt+F / Alt+H | Heikin-Ashi / log scale / fit price only / volume heatmap |
+| Alt+C / Alt+L / Alt+H | Heikin-Ashi / log scale / volume heatmap |
 | Alt+Z | Focus mode: hide the toolbar, tabs and indicator bar, or show them again |
 
 **Drawings**

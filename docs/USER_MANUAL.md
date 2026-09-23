@@ -567,23 +567,19 @@ the ear. The floor and the ceiling of the band are unchanged, so the extremes so
 they always did; it is the middle that has been redistributed, and the midpoint of a pane now
 sounds at 447 Hz where it used to sound at 600.
 
-**What the price pane fits, and why it is your choice (Alt+F).** By default the price pane sizes
-itself to hold everything drawn on it: the candles *and* every visible overlay. A Bollinger band
-or a Keltner channel that swings wider than the bars widens the pane rather than running off it.
-That is not only a picture question, because the pane's range is also the pitch range — anything
-outside the pane is not merely invisible, it is silent, and a band that has gone quiet sounds
-exactly like a band sitting still. Press **Alt+F** and the pane fits the price bars alone; the
-terminal says "fitting price only". Overlays may then leave the pane, and go quiet when they do,
-but the price line has the whole 200–1000 Hz band to itself, which is what you want when you are
-listening for small moves in price rather than watching a band. Press Alt+F again to go back. It
-is per tab, it is saved with the workspace, and a new tab inherits it.
+**What the price pane fits.** The price pane always sizes itself to hold everything drawn on
+it: the candles *and* every visible overlay. A Bollinger band or a Keltner channel that swings
+wider than the bars widens the pane rather than running off it. That is not only a picture
+question, because the pane's range is also the pitch range. A band that ran off the pane would
+sit at the very top or bottom pitch and sound as if it had stopped moving.
 
-The trade is worth stating plainly, because it is the reason this is a switch and not a decision
-made for you. Adding a wide band to the price pane compresses the price line into a smaller share
-of the pane, and therefore into a smaller share of the pitch band. Under the interval-even mapping
-above that compression is a constant transposition — a price line occupying a third of the pane
-gets a third of the octaves, wherever in the pane it sits — so it is a cost you can predict and
-reason about rather than one that changes depending on where price happens to be standing.
+The cost is worth stating plainly. Adding a wide band compresses the price line into a smaller
+share of the pane, and therefore into a smaller share of the pitch band. Under the interval-even
+mapping above that compression is a constant transposition — a price line occupying a third of
+the pane gets a third of the octaves, wherever in the pane it sits — so it is a cost you can
+predict. When you want the price line to have the whole pitch range back, hide the band (H on the
+band, or its checkbox in the Object Tree). A hidden overlay is not drawn, not sounded and not
+counted when the pane is sized.
 
 ### Series, components, strips
 

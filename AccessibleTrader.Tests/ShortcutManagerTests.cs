@@ -154,6 +154,29 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
+        public void A_saved_profile_naming_a_RETIRED_command_keeps_every_other_binding()
+        {
+            // Every shortcuts.json written between 2026-09-21 and 2026-09-23 names
+            // ToggleScalePriceOnly (Alt+F), retired on 2026-09-23. StringEnumConverter throws on
+            // an unknown name, and the catch below falls back to the defaults — so without this
+            // the retirement would have silently discarded every customisation the user made.
+            File.WriteAllText(ShortcutsFile, """
+                {
+                  "Name": "Default",
+                  "Shortcuts": [
+                    { "Command": "OpenHelp", "Key": "F9", "Shift": false, "Ctrl": true, "Alt": false, "Scope": "GLOBAL" },
+                    { "Command": "ToggleScalePriceOnly", "Key": "F", "Shift": false, "Ctrl": false, "Alt": true, "Scope": "GLOBAL" }
+                  ]
+                }
+                """);
+
+            var mgr = new ShortcutManager(_paths);
+
+            Assert.Equal(SystemCommand.OpenHelp, mgr.GetCommand("F9", false, true, false));
+            Assert.Equal(SystemCommand.None, mgr.GetCommand("F", false, false, true));
+        }
+
+        [Fact]
         public void CorruptShortcutsFile_FallsBackToDefaults_WithoutThrowing()
         {
             File.WriteAllText(ShortcutsFile, "{ not valid json ///");

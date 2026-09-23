@@ -117,6 +117,28 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-23, SEVENTY-NINTH pass — ALT+F RETIRED, STYLESHEETS ONE
+> AGAIN. PRESENTATION DAY; SESSION WRAPPED HERE.)**
+>
+> **Done:** Alt+F / `ScalePriceOnly` removed at Cody's decision. Everything visible fits; hide a
+> band to give price the full pitch range. Saved shortcut profiles and workspaces load unchanged.
+> The `app.css` drift is fixed and guarded (`SharedStylesheetParityTests`). CHANGES `[Unreleased]`
+> has both.
+>
+> ### NEXT (unchanged order, items 1 and 5a of the previous block closed)
+>
+> 1. **Verify on Windows from the DOWNLOADED zip**: NVDA speaks, the chart canvas rect after the
+>    chrome diet, whether `DotPadSDK-3.0.0.dll` loads (the startup log).
+> 2. **HEAR the overlay auto-fit and the perceptual pitch band** (64th pass). With Alt+F gone, the
+>    auto-fit is the ONLY behaviour, so listening to a chart with a wide band is now more
+>    important, not less.
+> 3. `/download` and the .NET 10 Desktop Runtime, or a self-contained Windows head.
+> 4. Reconnection back-off; then `Services/Strategies`, `Analysis`, the JS harness campaigns.
+> 5. Nothing here is released yet. The next cut (2.12.1 or 2.13.0) carries the demo fix, Alt+F's
+>    retirement and the stylesheet sync. **Removing a default key binding made 2.8.0 a minor
+>    release, not a patch.** The same rule makes this one 2.13.0.
+
+
 > **START HERE (current as of 2026-09-22, SEVENTY-EIGHTH pass — THE DEMO OPENS ON ITS CHART.)**
 >
 > **Done this pass:**

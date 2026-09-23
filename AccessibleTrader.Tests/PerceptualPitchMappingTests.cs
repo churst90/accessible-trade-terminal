@@ -158,7 +158,7 @@ public sealed class PerceptualPitchMappingTests
     /// Including Main-pane overlays widens the price range, which compresses the price line into
     /// a smaller fraction of the pane. Under this mapping that costs a CONSTANT number of
     /// octaves wherever in the pane the price happens to sit — a predictable transposition the
-    /// user can reason about, and the thing Alt+F trades away. Under the old ramp the identical
+    /// user can reason about, and the reason hiding a band is the way to get the range back. Under the old ramp the identical
     /// compression cost several times as much pitch at the top of the pane as at the bottom, so
     /// the penalty for adding a Bollinger band depended on where the price was standing.
     /// </summary>

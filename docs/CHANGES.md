@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Alt+F ("fit price only") is retired; the two stylesheets are one again (2026-09-23)
+
+**At Cody's decision, after he asked why anyone would want overlays to run off the screen.** The
+switch existed to give the price line the whole pitch range when a wide band would compress it.
+But an overlay off the pane is not silent: `ChartMath.NormalizedPosition` clamps it to the pitch
+floor or ceiling, so it sounds like a band sitting still. A sighted user can see a band has
+left the pane; this user would hear a band that seems to have stopped. And the switch was never
+needed: a hidden component is already left out of the fit, so **hiding the band gives the price
+line its whole range back** with no mode to remember. Alt+F is the File menu in nearly every
+Windows program and is now deliberately unbound.
+
+- Removed: `SystemCommand.ToggleScalePriceOnly`, its binding, dispatch case and spoken
+  confirmation, `ToggleScalePriceOnlyAction`, `WorkspaceState`/`TabSnapshot.ScalePriceOnly`,
+  `TabConfiguration.ScalePriceOnly`, the sandbox projection field, and the entry in the Help
+  dialog, SHORTCUTS, QUICKSTART and USER_MANUAL. The auto-fit loop in `ViewportRangeCalculator`
+  now always runs.
+- **Saved files keep working.** Every `shortcuts.json` saved since 2.11 names the retired
+  command, and an unknown name used to throw and drop the WHOLE profile back to defaults.
+  `ShortcutManager.DropRetiredCommands` now removes only bindings to commands that no longer
+  exist, for this retirement and any later one. Old workspaces carrying `"ScalePriceOnly"` load
+  unchanged (Newtonsoft ignores an unknown member). Both pinned by tests; the loader's test is
+  red with the filter removed.
+- Tests rewritten to the new rule: hiding the band restores the candles-only axis, and does so
+  immediately (the store's recompute gate sees the series-list change). The hit-tester fixture
+  that leaned on the switch now pins its range directly.
+- **The two `app.css` copies drifted and are reconciled.** The 2026-07-26 phone fix that lets the
+  touch-nav button row wrap reached only the desktop copy; the web head, which is where phones
+  visit, still overflowed. The web copy now carries it, marks its genuinely web-only rules (the
+  speech chooser and the reconnect overlay) below a `WEB-ONLY BELOW THIS LINE` marker, and
+  `SharedStylesheetParityTests` requires everything above the marker to equal the desktop file.
+  It goes red on the original drift and names the line.
+
 ### The public demo opens on its chart, and a blank tab no longer blanks the toolbar (2026-09-22)
 
 **Reported by the server agent (hosted notes §5p) and reproduced in a real browser before anything
