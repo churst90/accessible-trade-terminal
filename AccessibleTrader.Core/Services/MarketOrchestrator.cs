@@ -273,7 +273,13 @@ namespace AccessibleTrader.Core.Services
                 var id = st.Identity;
                 if (id.Equals(_lastAdoptedIdentity)) return;
                 _lastAdoptedIdentity = id;
-                if (string.IsNullOrEmpty(id.Symbol) && string.IsNullOrEmpty(id.Provider)) return;
+                // No symbol, no chart — and the toolbar keeps what it has. This returned only
+                // when BOTH fields were empty, and the store's first state is ChartIdentity.Empty:
+                // provider "Bitstamp", symbol "". So every boot ran the sync below on a background
+                // task that wrote "" over the symbol the Toolbar's own cascade had just chosen,
+                // and the public demo's auto-load (gated on a symbol) never fired.
+                // See DemoOpensOnItsChartTests.
+                if (string.IsNullOrEmpty(id.Symbol)) return;
 
                 AdoptIdentityIntoToolbar(id);
                 if (!string.IsNullOrEmpty(id.Provider))
@@ -385,7 +391,10 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         private async Task SyncMarketToProviderAsync(ChartIdentity identity)
         {
-            if (string.IsNullOrEmpty(identity.Provider)) return;
+            // A blank tab (a new one, or the store's first state) carries a provider and no
+            // symbol. It names no chart, and the assignments at the bottom would write its ""
+            // over the dropdown — AdoptIdentityIntoToolbar skips empty fields, this must too.
+            if (string.IsNullOrEmpty(identity.Provider) || string.IsNullOrEmpty(identity.Symbol)) return;
 
             var markets = await _dataService.GetSupportedMarketsForProviderAsync(identity.Provider)
                                             .ConfigureAwait(false);
@@ -453,7 +462,9 @@ namespace AccessibleTrader.Core.Services
                     _availableMarkets.Add("Crypto");   // absolute fallback
 
                 if (string.IsNullOrEmpty(_selectedMarket) || !_availableMarkets.Contains(_selectedMarket))
-                    _selectedMarket = _availableMarkets[0];
+                    _selectedMarket = _demo.IsDemo && _availableMarkets.Contains(_demo.DefaultMarket)
+                        ? _demo.DefaultMarket
+                        : _availableMarkets[0];
 
                 // Keep the analytics-type selection valid so EffectiveMarket resolves the
                 // moment the umbrella is (or becomes) the active market.
@@ -547,7 +558,9 @@ namespace AccessibleTrader.Core.Services
             }
 
             if (string.IsNullOrEmpty(_selectedProvider) || !_availableProviders.Contains(_selectedProvider))
-                _selectedProvider = _availableProviders.FirstOrDefault() ?? "";
+                _selectedProvider = _demo.IsDemo && _availableProviders.Contains(_demo.DefaultProvider)
+                    ? _demo.DefaultProvider
+                    : _availableProviders.FirstOrDefault() ?? "";
 
             await RefreshSymbolsAsync().ConfigureAwait(false);
         }
@@ -699,7 +712,8 @@ namespace AccessibleTrader.Core.Services
                 || _selectedSymbol == ApiKeyRequiredSentinel
                 || !_availableSymbols.Contains(_selectedSymbol))
             {
-                _selectedSymbol = _availableSymbols.FirstOrDefault() ?? "";
+                _selectedSymbol = _demo.DefaultSymbolIn(_selectedProvider, _availableSymbols)
+                               ?? _availableSymbols.FirstOrDefault() ?? "";
             }
 
             if (!_availableTimeframes.Contains(_selectedTimeframe))

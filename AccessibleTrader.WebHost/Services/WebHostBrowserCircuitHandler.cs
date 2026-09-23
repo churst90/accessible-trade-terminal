@@ -354,7 +354,11 @@ namespace AccessibleTrader.WebHost.Services
             SaveSessionNow("connection down");
             var id = _coverageCircuitId ?? circuit?.Id;
             if (id != null) BrowserPresence.Disconnected(id);
-            return base.OnConnectionDownAsync(circuit, cancellationToken);
+            // Not base.OnConnectionDownAsync: CircuitHandler's is a no-op, and `circuit?.Id`
+            // above exists only because CircuitCoverageHandoffTests pass null! (Circuit has no
+            // public constructor) — forwarding that maybe-null to the base was CS8604. The
+            // framework always passes a real circuit, so there was no live defect behind it.
+            return Task.CompletedTask;
         }
 
         public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken cancellationToken)
@@ -369,7 +373,7 @@ namespace AccessibleTrader.WebHost.Services
                 BrowserPresence.Connected(id);
             }
             SetPresence(true);
-            return base.OnConnectionUpAsync(circuit, cancellationToken);
+            return Task.CompletedTask;   // base is a no-op; see OnConnectionDownAsync
         }
 
         /// <summary>

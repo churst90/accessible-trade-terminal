@@ -189,6 +189,10 @@ namespace AccessibleTrader.Core.Services
             new[] { "Ema", "Sma", "Bb", "Rsi", "Macd", "Vwap", "VPVR" };
 
         // ── Default selection the demo opens on ──────────────────────────────
+        // Read by MarketOrchestrator's cascade (market, provider, symbol) and by its demo
+        // timeframe clamp. Until 2026-09-22 only the timeframe had a caller; the demo appeared
+        // to open on Crypto/Bitstamp by accident and never selected the symbol at all. The
+        // Toolbar auto-loads once a symbol is selected. See DemoOpensOnItsChartTests.
         public string DefaultMarket    => "Crypto";
         public string DefaultProvider  => "Bitstamp";
         public string DefaultSymbol    => "BTC/USD";
@@ -259,6 +263,19 @@ namespace AccessibleTrader.Core.Services
             if (!AllowedSymbols.TryGetValue(provider, out var allowed)) return false;
             var n = Norm(symbol);
             return allowed.Any(a => Norm(a) == n);
+        }
+
+        /// <summary>The entry in <paramref name="symbols"/> that is the demo's
+        /// <see cref="DefaultSymbol"/>, in the provider's own spelling ("BTCUSD" for "BTC/USD"),
+        /// or null — always null outside the demo, and for any provider but
+        /// <see cref="DefaultProvider"/>, so switching market still lands on that market's
+        /// first symbol.</summary>
+        public string? DefaultSymbolIn(string provider, IReadOnlyList<string> symbols)
+        {
+            if (!IsDemo || !string.Equals(provider, DefaultProvider, StringComparison.OrdinalIgnoreCase))
+                return null;
+            var n = Norm(DefaultSymbol);
+            return symbols.FirstOrDefault(s => Norm(s) == n);
         }
 
         /// <summary>Intersect a provider's full symbol list with the whitelist

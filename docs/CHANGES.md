@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### The public demo opens on its chart, and a blank tab no longer blanks the toolbar (2026-09-22)
+
+**Reported by the server agent (hosted notes §5p) and reproduced in a real browser before anything
+was changed.** A first-time visitor to `/app/` got an empty Symbol box (options `BTCUSD` and
+`ETHUSD`, value `""`) and "Select a market and symbol to begin". The Toolbar has always
+auto-loaded the demo once a symbol is selected, so the question was what un-selected it.
+
+- **A race, and not a demo-only one.** The store's first state is `ChartIdentity.Empty`: provider
+  `"Bitstamp"`, symbol `""`. The toolbar-follows-the-chart subscription skipped an identity only
+  when BOTH fields were empty, so every boot ran `SyncMarketToProviderAsync` on a background task,
+  and that wrote `""` (and timeframe `1h`) over the symbol the Toolbar's own cascade had just
+  chosen. The same sync ran when switching to a blank new tab. **An identity with no symbol names
+  no chart now, and both the follower and the sync leave the toolbar alone for one.** On the
+  desktop this showed as a blank Symbol box on a fresh install.
+- **`DemoPolicy.DefaultMarket/Provider/Symbol` are read.** They had no caller. The demo had been
+  on Crypto only because of the race above, whose sync set the market from Bitstamp's, so
+  fixing the race alone would have opened the demo on AAPL (Stock is first in the list). The
+  symbol is matched in the provider's own spelling (`BTCUSD` for `BTC/USD`) through
+  `DemoPolicy.DefaultSymbolIn`, and only for the default provider, so switching market still lands
+  on that market's first symbol.
+- **Verified end to end:** a local `--demo` host driven by headless Chromium lands on
+  "BTCUSD 1d on Bitstamp" with the chart drawn from live Bitstamp data, where the same probe
+  against the unfixed build showed the empty box for 25 seconds.
+- **Tests:** `DemoOpensOnItsChartTests` (5). All red or proven load-bearing by sabotage: the two
+  identity guards are redundant for the boot race, so each one also has its own case (the blank
+  tab switch for the sync, a blank identity moving the provider for the follower), and reverting
+  either one alone turns its case red. The existing `A_blank_identity_does_not_wipe_the_dropdowns`
+  had dispatched `new ChartIdentity()`, whose provider is also empty, and asserted before the
+  background write could land. So it covered neither the identity the app starts with nor the
+  write that did the damage.
+
+### Two `CS8604` warnings in `WebHostBrowserCircuitHandler` (2026-09-22)
+
+`OnConnectionDown/UpAsync` forwarded a maybe-null `circuit` to `CircuitHandler`'s base methods.
+Checked for a live defect first: there was none. The `circuit?.Id` exists only because
+`CircuitCoverageHandoffTests` pass `null!` (a `Circuit` cannot be constructed in a test), the
+framework always passes a real one, and the base methods are no-ops. They now return
+`Task.CompletedTask` directly.
+
+### The segfault watch is closed as measured (2026-09-22)
+
+Hosted notes §7g: 0 crashes, 0 dumps, 0 unscheduled restarts across 389.7 service-hours since the
+`ChartRenderer.cs:82` fix, against ~5.4 expected unfixed (P ≈ 0.004). Recorded on
+`docs/REPORT_CARD_2026-09-13.md`, with the server agent's caveat that `394a5c66` rewrote the
+renderer on 2026-09-12.
+
 ## [2.12.0] — 2026-09-22
 
 ### The packaging fixes did not reach the packages — v2.12.0 re-cut (2026-09-22)

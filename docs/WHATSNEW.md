@@ -6,6 +6,13 @@
      Check with `git diff <lasttag> HEAD -- docs/WHATSNEW.md` before every cut — this file has
      accumulated post-tag entries under an old heading before. -->
 
+## Unreleased
+
+- **The online demo opens on a chart.** Visiting the demo now lands straight on a live Bitcoin
+  daily chart that already speaks, instead of an empty symbol box and four steps to get there.
+- **A new tab no longer empties the Symbol box.** Opening a blank tab, or starting the app for the
+  first time, used to clear the symbol you had selected, so Load Chart had nothing to load.
+
 ## 2.12.0 — the Windows client speaks, and the chart gets its window back
 
 *Everything before this is in `CHANGES.md`.*

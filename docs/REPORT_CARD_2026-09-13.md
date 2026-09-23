@@ -99,9 +99,13 @@ no recorded paper-then-live session with real money and a journal.
   shipped in 2.10.0 compiled and never run on a Windows machine, and WHATSNEW says so rather than
   claiming otherwise. The Braille tab is desktop-only by construction, so its markup has never
   rendered on the head that has a Dot Pad attached.
-- **The segfault fix (§7g).** The watch window ran to ~2026-09-10 and has now elapsed with no
-  crash reported, but the report would come from the hosted box and this card cannot query it.
-  Absence of a report is not the same as a measurement — the standing rule applies.
+- ~~**The segfault fix (§7g).**~~ **CLOSED AS MEASURED, 2026-09-22.** The box was queried rather
+  than the silence trusted: at 2026-09-20 00:25 UTC, **0 crashes, 0 dumps, 0 unscheduled
+  restarts across 389.7 service-hours** since the fix (hosted notes §7g), against ~5.4 expected
+  under the old behaviour — P(0 | unfixed) ≈ 0.004. That clears the bar the watch set for itself.
+  One caveat stands, and it is the server agent's: `394a5c66` rewrote `ChartRenderer.cs` on
+  2026-09-12, so the later hours watch different code. A new crash would be a new finding, not
+  this one reopening. The dump capture (§7f) stays in place for exactly that.
 - **Analytics plugins as a whole** — no dedicated pass since 08-24.
 - **Real money at a real venue** — a sandbox is not a fill.
 - **`RenderCandles`'s phase-colour branch** — no fixture exists, so it is not that the tests are

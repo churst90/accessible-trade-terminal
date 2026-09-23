@@ -117,6 +117,43 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-22, SEVENTY-EIGHTH pass — THE DEMO OPENS ON ITS CHART.)**
+>
+> **Done this pass:**
+> - **The server agent has been told** (Cody relayed `patches/2026-09-22-PACKAGING-FIXED-REPLY.md`)
+>   and the site is updated. Hand-offs 1 of the previous block are CLOSED.
+> - **§5p: the demo opens on BTCUSD 1d.** Reproduced first, in headless Chromium against a local
+>   `--demo` host. The root cause was a boot race that also hit the desktop:
+>   `ChartIdentity.Empty` (provider Bitstamp, symbol "") drove a background toolbar sync that
+>   blanked the symbol. The `DemoPolicy` defaults are now read. `DemoOpensOnItsChartTests`, 5,
+>   each sabotage-proven. See CHANGES `[Unreleased]`.
+> - **§5s: both `CS8604` gone.** No live defect behind them; the base methods are no-ops.
+> - **The segfault watch is CLOSED as measured** on `REPORT_CARD_2026-09-13.md`.
+> - **ReadyToRun is DROPPED at Cody's word (2026-09-22): "start up time is fast, this is not an
+>   issue."** The rule stays `warn` in `packaging/release-payloads.json`. Do not chase it again.
+>
+> ### NEXT
+>
+> 1. **Alt+F (`ScalePriceOnly`) — Cody's decision, discussed 2026-09-22.** He found it confusing
+>    ("why would one want overlays to run off the screen?"). My recommendation: RETIRE the
+>    toggle and make "everything visible fits" the only behaviour. Hiding a band (Object Tree)
+>    already removes it from the fit, so a user who wants price resolution back has a way that
+>    needs no mode. Alt+F is also the File menu in nearly every Windows app. Awaiting his answer.
+> 2. **Verify on Windows from the DOWNLOADED zip**: NVDA speaks, the chart canvas rect after the
+>    chrome diet, and whether `DotPadSDK-3.0.0.dll` loads (the startup log, no device needed).
+> 3. **HEAR the 64th pass's two changes** (overlay auto-fit and the perceptual pitch band). They
+>    shipped in 2.12.0 unheard.
+> 4. `/download` should state the .NET 10 Desktop Runtime requirement, or make the Windows head
+>    self-contained (forward RID + `SelfContained` through the ScriptWorker ProjectReference, as
+>    the WebHost does). Measure it first.
+> 5. The two `app.css` copies have drifted; then reconnection back-off; then the carried
+>    campaigns (`Services/Strategies`, `Analysis`, the JS harness).
+>
+> ### CARRIED
+>
+> Unchanged from the previous block, minus the segfault watch and R2R.
+
+
 > **START HERE (current as of 2026-09-22, SEVENTY-SEVENTH pass — v2.12.0 WAS PUBLISHED WITHOUT
 > THE PAYLOADS IT PROMISED, AND HAS BEEN RE-CUT.)** Suite **8,080**, 0 failing. The tag,
 > the release and the six zips were all replaced; **SHA256SUMS changed**, so anyone holding the
