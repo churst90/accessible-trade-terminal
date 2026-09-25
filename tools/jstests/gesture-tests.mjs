@@ -83,7 +83,12 @@ function makeHarness() {
   };
   const touch = (x, y) => ({ clientX: x, clientY: y });
 
-  return { calls, fire, advance, touch, tick: (ms) => { now += ms; }, api: sandbox.window.accessibleTrader };
+  const fireWindow = (type, ev) => {
+    ev.preventDefault ??= () => {};
+    for (const fn of windowListeners[type] ?? []) fn(ev);
+  };
+
+  return { calls, fire, fireWindow, advance, touch, tick: (ms) => { now += ms; }, api: sandbox.window.accessibleTrader };
 }
 
 const results = [];
@@ -264,6 +269,35 @@ test('double-click emits OnDoubleClick (jump to live)', () => {
   const h = makeHarness();
   h.fire('dblclick', {});
   assert.equal(ofMethod(h.calls, 'OnDoubleClick').length, 1);
+});
+
+// ── Right-click (A2k, 2026-09-24: K35's only "catch" was a flake) ──
+
+test('right-click suppresses the browser menu and asks .NET for the chart menu at the cursor', () => {
+  const h = makeHarness();
+  let prevented = false;
+  h.fire('contextmenu', { clientX: 300, clientY: 120, preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true, 'the browser menu would open over the chart');
+  assert.deepEqual(ofMethod(h.calls, 'OnContextMenu'), [['OnContextMenu', 300, 120, 1000, 500]]);
+});
+
+// ── A drag released off the chart (A2k, 2026-09-24: K32 survived every suite) ──
+
+test('a drag released OFF the chart still ends with one MouseUp', () => {
+  const h = makeHarness();
+  h.fire('mousedown', { clientX: 100, clientY: 100 });
+  h.fireWindow('mouseup', { clientX: 1500, clientY: 900 });   // released outside the chart
+  assert.equal(ofMethod(h.calls, 'OnMouseEvent').filter(c => c[3] === 'MouseUp').length, 1,
+    'without it a pan or a drawing drag never terminates');
+});
+
+test('a release over the chart is not reported twice, and a stray release is not reported', () => {
+  const h = makeHarness();
+  h.fireWindow('mouseup', { clientX: 10, clientY: 10 });       // no drag in progress
+  h.fire('mousedown', { clientX: 100, clientY: 100 });
+  h.fire('mouseup', { clientX: 120, clientY: 100 });
+  h.fireWindow('mouseup', { clientX: 120, clientY: 100 });      // the same event bubbling to window
+  assert.equal(ofMethod(h.calls, 'OnMouseEvent').filter(c => c[3] === 'MouseUp').length, 1);
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────

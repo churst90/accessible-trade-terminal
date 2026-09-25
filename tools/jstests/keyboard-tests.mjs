@@ -213,7 +213,9 @@ function makeHarness() {
     return { defaultPrevented, stopped };
   };
 
-  return { calls, press, pressEvent, node, dialog, mountDialogs, mountBackground, setActive,
+  const release = (key) => { for (const fn of windowListeners.keyup ?? []) fn({ key }); };
+
+  return { calls, press, pressEvent, release, win: sandbox.window, node, dialog, mountDialogs, mountBackground, setActive,
            doc: sandbox.document, api: sandbox.window.accessibleTrader };
 }
 
@@ -1098,6 +1100,71 @@ test('focusElement retries an element that refuses focus, and takes it once it s
   assert.equal(chart.focused, true, 'the retry landed the focus the first attempt was refused');
 });
 
+test('focusElement never pulls focus back from where the user has since gone (A2k K42)', () => {
+  // The retry waits for a dialog that has not rendered yet. If the user moves meanwhile, a late
+  // frame that still landed the focus would yank them out of wherever they went.
+  const h = makeHarness();
+  const target = h.node('DIV', { id: 'late' });
+  const elsewhere = h.node('BUTTON');
+  let lookups = 0;
+  h.doc.getElementById = (id) => {
+    if (id !== 'late') return null;
+    if (lookups++ === 0) { h.setActive(elsewhere); return null; }   // not rendered; the user moves
+    return target;                                                   // rendered a frame later
+  };
+
+  h.api.focusElement('late');
+
+  assert.equal(target.focused, false, 'the late frame took focus back from the user');
+  assert.equal(h.doc.activeElement, elsewhere);
+});
+
+test('once the chart loses focus, a letter typed elsewhere is not a chart command (A2k K44)', () => {
+  // setChartFocused(false) is what stops H from hiding the focused series while the user types
+  // an "h" into a custom editor. A flag that only ever turns on arms every letter for good the
+  // first time the chart is focused.
+  const h = makeHarness();
+  h.api.setChartFocused(true);
+  h.api.setChartFocused(false);
+  assert.equal(h.press('h', h.node('DIV')), false);
+  assert.deepEqual(keysSent(h.calls), []);
+});
+
+test('text size is held between 50% and 250% (A2k K45)', () => {
+  // Settings → Appearance → Text size. A saved or imported value outside the range must not
+  // shrink the interface to nothing or blow it past the viewport.
+  const h = makeHarness();
+  h.doc.documentElement = { style: {} };
+  for (const [pct, px] of [[1000, '40px'], [10, '8px'], [0, '8px'], [125, '20px']]) {
+    h.api.setUiScale(pct);
+    assert.equal(h.doc.documentElement.style.fontSize, px, `${pct}%`);
+  }
+});
+
+test('a desktop that also reports a coarse pointer is not a touch device (A2k K46)', () => {
+  // Desktop Linux input stacks (accessibility setups among them) can report the PRIMARY pointer
+  // as coarse. The touch toolbar would then sit in the accessibility tree of a desktop screen
+  // reader for good. A fine pointer anywhere is the discriminator.
+  const media = (coarse, fine) => (q) => ({ matches: q === '(pointer: coarse)' ? coarse : q === '(any-pointer: fine)' ? fine : false });
+  const h = makeHarness();
+  for (const [coarse, fine, expected] of [[true, true, false], [true, false, true], [false, true, false]]) {
+    h.win.matchMedia = media(coarse, fine);
+    assert.equal(h.api.isTouchCapable(), expected, `coarse=${coarse} fine=${fine}`);
+  }
+});
+
+test('the chart metrics carry the device pixel ratio, so HiDPI renders sharp (A2k K47)', () => {
+  const h = makeHarness();
+  const el = h.node('DIV');
+  el.getBoundingClientRect = () => ({ width: 800, height: 400 });
+  h.doc.getElementById = (id) => (id === 'chart' ? el : null);
+  h.win.devicePixelRatio = 2;
+  assert.deepEqual([...h.api.getChartMetrics('chart')], [800, 400, 2]);
+  h.win.devicePixelRatio = undefined;
+  assert.deepEqual([...h.api.getChartMetrics('chart')], [800, 400, 1], 'no ratio reported: 1');
+  assert.deepEqual([...h.api.getChartMetrics('missing')], [0, 0, 1]);
+});
+
 test('focusElement gives up on an element that never accepts focus', () => {
   // The retry is bounded. A permanently unfocusable id must cost ten frames and stop, not
   // spin — and must not leave the harness (or a browser) in a loop.
@@ -1113,6 +1180,33 @@ test('focusElement gives up on an element that never accepts focus', () => {
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────
+
+// ── Three survivors of the A2k campaign (2026-09-24) ─────────────────────────────
+
+test('the Menu key reaches the dispatcher as CONTEXTMENU (keyboard parity with right-click)', () => {
+  const h = makeHarness();
+  assert.equal(h.press('ContextMenu', h.node('DIV')), true, 'the browser menu must not open over the chart');
+  assert.deepEqual(keysSent(h.calls), ['CONTEXTMENU']);
+});
+
+test('a modifier chord is hard-stopped, so the browser never sees a reserved shortcut', () => {
+  // Ctrl+Shift+T reopens a tab, Ctrl+Shift+N opens a private window: the app binds chords like
+  // these, and a later listener (the browser's, the WebView's) must not also act on them.
+  const h = makeHarness();
+  const r = h.pressEvent('t', h.node('DIV'), { ctrl: true, shift: true });
+  assert.equal(r.defaultPrevented, true);
+  assert.equal(r.stopped, true);
+  const plain = makeHarness();
+  plain.api.setChartFocused(true);
+  assert.equal(plain.pressEvent('h', plain.node('DIV')).stopped, false, 'an unmodified key is not stopped');
+});
+
+test('releasing an arrow stops the sustained navigation tone; other keys do not ask', () => {
+  const h = makeHarness();
+  h.release('ArrowLeft');
+  h.release('h');
+  assert.deepEqual(h.calls.filter(c => c[0] === 'OnKeyUp'), [['OnKeyUp', 'ArrowLeft']]);
+});
 
 // ── The rebinding capture (Settings → Keyboard → Rebind) ────────────────────────
 //

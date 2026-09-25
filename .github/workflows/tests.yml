@@ -92,6 +92,21 @@ jobs:
       - name: JS reconnect tests
         run: node tools/jstests/reconnect-tests.mjs
 
+      # canvasRegion.js — the chart rect the desktop head places the native canvas on. Nothing
+      # in the browser suite listens to it (only the MAUI head does), so this is its only test.
+      - name: JS canvas region tests
+        run: node tools/jstests/canvas-region-tests.mjs
+
+      # audio.js — the WebHost's PCM sink. Channel order (the chart is panned by time) and the
+      # scheduling rules had no test until the A2k campaign found a left/right swap survived.
+      - name: JS audio tests
+        run: node tools/jstests/audio-tests.mjs
+
+      # webSpeech.js, webPush.js, service-worker.js — the browser voice's interrupt, the saved
+      # speech-output choice, push enrolment and notification tags. None had a test before A2k.
+      - name: JS WebHost small-script tests
+        run: node tools/jstests/webhost-small-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v6

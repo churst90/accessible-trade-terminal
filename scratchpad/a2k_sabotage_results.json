@@ -1,0 +1,784 @@
+{
+ "K01": {
+  "desc": "Space on a <summary> plays the chart instead of opening it",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Space on a <summary> disclosure is left alone"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K02": {
+  "desc": "a disabled role=button still counts as a Space target",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Space on a DISABLED button still plays the chart \u2014 it activates nothing"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K03": {
+  "desc": "Space no longer toggles a role=checkbox",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Space on role=button / checkbox / switch / tab / option / treeitem is left alone"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K04": {
+  "desc": "Space activation carve-out removed: Space cancels every button",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Space on a button is left alone so the activation click survives",
+   "keyboard-tests.mjs: FAIL  Space on a <summary> disclosure is left alone",
+   "keyboard-tests.mjs: FAIL  Space on role=button / checkbox / switch / tab / option / treeitem is left alone",
+   "keyboard-tests.mjs: FAIL  Space on a DISABLED button still plays the chart \u2014 it activates nothing"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K05": {
+  "desc": "a pushed dialog forgets what opened it",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a re-open that moves an entry to the top keeps the return targets it already knew",
+   "keyboard-tests.mjs: FAIL  closing a stacked dialog returns focus to the control that opened it",
+   "keyboard-tests.mjs: FAIL  the return target is captured BEFORE the background goes inert"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K06": {
+  "desc": "closing a stacked dialog returns focus nowhere",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a return target OUTSIDE the dialog now on top is not used \u2014 the heading is",
+   "keyboard-tests.mjs: FAIL  a disabled opener is not a place to return to \u2014 the heading is",
+   "keyboard-tests.mjs: FAIL  a return target that has left the document is not used \u2014 the heading is",
+   "keyboard-tests.mjs: FAIL  closing a stacked dialog returns focus to the control that opened it",
+   "keyboard-tests.mjs: FAIL  when the opener is no longer rendered, focus returns to the top dialog's heading"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K07": {
+  "desc": "the background is never inerted",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  every background region goes inert when a modal opens",
+   "keyboard-tests.mjs: FAIL  the background stays inert while a SECOND modal is open on top",
+   "keyboard-tests.mjs: FAIL  closing one of two modals leaves the background inert",
+   "keyboard-tests.mjs: FAIL  a region rendered while a modal was already open is caught by the next change",
+   "keyboard-tests.mjs: FAIL  the return target is captured BEFORE the background goes inert"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K08": {
+  "desc": "a non-top close yanks the user to the heading",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  closing a dialog UNDERNEATH the top one leaves focus where it is, in the top one"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K09": {
+  "desc": "the top dialog is resolved from the BOTTOM of the stack",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  with two dialogs open, the trap keeps focus in the one on TOP OF THE STACK, not the last in the DOM",
+   "keyboard-tests.mjs: FAIL  focus standing in the dialog BENEATH the top one is brought up into the top one",
+   "keyboard-tests.mjs: FAIL  a stack entry with no dialog element (a role=menu) falls through to the entry beneath",
+   "keyboard-tests.mjs: FAIL  an out-of-step stack is rebuilt from the names rather than thrown away"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K10": {
+  "desc": "visible-dialog filter reverts to offsetParent",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a dialog that is itself position:fixed (offsetParent null) is still seen by the trap"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K11": {
+  "desc": "Shift+Tab on the first control walks out of the dialog",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Tab wraps at the end and Shift+Tab wraps at the start",
+   "keyboard-tests.mjs: FAIL  a <summary> roved to tabindex=\"-1\" is NOT a tab stop, so the tree dialog does not leak backwards"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K12": {
+  "desc": "Tab on the last control walks out of the dialog",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Tab wraps at the end and Shift+Tab wraps at the start",
+   "keyboard-tests.mjs: FAIL  a dialog that is itself position:fixed (offsetParent null) is still seen by the trap",
+   "keyboard-tests.mjs: FAIL  with two dialogs open, the trap keeps focus in the one on TOP OF THE STACK, not the last in the DOM"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K13": {
+  "desc": "the opening heading is a one-keystroke hole in the trap",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Shift+Tab from the opening heading is trapped inside the dialog",
+   "keyboard-tests.mjs: FAIL  Tab from the opening heading goes forward to the first control",
+   "keyboard-tests.mjs: FAIL  the trap sees role=alertdialog, not just role=dialog",
+   "keyboard-tests.mjs: FAIL  a dialog that is itself position:fixed (offsetParent null) is still seen by the trap",
+   "keyboard-tests.mjs: FAIL  an element inside the dialog that is genuinely NOT a tab stop still seeds the trap"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K14": {
+  "desc": "<summary> is not a tab stop to the trap (Help unreadable)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  with two dialogs open, the trap keeps focus in the one on TOP OF THE STACK, not the last in the DOM",
+   "keyboard-tests.mjs: FAIL  focus standing in the dialog BENEATH the top one is brought up into the top one",
+   "keyboard-tests.mjs: FAIL  a stack entry with no dialog element (a role=menu) falls through to the entry beneath",
+   "keyboard-tests.mjs: FAIL  an out-of-step stack is rebuilt from the names rather than thrown away",
+   "keyboard-tests.mjs: FAIL  a <summary> disclosure is a tab stop, so Tab is not pinned on a details-built dialog"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K15": {
+  "desc": "a roved-out <summary tabindex=-1> counts as a tab stop",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a <summary> roved to tabindex=\"-1\" is NOT a tab stop, so the tree dialog does not leak backwards"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K16": {
+  "desc": "the trap ignores alertdialog",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  the trap sees role=alertdialog, not just role=dialog",
+   "keyboard-tests.mjs: FAIL  a dialog that is itself position:fixed (offsetParent null) is still seen by the trap"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K17": {
+  "desc": "the pin keys ; and : stop reaching .NET",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Shift+; reaches the dispatcher as a shifted OEM1, the same key as the bare semicolon"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K18": {
+  "desc": "the Menu key stops opening the context menu",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 218
+ },
+ "K19": {
+  "desc": "AltGr counts as a chord: \u00e5/\u20ac/@ swallowed in text fields",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  AltGr characters are typed, not chorded: AltGr+W (\u00e5) in a field reaches the field"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K20": {
+  "desc": "Escape is swallowed by a focused text field",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Escape still reaches the dispatcher from inside a form control"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K21": {
+  "desc": "F-keys are dead inside text fields again",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  F1 reaches the dispatcher from inside a text input",
+   "keyboard-tests.mjs: FAIL  F2 and F12 reach the dispatcher from a <select> and a <textarea>",
+   "keyboard-tests.mjs: FAIL  F1 reaches the dispatcher from a contenteditable region",
+   "keyboard-tests.mjs: FAIL  Shift+F10 in a text field keeps the native context menu (paste, spell-check)"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K22": {
+  "desc": "Shift+F10 in a text field loses the native context menu",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Shift+F10 in a text field keeps the native context menu (paste, spell-check)"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K23": {
+  "desc": "Alt+Shift+Arrow in a field is trapped (macOS select-by-word lost)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Alt+Shift+Arrow inside a text field is still left to the field (select-by-word on macOS)"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K24": {
+  "desc": "scroll keys are trapped under a dialog (tall dialogs unreadable)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  scroll keys are released while a modal is open, so a tall dialog can be read",
+   "keyboard-tests.mjs: FAIL  a SHIFTED arrow is not a scroll key: under a dialog it still reaches the dispatcher"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K25": {
+  "desc": "scroll keys are released even inside a tablist/tree",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  scroll keys are still trapped inside a dialog composite widget"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K26": {
+  "desc": "single letters fire from anywhere, not only the chart",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a bare semicolon is gated on chart focus, like comma and period",
+   "keyboard-tests.mjs: FAIL  single-letter chart commands stay gated on chart focus"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K27": {
+  "desc": "modifier chords are no longer hard-stopped",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 248
+ },
+ "K28": {
+  "desc": "macOS Option chords lose the e.code fallback",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  Option-transformed characters fall back to the physical key (macOS Ctrl+Option+Shift+G)",
+   "keyboard-tests.mjs: FAIL  capture: the key is spelled the way the trap dispatches it"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K29": {
+  "desc": "Shift+/ ('?') no longer maps to OEM2",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  capture: the key is spelled the way the trap dispatches it"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K30": {
+  "desc": "releasing an arrow never stops the sustained navigation tone",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 251
+ },
+ "K31": {
+  "desc": "shifted arrows are released as scroll keys under a dialog",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  a SHIFTED arrow is not a scroll key: under a dialog it still reaches the dispatcher"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K32": {
+  "desc": "a drag released off the chart never ends",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 253
+ },
+ "K33": {
+  "desc": "the wheel zooms the wrong way",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  plain wheel zooms; shift+wheel pans"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K34": {
+  "desc": "Shift+wheel pans the wrong way",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  plain wheel zooms; shift+wheel pans",
+   "gesture-tests.mjs: FAIL  horizontal trackpad swipe pans without shift"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "K35": {
+  "desc": "right-click shows the browser's menu over the chart",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ModalBrowserContractTests.Tab_never_escapes_an_open_dialog(routeName:"
+  ],
+  "note": "",
+  "secs": 257
+ },
+ "K36": {
+  "desc": "pinch-spread zooms out",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  pinch apart zooms in via OnWheel with a centroid fraction"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K37": {
+  "desc": "a double-tap is never recognised",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  double-tap fires OnDoubleClick on the second tap"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K38": {
+  "desc": "long-press never opens the context menu",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  long-press opens the context menu and eats the touchend"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K39": {
+  "desc": "Explore mode pans instead of speaking",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  explore mode: finger slide emits TouchExplore per move, never pans"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K40": {
+  "desc": "a tap is a drag: slop ignored",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "gesture-tests.mjs: FAIL  micro-jitter below the slop stays a tap, not a drag"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K41": {
+  "desc": "focusElement gives up after one frame (Alt+T race returns)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  focusElement retries an element that refuses focus, and takes it once it stops",
+   "keyboard-tests.mjs: FAIL  focusElement gives up on an element that never accepts focus"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K42": {
+  "desc": "focusElement yanks focus back after the user moved it",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 230
+ },
+ "K43": {
+  "desc": "focusElement treats 'found' as success (inert refusal not retried)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "keyboard-tests.mjs: FAIL  focusElement retries an element that refuses focus, and takes it once it stops",
+   "keyboard-tests.mjs: FAIL  focusElement gives up on an element that never accepts focus"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "K44": {
+  "desc": "the chart never learns it lost focus",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 222
+ },
+ "K45": {
+  "desc": "text size is not clamped",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 228
+ },
+ "K46": {
+  "desc": "a desktop with a coarse primary pointer shows the touch bar",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 242
+ },
+ "K47": {
+  "desc": "the chart renders at 1x on a HiDPI screen",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/keyboard.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 331
+ },
+ "T01": {
+  "desc": "a stale aria-expanded outranks <details open>",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  ArrowRight on a collapsed pane header opens its <details>; a second press enters it",
+   "tree-tests.mjs: FAIL  ArrowLeft on an open series collapses it; ArrowLeft again goes to the pane header",
+   "tree-tests.mjs: FAIL  the <details> is the source of truth: a stale aria-expanded=\"true\" cannot invert ArrowRight"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T02": {
+  "desc": "items inside a closed <details> are walked into",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  a closed <details> hides its treeitems even when they still report layout boxes"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T03": {
+  "desc": "the roving tabindex is never reset (many Tab stops)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  the roving tabindex follows focus: exactly one treeitem is a Tab stop"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T04": {
+  "desc": "ArrowRight on a collapsed group skips past instead of expanding",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  the header of a collapsed pane stays in the walk \u2014 it is the control that re-opens it",
+   "tree-tests.mjs: FAIL  ArrowRight on a collapsed pane header opens its <details>; a second press enters it",
+   "tree-tests.mjs: FAIL  the <details> is the source of truth: a stale aria-expanded=\"true\" cannot invert ArrowRight",
+   "tree-tests.mjs: FAIL  a series with no components is a leaf: ArrowRight does nothing rather than opening an empty group",
+   "tree-tests.mjs: FAIL  without a <details>, aria-expanded decides and the data-tree-toggle button is what gets clicked"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T05": {
+  "desc": "ArrowLeft never reaches the parent",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  ArrowLeft on an open series collapses it; ArrowLeft again goes to the pane header",
+   "tree-tests.mjs: FAIL  ArrowLeft on a component (a leaf) moves to its series"
+  ],
+  "note": "",
+  "secs": 0
+ },
+ "T06": {
+  "desc": "a shifted arrow is taken by the tree (anchor nudge lost)",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  a SHIFTED arrow is not the tree's: focus stays, nothing is prevented"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T07": {
+  "desc": "End goes to the first item",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  ArrowUp walks back and Home / End jump"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "T08": {
+  "desc": "Space on a leaf does nothing",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/treeKeyboard.js",
+  "caught": true,
+  "layer": "node",
+  "failing": [
+   "tree-tests.mjs: FAIL  Space toggles a group and activates a leaf"
+  ],
+  "note": "",
+  "secs": 1
+ },
+ "C01": {
+  "desc": "the reported bottom inset is the rect's bottom, not the gap below it",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/canvasRegion.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 304
+ },
+ "C02": {
+  "desc": "scrolling no longer re-reports the chart rect",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/canvasRegion.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ChartSurvivesASmallWindowTests.TheCanvasRegionReporterListensForScrollAndNotOnlyResize"
+  ],
+  "note": "",
+  "secs": 284
+ },
+ "C03": {
+  "desc": "a chart scrolled above the viewport reports a negative top",
+  "file": "AccessibleTrader.BlazorClient.Components/wwwroot/js/canvasRegion.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 293
+ },
+ "R01": {
+  "desc": "a failed reconnect says nothing",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/reconnect.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ReconnectAndHealthBrowserTests.EveryStateTransitionRewritesTheStatusText"
+  ],
+  "note": "",
+  "secs": 311
+ },
+ "R02": {
+  "desc": "a repeated sentence is written unchanged (and may not re-announce)",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/reconnect.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 273
+ },
+ "R03": {
+  "desc": "an attempt-counter bump is not re-announced",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/reconnect.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 269
+ },
+ "R04": {
+  "desc": "the reassurance about orders is dropped",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/reconnect.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ReconnectAndHealthBrowserTests.EveryStateTransitionRewritesTheStatusText"
+  ],
+  "note": "",
+  "secs": 259
+ },
+ "A01": {
+  "desc": "left and right channels are swapped",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/audio.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 270
+ },
+ "A02": {
+  "desc": "a resync seam is not declicked",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/audio.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 263
+ },
+ "A03": {
+  "desc": "chunks pushed while suspended burst-play later",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/audio.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 262
+ },
+ "A04": {
+  "desc": "overrun is never resynced (latency grows without bound)",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/audio.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 303
+ },
+ "W01": {
+  "desc": "an interrupting announcement no longer interrupts",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/webSpeech.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ModalBrowserContractTests.ShiftTab_never_escapes_an_open_dialog(routeName:"
+  ],
+  "note": "",
+  "secs": 284
+ },
+ "W02": {
+  "desc": "the speech-output choice is read from a different key than it is saved to",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/webSpeech.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 272
+ },
+ "P01": {
+  "desc": "the push subscription sends p256dh and auth swapped",
+  "file": "AccessibleTrader.WebHost/wwwroot/js/webPush.js",
+  "caught": false,
+  "layer": null,
+  "failing": [],
+  "note": "",
+  "secs": 257
+ },
+ "P02": {
+  "desc": "every alert notification replaces the last (one shared tag)",
+  "file": "AccessibleTrader.WebHost/wwwroot/service-worker.js",
+  "caught": true,
+  "layer": "browser",
+  "failing": [
+   "AccessibleTrader.BrowserTests.ModalBrowserContractTests.ShiftTab_never_escapes_an_open_dialog(routeName:"
+  ],
+  "note": "",
+  "secs": 223
+ },
+ "_control": {
+  "node": [],
+  "csharp": [],
+  "browser": [],
+  "browser_summary": "('Passed!', '0', '231')"
+ }
+}

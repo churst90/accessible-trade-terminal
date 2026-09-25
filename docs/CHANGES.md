@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2k: the JavaScript, mutated for the first time (2026-09-24)
+
+Every earlier campaign mutated C#. The JavaScript the browser runs had never been mutated, and it
+is where the defects that passed ~8,000 green tests keep turning up (Alt+T, Space cancelling
+every button, the `;` keys that never reached .NET). Reading it for this campaign found the two
+keyboard dead ends above before a mutant ran.
+
+- **70 mutants over all nine shipped scripts.** Killers in order: the node suites, the C# tests
+  that read JS source, then the full browser suite (231 tests), per mutant. Control green on all
+  three layers, every file restored byte-identical. Scripts and results:
+  `scratchpad/a2k_js_sabotage.py`, `a2k_sabotage_results.json`, `a2k_prove_kills.py`.
+- **Raw 51/70; honest 48/70 (68.6%).** Three "catches" (K35 right-click, W01 speech interrupt,
+  P02 notification tags) were a modal Tab/Shift+Tab browser test failing under CPU contention,
+  with four C# campaigns running alongside. Re-run with each mutant applied, all 120 modal tests
+  passed. **`ModalBrowserContractTests`' Tab trap tests are flaky under load**: worth knowing
+  before trusting a red CI browser job.
+- **Where it was guarded and where it was not.** `treeKeyboard.js` 8/8, and most of the keydown
+  trap, by the node suites that already existed. Four scripts had **no test at all**:
+  `canvasRegion.js` (1 of 3 caught, by a browser test), `audio.js` (0/4, including a left/right
+  swap on a chart panned by time), `webSpeech.js` (the interrupt of an order fill), `webPush.js`
+  and the service worker. K29 (Shift+/ mapping) was caught only by a test written earlier today.
+- **All 22 survivors closed:** 20 killed by named tests, each proven red on its mutant
+  (`a2k_prove_kills.py`); R02 and R03 superseded, because the code they mutated in `reconnect.js`
+  was replaced by the accessibility-review fix and its replacement is guarded. New suites, all in
+  CI: `canvas-region-tests.mjs`, `audio-tests.mjs`, `webhost-small-tests.mjs`; new cases in the
+  keyboard (Menu key, chord hard-stop, arrow keyup, focus not stolen back, chart-focus release,
+  text-size clamp, touch detection, HiDPI ratio) and gesture suites (off-chart drag release,
+  right-click).
+
 ### Pitch follows, in Properties; and the clone sweep was already done (2026-09-24)
 
 - **Properties → Sonification → Pitch follows** exposes each component's `PitchMapping`
