@@ -105,6 +105,29 @@ public class WebHostSecurityPolicyTests
         Assert.Contains("img-src 'self' data:", csp);
     }
 
+    /// <summary>
+    /// The script-src DIRECTIVE, read whole, for both policies.
+    ///
+    /// <para>
+    /// <b>A2o, O17.</b> The test above asserts <c>Contains("script-src 'self'")</c>, which is
+    /// green under <c>script-src 'self' 'unsafe-inline'</c> — the one change that removes the
+    /// CSP's XSS value. The mutant was caught only by
+    /// <see cref="DemoCsp_DiffersFromStrictCsp_OnlyInFrameAncestors"/>, a PARITY pin whose
+    /// natural repair is to make the same edit to the demo copy, after which both policies
+    /// allow inline script and every test is green. The property is: the app ships no inline
+    /// script (App.razor loads everything from files), so script-src is exactly 'self'.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(SecurityHeadersPolicy.ContentSecurityPolicy)]
+    [InlineData(SecurityHeadersPolicy.DemoContentSecurityPolicy)]
+    public void Script_src_is_exactly_self_in_every_policy(string csp)
+    {
+        string? scriptSrc = csp.Split(';', StringSplitOptions.TrimEntries)
+            .SingleOrDefault(d => d.StartsWith("script-src ", StringComparison.Ordinal));
+        Assert.Equal("script-src 'self'", scriptSrc);
+    }
+
     // ── Auth rate limiting ────────────────────────────────────────────────
 
     [Theory]

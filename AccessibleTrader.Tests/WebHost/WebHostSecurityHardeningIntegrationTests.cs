@@ -186,6 +186,15 @@ public sealed class WebHostSecurityHardeningIntegrationTests : IDisposable
         var body = await rejected.Content.ReadAsStringAsync();
         Assert.Contains("role=\"alert\"", body, StringComparison.Ordinal);
         Assert.Contains("try again", body, StringComparison.OrdinalIgnoreCase);
+
+        // WHICH refusal, not just that there was one (A2o, survivor O11). The Render() unit
+        // tests pass the tier in by hand, so the classification at the CALL SITE in
+        // Program.cs's OnRejected was free: `isAuthTier = false` told a locked-out sign-in
+        // "too many requests from this network" and every test stayed green. This request
+        // is a login POST, so the person hearing the page must be told it was their
+        // sign-in attempts — and how long to wait, in words (the auth window is 5 minutes).
+        Assert.Contains("sign-in attempts", body, StringComparison.Ordinal);
+        Assert.Contains("5 minutes", body, StringComparison.Ordinal);
     }
 }
 

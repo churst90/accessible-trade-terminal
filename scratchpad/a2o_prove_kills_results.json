@@ -1,0 +1,157 @@
+[
+ {
+  "id": "O11",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "filter": "WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O17",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "filter": "WebHostSecurityPolicyTests.Script_src_is_exactly_self_in_every_policy",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Script_src_is_exactly_self_in_every_policy"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O17d",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "filter": "WebHostSecurityPolicyTests.Script_src_is_exactly_self_in_every_policy",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Script_src_is_exactly_self_in_every_policy"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O21",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "filter": "FullModeBindRefusalIntegrationTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.FullModeBindRefusalIntegrationTests.Full_mode_on_an_all_interfaces_bind_stops_instead_of_serving"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O22",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "filter": "DemoHeadIsLockedDownIntegrationTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 3,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.DemoHeadIsLockedDownIntegrationTests.The_demo_permits_same_origin_framing_and_nothing_wider",
+   "AccessibleTrader.Tests.WebHost.DemoHeadIsLockedDownIntegrationTests.The_demo_process_runs_the_demo_tier_with_every_desktop_power_off",
+   "AccessibleTrader.Tests.WebHost.DemoHeadIsLockedDownIntegrationTests.The_full_mode_alert_endpoints_do_not_exist_on_the_demo"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 3,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O31",
+  "file": "AccessibleTrader.WebHost/Account/IdentityRevalidatingAuthenticationStateProvider.cs",
+  "filter": "CircuitRevalidationTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.CircuitRevalidationTests.A_password_reset_evicts_a_circuit_opened_before_it"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O32",
+  "file": "AccessibleTrader.WebHost/Account/IdentityRevalidatingAuthenticationStateProvider.cs",
+  "filter": "CircuitRevalidationTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.CircuitRevalidationTests.A_locked_out_account_loses_its_open_circuit"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O43",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "filter": "SpeechFallbackTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.SpeechFallbackTests.A_failed_spd_say_phrase_is_spoken_once_and_the_next_one_is_not_doubled"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "status": "PROVED"
+ },
+ {
+  "id": "O45",
+  "file": "AccessibleTrader.WebHost/Services/WebHostAudioDriver.cs",
+  "filter": "BrowserAudioPumpTests",
+  "occurrences": 1,
+  "mutant": "RED",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.WebHost.BrowserAudioPumpTests.A_sounding_tone_reaches_the_browser_and_silence_does_not"
+  ],
+  "control": "GREEN",
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "status": "PROVED"
+ }
+]
