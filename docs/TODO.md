@@ -117,8 +117,16 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
-> **START HERE (current as of 2026-09-25, EIGHTY-FIRST pass — THE LOAD-ONLY FLAKES.)** Suite
-> **8,203** listed (8,208 run), browser **232**, 0 failing. CHANGES `[Unreleased]` has the entry.
+> **START HERE (current as of 2026-09-25, EIGHTY-FIRST pass — THE LOAD-ONLY FLAKES, THEN A2p.)**
+> Suite **8,238** listed (8,243 run), browser **232**, 0 failing. CHANGES `[Unreleased]` has both entries.
+>
+> **A2p, the Sdk: honest 24/48 (50.0%), 23/24 survivors closed, no flake catches.** One real defect
+> fixed (a SegWit v0 address with the taproot checksum read as Verified). **Decisions for Cody:**
+> (1) W04, the heartbeat's "three failed pings" rule, needs a production test seam to be testable:
+> add one, or accept it untested? (2) `CausalityContract.IsPublishable` has no caller: keep or
+> delete? **Unverified:** the `_sendLock` comment says overlapping sends throw (false on .NET 10 /
+> Linux, Windows unchecked); Tron's version byte is not checked. **Not yet mutated:** StrategyLab
+> (25,804 lines), `Services/Accessibility` beyond A2j.
 >
 > **Done:** three flake causes, each forced to fail on demand, fixed and guarded. (1) bUnit's
 > synchronous triggers returned before the handler ran whenever the renderer was busy. All 204

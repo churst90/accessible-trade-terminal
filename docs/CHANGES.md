@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2p: the Sdk mutated; a corrupt SegWit address no longer reads as verified (2026-09-25)
+
+Run in its own worktree, three mutants at a time in separate tree copies. Full write-up:
+`scratchpad/a2p_REPORT.md`.
+
+- **49 mutants over 24 Sdk files, 22 never mutated before; honest 24/48 (50.0%)**, raw 26/49.
+  The lowest rate since A2h's indicator maths. No flake catches (all 26 re-caught alone, green on
+  the clean tree), the first campaign with none since the flake fixes above. One proxy catch
+  scored as not honest: W01 (the reconnect give-up path not calling `onDisconnected`) was caught
+  only by a source scan that `if (false) _onDisconnected?.Invoke();` satisfies. One equivalent:
+  W05 (removing `_sendLock`), because .NET 10's WebSocket queues overlapping sends instead of
+  throwing. Measured on Linux only, and the behaviour test written for it was removed because it
+  was never seen red.
+- **23 of 24 survivors closed**, each proven red on its mutant and green on the clean tree; 35 new
+  cases (8,208 → 8,243). Among them: `CryptoAddressValidator` (a network name containing "BTC"
+  routed to the Bitcoin check, taproot, a 43-character EVM address accepted, a Bitcoin address
+  verified for a Tron deposit), `ReconnectingWebSocket` against a real loopback server (five
+  behaviours), plus rate limiter, provider result, timeframes, buffers, causality and the plugin
+  host's fallback HTTP client.
+- **Production defect, fixed:** `CryptoAddressValidator` accepted either bech32 checksum for any
+  witness version, so BIP-350's own invalid vector (`bc1q…kemeawh`, a v0 address with the bech32m
+  checksum) was announced **Verified**. Version 0 now requires bech32 and version 1+ bech32m.
+  Only the Bitcoin and Litecoin paths reach this check, and both are SegWit. Proven red with the
+  fix removed (re-checked on merge).
+- **Open:** W04 (the heartbeat declaring the socket dead after four failed pings instead of three)
+  needs a production test seam to be observable. The `_sendLock` comment's claim that overlapping
+  sends throw is false on .NET 10 / Linux; Windows is unchecked. `CausalityContract.IsPublishable`
+  has no caller. The validator does not check Tron's version byte (noticed, not tested).
+
 ### The load-only flakes: three causes, each forced to fail on demand, then fixed (2026-09-25)
 
 Every campaign since A2 has had to audit its catches because a few tests failed only under load.

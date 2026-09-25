@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **A corrupt Bitcoin or Litecoin withdrawal address is no longer called verified.** A native
+  SegWit address carrying the wrong kind of checksum (one of the two that BIP-350 says must
+  never be mixed) used to be announced as verified. It is now refused as corrupt. A wallet
+  refuses such an address as well, so this was a false reassurance rather than a lost payment.
 - **Flags on a steady trend are announced.** A bull or bear flag on a clean trend was never
   spoken when it formed, only found later when panning back. You may now hear more flags on
   trending charts.
