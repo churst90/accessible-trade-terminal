@@ -704,6 +704,24 @@ public class ChartPatternPositionTests
         Assert.False(focus.IsPinned("TAO"));
     }
 
+    /// <summary>
+    /// Scoping has to hold for CLEARING too. The test above only pins one chart, so a clear that
+    /// wipes every chart's pin (A2m, M11) survived: Shift+semicolon on the BTC tab would silently
+    /// drop the formation the user pinned on the TAO tab.
+    /// </summary>
+    [Fact]
+    public void ClearingOneChartsPinLeavesAnotherChartsPinInForce()
+    {
+        var focus = new ChartPatternFocus();
+        focus.CycleAt("BTC", new List<ChartPattern> { P() });
+        focus.CycleAt("TAO", new List<ChartPattern> { P(kind: ChartPatternKind.BullFlag) });
+
+        Assert.True(focus.Clear("BTC"));
+
+        Assert.False(focus.IsPinned("BTC"));
+        Assert.True(focus.IsPinned("TAO"));
+    }
+
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
     private static List<Ohlcv> RandomWalk(int n, int seed)

@@ -121,6 +121,48 @@ namespace AccessibleTrader.Tests
             Assert.Equal(0, stats.SupportHolds);
         }
 
+        /// <summary>
+        /// A close that dips TOWARD support but stays above the line is not a break. Only a close
+        /// more than <c>BreakCloseAtr</c> BELOW the line is. Every existing fixture closed either far
+        /// above the line or far below it, so moving the break threshold to the wrong side of the
+        /// line (A2m, M33) survived — and it turns every close-to-support touch into a "break", the
+        /// hold rate the level report speaks collapsing with it.
+        /// </summary>
+        [Fact]
+        public void ACloseJustAboveSupport_IsNotABreak()
+        {
+            var bars = Filler(30, 110);                  // ATR ≈ 2, so a break needs a close under 99
+            bars.Add(Bar(30, 110, 111, 99.5, 100.5));    // wicks through, closes 0.5 above the line
+            for (int i = 31; i < 40; i++) bars.Add(Bar(i, 112, 118, 111, 117));
+
+            var stats = Single(bars, Flat(100, bars.Count));
+
+            Assert.Equal(1, stats.Touches);
+            Assert.Equal(1, stats.Holds);
+            Assert.Equal(1, stats.SupportHolds);
+        }
+
+        /// <summary>
+        /// A bounce has to happen inside <c>ReactionWindowBars</c> to count. Here price touches the
+        /// line and drifts just above it for fifteen bars — never reacting a full ATR — and only then
+        /// rallies. That rally belongs to some later move. With the window unbounded (A2m, M35) it
+        /// was credited to this touch: a respect figure computed from the wrong window, making a
+        /// level that did nothing look like one that held.
+        /// </summary>
+        [Fact]
+        public void ARallyAfterTheReactionWindow_IsNotCreditedToTheTouch()
+        {
+            var bars = Filler(30, 110);
+            bars.Add(Bar(30, 110, 111, 99.5, 100.5));
+            for (int i = 31; i < 46; i++) bars.Add(Bar(i, 100.8, 100.9, 100.7, 100.8));   // drifts above, out of tolerance
+            for (int i = 46; i < 56; i++) bars.Add(Bar(i, 112, 118, 111, 117));          // the late rally
+
+            var stats = Single(bars, Flat(100, bars.Count));
+
+            Assert.Equal(1, stats.Touches);
+            Assert.Equal(0, stats.Holds);
+        }
+
         [Fact]
         public void PriceThatNeverReachesTheLine_ProducesNoTouches()
         {
@@ -292,6 +334,37 @@ namespace AccessibleTrader.Tests
             for (int i = 20 * 7; i < 21 * 7; i++)
                 if (!double.IsNaN(candidate.Values[i]))
                     Assert.True(candidate.Values[i] < 150, "the weekly average led its own step");
+        }
+
+        /// <summary>
+        /// The same step, asserted as the VALUE a closed-bar projection must show rather than a
+        /// ceiling. The "&lt; 150" above cannot tell the honest reading from the leak: reading the
+        /// still-forming week 20 into a 3-week SMA gives (100 + 100 + 200) / 3 = 133, which is under
+        /// 150, so A2m's M37 (<c>lastClosed = j</c>) survived — every day of the week seeing that
+        /// week's own closing price. Week 20 may see only weeks 17–19 (100), week 21 weeks 18–20.
+        /// </summary>
+        [Fact]
+        public void MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks()
+        {
+            var bars = new List<Ohlcv>();
+            var day = new DateTime(2026, 1, 5); // a Monday
+            for (int w = 0; w < 40; w++)
+            {
+                double price = w < 20 ? 100 : 200;
+                for (int d = 0; d < 7; d++)
+                {
+                    bars.Add(new Ohlcv(day, price, price + 1, price - 1, price, 10));
+                    day = day.AddDays(1);
+                }
+            }
+
+            var ranker = new MaRespectRanker(new LevelRespectAnalyzer(), new ResamplerService());
+            var values = ranker.BuildCandidate(bars, "1d", new MaSpec("SMA", 3, "1w"))!.Values;
+
+            for (int i = 20 * 7; i < 21 * 7; i++)
+                Assert.Equal(100.0, values[i], 6);
+            for (int i = 21 * 7; i < 22 * 7; i++)
+                Assert.Equal((100.0 + 100.0 + 200.0) / 3, values[i], 6);
         }
 
         [Fact]

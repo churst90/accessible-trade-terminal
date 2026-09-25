@@ -47,6 +47,50 @@ namespace AccessibleTrader.Tests
             }
         }
 
+        /// <summary>
+        /// A bar is measured against the value area of the bars BEHIND it — never one that already
+        /// contains the bar itself. The causality test above only appends bars AFTER the ones it
+        /// compares, so it cannot see a profile that includes its own bar; and the flat fixture
+        /// every warmup test uses trips the degenerate-profile guard, so every reading there is
+        /// NaN whatever the window is. A2m's M41 (profile over <c>i - window + 1 .. i</c>) survived:
+        /// a bar that spikes far out of value dragged its own reference with it, and was then
+        /// reported as less stretched than it was.
+        /// </summary>
+        [Fact]
+        public void ABarsReferenceDoesNotDependOnThatBar()
+        {
+            var rng = new Random(17);
+            var bars = new List<Ohlcv>();
+            double px = 100;
+            for (int i = 0; i < 400; i++)
+            {
+                px *= 1 + (rng.NextDouble() - 0.5) * 0.02;
+                double vol = 500 + rng.NextDouble() * 5000;
+                bars.Add(new Ohlcv(Start.AddDays(i), px, px * 1.004, px * 0.996, px, vol));
+            }
+
+            var analyzer = new ValueDeviationAnalyzer();
+            var before = analyzer.Reference(bars, 120);
+
+            int readings = 0;
+            foreach (int i in new[] { 150, 230, 310, 399 })
+            {
+                if (double.IsNaN(before.Poc[i])) continue;
+                readings++;
+
+                var spiked = new List<Ohlcv>(bars);
+                var b = bars[i];
+                spiked[i] = new Ohlcv(b.Date, b.Open, b.High * 3, b.Low, b.High * 3, 1e9);
+                var after = analyzer.Reference(spiked, 120);
+
+                Assert.Equal(before.Poc[i], after.Poc[i], 9);
+                Assert.Equal(before.ValueHigh[i], after.ValueHigh[i], 9);
+                Assert.Equal(before.ValueLow[i], after.ValueLow[i], 9);
+            }
+
+            Assert.True(readings >= 3, $"only {readings} of the probed bars had a reading — the fixture is degenerate");
+        }
+
         [Fact]
         public void BarsBeforeTheWindowFills_HaveNoReading()
         {

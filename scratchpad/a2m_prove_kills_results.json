@@ -1,0 +1,265 @@
+[
+ {
+  "id": "M07",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.ShiftSemicolonReleasesThePin_SoTheJumpKeysReachEveryFormationAgain"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.ShiftSemicolonReleasesThePin_SoTheJumpKeysReachEveryFormationAgain"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M08",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.ThePinAnnouncementCountsFromOne"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.ThePinAnnouncementCountsFromOne"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M11",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternFocus.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ClearingOneChartsPinLeavesAnotherChartsPinInForce"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ClearingOneChartsPinLeavesAnotherChartsPinInForce"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M22",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.NoPatternIsKnowableBeforeItsStructureIsComplete"
+  ],
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 3,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.NoPatternIsKnowableBeforeItsStructureIsComplete"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M23",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmationIsACloseThroughTheTrigger_NeverAWick"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmationIsACloseThroughTheTrigger_NeverAWick"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M25",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.FlatTopWithRisingLows_IsNamedAnAscendingTriangle_AndConfirmsAboveTheTop"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.FlatTopWithRisingLows_IsNamedAnAscendingTriangle_AndConfirmsAboveTheTop"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M26",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.EveryFormationConfirmsOnTheSideItsNameImplies"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.EveryFormationConfirmsOnTheSideItsNameImplies"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M30",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "tests": [
+   "AccessibleTrader.Tests.SwingStructureTests.ASecondHighWithNoRealLowBetween_OnlyReplacesTheFirstIfItIsHigher"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 1,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SwingStructureTests.ASecondHighWithNoRealLowBetween_OnlyReplacesTheFirstIfItIsHigher"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M33",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ACloseJustAboveSupport_IsNotABreak"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ACloseJustAboveSupport_IsNotABreak"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M35",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ARallyAfterTheReactionWindow_IsNotCreditedToTheTouch"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ARallyAfterTheReactionWindow_IsNotCreditedToTheTouch"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M37",
+  "file": "AccessibleTrader.Core/Services/Analysis/MaRespectRanker.cs",
+  "tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M38",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelProvenanceService.cs",
+  "tests": [
+   "AccessibleTrader.Tests.LevelProvenanceServiceTests.ALevelIsNarratedOnTheSideOfPriceItIsActuallyOn"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProvenanceServiceTests.ALevelIsNarratedOnTheSideOfPriceItIsActuallyOn"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M39",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelProvenanceService.cs",
+  "tests": [
+   "AccessibleTrader.Tests.LevelProvenanceServiceTests.ThePriorDayHighIsYesterdays_NotTodaysStillFormingHigh"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProvenanceServiceTests.ThePriorDayHighIsYesterdays_NotTodaysStillFormingHigh"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M41",
+  "file": "AccessibleTrader.Core/Services/Analysis/ValueDeviationAnalyzer.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ValueDeviationTests.ABarsReferenceDoesNotDependOnThatBar"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ValueDeviationTests.ABarsReferenceDoesNotDependOnThatBar"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M44",
+  "file": "AccessibleTrader.Core/Services/Analysis/AssetDossierService.cs",
+  "tests": [
+   "AccessibleTrader.Tests.AssetDossierTests.PositionInRangeIsMeasuredFromTheBottom"
+  ],
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AssetDossierTests.PositionInRangeIsMeasuredFromTheBottom"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "M45",
+  "file": "AccessibleTrader.Core/Services/Analysis/AssetDossierService.cs",
+  "tests": [
+   "AccessibleTrader.Tests.AssetDossierTests.FilingCountsReadOnlyTheLast90Days"
+  ],
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.AssetDossierTests.FilingCountsReadOnlyTheLast90Days"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "FLAG",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.ABullFlagIsFoundInATrendTooCleanToHaveThreeSwings",
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar"
+  ],
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 0,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.ABullFlagIsFoundInATrendTooCleanToHaveThreeSwings"
+  ],
+  "status": "RED",
+  "restored_identical": true
+ },
+ {
+  "id": "CONTROL",
+  "status": "failed=0 passed=24 []"
+ }
+]

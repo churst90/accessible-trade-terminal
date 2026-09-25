@@ -181,6 +181,51 @@ public class AssetDossierTests
         Assert.Contains("5 bars", chart.StatusNote);
     }
 
+    /// <summary>
+    /// "Position in loaded range" is measured from the BOTTOM: an asset at its high is 100% of the
+    /// way up. No test read the number at all, so measuring it from the top (A2m, M44) survived —
+    /// an asset at its all-loaded high announced as "0% of the way up".
+    /// </summary>
+    [Theory]
+    [InlineData(new double[] { 100, 110, 120, 130, 140 }, "100% of the way up")]
+    [InlineData(new double[] { 140, 130, 120, 110, 100 }, "0% of the way up")]
+    [InlineData(new double[] { 100, 140, 130, 120, 110 }, "25% of the way up")]
+    public async Task PositionInRangeIsMeasuredFromTheBottom(double[] path, string expected)
+    {
+        // Thirty bars of the first price, then the path, as single-point bars so the range is exact.
+        var closes = Enumerable.Repeat(path[0], 30).Concat(path).ToList();
+        var bars = closes.Select((c, i) => new Ohlcv(new DateTime(2026, 1, 1).AddDays(i), c, c, c, c, 1000)).ToList();
+
+        var d = await new AssetDossierService().BuildAsync("X", "Crypto", bars);
+
+        var field = d.Sections.First(s => s.Title == "Chart read").Fields.First(f => f.Label == "Position in loaded range");
+        Assert.Equal(expected, field.Value);
+    }
+
+    /// <summary>
+    /// The filing counts are "last 90 days", and "none" in that window is the informative case.
+    /// The only equity fixture dates its filings absolutely (July 2026), so the window was never
+    /// exercised against anything older than it; widening it tenfold (A2m, M45) survived and
+    /// counted three years of Form 4s as recent insider activity.
+    /// </summary>
+    [Fact]
+    public async Task FilingCountsReadOnlyTheLast90Days()
+    {
+        var now = DateTime.UtcNow;
+        var company = new CompanyProfile("ACME", "Acme Corp", "Widgets", 1,
+            new[] { (now.AddDays(-30), 1.0) },
+            new[] { (now.AddDays(-30), 1e6) },
+            new[] { (now.AddDays(-20), 3), (now.AddDays(-400), 5) },
+            new[] { (now.AddDays(-500), 2) });
+
+        var svc = new AssetDossierService(new FakeCrypto(), new FakeCompany { Profile = company });
+        var d = await svc.BuildAsync("ACME", "Stock", Bars());
+
+        var filing = d.Sections.First(s => s.Title == "Filing activity").Fields;
+        Assert.Equal("3", filing.First(f => f.Label == "Insider filings, last 90 days").Value);
+        Assert.Equal("none", filing.First(f => f.Label == "Material events, last 90 days").Value);
+    }
+
     [Fact]
     public async Task WithNoBarsAtAll_NothingThrows()
     {

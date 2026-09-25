@@ -314,6 +314,15 @@ public class ChartPatternDetectorTests
         {
             Assert.True(p.KnownAtIndex >= p.EndBarIndex,
                 $"{p.Kind} ends at {p.EndBarIndex} but claims to be knowable at {p.KnownAtIndex}");
+
+            // What the summary actually says. `>= EndBarIndex` alone permits the pattern reported AT
+            // its final pivot, which is the lookahead described above — A2m's M22 did exactly that
+            // for double tops and passed. Every shape except a flag ends ON a swing pivot, and a
+            // pivot is confirmed Span bars later. (A flag ends on a plain bar; it is exempt.)
+            if (p.Kind is not (ChartPatternKind.BullFlag or ChartPatternKind.BearFlag))
+                Assert.True(p.KnownAtIndex >= p.EndBarIndex + ChartPatternOptions.Default.Span,
+                    $"{p.Kind} ends on the pivot at {p.EndBarIndex} and claims to be knowable at " +
+                    $"{p.KnownAtIndex}, before that pivot could be confirmed");
             Assert.True(p.StartBarIndex <= p.EndBarIndex);
             Assert.True(p.KnownAtIndex < bars.Count);
         }
@@ -701,6 +710,131 @@ public class ChartPatternDetectorTests
 
         Assert.True(barsWithAPattern > found.Count,
             $"{found.Count} patterns cover only {barsWithAPattern} bars — the window is one bar wide");
+    }
+
+    // ── A2m survivors: what the shape is CALLED, which side confirms it, and by what ──
+
+    /// <summary>
+    /// A confirmation is a CLOSE through the trigger, never a wick. The existing completion test
+    /// checks the completion bar is at or after the knowable bar and that its close is not EXACTLY
+    /// the trigger — both of which a wick-based confirmation also satisfies, so A2m's M23 (confirm on
+    /// High/Low) survived the whole suite. A stop-hunt wick through a neckline is the single most
+    /// common false break there is, and announcing it as "confirmed here" is announcing the trap.
+    /// </summary>
+    [Fact]
+    public void AConfirmationIsACloseThroughTheTrigger_NeverAWick()
+    {
+        var bars = RandomWalk(600, seed: 5);
+        var completed = Detector.Detect(bars)
+            .Where(p => p.State == ChartPatternState.Completed && p.Kind != ChartPatternKind.Rectangle)
+            .ToList();
+        Assert.True(completed.Count >= 5, $"only {completed.Count} completed formations to check");
+
+        foreach (var p in completed)
+        {
+            int c = p.CompletedAtIndex!.Value;
+            double close = bars[c].Close;
+            Assert.True(p.BreaksBelow ? close < p.TriggerLevel : close > p.TriggerLevel,
+                $"{p.Kind} is confirmed at bar {c}, whose close {close:0.####} is on the wrong side of the " +
+                $"{(p.BreaksBelow ? "below" : "above")}-break trigger {p.TriggerLevel:0.####} — only its wick crossed");
+
+            // And it is the FIRST close through, not merely a close through.
+            for (int i = p.KnownAtIndex; i < c; i++)
+                Assert.False(p.BreaksBelow ? bars[i].Close < p.TriggerLevel : bars[i].Close > p.TriggerLevel,
+                    $"{p.Kind} closed through its trigger at bar {i}, before the bar {c} it names");
+        }
+    }
+
+    /// <summary>
+    /// Flat top, rising lows is an ASCENDING triangle. The existing fixture test accepted any of
+    /// the three triangle kinds, so renaming this shape "descending triangle" — and with it reading
+    /// the breakout against the rising lower line instead of the flat top — passed (A2m, M25).
+    /// The name is a directional claim a trader acts on; the fixture has to pin it.
+    /// </summary>
+    [Fact]
+    public void FlatTopWithRisingLows_IsNamedAnAscendingTriangle_AndConfirmsAboveTheTop()
+    {
+        var bars = FixtureFor("triangle");
+        var found = Detector.Detect(bars);
+
+        var asc = found.Where(p => p.Kind == ChartPatternKind.AscendingTriangle).ToList();
+        Assert.True(asc.Count > 0,
+            "no ascending triangle on the flat-top/rising-lows fixture; found: " +
+            string.Join(", ", found.Select(p => p.Kind)));
+        Assert.DoesNotContain(found, p => p.Kind == ChartPatternKind.DescendingTriangle);
+
+        foreach (var p in asc)
+        {
+            Assert.False(p.BreaksBelow, "an ascending triangle confirms through its flat TOP");
+            // The top of this fixture is 139.5–140; the rising lows are far below it.
+            Assert.InRange(p.TriggerLevel, 138.5, 141.0);
+        }
+    }
+
+    /// <summary>
+    /// Every kind confirms on ONE side, fixed by its definition — except the range, which breaks
+    /// whichever way price leaves. A2m's M26 made falling wedges break DOWN and survived: no fixture
+    /// in the suite produced a wedge whose side was asserted. Walked over the four causality probe
+    /// series, which between them produce both wedges (asserted, so the test cannot pass by
+    /// finding none).
+    /// </summary>
+    [Fact]
+    public void EveryFormationConfirmsOnTheSideItsNameImplies()
+    {
+        var expectBelow = new Dictionary<ChartPatternKind, bool>
+        {
+            [ChartPatternKind.DoubleTop] = true,
+            [ChartPatternKind.HeadAndShoulders] = true,
+            [ChartPatternKind.DescendingTriangle] = true,
+            [ChartPatternKind.RisingWedge] = true,
+            [ChartPatternKind.BearFlag] = true,
+            [ChartPatternKind.DoubleBottom] = false,
+            [ChartPatternKind.InverseHeadAndShoulders] = false,
+            [ChartPatternKind.AscendingTriangle] = false,
+            [ChartPatternKind.SymmetricalTriangle] = false,
+            [ChartPatternKind.FallingWedge] = false,
+            [ChartPatternKind.BullFlag] = false,
+        };
+
+        var seen = new HashSet<ChartPatternKind>();
+        foreach (int flavour in AccessibleTrader.Core.Services.Indicators.CausalityProbeSeries.AllFlavours)
+        {
+            var bars = AccessibleTrader.Core.Services.Indicators.CausalityProbeSeries.Bars(flavour, 1400);
+            foreach (var p in Detector.Detect(bars))
+            {
+                if (p.Kind == ChartPatternKind.Rectangle) continue;
+                seen.Add(p.Kind);
+                Assert.True(expectBelow[p.Kind] == p.BreaksBelow,
+                    $"{p.Kind} at bars {p.StartBarIndex}-{p.EndBarIndex} on series {flavour} confirms " +
+                    $"{(p.BreaksBelow ? "below" : "above")} its trigger");
+            }
+        }
+
+        Assert.Contains(ChartPatternKind.RisingWedge, seen);
+        Assert.Contains(ChartPatternKind.FallingWedge, seen);
+    }
+
+    /// <summary>
+    /// A flag is found whatever the swing structure around it looks like. Found by A2m while
+    /// writing the M22 guard: <c>Detect</c> returned early when the series held fewer than three
+    /// swings — BEFORE the flag scan, which does not use swings at all. A clean impulse and a
+    /// shallow drift is exactly the market with fewest swings, so the one formation defined by a
+    /// trend was the one a trending chart could never hear; and on a longer chart a flag appeared
+    /// retroactively once later swings existed, having never been announced at the time.
+    /// </summary>
+    [Fact]
+    public void ABullFlagIsFoundInATrendTooCleanToHaveThreeSwings()
+    {
+        var closes = Enumerable.Repeat(100.0, 30)
+            .Concat(Leg(100, 130, 8))                            // the pole
+            .Concat(Leg(130, 127.5, 5))                          // a shallow drift
+            .Concat(Leg(127.5, 140, 10));                        // and on
+        var bars = Bars(closes);
+
+        var structure = new SwingStructureAnalyzer().Analyze(bars, new SwingOptions(5, 1.0));
+        Assert.True(structure.Swings.Count < 3, $"fixture has {structure.Swings.Count} swings — not the case under test");
+
+        Assert.Contains(Detector.Detect(bars), p => p.Kind == ChartPatternKind.BullFlag);
     }
 
     // ── Helper ──────────────────────────────────────────────────────────────────

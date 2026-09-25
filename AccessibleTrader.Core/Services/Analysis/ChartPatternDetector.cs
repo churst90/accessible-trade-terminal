@@ -272,16 +272,25 @@ namespace AccessibleTrader.Core.Services.Analysis
             var atr = Atr(bars, 14);
             var structure = _swings.Analyze(bars, new SwingOptions(o.Span, o.MinSwingAtr));
             var swings = structure.Swings;
-            if (swings.Count < 3) return found;
 
-            var highs = swings.Where(s => s.IsHigh).ToList();
-            var lows = swings.Where(s => !s.IsHigh).ToList();
+            // The three-swing floor gates only the shapes BUILT from swings. It used to return
+            // before the flag scan as well, which reads bars directly and needs no swing at all —
+            // so a clean impulse and drift, the market with the fewest swings, could never produce
+            // the formation defined by exactly that, and on a longer chart a flag surfaced
+            // retroactively once later swings existed (found by A2m; pinned by
+            // ABullFlagIsFoundInATrendTooCleanToHaveThreeSwings and
+            // EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar).
+            if (swings.Count >= 3)
+            {
+                var highs = swings.Where(s => s.IsHigh).ToList();
+                var lows = swings.Where(s => !s.IsHigh).ToList();
 
-            found.AddRange(DoubleTops(bars, highs, lows, atr, o));
-            found.AddRange(DoubleBottoms(bars, highs, lows, atr, o));
-            found.AddRange(HeadAndShoulders(bars, highs, lows, atr, o, inverse: false));
-            found.AddRange(HeadAndShoulders(bars, lows, highs, atr, o, inverse: true));
-            found.AddRange(TrianglesAndWedges(bars, highs, lows, atr, o));
+                found.AddRange(DoubleTops(bars, highs, lows, atr, o));
+                found.AddRange(DoubleBottoms(bars, highs, lows, atr, o));
+                found.AddRange(HeadAndShoulders(bars, highs, lows, atr, o, inverse: false));
+                found.AddRange(HeadAndShoulders(bars, lows, highs, atr, o, inverse: true));
+                found.AddRange(TrianglesAndWedges(bars, highs, lows, atr, o));
+            }
             found.AddRange(Flags(bars, atr, o));
 
             return found
@@ -507,8 +516,11 @@ namespace AccessibleTrader.Core.Services.Analysis
                     if (closeGap >= openGap) continue;
                 }
 
-                // The boundary a break would cross first. Ascending triangles and rising wedges are
-                // read against their flat/upper edge; the others against the lower.
+                // The boundary a break would cross first. Descending triangles and rising wedges are
+                // read against their lower edge (the conventional breakdown); ascending and
+                // symmetrical triangles and falling wedges against the upper. (This comment used to
+                // name ascending triangles and RISING wedges as the upper-edge pair, the opposite of
+                // the code for wedges; pinned by EveryFormationConfirmsOnTheSideItsNameImplies.)
                 bool breakBelow = kind is ChartPatternKind.DescendingTriangle
                                        or ChartPatternKind.RisingWedge;
                 double trigger = breakBelow ? l2.Price : h2.Price;

@@ -1,0 +1,687 @@
+[
+ {
+  "id": "M01",
+  "area": "the next-formation key can land on the bar it started from",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "standing on a formation edge, period re-lands on the same bar and re-reads it: the key appears dead exactly where the user is most likely to press it",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 242
+ },
+ {
+  "id": "M02",
+  "area": "the previous-formation key can land on the bar it started from",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "comma on an edge stays put \u2014 walking backwards through formations stalls at the first stop",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 226
+ },
+ {
+  "id": "M03",
+  "area": "an unresolved formation's notional expiry beyond the data becomes a stop",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "a formation still open at the right edge offers a bar that does not exist; the jump dispatches a navigation past the last bar \u2014 an event invented",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 221
+ },
+ {
+  "id": "M04",
+  "area": "the formation START edges are dropped",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "only resolutions are stops; the bar a formation first became knowable \u2014 half of the story the jump keys exist to tell \u2014 is skipped",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesAreBothTheStartAndTheResolutionOfEachFormation",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 220
+ },
+ {
+  "id": "M05",
+  "area": "a pin no longer scopes the jump keys (the reported defect restored)",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "'leading with ascending triangle' then, one keypress later, 'double bottom confirmed here'",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheJumpKeysTravelToThePinnedFormationsEdges"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 222
+ },
+ {
+  "id": "M06",
+  "area": "the jump keys move silently with formation description off",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "the cursor teleports and nothing says why \u2014 the user has lost their place and cannot tell whether the key worked",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SilentFailureTests.TheJumpKeysRefuseAndExplainWhenDescriptionIsOff"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 220
+ },
+ {
+  "id": "M07",
+  "area": "Shift+semicolon says 'cleared' and leaves the pin in force",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "the pinned formation will not release: the jump keys stay confined to its two edges and the user is stuck between them (the 61st-pass report, reached by a different route)",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 266
+ },
+ {
+  "id": "M08",
+  "area": "the pin announcement counts from zero",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNavigator.cs",
+  "breaks": "'Leading with rising wedge, 0 of 3' \u2014 the position a user uses to know how many more semicolon presses remain is off by one",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.OrderTicketErrorStateTests.The_rule_nobody_guesses_is_now_stated"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 260
+ },
+ {
+  "id": "M09",
+  "area": "a pin never reorders the readout",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternFocus.cs",
+  "breaks": "semicolon announces 'leading with bull flag' and the next arrow key still leads with the largest formation \u2014 the pin changes nothing the user hears",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 8084,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.RunningOutOfEdgesInsideAPinSaysWhy",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.APinnedFormationLeadsTheReadout"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 241
+ },
+ {
+  "id": "M10",
+  "area": "cycling stops at the last formation instead of wrapping",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternFocus.cs",
+  "breaks": "semicolon walks to the smallest formation and then sticks there; the largest can never be re-pinned without clearing first",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.NestedFormationsCanAllBeCycledThrough"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 231
+ },
+ {
+  "id": "M11",
+  "area": "clearing the pin on one chart clears it on every chart",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternFocus.cs",
+  "breaks": "Shift+semicolon on the BTC tab silently drops the formation pinned on the ETH tab",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 248
+ },
+ {
+  "id": "M12",
+  "area": "the cache key forgets the timeframe",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternCache.cs",
+  "breaks": "the 1h and 4h charts of one symbol share an entry; with equal bar counts and a shared last timestamp the second chart describes the first chart's formations",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.TimeframeAndProviderArePartOfTheIdentity"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 243
+ },
+ {
+  "id": "M13",
+  "area": "the bar a formation became knowable is called 'Inside' rather than 'Start of'",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "the jump key lands on the start edge and the announcement says the user is already inside",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 224
+ },
+ {
+  "id": "M14",
+  "area": "the resolution bar is called 'Inside' rather than 'End of'",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "landing on the break bar does not say the story ended there",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 233
+ },
+ {
+  "id": "M15",
+  "area": "the confirmation bar itself still reads 'forming'",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "a formation found on the wrong bar: the confirmation is announced one bar late",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ProjectionPreservesIdentityEvenThoughItChangesTheRecord"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 238
+ },
+ {
+  "id": "M16",
+  "area": "an expired formation reads 'did not confirm' before it expired",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "lookahead in the narration: panning back, every bar of a live formation already says it failed \u2014 information from the future",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AnExpiredPatternIsStillFormingBeforeItsExpiryBar"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 236
+ },
+ {
+  "id": "M17",
+  "area": "the dominance ranking puts resolved formations ahead of live ones",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "the readout leads with a formation that is already over instead of the one still in play",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.DescribeMany_CapsTheReadoutAndPutsFormingFirst",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.DominanceRanksLiveFirstThenTheLargestStructure"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 241
+ },
+ {
+  "id": "M18",
+  "area": "a formation is described from its first bar, before it was knowable",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "lookahead: arrowing through history announces a double top at its first peak, bars before the second peak existed",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_ExcludesPatternsNotYetKnowableAtThatBar"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 245
+ },
+ {
+  "id": "M19",
+  "area": "the resolution bar drops out of the formation's lifetime",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "the break bar \u2014 the bar the period key lands on \u2014 says nothing about the formation",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_DropsACompletedPatternOnceItHasResolved",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+   "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 252
+ },
+ {
+  "id": "M20",
+  "area": "the break side is spoken backwards",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "'Double top: price closed above the neckline' \u2014 a directional claim inverted",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 8084,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmedPatternSaysWhatPriceDid_NeverTheWordCompleted",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AnUpsideConfirmationSaysAbove",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ABrokenRangeProjectsItsHeightFromTheSideThatGaveWay",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 244
+ },
+ {
+  "id": "M21",
+  "area": "'inside a larger X' names the widest container, not the tightest",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternNarrator.cs",
+  "breaks": "a flag inside a triangle inside a range is said to be inside the range",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.TheImmediateParentIsNamedNotTheOutermost"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 268
+ },
+ {
+  "id": "M22",
+  "area": "a double top is known at its second peak, before the peak is confirmed",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "lookahead: the formation is announced on the bar of the peak, Span bars before anyone could know it was a peak",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 280
+ },
+ {
+  "id": "M23",
+  "area": "a wick confirms a formation, not a close",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "a stop-hunt wick through the neckline is announced as the break, bars before the real one",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 4634,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 39
+ },
+ {
+  "id": "M24",
+  "area": "confirmation is searched from bar 0, not from when the formation was known",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "a close beyond the trigger BEFORE the formation existed completes it \u2014 a break found on the wrong bar, in the past",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.AFormationDoesNotChangeWhenOlderBarsArrive",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.CompletedPatterns_NameTheBarThatBrokeTheTrigger_AtOrAfterTheStructureWasKnowable"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 237
+ },
+ {
+  "id": "M25",
+  "area": "flat top + rising lows is named a descending triangle",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "the shape's name \u2014 and with it the side it is expected to break \u2014 inverted",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 203
+ },
+ {
+  "id": "M26",
+  "area": "a falling wedge is expected to break down",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "trigger level on the wrong side for both wedges",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 210
+ },
+ {
+  "id": "M27",
+  "area": "a range broken to the downside is reported as broken upward",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "'Range broken: price closed above the top' on a breakdown, with the target above",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ARangeResolvesOnWhicheverSideBreaksFirst"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 209
+ },
+ {
+  "id": "M28",
+  "area": "a flag's measured target is projected the wrong way",
+  "file": "AccessibleTrader.Core/Services/Analysis/ChartPatternDetector.cs",
+  "breaks": "a bull flag's target is spoken below the flag",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EveryTargetSitsOnTheBreakSideOfItsTrigger"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 215
+ },
+ {
+  "id": "M29",
+  "area": "a swing is confirmed on its own bar (no Span lag)",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "breaks": "lookahead: a pivot needs Span bars AFTER it; claiming it on its own bar feeds every formation, structure state and backtest information from the future",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix",
+   "AccessibleTrader.Tests.SwingStructureTests.PivotIsConfirmedSpanBarsAfterItForms_NeverOnItsOwnBar"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 210
+ },
+ {
+  "id": "M30",
+  "area": "a less extreme same-kind pivot supersedes a more extreme one",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "breaks": "the carried swing high drops to a lower high inside the same move",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 213
+ },
+ {
+  "id": "M31",
+  "area": "higher lows are called lower lows",
+  "file": "AccessibleTrader.Core/Services/Analysis/SwingStructureAnalyzer.cs",
+  "breaks": "an uptrend is described as a downtrend by its lows",
+  "occurrences": 1,
+  "failed": 8,
+  "passed": 8080,
+  "failing_tests": [
+   "AccessibleTrader.Tests.SwingStructureTests.BreakingTheSwingHighInADowntrend_IsAChangeOfCharacter",
+   "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_EndsInADowntrendState",
+   "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_ProducesLowerHighsAndLowerLows",
+   "AccessibleTrader.Tests.SwingStructureTests.HigherHighWithLowerLow_ReadsAsRangeNotTrend",
+   "AccessibleTrader.Tests.SwingStructureTests.Provider_DetailFactNamesTheStateAndPositionInRange",
+   "AccessibleTrader.Tests.SwingStructureTests.Provider_EmitsStateAsPlusOneMinusOneOrZero",
+   "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_EndsInAnUptrendState",
+   "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_ProducesHigherHighsAndHigherLows"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 213
+ },
+ {
+  "id": "M32",
+  "area": "a touch's side is judged by the bar that pierced the line",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "a support test that closed below the line is counted as a resistance test",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.DecisiveCloseThrough_CountsAsABreak",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.PassingStraightThrough_ScoresZero"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 222
+ },
+ {
+  "id": "M33",
+  "area": "a support is 'broken' by any close under line + break distance",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "every support touch that closes near the line is counted as a break \u2014 hold rate collapses",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 217
+ },
+ {
+  "id": "M34",
+  "area": "support holds and resistance holds are swapped",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "'held as support 7 times' for a line that held as resistance 7 times",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ApproachFromBelow_IsClassifiedAsResistance",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.WickThroughAndBack_CountsAsAHold_BecauseThatIsASweep"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 209
+ },
+ {
+  "id": "M35",
+  "area": "the reaction window is unbounded",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelRespectAnalyzer.cs",
+  "breaks": "a respect figure computed from the wrong window: a move 200 bars later counts as the touch's bounce",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 217
+ },
+ {
+  "id": "M36",
+  "area": "the hold-rate score drops its add-4 smoothing",
+  "file": "AccessibleTrader.Core/Services/Analysis/RespectModels.cs",
+  "breaks": "a line touched once and held once outranks a line with 18 holds in 20",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.Score_ShrinksTowardsHalf_SoATinySampleCannotOutrankALargeOne"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 216
+ },
+ {
+  "id": "M37",
+  "area": "a higher-timeframe MA reads its still-forming bucket",
+  "file": "AccessibleTrader.Core/Services/Analysis/MaRespectRanker.cs",
+  "breaks": "lookahead: every bar of the day sees that day's closing EMA value",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 215
+ },
+ {
+  "id": "M38",
+  "area": "levels above price are narrated as below",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelProvenanceService.cs",
+  "breaks": "'below: 200 EMA at 64,000' with price at 60,000 \u2014 a level on the wrong side",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 216
+ },
+ {
+  "id": "M39",
+  "area": "the prior-period high is the CURRENT period's high",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelProvenanceService.cs",
+  "breaks": "lookahead: 'prior day high' is today's eventual high, known from today's first bar",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 223
+ },
+ {
+  "id": "M40",
+  "area": "a level exactly at price is called support",
+  "file": "AccessibleTrader.Core/Services/Analysis/LevelPolarity.cs",
+  "breaks": "the documented tie-break (ON the price = resistance) flips; drawn levels and the zone announcement change a case that was previously right",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelPolarityTests.ALevelExactlyOnThePriceIsCalledResistance"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 223
+ },
+ {
+  "id": "M41",
+  "area": "a bar's value profile includes the bar itself",
+  "file": "AccessibleTrader.Core/Services/Analysis/ValueDeviationAnalyzer.cs",
+  "breaks": "lookahead: the value area a bar is measured against already contains that bar's range",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 214
+ },
+ {
+  "id": "M42",
+  "area": "replay starts one bar short of the cursor",
+  "file": "AccessibleTrader.Core/Services/Analysis/ReplayService.cs",
+  "breaks": "the bar the user was standing on when they started replay is hidden",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar",
+   "AccessibleTrader.Tests.ReplayServiceTests.RevealedBars_AreThePrefixOfRealHistory_NeverReordered",
+   "AccessibleTrader.Tests.ReplayServiceTests.Start_IsIgnoredWhileAlreadyRunning",
+   "AccessibleTrader.Tests.ReplayServiceTests.Start_RevealsOnlyUpToTheChosenBar",
+   "AccessibleTrader.Tests.ReplayServiceTests.Step_RevealsOneBarAtATime"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 210
+ },
+ {
+  "id": "M43",
+  "area": "the cursor parks one past the newest revealed bar",
+  "file": "AccessibleTrader.Core/Services/Analysis/ReplayService.cs",
+  "breaks": "after F9 the readout describes a bar that is not revealed (or nothing at all)",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar"
+  ],
+  "status": "CAUGHT",
+  "restored_identical": true,
+  "seconds": 213
+ },
+ {
+  "id": "M44",
+  "area": "'position in loaded range' is measured from the top",
+  "file": "AccessibleTrader.Core/Services/Analysis/AssetDossierService.cs",
+  "breaks": "an asset at its high is '0% of the way up'",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 213
+ },
+ {
+  "id": "M45",
+  "area": "the 90-day filing window is a 900-day window",
+  "file": "AccessibleTrader.Core/Services/Analysis/AssetDossierService.cs",
+  "breaks": "a dossier figure from the wrong window: 'insider filings, last 90 days' counts three years, and 'none' \u2014 the informative case \u2014 is never said",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "restored_identical": true,
+  "seconds": 218
+ }
+]
