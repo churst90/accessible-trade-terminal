@@ -206,6 +206,56 @@ public class QuickTradeEquityFetchTests
     }
 
     /// <summary>
+    /// <b>Escape while the balance is being fetched cancels the arm.</b> The fetch arms "if the user
+    /// has not moved on", and it read that as "the stage is still Idle". But pressing Escape while
+    /// fetching also leaves the stage Idle, so the cancel was answered "Nothing was armed" and the
+    /// trade armed anyway when the balance landed, seconds after the user said no. Found by A2n's
+    /// report, demonstrated here before the fix (2026-09-24).
+    /// </summary>
+    [Fact]
+    public async Task EscapeWhileTheBalanceIsFetchedCancelsTheArm()
+    {
+        double equity = 0;
+        int calls = 0;
+        var landed = new TaskCompletionSource();
+        var (svc, bus) = Build(() => equity,
+            async () => { System.Threading.Interlocked.Increment(ref calls); await landed.Task; });
+
+        svc.Arm(1.0);
+        for (int i = 0; i < 100 && System.Threading.Volatile.Read(ref calls) == 0; i++) await Task.Delay(10);
+        Assert.Equal(1, System.Threading.Volatile.Read(ref calls));
+
+        svc.Disarm();                                 // Escape, while the fetch is in flight
+        Assert.Contains("Quick trade cancelled.", Spoken(bus));
+
+        equity = 100_000;
+        landed.SetResult();
+        await Task.Delay(300);
+
+        Assert.Equal(QuickTradeStage.Idle, svc.State.Stage);
+        Assert.DoesNotContain(Spoken(bus), m => m.StartsWith("Armed", StringComparison.Ordinal));
+    }
+
+    /// <summary>A cancelled fetch must not block the next one: arming again fetches again.</summary>
+    [Fact]
+    public async Task ArmingAgainAfterACancelledFetchStillArms()
+    {
+        double equity = 0;
+        var landed = new TaskCompletionSource();
+        var (svc, _) = Build(() => equity, async () => { await landed.Task; });
+
+        svc.Arm(1.0);
+        await Task.Delay(50);
+        svc.Disarm();
+        equity = 100_000;
+        landed.SetResult();
+        await Task.Delay(200);
+
+        svc.Arm(1.0);                                 // the balance is cached now: arms at once
+        Assert.Equal(QuickTradeStage.AwaitingStop, svc.State.Stage);
+    }
+
+    /// <summary>
     /// Only cash counts toward equity. Summing 0.5 BTC + 3,000 USDT + 12 ETH gives a number that is
     /// not money in any currency, and it would then be multiplied by a risk percentage.
     /// </summary>

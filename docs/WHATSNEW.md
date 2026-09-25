@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Escape really cancels a quick trade while your balance is loading.** Pressing Escape during
+  "Fetching your account balance" used to be ignored, and the trade armed when the balance
+  arrived. It now says "Quick trade cancelled." and stays cancelled.
 - **Saving a strategy keeps its exit plan.** Opening a strategy in the builder and saving it,
   even just to rename it, used to replace a trailing stop with "move to breakeven". It no longer
   does. Strategies added from the builder or from a script also keep their positions across a

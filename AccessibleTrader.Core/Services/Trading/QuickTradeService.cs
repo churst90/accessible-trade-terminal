@@ -80,6 +80,8 @@ namespace AccessibleTrader.Core.Services.Trading
 
         /// <summary>Guards against a second fetch while one is already in flight.</summary>
         private int _fetching;
+        // Bumped by Disarm, so a fetch that lands after Escape knows it was cancelled.
+        private int _fetchGeneration;
 
         private readonly Func<QuickTradeSizingMode>? _sizingMode;
 
@@ -278,7 +280,10 @@ namespace AccessibleTrader.Core.Services.Trading
 
         public void Disarm(bool announce = true)
         {
-            bool wasArmed = State.Stage != QuickTradeStage.Idle;
+            // A balance fetch in flight is an arm the user asked for, so cancelling it is a cancel.
+            bool wasFetching = System.Threading.Volatile.Read(ref _fetching) == 1;
+            System.Threading.Interlocked.Increment(ref _fetchGeneration);
+            bool wasArmed = State.Stage != QuickTradeStage.Idle || wasFetching;
             State = QuickTradeState.Idle;
             if (announce) Say(wasArmed ? "Quick trade cancelled." : "Nothing was armed.");
         }
@@ -418,6 +423,7 @@ namespace AccessibleTrader.Core.Services.Trading
             }
 
             Say("Fetching your account balance.");
+            int generation = System.Threading.Volatile.Read(ref _fetchGeneration);
 
             _ = Task.Run(async () =>
             {
@@ -427,8 +433,14 @@ namespace AccessibleTrader.Core.Services.Trading
 
                     if (ResolveEquity() > 0)
                     {
-                        // Only if the user has not moved on. Arm() re-reads equity, which is now warm.
-                        if (State.Stage == QuickTradeStage.Idle) Arm(riskPercent);
+                        // Only if the user has not moved on: not armed something else since (the stage
+                        // is no longer Idle), and not pressed Escape while it was in flight (the
+                        // generation moved). Escape leaves the stage Idle too, so the stage alone
+                        // armed a trade seconds after the user cancelled it. Arm() re-reads equity,
+                        // which is now warm.
+                        if (State.Stage == QuickTradeStage.Idle
+                            && System.Threading.Volatile.Read(ref _fetchGeneration) == generation)
+                            Arm(riskPercent);
                     }
                     else
                     {

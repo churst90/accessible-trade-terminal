@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2n: `Services/Trading` and `Services/Scripting` mutated; Escape while the balance loads now cancels (2026-09-24)
+
+Run in parallel in its own worktree. Full write-up: `scratchpad/a2n_REPORT.md`.
+
+- **45 mutants; honest 24/45 (53.3%)**: Trading 15/24 (62.5%), Scripting 9/21 (42.9%). The audit
+  threw out two catches (a flaky `OrderTicketErrorStateTests` case, 2 of 47 full runs, and a
+  collateral cascade when a leaked worker slot hit the 16-worker cap). All 21 survivors closed,
+  each proven red (`a2n_prove_kills.py`), 24 new cases.
+- **`QuickTradeExecutor` had no test at all**: a long sent as a sell, a limit sent as market, the
+  stop never sent, a refused order dropped silently and an uncertain order counted as a success all
+  survived. Now `QuickTradeExecutorOrderTests` (6). Also closed: a limit priced at the last close
+  instead of the cursor bar, every risk-sized short refused, a late balance re-arming over a trade
+  already set up, and a ladder over 100% selling more than was held.
+- **Nothing had ever made a script worker misbehave.** The call deadline, the kill on timeout,
+  the memory and CPU quotas, the worker cap and slot release, and the refusal of an unexpected reply
+  are now `ScriptHostSupervisionTests` (8); the sandbox refusal paths `SandboxRefusalPolicyTests`
+  (6). `MacSandboxExecLauncher` gained an internal test constructor (no behaviour change).
+- **Fixed: Escape while the account balance was being fetched did not cancel the arm.** The fetch
+  armed "if the user has not moved on", read as "the stage is still Idle", and Escape leaves it
+  Idle too: the cancel was answered "Nothing was armed" and the trade armed anyway seconds later.
+  A fetch generation bumped by Disarm now drops the late arm, and the cancel says "Quick trade
+  cancelled." Found as an unverified note in A2n's report; demonstrated red first
+  (`QuickTradeEquityFetchTests.EscapeWhileTheBalanceIsFetchedCancelsTheArm`), both halves of the
+  fix proven by sabotage.
+- **Recorded, not changed:** `IScriptWorkerLauncher.SandboxApplied` has no reader, so the user is
+  never told when the script sandbox is missing, though its documentation says they are. The
+  Windows AppContainer refusal still has no test seam.
+
 ### A2l: `Services/Strategies` mutated, and three strategy-builder defects fixed (2026-09-24)
 
 Run in parallel with A2k in its own worktree. Full write-up: `scratchpad/a2l_REPORT.md`.
