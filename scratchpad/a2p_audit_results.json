@@ -1,0 +1,738 @@
+{
+ "mutants": [
+  {
+   "id": "P05",
+   "area": "only VERIFIED addresses are displayable",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.WalletServiceTests.An_unverifiable_but_well_formed_address_is_still_shown",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"Polygon\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"ERC20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"BEP20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_unknown_network_says_so_rather_than_passing_or_failing"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_unknown_network_says_so_rather_than_passing_or_failing",
+    "AccessibleTrader.Tests.WalletServiceTests.An_unverifiable_but_well_formed_address_is_still_shown"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"Polygon\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"ERC20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"BEP20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_unknown_network_says_so_rather_than_passing_or_failing",
+    "AccessibleTrader.Tests.WalletServiceTests.An_unverifiable_but_well_formed_address_is_still_shown"
+   ],
+   "clean_failing": [],
+   "clean_passed": 5,
+   "honest_by": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"Polygon\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"ERC20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: \"BEP20\")",
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_unknown_network_says_so_rather_than_passing_or_failing",
+    "AccessibleTrader.Tests.WalletServiceTests.An_unverifiable_but_well_formed_address_is_still_shown"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "P06",
+   "area": "every '1' in a base58 address counts as a leading zero",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_legacy_bitcoin_address_verifies",
+    "AccessibleTrader.Tests.WalletServiceTests.A_good_address_comes_back_with_its_validation"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_legacy_bitcoin_address_verifies",
+    "AccessibleTrader.Tests.WalletServiceTests.A_good_address_comes_back_with_its_validation"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_legacy_bitcoin_address_verifies",
+    "AccessibleTrader.Tests.WalletServiceTests.A_good_address_comes_back_with_its_validation"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_legacy_bitcoin_address_verifies",
+    "AccessibleTrader.Tests.WalletServiceTests.A_good_address_comes_back_with_its_validation"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "W01",
+   "area": "giving up no longer reports a disconnect",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.The_give_up_path_invokes_on_disconnected"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.The_give_up_path_invokes_on_disconnected"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.The_give_up_path_invokes_on_disconnected"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.The_give_up_path_invokes_on_disconnected"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "W05",
+   "area": "public SendAsync writes to the socket directly again",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.There_is_exactly_one_socket_write_and_it_holds_the_send_lock"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.There_is_exactly_one_socket_write_and_it_holds_the_send_lock"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.There_is_exactly_one_socket_write_and_it_holds_the_send_lock"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.ReconnectingWebSocketContractTests.There_is_exactly_one_socket_write_and_it_holds_the_send_lock"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "R01",
+   "area": "HttpClient timeouts are not retried",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteAsync_by_contrast_does_retry_that_same_exception",
+    "AccessibleTrader.Tests.RateLimiterRetryPolicyTests.Caller_cancellation_stops_immediately_but_a_client_timeout_is_retried"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteAsync_by_contrast_does_retry_that_same_exception",
+    "AccessibleTrader.Tests.RateLimiterRetryPolicyTests.Caller_cancellation_stops_immediately_but_a_client_timeout_is_retried"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.RateLimiterRetryPolicyTests.Caller_cancellation_stops_immediately_but_a_client_timeout_is_retried",
+    "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteAsync_by_contrast_does_retry_that_same_exception"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.RateLimiterRetryPolicyTests.Caller_cancellation_stops_immediately_but_a_client_timeout_is_retried",
+    "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteAsync_by_contrast_does_retry_that_same_exception"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "PR2",
+   "area": "FromException classification inverted",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.WalletServiceTests.A_refused_networks_call_is_reported_as_a_permission_problem"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.WalletServiceTests.A_refused_networks_call_is_reported_as_a_permission_problem"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.WalletServiceTests.A_refused_networks_call_is_reported_as_a_permission_problem"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.WalletServiceTests.A_refused_networks_call_is_reported_as_a_permission_problem"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TF1",
+   "area": "429 treated as permanent",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.PipelineIdentityAndResilienceTests.Http_status_decides_whether_a_failure_is_worth_retrying(status: 429, expected: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Schwab_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Binance_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.PipelineIdentityAndResilienceTests.Http_status_decides_whether_a_failure_is_worth_retrying",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Binance_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Schwab_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.PipelineIdentityAndResilienceTests.Http_status_decides_whether_a_failure_is_worth_retrying(status: 429, expected: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Schwab_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Binance_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)"
+   ],
+   "clean_failing": [],
+   "clean_passed": 18,
+   "honest_by": [
+    "AccessibleTrader.Tests.PipelineIdentityAndResilienceTests.Http_status_decides_whether_a_failure_is_worth_retrying(status: 429, expected: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Schwab_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)",
+    "AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Binance_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "T01",
+   "area": "month period end approximated as 30 days",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-01-01\", timeframe: \"1M\", expectedEnd: \"2026-02-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2024-02-01\", timeframe: \"1M\", expectedEnd: \"2024-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-02-01\", timeframe: \"1M\", expectedEnd: \"2026-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_closed_short_month_is_not_held_back_by_the_30_day_approximation"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_closed_short_month_is_not_held_back_by_the_30_day_approximation",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-01-01\", timeframe: \"1M\", expectedEnd: \"2026-02-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2024-02-01\", timeframe: \"1M\", expectedEnd: \"2024-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-02-01\", timeframe: \"1M\", expectedEnd: \"2026-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_closed_short_month_is_not_held_back_by_the_30_day_approximation"
+   ],
+   "clean_failing": [],
+   "clean_passed": 10,
+   "honest_by": [
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-01-01\", timeframe: \"1M\", expectedEnd: \"2026-02-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2024-02-01\", timeframe: \"1M\", expectedEnd: \"2024-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: \"2026-02-01\", timeframe: \"1M\", expectedEnd: \"2026-03-01\")",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day",
+    "AccessibleTrader.Tests.OhlcvStoreTests.A_closed_short_month_is_not_held_back_by_the_30_day_approximation"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "T02",
+   "area": "weekly bars aligned to Sunday",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_UsesOnlyTheLastCLOSEDHigherTimeframeBar",
+    "AccessibleTrader.Tests.ResamplerServiceTests.Weekly_buckets_start_on_Monday_at_midnight_UTC"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_UsesOnlyTheLastCLOSEDHigherTimeframeBar",
+    "AccessibleTrader.Tests.ResamplerServiceTests.Weekly_buckets_start_on_Monday_at_midnight_UTC"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ResamplerServiceTests.Weekly_buckets_start_on_Monday_at_midnight_UTC",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_UsesOnlyTheLastCLOSEDHigherTimeframeBar"
+   ],
+   "clean_failing": [],
+   "clean_passed": 3,
+   "honest_by": [
+    "AccessibleTrader.Tests.ResamplerServiceTests.Weekly_buckets_start_on_Monday_at_midnight_UTC",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_UsesOnlyTheLastCLOSEDHigherTimeframeBar"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TS1",
+   "area": "nanosecond epochs divided by 1000 only once",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.TimestampParserTests.Every_epoch_precision_tier_lands_on_the_same_instant(epoch: \"1750000000000000000\")"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.TimestampParserTests.Every_epoch_precision_tier_lands_on_the_same_instant"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.TimestampParserTests.Every_epoch_precision_tier_lands_on_the_same_instant(epoch: \"1750000000000000000\")"
+   ],
+   "clean_failing": [],
+   "clean_passed": 4,
+   "honest_by": [
+    "AccessibleTrader.Tests.TimestampParserTests.Every_epoch_precision_tier_lands_on_the_same_instant(epoch: \"1750000000000000000\")"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TS2",
+   "area": "Local DateTimes relabelled instead of converted",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.TimestampParserTests.An_unspecified_datetime_is_still_read_as_utc",
+    "AccessibleTrader.Tests.TimestampParserTests.A_local_datetime_is_converted_to_utc_not_relabelled"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.TimestampParserTests.A_local_datetime_is_converted_to_utc_not_relabelled",
+    "AccessibleTrader.Tests.TimestampParserTests.An_unspecified_datetime_is_still_read_as_utc"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.TimestampParserTests.An_unspecified_datetime_is_still_read_as_utc",
+    "AccessibleTrader.Tests.TimestampParserTests.A_local_datetime_is_converted_to_utc_not_relabelled"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.TimestampParserTests.An_unspecified_datetime_is_still_read_as_utc",
+    "AccessibleTrader.Tests.TimestampParserTests.A_local_datetime_is_converted_to_utc_not_relabelled"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "MK1",
+   "area": "a bare category is adopted as its own sub-type",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.SubType_reads_the_sub_type_half_only(market: \"Crypto\", expected: \"\")",
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.Adopting_a_bare_market_does_not_make_the_category_the_sub_type"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.Adopting_a_bare_market_does_not_make_the_category_the_sub_type",
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.SubType_reads_the_sub_type_half_only"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.SubType_reads_the_sub_type_half_only(market: \"Crypto\", expected: \"\")",
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.Adopting_a_bare_market_does_not_make_the_category_the_sub_type"
+   ],
+   "clean_failing": [],
+   "clean_passed": 5,
+   "honest_by": [
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.SubType_reads_the_sub_type_half_only(market: \"Crypto\", expected: \"\")",
+    "AccessibleTrader.Tests.MarketKeyGrowthTests.Adopting_a_bare_market_does_not_make_the_category_the_sub_type"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TB2",
+   "area": "RemoveFirst drops the LAST element",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsTests.LiveTick_growth_stops_at_the_2000_bar_live_cap"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.KeyedFeedsTests.LiveTick_growth_stops_at_the_2000_bar_live_cap"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsTests.LiveTick_growth_stops_at_the_2000_bar_live_cap"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.KeyedFeedsTests.LiveTick_growth_stops_at_the_2000_bar_live_cap"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "CB1",
+   "area": "a full circular buffer never advances its head",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_GetLogicalIndex_ShouldMapCorrectlyAfterWrap",
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_ShouldEvictOldItems"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_GetLogicalIndex_ShouldMapCorrectlyAfterWrap",
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_ShouldEvictOldItems"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_GetLogicalIndex_ShouldMapCorrectlyAfterWrap",
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_ShouldEvictOldItems"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_GetLogicalIndex_ShouldMapCorrectlyAfterWrap",
+    "AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_ShouldEvictOldItems"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "WB1",
+   "area": "limit keeps the OLDEST bars",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.WindowedBarsTests.With_no_window_the_limit_still_keeps_the_newest_bars",
+    "AccessibleTrader.Tests.WindowedBarsTests.The_volume_series_stays_aligned_with_the_bars"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.WindowedBarsTests.The_volume_series_stays_aligned_with_the_bars",
+    "AccessibleTrader.Tests.WindowedBarsTests.With_no_window_the_limit_still_keeps_the_newest_bars"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.WindowedBarsTests.With_no_window_the_limit_still_keeps_the_newest_bars",
+    "AccessibleTrader.Tests.WindowedBarsTests.The_volume_series_stays_aligned_with_the_bars"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.WindowedBarsTests.With_no_window_the_limit_still_keeps_the_newest_bars",
+    "AccessibleTrader.Tests.WindowedBarsTests.The_volume_series_stays_aligned_with_the_bars"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "WB2",
+   "area": "the bar AT Until is excluded",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.WindowedBarsTests.Bars_outside_the_requested_window_are_dropped"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.WindowedBarsTests.Bars_outside_the_requested_window_are_dropped"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.WindowedBarsTests.Bars_outside_the_requested_window_are_dropped"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.WindowedBarsTests.Bars_outside_the_requested_window_are_dropped"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "WB3",
+   "area": "an empty window is not explained",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Gemini_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Kraken_futures_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.WindowedBarsTests.An_old_window_is_never_answered_with_the_newest_bars"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Gemini_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Kraken_futures_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.WindowedBarsTests.An_old_window_is_never_answered_with_the_newest_bars"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Gemini_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Kraken_futures_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.WindowedBarsTests.An_old_window_is_never_answered_with_the_newest_bars"
+   ],
+   "clean_failing": [],
+   "clean_passed": 3,
+   "honest_by": [
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Gemini_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.SnapshotWindowRoutingTests.Kraken_futures_refuses_a_window_older_than_its_history_and_says_so",
+    "AccessibleTrader.Tests.WindowedBarsTests.An_old_window_is_never_answered_with_the_newest_bars"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "BB1",
+   "area": "cumulative ticks re-add the running total",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_do_not_double_count_the_running_total",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_across_source_bars_in_a_coarser_bucket_sum_once_each"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_across_source_bars_in_a_coarser_bucket_sum_once_each",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_do_not_double_count_the_running_total"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_do_not_double_count_the_running_total",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_across_source_bars_in_a_coarser_bucket_sum_once_each"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_do_not_double_count_the_running_total",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_across_source_bars_in_a_coarser_bucket_sum_once_each"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "BB2",
+   "area": "replayed older ticks restart the bucket",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket"
+   ],
+   "clean_failing": [],
+   "clean_passed": 1,
+   "honest_by": [
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "OH1",
+   "area": "a trade tick replaces the bar's volume instead of adding",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LiveStreamWatchdogTests.A_mid_bar_reconnect_preserves_the_in_progress_bar",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.TradeDeltas_accumulates_volume_and_expands_range",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Malformed_tick_leaves_the_bucket_untouched"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Malformed_tick_leaves_the_bucket_untouched",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket",
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.TradeDeltas_accumulates_volume_and_expands_range",
+    "AccessibleTrader.Tests.LiveStreamWatchdogTests.A_mid_bar_reconnect_preserves_the_in_progress_bar"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.TradeDeltas_accumulates_volume_and_expands_range",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Malformed_tick_leaves_the_bucket_untouched",
+    "AccessibleTrader.Tests.LiveStreamWatchdogTests.A_mid_bar_reconnect_preserves_the_in_progress_bar"
+   ],
+   "clean_failing": [],
+   "clean_passed": 4,
+   "honest_by": [
+    "AccessibleTrader.Tests.KeyedFeedsPhaseBTests.TradeDeltas_accumulates_volume_and_expands_range",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket",
+    "AccessibleTrader.Tests.KeyedFeedsHardeningTests.Malformed_tick_leaves_the_bucket_untouched",
+    "AccessibleTrader.Tests.LiveStreamWatchdogTests.A_mid_bar_reconnect_preserves_the_in_progress_bar"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "CC2",
+   "area": "a component's own causality is ignored",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Resistance\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingHigh\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"ICHIMOKU.Chikou Span\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingLow\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Support\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.SwingStructureProvider))",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.IchimokuProvider))"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Resistance\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingHigh\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"ICHIMOKU.Chikou Span\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingLow\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Support\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.SwingStructureProvider))",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.IchimokuProvider))"
+   ],
+   "clean_failing": [],
+   "clean_passed": 45,
+   "honest_by": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Resistance\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingHigh\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"ICHIMOKU.Chikou Span\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"SWING_STRUCTURE.SwingLow\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: \"CIPHER_SR.Support\")",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.SwingStructureProvider))",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.IchimokuProvider))"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "AP1",
+   "area": "whole-day metrics published the same day",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 0, expectedDay: 6)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 2, expectedDay: 8)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 1, expectedDay: 7)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.A_whole_day_metric_becomes_readable_on_the_NEXT_day",
+    "AccessibleTrader.Tests.WikipediaPageviewsProviderTests.HappyPath_ReturnsFlatBarsWithViewsInEveryLeg"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.A_whole_day_metric_becomes_readable_on_the_NEXT_day",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top",
+    "AccessibleTrader.Tests.WikipediaPageviewsProviderTests.HappyPath_ReturnsFlatBarsWithViewsInEveryLeg"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 0, expectedDay: 6)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 2, expectedDay: 8)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 1, expectedDay: 7)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.A_whole_day_metric_becomes_readable_on_the_NEXT_day",
+    "AccessibleTrader.Tests.WikipediaPageviewsProviderTests.HappyPath_ReturnsFlatBarsWithViewsInEveryLeg"
+   ],
+   "clean_failing": [],
+   "clean_passed": 5,
+   "honest_by": [
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 0, expectedDay: 6)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 2, expectedDay: 8)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 1, expectedDay: 7)",
+    "AccessibleTrader.Tests.AnalyticsPublicationLagTests.A_whole_day_metric_becomes_readable_on_the_NEXT_day",
+    "AccessibleTrader.Tests.WikipediaPageviewsProviderTests.HappyPath_ReturnsFlatBarsWithViewsInEveryLeg"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "SF1",
+   "area": "a two-letter base wins the quote split",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.ProviderStreamAndSigningTests.Kraken_ws_pairs_split_on_the_real_quote(symbol: \"XBTUSD\", pair: \"XBT/USD\")"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.ProviderStreamAndSigningTests.Kraken_ws_pairs_split_on_the_real_quote"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ProviderStreamAndSigningTests.Kraken_ws_pairs_split_on_the_real_quote(symbol: \"XBTUSD\", pair: \"XBT/USD\")"
+   ],
+   "clean_failing": [],
+   "clean_passed": 6,
+   "honest_by": [
+    "AccessibleTrader.Tests.ProviderStreamAndSigningTests.Kraken_ws_pairs_split_on_the_real_quote(symbol: \"XBTUSD\", pair: \"XBT/USD\")"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "D5",
+   "area": "speech starts OFF",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.UIDiagnosticTests.UI_Feedback_ShouldTriggerOnStateChange",
+    "AccessibleTrader.Tests.WorkspaceStoreTests.InitialState_MatchesWorkspaceStateInitial"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.UIDiagnosticTests.UI_Feedback_ShouldTriggerOnStateChange",
+    "AccessibleTrader.Tests.WorkspaceStoreTests.InitialState_MatchesWorkspaceStateInitial"
+   ],
+   "sampled": false,
+   "tree": "t2",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.WorkspaceStoreTests.InitialState_MatchesWorkspaceStateInitial",
+    "AccessibleTrader.Tests.UIDiagnosticTests.UI_Feedback_ShouldTriggerOnStateChange"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.WorkspaceStoreTests.InitialState_MatchesWorkspaceStateInitial",
+    "AccessibleTrader.Tests.UIDiagnosticTests.UI_Feedback_ShouldTriggerOnStateChange"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TH1",
+   "area": "translucent colours serialised without alpha",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.ThemeCustomizationTests.ATheme_survivesEveryFieldBeingSetAndReadBack",
+    "AccessibleTrader.Tests.ThemeCustomizationTests.AlphaSurvivesTheRoundTrip"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.ThemeCustomizationTests.ATheme_survivesEveryFieldBeingSetAndReadBack",
+    "AccessibleTrader.Tests.ThemeCustomizationTests.AlphaSurvivesTheRoundTrip"
+   ],
+   "sampled": false,
+   "tree": "t3",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ThemeCustomizationTests.ATheme_survivesEveryFieldBeingSetAndReadBack",
+    "AccessibleTrader.Tests.ThemeCustomizationTests.AlphaSurvivesTheRoundTrip"
+   ],
+   "clean_failing": [],
+   "clean_passed": 2,
+   "honest_by": [
+    "AccessibleTrader.Tests.ThemeCustomizationTests.ATheme_survivesEveryFieldBeingSetAndReadBack",
+    "AccessibleTrader.Tests.ThemeCustomizationTests.AlphaSurvivesTheRoundTrip"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "TH2",
+   "area": "default muted text drops below WCAG AA",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Solarized)",
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Braille)"
+   ],
+   "filter_methods": [
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor"
+   ],
+   "sampled": false,
+   "tree": "t1",
+   "mutant_status": "CAUGHT",
+   "mutant_rerun_failing": [
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Solarized)",
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Braille)"
+   ],
+   "clean_failing": [],
+   "clean_passed": 12,
+   "honest_by": [
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Solarized)",
+    "AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Braille)"
+   ],
+   "campaign_only": [],
+   "verdict": "HONEST"
+  }
+ ]
+}

@@ -214,6 +214,14 @@ namespace AccessibleTrader.Sdk.Trading
             if (checksum != 1 && checksum != 0x2bc830a3)
                 return new(AddressCheck.Malformed, "the bech32 checksum does not match — this address is corrupt");
 
+            // BIP-350: the two checksums are not interchangeable. Witness version 0 (the 'q'
+            // after the separator) must carry bech32's; version 1 and up must carry bech32m's.
+            // Accepting either for any version announced BIP-350's own invalid vector
+            // (bc1q…kemeawh — a v0 address with the taproot checksum) as VERIFIED.
+            if ((data[0] == 0) != (checksum == 1))
+                return new(AddressCheck.Malformed,
+                    "the checksum type does not match the address version — this address is corrupt");
+
             return new(AddressCheck.Verified,
                 $"bech32 checksum verified for {expectedHrp}");
         }

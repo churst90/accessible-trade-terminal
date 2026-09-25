@@ -372,5 +372,39 @@ namespace AccessibleTrader.Tests
                 Assert.Empty(evaluator.EvaluateAlerts(
                     new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
         }
+
+        /// <summary>
+        /// A2p D3: a ZERO default for <c>AlertDefinition.Cooldown</c> left the suite green,
+        /// because every repeating-alert test sets a cooldown explicitly. The Alerts dialog never
+        /// sets one, and an alerts.json entry that turns on <c>repeatIfStillActive</c> without a
+        /// cooldown is exactly what a user editing the file writes. Such an alert must not speak
+        /// again on the very next poll — with no pacing it re-announces every sixty seconds
+        /// from each background monitor, for as long as the level holds.
+        /// </summary>
+        [Fact]
+        public void A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll()
+        {
+            var evaluator = BuildEvaluator();
+            var alert = new AlertDefinition
+            {
+                Id = "repeat-no-cooldown",
+                Name = "Repeating, cooldown left alone",
+                Target = AlertTarget.Price,
+                Condition = AlertCondition.CrossesAbove,
+                Threshold = 100,
+                Delivery = AlertDelivery.Speech,
+                IsActive = true,
+                RepeatIfStillActive = true,
+            };
+
+            var newBar = Bar(99, 101, 1);
+            var prevBar = Bar(98, 99, 0);
+
+            Assert.Single(evaluator.EvaluateAlerts(
+                new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
+
+            Assert.Empty(evaluator.EvaluateAlerts(
+                new[] { alert }, WorkspaceState.Initial, newBar, prevBar, NoPrev));
+        }
     }
 }
