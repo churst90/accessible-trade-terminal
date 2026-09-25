@@ -121,7 +121,11 @@ public sealed class LiveRegionInventoryBrowserTests
         // is available exactly when it is not needed. It also never carries app speech — its
         // whole vocabulary is four sentences about the connection (see js/reconnect.js).
         var others = regions
-            .Where(r => r.Id is not ("aria-speech-1" or "aria-speech-2" or "blazor-error-ui" or "reconnect-status"))
+            // #reconnect-progress (2026-09-24) is the same transport channel, split out so the
+            // once-a-minute "still reconnecting" can be polite while the state change stays
+            // assertive; it is exempt for exactly the reason #reconnect-status is.
+            .Where(r => r.Id is not ("aria-speech-1" or "aria-speech-2" or "blazor-error-ui"
+                                     or "reconnect-status" or "reconnect-progress"))
             .Where(r => !r.Cls.Contains("boot-screen"))
             .ToList();
 

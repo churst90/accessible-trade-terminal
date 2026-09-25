@@ -63,7 +63,9 @@ the same day. Each is fixed and proven red against the code it replaced.
   minute. `role="status"` came off the assertive node (it implies polite). The .NET 10
   `resume-failed` state is announced and shown like `rejected`. A browser test counts the
   writes during a real drop (was several in 2.5 s, now one), and `tools/jstests/reconnect-tests.mjs`
-  (5, in CI) drives seven simulated minutes.
+  (5, in CI) drives seven simulated minutes. `LiveRegionInventoryBrowserTests` caught the new
+  region on the merge; it is exempted there for the same stated reason as `#reconnect-status`
+  (it reports the transport, at the one moment the speech buffers' circuit is gone).
 - **A successful rebind was silent.** It now says "OpenHelp is now Ctrl+Alt+Shift+Y."
 - **The capture stayed armed, and browse mode ate keys.** With focus on the Rebind button, NVDA
   and JAWS stay in browse mode and swallow letters and arrows, and nothing disarmed the capture,
