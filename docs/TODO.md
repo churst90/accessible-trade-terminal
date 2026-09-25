@@ -117,6 +117,47 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-24, EIGHTIETH pass — RECONNECT BACK-OFF, FIVE MUTATION
+> CAMPAIGNS IN PARALLEL, PITCH FOLLOWS.)** Every item below has a CHANGES `[Unreleased]` entry.
+>
+> **Done:**
+> - **Reconnection back-off.** The storm was the framework default (ten retries, no delay). The
+>   09-21 attempt never booted because the CSP refused its inline `Blazor.start()`; it is now
+>   `js/boot.js`. **Not seen behind nginx**: the first real restart is the check.
+> - **Keyboard dead ends found by reading the JS:** the Object Tree's Hide/Mute/Delete (and the
+>   condition tree's buttons) could not be pressed from the keyboard; Settings → Keyboard could not
+>   capture a chord and Escape rebound instead of cancelling. Then an accessibility review of those
+>   fixes found the reconnect sentence re-announced **every second**, silent rebinds, lost focus.
+>   All fixed; the rebind now captures in a focused field (focus mode for NVDA/JAWS).
+> - **Pitch follows** in Properties → Sonification. **The clone sweep had been done on 09-06
+>   (`4702a00f`)**: a stale carry, now removed.
+> - **Five campaigns, all survivors closed:** A2k JS 48/70 (68.6%), A2l Strategies 23/44 (52.3%),
+>   A2m Analysis 29/45 (64.4%), A2n Trading+Scripting 24/45 (53.3%), A2o WebHost 40/48 (83.3%).
+>   Real defects fixed: the builder's Save replacing an ATR trail with breakeven; builder/script
+>   strategies started without a spec id (positions orphaned after restart); flags on a clean
+>   trend never announced; Escape while the balance loads not cancelling a quick trade.
+>
+> ### NEXT
+>
+> 1. **Verify on Windows from the downloaded zip** (unchanged): NVDA, the canvas rect, the Dot Pad DLL.
+> 2. **HEAR:** the overlay auto-fit and pitch band (64th), **Pitch follows → The value** on the candle
+>    body, the new flag announcements on trending charts, and the reconnect messages during a restart.
+> 3. **Decisions for Cody** (A2l): builder **Save** demotes a spec to Suggestion mode and disarms it
+>    for the next launch (Add to Engine does not). Deliberate safety, or a defect?
+> 4. **Unverified, needs an end-to-end fixture:** re-adding an edited spec while its strategy holds
+>    an open position calls `Forget` on the position (`StrategyEngine.RemoveStrategy`), which may drop
+>    the record while the broker still holds it.
+> 5. `IScriptWorkerLauncher.SandboxApplied` has no reader: the user is never told the script sandbox
+>    is missing, though its docs say they are. The Windows AppContainer launcher has no test seam.
+> 6. **Flaky under load:** `ModalBrowserContractTests` Tab/Shift+Tab, `OrderTicketErrorStateTests`
+>    (2/47), `ChartAreaBarSliderTests`. Harmless alone, but they manufacture catches in a campaign
+>    and red CI jobs under contention. `ValueDeviationTests.BarsBeforeTheWindowFills_HaveNoReading`
+>    looks vacuous (flat fixture).
+> 7. The next cut is **2.13.0** (Alt+F's retirement removed a default binding). `/download` and the
+>    .NET 10 Desktop Runtime, or a self-contained Windows head, still stand.
+> 8. Not yet mutated: StrategyLab (25,804 lines), Sdk (9,881), `Services/Accessibility` beyond A2j.
+
+
 > **START HERE (current as of 2026-09-23, SEVENTY-NINTH pass — ALT+F RETIRED, STYLESHEETS ONE
 > AGAIN. PRESENTATION DAY; SESSION WRAPPED HERE.)**
 >
