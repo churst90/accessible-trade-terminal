@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Flags on a steady trend are announced.** A bull or bear flag on a clean trend was never
+  spoken when it formed, only found later when panning back. You may now hear more flags on
+  trending charts.
 - **Escape really cancels a quick trade while your balance is loading.** Pressing Escape during
   "Fetching your account balance" used to be ignored, and the trade armed when the balance
   arrived. It now says "Quick trade cancelled." and stays cancelled.

@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2m: `Services/Analysis` mutated for the first time; flags on a clean trend are announced (2026-09-24)
+
+Run in parallel in its own worktree. Full write-up: `scratchpad/a2m_REPORT.md`.
+
+- **45 mutants over a directory never mutated before (4,269 lines, 17 files); honest 29/45
+  (64.4%).** The audit removed three catches (unrelated Blazor/WebHost tests failing under load)
+  and reversed one pass: M23's run aborted at 4,634 of 8,088 tests and the harness had read that
+  as green. The harness now marks any run short of the baseline total ABORTED. **That is a new
+  harness rule worth carrying to every campaign.**
+- **All 16 survivors closed**, each proven red, 23 new cases across 10 files including a new
+  `LevelProvenanceServiceTests` (the service had no tests). Gaps worth naming: the causality test
+  cut the series at only three bars, so a five-bar look-ahead slipped between the cuts;
+  `NoPatternIsKnowableBeforeItsStructureIsComplete` described that exact defect in its doc comment
+  and asserted a bound that allowed it (tightened); the weekly-MA threshold could not tell the
+  honest 100 from the leaked 133.
+- **Fixed: a clean trend never announced its flag.** `ChartPatternDetector` returned early when the
+  chart had fewer than three swings, before the flag scan, which does not use swings at all. So a
+  steady trend never heard its bull flag, and on longer charts flags appeared only after the fact,
+  when panning back. The three-swing check now guards only the swing-built shapes. Demonstrated red
+  first; restoring the old line turns 5 tests red. **Consequence: more bull and bear flags will be
+  announced on trending charts. Not heard.**
+- **Recorded, not changed:** `ValueDeviationTests.BarsBeforeTheWindowFills_HaveNoReading` looks
+  vacuous (its flat fixture reads nothing anywhere, so it passes whatever the warmup rule is).
+
 ### A2n: `Services/Trading` and `Services/Scripting` mutated; Escape while the balance loads now cancels (2026-09-24)
 
 Run in parallel in its own worktree. Full write-up: `scratchpad/a2n_REPORT.md`.
