@@ -75,6 +75,8 @@
             Could not reconnect to the terminal. The server may be restarting.
             <a href="" class="components-reconnect-button">Retry now</a>
         </span>
+        @* .NET 10 also uses -resume-failed (the session could not be resumed); app.css shows
+           this span for it, because to the user it is the same news. *@
         <span class="components-reconnect-rejected">
             Your session ended while you were disconnected. Orders already placed are held
             at the venue and are not affected.
@@ -82,10 +84,15 @@
         </span>
     </div>
 
-    @* The node that actually speaks. Its TEXT is rewritten on every transition, which is
-       what makes each one a genuine change a screen reader will announce. Visually hidden
-       because the overlay above is the visual presentation of the same state. *@
-    <div id="reconnect-status" role="status" aria-live="assertive" aria-atomic="true"
+    @* The nodes that actually speak, both visually hidden because the overlay above is the
+       visual presentation of the same state. #reconnect-status carries one sentence per state
+       change, assertively (no role: role="status" implies polite and contradicts it).
+       #reconnect-progress carries "still reconnecting, attempt N", politely and at most once a
+       minute: the framework rewrites the attempt counter every second, and announcing each
+       rewrite read the whole sentence out once a second for minutes. *@
+    <div id="reconnect-status" aria-live="assertive" aria-atomic="true"
+         class="visually-hidden" data-nosnippet></div>
+    <div id="reconnect-progress" role="status" aria-live="polite" aria-atomic="true"
          class="visually-hidden" data-nosnippet></div>
 
     @* RECONNECTION BACK-OFF. autostart="false" hands the start to js/boot.js, which passes a

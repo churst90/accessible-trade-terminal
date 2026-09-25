@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### An accessibility review of this session's own fixes, and what it found (2026-09-24)
+
+The `accessibility-lead` agent the project hook asks for is not registered in this harness, so
+the keyboard-navigator and live-region specialists' rules were applied by a general agent over
+the back-off and the two keyboard fixes. It found six problems, two serious, all in code written
+the same day. Each is fixed and proven red against the code it replaced.
+
+- **The reconnect announcement repeated every second.** The framework rewrites the attempt
+  counter once a second while it waits (a countdown), and `reconnect.js` re-announced the whole
+  ~25-word sentence, assertively, on every rewrite. The back-off stretched that to about seven
+  minutes. Now the sentence goes to `#reconnect-status` once per state change, and "Still
+  reconnecting. Attempt N of 30." goes to a new polite `#reconnect-progress` at most once a
+  minute. `role="status"` came off the assertive node (it implies polite). The .NET 10
+  `resume-failed` state is announced and shown like `rejected`. A browser test counts the
+  writes during a real drop (was several in 2.5 s, now one), and `tools/jstests/reconnect-tests.mjs`
+  (5, in CI) drives seven simulated minutes.
+- **A successful rebind was silent.** It now says "OpenHelp is now Ctrl+Alt+Shift+Y."
+- **The capture stayed armed, and browse mode ate keys.** With focus on the Rebind button, NVDA
+  and JAWS stay in browse mode and swallow letters and arrows, and nothing disarmed the capture,
+  so the first letter typed elsewhere (another Settings tab) became the binding. The capture
+  now happens in a focused, read-only "New shortcut for X" field (an edit field puts a screen
+  reader in focus mode), captures only keys aimed at it, and cancels when focus leaves it.
+  Held-key auto-repeat is ignored. After a capture or Escape, focus returns to the row's Rebind
+  button instead of falling to the page. The cancellation is no longer an interrupting message.
+- **Deleting a condition dropped focus on the page.** Delete is a button inside the row it
+  removes. Focus now lands on the next row, else the previous, else the parent group (or the
+  "Add group" button when the root goes), that row becomes the tree's Tab stop, and "Deleted X."
+  is said. `ConditionTreeDeleteFocusTests` (5).
+- **Not changed, recorded:** after tabbing onto a row button in the Object Tree, NVDA usually
+  drops to browse mode, where arrows move the reading cursor rather than the tree. That is the
+  screen reader's model, not a defect here.
+
 ### Two keyboard dead ends, found by reading the JavaScript and proven in a browser (2026-09-24)
 
 The first finds of the JS campaign. Each was reproduced in a real Chromium before any fix.

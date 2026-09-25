@@ -35,20 +35,32 @@
 window.terminalReconnect = (function () {
     'use strict';
 
-    var STATES = ['show', 'hide', 'failed', 'rejected', 'refused'];
+    // 'resume-failed' is .NET 10's: the circuit came back but the session could not be resumed,
+    // which to the user is the same news as 'rejected'.
+    var STATES = ['show', 'hide', 'failed', 'rejected', 'resume-failed', 'refused'];
 
-    function statusNode() {
-        return document.getElementById('reconnect-status');
-    }
+    // ── Two voices, and why ──────────────────────────────────────────────────────────
+    //
+    // The framework rewrites the attempt counter's text once a SECOND while it waits (it is a
+    // countdown), and until 2026-09-24 every rewrite was re-announced: the whole ~25-word
+    // sentence, assertively, each one cutting off the last, for as long as the retries ran.
+    // With the back-off that is about seven minutes. An accessibility review measured it at 7
+    // rewrites in 8 ticks.
+    //
+    // So: the SENTENCE for each state change goes to #reconnect-status (assertive), once. The
+    // PROGRESS ("still reconnecting, attempt 6 of 30") goes to #reconnect-progress (polite), and
+    // only when the attempt number has changed and a minute has passed since the last one.
+    var PROGRESS_INTERVAL_MS = 60000;
 
-    function attemptText() {
-        var cur = document.getElementById('components-reconnect-current-attempt');
-        var max = document.getElementById('components-reconnect-max-retries');
-        var c = cur && cur.textContent ? cur.textContent.trim() : '';
-        var m = max && max.textContent ? max.textContent.trim() : '';
-        if (c && m) return ' Attempt ' + c + ' of ' + m + '.';
-        if (c) return ' Attempt ' + c + '.';
-        return '';
+    function node(id) { return document.getElementById(id); }
+
+    function attempts() {
+        var cur = node('components-reconnect-current-attempt');
+        var max = node('components-reconnect-max-retries');
+        return {
+            current: cur && cur.textContent ? cur.textContent.trim() : '',
+            max: max && max.textContent ? max.textContent.trim() : ''
+        };
     }
 
     function stateOf(el) {
@@ -64,12 +76,13 @@ window.terminalReconnect = (function () {
                 // "Nothing has been lost" is the answer to the question a trader is actually
                 // asking. The circuit carries UI state, not orders: anything already sent to a
                 // venue is at the venue.
-                return 'Connection to the terminal was lost. Reconnecting.' + attemptText() +
+                return 'Connection to the terminal was lost. Reconnecting.' +
                        ' Your chart and any orders already placed are unaffected.';
             case 'failed':
                 return 'Could not reconnect to the terminal. The server may be restarting. ' +
                        'Press the Retry now button to try again, or wait and it will retry on its own.';
             case 'rejected':
+            case 'resume-failed':
                 return 'Your session ended while you were disconnected. ' +
                        'Press the Reload the terminal button to start a new session. ' +
                        'Orders already placed are held at the venue and are not affected.';
@@ -82,35 +95,53 @@ window.terminalReconnect = (function () {
         }
     }
 
-    var lastAnnounced = '';
-
-    function announce(text) {
-        var node = statusNode();
-        if (!node || !text) return;
-        // An IDENTICAL string written twice is not a change and may not be announced. A
-        // reconnect attempt that stalls and retries at the same attempt number is a real case,
-        // so nudge it with a trailing space rather than letting the update be swallowed.
-        if (text === lastAnnounced) text += ' ';
-        lastAnnounced = text;
-        node.textContent = text;
+    // Writes text so that it is a CHANGE even when it equals what the node already holds (a
+    // second drop after "Reconnected" is a different sentence, but a failed-then-failed is
+    // not): empty the node, then fill it on the next frame.
+    function write(id, text) {
+        var n = node(id);
+        if (!n || !text) return;
+        if (n.textContent === text) {
+            n.textContent = '';
+            (window.requestAnimationFrame || setTimeout)(function () { n.textContent = text; });
+        } else {
+            n.textContent = text;
+        }
     }
 
     return {
+        PROGRESS_INTERVAL_MS: PROGRESS_INTERVAL_MS,
         start: function () {
-            var modal = document.getElementById('components-reconnect-modal');
+            var modal = node('components-reconnect-modal');
             if (!modal || typeof MutationObserver === 'undefined') return;
 
             var lastState = null;
+            var lastAttempt = '';
+            var lastProgressAt = 0;
+
             var observer = new MutationObserver(function () {
                 var state = stateOf(modal);
-                if (state === lastState && state !== 'show') return;
-                lastState = state;
-                announce(sentenceFor(state));
+                if (state !== lastState) {
+                    lastState = state;
+                    lastAttempt = attempts().current;
+                    lastProgressAt = Date.now();
+                    write('reconnect-status', sentenceFor(state));
+                    return;
+                }
+                if (state !== 'show') return;
+
+                // Same state: only the countdown ticked, or the attempt number moved.
+                var a = attempts();
+                if (!a.current || a.current === lastAttempt) return;
+                lastAttempt = a.current;
+                if (Date.now() - lastProgressAt < PROGRESS_INTERVAL_MS) return;
+                lastProgressAt = Date.now();
+                write('reconnect-progress', 'Still reconnecting. Attempt ' + a.current +
+                      (a.max ? ' of ' + a.max : '') + '.');
             });
 
             // The class attribute on the modal is what the framework drives; the attempt
-            // counters are separate text nodes it also updates, and a retry that only bumps the
-            // counter must still be announced — hence subtree/characterData as well.
+            // counter is a separate text node it rewrites every second.
             observer.observe(modal, {
                 attributes: true,
                 attributeFilter: ['class'],

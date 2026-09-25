@@ -87,6 +87,11 @@ jobs:
       - name: JS boot tests
         run: node tools/jstests/boot-tests.mjs
 
+      # reconnect.js — what a screen reader hears while the circuit is down. The framework
+      # rewrites the attempt counter every second for minutes; this drives those minutes.
+      - name: JS reconnect tests
+        run: node tools/jstests/reconnect-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v6

@@ -15,13 +15,15 @@
 @using AccessibleTrader.Core.Services
 @inject ISignalCatalog SignalCatalog
 @inject IWorkspaceStore Store
+@inject IEventBus EventBus
+@inject IJSRuntime JS
 
 @* ── Condition tree ─────────────────────────────────────────────────────── *@
 <fieldset style="border: 1px solid var(--border-color); padding: 10px 14px; margin-bottom: 14px;">
     <legend style="font-weight: 700; padding: 0 6px;">Conditions</legend>
 
     <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
-        <button type="button" @onclick="AddRootGroup" aria-label="Add condition group at root">
+        <button type="button" id="cond-add-root-group" @onclick="AddRootGroup" aria-label="Add condition group at root">
             + Group at root
         </button>
         <button type="button" @onclick="AddRootLeaf" aria-label="Add condition leaf at root">
@@ -343,6 +345,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
            selected border-left is a SELECTION cue, not a focus cue; the two are different states.
            app.css's [tabindex]:focus-visible rule now applies here. *@
         <li @key="node.Id"
+            id="@TreeitemId(node)"
             role="treeitem"
             aria-level="@level"
             aria-selected="@(isSelected ? "true" : "false")"
@@ -377,7 +380,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
                     <button type="button" @onclick="() => AddChildGroup(node)" aria-label="Add subgroup inside @label">+ group</button>
                 }
 
-                <button type="button" @onclick="() => DeleteNode(node)" aria-label="Delete @label">×</button>
+                <button type="button" @onclick="() => DeleteNodeAsync(node)" aria-label="Delete @label">×</button>
             </div>
 
             @if (node.IsGroup && node.Children.Count > 0 && !isCollapsed)
@@ -435,28 +438,53 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
         Spec.SelectedNode = group;
     }
 
-    private void DeleteNode(EditableConditionNode node)
+    private static string TreeitemId(EditableConditionNode node) => "cond-node-" + node.Id;
+
+    // Delete is a button INSIDE the row it removes, so the focused element goes with the row and
+    // the browser drops focus on <body>. Since 2026-09-24 Delete is reachable from the keyboard
+    // (treeKeyboard.js used to take its Enter), so this is where a keyboard user lands: on the
+    // next row, else the previous, else the parent, and that row becomes the tree's Tab stop.
+    private async Task DeleteNodeAsync(EditableConditionNode node)
     {
         if (Spec.Root == null) return;
+        string label = NodeLabel(node);
+        EditableConditionNode? land;
         if (node == Spec.Root)
         {
             Spec.Root = null;
             Spec.SelectedNode = null;
-            return;
+            land = null;
         }
-        if (RemoveFromTree(Spec.Root, node))
+        else
         {
-            if (Spec.SelectedNode == node) Spec.SelectedNode = null;
+            var parent = FindParent(Spec.Root, node);
+            if (parent == null) return;
+            int i = parent.Children.IndexOf(node);
+            parent.Children.RemoveAt(i);
+            land = i < parent.Children.Count ? parent.Children[i]
+                 : i > 0 ? parent.Children[i - 1]
+                 : parent;
+            Spec.SelectedNode = land;
         }
+
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Deleted {label}.", true));
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            await JS.InvokeVoidAsync("accessibleTrader.focusElement",
+                land != null ? TreeitemId(land) : "cond-add-root-group");
+        }
+        catch (JSDisconnectedException) { }
     }
 
-    private bool RemoveFromTree(EditableConditionNode current, EditableConditionNode target)
+    private static EditableConditionNode? FindParent(EditableConditionNode current, EditableConditionNode target)
     {
-        if (!current.IsGroup) return false;
-        if (current.Children.Remove(target)) return true;
+        if (!current.IsGroup) return null;
+        if (current.Children.Contains(target)) return current;
         foreach (var c in current.Children)
-            if (RemoveFromTree(c, target)) return true;
-        return false;
+            if (FindParent(c, target) is { } p) return p;
+        return null;
     }
 
     private void SelectNode(EditableConditionNode node) => Spec.SelectedNode = node;

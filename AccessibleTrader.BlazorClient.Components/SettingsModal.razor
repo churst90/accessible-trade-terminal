@@ -1020,12 +1020,22 @@
                     Escape or Tab cancels. Rebindings are saved immediately.
                 </p>
 
+                @* The capture FIELD, not a button, takes focus while a rebind waits. With focus on a
+                   button, NVDA and JAWS stay in browse mode and swallow letters and arrows before
+                   the page sees them; an edit field switches them to focus mode, so every key
+                   reaches the capture. It is read-only (nothing is typed into it), keyboard.js
+                   only captures keys aimed at it, and leaving it cancels, so a capture can never
+                   stay armed and eat a key pressed somewhere else. Found by an accessibility
+                   review of the 2026-09-24 capture fix. *@
                 @if (_capturingCommand != null)
                 {
-                    <div role="status" aria-live="assertive"
-                         style="background:#1a3a5c; color:#fff; padding:10px 16px; border-radius:4px; margin-bottom:12px; font-weight:bold;">
-                        Press new key combination for: <em>@_capturingCommandName</em>
-                        <button style="margin-left:14px; padding:2px 10px;" @onclick="CancelCapture" aria-label="Cancel key capture">Cancel</button>
+                    <div style="background:#1a3a5c; color:#fff; padding:10px 16px; border-radius:4px; margin-bottom:12px; font-weight:bold;">
+                        <label for="rebind-capture">New shortcut for <em>@_capturingCommandName</em></label>
+                        <input id="rebind-capture" type="text" readonly autocomplete="off"
+                               aria-description="Press the new key or key combination now. Escape or Tab cancels."
+                               style="margin-left:10px; width:12em;" value="" />
+                        <button style="margin-left:14px; padding:2px 10px;" @onmousedown:preventDefault="true"
+                                @onclick="CancelCapture" aria-label="Cancel key capture">Cancel</button>
                     </div>
                 }
 
@@ -1048,6 +1058,7 @@
                                 </td>
                                 <td style="padding:4px 8px; text-align:center;">
                                     <GatedButton style="font-size:0.75rem; padding:2px 6px;"
+                                            ElementId="@RebindButtonId(binding.Description)"
                                             OnClick="() => StartCapture(binding)"
                                             Gate="@(() => RebindGate(isCapturing))"
                                             aria-label="@($"Rebind {binding.Description}")">
@@ -2261,8 +2272,19 @@
         _capturingCommand = cmd;
         _capturingCommandName = binding.Description;
         StateHasChanged();
+        await Task.Yield();   // let the capture field render before it is armed and focused
         _dotNetRef ??= DotNetObjectReference.Create(this);
-        await JSRuntime.InvokeVoidAsync("accessibleTrader.captureNextKey", _dotNetRef);
+        await JSRuntime.InvokeVoidAsync("accessibleTrader.captureNextKey", _dotNetRef, "rebind-capture");
+    }
+
+    private static string RebindButtonId(string command) => "rebind-" + command;
+
+    // Back to the row's Rebind button once the capture ends either way. The capture field is
+    // about to be removed, and a focused element that is removed drops focus on <body>.
+    private async Task ReturnFocusToRowAsync(string command)
+    {
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", RebindButtonId(command)); }
+        catch (JSDisconnectedException) { }
     }
 
     [JSInvokable]
@@ -2278,6 +2300,13 @@
         _capturingCommand = null;
         _capturingCommandName = "";
         InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(() => ReturnFocusToRowAsync(reboundName));
+
+        // Say what the key is now. A rebind that succeeded used to be silent, so the only
+        // way to learn the new key was to read the table.
+        string now = _uniqueBindings.FirstOrDefault(b => b.Description == reboundName)?.DisplayString ?? key;
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"{reboundName} is now {now}.", false));
 
         // Tell the user when this rebind stole another command's only shortcut, so a
         // keyboard-first user learns it went unbound now — not by pressing a dead key
@@ -2306,9 +2335,11 @@
     // disarmed it, so the next key pressed anywhere was swallowed by a capture nobody wanted.
     private async Task CancelCapture()
     {
+        string name = _capturingCommandName;
         _capturingCommand = null;
         _capturingCommandName = "";
         await DisarmJsCaptureAsync();
+        if (!string.IsNullOrEmpty(name)) await ReturnFocusToRowAsync(name);
     }
 
     private async Task DisarmJsCaptureAsync()
@@ -2319,20 +2350,23 @@
     }
 
     /// <summary>
-    /// Escape or Tab while a capture is armed. keyboard.js consumes Escape so it neither closes
+    /// Escape, Tab, or focus leaving the capture field. keyboard.js consumes Escape so it neither closes
     /// Settings nor becomes the new binding, which is what the panel's "Escape cancels" promised
     /// and, until 2026-09-24, did not do: it closed the dialog AND bound the command to Escape.
     /// </summary>
     [JSInvokable]
-    public void OnKeyCaptureCancelled()
+    public void OnKeyCaptureCancelled(bool viaTab = false)
     {
         if (_capturingCommand == null) return;
         string name = _capturingCommandName;
         _capturingCommand = null;
         _capturingCommandName = "";
         InvokeAsync(StateHasChanged);
+        // Tab moves focus on by itself; Escape (and a blur that was not Tab) come back to the row.
+        if (!viaTab) _ = InvokeAsync(() => ReturnFocusToRowAsync(name));
+        // Not interrupting: after Tab the screen reader is already reading the next control.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Rebind cancelled. {name} keeps its shortcut.", true));
+            $"Rebind cancelled. {name} keeps its shortcut.", false));
     }
 
     public void Dispose()

@@ -39,6 +39,32 @@ public sealed class KeyRebindCaptureBrowserTests
         Assert.True(await t.ClickTopDialogTabAsync("Keyboard"), "Settings has no Keyboard tab.");
         await t.Page.ClickAsync($"[aria-label='Rebind {command}']");
         await t.Page.WaitForSelectorAsync("[aria-label='Cancel key capture']");
+        // The capture field must hold focus: on a button, NVDA and JAWS stay in browse mode
+        // and eat letters and arrows before the page sees them.
+        Assert.True(await t.WaitForFocusAsync("rebind-capture"), "the capture field did not take focus");
+    }
+
+    /// <summary>
+    /// Leaving the capture field cancels it, so a capture cannot stay armed and turn the next
+    /// key typed anywhere into a binding (an accessibility review of the first fix found exactly
+    /// that: the first letter typed on another Settings tab rebound the command).
+    /// </summary>
+    [BrowserFact]
+    public async Task Leaving_the_capture_field_cancels_so_no_later_key_is_swallowed()
+    {
+        try
+        {
+            await using var t = await _fixture.NewPageAsync();
+            await StartRebindAsync(t, "ToggleNarration");
+            await t.Page.EvaluateAsync("() => document.getElementById('settings-title').focus()");
+            await t.Page.WaitForTimeoutAsync(300);
+            Assert.False(await StillCapturingAsync(t), "the capture stayed armed after focus left it");
+
+            await t.Page.Keyboard.PressAsync("Control+Alt+Shift+Y");
+            await t.Page.WaitForTimeoutAsync(300);
+            Assert.Equal("N", await ShortcutCellAsync(t, "ToggleNarration"));
+        }
+        finally { ForgetRebindings(); }
     }
 
     private static Task<string> ShortcutCellAsync(TerminalPage t, string command) =>
@@ -71,6 +97,19 @@ public sealed class KeyRebindCaptureBrowserTests
             var cell = await ShortcutCellAsync(t, "OpenHelp");
             Assert.Contains("Y", cell);
 
+            // Focus goes back to the row, not to <body> with the capture field that held it.
+            Assert.True(await t.WaitForFocusAsync("rebind-OpenHelp"),
+                "after the capture, focus did not return to the row's Rebind button");
+            // And the new key is said; a successful rebind used to be silent.
+            IReadOnlyList<Utterance> spoken = Array.Empty<Utterance>();
+            for (int i = 0; i < 25 && !spoken.Any(u => u.Text.Contains("OpenHelp is now", StringComparison.Ordinal)); i++)
+            {
+                await t.Page.WaitForTimeoutAsync(200);
+                spoken = await t.SpokenAsync();
+            }
+            Assert.True(spoken.Any(u => u.Text.Contains("OpenHelp is now", StringComparison.Ordinal)),
+                "the rebind was not announced; heard: " + string.Join(" | ", spoken.Select(u => u.Text)));
+
             await t.PressAsync("Escape");
             Assert.True(await t.WaitForNoDialogAsync(), "Settings did not close.");
 
@@ -98,6 +137,8 @@ public sealed class KeyRebindCaptureBrowserTests
 
             Assert.Contains("Settings", await t.ModalStackAsync());
             Assert.False(await StillCapturingAsync(t), "the capture is still waiting for a key");
+            Assert.True(await t.WaitForFocusAsync("rebind-ToggleNarration"),
+                "after Escape, focus did not return to the row's Rebind button");
 
             var cell = await ShortcutCellAsync(t, "ToggleNarration");
             Assert.DoesNotContain("ESC", cell, StringComparison.OrdinalIgnoreCase);

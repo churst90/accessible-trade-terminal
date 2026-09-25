@@ -44,24 +44,24 @@ public sealed class ReconnectAndHealthBrowserTests
     }
 
     /// <summary>
-    /// A dedicated status node, because a live region that is merely UNHIDDEN does not reliably
-    /// re-announce — and the transitions that matter here (attempt 1 → 2 → 3 → failed) carry no
-    /// text change of their own at all.
+    /// Two dedicated nodes, because a live region that is merely UNHIDDEN does not reliably
+    /// re-announce. The state sentence is assertive, with no role (<c>role="status"</c> implies
+    /// polite and contradicts it); the "still reconnecting" progress is polite.
     /// </summary>
     [BrowserFact]
-    public async Task AnAssertiveStatusNodeCarriesTheAnnouncement()
+    public async Task AnAssertiveNodeCarriesTheSentence_AndAPoliteOneTheProgress()
     {
         await using var t = await _fixture.NewPageAsync();
         await t.LoadSeededChartAsync();
 
         var shape = await t.Page.EvaluateAsync<string>(
-            @"() => {
-                const n = document.getElementById('reconnect-status');
+            @"() => ['reconnect-status', 'reconnect-progress'].map(id => {
+                const n = document.getElementById(id);
                 if (!n) return 'missing';
-                return [n.getAttribute('role'), n.getAttribute('aria-live'), n.getAttribute('aria-atomic')].join('|');
-              }");
+                return [n.getAttribute('role') || '', n.getAttribute('aria-live'), n.getAttribute('aria-atomic')].join('|');
+              }).join(' ; ')");
 
-        Assert.Equal("status|assertive|true", shape);
+        Assert.Equal("|assertive|true ; status|polite|true", shape);
     }
 
     /// <summary>
@@ -183,6 +183,16 @@ public sealed class ReconnectAndHealthBrowserTests
             await route.AbortAsync();
         });
 
+        // Count what the assertive node is given. The framework rewrites the attempt counter
+        // every second while it waits; until 2026-09-24 each rewrite re-announced the whole
+        // sentence.
+        await t.Page.EvaluateAsync(@"() => {
+            window.__statusWrites = [];
+            const n = document.getElementById('reconnect-status');
+            new MutationObserver(() => { if (n.textContent) window.__statusWrites.push(n.textContent); })
+                .observe(n, { childList: true, characterData: true, subtree: true });
+          }");
+
         var dropped = DateTime.UtcNow;
         await t.Page.EvaluateAsync("() => window.__sockets.forEach(s => s.close())");
         await t.Page.WaitForTimeoutAsync(2_500);
@@ -199,6 +209,12 @@ public sealed class ReconnectAndHealthBrowserTests
         var status = await t.Page.EvaluateAsync<string>(
             "() => document.getElementById('reconnect-status').textContent");
         Assert.Contains("Reconnecting", status, StringComparison.OrdinalIgnoreCase);
+
+        var writes = await t.Page.EvaluateAsync<string[]>("() => window.__statusWrites");
+        Assert.True(writes.Length == 1,
+            $"the reconnect sentence was written {writes.Length} times in 2.5 s of retrying; "
+          + "each write is an assertive announcement that cuts off the last: "
+          + string.Join(" | ", writes.Select(w => w.Length > 40 ? w[..40] + "…" : w)));
 
         await t.Page.UnrouteAsync("**/_blazor/negotiate**");
         await t.Page.WaitForFunctionAsync(

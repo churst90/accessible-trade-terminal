@@ -204,6 +204,7 @@ function makeHarness() {
       // Answers false unless the test says otherwise, so a production check that never
       // asks is visible here rather than mocked past.
       getModifierState: (name) => name === 'AltGraph' && !!mods.altGraph,
+      repeat: !!mods.repeat,
       target: target ?? node('DIV'),
       preventDefault: () => { defaultPrevented = true; },
       stopImmediatePropagation: () => { stopped = true; },
@@ -1139,7 +1140,7 @@ test('capture: a modifier chord is captured, and never reaches the dispatcher', 
 test('capture: Escape cancels, and neither dispatches nor binds', () => {
   const h = captureHarness();
   const r = h.pressEvent('Escape', h.node('BUTTON'));
-  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled']]);
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled', false]]);
   assert.deepEqual(keysSent(h.calls), [], 'Escape reaching the dispatcher closes Settings');
   assert.equal(r.defaultPrevented, true);
   assert.equal(r.stopped, true, 'the dialog\'s own Escape handling must not see it either');
@@ -1148,7 +1149,7 @@ test('capture: Escape cancels, and neither dispatches nor binds', () => {
 test('capture: Tab cancels and still moves focus', () => {
   const h = captureHarness();
   const r = h.pressEvent('Tab', h.node('BUTTON'));
-  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled']]);
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled', true]], 'viaTab, so .NET does not pull focus back');
   assert.equal(r.defaultPrevented, false, 'binding Tab would take the key that moves between controls');
 });
 
@@ -1182,6 +1183,57 @@ test('capture: one key only, then the trap is back to normal', () => {
   h.pressEvent('F5', h.node('BUTTON'));
   assert.equal(h.captured.length, 1);
   assert.deepEqual(keysSent(h.calls), ['F5']);
+});
+
+// The capture bound to its field (an accessibility review of the first fix, 2026-09-24): with
+// focus on a button, NVDA and JAWS stay in browse mode and eat letters and arrows, and a
+// capture nothing disarmed swallowed the next key pressed anywhere.
+const fieldCaptureHarness = () => {
+  const h = makeHarness();
+  const listeners = {};
+  const field = h.node('INPUT');
+  field.addEventListener = (t, fn) => { listeners[t] = fn; };
+  field.removeEventListener = (t, fn) => { if (listeners[t] === fn) delete listeners[t]; };
+  h.doc.getElementById = (id) => (id === 'rebind-capture' ? field : null);
+  const captured = [];
+  const helper = { invokeMethodAsync: (m, ...a) => { captured.push([m, ...a]); return Promise.resolve(); } };
+  h.api.captureNextKey(helper, 'rebind-capture');
+  return { ...h, field, captured, blur: () => listeners.blur && listeners.blur() };
+};
+
+test('capture: the field takes focus, so a screen reader is in focus mode', () => {
+  const h = fieldCaptureHarness();
+  assert.equal(h.doc.activeElement, h.field);
+});
+
+test('capture: a key aimed somewhere else is not captured', () => {
+  const h = fieldCaptureHarness();
+  h.pressEvent('k', h.node('BUTTON'), { ctrl: true, alt: true });
+  assert.deepEqual(h.captured, []);
+  h.pressEvent('k', h.field, { ctrl: true, alt: true });
+  assert.deepEqual(h.captured, [['OnKeyCaptured', 'K', false, true, true]]);
+});
+
+test('capture: leaving the field cancels, once', () => {
+  const h = fieldCaptureHarness();
+  h.blur();
+  h.blur();
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled', false]]);
+  h.pressEvent('k', h.field, { ctrl: true, alt: true });
+  assert.equal(h.captured.length, 1, 'disarmed: nothing more is captured');
+});
+
+test('capture: Tab from the field cancels without a second cancel from the blur', () => {
+  const h = fieldCaptureHarness();
+  h.pressEvent('Tab', h.field);
+  h.blur();
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled', true]]);
+});
+
+test('capture: an auto-repeat is not a new press', () => {
+  const h = fieldCaptureHarness();
+  h.pressEvent('Enter', h.field, { repeat: true });
+  assert.deepEqual(h.captured, []);
 });
 
 test('capture: cancelKeyCapture disarms it, so the next key is not swallowed', () => {

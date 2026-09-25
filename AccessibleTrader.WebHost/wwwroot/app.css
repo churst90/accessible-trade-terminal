@@ -951,8 +951,8 @@ html.toolbar-captions .icon-btn-label {
 
 /* ── Circuit reconnect overlay ──────────────────────────────────────────────────
    Hidden until Blazor adds one of its state classes. Presentational only: the
-   announcement is owned by js/reconnect.js, which rewrites #reconnect-status on
-   every transition — see the note in App.razor for why the markup alone is not
+   announcement is owned by js/reconnect.js, which writes #reconnect-status once per
+   state change and #reconnect-progress at most once a minute — see the note in App.razor for why the markup alone is not
    enough. Colours come from the theme tokens so the overlay is legible in the
    high-contrast themes too. */
 #components-reconnect-modal {
@@ -971,7 +971,8 @@ html.toolbar-captions .icon-btn-label {
 #components-reconnect-modal.components-reconnect-show,
 #components-reconnect-modal.components-reconnect-failed,
 #components-reconnect-modal.components-reconnect-rejected,
-#components-reconnect-modal.components-reconnect-refused {
+#components-reconnect-modal.components-reconnect-refused,
+#components-reconnect-modal.components-reconnect-resume-failed {
     display: block;
 }
 
@@ -980,7 +981,8 @@ html.toolbar-captions .icon-btn-label {
 #components-reconnect-modal.components-reconnect-show    > .components-reconnect-show,
 #components-reconnect-modal.components-reconnect-failed  > .components-reconnect-failed,
 #components-reconnect-modal.components-reconnect-rejected > .components-reconnect-rejected,
-#components-reconnect-modal.components-reconnect-refused > .components-reconnect-rejected {
+#components-reconnect-modal.components-reconnect-refused > .components-reconnect-rejected,
+#components-reconnect-modal.components-reconnect-resume-failed > .components-reconnect-rejected {
     display: inline;
 }
 

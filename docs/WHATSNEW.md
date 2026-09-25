@@ -11,14 +11,19 @@
 - **The Hide, Mute and Delete buttons in the Object Tree work from the keyboard.** Enter or Space
   on one of them used to select the row instead. The same fix applies to the buttons in the
   strategy condition tree.
-- **Rebinding a key works for chords, and Escape really cancels.** In Settings, Keyboard, a
-  rebind now accepts combinations like Ctrl+Alt+Y. Escape or Tab cancels without changing
-  anything. Before, a chord was never picked up, and Escape closed Settings and became the new
-  key.
+- **Rebinding a key works for chords, and Escape really cancels.** In Settings, Keyboard, press
+  Rebind and focus moves to a "New shortcut" field. Press the new key or combination, like
+  Ctrl+Alt+Y, and you hear what the command is now bound to. Escape or Tab cancels without
+  changing anything. Before, a chord was never picked up, and Escape closed Settings and became
+  the new key.
+- **Deleting a strategy condition keeps your place.** Focus moves to the next condition and the
+  deletion is announced, instead of focus falling off the page.
 - **The hosted terminal reconnects more gently.** When the server restarts, an open page used
   to retry ten times in the same instant, which only added load while it restarted. It now tries once
   straight away, then waits a little longer each time, up to about 15 seconds between tries.
-  You still hear each attempt announced, and "Reconnected to the terminal" when it is back.
+  You hear that the connection was lost once, a short "still reconnecting" about once a minute,
+  and "Reconnected to the terminal" when it is back. It used to repeat the whole message every
+  second.
 - **The online demo opens on a chart.** Visiting the demo now lands straight on a live Bitcoin
   daily chart that already speaks, instead of an empty symbol box and four steps to get there.
 - **Alt+F is gone, and everything you can see always fits the price pane.** Alt+F let bands run

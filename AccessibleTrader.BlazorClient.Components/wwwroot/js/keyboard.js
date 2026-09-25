@@ -473,18 +473,20 @@ window.accessibleTrader = {
             // captured (the row sat on "waiting..." forever), and Escape — which the panel says
             // cancels — reached the dispatcher, closed Settings, AND was captured, rebinding the
             // command to Escape. Measured in a real Chromium on 2026-09-24.
-            if (self._keyCapture) {
+            // Only keys aimed at the capture field count (see captureNextKey), and a held key's
+            // auto-repeat is not a new press: holding Enter on Rebind must not capture Enter.
+            if (self._keyCapture && !e.repeat
+                && (!self._keyCaptureTarget || e.target === self._keyCaptureTarget)) {
                 if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt'
                     || e.key === 'Meta' || e.key === 'AltGraph') return;
                 const helper = self._keyCapture;
-                self._keyCapture = null;
+                self._disarmKeyCapture();
                 // Tab cancels and still moves focus: binding Tab would take away the key that
-                // moves between controls, and a capture left armed would swallow whatever key
-                // is pressed next wherever focus has gone.
-                if (e.key === 'Tab') { helper.invokeMethodAsync('OnKeyCaptureCancelled'); return; }
+                // moves between controls.
+                if (e.key === 'Tab') { helper.invokeMethodAsync('OnKeyCaptureCancelled', true); return; }
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (e.key === 'Escape') { helper.invokeMethodAsync('OnKeyCaptureCancelled'); return; }
+                if (e.key === 'Escape') { helper.invokeMethodAsync('OnKeyCaptureCancelled', false); return; }
                 const altGr = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph') === true;
                 helper.invokeMethodAsync('OnKeyCaptured',
                     normalizeKeyName(e, altGr).toUpperCase(), e.shiftKey, e.ctrlKey, e.altKey);
@@ -1189,21 +1191,49 @@ window.accessibleTrader = {
         }
     },
 
-    // The .NET helper waiting for the next key, or null. Read by the shortcut trap in
-    // registerKeyboardHandler, which owns the capture — see the comment there.
+    // The .NET helper waiting for the next key, or null, and the field the capture is bound
+    // to. Read by the shortcut trap in registerKeyboardHandler, which owns the capture.
     _keyCapture: null,
+    _keyCaptureTarget: null,
+    _keyCaptureBlur: null,
 
     /**
      * Arms a one-shot capture of the next key for the keyboard rebinding UI in Settings →
      * Keyboard. The trap calls OnKeyCaptured on the helper with the key in the SAME spelling
-     * it dispatches shortcuts in, or OnKeyCaptureCancelled for Escape or Tab.
+     * it dispatches shortcuts in, or OnKeyCaptureCancelled(viaTab) for Escape, Tab, or focus
+     * leaving the field.
+     *
+     * With a `targetId`, the capture belongs to that element: it is focused (an edit field puts
+     * a screen reader in focus mode, so letters and arrows reach the page), only keys aimed at
+     * it are captured, and leaving it cancels, so a capture cannot stay armed and swallow a key
+     * typed somewhere else.
      */
-    captureNextKey: function (dotNetHelper) {
+    captureNextKey: function (dotNetHelper, targetId) {
+        this._disarmKeyCapture();
         this._keyCapture = dotNetHelper;
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
+        const self = this;
+        this._keyCaptureTarget = target;
+        this._keyCaptureBlur = function () {
+            if (self._keyCapture !== dotNetHelper) return;
+            self._disarmKeyCapture();
+            dotNetHelper.invokeMethodAsync('OnKeyCaptureCancelled', false);
+        };
+        target.addEventListener('blur', this._keyCaptureBlur);
+        target.focus();
     },
 
     /** Disarms a pending capture (the Cancel button, or the dialog going away). */
     cancelKeyCapture: function () {
+        this._disarmKeyCapture();
+    },
+
+    _disarmKeyCapture: function () {
+        if (this._keyCaptureTarget && this._keyCaptureBlur)
+            this._keyCaptureTarget.removeEventListener('blur', this._keyCaptureBlur);
         this._keyCapture = null;
+        this._keyCaptureTarget = null;
+        this._keyCaptureBlur = null;
     }
 };
