@@ -1,0 +1,533 @@
+[
+ {
+  "id": "CC1",
+  "area": "Undeclared components are publishable",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CausalityPublicationContractTests.Only_a_declared_causal_component_is_publishable_and_both_questions_agree",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 2,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CausalityPublicationContractTests.Only_a_declared_causal_component_is_publishable_and_both_questions_agree(declared: Undeclared, publishable: False)"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CausalityPublicationContractTests.Only_a_declared_causal_component_is_publishable_and_both_questions_agree(declared: Undeclared, publishable: False)": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 3,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D1",
+  "area": "min reward/risk default 0.5",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.RiskPlanDefaultsTests.A_setup_that_targets_no_more_than_it_risks_is_refused_by_default",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.RiskPlanDefaultsTests.A_setup_that_targets_no_more_than_it_risks_is_refused_by_default"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.RiskPlanDefaultsTests.A_setup_that_targets_no_more_than_it_risks_is_refused_by_default": "Assert.Null() Failure: Value is not null"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D2",
+  "area": "position-sizing risk default 5% (not 0.5%)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.RiskPlanDefaultsTests.Default_sizing_risks_half_a_percent_of_equity",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.RiskPlanDefaultsTests.Default_sizing_risks_half_a_percent_of_equity"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.RiskPlanDefaultsTests.Default_sizing_risks_half_a_percent_of_equity": "Assert.Equal() Failure: Values are not within 6 decimal places"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D3",
+  "area": "alert cooldown default zero",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.AlertEvaluatorTests.A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.AlertEvaluatorTests.A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.AlertEvaluatorTests.A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D4",
+  "area": "every alert pierces the ambient mutes by default",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.SetupAlertBridgeTests.A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.SetupAlertBridgeTests.A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.SetupAlertBridgeTests.A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence": "A strategy setup alert pierces the user's mutes although nobody asked it to."
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D6",
+  "area": "backtest commission default is ten times too low",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BacktestDefaultCommissionTests.A_round_trip_on_a_flat_market_costs_a_tenth_of_a_percent_each_way",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BacktestDefaultCommissionTests.A_round_trip_on_a_flat_market_costs_a_tenth_of_a_percent_each_way"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BacktestDefaultCommissionTests.A_round_trip_on_a_flat_market_costs_a_tenth_of_a_percent_each_way": "Assert.Equal() Failure: Values are not within 6 decimal places"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX1",
+  "area": "revert the BIP-350 version/checksum pairing check",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "IM1",
+  "area": "ATR seed averages one bar short",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.AverageTrueRangeTests.Atr_seeds_on_the_mean_of_the_first_full_period_then_smooths_wilder_style",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.AverageTrueRangeTests.Atr_seeds_on_the_mean_of_the_first_full_period_then_smooths_wilder_style"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.AverageTrueRangeTests.Atr_seeds_on_the_mean_of_the_first_full_period_then_smooths_wilder_style": "Assert.Equal() Failure: Values are not within 9 decimal places"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "IM2",
+  "area": "true range ignores a gap DOWN",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.AverageTrueRangeTests.A_gap_down_bar_reaches_back_to_the_previous_close",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.AverageTrueRangeTests.A_gap_down_bar_reaches_back_to_the_previous_close"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.AverageTrueRangeTests.A_gap_down_bar_reaches_back_to_the_previous_close": "Assert.Equal() Failure: Values are not within 9 decimal places"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "P01",
+  "area": "network names matched by raw substring again",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 2,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: \"cbBTC (Base)\")",
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: \"WBTC (ERC20)\")"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: \"cbBTC (Base)\")": "Assert.Equal() Failure: Values differ",
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: \"WBTC (ERC20)\")": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "P02",
+  "area": "bech32m (taproot) checksum no longer accepted",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 2,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: \"bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4\"\u00b7\u00b7\u00b7)",
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: \"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9\"\u00b7\u00b7\u00b7)"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: \"bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4\"\u00b7\u00b7\u00b7)": "Assert.Equal() Failure: Values differ",
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: \"bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9\"\u00b7\u00b7\u00b7)": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "P03",
+  "area": "EVM length check only rejects SHORT addresses",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.An_evm_address_one_character_too_long_is_rejected",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_evm_address_one_character_too_long_is_rejected"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.An_evm_address_one_character_too_long_is_rejected": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "P04",
+  "area": "Tron addresses no longer required to start with T",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_address_returned_for_a_tron_deposit_is_rejected",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_address_returned_for_a_tron_deposit_is_rejected"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_address_returned_for_a_tron_deposit_is_rejected": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "PH1",
+  "area": "fallback HttpClient ignores the caller's timeout",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_provider_asking_for_a_short_timeout_gives_up_at_that_timeout",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_provider_asking_for_a_short_timeout_gives_up_at_that_timeout"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_provider_asking_for_a_short_timeout_gives_up_at_that_timeout": "A request with a 300 ms timeout was still waiting after 20 s: the provider's timeout was ignored."
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "PH2",
+  "area": "fallback HttpClient has no response cap",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_response_larger_than_the_provider_cap_is_refused",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_response_larger_than_the_provider_cap_is_refused"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_response_larger_than_the_provider_cap_is_refused": "Assert.Throws() Failure: No exception was thrown"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "PR1",
+  "area": "a 403 is not a permission error",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ProviderRefusalClassificationTests.A_typed_401_or_403_is_reported_as_a_permission_problem",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 1,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ProviderRefusalClassificationTests.A_typed_401_or_403_is_reported_as_a_permission_problem(status: Forbidden)"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ProviderRefusalClassificationTests.A_typed_401_or_403_is_reported_as_a_permission_problem(status: Forbidden)": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 2,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "R02",
+  "area": "after a full window the request count is not reset",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.RateLimiterWindowTests.After_waiting_for_a_new_window_the_next_request_in_it_goes_straight_through",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.RateLimiterWindowTests.After_waiting_for_a_new_window_the_next_request_in_it_goes_straight_through"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.RateLimiterWindowTests.After_waiting_for_a_new_window_the_next_request_in_it_goes_straight_through": "The first request of a new window was the only one allowed: the count was not reset after waiting, so every later request waits a whole window."
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "T03",
+  "area": "base timeframe picks the SMALLEST divisor",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 4,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"1w\", native: \"1m,1h,1d\", expected: \"1d\")",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"2h\", native: \"1m,30m,1h\", expected: \"1h\")",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"45m\", native: \"1m,5m,15m,30m\", expected: \"15m\")",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"4h\", native: \"1m,5m,15m,1h,1d\", expected: \"1h\")"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"1w\", native: \"1m,1h,1d\", expected: \"1d\")": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"2h\", native: \"1m,30m,1h\", expected: \"1h\")": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"45m\", native: \"1m,5m,15m,30m\", expected: \"15m\")": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: \"4h\", native: \"1m,5m,15m,1h,1d\", expected: \"1h\")": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 4,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "TB1",
+  "area": "ReplaceLast writes into the shared array again",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.TimeSeriesBufferImmutabilityTests.A_buffer_already_handed_out_keeps_its_last_bar_when_the_live_tick_replaces_it",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.TimeSeriesBufferImmutabilityTests.A_buffer_already_handed_out_keeps_its_last_bar_when_the_live_tick_replaces_it"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.TimeSeriesBufferImmutabilityTests.A_buffer_already_handed_out_keeps_its_last_bar_when_the_live_tick_replaces_it": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "W01",
+  "area": "giving up no longer reports a disconnect",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_feed_that_gives_up_reconnecting_reports_itself_disconnected",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_feed_that_gives_up_reconnecting_reports_itself_disconnected"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_feed_that_gives_up_reconnecting_reports_itself_disconnected": "The socket gave up reconnecting but never reported a disconnect: the UI keeps saying Connected over a dead feed."
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "W02",
+  "area": "a successful reconnect does not reset the attempt counter",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_reconnect_that_succeeds_refills_the_reconnect_budget",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_reconnect_that_succeeds_refills_the_reconnect_budget"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_reconnect_that_succeeds_refills_the_reconnect_budget": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "W03",
+  "area": "the heartbeat ignores the configured keepalive payload",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "W05",
+  "area": "public SendAsync writes to the socket directly again",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Overlapping_sends_are_all_delivered",
+  "tree": "t1",
+  "mutant_status": "SURVIVED",
+  "mutant_failed": 0,
+  "mutant_passed": 1,
+  "mutant_failing": [],
+  "mutant_messages": {},
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "NOT_PROVED"
+ },
+ {
+  "id": "W06",
+  "area": "oversize check is per FRAME, not per message",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_message_larger_than_the_cap_is_refused_even_when_it_arrives_in_pieces",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_message_larger_than_the_cap_is_refused_even_when_it_arrives_in_pieces"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_message_larger_than_the_cap_is_refused_even_when_it_arrives_in_pieces": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "W07",
+  "area": "reconnect no longer cancels the previous generation's loops",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Connecting_again_while_the_old_loop_is_backing_off_leaves_one_loop_on_one_socket",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Connecting_again_while_the_old_loop_is_backing_off_leaves_one_loop_on_one_socket"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Connecting_again_while_the_old_loop_is_backing_off_leaves_one_loop_on_one_socket": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ }
+]

@@ -1,0 +1,60 @@
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t1
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t2
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t3
+P03: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.An_evm_address_one_character_too_long_is_rejected
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.An_evm_address_one_character_too_long_is_rejected
+P02: PROVED  mutant failed=2 passed=0  control failed=0 passed=2  FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4"···)
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_taproot_address_verifies(address: "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9"···)
+P01: PROVED  mutant failed=2 passed=0  control failed=0 passed=2  FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: "cbBTC (Base)")
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(network: "WBTC (ERC20)")
+P04: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_address_returned_for_a_tron_deposit_is_rejected
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_bitcoin_address_returned_for_a_tron_deposit_is_rejected
+W02: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_reconnect_that_succeeds_refills_the_reconnect_budget
+      RED: AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_reconnect_that_succeeds_refills_the_reconnect_budget
+W01: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_feed_that_gives_up_reconnecting_reports_itself_disconnected
+      RED: AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_feed_that_gives_up_reconnecting_reports_itself_disconnected
+W03: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload
+      RED: AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.The_heartbeat_sends_the_configured_keepalive_payload
+W05: NOT_PROVED  mutant failed=0 passed=1  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Overlapping_sends_are_all_delivered
+W06: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_message_larger_than_the_cap_is_refused_even_when_it_arrives_in_pieces
+      RED: AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.A_message_larger_than_the_cap_is_refused_even_when_it_arrives_in_pieces
+W07: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Connecting_again_while_the_old_loop_is_backing_off_leaves_one_loop_on_one_socket
+      RED: AccessibleTrader.Tests.ReconnectingWebSocketBehaviourTests.Connecting_again_while_the_old_loop_is_backing_off_leaves_one_loop_on_one_socket
+R02: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.RateLimiterWindowTests.After_waiting_for_a_new_window_the_next_request_in_it_goes_straight_through
+      RED: AccessibleTrader.Tests.RateLimiterWindowTests.After_waiting_for_a_new_window_the_next_request_in_it_goes_straight_through
+PR1: PROVED  mutant failed=1 passed=1  control failed=0 passed=2  FullyQualifiedName~AccessibleTrader.Tests.ProviderRefusalClassificationTests.A_typed_401_or_403_is_reported_as_a_permission_problem
+      RED: AccessibleTrader.Tests.ProviderRefusalClassificationTests.A_typed_401_or_403_is_reported_as_a_permission_problem(status: Forbidden)
+T03: PROVED  mutant failed=4 passed=0  control failed=0 passed=4  FullyQualifiedName~AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen
+      RED: AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: "1w", native: "1m,1h,1d", expected: "1d")
+      RED: AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: "2h", native: "1m,30m,1h", expected: "1h")
+      RED: AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: "45m", native: "1m,5m,15m,30m", expected: "15m")
+      RED: AccessibleTrader.Tests.ResampleBaseTimeframeTests.The_coarsest_native_interval_that_divides_the_target_is_chosen(target: "4h", native: "1m,5m,15m,1h,1d", expected: "1h")
+TB1: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.TimeSeriesBufferImmutabilityTests.A_buffer_already_handed_out_keeps_its_last_bar_when_the_live_tick_replaces_it
+      RED: AccessibleTrader.Tests.TimeSeriesBufferImmutabilityTests.A_buffer_already_handed_out_keeps_its_last_bar_when_the_live_tick_replaces_it
+CC1: PROVED  mutant failed=1 passed=2  control failed=0 passed=3  FullyQualifiedName~AccessibleTrader.Tests.CausalityPublicationContractTests.Only_a_declared_causal_component_is_publishable_and_both_questions_agree
+      RED: AccessibleTrader.Tests.CausalityPublicationContractTests.Only_a_declared_causal_component_is_publishable_and_both_questions_agree(declared: Undeclared, publishable: False)
+D3: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.AlertEvaluatorTests.A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll
+      RED: AccessibleTrader.Tests.AlertEvaluatorTests.A_repeating_alert_given_no_cooldown_does_not_repeat_on_the_next_poll
+D1: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.RiskPlanDefaultsTests.A_setup_that_targets_no_more_than_it_risks_is_refused_by_default
+      RED: AccessibleTrader.Tests.RiskPlanDefaultsTests.A_setup_that_targets_no_more_than_it_risks_is_refused_by_default
+D2: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.RiskPlanDefaultsTests.Default_sizing_risks_half_a_percent_of_equity
+      RED: AccessibleTrader.Tests.RiskPlanDefaultsTests.Default_sizing_risks_half_a_percent_of_equity
+D4: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.SetupAlertBridgeTests.A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence
+      RED: AccessibleTrader.Tests.SetupAlertBridgeTests.A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence
+PH1: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_provider_asking_for_a_short_timeout_gives_up_at_that_timeout
+      RED: AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_provider_asking_for_a_short_timeout_gives_up_at_that_timeout
+D6: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.BacktestDefaultCommissionTests.A_round_trip_on_a_flat_market_costs_a_tenth_of_a_percent_each_way
+      RED: AccessibleTrader.Tests.BacktestDefaultCommissionTests.A_round_trip_on_a_flat_market_costs_a_tenth_of_a_percent_each_way
+PH2: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_response_larger_than_the_provider_cap_is_refused
+      RED: AccessibleTrader.Tests.PluginHostFallbackHttpClientTests.A_response_larger_than_the_provider_cap_is_refused
+IM2: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.AverageTrueRangeTests.A_gap_down_bar_reaches_back_to_the_previous_close
+      RED: AccessibleTrader.Tests.AverageTrueRangeTests.A_gap_down_bar_reaches_back_to_the_previous_close
+IM1: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.AverageTrueRangeTests.Atr_seeds_on_the_mean_of_the_first_full_period_then_smooths_wilder_style
+      RED: AccessibleTrader.Tests.AverageTrueRangeTests.Atr_seeds_on_the_mean_of_the_first_full_period_then_smooths_wilder_style
+FIX1: PROVED  mutant failed=1 passed=0  control failed=0 passed=1  FullyQualifiedName~AccessibleTrader.Tests.CryptoAddressValidatorTests.A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected
+      RED: AccessibleTrader.Tests.CryptoAddressValidatorTests.A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected
+
+24/25 proved RED on the mutant and GREEN on the clean tree
+restored byte-identical

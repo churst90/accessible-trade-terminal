@@ -57,6 +57,24 @@ namespace AccessibleTrader.Tests
             Assert.Contains("BTC/USD", ev.Alert.Definition.Name);
         }
 
+        /// <summary>
+        /// A2p D4: flipping <c>AlertDefinition.BreakThroughMutes</c>'s default to true left the
+        /// suite green. Nothing here asks for a strategy setup to pierce the user's Shift+F2 /
+        /// Shift+F3 mutes — that tier is for the handful of alerts the user marked as never to be
+        /// missed — so a setup announcement must stay ambient, or muting silences nothing.
+        /// </summary>
+        [Fact]
+        public void A_setup_announcement_stays_in_the_ambient_tier_the_mutes_silence()
+        {
+            var (_, bus, _, _) = Build(enabled: true);
+
+            bus.Publish(DropEvent());
+
+            var ev = Assert.Single(bus.Log.OfType<AlertFiredEvent>());
+            Assert.False(ev.Alert.Definition.BreakThroughMutes,
+                "A strategy setup alert pierces the user's mutes although nobody asked it to.");
+        }
+
         [Fact]
         public void Enabled_PerSymbolMap_WinsOverDefaultTarget()
         {

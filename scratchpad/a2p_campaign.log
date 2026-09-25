@@ -1,0 +1,171 @@
+all 49 anchors unique in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-a485e42b58d291f0b
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t1
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t2
+all 49 anchors unique in /home/cody/.cache/a2p-trees/t3
+P01: SURVIVED failed=0 total=8208 (219s, t1) — network names matched by raw substring again
+P02: SURVIVED failed=0 total=8208 (220s, t2) — bech32m (taproot) checksum no longer accepted
+P03: SURVIVED failed=0 total=8208 (226s, t3) — EVM length check only rejects SHORT addresses
+P05: CAUGHT failed=5 total=8208 (218s, t2) — only VERIFIED addresses are displayable
+      AccessibleTrader.Tests.WalletServiceTests.An_unverifiable_but_well_formed_address_is_still_shown
+      AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: "Polygon")
+      AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: "ERC20")
+      AccessibleTrader.Tests.CryptoAddressValidatorTests.A_well_formed_evm_address_is_structure_only_never_claimed_verified(network: "BEP20")
+      AccessibleTrader.Tests.CryptoAddressValidatorTests.An_unknown_network_says_so_rather_than_passing_or_failing
+P04: SURVIVED failed=0 total=8208 (222s, t1) — Tron addresses no longer required to start with T
+P06: CAUGHT failed=2 total=8208 (220s, t3) — every '1' in a base58 address counts as a leading zero
+      AccessibleTrader.Tests.CryptoAddressValidatorTests.A_real_legacy_bitcoin_address_verifies
+      AccessibleTrader.Tests.WalletServiceTests.A_good_address_comes_back_with_its_validation
+W01: CAUGHT failed=1 total=8208 (219s, t2) — giving up no longer reports a disconnect
+      AccessibleTrader.Tests.ReconnectingWebSocketContractTests.The_give_up_path_invokes_on_disconnected
+W03: SURVIVED failed=0 total=8208 (213s, t3) — the heartbeat ignores the configured keepalive payload
+W02: SURVIVED failed=0 total=8208 (226s, t1) — a successful reconnect does not reset the attempt counter
+W05: CAUGHT failed=1 total=8208 (217s, t3) — public SendAsync writes to the socket directly again
+      AccessibleTrader.Tests.ReconnectingWebSocketContractTests.There_is_exactly_one_socket_write_and_it_holds_the_send_lock
+W04: SURVIVED failed=0 total=8208 (220s, t2) — heartbeat declares death one failure late
+W06: SURVIVED failed=0 total=8208 (217s, t1) — oversize check is per FRAME, not per message
+W07: SURVIVED failed=0 total=8208 (221s, t3) — reconnect no longer cancels the previous generation's loops
+R02: SURVIVED failed=0 total=8208 (215s, t1) — after a full window the request count is not reset
+R01: CAUGHT failed=2 total=8208 (223s, t2) — HttpClient timeouts are not retried
+      AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteAsync_by_contrast_does_retry_that_same_exception
+      AccessibleTrader.Tests.RateLimiterRetryPolicyTests.Caller_cancellation_stops_immediately_but_a_client_timeout_is_retried
+PR1: SURVIVED failed=0 total=8208 (220s, t3) — a 403 is not a permission error
+TF1: CAUGHT failed=3 total=8208 (221s, t2) — 429 treated as permanent
+      AccessibleTrader.Tests.PipelineIdentityAndResilienceTests.Http_status_decides_whether_a_failure_is_worth_retrying(status: 429, expected: True)
+      AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Schwab_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)
+      AccessibleTrader.Tests.ProviderStatusCodeClassificationTests.Binance_only_lets_a_genuinely_transient_fetch_failure_reach_the_pipeline(status: TooManyRequests, shouldReachPipeline: True)
+PR2: CAUGHT failed=1 total=8208 (226s, t1) — FromException classification inverted
+      AccessibleTrader.Tests.WalletServiceTests.A_refused_networks_call_is_reported_as_a_permission_problem
+T01: CAUGHT failed=5 total=8208 (220s, t3) — month period end approximated as 30 days
+      AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: "2026-01-01", timeframe: "1M", expectedEnd: "2026-02-01")
+      AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: "2024-02-01", timeframe: "1M", expectedEnd: "2024-03-01")
+      AccessibleTrader.Tests.OhlcvStoreTests.GetPeriodEnd_walks_the_calendar_for_months_and_the_clock_for_everything_else(start: "2026-02-01", timeframe: "1M", expectedEnd: "2026-03-01")
+      AccessibleTrader.Tests.OhlcvStoreTests.A_still_forming_31_day_month_is_not_stored_on_its_last_day
+      AccessibleTrader.Tests.OhlcvStoreTests.A_closed_short_month_is_not_held_back_by_the_30_day_approximation
+T02: CAUGHT failed=3 total=8208 (226s, t2) — weekly bars aligned to Sunday
+      AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_ReadsExactlyTheLastClosedWeeks
+      AccessibleTrader.Tests.LevelRespectAnalyzerTests.MultiTimeframeMa_UsesOnlyTheLastCLOSEDHigherTimeframeBar
+      AccessibleTrader.Tests.ResamplerServiceTests.Weekly_buckets_start_on_Monday_at_midnight_UTC
+T03: SURVIVED failed=0 total=8208 (227s, t1) — base timeframe picks the SMALLEST divisor
+TS1: CAUGHT failed=1 total=8208 (208s, t3) — nanosecond epochs divided by 1000 only once
+      AccessibleTrader.Tests.TimestampParserTests.Every_epoch_precision_tier_lands_on_the_same_instant(epoch: "1750000000000000000")
+TS2: CAUGHT failed=2 total=8208 (215s, t2) — Local DateTimes relabelled instead of converted
+      AccessibleTrader.Tests.TimestampParserTests.An_unspecified_datetime_is_still_read_as_utc
+      AccessibleTrader.Tests.TimestampParserTests.A_local_datetime_is_converted_to_utc_not_relabelled
+MK1: CAUGHT failed=2 total=8208 (216s, t1) — a bare category is adopted as its own sub-type
+      AccessibleTrader.Tests.MarketKeyGrowthTests.SubType_reads_the_sub_type_half_only(market: "Crypto", expected: "")
+      AccessibleTrader.Tests.MarketKeyGrowthTests.Adopting_a_bare_market_does_not_make_the_category_the_sub_type
+TB1: SURVIVED failed=0 total=8208 (215s, t3) — ReplaceLast writes into the shared array again
+TB2: CAUGHT failed=1 total=8208 (218s, t2) — RemoveFirst drops the LAST element
+      AccessibleTrader.Tests.KeyedFeedsTests.LiveTick_growth_stops_at_the_2000_bar_live_cap
+CB1: CAUGHT failed=2 total=8208 (218s, t1) — a full circular buffer never advances its head
+      AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_GetLogicalIndex_ShouldMapCorrectlyAfterWrap
+      AccessibleTrader.Tests.CircularBufferTests.CircularBuffer_ShouldEvictOldItems
+WB1: CAUGHT failed=2 total=8208 (210s, t3) — limit keeps the OLDEST bars
+      AccessibleTrader.Tests.WindowedBarsTests.With_no_window_the_limit_still_keeps_the_newest_bars
+      AccessibleTrader.Tests.WindowedBarsTests.The_volume_series_stays_aligned_with_the_bars
+WB3: CAUGHT failed=3 total=8208 (212s, t1) — an empty window is not explained
+      AccessibleTrader.Tests.SnapshotWindowRoutingTests.Gemini_refuses_a_window_older_than_its_history_and_says_so
+      AccessibleTrader.Tests.SnapshotWindowRoutingTests.Kraken_futures_refuses_a_window_older_than_its_history_and_says_so
+      AccessibleTrader.Tests.WindowedBarsTests.An_old_window_is_never_answered_with_the_newest_bars
+WB2: CAUGHT failed=1 total=8208 (217s, t2) — the bar AT Until is excluded
+      AccessibleTrader.Tests.WindowedBarsTests.Bars_outside_the_requested_window_are_dropped
+BB1: CAUGHT failed=2 total=8208 (208s, t3) — cumulative ticks re-add the running total
+      AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_do_not_double_count_the_running_total
+      AccessibleTrader.Tests.KeyedFeedsPhaseBTests.CumulativeBars_across_source_bars_in_a_coarser_bucket_sum_once_each
+OH1: CAUGHT failed=4 total=8208 (220s, t2) — a trade tick replaces the bar's volume instead of adding
+      AccessibleTrader.Tests.LiveStreamWatchdogTests.A_mid_bar_reconnect_preserves_the_in_progress_bar
+      AccessibleTrader.Tests.KeyedFeedsPhaseBTests.TradeDeltas_accumulates_volume_and_expands_range
+      AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket
+      AccessibleTrader.Tests.KeyedFeedsHardeningTests.Malformed_tick_leaves_the_bucket_untouched
+BB2: CAUGHT failed=1 total=8208 (223s, t1) — replayed older ticks restart the bucket
+      AccessibleTrader.Tests.KeyedFeedsHardeningTests.Old_period_replay_is_dropped_instead_of_resetting_the_bucket
+CC1: SURVIVED failed=0 total=8208 (210s, t3) — Undeclared components are publishable
+AP1: CAUGHT failed=5 total=8208 (213s, t1) — whole-day metrics published the same day
+      AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 0, expectedDay: 6)
+      AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 2, expectedDay: 8)
+      AccessibleTrader.Tests.AnalyticsPublicationLagTests.An_extra_lag_stacks_on_top(extra: 1, expectedDay: 7)
+      AccessibleTrader.Tests.AnalyticsPublicationLagTests.A_whole_day_metric_becomes_readable_on_the_NEXT_day
+      AccessibleTrader.Tests.WikipediaPageviewsProviderTests.HappyPath_ReturnsFlatBarsWithViewsInEveryLeg
+CC2: CAUGHT failed=7 total=8208 (221s, t2) — a component's own causality is ignored
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: "CIPHER_SR.Resistance")
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: "SWING_STRUCTURE.SwingHigh")
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: "ICHIMOKU.Chikou Span")
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: "SWING_STRUCTURE.SwingLow")
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals(id: "CIPHER_SR.Support")
+      AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix(providerType: typeof(AccessibleTrader.Core.Services.Indicators.SwingStructureProvider))
+SF1: CAUGHT failed=1 total=8208 (215s, t3) — a two-letter base wins the quote split
+      AccessibleTrader.Tests.ProviderStreamAndSigningTests.Kraken_ws_pairs_split_on_the_real_quote(symbol: "XBTUSD", pair: "XBT/USD")
+D1: SURVIVED failed=0 total=8208 (229s, t1) — min reward/risk default 0.5
+D2: SURVIVED failed=0 total=8208 (231s, t2) — position-sizing risk default 5% (not 0.5%)
+D3: SURVIVED failed=0 total=8208 (211s, t3) — alert cooldown default zero
+D4: SURVIVED failed=0 total=8208 (221s, t1) — every alert pierces the ambient mutes by default
+D5: CAUGHT failed=2 total=8208 (223s, t2) — speech starts OFF
+      AccessibleTrader.Tests.UIDiagnosticTests.UI_Feedback_ShouldTriggerOnStateChange
+      AccessibleTrader.Tests.WorkspaceStoreTests.InitialState_MatchesWorkspaceStateInitial
+D6: SURVIVED failed=0 total=8208 (219s, t3) — backtest commission default is ten times too low
+PH1: SURVIVED failed=0 total=8208 (220s, t1) — fallback HttpClient ignores the caller's timeout
+PH2: SURVIVED failed=0 total=8208 (218s, t2) — fallback HttpClient has no response cap
+TH1: CAUGHT failed=2 total=8208 (228s, t3) — translucent colours serialised without alpha
+      AccessibleTrader.Tests.ThemeCustomizationTests.ATheme_survivesEveryFieldBeingSetAndReadBack
+      AccessibleTrader.Tests.ThemeCustomizationTests.AlphaSurvivesTheRoundTrip
+IM1: SURVIVED failed=0 total=8208 (221s, t2) — ATR seed averages one bar short
+TH2: CAUGHT failed=2 total=8208 (231s, t1) — default muted text drops below WCAG AA
+      AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Solarized)
+      AccessibleTrader.Tests.ThemeCoverageTests.EveryTheme_keepsEveryTextPairAtTheWcagFloor(type: Braille)
+IM2: SURVIVED failed=0 total=8208 (215s, t3) — true range ignores a gap DOWN
+CONTROL t1: build_ok=True failed=0 passed=8208 total=8208 restored byte-identical
+CONTROL t2: build_ok=True failed=0 passed=8208 total=8208 restored byte-identical
+CONTROL t3: build_ok=True failed=0 passed=8208 total=8208 restored byte-identical
+
+=== summary
+   P01   SURVIVED  network names matched by raw substring again
+   P02   SURVIVED  bech32m (taproot) checksum no longer accepted
+   P03   SURVIVED  EVM length check only rejects SHORT addresses
+   P04   SURVIVED  Tron addresses no longer required to start with T
+   P05     CAUGHT  only VERIFIED addresses are displayable
+   P06     CAUGHT  every '1' in a base58 address counts as a leading zero
+   W01     CAUGHT  giving up no longer reports a disconnect
+   W02   SURVIVED  a successful reconnect does not reset the attempt counter
+   W03   SURVIVED  the heartbeat ignores the configured keepalive payload
+   W04   SURVIVED  heartbeat declares death one failure late
+   W05     CAUGHT  public SendAsync writes to the socket directly again
+   W06   SURVIVED  oversize check is per FRAME, not per message
+   W07   SURVIVED  reconnect no longer cancels the previous generation's loops
+   R01     CAUGHT  HttpClient timeouts are not retried
+   R02   SURVIVED  after a full window the request count is not reset
+   PR1   SURVIVED  a 403 is not a permission error
+   PR2     CAUGHT  FromException classification inverted
+   TF1     CAUGHT  429 treated as permanent
+   T01     CAUGHT  month period end approximated as 30 days
+   T02     CAUGHT  weekly bars aligned to Sunday
+   T03   SURVIVED  base timeframe picks the SMALLEST divisor
+   TS1     CAUGHT  nanosecond epochs divided by 1000 only once
+   TS2     CAUGHT  Local DateTimes relabelled instead of converted
+   MK1     CAUGHT  a bare category is adopted as its own sub-type
+   TB1   SURVIVED  ReplaceLast writes into the shared array again
+   TB2     CAUGHT  RemoveFirst drops the LAST element
+   CB1     CAUGHT  a full circular buffer never advances its head
+   WB1     CAUGHT  limit keeps the OLDEST bars
+   WB2     CAUGHT  the bar AT Until is excluded
+   WB3     CAUGHT  an empty window is not explained
+   BB1     CAUGHT  cumulative ticks re-add the running total
+   BB2     CAUGHT  replayed older ticks restart the bucket
+   OH1     CAUGHT  a trade tick replaces the bar's volume instead of adding
+   CC1   SURVIVED  Undeclared components are publishable
+   CC2     CAUGHT  a component's own causality is ignored
+   AP1     CAUGHT  whole-day metrics published the same day
+   SF1     CAUGHT  a two-letter base wins the quote split
+    D1   SURVIVED  min reward/risk default 0.5
+    D2   SURVIVED  position-sizing risk default 5% (not 0.5%)
+    D3   SURVIVED  alert cooldown default zero
+    D4   SURVIVED  every alert pierces the ambient mutes by default
+    D5     CAUGHT  speech starts OFF
+    D6   SURVIVED  backtest commission default is ten times too low
+   PH1   SURVIVED  fallback HttpClient ignores the caller's timeout
+   PH2   SURVIVED  fallback HttpClient has no response cap
+   TH1     CAUGHT  translucent colours serialised without alpha
+   TH2     CAUGHT  default muted text drops below WCAG AA
+   IM1   SURVIVED  ATR seed averages one bar short
+   IM2   SURVIVED  true range ignores a gap DOWN
+
+raw catch rate 26/49 = 53.1%   survivors: ['P01', 'P02', 'P03', 'P04', 'W02', 'W03', 'W04', 'W06', 'W07', 'R02', 'PR1', 'T03', 'TB1', 'CC1', 'D1', 'D2', 'D3', 'D4', 'D6', 'PH1', 'PH2', 'IM1', 'IM2']

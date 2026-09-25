@@ -173,6 +173,87 @@ namespace AccessibleTrader.Tests
             Assert.Contains("verify the address", r.Detail);
         }
 
+        // ── A2p: routing by network name, taproot ────────────────────────────
+
+        [Theory]
+        [InlineData("WBTC (ERC20)")]
+        [InlineData("cbBTC (Base)")]
+        public void A_bitcoin_token_on_an_evm_chain_is_checked_as_an_evm_address(string network)
+        {
+            // Wrapped bitcoin lives on an EVM chain: its deposit address is 0x…, not 1/3/bc1.
+            // The network NAME contains the letters "BTC", and matching raw substrings (the
+            // TETHER→ETH bug class) routed it to the Bitcoin check, which refused a correct
+            // deposit address. Only whole tokens of the venue's network name may route.
+            var r = CryptoAddressValidator.Validate("0x52908400098527886E0F7030069857D2E4169EE7", network);
+
+            Assert.Equal(AddressCheck.StructureOnly, r.Result);
+            Assert.True(r.IsDisplayable);
+        }
+
+        [Theory]
+        // BIP-86's first key-path address and BIP-350's witness-v1 example. Both checked
+        // against the BIP-350 reference decoder as bech32m, witness version 1.
+        [InlineData("bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0")]
+        [InlineData("bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7kt5nd6y")]
+        public void A_real_taproot_address_verifies(string address)
+        {
+            // Taproot (bc1p…) addresses carry the bech32m checksum, not bech32's. A venue
+            // issuing one is issuing a correct deposit address; refusing it hides it.
+            var r = CryptoAddressValidator.Validate(address, "Bitcoin");
+
+            Assert.Equal(AddressCheck.Verified, r.Result);
+            Assert.True(r.IsDisplayable);
+        }
+
+        [Fact]
+        public void A_segwit_v0_address_carrying_the_taproot_checksum_is_rejected()
+        {
+            // BIP-350's own invalid vector: "Invalid checksum algorithm (bech32m instead of
+            // bech32)". Witness version 0 (the 'q' after bc1) must carry the bech32 checksum;
+            // the bech32m constant is valid only for version 1 and up. Accepting either
+            // checksum for any version meant this address — which every BIP-350 wallet refuses —
+            // was announced as VERIFIED. Found while closing A2p's taproot survivor.
+            var r = CryptoAddressValidator.Validate("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kemeawh", "Bitcoin");
+
+            Assert.Equal(AddressCheck.Malformed, r.Result);
+            Assert.False(r.IsDisplayable);
+        }
+
+        [Fact]
+        public void An_evm_address_one_character_too_long_is_rejected()
+        {
+            // 43 characters: one extra hex digit — a paste that picked up a neighbour, or a
+            // venue bug. Not an address on any EVM chain; showing it as well-formed invites a
+            // deposit to nowhere.
+            var r = CryptoAddressValidator.Validate("0x52908400098527886E0F7030069857D2E4169EE70", "ERC20");
+
+            Assert.Equal(AddressCheck.Malformed, r.Result);
+            Assert.False(r.IsDisplayable);
+            Assert.Contains("42 characters", r.Detail);
+        }
+
+        [Fact]
+        public void A_real_tron_address_verifies()
+        {
+            // The USDT-TRC20 contract address — base58check with Tron's 0x41 version byte,
+            // checked independently (double SHA-256) before being quoted here.
+            var r = CryptoAddressValidator.Validate("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", "TRC20");
+
+            Assert.Equal(AddressCheck.Verified, r.Result);
+        }
+
+        [Fact]
+        public void A_bitcoin_address_returned_for_a_tron_deposit_is_rejected()
+        {
+            // The genesis address is a VALID base58check string, so the checksum alone
+            // passes it. USDT sent on TRC20 to a Bitcoin address is gone; only the 'T'
+            // prefix tells the two networks apart at this layer.
+            var r = CryptoAddressValidator.Validate(BtcLegacy, "TRC20");
+
+            Assert.Equal(AddressCheck.Malformed, r.Result);
+            Assert.False(r.IsDisplayable);
+        }
+
         [Fact]
         public void Every_outcome_says_something_a_user_can_act_on()
         {
