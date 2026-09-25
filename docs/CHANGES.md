@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2l: `Services/Strategies` mutated, and three strategy-builder defects fixed (2026-09-24)
+
+Run in parallel with A2k in its own worktree. Full write-up: `scratchpad/a2l_REPORT.md`.
+
+- **44 mutants over 19 never-mutated files; honest 23/44 (52.3%)** after the false-catch audit
+  (one catch was a contention flake). **Everything that sets a price or refuses was guarded**
+  (level providers 8/8, bundle import 3/3, causality refusals 4/4). **The layer that turns a
+  button press into a running strategy caught 0 of 18.** No test built the coordinator, the
+  facade, the auto-loader, `EditableStrategySpec`, the narrator or the multi-timeframe cache;
+  the modal tests substitute them. All 21 survivors closed, each proven red (`a2l_prove_kills.py`):
+  32 new cases in `StrategyLifecycleTests`, `EditableStrategySpecRoundTripTests`,
+  `StrategySpecNarratorTests`, `SetupSonifierSpeechTests`, `MultiTimeframeDataServiceTests`,
+  `ScriptStrategyCausalityFingerprintTests` and `LabRunnerTests`.
+- **Saving a strategy in the builder replaced its exit.** `EditableStrategySpec.ToSpec` hard-coded
+  "move the stop to breakeven at the first target", so opening a catalogue spec that trails by
+  ATR (v24, whose own comment calls the trail "the real exit") and saving it, even to rename it,
+  swapped the trail for breakeven. The same round trip dropped the indicator a component-based
+  stop or target resolves against. Both now survive load and save. **Caveat:** the builder still
+  has no control to EDIT either; the fix only stops Save destroying them.
+- **Strategies added from the builder or compiled from a script ran without their library id.**
+  A position they opened could not be re-adopted after a restart (it came back as an orphan beside
+  a fresh flat copy of the strategy), and a workspace save silently dropped the strategy.
+  `StrategyLibraryFacade` (Add to Engine) and `StrategyModalCoordinator` (scripts) now pass it.
+- **None of the three was checked in the running app.** Each was demonstrated red first
+  (`scratchpad/a2l_defect_demo_before_fix.txt`).
+
 ### A2k: the JavaScript, mutated for the first time (2026-09-24)
 
 Every earlier campaign mutated C#. The JavaScript the browser runs had never been mutated, and it

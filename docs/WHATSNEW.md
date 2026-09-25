@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **Saving a strategy keeps its exit plan.** Opening a strategy in the builder and saving it,
+  even just to rename it, used to replace a trailing stop with "move to breakeven". It no longer
+  does. Strategies added from the builder or from a script also keep their positions across a
+  restart now, and stay in a saved workspace.
 - **The Hide, Mute and Delete buttons in the Object Tree work from the keyboard.** Enter or Space
   on one of them used to select the row instead. The same fix applies to the buttons in the
   strategy condition tree.
