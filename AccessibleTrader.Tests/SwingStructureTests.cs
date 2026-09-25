@@ -157,6 +157,28 @@ namespace AccessibleTrader.Tests
                 Assert.NotEqual(s.Swings[i - 1].IsHigh, s.Swings[i].IsHigh);
         }
 
+        /// <summary>
+        /// Two highs with no meaningful low between them: the HIGHER one becomes the carried swing
+        /// high. The test above only checks that highs and lows alternate, and its fixture never
+        /// produces two same-kind pivots in a row, so A2m's M30 — the LESS extreme pivot superseding
+        /// the more extreme one — survived. Here the dip to 118 is too shallow for a 3-ATR filter
+        /// (asserted), so a following 135 has to supersede 120; and in the mirror, a 119.5 that
+        /// follows 120 must NOT, or "the swing high" drops half a point inside one move.
+        /// </summary>
+        [Theory]
+        [InlineData(135.0, 135.0)]   // a higher same-kind high supersedes
+        [InlineData(119.5, 120.0)]   // a lower one is dropped
+        public void ASecondHighWithNoRealLowBetween_OnlyReplacesTheFirstIfItIsHigher(double second, double carried)
+        {
+            var bars = ZigZag(new[] { 100.0, 120, 118, second, 90, 95 });
+            var s = Analyze(bars, new SwingOptions(Span: 3, MinSwingAtr: 3.0));
+
+            // The 118 dip must really have been filtered, or this is not the case under test.
+            Assert.DoesNotContain(s.Swings, x => !x.IsHigh && Math.Abs(x.Price - 118) < 1);
+
+            Assert.Equal(carried, s.LastHighPrice[^1], 0);
+        }
+
         // ── Breaks ────────────────────────────────────────────────────────────
 
         [Fact]

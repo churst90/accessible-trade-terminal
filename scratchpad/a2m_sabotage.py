@@ -43,6 +43,7 @@ OUT = os.path.join(REPO, "scratchpad", "a2m_sabotage_results.json")
 INFLIGHT = os.path.join(REPO, "scratchpad", "a2m_sabotage_inflight.txt")
 BACKUP = os.path.join(REPO, "scratchpad", "a2m_backup")
 SUMMARY_RE = re.compile(r"Failed:\s+(\d+),\s+Passed:\s+(\d+)")
+BASELINE_TOTAL = 8088   # scratchpad/a2m_baseline.log, clean tree, 2026-09-24
 
 A = "AccessibleTrader.Core/Services/Analysis/"
 
@@ -477,6 +478,13 @@ def main():
                 rec['failing_tests'] = names[:60]
                 rec['status'] = ('UNPARSED' if rec['failed'] < 0
                                  else 'CAUGHT' if rec['failed'] > 0 else 'SURVIVED')
+                # HARNESS RULE 10 (learned on M23 in this campaign): a test host that ABORTS prints
+                # a summary for the tests it reached — "Failed: 0, Passed: 4634" — and that parses
+                # as a survivor. Anything short of the baseline total is an abort, and an abort is
+                # something the suite noticed, so it is recorded separately and audited by hand.
+                if rec['failed'] >= 0 and rec['failed'] + rec['passed'] < BASELINE_TOTAL:
+                    rec['status'] = 'ABORTED'
+                    rec['log_tail'] = out[-4000:]
                 print(f"{mid}: {rec['status']} failed={rec['failed']} ({time.time()-t0:.0f}s) — {area}", flush=True)
                 if names:
                     print("      " + "; ".join(names[:6]), flush=True)

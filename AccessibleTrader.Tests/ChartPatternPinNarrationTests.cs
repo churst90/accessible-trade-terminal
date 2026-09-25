@@ -289,4 +289,91 @@ public sealed class ChartPatternPinNarrationTests
         Assert.NotNull(nav);
         Assert.Equal(85, nav!.NewIndex);   // the flag's break, not the container's at 115
     }
+
+    /// <summary>
+    /// Shift+semicolon has to RELEASE the pin, not just say it did. The only test of clearing
+    /// called <see cref="ChartPatternFocus.Clear"/> directly; nothing went through the navigator,
+    /// so replacing the navigator's clear with a read of the pin (A2m, M07) announced "Formation
+    /// choice cleared" and left the jump keys confined to the pinned formation's two edges —
+    /// the stuck-between-two-edges report of the 61st pass, reached by a different route.
+    /// </summary>
+    [Fact]
+    public void ShiftSemicolonReleasesThePin_SoTheJumpKeysReachEveryFormationAgain()
+    {
+        var outer = new ChartPattern(
+            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Completed,
+            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
+            TriggerLevel: 110, StartTime: default, EndTime: default,
+            CompletedAtIndex: 115, ExpiresAtIndex: 300, SecondaryLevel: 90);
+        var inner = new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Completed,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: default, EndTime: default,
+            CompletedAtIndex: 85, ExpiresAtIndex: 300);
+
+        var h = Build(outer, inner);
+        StandOn(h, 70);
+        string key = ChartPatternCache.KeyFor(h.Store.State.Identity);
+        for (int i = 0; i < 4; i++)
+        {
+            h.Navigator.CycleFocus();
+            var ranked = ChartPatternNarrator.ByDominance(new[] { outer, inner }).ToList();
+            if (h.Focus.Apply(key, ranked)[0].Key.Equals(inner.Key)) break;
+        }
+
+        // Pinned to the flag, standing past both its edges: nothing further inside the pin.
+        StandOn(h, 90);
+        h.Store.DispatchedActions.Clear();
+        h.Navigator.Jump(SystemCommand.NavPatternNext);
+        Assert.Empty(h.Store.DispatchedActions.OfType<NavigateAction>());
+
+        h.Bus.Log.Clear();
+        h.Navigator.ClearFocus();
+        Assert.Contains(h.Bus.Log.OfType<FeedbackRequestEvent>(), e => e.Message.Contains("cleared"));
+        Assert.False(h.Focus.IsPinned(key));
+
+        // Released: the container's break at 115 is reachable again.
+        h.Navigator.Jump(SystemCommand.NavPatternNext);
+        var nav = h.Store.DispatchedActions.OfType<NavigateAction>().LastOrDefault();
+        Assert.NotNull(nav);
+        Assert.Equal(115, nav!.NewIndex);
+    }
+
+    /// <summary>
+    /// The position in "Leading with X, 2 of 3" is how a user knows how many more presses remain.
+    /// The nesting test asserted only "of 3", so counting from zero (A2m, M08) read "0 of 3" on the
+    /// first press and survived.
+    /// </summary>
+    [Fact]
+    public void ThePinAnnouncementCountsFromOne()
+    {
+        var outer = new ChartPattern(
+            Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Forming,
+            StartBarIndex: 0, EndBarIndex: 200, KnownAtIndex: 60,
+            TriggerLevel: 110, StartTime: default, EndTime: default,
+            ExpiresAtIndex: 300, SecondaryLevel: 90);
+        var middle = new ChartPattern(
+            Kind: ChartPatternKind.DoubleBottom, State: ChartPatternState.Forming,
+            StartBarIndex: 20, EndBarIndex: 120, KnownAtIndex: 62,
+            TriggerLevel: 100, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+        var inner = new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Forming,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: default, EndTime: default, ExpiresAtIndex: 300);
+
+        var h = Build(outer, middle, inner);
+        StandOn(h, 70);
+
+        var said = new List<string>();
+        for (int i = 0; i < 3; i++)
+        {
+            h.Bus.Log.Clear();
+            h.Navigator.CycleFocus();
+            said.Add(string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message)));
+        }
+
+        Assert.Contains("range, 1 of 3", said[0]);
+        Assert.Contains("double bottom, 2 of 3", said[1]);
+        Assert.Contains("bull flag, 3 of 3", said[2]);
+    }
 }

@@ -173,6 +173,61 @@ namespace AccessibleTrader.Tests
                 $"drops. Either the warmup is excluding the series or the detector stopped finding things.");
         }
 
+        // ── Is a formation announced on the first bar it EXISTS, and not before? ─────────────
+
+        /// <summary>
+        /// The tightest form of the future-bars question: a formation that claims to be knowable at
+        /// bar k must be found by a detector that holds bars 0..k and nothing more.
+        ///
+        /// <para>
+        /// The test above asks the same thing at three cut points only (700, 950, 1200), so a
+        /// lookahead of a few bars is invisible unless one of those cuts happens to land inside it.
+        /// A2m's M22 moved a double top's knowable bar from its second peak's CONFIRMATION to the
+        /// peak itself — five bars before anyone could know it was a peak — and survived every test
+        /// in the suite. <c>NoPatternIsKnowableBeforeItsStructureIsComplete</c> even says in its doc
+        /// that "a pattern reported AT its final pivot would be using information from the future",
+        /// and then asserts <c>KnownAtIndex &gt;= EndBarIndex</c>, which is exactly that case.
+        /// </para>
+        ///
+        /// <para>
+        /// Every distinct knowable bar in the series is checked (one detection per bar, not per
+        /// formation), so every formation of every kind is held to it.
+        /// </para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(Flavours))]
+        public void EveryFormationIsFoundWithOnlyTheBarsUpToItsKnowableBar(int flavour)
+        {
+            var bars = CausalityProbeSeries.Bars(flavour, SeriesLength);
+            var whole = Detect(bars);
+            var offenders = new List<string>();
+            int checkedCount = 0;
+
+            foreach (var group in whole.GroupBy(p => p.KnownAtIndex).OrderBy(g => g.Key))
+            {
+                int k = group.Key;
+                // Below the cache's floor the terminal never runs detection at all, so a chart that
+                // short hears no formation whatever the detector would say — that is warmup, and
+                // the same for every kind.
+                if (k + 1 < ChartPatternCache.MinimumBars) continue;
+                var keys = Detect(bars.Take(k + 1).ToList()).Select(p => p.Key).ToHashSet();
+
+                foreach (var p in group)
+                {
+                    checkedCount++;
+                    if (!keys.Contains(p.Key))
+                        offenders.Add($"{p.Kind} at bars {p.StartBarIndex}-{p.EndBarIndex} claims to be knowable " +
+                                      $"at bar {k}, but a chart holding bars 0..{k} does not contain it.");
+                }
+            }
+
+            Assert.True(offenders.Count == 0,
+                $"Formations on series {flavour} are announced before the bar that could reveal them:\n  " +
+                string.Join("\n  ", offenders.Take(20)));
+            // Series 0, the quietest, holds 23; the others hold far more.
+            Assert.True(checkedCount >= 20, $"only {checkedCount} formations checked on series {flavour}");
+        }
+
         // ── The guard's own honesty ───────────────────────────────────────────────────────────
 
         [Fact]

@@ -1,0 +1,392 @@
+{
+ "mutant_reruns": {
+  "M01": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+   ]
+  },
+  "M02": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom"
+   ]
+  },
+  "M03": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped"
+   ]
+  },
+  "M04": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesAreBothTheStartAndTheResolutionOfEachFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesAreBothTheStartAndTheResolutionOfEachFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection"
+   ]
+  },
+  "M05": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheJumpKeysTravelToThePinnedFormationsEdges"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheJumpKeysTravelToThePinnedFormationsEdges"
+   ]
+  },
+  "M06": {
+   "campaign": [
+    "AccessibleTrader.Tests.SilentFailureTests.TheJumpKeysRefuseAndExplainWhenDescriptionIsOff"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.SilentFailureTests.TheJumpKeysRefuseAndExplainWhenDescriptionIsOff"
+   ]
+  },
+  "M07": {
+   "campaign": [
+    "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+   ],
+   "rerun_failed": []
+  },
+  "M08": {
+   "campaign": [
+    "AccessibleTrader.Tests.Blazor.OrderTicketErrorStateTests.The_rule_nobody_guesses_is_now_stated"
+   ],
+   "rerun_failed": []
+  },
+  "M09": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.RunningOutOfEdgesInsideAPinSaysWhy",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.APinnedFormationLeadsTheReadout"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.RunningOutOfEdgesInsideAPinSaysWhy",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.APinnedFormationLeadsTheReadout"
+   ]
+  },
+  "M10": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.NestedFormationsCanAllBeCycledThrough"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.NestedFormationsCanAllBeCycledThrough"
+   ]
+  },
+  "M12": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.TimeframeAndProviderArePartOfTheIdentity"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.TimeframeAndProviderArePartOfTheIdentity"
+   ]
+  },
+  "M13": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+   ]
+  },
+  "M14": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel"
+   ]
+  },
+  "M15": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ProjectionPreservesIdentityEvenThoughItChangesTheRecord"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ProjectionPreservesIdentityEvenThoughItChangesTheRecord"
+   ]
+  },
+  "M16": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AnExpiredPatternIsStillFormingBeforeItsExpiryBar"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AnExpiredPatternIsStillFormingBeforeItsExpiryBar"
+   ]
+  },
+  "M17": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.DescribeMany_CapsTheReadoutAndPutsFormingFirst",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.DominanceRanksLiveFirstThenTheLargestStructure"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.DescribeMany_CapsTheReadoutAndPutsFormingFirst",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.DominanceRanksLiveFirstThenTheLargestStructure"
+   ]
+  },
+  "M18": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_ExcludesPatternsNotYetKnowableAtThatBar"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_ExcludesPatternsNotYetKnowableAtThatBar"
+   ]
+  },
+  "M19": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_DropsACompletedPatternOnceItHasResolved",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+    "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_DropsACompletedPatternOnceItHasResolved",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar"
+   ]
+  },
+  "M20": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmedPatternSaysWhatPriceDid_NeverTheWordCompleted",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AnUpsideConfirmationSaysAbove",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ABrokenRangeProjectsItsHeightFromTheSideThatGaveWay",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmedPatternSaysWhatPriceDid_NeverTheWordCompleted",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.AnUpsideConfirmationSaysAbove",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ABrokenRangeProjectsItsHeightFromTheSideThatGaveWay",
+    "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar"
+   ]
+  },
+  "M21": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.TheImmediateParentIsNamedNotTheOutermost"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.TheImmediateParentIsNamedNotTheOutermost"
+   ]
+  },
+  "M24": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternCausalityTests.AFormationDoesNotChangeWhenOlderBarsArrive",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.CompletedPatterns_NameTheBarThatBrokeTheTrigger_AtOrAfterTheStructureWasKnowable"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternCausalityTests.AFormationDoesNotChangeWhenOlderBarsArrive",
+    "AccessibleTrader.Tests.ChartPatternDetectorTests.CompletedPatterns_NameTheBarThatBrokeTheTrigger_AtOrAfterTheStructureWasKnowable"
+   ]
+  },
+  "M27": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ARangeResolvesOnWhicheverSideBreaksFirst"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.ARangeResolvesOnWhicheverSideBreaksFirst"
+   ]
+  },
+  "M28": {
+   "campaign": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EveryTargetSitsOnTheBreakSideOfItsTrigger"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ChartPatternPositionTests.EveryTargetSitsOnTheBreakSideOfItsTrigger"
+   ]
+  },
+  "M29": {
+   "campaign": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix",
+    "AccessibleTrader.Tests.SwingStructureTests.PivotIsConfirmedSpanBarsAfterItForms_NeverOnItsOwnBar"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix",
+    "AccessibleTrader.Tests.SwingStructureTests.PivotIsConfirmedSpanBarsAfterItForms_NeverOnItsOwnBar"
+   ]
+  },
+  "M30": {
+   "campaign": [
+    "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+   ],
+   "rerun_failed": []
+  },
+  "M31": {
+   "campaign": [
+    "AccessibleTrader.Tests.SwingStructureTests.BreakingTheSwingHighInADowntrend_IsAChangeOfCharacter",
+    "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_EndsInADowntrendState",
+    "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_ProducesLowerHighsAndLowerLows",
+    "AccessibleTrader.Tests.SwingStructureTests.HigherHighWithLowerLow_ReadsAsRangeNotTrend",
+    "AccessibleTrader.Tests.SwingStructureTests.Provider_DetailFactNamesTheStateAndPositionInRange",
+    "AccessibleTrader.Tests.SwingStructureTests.Provider_EmitsStateAsPlusOneMinusOneOrZero",
+    "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_EndsInAnUptrendState",
+    "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_ProducesHigherHighsAndHigherLows"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.SwingStructureTests.BreakingTheSwingHighInADowntrend_IsAChangeOfCharacter",
+    "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_EndsInADowntrendState",
+    "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_ProducesLowerHighsAndLowerLows",
+    "AccessibleTrader.Tests.SwingStructureTests.HigherHighWithLowerLow_ReadsAsRangeNotTrend",
+    "AccessibleTrader.Tests.SwingStructureTests.Provider_DetailFactNamesTheStateAndPositionInRange",
+    "AccessibleTrader.Tests.SwingStructureTests.Provider_EmitsStateAsPlusOneMinusOneOrZero",
+    "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_EndsInAnUptrendState",
+    "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_ProducesHigherHighsAndHigherLows"
+   ]
+  },
+  "M32": {
+   "campaign": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.DecisiveCloseThrough_CountsAsABreak",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.PassingStraightThrough_ScoresZero"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.DecisiveCloseThrough_CountsAsABreak",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.PassingStraightThrough_ScoresZero"
+   ]
+  },
+  "M34": {
+   "campaign": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ApproachFromBelow_IsClassifiedAsResistance",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.WickThroughAndBack_CountsAsAHold_BecauseThatIsASweep"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ApproachFromBelow_IsClassifiedAsResistance",
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.WickThroughAndBack_CountsAsAHold_BecauseThatIsASweep"
+   ]
+  },
+  "M36": {
+   "campaign": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.Score_ShrinksTowardsHalf_SoATinySampleCannotOutrankALargeOne"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.LevelRespectAnalyzerTests.Score_ShrinksTowardsHalf_SoATinySampleCannotOutrankALargeOne"
+   ]
+  },
+  "M40": {
+   "campaign": [
+    "AccessibleTrader.Tests.LevelPolarityTests.ALevelExactlyOnThePriceIsCalledResistance"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.LevelPolarityTests.ALevelExactlyOnThePriceIsCalledResistance"
+   ]
+  },
+  "M42": {
+   "campaign": [
+    "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar",
+    "AccessibleTrader.Tests.ReplayServiceTests.RevealedBars_AreThePrefixOfRealHistory_NeverReordered",
+    "AccessibleTrader.Tests.ReplayServiceTests.Start_IsIgnoredWhileAlreadyRunning",
+    "AccessibleTrader.Tests.ReplayServiceTests.Start_RevealsOnlyUpToTheChosenBar",
+    "AccessibleTrader.Tests.ReplayServiceTests.Step_RevealsOneBarAtATime"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar",
+    "AccessibleTrader.Tests.ReplayServiceTests.RevealedBars_AreThePrefixOfRealHistory_NeverReordered",
+    "AccessibleTrader.Tests.ReplayServiceTests.Start_IsIgnoredWhileAlreadyRunning",
+    "AccessibleTrader.Tests.ReplayServiceTests.Start_RevealsOnlyUpToTheChosenBar",
+    "AccessibleTrader.Tests.ReplayServiceTests.Step_RevealsOneBarAtATime"
+   ]
+  },
+  "M43": {
+   "campaign": [
+    "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar"
+   ],
+   "rerun_failed": [
+    "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar"
+   ]
+  }
+ },
+ "clean": {
+  "ran": [
+   "AccessibleTrader.Tests.Blazor.OrderTicketErrorStateTests.The_rule_nobody_guesses_is_now_stated",
+   "AccessibleTrader.Tests.ChartPatternCausalityTests.AFormationDoesNotChangeWhenOlderBarsArrive",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AConfirmedPatternSaysWhatPriceDid_NeverTheWordCompleted",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AnUpsideConfirmationSaysAbove",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_DropsACompletedPatternOnceItHasResolved",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.AtBar_ExcludesPatternsNotYetKnowableAtThatBar",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.CompletedPatterns_NameTheBarThatBrokeTheTrigger_AtOrAfterTheStructureWasKnowable",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.DescribeMany_CapsTheReadoutAndPutsFormingFirst",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.DominanceRanksLiveFirstThenTheLargestStructure",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.EntryNamesTheEdgeYouAreOnAndTheSpan",
+   "AccessibleTrader.Tests.ChartPatternDetectorTests.TheEdgeWordDoesNotDependOnTheDirectionOfTravel",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.JumpingToTheEndAlsoLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.NestedFormationsCanAllBeCycledThrough",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.RunningOutOfEdgesInsideAPinSaysWhy",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheClosingAnnouncementLeadsWithThePinnedFormation",
+   "AccessibleTrader.Tests.ChartPatternPinNarrationTests.TheJumpKeysTravelToThePinnedFormationsEdges",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ABrokenRangeProjectsItsHeightFromTheSideThatGaveWay",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AConfirmedPatternIsStillOnlyFormingBeforeItsBreakBar",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.APinnedFormationLeadsTheReadout",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ARangeResolvesOnWhicheverSideBreaksFirst",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AnExpiredPatternIsStillFormingBeforeItsExpiryBar",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.AtBarProjectsEveryPatternToTheRequestedBar",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesAreBothTheStartAndTheResolutionOfEachFormation",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EdgesBeyondTheLoadedDataAreDroppedNotClamped",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.EveryTargetSitsOnTheBreakSideOfItsTrigger",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingFindsTheNearestEdgeInTheRequestedDirection",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.JumpingNeverLandsOnTheBarItStartedFrom",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.ProjectionPreservesIdentityEvenThoughItChangesTheRecord",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.TheImmediateParentIsNamedNotTheOutermost",
+   "AccessibleTrader.Tests.ChartPatternPositionTests.TimeframeAndProviderArePartOfTheIdentity",
+   "AccessibleTrader.Tests.IndicatorCausalityTests.ComponentsDeclaredCausalGiveTheSameAnswerOnAPrefix",
+   "AccessibleTrader.Tests.LevelPolarityTests.ALevelExactlyOnThePriceIsCalledResistance",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.ApproachFromBelow_IsClassifiedAsResistance",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.DecisiveCloseThrough_CountsAsABreak",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.PassingStraightThrough_ScoresZero",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.Score_ShrinksTowardsHalf_SoATinySampleCannotOutrankALargeOne",
+   "AccessibleTrader.Tests.LevelRespectAnalyzerTests.WickThroughAndBack_CountsAsAHold_BecauseThatIsASweep",
+   "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close",
+   "AccessibleTrader.Tests.ReplayServiceTests.CursorFollowsTheNewestRevealedBar",
+   "AccessibleTrader.Tests.ReplayServiceTests.RevealedBars_AreThePrefixOfRealHistory_NeverReordered",
+   "AccessibleTrader.Tests.ReplayServiceTests.Start_IsIgnoredWhileAlreadyRunning",
+   "AccessibleTrader.Tests.ReplayServiceTests.Start_RevealsOnlyUpToTheChosenBar",
+   "AccessibleTrader.Tests.ReplayServiceTests.Step_RevealsOneBarAtATime",
+   "AccessibleTrader.Tests.SilentFailureTests.TheJumpKeysRefuseAndExplainWhenDescriptionIsOff",
+   "AccessibleTrader.Tests.SwingStructureTests.BreakingTheSwingHighInADowntrend_IsAChangeOfCharacter",
+   "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_EndsInADowntrendState",
+   "AccessibleTrader.Tests.SwingStructureTests.FallingZigZag_ProducesLowerHighsAndLowerLows",
+   "AccessibleTrader.Tests.SwingStructureTests.HigherHighWithLowerLow_ReadsAsRangeNotTrend",
+   "AccessibleTrader.Tests.SwingStructureTests.PivotIsConfirmedSpanBarsAfterItForms_NeverOnItsOwnBar",
+   "AccessibleTrader.Tests.SwingStructureTests.Provider_DetailFactNamesTheStateAndPositionInRange",
+   "AccessibleTrader.Tests.SwingStructureTests.Provider_EmitsStateAsPlusOneMinusOneOrZero",
+   "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_EndsInAnUptrendState",
+   "AccessibleTrader.Tests.SwingStructureTests.RisingZigZag_ProducesHigherHighsAndHigherLows",
+   "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+  ],
+  "failed_on_clean": [
+   "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+  ]
+ },
+ "m23": {
+  "summary": "Failed:     0, Passed:  8088",
+  "exit": 0,
+  "failing": [],
+  "tail": "Test run for /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-a462c5a0da67ef24c/AccessibleTrader.Tests/bin/Debug/net10.0/AccessibleTrader.Tests.dll (.NETCoreApp,Version=v10.0)\nA total of 1 test files matched the specified pattern.\n\nPassed!  - Failed:     0, Passed:  8088, Skipped:     0, Total:  8088, Duration: 3 m 47 s - AccessibleTrader.Tests.dll (net10.0)\n"
+ }
+}
