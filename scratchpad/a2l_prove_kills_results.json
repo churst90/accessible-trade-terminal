@@ -1,0 +1,227 @@
+{
+ "kills": [
+  {
+   "id": "L01",
+   "area": "Start runs a second copy of a spec already running",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Starting_a_spec_that_is_already_running_leaves_exactly_one_instance"
+   ]
+  },
+  {
+   "id": "L02",
+   "area": "Stop leaves the spec armed to auto-start on restart",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Stopping_a_spec_removes_it_and_disarms_it_for_the_next_launch"
+   ]
+  },
+  {
+   "id": "L03",
+   "area": "Pause and resume swap",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Pause_pauses_a_running_strategy_and_resume_resumes_it"
+   ]
+  },
+  {
+   "id": "L04",
+   "area": "a compiled script strategy is not re-armed after restart",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.A_compiled_script_is_saved_armed_and_running_under_its_library_id"
+   ]
+  },
+  {
+   "id": "L05",
+   "area": "a stop that reads the future is not part of the order fingerprint",
+   "filter": "AccessibleTrader.Tests.ScriptStrategyCausalityFingerprintTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptStrategyCausalityFingerprintTests.A_strategy_whose_entries_are_honest_but_whose_stop_reads_the_future_is_refused"
+   ]
+  },
+  {
+   "id": "L10",
+   "area": "editing a saved strategy saves a duplicate under a new id",
+   "filter": "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.Saving_an_opened_strategy_keeps_its_id_so_it_is_updated_not_duplicated"
+   ]
+  },
+  {
+   "id": "L11",
+   "area": "fixed quantity and cash risk swap on save",
+   "filter": "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.Fixed_quantity_and_cash_risk_keep_their_meaning"
+   ]
+  },
+  {
+   "id": "L12",
+   "area": "the stop buffer is lost when a spec is loaded for editing",
+   "filter": "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_stop_survives_a_load_and_save_including_its_buffer_and_the_component_it_names"
+   ]
+  },
+  {
+   "id": "L13",
+   "area": "the level-strength gate is dropped on save",
+   "filter": "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_conditions_survive_a_load_and_save_including_the_level_strength_gate"
+   ]
+  },
+  {
+   "id": "L14",
+   "area": "the narration says Long for a short setup",
+   "filter": "AccessibleTrader.Tests.StrategySpecNarratorTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategySpecNarratorTests.A_short_setup_is_narrated_as_short_and_a_long_one_as_long"
+   ]
+  },
+  {
+   "id": "L15",
+   "area": "the narrated risk is a hundred times too small",
+   "filter": "AccessibleTrader.Tests.StrategySpecNarratorTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategySpecNarratorTests.The_risk_per_trade_is_spoken_as_a_percent_of_equity"
+   ]
+  },
+  {
+   "id": "L18",
+   "area": "a dropout says the setup is still active when it was invalidated",
+   "filter": "AccessibleTrader.Tests.SetupSonifierSpeechTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.SetupSonifierSpeechTests.A_dropout_that_kills_the_setup_says_invalidated",
+    "AccessibleTrader.Tests.SetupSonifierSpeechTests.A_dropout_the_setup_survives_says_still_active"
+   ]
+  },
+  {
+   "id": "L20",
+   "area": "an Immediate confirmation never says how its ladder executes",
+   "filter": "AccessibleTrader.Tests.SetupSonifierSpeechTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.SetupSonifierSpeechTests.An_immediate_confirmation_with_a_ladder_says_the_terminal_runs_the_rungs"
+   ]
+  },
+  {
+   "id": "L24",
+   "area": "Add to Engine runs the edited spec beside the old one",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Re_adding_an_edited_spec_replaces_the_running_copy_rather_than_joining_it"
+   ]
+  },
+  {
+   "id": "L25",
+   "area": "Save stops running the validator",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Save_refuses_a_spec_whose_entry_trigger_can_never_fire_and_writes_nothing"
+   ]
+  },
+  {
+   "id": "L26",
+   "area": "a short cached HTF series is served when more bars were asked for",
+   "filter": "AccessibleTrader.Tests.MultiTimeframeDataServiceTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.MultiTimeframeDataServiceTests.A_cached_series_shorter_than_the_request_is_refetched_not_served"
+   ]
+  },
+  {
+   "id": "L27",
+   "area": "an HTF indicator is computed with no parameters",
+   "filter": "AccessibleTrader.Tests.MultiTimeframeDataServiceTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.MultiTimeframeDataServiceTests.An_htf_indicator_asked_for_with_no_parameters_is_computed_with_its_declared_defaults"
+   ]
+  },
+  {
+   "id": "L28",
+   "area": "every saved template starts at launch",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.At_launch_only_the_armed_specs_start_and_a_second_load_starts_nothing_more"
+   ]
+  },
+  {
+   "id": "L29",
+   "area": "a second LoadAll registers every strategy again",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.At_launch_only_the_armed_specs_start_and_a_second_load_starts_nothing_more"
+   ]
+  },
+  {
+   "id": "L34",
+   "area": "the minimum sample is only checked in the first half",
+   "filter": "AccessibleTrader.Tests.LabRunnerTests.Compare_ASecondHalfWithTooFewTrades",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.LabRunnerTests.Compare_ASecondHalfWithTooFewTrades_IsNotASurvivor_HoweverGoodTheFirst"
+   ]
+  },
+  {
+   "id": "L35",
+   "area": "updating the FIRST spec in the library appends a copy",
+   "filter": "AccessibleTrader.Tests.StrategyLifecycleTests",
+   "status": "RED",
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyLifecycleTests.A_new_strategy_saved_twice_is_one_strategy",
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Saving_an_opened_strategy_updates_it_in_place_rather_than_adding_a_copy",
+    "AccessibleTrader.Tests.StrategyLifecycleTests.Starting_a_spec_that_is_already_running_leaves_exactly_one_instance",
+    "AccessibleTrader.Tests.StrategyLifecycleTests.The_library_replaces_a_spec_by_id_wherever_it_sits_in_the_list_including_first"
+   ]
+  }
+ ],
+ "control": {
+  "AccessibleTrader.Tests.EditableStrategySpecRoundTripTests": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.LabRunnerTests.Compare_ASecondHalfWithTooFewTrades": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.MultiTimeframeDataServiceTests": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.ScriptStrategyCausalityFingerprintTests": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.SetupSonifierSpeechTests": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.StrategyLifecycleTests": [
+   "GREEN",
+   []
+  ],
+  "AccessibleTrader.Tests.StrategySpecNarratorTests": [
+   "GREEN",
+   []
+  ]
+ }
+}

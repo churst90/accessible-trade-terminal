@@ -1,0 +1,56 @@
+L01: RED (72s) — Start runs a second copy of a spec already running
+      AccessibleTrader.Tests.StrategyLifecycleTests.Starting_a_spec_that_is_already_running_leaves_exactly_one_instance
+L02: RED (42s) — Stop leaves the spec armed to auto-start on restart
+      AccessibleTrader.Tests.StrategyLifecycleTests.Stopping_a_spec_removes_it_and_disarms_it_for_the_next_launch
+L03: RED (41s) — Pause and resume swap
+      AccessibleTrader.Tests.StrategyLifecycleTests.Pause_pauses_a_running_strategy_and_resume_resumes_it
+L04: RED (43s) — a compiled script strategy is not re-armed after restart
+      AccessibleTrader.Tests.StrategyLifecycleTests.A_compiled_script_is_saved_armed_and_running_under_its_library_id
+L05: RED (41s) — a stop that reads the future is not part of the order fingerprint
+      AccessibleTrader.Tests.ScriptStrategyCausalityFingerprintTests.A_strategy_whose_entries_are_honest_but_whose_stop_reads_the_future_is_refused
+L10: RED (38s) — editing a saved strategy saves a duplicate under a new id
+      AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.Saving_an_opened_strategy_keeps_its_id_so_it_is_updated_not_duplicated
+L11: RED (25s) — fixed quantity and cash risk swap on save
+      AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.Fixed_quantity_and_cash_risk_keep_their_meaning
+L12: RED (24s) — the stop buffer is lost when a spec is loaded for editing
+      AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_stop_survives_a_load_and_save_including_its_buffer_and_the_component_it_names
+L13: RED (24s) — the level-strength gate is dropped on save
+      AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_conditions_survive_a_load_and_save_including_the_level_strength_gate
+L14: RED (22s) — the narration says Long for a short setup
+      AccessibleTrader.Tests.StrategySpecNarratorTests.A_short_setup_is_narrated_as_short_and_a_long_one_as_long
+L15: RED (17s) — the narrated risk is a hundred times too small
+      AccessibleTrader.Tests.StrategySpecNarratorTests.The_risk_per_trade_is_spoken_as_a_percent_of_equity
+L18: RED (11s) — a dropout says the setup is still active when it was invalidated
+      AccessibleTrader.Tests.SetupSonifierSpeechTests.A_dropout_that_kills_the_setup_says_invalidated
+      AccessibleTrader.Tests.SetupSonifierSpeechTests.A_dropout_the_setup_survives_says_still_active
+L20: RED (10s) — an Immediate confirmation never says how its ladder executes
+      AccessibleTrader.Tests.SetupSonifierSpeechTests.An_immediate_confirmation_with_a_ladder_says_the_terminal_runs_the_rungs
+L24: RED (15s) — Add to Engine runs the edited spec beside the old one
+      AccessibleTrader.Tests.StrategyLifecycleTests.Re_adding_an_edited_spec_replaces_the_running_copy_rather_than_joining_it
+L25: RED (10s) — Save stops running the validator
+      AccessibleTrader.Tests.StrategyLifecycleTests.Save_refuses_a_spec_whose_entry_trigger_can_never_fire_and_writes_nothing
+L26: RED (10s) — a short cached HTF series is served when more bars were asked for
+      AccessibleTrader.Tests.MultiTimeframeDataServiceTests.A_cached_series_shorter_than_the_request_is_refetched_not_served
+L27: RED (16s) — an HTF indicator is computed with no parameters
+      AccessibleTrader.Tests.MultiTimeframeDataServiceTests.An_htf_indicator_asked_for_with_no_parameters_is_computed_with_its_declared_defaults
+L28: RED (16s) — every saved template starts at launch
+      AccessibleTrader.Tests.StrategyLifecycleTests.At_launch_only_the_armed_specs_start_and_a_second_load_starts_nothing_more
+L29: RED (23s) — a second LoadAll registers every strategy again
+      AccessibleTrader.Tests.StrategyLifecycleTests.At_launch_only_the_armed_specs_start_and_a_second_load_starts_nothing_more
+L34: RED (25s) — the minimum sample is only checked in the first half
+      AccessibleTrader.Tests.LabRunnerTests.Compare_ASecondHalfWithTooFewTrades_IsNotASurvivor_HoweverGoodTheFirst
+L35: RED (16s) — updating the FIRST spec in the library appends a copy
+      AccessibleTrader.Tests.StrategyLifecycleTests.A_new_strategy_saved_twice_is_one_strategy
+      AccessibleTrader.Tests.StrategyLifecycleTests.Saving_an_opened_strategy_updates_it_in_place_rather_than_adding_a_copy
+      AccessibleTrader.Tests.StrategyLifecycleTests.Starting_a_spec_that_is_already_running_leaves_exactly_one_instance
+      AccessibleTrader.Tests.StrategyLifecycleTests.The_library_replaces_a_spec_by_id_wherever_it_sits_in_the_list_including_first
+restored byte-identical (19 files)
+CONTROL AccessibleTrader.Tests.EditableStrategySpecRoundTripTests: GREEN []
+CONTROL AccessibleTrader.Tests.LabRunnerTests.Compare_ASecondHalfWithTooFewTrades: GREEN []
+CONTROL AccessibleTrader.Tests.MultiTimeframeDataServiceTests: GREEN []
+CONTROL AccessibleTrader.Tests.ScriptStrategyCausalityFingerprintTests: GREEN []
+CONTROL AccessibleTrader.Tests.SetupSonifierSpeechTests: GREEN []
+CONTROL AccessibleTrader.Tests.StrategyLifecycleTests: GREEN []
+CONTROL AccessibleTrader.Tests.StrategySpecNarratorTests: GREEN []
+
+21/21 proved RED; control all GREEN = True

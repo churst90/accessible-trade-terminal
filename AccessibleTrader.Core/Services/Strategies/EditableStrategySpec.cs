@@ -32,6 +32,15 @@ namespace AccessibleTrader.Core.Services.Strategies
         public int    StopLookback { get; set; } = 20;
         public double StopFixed { get; set; }
         public double StopBuffer { get; set; }
+        // The indicator a BelowComponent stop resolves against. The builder has no picker for it,
+        // but a spec that arrives with one (an import, the lab catalogue) must not lose it on Save.
+        public string StopIndicatorCode { get; set; } = string.Empty;
+        public string StopComponentName { get; set; } = string.Empty;
+
+        // What happens to the stop when the first target fills. Loaded and saved as-is: ToSpec
+        // used to hard-code MoveToBreakeven, so a catalogue spec whose real exit is the ATR trail
+        // after TP1 lost its trail the first time it was opened in the builder and saved.
+        public StopAdjustOnTp1 StopAdjust { get; set; } = StopAdjustOnTp1.MoveToBreakeven;
 
         // ── Risk plan: TP ladder ─────────────────────────────────────────────
         public List<EditableTpRung> TpRungs { get; set; } = new()
@@ -79,7 +88,9 @@ namespace AccessibleTrader.Core.Services.Strategies
                 AtrMultiple: StopAtrMultiple,
                 LookbackBars: StopLookback,
                 FixedPrice: StopFixed,
-                BufferTicks: StopBuffer);
+                BufferTicks: StopBuffer,
+                IndicatorCode: StopIndicatorCode,
+                ComponentName: StopComponentName);
 
             var ladder = TpRungs.Select(r => new TpLadderRung(
                 Kind: r.Kind,
@@ -87,7 +98,9 @@ namespace AccessibleTrader.Core.Services.Strategies
                 PercentValue: r.PercentValue,
                 FixedPrice: r.FixedPrice,
                 FibLevel: r.FibLevel,
-                ClosePortion: r.ClosePortion)).ToList();
+                ClosePortion: r.ClosePortion,
+                IndicatorCode: r.IndicatorCode,
+                ComponentName: r.ComponentName)).ToList();
 
             var sizing = new PositionSizing(SizingMode, RiskPercent, FixedQuantity, RiskCash);
             var entry  = new EntryTrigger(EntryKind, EntryLevelPrice, EntryNCandles);
@@ -98,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Sizing: sizing,
                 Entry: entry,
                 MinRewardRiskRatio: MinRewardRiskRatio,
-                StopAdjust: StopAdjustOnTp1.MoveToBreakeven,
+                StopAdjust: StopAdjust,
                 NotionalEquity: Equity);
 
             string id = string.IsNullOrEmpty(LoadedId) ? Guid.NewGuid().ToString("N") : LoadedId;
@@ -133,11 +146,15 @@ namespace AccessibleTrader.Core.Services.Strategies
             StopLookback = spec.Risk.Stop.LookbackBars;
             StopFixed = spec.Risk.Stop.FixedPrice;
             StopBuffer = spec.Risk.Stop.BufferTicks;
+            StopIndicatorCode = spec.Risk.Stop.IndicatorCode ?? string.Empty;
+            StopComponentName = spec.Risk.Stop.ComponentName ?? string.Empty;
+            StopAdjust = spec.Risk.StopAdjust;
 
             TpRungs = spec.Risk.TpLadder.Select(r => new EditableTpRung
             {
                 Kind = r.Kind, Multiple = r.Multiple, PercentValue = r.PercentValue,
-                FixedPrice = r.FixedPrice, FibLevel = r.FibLevel, ClosePortion = r.ClosePortion
+                FixedPrice = r.FixedPrice, FibLevel = r.FibLevel, ClosePortion = r.ClosePortion,
+                IndicatorCode = r.IndicatorCode ?? string.Empty, ComponentName = r.ComponentName ?? string.Empty
             }).ToList();
 
             SizingMode = spec.Risk.Sizing.Mode;
@@ -243,5 +260,8 @@ namespace AccessibleTrader.Core.Services.Strategies
         public double FixedPrice;
         public double FibLevel = 1.618;
         public double ClosePortion = 0.34;
+        // The indicator an AtComponent rung resolves against — carried through a load/save.
+        public string IndicatorCode = string.Empty;
+        public string ComponentName = string.Empty;
     }
 }

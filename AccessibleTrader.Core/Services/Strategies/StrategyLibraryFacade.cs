@@ -96,7 +96,11 @@ namespace AccessibleTrader.Core.Services.Strategies
                     _engine.RemoveStrategy(id);
 
                 var strategy = _factory.Create(s);
-                _engine.AddStrategy(strategy, new Dictionary<string, object>(), s.ExecutionMode);
+                // specId, as StartSpec and the auto-loader pass it: the position manager records
+                // it on every position this instance opens and re-adopts by it after a restart,
+                // and a workspace save persists only instances that carry one. Without it a
+                // position opened by a builder-added strategy comes back as an orphan.
+                _engine.AddStrategy(strategy, new Dictionary<string, object>(), s.ExecutionMode, specId: s.Id);
 
                 var advisory = StrategySpecValidator.BuildPulseOnlyAdvisory(spec);
                 string baseMsg = existing.Count > 0
