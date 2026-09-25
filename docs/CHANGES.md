@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2o: the WebHost's C# mutated; the security rules' callers are now tested too (2026-09-24)
+
+Run in parallel in its own worktree. Full write-up: `scratchpad/a2o_REPORT.md`.
+
+- **48 mutants over 16 WebHost files; honest 40/48 (83.3%)**, the best of this round. No flake
+  catches (all 97 catching tests green on the clean tree, all 41 re-caught alone). One proxy
+  catch scored as not honest: `'unsafe-inline'` in `script-src` was caught only by the demo/strict
+  CSP parity test, whose natural "fix" is to copy the edit.
+- **All 8 survivors closed**, each proven red (`a2o_prove_kills.py`), 11 new cases in
+  `DemoHeadIsLockedDownIntegrationTests`, `FullModeBindRefusalIntegrationTests`,
+  `CircuitRevalidationTests`, `SpeechFallbackTests`, `BrowserAudioPumpTests` and two extended
+  suites. **Three share a shape: the rule was well tested and its one caller in `Program.cs` was
+  not** — `--demo` booting the full terminal (live trading, API keys, scripts, unauthenticated
+  alert endpoints), Full mode served on a public bind with the `--unsafe-remote-full` check
+  inverted, and a locked-out sign-in's 429 page saying "too many requests". The bind guard was
+  untestable before; .NET 10's `WebApplicationFactory.UseKestrel()` made it testable. Also closed:
+  an open circuit surviving a password reset or a lockout, a failed spd-say/Orca call leaving
+  every later phrase spoken twice, and the demo's browser audio treating every buffer as silence.
+- **No production defect.** One test seam: `WebHostAudioDriver` gained an internal constructor
+  taking the player probe (DI sees only the public one). **Noted:** Blazor adds a second CSP header
+  (`frame-ancestors 'self'`); browsers enforce both, so hosted/Full's `'none'` still wins, but a
+  test that reads "the" CSP header off a Blazor page will be fooled. The bind-refusal test binds
+  `0.0.0.0` and has not been run on Windows or macOS.
+
 ### A2m: `Services/Analysis` mutated for the first time; flags on a clean trend are announced (2026-09-24)
 
 Run in parallel in its own worktree. Full write-up: `scratchpad/a2m_REPORT.md`.
