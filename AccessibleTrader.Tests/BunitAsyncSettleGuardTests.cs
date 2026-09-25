@@ -14,8 +14,11 @@ namespace AccessibleTrader.Tests
     /// looks like a product bug and is not one.
     ///
     /// Scope is deliberately narrow. It would be easy to write a broader rule — "no
-    /// synchronous assertion after any Click/Change/KeyDown" — and it would be wrong: a
-    /// synchronous handler renders inline and those assertions are correct. A guard that
+    /// synchronous assertion after any Click/Change/KeyDown" — and it would be wrong, though
+    /// not for the reason first written here ("a synchronous handler renders inline"). That is
+    /// true only while the renderer is idle; bUnit's sync triggers return early when it is
+    /// busy, which is why every such call in this project now binds to
+    /// <see cref="SettledEventDispatch"/> instead (2026-09-25). A guard that
     /// cries wolf gets suppressed, and then it guards nothing. Discarding a Task in a test
     /// is unambiguous, so that is the only thing checked here.
     ///

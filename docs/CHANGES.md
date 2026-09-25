@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The load-only flakes: three causes, each forced to fail on demand, then fixed (2026-09-25)
+
+Every campaign since A2 has had to audit its catches because a few tests failed only under load.
+Waiting for them failed: three concurrent full suites and eight loaded runs of the modal browser
+tests reproduced nothing. Forcing each suspected cause reproduced every one first time.
+
+- **bUnit's synchronous triggers do not wait for a busy renderer.** `Click()`, `Change()`,
+  `Input()`, `KeyDown()` and the rest hand the event to the dispatcher and discard the Task. Idle,
+  the handler runs inline; busy (a dialog's `ShowAsync` still running after its first render, a
+  timer tick), the event is queued and the next line asserts on a handler that has not run.
+  Holding the dispatcher for 500 ms reproduced both recorded flakes: the bar slider's
+  `Input("15")` dispatched no `NavigateAction`, and the refused Submit spoke nothing. **Fixed for
+  all 204 call sites in 30 files at once** by `AccessibleTrader.Tests/SettledEventDispatch.cs`: the
+  same method names declared in namespace `AccessibleTrader.Tests`, which C# searches before a
+  file's `using Bunit;`, so every existing call now runs bUnit's trigger as a dispatcher work item
+  and waits for it to start. That is the `cut.InvokeAsync(() => x.Click())` form 26 sites already
+  wrote by hand. It does not wait for the handler to finish, so a handler parked on an unanswered
+  JS call still returns. `SettledEventDispatchTests` holds the dispatcher on a gate and fires all
+  14 overloads; proven red with the wait removed (14 fail) and with the route to the renderer
+  broken (15 fail). **Caveat:** that route (`GetTestContext`) is internal to bUnit 1.40 and is
+  reached by reflection; an upgrade may break it, and the guard names it when it does.
+- **`ProfileNarrationTests` shared a global with a test that pretends a browser covers BTC/USD.**
+  The headless monitor reads the static `CircuitAlertCoverage` on every poll. `HeadlessNarrationTests`
+  registers a circuit covering BTC/USD; `ProfileNarrationTests` polls BTC/USD and was in no
+  collection. Registering that circuit around it silenced it. Now enrolled in `CircuitCoverage`,
+  which has a definition, and `CircuitCoverageEnrollmentTests` requires every class that polls
+  through `HeadlessMonitorHarness` or touches `CircuitAlertCoverage`/`BrowserPresence` to be
+  enrolled, and every enrolled class to still touch them. Proven red with the attribute removed.
+- **The rate-slot test was a stopwatch.** `RateLimiter`'s window opens at construction, so a
+  thread parked 50 ms between two calls gave the second a fresh window; a 60 ms sleep reproduced
+  the failure. It now uses a one-minute window, checks the second call is still pending, then
+  cancels it. Proven red with `ExecuteOnceAsync`'s `WaitAsync` removed.
+- **Not reproduced, so not claimed as fixed.** `ModalBrowserContractTests`' Tab/Shift+Tab traps
+  (A2k's three false catches; the campaign log cut the route names off). The one mechanism visible
+  in the code is fixed as a diagnosis: the Escape and trap tests ignored whether focus had reached
+  the dialog's target before pressing keys, so a slow open reported as "Tab escaped the dialog".
+  That is now a precondition (15 s) with its own message. `SettingsModalTests.SettingsModal_OpenedOnATab…`
+  (one co-failure in A2l, no message kept) was not touched.
+- Verified: full C# suite green unloaded and three times under 3-way load (8,208 each), browser
+  suite 232/232, all four guards proven by sabotage with files restored byte-identical and a green
+  control. `ValueDeviationTests.BarsBeforeTheWindowFills_HaveNoReading` (suspected vacuous) is not
+  a flake and is still open.
+
 ### A2o: the WebHost's C# mutated; the security rules' callers are now tested too (2026-09-24)
 
 Run in parallel in its own worktree. Full write-up: `scratchpad/a2o_REPORT.md`.

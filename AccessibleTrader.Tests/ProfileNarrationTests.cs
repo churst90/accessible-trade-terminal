@@ -25,6 +25,10 @@ namespace AccessibleTrader.Tests;
 /// browser and with it closed. The second was the profile formatter returning "" while no bin
 /// was focused, and the series-switch prefix going with it.</para>
 /// </summary>
+// In the CircuitCoverage collection because the headless test below polls BTC/USD through the
+// real monitor, which reads the global CircuitAlertCoverage, and HeadlessNarrationTests
+// registers a pretend browser covering BTC/USD. See CircuitCoverageCollection.
+[Collection("CircuitCoverage")]
 public sealed class ProfileNarrationTests
 {
     // ── Fixtures ─────────────────────────────────────────────────────────────

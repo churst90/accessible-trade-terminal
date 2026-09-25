@@ -233,13 +233,26 @@ namespace AccessibleTrader.Tests
         [Fact]
         public async Task ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot()
         {
-            var limiter = new RateLimiter(1, TimeSpan.FromMilliseconds(50));
+            // One slot per MINUTE, so the second call is still waiting whatever the machine is
+            // doing. This used a 50 ms window and timed the second call, and that was a stopwatch:
+            // the window opens when the limiter is CONSTRUCTED, so a loaded runner that parked
+            // this thread 50 ms between the two calls handed the second one a fresh window, it
+            // sailed through, and the test reported a defect that was not there. Demonstrated
+            // 2026-09-25 with a 60 ms sleep between the calls.
+            var limiter = new RateLimiter(1, TimeSpan.FromMinutes(1));
             Assert.Equal("ok", await limiter.ExecuteOnceAsync(() => Task.FromResult("ok")));
-            // Second call must wait out the one-per-50ms window rather than sail through.
-            var started = Environment.TickCount64;
-            Assert.Equal("ok2", await limiter.ExecuteOnceAsync(() => Task.FromResult("ok2")));
-            Assert.True(Environment.TickCount64 - started >= 20,
-                "ExecuteOnceAsync returned without taking a rate slot.");
+
+            using var cts = new CancellationTokenSource();
+            int ran = 0;
+            var second = limiter.ExecuteOnceAsync(() => { ran++; return Task.FromResult("ok2"); }, cts.Token);
+            await Task.Delay(100);
+            Assert.False(second.IsCompleted, "ExecuteOnceAsync returned without taking a rate slot.");
+            Assert.Equal(0, ran);
+
+            // …and it was waiting on the LIMITER: cancelling the wait ends it without the action.
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second);
+            Assert.Equal(0, ran);
         }
     }
 }

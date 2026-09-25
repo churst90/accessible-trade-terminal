@@ -60,6 +60,26 @@ public sealed class ModalBrowserContractTests
         return t;
     }
 
+    /// <summary>
+    /// The Escape and Tab-trap tests start from the declared focus target, and used to wait for
+    /// it and IGNORE the answer. On a loaded runner an open slower than the 5 s wait then pressed
+    /// its keys from wherever focus happened to be, and the failure read "Tab moved focus outside
+    /// the dialog", a trap defect, when the fact was a slow open. Those tests were flaky under
+    /// campaign load (A2k: three false catches); this is the one mechanism visible in the code,
+    /// and it has not been reproduced, so it is fixed as a DIAGNOSIS: if it recurs, the failure
+    /// now says which it was. Whether focus lands in time is
+    /// <see cref="Opening_a_dialog_puts_focus_on_the_declared_target"/>'s question, on its own
+    /// 5 s budget; here it is a precondition, given longer.
+    /// </summary>
+    private static async Task StartFromTheDeclaredTargetAsync(TerminalPage t, ModalRoute route)
+    {
+        bool landed = await t.WaitForFocusAsync(route.ExpectedFocusId, timeoutMs: 15_000);
+        Assert.True(landed,
+            $"PRECONDITION, not the behaviour under test: {route.Modal} never put focus on " +
+            $"'{route.ExpectedFocusId}' (it is on {(await t.ActiveElementAsync()).Describe()}), so this " +
+            "test has no starting point. See Opening_a_dialog_puts_focus_on_the_declared_target.");
+    }
+
     [BrowserTheory]
     [MemberData(nameof(RouteNames))]
     public async Task Opening_a_dialog_puts_focus_on_the_declared_target(string routeName)
@@ -101,7 +121,7 @@ public sealed class ModalBrowserContractTests
         var route = Route(routeName);
         await using var t = await _fixture.NewPageAsync();
         await OpenAsync(t, route);
-        await t.WaitForFocusAsync(route.ExpectedFocusId);
+        await StartFromTheDeclaredTargetAsync(t, route);
 
         await t.PressAsync("Escape");
 
@@ -123,7 +143,7 @@ public sealed class ModalBrowserContractTests
         var route = Route(routeName);
         await using var t = await _fixture.NewPageAsync();
         await OpenAsync(t, route);
-        await t.WaitForFocusAsync(route.ExpectedFocusId);
+        await StartFromTheDeclaredTargetAsync(t, route);
 
         var stops = new List<string>();
         for (int i = 0; i < 12; i++)
@@ -181,7 +201,7 @@ public sealed class ModalBrowserContractTests
         var route = Route(routeName);
         await using var t = await _fixture.NewPageAsync();
         await OpenAsync(t, route);
-        await t.WaitForFocusAsync(route.ExpectedFocusId);
+        await StartFromTheDeclaredTargetAsync(t, route);
 
         var stops = new List<string>();
         for (int i = 0; i < 12; i++)

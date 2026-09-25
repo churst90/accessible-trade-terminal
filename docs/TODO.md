@@ -117,6 +117,31 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (current as of 2026-09-25, EIGHTY-FIRST pass — THE LOAD-ONLY FLAKES.)** Suite
+> **8,203** listed (8,208 run), browser **232**, 0 failing. CHANGES `[Unreleased]` has the entry.
+>
+> **Done:** three flake causes, each forced to fail on demand, fixed and guarded. (1) bUnit's
+> synchronous triggers returned before the handler ran whenever the renderer was busy. All 204
+> call sites are now settled by `SettledEventDispatch.cs`, with no edit at the call sites.
+> (2) `ProfileNarrationTests` raced `HeadlessNarrationTests` on the global `CircuitAlertCoverage`;
+> it is now enrolled, and `CircuitCoverageEnrollmentTests` enforces enrollment. (3) The rate-slot
+> test was a stopwatch.
+>
+> **Method, for the next flake:** force it; do not wait for it. Hold the dispatcher from another
+> thread, sleep between two timed calls, register the conflicting global around the test. Three
+> concurrent full suites reproduced nothing; forcing reproduced everything in one run.
+>
+> **Still open from the old item 6:**
+> - `ModalBrowserContractTests` Tab/Shift+Tab: **not reproduced** in eight loaded runs. The ignored
+>   focus-wait is now a precondition with its own message, so the next failure will say whether it
+>   was a slow open or a real escape. **Campaign harnesses must record full test display names:**
+>   A2k's regex stopped at the space in `routeName: "…"` and lost which dialog it was.
+> - `SettingsModalTests.SettingsModal_OpenedOnATab…`: one co-failure, no message kept. Unverified.
+> - `ValueDeviationTests.BarsBeforeTheWindowFills_HaveNoReading` looks vacuous (flat fixture).
+> - A bUnit upgrade may break `SettledEventDispatch`'s reflection route; its guard names it.
+>
+> Items 1–5, 7 and 8 of the eightieth pass below are unchanged; item 6 is superseded by this block.
+
 > **START HERE (current as of 2026-09-24, EIGHTIETH pass — RECONNECT BACK-OFF, FIVE MUTATION
 > CAMPAIGNS IN PARALLEL, PITCH FOLLOWS.)** Every item below has a CHANGES `[Unreleased]` entry.
 >
