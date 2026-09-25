@@ -152,6 +152,50 @@ public class QuickTradeTests
         Assert.False(shortSvc.State.IsLong);
     }
 
+    /// <summary>
+    /// A short is sized exactly as a long is: from the DISTANCE to its stop, which for a short is
+    /// stop minus entry. The test above pins the direction of a short and nothing else, so a
+    /// signed distance (negative above the price) survived the whole suite in A2n — and a
+    /// negative distance sizes nothing, so every risk-sized short was refused as "too close".
+    /// </summary>
+    [Fact]
+    public void AShortIsSizedFromItsStopDistanceExactlyAsALongIs()
+    {
+        var (svc, bus, _) = Build(lastClose: 90);   // cursor bar high 105 → short, 15 away
+
+        svc.Arm(1.0);
+        svc.SetStopAtCursor();
+
+        Assert.False(svc.State.IsLong);
+        Assert.Equal(105, svc.State.StopPrice!.Value, 6);
+        Assert.Equal(1_000 / 15.0, svc.State.PositionSize!.Value, 6);   // $1,000 at risk / $15
+
+        svc.Place(market: true);
+        var req = Assert.Single(bus.Log.OfType<QuickTradeRequestedEvent>());
+        Assert.False(req.IsLong);
+        Assert.Equal(1_000 / 15.0, req.Quantity, 6);
+    }
+
+    /// <summary>
+    /// Shift+Enter places a LIMIT at the bar under the cursor — not at the last close the stop was
+    /// set against — and re-derives the size for that entry, since the stop distance changed with
+    /// it. Every other test here leaves the cursor bar and the last bar at the same close, so the
+    /// two prices were indistinguishable and pricing the limit at the last close survived A2n.
+    /// </summary>
+    [Fact]
+    public void ALimitIsPricedAtTheBarUnderTheCursorAndSizedForThatEntry()
+    {
+        var (svc, bus, _) = Build(lastClose: 110);   // cursor bar closes 100, the last bar 110
+
+        svc.Arm(1.0);
+        svc.SetStopAtCursor();                       // long, stop 95, entry (for now) 110
+        svc.Place(market: false);
+
+        var req = Assert.Single(bus.Log.OfType<QuickTradeRequestedEvent>());
+        Assert.Equal(100, req.EntryPrice!.Value, 6);
+        Assert.Equal(1_000 / 5.0, req.Quantity, 6);  // $1,000 / (100 − 95)
+    }
+
     [Fact]
     public void PlacingPublishesTheOrderAndDisarms()
     {

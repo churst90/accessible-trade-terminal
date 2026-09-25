@@ -1,0 +1,278 @@
+{
+ "kills": [
+  {
+   "id": "T03",
+   "filter": "QuickTradeExecutorOrderTests",
+   "breaks": "an uncertain order counts as a clean success, so its 'verify before retrying' is never spoken",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.An_uncertain_quick_trade_tells_the_user_to_check_before_retrying"
+   ]
+  },
+  {
+   "id": "T08",
+   "filter": "QuickTradeExecutorOrderTests",
+   "breaks": "a quick long is sent as a sell",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.A_long_is_sent_as_a_buy_and_a_short_as_a_sell"
+   ]
+  },
+  {
+   "id": "T09",
+   "filter": "QuickTradeExecutorOrderTests",
+   "breaks": "shift+enter's limit at the cursor goes to market at whatever price",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.A_priced_request_is_a_limit_at_that_price_and_an_unpriced_one_is_market"
+   ]
+  },
+  {
+   "id": "T10",
+   "filter": "QuickTradeExecutorOrderTests",
+   "breaks": "the stop the whole size was computed from is never sent \u2014 an unprotected position",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.The_stop_and_quantity_the_user_heard_are_the_ones_sent"
+   ]
+  },
+  {
+   "id": "T11",
+   "filter": "QuickTradeExecutorOrderTests",
+   "breaks": "a refused quick trade is dropped on the floor after 'sent' was spoken \u2014 the original defect",
+   "status": "RED",
+   "failed": 2,
+   "passed": 4,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.A_refused_quick_trade_is_announced_as_an_error",
+    "AccessibleTrader.Tests.QuickTradeExecutorOrderTests.An_uncertain_quick_trade_tells_the_user_to_check_before_retrying"
+   ]
+  },
+  {
+   "id": "T15",
+   "filter": "QuickTradeTests",
+   "breaks": "a limit order is priced at the last close instead of the bar under the cursor",
+   "status": "RED",
+   "failed": 1,
+   "passed": 17,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeTests.ALimitIsPricedAtTheBarUnderTheCursorAndSizedForThatEntry"
+   ]
+  },
+  {
+   "id": "T18",
+   "filter": "QuickTradeTests",
+   "breaks": "a short's stop distance is negative, so risk sizing refuses every short",
+   "status": "RED",
+   "failed": 1,
+   "passed": 17,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeTests.AShortIsSizedFromItsStopDistanceExactlyAsALongIs"
+   ]
+  },
+  {
+   "id": "T20",
+   "filter": "QuickTradeEquityFetchTests",
+   "breaks": "a late balance re-arms over a trade the user has already set a stop for",
+   "status": "RED",
+   "failed": 1,
+   "passed": 7,
+   "failing_tests": [
+    "AccessibleTrader.Tests.QuickTradeEquityFetchTests.ALateBalanceDoesNotReArmOverATradeTheUserHasSinceSetUp"
+   ]
+  },
+  {
+   "id": "T36",
+   "filter": "StrategyPositionManagementTests",
+   "breaks": "a ladder rung closes more than remains \u2014 the exit flips the position",
+   "status": "RED",
+   "failed": 1,
+   "passed": 27,
+   "failing_tests": [
+    "AccessibleTrader.Tests.StrategyPositionManagementTests.A_ladder_whose_portions_overshoot_never_sells_more_than_is_held"
+   ]
+  },
+  {
+   "id": "S03",
+   "filter": "SandboxRefusalPolicyTests",
+   "breaks": "running unsandboxed under the override leaves no security event \u2014 the override happens invisibly",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.An_unsandboxed_launch_under_the_override_is_recorded_as_a_security_event"
+   ]
+  },
+  {
+   "id": "S04",
+   "filter": "SandboxRefusalPolicyTests",
+   "breaks": "the PRODUCTION constructor (no seam) downgrades silently when bwrap is missing",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.Without_bwrap_the_shipped_launcher_refuses_unless_the_variable_is_set"
+   ]
+  },
+  {
+   "id": "S14",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "the concurrent-worker cap never refuses \u2014 100 compiles spawn 100 processes",
+   "status": "RED",
+   "failed": 1,
+   "passed": 7,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.The_worker_cap_refuses_before_launching_and_a_disposed_worker_frees_its_slot"
+   ]
+  },
+  {
+   "id": "S15",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "a hung Calculate/OnBar NEVER times out \u2014 the script timeout never fires",
+   "status": "RED",
+   "failed": 2,
+   "passed": 6,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_hung_call_times_out_at_its_deadline_and_the_worker_is_killed",
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_real_worker_stuck_inside_a_script_is_killed_at_its_deadline"
+   ]
+  },
+  {
+   "id": "S16",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "a timed-out worker is left running, holding its slot and spinning a core",
+   "status": "RED",
+   "failed": 2,
+   "passed": 6,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_hung_call_times_out_at_its_deadline_and_the_worker_is_killed",
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_real_worker_stuck_inside_a_script_is_killed_at_its_deadline"
+   ]
+  },
+  {
+   "id": "S18",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "the memory quota never trips",
+   "status": "RED",
+   "failed": 2,
+   "passed": 6,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_worker_over_its_memory_quota_is_killed_and_the_reason_is_given",
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.The_memory_quota_still_polls_when_the_cpu_quota_is_off"
+   ]
+  },
+  {
+   "id": "S19",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "the CPU quota never trips",
+   "status": "RED",
+   "failed": 1,
+   "passed": 7,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.A_worker_pegging_the_cpu_is_killed_and_the_reason_is_given"
+   ]
+  },
+  {
+   "id": "S20",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "a protocol violation mid-call is silently skipped instead of refused",
+   "status": "RED",
+   "failed": 1,
+   "passed": 7,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.An_out_of_protocol_reply_is_refused_not_skipped"
+   ]
+  },
+  {
+   "id": "S21",
+   "filter": "ScriptHostSupervisionTests",
+   "breaks": "disposing a worker never gives its slot back \u2014 after 16, scripting is dead for the session",
+   "status": "RED",
+   "failed": 1,
+   "passed": 7,
+   "failing_tests": [
+    "AccessibleTrader.Tests.ScriptHostSupervisionTests.The_worker_cap_refuses_before_launching_and_a_disposed_worker_frees_its_slot"
+   ]
+  },
+  {
+   "id": "S26",
+   "filter": "SandboxRefusalPolicyTests",
+   "breaks": "the unsandboxed DefaultProcessLauncher claims to be sandboxed",
+   "status": "RED",
+   "failed": 3,
+   "passed": 3,
+   "failing_tests": [
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.A_launcher_that_does_not_claim_a_sandbox_reads_as_unsandboxed",
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.The_refusing_launcher_refuses_without_launching"
+   ]
+  },
+  {
+   "id": "S27",
+   "filter": "SandboxRefusalPolicyTests",
+   "breaks": "iOS/macCatalyst run the worker unsandboxed instead of refusing",
+   "status": "RED",
+   "failed": 2,
+   "passed": 4,
+   "failing_tests": [
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.The_refusing_launcher_refuses_without_launching"
+   ]
+  },
+  {
+   "id": "S28",
+   "filter": "SandboxRefusalPolicyTests",
+   "breaks": "macOS: a missing sandbox-exec/profile silently downgrades",
+   "status": "RED",
+   "failed": 1,
+   "passed": 5,
+   "failing_tests": [
+    "AccessibleTrader.Tests.SandboxRefusalPolicyTests.On_macOS_a_missing_sandbox_exec_refuses_unless_overridden"
+   ]
+  }
+ ],
+ "control": {
+  "QuickTradeEquityFetchTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 8,
+   "failing": []
+  },
+  "QuickTradeExecutorOrderTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 6,
+   "failing": []
+  },
+  "QuickTradeTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 18,
+   "failing": []
+  },
+  "SandboxRefusalPolicyTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 6,
+   "failing": []
+  },
+  "ScriptHostSupervisionTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 8,
+   "failing": []
+  },
+  "StrategyPositionManagementTests": {
+   "status": "STILL_GREEN",
+   "failed": 0,
+   "passed": 28,
+   "failing": []
+  }
+ }
+}

@@ -172,6 +172,40 @@ public class QuickTradeEquityFetchTests
     }
 
     /// <summary>
+    /// A balance that lands late must not re-arm over a trade the user has set up since. The fetch
+    /// arms only "if the user has not moved on"; while it was in flight the balance reached the
+    /// cache another way (the dashboard), the user armed at 2% and set a stop. Re-arming at the
+    /// ORIGINAL 1% would silently throw the stop away and change the size under them. Every other
+    /// test here lets the fetch land before anything else happens, so deleting that condition
+    /// survived A2n.
+    /// </summary>
+    [Fact]
+    public async Task ALateBalanceDoesNotReArmOverATradeTheUserHasSinceSetUp()
+    {
+        double equity = 0;
+        int calls = 0;
+        var landed = new TaskCompletionSource();
+        var (svc, _) = Build(() => equity,
+            async () => { System.Threading.Interlocked.Increment(ref calls); await landed.Task; });
+
+        svc.Arm(1.0);                                 // nothing cached → the fetch starts
+        for (int i = 0; i < 100 && System.Threading.Volatile.Read(ref calls) == 0; i++) await Task.Delay(10);
+        Assert.Equal(1, System.Threading.Volatile.Read(ref calls));
+
+        equity = 100_000;                             // the balance arrives by another route
+        svc.Arm(2.0);
+        svc.SetStopAtCursor();
+        Assert.Equal(QuickTradeStage.Ready, svc.State.Stage);
+
+        landed.SetResult();                           // …and now the original fetch lands
+        await Task.Delay(300);
+
+        Assert.Equal(QuickTradeStage.Ready, svc.State.Stage);
+        Assert.Equal(2.0, svc.State.RiskPercent);
+        Assert.NotNull(svc.State.StopPrice);
+    }
+
+    /// <summary>
     /// Only cash counts toward equity. Summing 0.5 BTC + 3,000 USDT + 12 ETH gives a number that is
     /// not money in any currency, and it would then be multiplied by a risk percentage.
     /// </summary>
