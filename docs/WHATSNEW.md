@@ -16,6 +16,10 @@
   Ctrl+Alt+Y, and you hear what the command is now bound to. Escape or Tab cancels without
   changing anything. Before, a chord was never picked up, and Escape closed Settings and became
   the new key.
+- **You choose what a sound's pitch follows.** In an indicator's properties (P), the
+  Sonification tab has a new **Pitch follows** choice for each part. Set the candle bodies to
+  "The value" to hear them climb and fall with price instead of playing an up tone and a down
+  tone.
 - **Deleting a strategy condition keeps your place.** Focus moves to the next condition and the
   deletion is announced, instead of focus falling off the page.
 - **The hosted terminal reconnects more gently.** When the server restarts, an open page used

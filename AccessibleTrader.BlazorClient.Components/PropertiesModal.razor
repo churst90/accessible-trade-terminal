@@ -749,6 +749,33 @@
                                         <input id="@(sid)-volume" type="range" min="0" max="1" step="0.05" aria-label="Volume for @comp.Name" value="@comp.Volume" @onchange='e => comp.Volume = float.Parse(e.Value?.ToString() ?? "1")' />
                                         <span>@((comp.Volume * 100).ToString("F0"))%</span>
                                     </div>
+                                    @* PITCH MAPPING, exposed 2026-09-24. The engine has always honoured it
+                                       (DefaultSonificationStrategy.CreateAudioPoint) and nothing let a user
+                                       change it, so "should the candle body follow the Y axis?" could only
+                                       be answered by a code change. Wicks are left out on purpose: their
+                                       pitch is fixed high/low whatever this says, so offering it there
+                                       would be a control that does nothing. *@
+                                    @if (!IsWick(comp))
+                                    {
+                                        <div class="modal-row">
+                                            <label for="@(sid)-pitch">Pitch follows</label>
+                                            <select id="@(sid)-pitch" value="@comp.PitchMapping"
+                                                    aria-describedby="@(sid)-pitch-hint"
+                                                    @onchange="e => comp.PitchMapping = Enum.TryParse<PitchMapping>(e.Value?.ToString(), out var pm) ? pm : comp.PitchMapping">
+                                                <option value="@PitchMapping.Value">The value: higher in the pane is higher</option>
+                                                <option value="@PitchMapping.Direction">Up or down: one tone each</option>
+                                                <option value="@PitchMapping.PriceDirection">The candle: up or down</option>
+                                                <option value="@PitchMapping.None">Nothing: a fixed tone</option>
+                                                @if (comp.PitchMapping == PitchMapping.Price)
+                                                {
+                                                    <option value="@PitchMapping.Price">Price: higher in the pane is higher</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <p id="@(sid)-pitch-hint" style="font-size:0.75rem; color:var(--text-muted); margin:2px 0 8px;">
+                                            @PitchHint(comp.PitchMapping)
+                                        </p>
+                                    }
                                     <div class="modal-row">
                                         <label for="@(sid)-freq">Base Frequency (Hz)</label>
                                         <input id="@(sid)-freq" type="number" step="10" min="50" max="2000" aria-label="Base Frequency (Hz) for @comp.Name" value="@comp.BaseFrequency" @onchange='e => comp.BaseFrequency = double.Parse(e.Value?.ToString() ?? "440")' />
@@ -1008,6 +1035,22 @@
     /// sense: candles, bars, histograms/volume bars, and any polarity-coloured component. Plain lines,
     /// areas, and single-colour markers don't get the green/red options.
     /// </summary>
+    /// <summary>The engine's own wick test (DefaultSonificationStrategy): a wick's pitch is fixed,
+    /// so the Pitch follows control is not offered for one.</summary>
+    private static bool IsWick(ComponentConfig comp) =>
+        comp.Role == ComponentRole.Wick || comp.DisplayType == ComponentDisplayType.Wick;
+
+    /// <summary>One sentence on what the chosen mapping means, read with the select through
+    /// aria-describedby. The Value caveat is the one a user would otherwise find by ear.</summary>
+    private static string PitchHint(PitchMapping mapping) => mapping switch
+    {
+        PitchMapping.Value or PitchMapping.Price =>
+            "The pitch is relative to the pane as drawn, so on the price pane it moves when you pan or zoom.",
+        PitchMapping.Direction => "Plays the up and down tones. The base frequency is not used.",
+        PitchMapping.PriceDirection => "Follows the candle's open and close, whatever this component's value does.",
+        _ => "Always the base frequency below.",
+    };
+
     private static bool IsDirectional(ComponentConfig comp) =>
         comp.UsePolarityColoring
         || comp.DisplayType is ComponentDisplayType.Candle

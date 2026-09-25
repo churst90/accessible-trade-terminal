@@ -3608,6 +3608,13 @@ unset and the older manual controls — waveform, noise, volume — take over as
 fallback, and "Save as Defaults" still makes your choices stick for the next
 indicator of that type.
 
+**Pitch follows** decides what moves a component's pitch. **The value** raises the pitch
+as the component rises in its pane. **Up or down** plays one tone for up and another for
+down. **The candle** follows each candle's open and close. **Nothing** holds the base
+frequency. To hear the candle bodies climb and fall with price, set the body to The value.
+On the price pane that pitch is relative to what is on screen, so it shifts when you pan
+or zoom. Wicks keep their fixed high and low tones and do not offer the choice.
+
 The second layer is the **sound designer**, opened with Alt+W, where the patches
 themselves are built. It is now a general-purpose patch workbench rather than an
 earcon-only panel. A single patch can stack several **oscillators**, each with its

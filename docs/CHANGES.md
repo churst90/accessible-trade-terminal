@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Pitch follows, in Properties; and the clone sweep was already done (2026-09-24)
+
+- **Properties → Sonification → Pitch follows** exposes each component's `PitchMapping`
+  (the value, up or down, the candle's direction, nothing). The engine has honoured it all
+  along and nothing could set it, so "should the candle body follow the Y axis?" (Cody,
+  2026-09-17) needed a code change to try. The candle body obeys it; wicks keep their fixed
+  880/220 Hz and the control is not offered for them. A hint under the select says what the
+  choice means, including that a value-pitched line on the price pane is relative to the
+  viewport and shifts on pan and zoom. `PropertiesModalTests.PitchFollows_*` (2), proven red.
+  **Not heard.**
+- **The "workspace-persistence clone sweep" carried in TODO since 09-19 had been done on
+  09-06** (`4702a00f`): `CloneCompletenessTests` sets every property of all ten hand-written
+  `Clone()` types by reflection and diffs, rediscovers the type list, and the factory's clone is
+  deleted. The item is removed from TODO.
+
 ### An accessibility review of this session's own fixes, and what it found (2026-09-24)
 
 The `accessibility-lead` agent the project hook asks for is not registered in this harness, so

@@ -365,4 +365,60 @@ public class PropertiesModalTests
                 AccessibleTrader.Core.Services.ProfileAnchoring.AnchorEndParam)
             && a.Series.Single(s => s.Id == "vp").Parameters.ContainsKey("BinCount")));
     }
+
+    // ── Pitch follows (PitchMapping), exposed 2026-09-24 ─────────────────────────
+
+    /// <summary>A candle series as the chart builds one: a body that plays the up/down pair,
+    /// and a wick whose pitch is fixed whatever its mapping says.</summary>
+    private static ChartSeries CandleBodyAndWick()
+    {
+        var config = new SeriesConfig { Id = "cs", Name = "Candles", FriendlyName = "Candles" };
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Body", DisplayName = "Body", DisplayType = ComponentDisplayType.Candle,
+            Role = ComponentRole.Body, PitchMapping = PitchMapping.PriceDirection, IsVisible = true,
+        });
+        config.Components.Add(new ComponentConfig
+        {
+            Name = "Wick", DisplayName = "Wick", DisplayType = ComponentDisplayType.Wick,
+            Role = ComponentRole.Wick, IsVisible = true,
+        });
+        return new ChartSeries(config, new SeriesDataBuffer { SeriesId = "cs" });
+    }
+
+    [Fact]
+    public void PitchFollows_is_offered_with_the_current_mapping_and_not_for_a_wick()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, CandleBodyAndWick());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-sonification").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var select = cut.Find("#son-body-pitch");
+            Assert.Equal("PriceDirection", select.GetAttribute("value"));
+            Assert.Equal("son-body-pitch-hint", select.GetAttribute("aria-describedby"));
+            Assert.Contains("open and close", cut.Find("#son-body-pitch-hint").TextContent);
+            Assert.Empty(cut.FindAll("#son-wick-pitch"));
+        });
+    }
+
+    [Fact]
+    public void PitchFollows_the_value_is_saved_to_the_component()
+    {
+        using var h = new BlazorTestHarness();
+        SeedActiveSeries(h, CandleBodyAndWick());
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-sonification").Click();
+
+        cut.WaitForElement("#son-body-pitch").Change("Value");
+        cut.WaitForAssertion(() =>
+            Assert.Contains("moves when you pan or zoom", cut.Find("#son-body-pitch-hint").TextContent));
+        cut.Find("#props-save").Click();
+
+        h.WorkspaceStore.Received().Dispatch(Arg.Is<UpdateSeriesAction>(a =>
+            a.Series.Single(s => s.Id == "cs").Components.Single(c => c.Name == "Body").PitchMapping
+                == PitchMapping.Value));
+    }
 }
