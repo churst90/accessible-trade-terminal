@@ -1,0 +1,640 @@
+[
+ {
+  "id": "T01",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/OrderPlacement.cs",
+  "breaks": "a suppressed duplicate is announced as placed \u2014 the user believes the second order went",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 8081,
+  "failing_tests": [
+   "AccessibleTrader.Tests.GeneralOrderServiceTests.Duplicate_ClientOid_within_window_is_suppressed",
+   "AccessibleTrader.Tests.OrderFailureHonestyTests.AProviderRefusal_IsNeverAnnouncedAsOrderPlaced",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.ASuppressedDuplicate_IsNotASuccess",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.EveryReservedCode_ParsesToItsOutcome",
+   "AccessibleTrader.Tests.OrderSafetyTests.PlaceOrder_DedupSuppressesAccidentalDoubleSubmit_WithNoClientOid",
+   "AccessibleTrader.Tests.OrderSafetyTests.PlaceOrder_DedupSuppressesSecondCallWithSameClientOid",
+   "AccessibleTrader.Tests.UnclosablePositionTests.ASuppressedDuplicate_IsNeverAnnouncedAsPlaced"
+  ],
+  "status": "CAUGHT",
+  "seconds": 240
+ },
+ {
+  "id": "T02",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/OrderPlacement.cs",
+  "breaks": "ORDER_UNCERTAIN falls to the reserved-prefix refusal: 'Not placed' for an order that is probably live \u2014 how the same position gets opened twice",
+  "occurrences": 1,
+  "failed": 6,
+  "passed": 8082,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OrderFailureHonestyTests.OrderUncertain_IsNotTranslatedAsSuccess",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUncertainOrder_IsNotAnnouncedUnderAFailureHeadline",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUncertainOrder_KeepsANeutralHeadlineWhenTheCallerSuppliesOne",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.EveryReservedCode_ParsesToItsOutcome",
+   "AccessibleTrader.Tests.OrderSafetyTests.PlaceOrder_RecoveryScansOpenOrders_WhenSubmitThrows"
+  ],
+  "status": "CAUGHT",
+  "seconds": 233
+ },
+ {
+  "id": "T03",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/OrderPlacement.cs",
+  "breaks": "an uncertain order counts as a clean success, so its 'verify before retrying' is never spoken",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 233
+ },
+ {
+  "id": "T05",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/OrderPlacement.cs",
+  "breaks": "PROVIDER_NOT_* (the provider cannot trade) is announced as accepted",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 8081,
+  "failing_tests": [
+   "AccessibleTrader.Tests.GeneralOrderServiceTests.Disconnected_provider_returns_sentinel_and_reports_high_severity",
+   "AccessibleTrader.Tests.OrderFailureHonestyTests.AProviderRefusal_IsNeverAnnouncedAsOrderPlaced",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.AnUnrecognisedReservedCode_IsARefusalNotAnOrderId",
+   "AccessibleTrader.Tests.OrderPlacementVocabularyTests.EveryReservedCode_ParsesToItsOutcome",
+   "AccessibleTrader.Tests.OrderRoutingSafetyTests.No_recorded_credential_on_a_venue_with_no_practice_environment_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 214
+ },
+ {
+  "id": "T08",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeExecutor.cs",
+  "breaks": "a quick long is sent as a sell",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 210
+ },
+ {
+  "id": "T09",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeExecutor.cs",
+  "breaks": "shift+enter's limit at the cursor goes to market at whatever price",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "T10",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeExecutor.cs",
+  "breaks": "the stop the whole size was computed from is never sent \u2014 an unprotected position",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 219
+ },
+ {
+  "id": "T11",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeExecutor.cs",
+  "breaks": "a refused quick trade is dropped on the floor after 'sent' was spoken \u2014 the original defect",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 250
+ },
+ {
+  "id": "T13",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeService.cs",
+  "breaks": "a stop below the price arms a SHORT \u2014 the direction inference inverted",
+  "occurrences": 1,
+  "failed": 4,
+  "passed": 8084,
+  "failing_tests": [
+   "AccessibleTrader.Tests.QuickTradeFailureReportingTests.ATightStopThatOverspendsTheAccountIsFlaggedBeforePlacing",
+   "AccessibleTrader.Tests.QuickTradeTests.DirectionIsInferredFromTheStopSide",
+   "AccessibleTrader.Tests.QuickTradeTests.PlacingPublishesTheOrderAndDisarms",
+   "AccessibleTrader.Tests.QuickTradeTests.SettingAStopMakesItReadyAndComputesTheSize"
+  ],
+  "status": "CAUGHT",
+  "seconds": 273
+ },
+ {
+  "id": "T15",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeService.cs",
+  "breaks": "a limit order is priced at the last close instead of the bar under the cursor",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 243
+ },
+ {
+  "id": "T16",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeService.cs",
+  "breaks": "control+enter (market) is sent as a limit at the last close",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.QuickTradeTests.PlacingPublishesTheOrderAndDisarms"
+  ],
+  "status": "CAUGHT",
+  "seconds": 260
+ },
+ {
+  "id": "T17",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeService.cs",
+  "breaks": "the arming survives placing \u2014 a second press of enter places the same trade again",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.QuickTradeTests.PlacingPublishesTheOrderAndDisarms"
+  ],
+  "status": "CAUGHT",
+  "seconds": 288
+ },
+ {
+  "id": "T18",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeArming.cs",
+  "breaks": "a short's stop distance is negative, so risk sizing refuses every short",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 254
+ },
+ {
+  "id": "T19",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeArming.cs",
+  "breaks": "1% armed spends 10% \u2014 a tenfold position",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 8077,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.OrderTicketErrorStateTests.Pressing_the_refused_Submit_sends_nothing_and_says_why_out_loud",
+   "AccessibleTrader.Tests.QuickTradeEquityFetchTests.ArmingFetchesTheBalanceWhenNoneIsCachedAndThenArms",
+   "AccessibleTrader.Tests.QuickTradeSizingModeTests.PositionValueModeBuysExactlyTheBudget",
+   "AccessibleTrader.Tests.QuickTradeSizingModeTests.RiskModeLosesTheBudgetWhateverTheStop",
+   "AccessibleTrader.Tests.QuickTradeSizingModeTests.RiskModeSizesFromTheStopAndCanFarExceedTheBudget",
+   "AccessibleTrader.Tests.QuickTradeTests.PlacingPublishesTheOrderAndDisarms",
+   "AccessibleTrader.Tests.QuickTradeTests.PositionSizeIsRiskCashDividedByStopDistance",
+   "AccessibleTrader.Tests.QuickTradeTests.SettingAStopMakesItReadyAndComputesTheSize",
+   "AccessibleTrader.Tests.QuickTradeTests.SizeScalesWithRiskAndInverselyWithStopDistance"
+  ],
+  "status": "CAUGHT",
+  "seconds": 257
+ },
+ {
+  "id": "T20",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeService.cs",
+  "breaks": "a late balance re-arms over a trade the user has already set a stop for",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 252
+ },
+ {
+  "id": "T22",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeEquity.cs",
+  "breaks": "hosted users share one equity \u2014 a trade is sized from another user's balance",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.QuickTradeTests.TwoUsersEquityCachesNeverShare"
+  ],
+  "status": "CAUGHT",
+  "seconds": 251
+ },
+ {
+  "id": "T23",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/QuickTradeEquity.cs",
+  "breaks": "a coin count (50,000 DOGE) is read as 50,000 dollars of equity",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.MoneyPathSafetyTests.EquityIgnoresNonCashAndNonsenseLines",
+   "AccessibleTrader.Tests.MoneyPathSafetyTests.EquityStillSumsMultipleLinesOfTheSameCurrency"
+  ],
+  "status": "CAUGHT",
+  "seconds": 262
+ },
+ {
+  "id": "T24",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/PortfolioValuation.cs",
+  "breaks": "a portfolio with unpriced holdings is summarised as complete \u2014 the missing assets unsaid",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PortfolioValuationTests.An_unpriceable_asset_is_marked_not_zeroed",
+   "AccessibleTrader.Tests.PortfolioValuationTests.The_summary_says_the_total_is_partial_when_it_is"
+  ],
+  "status": "CAUGHT",
+  "seconds": 255
+ },
+ {
+  "id": "T26",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/WithdrawalService.cs",
+  "breaks": "any typed text (or an empty field) confirms a withdrawal",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WithdrawalServiceTests.An_unconfirmed_withdrawal_never_reaches_the_venue"
+  ],
+  "status": "CAUGHT",
+  "seconds": 247
+ },
+ {
+  "id": "T27",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/WithdrawalService.cs",
+  "breaks": "the choke-point release gate is gone \u2014 a caller that skips CanWithdraw reaches the venue",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WithdrawalReleaseGateTests.A_closed_gate_refuses_before_the_venue_is_ever_called"
+  ],
+  "status": "CAUGHT",
+  "seconds": 250
+ },
+ {
+  "id": "T28",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/WithdrawalService.cs",
+  "breaks": "the withdrawal-enabled key stays configured and signs every later order",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WithdrawalServiceTests.The_trading_key_is_put_back_when_the_venue_call_finishes",
+   "AccessibleTrader.Tests.WithdrawalServiceTests.The_withdrawal_key_is_taken_back_even_when_the_venue_call_throws",
+   "AccessibleTrader.Tests.WithdrawalServiceTests.With_no_trading_key_to_restore_the_credential_is_blanked_rather_than_left"
+  ],
+  "status": "CAUGHT",
+  "seconds": 281
+ },
+ {
+  "id": "T32",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/WalletService.cs",
+  "breaks": "a malformed deposit address from the venue is displayed \u2014 funds sent to it are gone",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WalletServiceTests.A_malformed_address_is_REFUSED_not_shown_with_a_warning"
+  ],
+  "status": "CAUGHT",
+  "seconds": 244
+ },
+ {
+  "id": "T33",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/WalletService.cs",
+  "breaks": "a deposit that REQUIRES a memo never says so \u2014 funds lost without it",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WalletServiceTests.A_required_memo_is_announced_in_the_strongest_terms"
+  ],
+  "status": "CAUGHT",
+  "seconds": 240
+ },
+ {
+  "id": "T36",
+  "area": "trading",
+  "file": "AccessibleTrader.Core/Services/Trading/ManagedExitRules.cs",
+  "breaks": "a ladder rung closes more than remains \u2014 the exit flips the position",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 223
+ },
+ {
+  "id": "S01",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/SandboxPolicy.cs",
+  "breaks": "ACCESSIBLETRADER_ALLOW_UNSANDBOXED_SCRIPTS=0 (or =false) turns the sandbox OFF",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.SandboxPolicy_OverrideEnvVar_ParsesStrictly"
+  ],
+  "status": "CAUGHT",
+  "seconds": 212
+ },
+ {
+  "id": "S02",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/SandboxPolicy.cs",
+  "breaks": "a missing OS sandbox never refuses \u2014 the silent downgrade the policy exists to prevent",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.Launch_WithoutBwrap_AndNoOverride_RefusesInsteadOfFallingBack",
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.SandboxPolicy_EnforceOrThrow_ThrowsOnlyWithoutOverride"
+  ],
+  "status": "CAUGHT",
+  "seconds": 209
+ },
+ {
+  "id": "S03",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/SandboxPolicy.cs",
+  "breaks": "running unsandboxed under the override leaves no security event \u2014 the override happens invisibly",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 223
+ },
+ {
+  "id": "S04",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "the PRODUCTION constructor (no seam) downgrades silently when bwrap is missing",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.OrderTicketErrorStateTests.Pressing_the_refused_Submit_sends_nothing_and_says_why_out_loud"
+  ],
+  "status": "CAUGHT",
+  "seconds": 212
+ },
+ {
+  "id": "S05",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "an unsandboxed worker reports itself sandboxed",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.Launch_WithoutBwrap_WithExplicitOverride_UsesFallbackAndReportsUnsandboxed"
+  ],
+  "status": "CAUGHT",
+  "seconds": 215
+ },
+ {
+  "id": "S06",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "the worker gets the host's network namespace \u2014 a script can phone home",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 8081,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.BuildBwrapArgs_AppliesNetworkAndFilesystemIsolation",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_home_tmpfs_is_skipped_when_it_would_hide_the_system_or_the_worker"
+  ],
+  "status": "CAUGHT",
+  "seconds": 213
+ },
+ {
+  "id": "S07",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "the worker inherits the host environment block (credentials on some machines)",
+  "occurrences": 1,
+  "failed": 9,
+  "passed": 8079,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_self_contained_deployment_gets_no_dotnet_root_passthrough",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_environment_is_cleared_and_what_passes_through_is_named",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_home_tmpfs_is_skipped_when_it_would_hide_the_system_or_the_worker"
+  ],
+  "status": "CAUGHT",
+  "seconds": 221
+ },
+ {
+  "id": "S08",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "the whole filesystem is WRITABLE from inside the sandbox",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.BuildBwrapArgs_AppliesNetworkAndFilesystemIsolation",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_home_is_masked_and_only_what_the_worker_needs_is_re_bound"
+  ],
+  "status": "CAUGHT",
+  "seconds": 216
+ },
+ {
+  "id": "S09",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "a sandbox outlives a crashed host",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapLauncherTests.BuildBwrapArgs_AppliesNetworkAndFilesystemIsolation"
+  ],
+  "status": "CAUGHT",
+  "seconds": 219
+ },
+ {
+  "id": "S12",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/LinuxBwrapLauncher.cs",
+  "breaks": "re-binds the paths OUTSIDE the home and leaves the worker/runtime hidden under the tmpfs",
+  "occurrences": 1,
+  "failed": 8,
+  "passed": 8080,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_a_file_in_the_users_home",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_self_contained_deployment_gets_no_dotnet_root_passthrough",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_worker_survives_the_thread_that_spawned_it",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.Nothing_is_re_bound_when_dotnet_lives_outside_the_home",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_home_is_masked_and_only_what_the_worker_needs_is_re_bound",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_indicator_under_the_hardened_mount"
+  ],
+  "status": "CAUGHT",
+  "seconds": 215
+ },
+ {
+  "id": "S14",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "the concurrent-worker cap never refuses \u2014 100 compiles spawn 100 processes",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 211
+ },
+ {
+  "id": "S15",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "a hung Calculate/OnBar NEVER times out \u2014 the script timeout never fires",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 206
+ },
+ {
+  "id": "S16",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "a timed-out worker is left running, holding its slot and spinning a core",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 208
+ },
+ {
+  "id": "S18",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "the memory quota never trips",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 209
+ },
+ {
+  "id": "S19",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "the CPU quota never trips",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 206
+ },
+ {
+  "id": "S20",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "a protocol violation mid-call is silently skipped instead of refused",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 214
+ },
+ {
+  "id": "S21",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessScriptHost.cs",
+  "breaks": "disposing a worker never gives its slot back \u2014 after 16, scripting is dead for the session",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 8081,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_a_file_in_the_users_home",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_script_cannot_read_the_hosts_environment",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.A_worker_survives_the_thread_that_spawned_it",
+   "AccessibleTrader.Tests.LinuxBwrapSandboxTests.The_worker_still_runs_a_normal_indicator_under_the_hardened_mount",
+   "AccessibleTrader.Tests.OutOfProcessScriptingTests.Roundtrip_TrivialIndicator_EchoesClosePrices",
+   "AccessibleTrader.Tests.OutOfProcessStrategyTests.Initialize_gives_back_a_strategy_that_has_seen_nothing"
+  ],
+  "status": "CAUGHT",
+  "seconds": 210
+ },
+ {
+  "id": "S23",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/OutOfProcessStrategy.cs",
+  "breaks": "a scrollback prepend is sent as an append \u2014 the strategy decides on a spliced history",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutOfProcessStrategyTests.Older_bars_arriving_resync_the_worker_instead_of_being_appended"
+  ],
+  "status": "CAUGHT",
+  "seconds": 216
+ },
+ {
+  "id": "S26",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/IScriptWorkerLauncher.cs",
+  "breaks": "the unsandboxed DefaultProcessLauncher claims to be sandboxed",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "S27",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/RefusingScriptWorkerLauncher.cs",
+  "breaks": "iOS/macCatalyst run the worker unsandboxed instead of refusing",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 210
+ },
+ {
+  "id": "S28",
+  "area": "scripting",
+  "file": "AccessibleTrader.Core/Services/Scripting/MacSandboxExecLauncher.cs",
+  "breaks": "macOS: a missing sandbox-exec/profile silently downgrades",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 220
+ }
+]

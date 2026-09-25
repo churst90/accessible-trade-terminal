@@ -38,6 +38,9 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
     private const string ProfileRelativePath = "sandbox-profiles/script-worker.sb";
 
     private readonly IScriptWorkerLauncher _fallback;
+    private readonly bool _isMacOS;
+    private readonly string _sandboxExecPath;
+    private readonly bool? _allowUnsandboxed;
 
     /// <summary>
     /// <c>true</c> if the last <see cref="Launch"/> successfully applied
@@ -47,8 +50,22 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
     public bool SandboxApplied { get; private set; }
 
     public MacSandboxExecLauncher(IScriptWorkerLauncher? fallback = null)
+        : this(fallback, RuntimeInformation.IsOSPlatform(OSPlatform.OSX), SandboxExecPath, allowUnsandboxed: null)
+    {
+    }
+
+    /// <summary>
+    /// Test seam, the same shape as <see cref="LinuxBwrapLauncher"/>'s: the platform check, the
+    /// <c>sandbox-exec</c> location and the unsandboxed-override decision are injected, so the
+    /// refusal policy is verifiable on a machine that is not a Mac. Without it the refusal branch
+    /// could only ever run on macOS, and no test in the suite reached it (A2n, 2026-09-24).
+    /// </summary>
+    internal MacSandboxExecLauncher(IScriptWorkerLauncher? fallback, bool isMacOS, string sandboxExecPath, bool? allowUnsandboxed)
     {
         _fallback = fallback ?? new DefaultProcessLauncher();
+        _isMacOS = isMacOS;
+        _sandboxExecPath = sandboxExecPath;
+        _allowUnsandboxed = allowUnsandboxed;
     }
 
     public IScriptWorkerProcess Launch(string workerExecutablePath)
@@ -60,7 +77,7 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
 
         // Platform guard: sandbox-exec only exists on macOS. On any other
         // OS the fallback path is the correct behaviour.
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (!_isMacOS)
         {
             SandboxApplied = false;
             return _fallback.Launch(workerExecutablePath);
@@ -69,13 +86,13 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
         var workerDir = Path.GetDirectoryName(workerExecutablePath) ?? AppContext.BaseDirectory;
         var profilePath = Path.Combine(workerDir, ProfileRelativePath);
 
-        if (!File.Exists(SandboxExecPath) || !File.Exists(profilePath))
+        if (!File.Exists(_sandboxExecPath) || !File.Exists(profilePath))
         {
-            var missing = !File.Exists(SandboxExecPath)
-                ? $"'{SandboxExecPath}' is not available on this system."
+            var missing = !File.Exists(_sandboxExecPath)
+                ? $"'{_sandboxExecPath}' is not available on this system."
                 : $"the sandbox profile '{ProfileRelativePath}' is missing next to the worker binary.";
             SandboxPolicy.EnforceOrThrow(
-                SandboxPolicy.AllowUnsandboxedFallback,
+                _allowUnsandboxed ?? SandboxPolicy.AllowUnsandboxedFallback,
                 details: missing,
                 remedy: "Reinstall the application (the profile ships with it), or ask your administrator to unmask sandbox-exec.");
 
@@ -86,7 +103,7 @@ public sealed class MacSandboxExecLauncher : IScriptWorkerLauncher
 
         var psi = new ProcessStartInfo
         {
-            FileName               = SandboxExecPath,
+            FileName               = _sandboxExecPath,
             UseShellExecute        = false,
             RedirectStandardInput  = true,
             RedirectStandardOutput = true,

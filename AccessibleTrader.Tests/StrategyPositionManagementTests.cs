@@ -202,6 +202,35 @@ namespace AccessibleTrader.Tests
             Assert.Null(h.Manager.Get("inst-1"));
         }
 
+        /// <summary>
+        /// A rung closes its portion of the INITIAL size, capped at what is still held. Portions
+        /// that sum past 100% (0.6 + 0.6 here — a strategy author's slip, or rounding) must close
+        /// the remainder on the last rung, not sell 1.8 of a remaining 1.2 and leave the account
+        /// SHORT 0.6 it never chose. Every existing ladder used portions that sum to exactly one,
+        /// so removing the cap survived A2n.
+        /// </summary>
+        [Fact]
+        public async Task A_ladder_whose_portions_overshoot_never_sells_more_than_is_held()
+        {
+            var h = new Harness(_dir);
+            h.Manager.OpenPosition(Active(),
+                LadderSignal(rungs: new[] { 102.0, 104.0 }, portions: new[] { 0.6, 0.6 }),
+                quantity: 3.0, provider: "Kraken", symbol: "BTC/USD", referencePrice: 100, entryOrderId: "entry-1");
+
+            var bars = new List<Ohlcv> { Bar(0, 100, 100.5, 99.5, 100) };
+            foreach (var (high, close) in new[] { (102.5, 102.0), (104.5, 104.0) })
+            {
+                bars.Add(Bar(bars.Count, close - 2, high, close - 2.5, close));
+                Assert.True(await h.Manager.PlaceExitsAsync(h.Manager.OnBarClosed("inst-1", bars[^1], bars)));
+            }
+
+            var sold = h.Orders.Placed.Where(p => p.Signal.Side == OrderSide.Sell)
+                                      .Select(p => Math.Round(p.Signal.Quantity, 6)).ToArray();
+            Assert.Equal(new[] { 1.8, 1.2 }, sold);
+            Assert.Equal(3.0, sold.Sum(), 6);
+            Assert.Null(h.Manager.Get("inst-1"));
+        }
+
         [Fact]
         public async Task The_stop_moves_to_breakeven_after_the_first_rung()
         {
