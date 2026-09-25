@@ -1,0 +1,598 @@
+[
+ {
+  "id": "L01",
+  "area": "Start runs a second copy of a spec already running",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyModalCoordinator.cs",
+  "breaks": "pressing Start on a running spec adds a twin: two instances on the same bars, every entry doubled",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 211
+ },
+ {
+  "id": "L02",
+  "area": "Stop leaves the spec armed to auto-start on restart",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyModalCoordinator.cs",
+  "breaks": "the user stops a strategy, restarts the app, and it is trading again",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 225
+ },
+ {
+  "id": "L03",
+  "area": "Pause and resume swap",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyModalCoordinator.cs",
+  "breaks": "pressing Pause on a running strategy leaves it running while the UI says 'Paused.'",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 228
+ },
+ {
+  "id": "L04",
+  "area": "a compiled script strategy is not re-armed after restart",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyModalCoordinator.cs",
+  "breaks": "the script the user added is saved but silently absent after the next launch",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 228
+ },
+ {
+  "id": "L05",
+  "area": "a stop that reads the future is not part of the order fingerprint",
+  "file": "AccessibleTrader.Core/Services/Strategies/ScriptStrategyCausalityProbe.cs",
+  "breaks": "a script whose stop is placed from state.Data[i+1] loads \u2014 the entry is honest, the stop is clairvoyant",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 216
+ },
+ {
+  "id": "L06",
+  "area": "the suffix check stops ignoring the warmup of the shorter run",
+  "file": "AccessibleTrader.Core/Services/Strategies/ScriptStrategyCausalityProbe.cs",
+  "breaks": "an honest stateful strategy (an EMA cross) is refused as 'anchored to the array start'",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+  ],
+  "status": "CAUGHT",
+  "seconds": 217
+ },
+ {
+  "id": "L07",
+  "area": "an order present in one run and absent in the other is not a difference",
+  "file": "AccessibleTrader.Core/Services/Strategies/ScriptStrategyCausalityProbe.cs",
+  "breaks": "the commonest shape of look-ahead \u2014 a trade that only exists when the future is loaded \u2014 passes",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 220
+ },
+ {
+  "id": "L08",
+  "area": "findings are reported but the strategy still loads",
+  "file": "AccessibleTrader.Core/Services/Strategies/ScriptStrategyCausalityProbe.cs",
+  "breaks": "a look-ahead script is described and then allowed to trade",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 296
+ },
+ {
+  "id": "L09",
+  "area": "the prefix (look-ahead) comparison checks nothing",
+  "file": "AccessibleTrader.Core/Services/Strategies/ScriptStrategyCausalityProbe.cs",
+  "breaks": "state.Data[i + 1].Close compiles, runs and backtests like genius \u2014 and loads",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+   "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 273
+ },
+ {
+  "id": "L10",
+  "area": "editing a saved strategy saves a duplicate under a new id",
+  "file": "AccessibleTrader.Core/Services/Strategies/EditableStrategySpec.cs",
+  "breaks": "every Save of an edited spec adds another copy; the running one keeps the old rules",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 261
+ },
+ {
+  "id": "L11",
+  "area": "fixed quantity and cash risk swap on save",
+  "file": "AccessibleTrader.Core/Services/Strategies/EditableStrategySpec.cs",
+  "breaks": "a fixed-quantity strategy of 1 contract trades 100 (the cash-risk default)",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 259
+ },
+ {
+  "id": "L12",
+  "area": "the stop buffer is lost when a spec is loaded for editing",
+  "file": "AccessibleTrader.Core/Services/Strategies/EditableStrategySpec.cs",
+  "breaks": "open, change the name, save: the stop now sits exactly on the swing low, no buffer",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 266
+ },
+ {
+  "id": "L13",
+  "area": "the level-strength gate is dropped on save",
+  "file": "AccessibleTrader.Core/Services/Strategies/EditableStrategySpec.cs",
+  "breaks": "a 'rejects a strong level' leaf trades every weak pivot too",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 266
+ },
+ {
+  "id": "L14",
+  "area": "the narration says Long for a short setup",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategySpecNarrator.cs",
+  "breaks": "the by-ear verification before saving names the wrong side",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 259
+ },
+ {
+  "id": "L15",
+  "area": "the narrated risk is a hundred times too small",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategySpecNarrator.cs",
+  "breaks": "0.5% risk is read as 'Risking 0.01 percent'",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+  ],
+  "status": "CAUGHT",
+  "seconds": 243
+ },
+ {
+  "id": "L16",
+  "area": "the save gate refuses the Immediate trigger instead of the deferred one",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategySpecValidator.cs",
+  "breaks": "a pulse tree with a pullback trigger (which can never fire) saves; the valid one is refused",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger",
+   "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger"
+  ],
+  "status": "CAUGHT",
+  "seconds": 230
+ },
+ {
+  "id": "L17",
+  "area": "one pulse child makes the whole tree 'pure pulse'",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategySpecValidator.cs",
+  "breaks": "a cross AND an RSI gate is refused a deferred trigger although the RSI gate keeps it armed",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold",
+   "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger"
+  ],
+  "status": "CAUGHT",
+  "seconds": 230
+ },
+ {
+  "id": "L18",
+  "area": "a dropout says the setup is still active when it was invalidated",
+  "file": "AccessibleTrader.Core/Services/Strategies/SetupSonifier.cs",
+  "breaks": "the trader keeps waiting on a dead setup, or abandons a live one",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 234
+ },
+ {
+  "id": "L19",
+  "area": "a single-target setup is told it has a ladder",
+  "file": "AccessibleTrader.Core/Services/Strategies/SetupSonifier.cs",
+  "breaks": "'Ladder has 1 rungs' \u2014 the execution caveat spoken where there is no ladder",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning"
+  ],
+  "status": "CAUGHT",
+  "seconds": 246
+ },
+ {
+  "id": "L20",
+  "area": "an Immediate confirmation never says how its ladder executes",
+  "file": "AccessibleTrader.Core/Services/Strategies/SetupSonifier.cs",
+  "breaks": "restores the fixed defect: the setups most likely in Auto mode never hear the terminal runs the rungs",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 252
+ },
+ {
+  "id": "L21",
+  "area": "an imported spec keeps the file's auto-activate flag",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyBundle.cs",
+  "breaks": "importing a file starts trading on the next launch",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport",
+   "AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves"
+  ],
+  "status": "CAUGHT",
+  "seconds": 261
+ },
+ {
+  "id": "L22",
+  "area": "an import overwrites the user's edited spec with the same id",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyBundle.cs",
+  "breaks": "re-importing the catalogue silently reverts every edit the user made",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec"
+  ],
+  "status": "CAUGHT",
+  "seconds": 250
+ },
+ {
+  "id": "L23",
+  "area": "a bundle carrying C# source is imported",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyBundle.cs",
+  "breaks": "a strategy file is a route for running someone else's code",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode"
+  ],
+  "status": "CAUGHT",
+  "seconds": 250
+ },
+ {
+  "id": "L24",
+  "area": "Add to Engine runs the edited spec beside the old one",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyLibraryFacade.cs",
+  "breaks": "edit + re-add: two copies side by side, old and new rules both trading",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 224
+ },
+ {
+  "id": "L25",
+  "area": "Save stops running the validator",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyLibraryFacade.cs",
+  "breaks": "a spec whose trigger can never fire is saved, and the refusal is never said",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "L26",
+  "area": "a short cached HTF series is served when more bars were asked for",
+  "file": "AccessibleTrader.Core/Services/Strategies/MultiTimeframeDataService.cs",
+  "breaks": "a 200-bar HTF leaf reads a 50-bar cache: the higher-timeframe indicator is NaN, the leaf false",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 212
+ },
+ {
+  "id": "L27",
+  "area": "an HTF indicator is computed with no parameters",
+  "file": "AccessibleTrader.Core/Services/Strategies/MultiTimeframeDataService.cs",
+  "breaks": "the documented all-NaN pathological compute: the HTF leaf is silently false forever",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 218
+ },
+ {
+  "id": "L28",
+  "area": "every saved template starts at launch",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyAutoLoader.cs",
+  "breaks": "specs kept as templates begin trading on restart",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "L29",
+  "area": "a second LoadAll registers every strategy again",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyAutoLoader.cs",
+  "breaks": "a re-render of MainLayout doubles every armed strategy",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "L30",
+  "area": "restart reconciliation never asks the venues",
+  "file": "AccessibleTrader.Core/Services/Strategies/StrategyAutoLoader.cs",
+  "breaks": "a position closed at the broker while the app was down is still managed; a stop fires against nothing",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker"
+  ],
+  "status": "CAUGHT",
+  "seconds": 216
+ },
+ {
+  "id": "L31",
+  "area": "a component that reads the future is offered as a strategy leaf",
+  "file": "AccessibleTrader.Core/Services/Strategies/SignalCatalog.cs",
+  "breaks": "Ichimoku's Chikou Span is back in the picker: a backtest compares close to a price 26 bars ahead",
+  "occurrences": 1,
+  "failed": 7,
+  "passed": 8081,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+   "AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 218
+ },
+ {
+  "id": "L32",
+  "area": "a refused leaf no longer resolves, so it reads as a typo",
+  "file": "AccessibleTrader.Core/Services/Strategies/SignalCatalog.cs",
+  "breaks": "an old spec's Chikou leaf goes silently dead as 'unknown signal' instead of saying why",
+  "occurrences": 1,
+  "failed": 11,
+  "passed": 8077,
+  "failing_tests": [
+   "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+   "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal"
+  ],
+  "status": "CAUGHT",
+  "seconds": 215
+ },
+ {
+  "id": "L33",
+  "area": "a strategy that works in ONE half is called a survivor",
+  "file": "AccessibleTrader.Core/Services/Strategies/LabRunner.cs",
+  "breaks": "the era-robustness gate passes regime-lucky strategies",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades"
+  ],
+  "status": "CAUGHT",
+  "seconds": 216
+ },
+ {
+  "id": "L34",
+  "area": "the minimum sample is only checked in the first half",
+  "file": "AccessibleTrader.Core/Services/Strategies/LabRunner.cs",
+  "breaks": "two trades in the second half \u2014 a CI that is noise \u2014 earns SURVIVOR",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 219
+ },
+ {
+  "id": "L35",
+  "area": "updating the FIRST spec in the library appends a copy",
+  "file": "AccessibleTrader.Core/Services/Strategies/JsonStrategyLibrary.cs",
+  "breaks": "the first strategy the user ever saved duplicates on every edit",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 212
+ },
+ {
+  "id": "L36",
+  "area": "a corrupt library file is not moved aside",
+  "file": "AccessibleTrader.Core/Services/Strategies/JsonStrategyLibrary.cs",
+  "breaks": "the next save overwrites the user's whole library with an empty list",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset",
+   "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+  ],
+  "status": "CAUGHT",
+  "seconds": 213
+ },
+ {
+  "id": "L37",
+  "area": "the stop goes to the FARTHEST support below, not the nearest",
+  "file": "AccessibleTrader.Core/Services/Strategies/LevelService.cs",
+  "breaks": "a BelowSupport stop lands at the oldest pivot on the chart; position size collapses",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds",
+   "AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest"
+  ],
+  "status": "CAUGHT",
+  "seconds": 212
+ },
+ {
+  "id": "L38",
+  "area": "the level-kind filter is ignored below price",
+  "file": "AccessibleTrader.Core/Services/Strategies/LevelService.cs",
+  "breaks": "a BelowKumo stop resolves to a swing low or a drawn line instead of the cloud",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds"
+  ],
+  "status": "CAUGHT",
+  "seconds": 209
+ },
+ {
+  "id": "L39",
+  "area": "Cipher SR pivots are visible before they are confirmed",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/CipherSrLevelProvider.cs",
+  "breaks": "restores the +0.739R phantom edge: a backtest reads a low that needed future bars to confirm",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible"
+  ],
+  "status": "CAUGHT",
+  "seconds": 209
+ },
+ {
+  "id": "L40",
+  "area": "a drawn horizontal line is not a level",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/DrawnHorizontalLevelProvider.cs",
+  "breaks": "the user's own support line \u2014 the highest-priority source \u2014 is ignored by stops and targets",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance"
+  ],
+  "status": "CAUGHT",
+  "seconds": 210
+ },
+ {
+  "id": "L41",
+  "area": "Ichimoku levels read bars that have not happened",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/IchimokuLevelProvider.cs",
+  "breaks": "in a backtest the Kijun stop is the Kijun of the last bar on the chart",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture"
+  ],
+  "status": "CAUGHT",
+  "seconds": 211
+ },
+ {
+  "id": "L42",
+  "area": "Kumo top and bottom swap",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/IchimokuLevelProvider.cs",
+  "breaks": "a BelowKumo stop is placed at the cloud's TOP \u2014 inside the cloud, one wiggle from triggering",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds"
+  ],
+  "status": "CAUGHT",
+  "seconds": 207
+ },
+ {
+  "id": "L43",
+  "area": "a swing high is emitted as support",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/SwingPivotLevelProvider.cs",
+  "breaks": "a NextResistance target resolves to nothing, a support-filtered stop to a high above price",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow"
+  ],
+  "status": "CAUGHT",
+  "seconds": 207
+ },
+ {
+  "id": "L44",
+  "area": "backtests read the live (current-viewport) volume profile",
+  "file": "AccessibleTrader.Core/Services/Strategies/Levels/VolumeProfileLevelProvider.cs",
+  "breaks": "restores the profile future leak: a backtest's POC is computed from bars it has not reached",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins",
+   "AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive"
+  ],
+  "status": "CAUGHT",
+  "seconds": 211
+ }
+]

@@ -1,0 +1,64 @@
+Test run for /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/bin/Debug/net10.0/AccessibleTrader.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.63]     AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(adjust: TrailByAtr) [FAIL]
+[xUnit.net 00:00:02.63]     AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(adjust: None) [FAIL]
+  Failed AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(adjust: TrailByAtr) [16 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: TrailByAtr
+Actual:   MoveToBreakeven
+  Stack Trace:
+     at AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(StopAdjustOnTp1 adjust) in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/EditableStrategySpecRoundTripTests.cs:line 116
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(adjust: None) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: None
+Actual:   MoveToBreakeven
+  Stack Trace:
+     at AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(StopAdjustOnTp1 adjust) in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/EditableStrategySpecRoundTripTests.cs:line 116
+   at InvokeStub_EditableStrategySpecRoundTripTests.What_happens_to_the_stop_at_the_first_target_survives_a_load_and_save(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithOneArg(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:02.64]     AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_target_ladder_survives_a_load_and_save_including_the_component_a_rung_names [FAIL]
+[xUnit.net 00:00:02.64]     AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_stop_survives_a_load_and_save_including_its_buffer_and_the_component_it_names [FAIL]
+  Failed AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_target_ladder_survives_a_load_and_save_including_the_component_a_rung_names [4 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "EMA"
+Actual:   ""
+  Stack Trace:
+     at AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_target_ladder_survives_a_load_and_save_including_the_component_a_rung_names() in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/EditableStrategySpecRoundTripTests.cs:line 126
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_stop_survives_a_load_and_save_including_its_buffer_and_the_component_it_names [17 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "ICHIMOKU"
+Actual:   ""
+  Stack Trace:
+     at AccessibleTrader.Tests.EditableStrategySpecRoundTripTests.The_stop_survives_a_load_and_save_including_its_buffer_and_the_component_it_names() in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/EditableStrategySpecRoundTripTests.cs:line 104
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+[xUnit.net 00:00:02.99]     AccessibleTrader.Tests.StrategyLifecycleTests.Add_to_engine_runs_the_spec_under_its_library_id [FAIL]
+[xUnit.net 00:00:03.01]     AccessibleTrader.Tests.StrategyLifecycleTests.A_compiled_script_is_saved_armed_and_running_under_its_library_id [FAIL]
+  Failed AccessibleTrader.Tests.StrategyLifecycleTests.Add_to_engine_runs_the_spec_under_its_library_id [1 ms]
+  Error Message:
+   Add to Engine started the strategy with no library spec id.
+  Stack Trace:
+     at AccessibleTrader.Tests.StrategyLifecycleTests.Add_to_engine_runs_the_spec_under_its_library_id() in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/StrategyLifecycleTests.cs:line 239
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed AccessibleTrader.Tests.StrategyLifecycleTests.A_compiled_script_is_saved_armed_and_running_under_its_library_id [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+Expected: "my-script"
+Actual:   null
+  Stack Trace:
+     at AccessibleTrader.Tests.StrategyLifecycleTests.A_compiled_script_is_saved_armed_and_running_under_its_library_id() in /home/cody/external-rescue/Github/accessible-trade-terminal/.claude/worktrees/agent-af321275cf4b131d8/AccessibleTrader.Tests/StrategyLifecycleTests.cs:line 220
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     6, Passed:    30, Skipped:     0, Total:    36, Duration: 494 ms - AccessibleTrader.Tests.dll (net10.0)
+EXIT 1

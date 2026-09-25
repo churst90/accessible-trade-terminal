@@ -1,0 +1,460 @@
+{
+ "audit": [
+  {
+   "id": "L06",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L07",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L08",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "flakes": [
+    "AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle"
+   ],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L09",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+    "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L15",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+   ],
+   "rerun_failing": [],
+   "filter_ok": true,
+   "honest_tests": [],
+   "flakes": [
+    "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+   ],
+   "verdict": "FALSE_CATCH"
+  },
+  {
+   "id": "L16",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L17",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold",
+    "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L19",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L21",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport",
+    "AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport",
+    "AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport",
+    "AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L22",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L23",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L30",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L31",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L32",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+    "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L33",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L36",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset",
+    "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset"
+   ],
+   "flakes": [
+    "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close"
+   ],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L37",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds",
+    "AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds",
+    "AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds",
+    "AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L38",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L39",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L40",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L41",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L42",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L43",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  },
+  {
+   "id": "L44",
+   "campaign_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins",
+    "AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive"
+   ],
+   "rerun_failing": [
+    "AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins",
+    "AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive"
+   ],
+   "filter_ok": true,
+   "honest_tests": [
+    "AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins",
+    "AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive"
+   ],
+   "flakes": [],
+   "verdict": "HONEST"
+  }
+ ],
+ "clean_failing": [],
+ "union": [
+  "AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle",
+  "AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals",
+  "AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal",
+  "AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades",
+  "AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible",
+  "AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance",
+  "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture",
+  "AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds",
+  "AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds",
+  "AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest",
+  "AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins",
+  "AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow",
+  "AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere",
+  "AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset",
+  "AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close",
+  "AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal",
+  "AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport",
+  "AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec",
+  "AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar",
+  "AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal",
+  "AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves",
+  "AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker",
+  "AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold",
+  "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger",
+  "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger",
+  "AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger",
+  "AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning",
+  "AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive",
+  "AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline"
+ ]
+}

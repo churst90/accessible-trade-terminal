@@ -108,6 +108,36 @@ namespace AccessibleTrader.Tests
             Assert.False(rows.First(r => r.Name == "OneHalf").Survivor);
         }
 
+        /// <summary>
+        /// A2l (2026-09-24): the "thin" fixture above is thin in BOTH halves, so it cannot tell
+        /// "n1 &gt;= 5 &amp;&amp; n2 &gt;= 5" from "n1 &gt;= 5" — deleting the second-half check left
+        /// the suite green. Three trades in the second half is a CI made of noise, whatever the
+        /// first half did; the gate exists because a strategy is only as good as its weaker regime.
+        /// </summary>
+        [Fact]
+        public async Task Compare_ASecondHalfWithTooFewTrades_IsNotASurvivor_HoweverGoodTheFirst()
+        {
+            var coordinator = Substitute.For<IStrategyModalCoordinator>();
+            int calls = 0;
+            coordinator.RunBacktestAsync("late-thin", Arg.Any<IReadOnlyList<Ohlcv>>(),
+                    Arg.Any<BacktestConfig>(), Arg.Any<WorkspaceState>())
+                .Returns(_ => ++calls == 1
+                    ? (Result(Enumerable.Repeat(0, 8).Select(x => WinningTrade()).ToArray()),
+                       new StrategyCoordinatorResult(true, "ok"))
+                    : (Result(WinningTrade(), WinningTrade(), WinningTrade()),
+                       new StrategyCoordinatorResult(true, "ok")));
+
+            var runner = new LabRunner(coordinator);
+            var rows = await runner.CompareAsync(new[] { ("late-thin", "LateThin") },
+                Bars(100), WorkspaceState.Initial, Config());
+
+            var row = Assert.Single(rows);
+            Assert.Equal(8, row.TradesH1);
+            Assert.Equal(3, row.TradesH2);
+            Assert.True(row.CiLoH2 > 0, "The control: the second half is positive, so only the sample size can refuse it.");
+            Assert.False(row.Survivor);
+        }
+
         [Fact]
         public async Task Compare_RanksByTheWeakerHalf()
         {

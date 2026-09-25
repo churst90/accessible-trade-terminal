@@ -1,0 +1,120 @@
+all 44 anchors unique
+L01: SURVIVED failed=0 (211s) — Start runs a second copy of a spec already running
+L02: SURVIVED failed=0 (225s) — Stop leaves the spec armed to auto-start on restart
+L03: SURVIVED failed=0 (228s) — Pause and resume swap
+L04: SURVIVED failed=0 (228s) — a compiled script strategy is not re-armed after restart
+L05: SURVIVED failed=0 (216s) — a stop that reads the future is not part of the order fingerprint
+L06: CAUGHT failed=3 (217s) — the suffix check stops ignoring the warmup of the shorter run
+      AccessibleTrader.Tests.OutOfProcessStrategyTests.CompileStrategyAsync_returns_a_proxy_for_something_running_elsewhere; AccessibleTrader.Tests.StrategyCausalityGateTests.A_causal_strategy_passes_and_is_actually_exercised; AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_loads_a_causal_script
+L07: CAUGHT failed=5 (220s) — an order present in one run and absent in the other is not a difference
+      AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused; AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_consults_a_random_number_is_refused_as_non_deterministic; AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused; AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar; AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal
+L08: CAUGHT failed=5 (296s) — findings are reported but the strategy still loads
+      AccessibleTrader.Tests.Blazor.SettingsModalTests.SettingsModal_OpenedOnATab_PutsFocusOnThatTabRatherThanTheTitle; AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_anchored_to_the_start_of_the_array_is_refused; AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused; AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar; AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal
+L09: CAUGHT failed=3 (273s) — the prefix (look-ahead) comparison checks nothing
+      AccessibleTrader.Tests.StrategyCausalityGateTests.A_strategy_that_reads_the_next_bar_is_refused; AccessibleTrader.Tests.StrategyCausalityGateTests.CompileStrategyAsync_refuses_a_script_that_reads_the_next_bar; AccessibleTrader.Tests.StrategyCausalityGateTests.Running_out_of_budget_is_reported_as_unfinished_not_as_a_pass_or_a_refusal
+L10: SURVIVED failed=0 (261s) — editing a saved strategy saves a duplicate under a new id
+L11: SURVIVED failed=0 (259s) — fixed quantity and cash risk swap on save
+L12: SURVIVED failed=0 (266s) — the stop buffer is lost when a spec is loaded for editing
+L13: SURVIVED failed=0 (266s) — the level-strength gate is dropped on save
+L14: SURVIVED failed=0 (259s) — the narration says Long for a short setup
+L15: CAUGHT failed=1 (243s) — the narrated risk is a hundred times too small
+      AccessibleTrader.Tests.WebHost.ChartAreaBarSliderTests.Flicking_the_slider_routes_through_the_arrow_key_navigation_pipeline
+L16: CAUGHT failed=2 (230s) — the save gate refuses the Immediate trigger instead of the deferred one
+      AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_pulse_tree_with_Immediate_trigger; AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_rejects_pulse_tree_with_deferred_trigger
+L17: CAUGHT failed=2 (230s) — one pulse child makes the whole tree 'pure pulse'
+      AccessibleTrader.Tests.StrategySpecValidatorTests.IsPurePulseTree_returns_false_when_any_child_is_threshold; AccessibleTrader.Tests.StrategySpecValidatorTests.ValidateForSave_allows_mixed_tree_with_deferred_trigger
+L18: SURVIVED failed=0 (234s) — a dropout says the setup is still active when it was invalidated
+L19: CAUGHT failed=1 (246s) — a single-target setup is told it has a ladder
+      AccessibleTrader.Tests.TierBRegressionTests.SetupSonifier_SingleRungLadder_EmitsNoMultiRungWarning
+L20: SURVIVED failed=0 (252s) — an Immediate confirmation never says how its ladder executes
+L21: CAUGHT failed=2 (261s) — an imported spec keeps the file's auto-activate flag
+      AccessibleTrader.Tests.StrategyBundleTests.Import_ForcesAutoActivateOff_SoNothingStartsOnImport; AccessibleTrader.Tests.StrategyLibraryPolicyTests.ImportedStrategiesCannotStartThemselves
+L22: CAUGHT failed=1 (250s) — an import overwrites the user's edited spec with the same id
+      AccessibleTrader.Tests.StrategyBundleTests.Import_NeverOverwritesAnExistingSpec
+L23: CAUGHT failed=1 (250s) — a bundle carrying C# source is imported
+      AccessibleTrader.Tests.StrategyBundleTests.Import_RejectsRoslynSourceSpecs_ImportingAFileMustNotRunCode
+L24: SURVIVED failed=0 (224s) — Add to Engine runs the edited spec beside the old one
+L25: SURVIVED failed=0 (213s) — Save stops running the validator
+L26: SURVIVED failed=0 (212s) — a short cached HTF series is served when more bars were asked for
+L27: SURVIVED failed=0 (218s) — an HTF indicator is computed with no parameters
+L28: SURVIVED failed=0 (213s) — every saved template starts at launch
+L29: SURVIVED failed=0 (213s) — a second LoadAll registers every strategy again
+L30: CAUGHT failed=1 (216s) — restart reconciliation never asks the venues
+      AccessibleTrader.Tests.StrategyPositionManagementTests.Startup_reconciles_remembered_positions_against_the_broker
+L31: CAUGHT failed=7 (218s) — a component that reads the future is offered as a strategy leaf
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals; AccessibleTrader.Tests.IndicatorCausalityTests.TheCatalogPublishesOnlyWhatWasDeclaredCausal
+L32: CAUGHT failed=11 (215s) — a refused leaf no longer resolves, so it reads as a typo
+      AccessibleTrader.Tests.IndicatorCausalityTests.KnownLookaheadComponentsAreNotOfferedAsSignals; AccessibleTrader.Tests.SignalCatalogComputabilityTests.AnIndicatorTheLibraryCannotComputeIsNotPickableAsASignal
+L33: CAUGHT failed=1 (216s) — a strategy that works in ONE half is called a survivor
+      AccessibleTrader.Tests.LabRunnerTests.Compare_SurvivorRequiresBothHalvesPositive_WithEnoughTrades
+L34: SURVIVED failed=0 (219s) — the minimum sample is only checked in the first half
+L35: SURVIVED failed=0 (212s) — updating the FIRST spec in the library appends a copy
+L36: CAUGHT failed=2 (213s) — a corrupt library file is not moved aside
+      AccessibleTrader.Tests.PersistenceHardeningTests.StrategyLibrary_CorruptFile_QuarantinesInsteadOfSilentSeedReset; AccessibleTrader.Tests.ProfileNarrationTests.With_no_browser_the_profile_ladder_speaks_the_poc_cross_at_the_close
+L37: CAUGHT failed=2 (212s) — the stop goes to the FARTHEST support below, not the nearest
+      AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds; AccessibleTrader.Tests.LevelProviderTests.NearestBelow_IsStrictlyBelow_AndNearest
+L38: CAUGHT failed=1 (209s) — the level-kind filter is ignored below price
+      AccessibleTrader.Tests.LevelProviderTests.KindFilter_SkipsCloserLevelsOfOtherKinds
+L39: CAUGHT failed=1 (209s) — Cipher SR pivots are visible before they are confirmed
+      AccessibleTrader.Tests.LevelProviderTests.CipherSr_PivotInsideTheConfirmationLag_IsNotVisible
+L40: CAUGHT failed=1 (210s) — a drawn horizontal line is not a level
+      AccessibleTrader.Tests.LevelProviderTests.Drawn_LineBelowPriceIsSupport_AboveIsResistance
+L41: CAUGHT failed=1 (211s) — Ichimoku levels read bars that have not happened
+      AccessibleTrader.Tests.LevelProviderTests.Ichimoku_BacktestSlice_DoesNotReadComponentValuesFromTheFuture
+L42: CAUGHT failed=1 (207s) — Kumo top and bottom swap
+      AccessibleTrader.Tests.LevelProviderTests.Ichimoku_EmitsKijunAndKumoBounds
+L43: CAUGHT failed=1 (207s) — a swing high is emitted as support
+      AccessibleTrader.Tests.LevelProviderTests.Swing_DetectsSwingHighAndSwingLow
+L44: CAUGHT failed=2 (211s) — backtests read the live (current-viewport) volume profile
+      AccessibleTrader.Tests.LevelProviderTests.Profile_ActiveBacktestCache_OverridesTheLiveBins; AccessibleTrader.Tests.VpvrBacktestReplayTests.VolumeProfileLevelProvider_ReadsCacheBinsWhenActive
+restored byte-identical (19 files)
+
+=== CONTROL (nothing sabotaged, build ok=True): Failed:     0, Passed:  8088 []
+
+=== summary
+  L01   SURVIVED  Start runs a second copy of a spec already running
+  L02   SURVIVED  Stop leaves the spec armed to auto-start on restart
+  L03   SURVIVED  Pause and resume swap
+  L04   SURVIVED  a compiled script strategy is not re-armed after restart
+  L05   SURVIVED  a stop that reads the future is not part of the order fingerprint
+  L06     CAUGHT  the suffix check stops ignoring the warmup of the shorter run
+  L07     CAUGHT  an order present in one run and absent in the other is not a difference
+  L08     CAUGHT  findings are reported but the strategy still loads
+  L09     CAUGHT  the prefix (look-ahead) comparison checks nothing
+  L10   SURVIVED  editing a saved strategy saves a duplicate under a new id
+  L11   SURVIVED  fixed quantity and cash risk swap on save
+  L12   SURVIVED  the stop buffer is lost when a spec is loaded for editing
+  L13   SURVIVED  the level-strength gate is dropped on save
+  L14   SURVIVED  the narration says Long for a short setup
+  L15     CAUGHT  the narrated risk is a hundred times too small
+  L16     CAUGHT  the save gate refuses the Immediate trigger instead of the deferred one
+  L17     CAUGHT  one pulse child makes the whole tree 'pure pulse'
+  L18   SURVIVED  a dropout says the setup is still active when it was invalidated
+  L19     CAUGHT  a single-target setup is told it has a ladder
+  L20   SURVIVED  an Immediate confirmation never says how its ladder executes
+  L21     CAUGHT  an imported spec keeps the file's auto-activate flag
+  L22     CAUGHT  an import overwrites the user's edited spec with the same id
+  L23     CAUGHT  a bundle carrying C# source is imported
+  L24   SURVIVED  Add to Engine runs the edited spec beside the old one
+  L25   SURVIVED  Save stops running the validator
+  L26   SURVIVED  a short cached HTF series is served when more bars were asked for
+  L27   SURVIVED  an HTF indicator is computed with no parameters
+  L28   SURVIVED  every saved template starts at launch
+  L29   SURVIVED  a second LoadAll registers every strategy again
+  L30     CAUGHT  restart reconciliation never asks the venues
+  L31     CAUGHT  a component that reads the future is offered as a strategy leaf
+  L32     CAUGHT  a refused leaf no longer resolves, so it reads as a typo
+  L33     CAUGHT  a strategy that works in ONE half is called a survivor
+  L34   SURVIVED  the minimum sample is only checked in the first half
+  L35   SURVIVED  updating the FIRST spec in the library appends a copy
+  L36     CAUGHT  a corrupt library file is not moved aside
+  L37     CAUGHT  the stop goes to the FARTHEST support below, not the nearest
+  L38     CAUGHT  the level-kind filter is ignored below price
+  L39     CAUGHT  Cipher SR pivots are visible before they are confirmed
+  L40     CAUGHT  a drawn horizontal line is not a level
+  L41     CAUGHT  Ichimoku levels read bars that have not happened
+  L42     CAUGHT  Kumo top and bottom swap
+  L43     CAUGHT  a swing high is emitted as support
+  L44     CAUGHT  backtests read the live (current-viewport) volume profile
+
+catch rate 24/44 = 54.5%   survivors: ['L01', 'L02', 'L03', 'L04', 'L05', 'L10', 'L11', 'L12', 'L13', 'L14', 'L18', 'L20', 'L24', 'L25', 'L26', 'L27', 'L28', 'L29', 'L34', 'L35']

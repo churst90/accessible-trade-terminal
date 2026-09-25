@@ -221,7 +221,12 @@ namespace AccessibleTrader.Core.Services.Strategies
                     return StrategyCoordinatorResult.Error("Compilation errors:\n" + string.Join("\n", result.Errors));
 
                 var strategy = result.Strategy!;
-                _engine.AddStrategy(strategy, new Dictionary<string, object>(), execMode);
+                // The library id is decided BEFORE the instance starts so the instance can carry
+                // it (specId) — the same id StrategyAutoLoader passes when it recompiles this
+                // script at the next launch. An instance without it opens positions that cannot
+                // be re-adopted after a restart.
+                string specId = string.IsNullOrWhiteSpace(strategy.Id) ? Guid.NewGuid().ToString() : strategy.Id;
+                _engine.AddStrategy(strategy, new Dictionary<string, object>(), execMode, specId: specId);
 
                 // Persist the source as a StrategySpec in the library so
                 // StrategyAutoLoader can recompile and register it on the next app
@@ -233,7 +238,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 {
                     var now = DateTime.UtcNow;
                     var spec = new StrategySpec(
-                        Id: string.IsNullOrWhiteSpace(strategy.Id) ? Guid.NewGuid().ToString() : strategy.Id,
+                        Id: specId,
                         Name: strategy.Name,
                         Description: "Roslyn-compiled custom script.",
                         Side: OrderSide.Buy,
