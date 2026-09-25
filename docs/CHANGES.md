@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Two keyboard dead ends, found by reading the JavaScript and proven in a browser (2026-09-24)
+
+The first finds of the JS campaign. Each was reproduced in a real Chromium before any fix.
+
+- **The Object Tree's row buttons could not be pressed from the keyboard.** Hide, Mute and
+  Delete are tab stops inside each series row, and `treeKeyboard.js` took Enter and Space from
+  anything inside a treeitem, cancelled them, and ran the row's action instead. Enter on "Hide
+  Candles" selected the series and hid nothing. The condition tree's "+ leaf", "+ group", Delete
+  and expand buttons had the same problem. Mouse users and screen readers in browse mode, which
+  send a click, never hit it. A control inside a row now owns its Enter and Space, arrows still
+  walk the tree from a button, and a field or select would keep its arrows too.
+- **Settings → Keyboard could not capture a chord, and Escape rebound instead of
+  cancelling.** The capture listened on `document`, behind `keyboard.js`'s window-level trap. For
+  any Ctrl/Alt chord the trap stopped the event first, so the row sat on "waiting..." forever.
+  Escape, which the panel says cancels, was dispatched as a shortcut (closing Settings) AND
+  captured, so the command was bound to Escape. The trap now owns the capture: the next key is
+  captured and runs nothing, Escape or Tab cancels ("Rebind cancelled. X keeps its shortcut."),
+  and the Cancel button disarms the JS side (it used to leave the capture armed to swallow the
+  next key pressed anywhere).
+- **A key captured by rebind is spelled the way the trap dispatches it.** Both paths use one
+  `normalizeKeyName`. The capture sent the raw `e.key`, so a command rebound to Space was stored
+  as `" "` while the trap sends `SPACE`, and the binding never fired.
+- **Tests**, each proven red against the old code: `KeyRebindCaptureBrowserTests` (a chord
+  captured and then opening Help; Escape leaving Settings open with nothing rebound),
+  `A_row_button_is_pressed_by_the_keyboard_not_redirected_to_the_row` (Enter and Space), and 13
+  node tests across `keyboard-tests.mjs` and `tree-tests.mjs`. The node harnesses now honour
+  `stopImmediatePropagation` and give the tree double a real `closest()`.
+
 ### The hosted terminal backs off when it reconnects (2026-09-24)
 
 **The storm in the server's logs was the framework's default retry policy.** Read from

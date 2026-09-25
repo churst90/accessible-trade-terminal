@@ -8,6 +8,13 @@
 
 ## Unreleased
 
+- **The Hide, Mute and Delete buttons in the Object Tree work from the keyboard.** Enter or Space
+  on one of them used to select the row instead. The same fix applies to the buttons in the
+  strategy condition tree.
+- **Rebinding a key works for chords, and Escape really cancels.** In Settings, Keyboard, a
+  rebind now accepts combinations like Ctrl+Alt+Y. Escape or Tab cancels without changing
+  anything. Before, a chord was never picked up, and Escape closed Settings and became the new
+  key.
 - **The hosted terminal reconnects more gently.** When the server restarts, an open page used
   to retry ten times in the same instant, which only added load while it restarted. It now tries once
   straight away, then waits a little longer each time, up to about 15 seconds between tries.

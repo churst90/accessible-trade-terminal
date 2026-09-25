@@ -66,6 +66,22 @@ function makeNode(tagName, attrs = {}, opts = {}) {
       return out;
     },
     querySelector(selector) { const r = this.querySelectorAll(selector); return r.length ? r[0] : null; },
+    // This node or its nearest ancestor matching one of a comma-separated list of
+    // `tag`, `tag[attr]` or `[attr="value"]` selectors. Applied for real rather than
+    // answered by the fixture, so the script's control selector is actually under test.
+    closest(selector) {
+      const parts = selector.split(',').map(x => x.trim());
+      const one = (el, p) => {
+        const m = p.match(/^([a-z]*)(?:\[([a-z-]+)(?:="([^"]+)")?\])?$/);
+        if (!m) return false;
+        if (m[1] && el.tagName !== m[1].toUpperCase()) return false;
+        if (m[2] && !(m[3] === undefined ? el.hasAttribute(m[2]) : el.getAttribute(m[2]) === m[3])) return false;
+        return true;
+      };
+      for (let el = this; el; el = el.parentElement) if (parts.some(p => one(el, p))) return el;
+      return null;
+    },
+    contains(other) { for (let el = other; el; el = el.parentElement) if (el === this) return true; return false; },
   };
   return n;
 }
@@ -353,6 +369,53 @@ test('ArrowRight on an expanded aria-expanded group moves into its first child',
 });
 
 // ── Report ───────────────────────────────────────────────────────────────────
+
+// ── A control inside a row owns its own Enter and Space ─────────────────────────
+//
+// Measured in a real Chromium on 2026-09-24: Enter or Space on the Object Tree's
+// "Hide Candles" button was preventDefault'd and redirected to the row, so it selected the
+// series and hid nothing. The same on every button inside a condition-tree row.
+
+test('Enter on a button inside a series row is left to the button', () => {
+  const t = objectTree();
+  const summaryClicks = t.candles.summary.clicks;
+  assert.equal(t.press('Enter', t.candles.hide), false, 'preventDefault cancels the button\'s own click');
+  assert.equal(t.candles.summary.clicks, summaryClicks, 'the row\'s primary action must not run instead');
+});
+
+test('Space on a button inside a series row is left to the button', () => {
+  const t = objectTree();
+  const wasOpen = t.candles.details.open;
+  assert.equal(t.press(' ', t.candles.hide), false);
+  assert.equal(t.candles.details.open, wasOpen, 'Space must not toggle the row instead');
+});
+
+test('the arrows still move through the tree from a button inside a row', () => {
+  const t = objectTree();
+  assert.equal(t.press('ArrowDown', t.candles.hide), true);
+  assert.equal(t.active(), t.candles.group.children[0]);
+});
+
+test('Enter on the row itself still runs the row\'s primary action', () => {
+  const t = objectTree();
+  const summaryClicks = t.candles.summary.clicks;
+  assert.equal(t.press('Enter', t.candles.item), true);
+  assert.equal(t.candles.summary.clicks, summaryClicks + 1);
+});
+
+test('condition tree: Enter on a row\'s toggle button is the button\'s, not the row\'s', () => {
+  const t = conditionTree();
+  assert.equal(t.press('Enter', t.toggle), false);
+  assert.equal(t.toggle.clicks, 0, 'the script must not click it as well; the browser will');
+});
+
+test('a text field inside a row keeps its arrows', () => {
+  const t = objectTree();
+  const field = makeNode('INPUT');
+  t.candles.summary.append(field);
+  assert.equal(t.press('ArrowDown', field), false);
+  assert.equal(t.press('Home', field), false);
+});
 
 let failed = 0;
 for (const [name, err] of results) {

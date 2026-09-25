@@ -40,6 +40,53 @@ const ARROW_WIDGET_SELECTOR =
     '[role="listbox"], [role="option"], [role="menu"], [role="menuitem"], ' +
     '[role="radiogroup"], [role="slider"], [role="spinbutton"], [role="grid"]';
 
+/**
+ * The key name ShortcutManager expects for a keydown. Used by the shortcut trap AND by the
+ * rebinding capture: until 2026-09-24 the capture sent the raw e.key, so a command rebound to
+ * Space was stored as " " while the trap sent "SPACE", and the new binding could never fire.
+ */
+function normalizeKeyName(e, isAltGr) {
+    let key = e.key;
+    // With Alt held, macOS (Option) reports the TRANSFORMED character: Option+Shift+G
+    // is '˝' on a US Mac, so the lookup for Ctrl+Alt+Shift+G found nothing and the
+    // chord was dead with no announcement. The physical key is in e.code ('KeyG',
+    // 'Digit1'), which NormalizeKey already maps to 'G' / '1'. Never for AltGr (see
+    // the trap), and not for a dead key ('Dead' is not a single character, so it falls
+    // through unchanged — no shipped chord sits on a dead key on a US Mac today).
+    if (e.altKey && !isAltGr && typeof key === 'string' && key.length === 1 && !/^[A-Za-z0-9]$/.test(key)
+        && typeof e.code === 'string' && /^(Key[A-Z]|Digit[0-9])$/.test(e.code)) {
+        key = e.code;
+    }
+    if (key === 'ArrowLeft') key = 'LEFT';
+    else if (key === 'ArrowRight') key = 'RIGHT';
+    else if (key === 'ArrowUp') key = 'UP';
+    else if (key === 'ArrowDown') key = 'DOWN';
+    else if (key === ' ') key = 'SPACE';
+    else if (key === '[') key = 'OEM4';
+    else if (key === ']') key = 'OEM6';
+    else if (key === '{') key = 'OEM4';
+    else if (key === '}') key = 'OEM6';
+    else if (key === '\\') key = 'OEM5';
+    else if (key === '-') key = 'OEMMINUS';
+    else if (key === '=') key = 'OEMPLUS';
+    else if (key === '_') key = 'OEMMINUS';
+    else if (key === '+') key = 'OEMPLUS';
+    // Shift+/ produces '?' — the browser reports the character a keypress PRODUCES, not
+    // the key that was pressed — so a binding on '/' with Shift held would never match.
+    // Both land on OEM2, which NormalizeKey resolves back to '/'.
+    else if (key === '/') key = 'OEM2';
+    else if (key === '?') key = 'OEM2';
+    // Shift+; produces ':' the same way. Both land on OEM1, which NormalizeKey resolves
+    // back to ';' — the key that clears a pinned chart formation was unreachable until
+    // 2026-09-19 because ':' matched no binding.
+    else if (key === ';') key = 'OEM1';
+    else if (key === ':') key = 'OEM1';
+    else if (key === 'Delete') key = 'DELETE';
+    else if (key === 'Escape') key = 'ESCAPE';
+    else if (key === 'ContextMenu') key = 'CONTEXTMENU';
+    return key;
+}
+
 window.accessibleTrader = {
 
     // Exposed for tests; the keydown trap calls the module-scope function directly.
@@ -418,6 +465,32 @@ window.accessibleTrader = {
         // tries to consume reserved chords like Ctrl+Shift+T, Ctrl+Shift+N, Ctrl+Shift+P.
         // stopImmediatePropagation is used on modifier chords so no downstream handler fires.
         window.addEventListener('keydown', function (e) {
+            // ── Rebinding capture (Settings → Keyboard → Rebind) ────────────────────
+            //
+            // Handled HERE, first, and not by a listener of its own. The capture used to be a
+            // document-level capture listener, and this window-level one runs before it: for a
+            // modifier chord it called stopImmediatePropagation, so no chord could ever be
+            // captured (the row sat on "waiting..." forever), and Escape — which the panel says
+            // cancels — reached the dispatcher, closed Settings, AND was captured, rebinding the
+            // command to Escape. Measured in a real Chromium on 2026-09-24.
+            if (self._keyCapture) {
+                if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt'
+                    || e.key === 'Meta' || e.key === 'AltGraph') return;
+                const helper = self._keyCapture;
+                self._keyCapture = null;
+                // Tab cancels and still moves focus: binding Tab would take away the key that
+                // moves between controls, and a capture left armed would swallow whatever key
+                // is pressed next wherever focus has gone.
+                if (e.key === 'Tab') { helper.invokeMethodAsync('OnKeyCaptureCancelled'); return; }
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (e.key === 'Escape') { helper.invokeMethodAsync('OnKeyCaptureCancelled'); return; }
+                const altGr = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph') === true;
+                helper.invokeMethodAsync('OnKeyCaptured',
+                    normalizeKeyName(e, altGr).toUpperCase(), e.shiftKey, e.ctrlKey, e.altKey);
+                return;
+            }
+
             const trappedKeys = [
                 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
                 'Home', 'End', 'PageUp', 'PageDown',
@@ -576,45 +649,7 @@ window.accessibleTrader = {
             e.preventDefault();
             if (isModified) e.stopImmediatePropagation();
 
-            // Normalize key names to match what ShortcutManager expects.
-            let key = e.key;
-            // With Alt held, macOS (Option) reports the TRANSFORMED character: Option+Shift+G
-            // is '˝' on a US Mac, so the lookup for Ctrl+Alt+Shift+G found nothing and the
-            // chord was dead with no announcement. The physical key is in e.code ('KeyG',
-            // 'Digit1'), which NormalizeKey already maps to 'G' / '1'. Never for AltGr (see
-            // above), and not for a dead key ('Dead' is not a single character, so it falls
-            // through unchanged — no shipped chord sits on a dead key on a US Mac today).
-            if (e.altKey && !isAltGr && typeof key === 'string' && key.length === 1 && !/^[A-Za-z0-9]$/.test(key)
-                && typeof e.code === 'string' && /^(Key[A-Z]|Digit[0-9])$/.test(e.code)) {
-                key = e.code;
-            }
-            if (key === 'ArrowLeft') key = 'LEFT';
-            else if (key === 'ArrowRight') key = 'RIGHT';
-            else if (key === 'ArrowUp') key = 'UP';
-            else if (key === 'ArrowDown') key = 'DOWN';
-            else if (key === ' ') key = 'SPACE';
-            else if (key === '[') key = 'OEM4';
-            else if (key === ']') key = 'OEM6';
-            else if (key === '{') key = 'OEM4';
-            else if (key === '}') key = 'OEM6';
-            else if (key === '\\') key = 'OEM5';
-            else if (key === '-') key = 'OEMMINUS';
-            else if (key === '=') key = 'OEMPLUS';
-            else if (key === '_') key = 'OEMMINUS';
-            else if (key === '+') key = 'OEMPLUS';
-            // Shift+/ produces '?' — the browser reports the character a keypress PRODUCES, not
-            // the key that was pressed — so a binding on '/' with Shift held would never match.
-            // Both land on OEM2, which NormalizeKey resolves back to '/'.
-            else if (key === '/') key = 'OEM2';
-            else if (key === '?') key = 'OEM2';
-            // Shift+; produces ':' the same way. Both land on OEM1, which NormalizeKey resolves
-            // back to ';' — the key that clears a pinned chart formation was unreachable until
-            // 2026-09-19 because ':' matched no binding.
-            else if (key === ';') key = 'OEM1';
-            else if (key === ':') key = 'OEM1';
-            else if (key === 'Delete') key = 'DELETE';
-            else if (key === 'Escape') key = 'ESCAPE';
-            else if (key === 'ContextMenu') key = 'CONTEXTMENU';
+            const key = normalizeKeyName(e, isAltGr);
 
             dotnetHelper.invokeMethodAsync('OnKeyDown',
                 key.toUpperCase(), e.shiftKey, e.ctrlKey, e.altKey);
@@ -1154,14 +1189,21 @@ window.accessibleTrader = {
         }
     },
 
-    captureNextKey: function(dotNetHelper) {
-        function handler(e) {
-            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            document.removeEventListener('keydown', handler, true);
-            dotNetHelper.invokeMethodAsync('OnKeyCaptured', e.key, e.shiftKey, e.ctrlKey, e.altKey);
-        }
-        document.addEventListener('keydown', handler, true);
+    // The .NET helper waiting for the next key, or null. Read by the shortcut trap in
+    // registerKeyboardHandler, which owns the capture — see the comment there.
+    _keyCapture: null,
+
+    /**
+     * Arms a one-shot capture of the next key for the keyboard rebinding UI in Settings →
+     * Keyboard. The trap calls OnKeyCaptured on the helper with the key in the SAME spelling
+     * it dispatches shortcuts in, or OnKeyCaptureCancelled for Escape or Tab.
+     */
+    captureNextKey: function (dotNetHelper) {
+        this._keyCapture = dotNetHelper;
+    },
+
+    /** Disarms a pending capture (the Cancel button, or the dialog going away). */
+    cancelKeyCapture: function () {
+        this._keyCapture = null;
     }
 };

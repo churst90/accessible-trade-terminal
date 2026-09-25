@@ -227,6 +227,19 @@
         if (items.length === 0) return;
         const idx = current ? items.indexOf(current) : -1;
 
+        // A control INSIDE a treeitem owns its own keys. The Object Tree's Hide / Mute / Delete
+        // buttons and the condition tree's + leaf / + group / Delete buttons are ordinary tab
+        // stops within their rows, and until 2026-09-24 Enter or Space on any of them was
+        // preventDefault'd here and redirected to the ROW: Enter on "Hide Candles" selected the
+        // series and hid nothing, Enter on a condition's Delete selected the condition. Measured
+        // in a real Chromium. The arrows still move through the tree from a button (a button
+        // has no arrow behaviour of its own); a field or a select keeps its arrows too.
+        const control = current && e.target !== current && e.target.closest
+            ? e.target.closest('button, a[href], input, select, textarea, [contenteditable="true"]')
+            : null;
+        const inner = control && control !== current && current.contains(control) ? control : null;
+        if (inner && inner.tagName !== 'BUTTON' && inner.tagName !== 'A') return;
+
         switch (e.key) {
             case 'ArrowDown': {
                 e.preventDefault();
@@ -274,13 +287,13 @@
                 return;
             }
             case 'Enter': {
-                if (!current) return;
+                if (!current || inner) return;
                 e.preventDefault();
                 activatePrimary(current);
                 return;
             }
             case ' ': {
-                if (!current) return;
+                if (!current || inner) return;
                 e.preventDefault();
                 if (isGroup(current)) toggleExpand(current);
                 else activatePrimary(current);

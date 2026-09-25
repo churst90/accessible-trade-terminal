@@ -1017,7 +1017,7 @@
 
                 <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
                     Click <strong>Rebind</strong> on any row, then press your new key combination.
-                    Escape cancels. Rebindings are saved immediately.
+                    Escape or Tab cancels. Rebindings are saved immediately.
                 </p>
 
                 @if (_capturingCommand != null)
@@ -2302,14 +2302,44 @@
         }
     }
 
-    private void CancelCapture()
+    // The Cancel button. The capture is armed on the JS side too, and until 2026-09-24 nothing
+    // disarmed it, so the next key pressed anywhere was swallowed by a capture nobody wanted.
+    private async Task CancelCapture()
     {
         _capturingCommand = null;
         _capturingCommandName = "";
+        await DisarmJsCaptureAsync();
+    }
+
+    private async Task DisarmJsCaptureAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("accessibleTrader.cancelKeyCapture"); }
+        catch (JSDisconnectedException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    /// <summary>
+    /// Escape or Tab while a capture is armed. keyboard.js consumes Escape so it neither closes
+    /// Settings nor becomes the new binding, which is what the panel's "Escape cancels" promised
+    /// and, until 2026-09-24, did not do: it closed the dialog AND bound the command to Escape.
+    /// </summary>
+    [JSInvokable]
+    public void OnKeyCaptureCancelled()
+    {
+        if (_capturingCommand == null) return;
+        string name = _capturingCommandName;
+        _capturingCommand = null;
+        _capturingCommandName = "";
+        InvokeAsync(StateHasChanged);
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+            $"Rebind cancelled. {name} keeps its shortcut.", true));
     }
 
     public void Dispose()
     {
+        // A capture armed in JS holds this helper; disposing it first would leave the next key
+        // swallowed and its callback failing. Fire-and-forget: Dispose cannot await.
+        if (_capturingCommand != null) _ = DisarmJsCaptureAsync();
         _dotNetRef?.Dispose();
         _eventSub?.Dispose();
         _closeSub?.Dispose();

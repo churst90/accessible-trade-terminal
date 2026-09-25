@@ -64,6 +64,45 @@ public sealed class ObjectTreeWithSeriesBrowserTests
     }
 
     /// <summary>
+    /// <b>The row buttons answer the keyboard.</b> Hide, Mute and Delete are ordinary tab stops
+    /// inside each series row. Until 2026-09-24 treeKeyboard.js took Enter and Space from any
+    /// element inside a treeitem, cancelled them and ran the ROW's action instead: Enter on
+    /// "Hide Candles" selected the series and hid nothing. Mouse users and screen readers in
+    /// browse mode (which synthesise a click) never saw it; a keyboard in focus mode could not
+    /// press any of these buttons. Measured here first, red, before the fix.
+    /// </summary>
+    [BrowserTheory]
+    [InlineData("Enter", 0)]   // Hide / Show
+    [InlineData(" ", 1)]       // Mute / Unmute
+    public async Task A_row_button_is_pressed_by_the_keyboard_not_redirected_to_the_row(string key, int buttonIndex)
+    {
+        await using var t = await _fixture.NewPageAsync();
+        await t.LoadSeededChartAsync();
+        await t.PressAsync("Alt+o");
+        Assert.True(await t.WaitForDialogAsync(), "Object Tree did not open.");
+
+        string Label() => $"() => document.querySelectorAll('.series-node .series-actions button')[{buttonIndex}].getAttribute('aria-label')";
+        var before = await t.Page.EvaluateAsync<string>(Label());
+        await t.Page.EvaluateAsync($"() => document.querySelectorAll('.series-node .series-actions button')[{buttonIndex}].focus()");
+
+        await t.Page.Keyboard.PressAsync(key);
+        await t.Page.WaitForFunctionAsync($"b => ({Label()})() !== b", before, new() { Timeout = 5_000 })
+            .ContinueWith(_ => { });
+        var after = await t.Page.EvaluateAsync<string>(Label());
+
+        // Undo, so the series is back as the rest of the collection expects it.
+        if (after != before)
+        {
+            await t.Page.EvaluateAsync($"() => document.querySelectorAll('.series-node .series-actions button')[{buttonIndex}].click()");
+            await t.Page.WaitForFunctionAsync($"b => ({Label()})() === b", before, new() { Timeout = 5_000 });
+        }
+
+        Assert.True(after != before,
+            $"pressing {(key == " " ? "Space" : key)} on \"{before}\" did not press it; the tree " +
+            "took the key for the row instead");
+    }
+
+    /// <summary>
     /// The Alt+O hang, as a standing regression.
     ///
     /// <para>

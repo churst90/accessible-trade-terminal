@@ -189,8 +189,14 @@ function makeHarness() {
   const setActive = (el) => { sandbox.document.activeElement = el; };
 
   // Fire a keydown and report whether the default action survived.
-  const press = (key, target, mods = {}) => {
+  const press = (key, target, mods = {}) => pressEvent(key, target, mods).defaultPrevented;
+
+  // The same keydown, reporting whether it was stopped too. stopImmediatePropagation is
+  // HONOURED here (later listeners do not run), because a stop the harness ignores is how the
+  // rebinding capture stayed dead: the trap stopped every chord before the capture saw it.
+  const pressEvent = (key, target, mods = {}) => {
     let defaultPrevented = false;
+    let stopped = false;
     const ev = {
       key,
       code: mods.code,
@@ -200,13 +206,13 @@ function makeHarness() {
       getModifierState: (name) => name === 'AltGraph' && !!mods.altGraph,
       target: target ?? node('DIV'),
       preventDefault: () => { defaultPrevented = true; },
-      stopImmediatePropagation: () => {},
+      stopImmediatePropagation: () => { stopped = true; },
     };
-    for (const fn of windowListeners.keydown ?? []) fn(ev);
-    return defaultPrevented;
+    for (const fn of windowListeners.keydown ?? []) { fn(ev); if (stopped) break; }
+    return { defaultPrevented, stopped };
   };
 
-  return { calls, press, node, dialog, mountDialogs, mountBackground, setActive,
+  return { calls, press, pressEvent, node, dialog, mountDialogs, mountBackground, setActive,
            doc: sandbox.document, api: sandbox.window.accessibleTrader };
 }
 
@@ -1106,6 +1112,85 @@ test('focusElement gives up on an element that never accepts focus', () => {
 });
 
 // ── Report ──────────────────────────────────────────────────────────────────
+
+// ── The rebinding capture (Settings → Keyboard → Rebind) ────────────────────────
+//
+// Measured broken in a real Chromium on 2026-09-24: the capture was a document-level
+// listener behind this window-level trap, so a modifier chord was stopped before it arrived
+// (the row sat on "waiting..." forever) and Escape was dispatched as a shortcut, closing
+// Settings, AND captured, binding the command to Escape.
+
+const captureHarness = () => {
+  const h = makeHarness();
+  const captured = [];
+  const helper = { invokeMethodAsync: (m, ...a) => { captured.push([m, ...a]); return Promise.resolve(); } };
+  h.api.captureNextKey(helper);
+  return { ...h, captured };
+};
+
+test('capture: a modifier chord is captured, and never reaches the dispatcher', () => {
+  const h = captureHarness();
+  const r = h.pressEvent('y', h.node('BUTTON'), { ctrl: true, alt: true, shift: true, code: 'KeyY' });
+  assert.deepEqual(h.captured, [['OnKeyCaptured', 'Y', true, true, true]]);
+  assert.deepEqual(keysSent(h.calls), [], 'the chord must not ALSO run the command it is replacing');
+  assert.equal(r.defaultPrevented, true);
+});
+
+test('capture: Escape cancels, and neither dispatches nor binds', () => {
+  const h = captureHarness();
+  const r = h.pressEvent('Escape', h.node('BUTTON'));
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled']]);
+  assert.deepEqual(keysSent(h.calls), [], 'Escape reaching the dispatcher closes Settings');
+  assert.equal(r.defaultPrevented, true);
+  assert.equal(r.stopped, true, 'the dialog\'s own Escape handling must not see it either');
+});
+
+test('capture: Tab cancels and still moves focus', () => {
+  const h = captureHarness();
+  const r = h.pressEvent('Tab', h.node('BUTTON'));
+  assert.deepEqual(h.captured, [['OnKeyCaptureCancelled']]);
+  assert.equal(r.defaultPrevented, false, 'binding Tab would take the key that moves between controls');
+});
+
+test('capture: a lone modifier waits for the real key', () => {
+  const h = captureHarness();
+  for (const k of ['Shift', 'Control', 'Alt', 'Meta', 'AltGraph']) h.pressEvent(k, h.node('BUTTON'));
+  assert.deepEqual(h.captured, []);
+  h.pressEvent('k', h.node('BUTTON'), { ctrl: true, alt: true });
+  assert.equal(h.captured.length, 1);
+});
+
+test('capture: the key is spelled the way the trap dispatches it', () => {
+  // Space was stored as " " while the trap sends "SPACE", so a command rebound to Space never
+  // fired. Every key that the trap renames must be captured under the same name.
+  for (const [key, expected, mods] of [[' ', 'SPACE', {}], ['ArrowLeft', 'LEFT', {}], ['[', 'OEM4', {}],
+                                        ['?', 'OEM2', { shift: true }], [':', 'OEM1', { shift: true }],
+                                        ['˝', 'KEYG', { alt: true, shift: true, code: 'KeyG' }]]) {
+    const h = captureHarness();
+    h.pressEvent(key, h.node('BUTTON'), mods);
+    const dispatched = makeHarness();
+    dispatched.api.setChartFocused(true);
+    dispatched.press(key, dispatched.node('DIV'), { ...mods, ctrl: true });
+    assert.equal(h.captured[0][1], expected, `captured ${JSON.stringify(key)}`);
+    assert.equal(keysSent(dispatched.calls)[0], expected, `dispatched ${JSON.stringify(key)}`);
+  }
+});
+
+test('capture: one key only, then the trap is back to normal', () => {
+  const h = captureHarness();
+  h.pressEvent('k', h.node('BUTTON'), { ctrl: true, alt: true });
+  h.pressEvent('F5', h.node('BUTTON'));
+  assert.equal(h.captured.length, 1);
+  assert.deepEqual(keysSent(h.calls), ['F5']);
+});
+
+test('capture: cancelKeyCapture disarms it, so the next key is not swallowed', () => {
+  const h = captureHarness();
+  h.api.cancelKeyCapture();
+  const r = h.pressEvent('Tab', h.node('BUTTON'));
+  assert.deepEqual(h.captured, []);
+  assert.equal(r.defaultPrevented, false);
+});
 
 let failed = 0;
 for (const [name, err] of results) {

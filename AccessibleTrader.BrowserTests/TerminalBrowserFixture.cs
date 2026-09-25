@@ -17,6 +17,10 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
     internal string RootUrl => _factory?.RootUrl
         ?? throw new InvalidOperationException("Fixture not initialised.");
 
+    /// <summary>The host's throwaway storage root, for tests that must undo what they saved.</summary>
+    internal string DataRoot => _factory?.DataRoot
+        ?? throw new InvalidOperationException("Fixture not initialised.");
+
     /// <summary>Everything the host has logged so far.</summary>
     internal IReadOnlyList<string> ServerLog => _factory?.Log ?? Array.Empty<string>();
 

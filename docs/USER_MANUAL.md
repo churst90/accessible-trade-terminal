@@ -3418,7 +3418,8 @@ and the two pattern switches), magnet snap, the panning step, a CSV export — a
 **factory reset**, below. **Braille** enables the tactile display. **Appearance** is the
 theme — most relevant to a sighted collaborator looking over your shoulder — and the
 visual accommodations. What can be shared, and how, is under *Sharing your setup* below. **Keyboard** rebinds any command, and those rebinds save
-the moment you make them, the one exception to the Save rule.
+the moment you make them, the one exception to the Save rule. Press **Rebind** on a row, then
+the new key or chord. Escape or Tab cancels without changing anything.
 
 **Save and Cancel.** The dialog commits when you press **Save**, and only then. **Escape,
 the Cancel button and a click outside the dialog all discard** — that is the rule everywhere
