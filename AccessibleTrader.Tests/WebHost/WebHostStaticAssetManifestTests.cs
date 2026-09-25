@@ -49,6 +49,19 @@ public sealed class WebHostStaticAssetManifestTests
             + "document and gets a 404, so no interactive component ever renders.");
 
     /// <summary>
+    /// The script that starts the circuit. Since 2026-09-24 the framework script carries
+    /// <c>autostart="false"</c> and <c>js/boot.js</c> calls <c>Blazor.start</c> with the
+    /// reconnection back-off, so a missing boot.js is now a blank page exactly as a missing
+    /// blazor.web.js is.
+    /// </summary>
+    [Fact]
+    public void The_manifest_serves_boot_js()
+        => AssertRouteExists(
+            "js/boot.js",
+            "Nothing starts the Blazor circuit: blazor.web.js is loaded with autostart=\"false\" "
+            + "and waits for boot.js to call Blazor.start, so no interactive component ever renders.");
+
+    /// <summary>
     /// The scoped-CSS bundle, which the csproj comment and <c>docs/SERVER_SETUP.md</c> both list
     /// alongside the framework script as something <c>WinExe</c> drops.
     ///

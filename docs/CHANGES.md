@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### The hosted terminal backs off when it reconnects (2026-09-24)
+
+**The storm in the server's logs was the framework's default retry policy.** Read from
+`blazor.web.js` (.NET 10.0.9): ten attempts with **no delay**, then ten at 5 s, then 30 s.
+Ten zero-delay retries all land inside a restart window, which is the "bursts of ten-plus within
+the same second" behind 100 of 141 negotiates returning 502 between 7 and 20 September.
+
+- **Why the 2026-09-21 attempt never booted, now established.** It called `Blazor.start()` from
+  an inline `<script>`, and the CSP is `script-src 'self'`. The harness's console capture shows
+  "Refused to execute inline script because it violates the following Content Security Policy
+  directive". With `autostart="false"` and the start call refused, nothing started the circuit.
+- **Fix:** `autostart="false"` plus a same-origin `js/boot.js` that starts the circuit with the
+  back-off. One immediate attempt (most drops are a blip), then 1, 2, 4, 8 s, capped at 15 s
+  (nginx's own `Retry-After`), ±20% jitter so tabs do not retry in step, thirty attempts
+  (about seven minutes) before the overlay offers "Retry now". The CSP is unchanged. The
+  framework still retries at once when a hidden tab becomes visible.
+- **Tests, each proven red by reintroducing the defect:**
+  `ADroppedCircuitRetriesWithBackOff_NotABurst` drops the real circuit's WebSocket, refuses
+  every negotiate, and counts attempts in 2.5 s. It measured **10** with the default policy, the
+  same burst as the logs, and 2 to 3 with the back-off. It then lets the server answer and waits
+  for "Reconnected", the first test where the framework, not the test, drives the overlay.
+  `TheCircuitIsStartedByBootJs_AndNoScriptIsInline` pins the CSP hazard.
+  `tools/jstests/boot-tests.mjs` (8, in CI) pins all thirty steps of the schedule, and
+  `The_manifest_serves_boot_js` catches a build that drops the file (a missing boot.js is now a
+  blank page).
+- **Not verified behind nginx.** The harness runs Kestrel directly. The timings are the
+  client's own, so the proxy should not change them, but the first real restart is the check.
+
 ### Alt+F ("fit price only") is retired; the two stylesheets are one again (2026-09-23)
 
 **At Cody's decision, after he asked why anyone would want overlays to run off the screen.** The

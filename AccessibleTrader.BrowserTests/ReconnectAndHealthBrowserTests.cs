@@ -121,25 +121,89 @@ public sealed class ReconnectAndHealthBrowserTests
     }
 
     /// <summary>
-    /// The boot path is left at its default ON PURPOSE. Configuring the reconnection back-off
-    /// needs <c>autostart="false"</c> plus an explicit <c>Blazor.start()</c>, and that was tried
-    /// on 2026-09-21: it stopped the circuit booting at all and every browser test went red with
-    /// "the terminal never loaded". The cause was not established, and an unverified change to
-    /// the boot path has no business shipping in the same release as the fix for a page that
-    /// would not load. This pins the decision so the next person reads the reason rather than
-    /// rediscovering the failure.
+    /// <b>The circuit is started by <c>js/boot.js</c>, and the document carries no inline
+    /// script.</b> The back-off needs <c>autostart="false"</c> plus an explicit
+    /// <c>Blazor.start()</c>. The first attempt (2026-09-21) made that call inline, the CSP
+    /// (<c>script-src 'self'</c>) refused it, and the circuit never booted. Measured
+    /// 2026-09-24: the browser console reads "Refused to execute inline script because it
+    /// violates the following Content Security Policy directive". Any inline script is refused
+    /// the same way, so the property pinned is "none at all", not "not this one".
     /// </summary>
     [BrowserFact]
-    public async Task TheBootPathIsUntouched_AndTheCircuitActuallyStarts()
+    public async Task TheCircuitIsStartedByBootJs_AndNoScriptIsInline()
     {
         await using var t = await _fixture.NewPageAsync();
-        await t.LoadSeededChartAsync();
 
-        var html = await t.Page.ContentAsync();
-        Assert.DoesNotContain("autostart=\"false\"", html, StringComparison.OrdinalIgnoreCase);
+        var started = await t.Page.EvaluateAsync<bool>(
+            "() => !!(window.terminalBoot && window.terminalBoot.started)");
+        Assert.True(started,
+            "the page loaded but js/boot.js did not start the circuit, so the framework's "
+          + "default retry policy (ten attempts with no delay) is back");
 
-        var started = await t.Page.EvaluateAsync<bool>("() => typeof Blazor !== 'undefined'");
-        Assert.True(started, "Blazor did not load at all");
+        var inline = await t.Page.EvaluateAsync<string[]>(
+            "() => [...document.querySelectorAll('script:not([src])')].map(s => s.textContent.trim().slice(0, 80))");
+        Assert.True(inline.Length == 0,
+            "inline <script> in the document; the CSP (script-src 'self') refuses it: "
+          + string.Join(" | ", inline));
+    }
+
+    /// <summary>
+    /// <b>The behaviour, measured.</b> Drops the circuit's WebSocket, refuses every reconnect
+    /// (the negotiate request is what a restarting server fails), and counts the attempts in
+    /// the first 2.5 seconds. The framework default makes ten in the first instant. The
+    /// back-off makes two or three (0 s, then ~1 s, then ~2 s after that). Then lets the
+    /// server answer and waits for the overlay to say the terminal is back, which is also the
+    /// first test in which the FRAMEWORK, not the test, drives the overlay's classes.
+    /// </summary>
+    [BrowserFact]
+    public async Task ADroppedCircuitRetriesWithBackOff_NotABurst()
+    {
+        await using var t = await _fixture.NewPageAsync();
+
+        // Capture the circuit's socket. The init script runs on the reload below, before
+        // blazor.web.js, so the SignalR transport constructs this subclass.
+        await t.Page.AddInitScriptAsync(@"
+            (() => {
+                const Native = window.WebSocket;
+                window.__sockets = [];
+                window.WebSocket = class extends Native {
+                    constructor(...a) { super(...a); window.__sockets.push(this); }
+                };
+            })();");
+        await t.GotoAppAsync(_fixture.RootUrl);
+
+        var sockets = await t.Page.EvaluateAsync<int>("() => window.__sockets.length");
+        Assert.True(sockets > 0, "no WebSocket was captured, so this test cannot drop the circuit");
+
+        var attempts = new List<DateTime>();
+        var gate = new object();
+        await t.Page.RouteAsync("**/_blazor/negotiate**", async route =>
+        {
+            lock (gate) attempts.Add(DateTime.UtcNow);
+            await route.AbortAsync();
+        });
+
+        var dropped = DateTime.UtcNow;
+        await t.Page.EvaluateAsync("() => window.__sockets.forEach(s => s.close())");
+        await t.Page.WaitForTimeoutAsync(2_500);
+
+        int inWindow;
+        lock (gate) inWindow = attempts.Count(a => a - dropped < TimeSpan.FromMilliseconds(2_500));
+
+        Assert.True(inWindow >= 1,
+            "no reconnect attempt at all after the socket closed, so this measured nothing");
+        Assert.True(inWindow <= 3,
+            $"{inWindow} reconnect attempts in the first 2.5 s after a drop. The framework "
+          + "default is ten with no delay, which is the burst in the server's logs");
+
+        var status = await t.Page.EvaluateAsync<string>(
+            "() => document.getElementById('reconnect-status').textContent");
+        Assert.Contains("Reconnecting", status, StringComparison.OrdinalIgnoreCase);
+
+        await t.Page.UnrouteAsync("**/_blazor/negotiate**");
+        await t.Page.WaitForFunctionAsync(
+            "() => /Reconnected/.test(document.getElementById('reconnect-status').textContent)",
+            null, new PageWaitForFunctionOptions { Timeout = 30_000 });
     }
 
     // ── Liveness ────────────────────────────────────────────────────────────────

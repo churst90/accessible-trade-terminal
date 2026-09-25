@@ -88,24 +88,18 @@
     <div id="reconnect-status" role="status" aria-live="assertive" aria-atomic="true"
          class="visually-hidden" data-nosnippet></div>
 
-    @* RECONNECTION BACK-OFF: NOT DONE, and deliberately so.
+    @* RECONNECTION BACK-OFF. autostart="false" hands the start to js/boot.js, which passes a
+       retry policy: one immediate attempt, then 1-2-4-8 s capped at 15 s with jitter. The
+       framework default is ten attempts with no delay at all, which is the storm in the
+       server's logs (100 of 141 negotiates 502 between 7 and 20 September, in bursts of
+       ten-plus within one second).
 
-       The framework's default retry policy is what produced the storm in the server's logs —
-       100 of 141 negotiate requests 502 between 7 and 20 September, in bursts of ten-plus
-       within the same second — and nginx now answers the transport with Retry-After: 15, so
-       there is a clear right answer to configure.
-
-       Configuring it means autostart="false" plus an explicit Blazor.start(), and that was
-       tried here on 2026-09-21: it stopped the circuit booting at all. Every browser test went
-       red with "the terminal never loaded". The cause was not established — this machine could
-       not get a console out of the harness — and an unverified change to the BOOT PATH is not
-       something to ship on a guess, least of all in the same release as the fix for a page that
-       would not load.
-
-       What the storm actually costs is now much smaller anyway: the proxy answers 503 with
-       Retry-After instead of a bare 502, so the retries are cheap and the user is told what is
-       happening. Worth doing properly, with a console, as its own change. *@
-    <script src="_framework/blazor.web.js"></script>
+       boot.js MUST stay a file and come right after blazor.web.js. The 2026-09-21 attempt
+       started the circuit from an inline <script>, and the CSP (script-src 'self', see
+       SecurityHeadersPolicy) refused it, so nothing started the circuit and the page never
+       loaded. ReconnectAndHealthBrowserTests pins both halves. *@
+    <script src="_framework/blazor.web.js" autostart="false"></script>
+    <script src="js/boot.js"></script>
     <script src="js/reconnect.js"></script>
     <script src="_content/AccessibleTrader.BlazorClient.Components/js/keyboard.js?v=20260716b"></script>
     <script src="_content/AccessibleTrader.BlazorClient.Components/js/canvasRegion.js?v=20260716b"></script>

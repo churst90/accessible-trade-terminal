@@ -30,9 +30,8 @@
 // different reactions and only one of them is the user's problem.
 
 // Self-starting: the overlay element is in the document before this script runs (it sits above
-// the script tags in App.razor), so there is nothing to wait for but the parser. Started here
-// rather than from a Blazor.start() callback because the boot path is deliberately left at its
-// default — see the note in App.razor.
+// the script tags in App.razor), so there is nothing to wait for but the parser. The retry
+// timing the overlay reports is boot.js's back-off, not the framework default.
 window.terminalReconnect = (function () {
     'use strict';
 

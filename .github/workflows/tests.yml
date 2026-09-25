@@ -82,6 +82,11 @@ jobs:
       - name: JS tree tests
         run: node tools/jstests/tree-tests.mjs
 
+      # boot.js — the WebHost's circuit start and its reconnection back-off. The browser
+      # suite measures a real drop over 2.5 s; this pins all thirty attempts of the policy.
+      - name: JS boot tests
+        run: node tools/jstests/boot-tests.mjs
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v6

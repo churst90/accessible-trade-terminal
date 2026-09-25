@@ -8,6 +8,10 @@
 
 ## Unreleased
 
+- **The hosted terminal reconnects more gently.** When the server restarts, an open page used
+  to retry ten times in the same instant, which only added load while it restarted. It now tries once
+  straight away, then waits a little longer each time, up to about 15 seconds between tries.
+  You still hear each attempt announced, and "Reconnected to the terminal" when it is back.
 - **The online demo opens on a chart.** Visiting the demo now lands straight on a live Bitcoin
   daily chart that already speaks, instead of an empty symbol box and four steps to get there.
 - **Alt+F is gone, and everything you can see always fits the price pane.** Alt+F let bands run

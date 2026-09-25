@@ -133,7 +133,8 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 >    auto-fit is the ONLY behaviour, so listening to a chart with a wide band is now more
 >    important, not less.
 > 3. `/download` and the .NET 10 Desktop Runtime, or a self-contained Windows head.
-> 4. Reconnection back-off; then `Services/Strategies`, `Analysis`, the JS harness campaigns.
+> 4. ~~Reconnection back-off~~ **DONE 2026-09-24** (CHANGES `[Unreleased]`; the 09-21 failure was
+>    the CSP refusing an inline `Blazor.start()`). Then the JS harness, `Services/Strategies`, `Analysis`.
 > 5. Nothing here is released yet. The next cut (2.12.1 or 2.13.0) carries the demo fix, Alt+F's
 >    retirement and the stylesheet sync. **Removing a default key binding made 2.8.0 a minor
 >    release, not a patch.** The same rule makes this one 2.13.0.
