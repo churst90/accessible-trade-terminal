@@ -72,6 +72,16 @@ namespace AccessibleTrader.WebHost.Services
 
         public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink,
             Microsoft.Extensions.Hosting.IHostApplicationLifetime? lifetime = null)
+            : this(logger, browserSink, lifetime, File.Exists)
+        {
+        }
+
+        // Internal test seam: the player probe, so a test can hold the driver in browser mode
+        // on a machine that HAS pw-cat / pacat / aplay (where the public constructor would
+        // start one). Same shape as PickPlayer's own predicate. Not public, so DI never sees it.
+        // Used by BrowserAudioPumpTests — the only test that runs the pump.
+        internal WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink,
+            Microsoft.Extensions.Hosting.IHostApplicationLifetime? lifetime, Func<string, bool> fileExists)
         {
             _logger = logger;
             _browserSink = browserSink;
@@ -86,7 +96,7 @@ namespace AccessibleTrader.WebHost.Services
                     "AudioEngine: {DroppedTotal} command(s) dropped due to buffer overflow. Consider reducing sonification density.",
                     droppedTotal);
 
-            (_playerPath, _playerArgs) = PickPlayer(File.Exists);
+            (_playerPath, _playerArgs) = PickPlayer(fileExists);
             if (_playerPath is null)
             {
                 // No local sink — fall back to the browser WebAudio path. The

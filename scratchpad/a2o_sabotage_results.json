@@ -1,0 +1,743 @@
+[
+ {
+  "id": "O01",
+  "area": "the login POST leaves the auth tier",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "password guessing on the front door runs at 200 per 10 s per IP again \u2014 the 72k/hour bug",
+  "occurrences": 1,
+  "failed": 5,
+  "passed": 8083,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostRateLimitIntegrationTests.Eleventh_login_post_in_a_window_is_rejected_with_429",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.GetPartition_SeparatesAuthAndGeneralTiers_PerIp",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.IsAuthMutation_ClassifiesCredentialAttempts"
+  ],
+  "status": "CAUGHT",
+  "seconds": 223
+ },
+ {
+  "id": "O02",
+  "area": "the signed-in security page leaves the auth tier",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "a stolen session brute-forces the current password through 'Turn off 2FA' at general rates",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.SignedIn_verification_posts_are_in_the_strict_auth_tier"
+  ],
+  "status": "CAUGHT",
+  "seconds": 221
+ },
+ {
+  "id": "O03",
+  "area": "forgot-password leaves the auth tier",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "every POST appends attacker text to the security log: an unauthenticated disk-fill",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.IsAuthMutation_ClassifiesCredentialAttempts"
+  ],
+  "status": "CAUGHT",
+  "seconds": 228
+ },
+ {
+  "id": "O04",
+  "area": "auth tier is ten times looser",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "100 credential attempts per 5 minutes per IP",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.AuthTier_IsFarStricterThanGeneralTier"
+  ],
+  "status": "CAUGHT",
+  "seconds": 218
+ },
+ {
+  "id": "O05",
+  "area": "every IP shares ONE auth bucket",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "one attacker's ten POSTs lock every visitor on earth out of signing in",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostLockoutIntegrationTests.Tenth_failed_login_locks_the_account_and_the_correct_password_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 223
+ },
+ {
+  "id": "O06",
+  "area": "the rate limiter is never put in the pipeline",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the whole abuse guard is registered and never runs",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostRateLimitIntegrationTests.Eleventh_login_post_in_a_window_is_rejected_with_429",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body"
+  ],
+  "status": "CAUGHT",
+  "seconds": 217
+ },
+ {
+  "id": "O07",
+  "area": "the refusal stops saying how long to wait",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "a screen-reader user hears 'please wait' with no number \u2014 the header is for machines",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_general_tier_rejection_does_not_talk_about_sign_in",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_rate_limit_body_names_the_wait_in_an_alert_region"
+  ],
+  "status": "CAUGHT",
+  "seconds": 226
+ },
+ {
+  "id": "O08",
+  "area": "the tier wording is swapped",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "a shared-NAT visitor loading a page is told 'too many sign-in attempts'",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.OrderPostRetrySafetyTests.ExecuteOnceAsync_returns_the_result_and_still_takes_a_rate_slot",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_general_tier_rejection_does_not_talk_about_sign_in",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_rate_limit_body_names_the_wait_in_an_alert_region"
+  ],
+  "status": "CAUGHT",
+  "seconds": 271
+ },
+ {
+  "id": "O09",
+  "area": "429 goes out without Retry-After",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the machine-readable wait disappears; clients retry blind",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body"
+  ],
+  "status": "CAUGHT",
+  "seconds": 272
+ },
+ {
+  "id": "O10",
+  "area": "only NON-document requests get the readable body",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the browser gets an empty 429 again \u2014 the silent refusal restored \u2014 and SignalR gets HTML",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body"
+  ],
+  "status": "CAUGHT",
+  "seconds": 249
+ },
+ {
+  "id": "O11",
+  "area": "the refusal never recognises the auth tier",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "a locked-out sign-in is told 'too many requests', not 'too many sign-in attempts'",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 259
+ },
+ {
+  "id": "O12",
+  "area": "the spoken wait rounds minutes down to one",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "a five-minute lockout is announced as 'about 1 minute'",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_rate_limit_body_names_the_wait_in_an_alert_region"
+  ],
+  "status": "CAUGHT",
+  "seconds": 289
+ },
+ {
+  "id": "O13",
+  "area": "nosniff dropped",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "MIME-sniffing re-enabled on every response",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_SetsTheCoreHeaderSet"
+  ],
+  "status": "CAUGHT",
+  "seconds": 263
+ },
+ {
+  "id": "O14",
+  "area": "non-demo modes allow same-origin framing",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "the hosted accounts terminal can be framed by any page on the origin",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_HostedAndDesktop_RefuseAllFraming",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_SetsTheCoreHeaderSet"
+  ],
+  "status": "CAUGHT",
+  "seconds": 252
+ },
+ {
+  "id": "O15",
+  "area": "hosted/desktop get the demo's relaxed CSP",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "frame-ancestors 'self' on the terminal that holds accounts",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_HostedAndDesktop_RefuseAllFraming",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Apply_SetsTheCoreHeaderSet"
+  ],
+  "status": "CAUGHT",
+  "seconds": 254
+ },
+ {
+  "id": "O16",
+  "area": "HSTS sent on plain HTTP and never on HTTPS",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "the hosted site loses HSTS; a local http run pins HSTS for localhost",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.Hsts_IsSentOnlyOverHttps"
+  ],
+  "status": "CAUGHT",
+  "seconds": 252
+ },
+ {
+  "id": "O17",
+  "area": "the strict CSP allows inline script",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "any injected <script> runs \u2014 the CSP's whole XSS value gone",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityPolicyTests.DemoCsp_DiffersFromStrictCsp_OnlyInFrameAncestors"
+  ],
+  "status": "CAUGHT",
+  "seconds": 253
+ },
+ {
+  "id": "O18",
+  "area": "wildcard binds read as loopback",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "http://+:80 serves the unauthenticated full terminal to every interface",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.FullModeBindPolicyTests.Non_loopback_binds_are_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 261
+ },
+ {
+  "id": "O19",
+  "area": "0.0.0.0 counted as loopback",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "the commonest public bind of all passes the guard",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.FullModeBindPolicyTests.Non_loopback_binds_are_refused",
+   "AccessibleTrader.Tests.WebHost.FullModeBindPolicyTests.The_first_offending_address_is_named_even_among_safe_ones"
+  ],
+  "status": "CAUGHT",
+  "seconds": 254
+ },
+ {
+  "id": "O20",
+  "area": "only the first bound address is checked",
+  "file": "AccessibleTrader.WebHost/Services/SecurityPolicy.cs",
+  "breaks": "localhost:5000 + 0.0.0.0:5001 \u2192 the second, public, bind is never looked at",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.FullModeBindPolicyTests.The_first_offending_address_is_named_even_among_safe_ones"
+  ],
+  "status": "CAUGHT",
+  "seconds": 250
+ },
+ {
+  "id": "O21",
+  "area": "the --unsafe-remote-full opt-out is inverted",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the bind guard runs only for operators who asked to skip it",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 274
+ },
+ {
+  "id": "O22",
+  "area": "--demo boots the FULL terminal",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the public demo gets live trading, the API-keys modal and server-side scripts",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 234
+ },
+ {
+  "id": "O23",
+  "area": "the diagnostic journal is anonymous on the accounts head",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "with --enable-diag, an anonymous dump of a spoken transcript",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Diag_journal_requires_a_signed_in_user_when_it_is_mapped"
+  ],
+  "status": "CAUGHT",
+  "seconds": 237
+ },
+ {
+  "id": "O24",
+  "area": "the error page requires a sign-in",
+  "file": "AccessibleTrader.WebHost/Program.cs",
+  "breaks": "the sign-in page's own failure redirects to the sign-in page",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.The_error_route_exists_and_is_anonymous"
+  ],
+  "status": "CAUGHT",
+  "seconds": 216
+ },
+ {
+  "id": "O25",
+  "area": "the hosted paper-account guard only fires with NO user object",
+  "file": "AccessibleTrader.WebHost/Services/PaperAccountAttachment.cs",
+  "breaks": "a pre-circuit anonymous scope binds every hosted user to the shared 'anon' paper account",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.PaperAccountAttachmentGuardTests.Hosted_with_an_unauthenticated_user_refuses_too"
+  ],
+  "status": "CAUGHT",
+  "seconds": 210
+ },
+ {
+  "id": "O26",
+  "area": "sign-in failures stop counting toward lockout",
+  "file": "AccessibleTrader.WebHost/Pages/Account/Login.cshtml.cs",
+  "breaks": "Identity's ten-failure lockout never trips at the front door",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostLockoutIntegrationTests.Tenth_failed_login_locks_the_account_and_the_correct_password_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 208
+ },
+ {
+  "id": "O27",
+  "area": "a locked-out sign-in says so (enumeration oracle)",
+  "file": "AccessibleTrader.WebHost/Pages/Account/Login.cshtml.cs",
+  "breaks": "a distinct lockout message confirms the address is registered",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostLockoutIntegrationTests.Tenth_failed_login_locks_the_account_and_the_correct_password_is_refused"
+  ],
+  "status": "CAUGHT",
+  "seconds": 225
+ },
+ {
+  "id": "O28",
+  "area": "the security page's re-confirmation stops counting failures",
+  "file": "AccessibleTrader.WebHost/Pages/Account/Security.cshtml.cs",
+  "breaks": "the 2FA-disable form is an unlimited password oracle for a stolen session",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HostedAccountsTwoFactorTests.Repeated_wrong_passwords_on_the_security_page_lock_the_account"
+  ],
+  "status": "CAUGHT",
+  "seconds": 218
+ },
+ {
+  "id": "O29",
+  "area": "registration echoes 'email already taken'",
+  "file": "AccessibleTrader.WebHost/Pages/Account/Register.cshtml.cs",
+  "breaks": "the DuplicateEmail description reaches the page \u2014 an enumeration oracle",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Register_with_duplicate_email_reports_a_generic_error_not_an_oracle"
+  ],
+  "status": "CAUGHT",
+  "seconds": 214
+ },
+ {
+  "id": "O30",
+  "area": "reset-password echoes the raw token error",
+  "file": "AccessibleTrader.WebHost/Pages/Account/ResetPassword.cshtml.cs",
+  "breaks": "'Invalid token.' for a real address vs the generic message for an unknown one",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.Reset_with_a_bad_token_fails_with_the_same_message_as_an_unknown_email"
+  ],
+  "status": "CAUGHT",
+  "seconds": 223
+ },
+ {
+  "id": "O31",
+  "area": "a live circuit survives a rotated security stamp",
+  "file": "AccessibleTrader.WebHost/Account/IdentityRevalidatingAuthenticationStateProvider.cs",
+  "breaks": "password reset / 2FA enrolment no longer evicts a stolen session's open circuit",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 219
+ },
+ {
+  "id": "O32",
+  "area": "revalidation ignores lockout",
+  "file": "AccessibleTrader.WebHost/Account/IdentityRevalidatingAuthenticationStateProvider.cs",
+  "breaks": "a locked-out account's open circuit keeps working",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 213
+ },
+ {
+  "id": "O33",
+  "area": "private-IP push endpoints accepted",
+  "file": "AccessibleTrader.WebHost/Services/Push/PushSubscriptionStore.cs",
+  "breaks": "a signed-in user aims the server's push sender at 169.254.169.254",
+  "occurrences": 1,
+  "failed": 6,
+  "passed": 8082,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.A_push_endpoint_outside_the_public_internet_is_refused",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_store_refuses_a_private_endpoint_end_to_end"
+  ],
+  "status": "CAUGHT",
+  "seconds": 217
+ },
+ {
+  "id": "O34",
+  "area": "the subscription cap evicts the NEWEST",
+  "file": "AccessibleTrader.WebHost/Services/Push/PushSubscriptionStore.cs",
+  "breaks": "the browser the user just subscribed never receives a push",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebPushTests.Subscriptions_cap_sheds_the_oldest"
+  ],
+  "status": "CAUGHT",
+  "seconds": 230
+ },
+ {
+  "id": "O35",
+  "area": "the VAPID private key is written in the clear",
+  "file": "AccessibleTrader.WebHost/Services/Push/VapidKeyService.cs",
+  "breaks": "the one secret on the box that skips DataProtection \u2014 again",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.A_legacy_plaintext_key_file_is_honoured_and_upgraded",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_vapid_private_key_is_not_written_in_the_clear",
+   "AccessibleTrader.Tests.WebHost.WebPushTests.Keys_persist_across_service_instances"
+  ],
+  "status": "CAUGHT",
+  "seconds": 224
+ },
+ {
+  "id": "O36",
+  "area": "the key ring is tightened to 0750, not 0700",
+  "file": "AccessibleTrader.WebHost/Services/KeyRingPolicy.cs",
+  "breaks": "a fresh deploy under umask 022 refuses to start (or, without the after-check, serves a group-readable ring)",
+  "occurrences": 1,
+  "failed": 58,
+  "passed": 8030,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_checkbox_is_not_marked_required",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_clean_page_marks_nothing_invalid_and_opens_on_the_first_field",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_confirmation_banner_takes_the_focus_so_it_is_not_jumped_past",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_rejected_field_beats_the_page_level_message_for_the_focus",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_rejected_field_is_marked_invalid_and_is_where_the_page_opens",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.A_wrong_password_focuses_the_message_because_no_field_owns_it",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.Every_field_a_user_types_into_says_it_is_required",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.Focus_follows_the_failure_rather_than_the_first_field",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.The_always_present_field_error_span_is_not_an_alert_region",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.The_failure_is_read_before_the_standing_hint",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.The_registration_honeypot_is_left_alone",
+   "AccessibleTrader.Tests.WebHost.AuthPageErrorStateTests.The_sweep_can_see_a_field_that_lacks_the_state",
+   "AccessibleTrader.Tests.WebHost.PluginHostBridgeTests.Boot_InstallsTheApiKeyAndSecurityEventBridges",
+   "AccessibleTrader.Tests.WebHost.PluginHostBridgeTests.HostedBoot_InstallsThePluginHttpClientFactoryBridge",
+   "AccessibleTrader.Tests.WebHost.WebHostDiagJournalIntegrationTests.Diag_journal_never_returns_another_users_transcript",
+   "AccessibleTrader.Tests.WebHost.WebHostDiagJournalIntegrationTests.Diag_journal_returns_what_the_users_own_circuit_recorded",
+   "AccessibleTrader.Tests.WebHost.WebHostFullModeIntegrationTests.Full_mode_installs_the_plugin_secure_storage_bridge_and_hosted_does_not",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Anonymous_visitor_is_redirected_to_the_login_page",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Diag_journal_is_not_mapped_outside_development",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Diag_journal_requires_a_signed_in_user_when_it_is_mapped",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Full_mode_alert_endpoints_do_not_exist_on_the_hosted_head",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_page_serves_a_form_with_antiforgery_and_security_headers",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_post_without_an_antiforgery_token_is_rejected",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_with_valid_credentials_issues_the_cookie_and_authorizes_requests",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Login_with_wrong_password_shows_the_generic_error_and_no_cookie",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Logout_ends_the_session",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Register_creates_the_account_signs_in_and_redirects_into_the_app",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Register_honeypot_mimics_success_but_creates_no_account",
+   "AccessibleTrader.Tests.WebHost.WebHostHostedAccountsIntegrationTests.Register_with_duplicate_email_reports_a_generic_error_not_an_oracle",
+   "AccessibleTrader.Tests.WebHost.WebHostLockoutIntegrationTests.Tenth_failed_login_locks_the_account_and_the_correct_password_is_refused",
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.A_reset_request_is_pushed_to_the_owner_account_naming_the_requester_and_the_ip",
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.Forgot_password_acknowledges_without_confirming_the_account_exists",
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.Reset_round_trip_sets_the_new_password_and_retires_the_old_one",
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.Reset_with_a_bad_token_fails_with_the_same_message_as_an_unknown_email",
+   "AccessibleTrader.Tests.WebHost.WebHostPasswordResetIntegrationTests.With_no_owner_configured_the_request_is_still_acknowledged_and_nothing_is_pushed",
+   "AccessibleTrader.Tests.WebHost.WebHostPathBaseIntegrationTests.The_hosted_head_answers_a_prefixed_login_post_with_400_not_405",
+   "AccessibleTrader.Tests.WebHost.WebHostPathBaseIntegrationTests.The_hosted_head_refuses_a_circuit_before_login_without_405",
+   "AccessibleTrader.Tests.WebHost.WebHostPushEndpointsIntegrationTests.Anonymous_callers_are_refused_everywhere",
+   "AccessibleTrader.Tests.WebHost.WebHostPushEndpointsIntegrationTests.Subscribe_requires_a_plausible_subscription_body",
+   "AccessibleTrader.Tests.WebHost.WebHostPushEndpointsIntegrationTests.Subscribe_stores_per_user_and_unsubscribe_cannot_cross_users",
+   "AccessibleTrader.Tests.WebHost.WebHostPushEndpointsIntegrationTests.Vapid_public_key_is_stable_per_instance",
+   "AccessibleTrader.Tests.WebHost.WebHostRateLimitIntegrationTests.Eleventh_login_post_in_a_window_is_rejected_with_429",
+   "AccessibleTrader.Tests.WebHost.WebHostRateLimitIntegrationTests.Rendering_the_login_form_is_not_charged_to_the_auth_tier",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_local_returnUrl_is_still_honoured",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_non_local_returnUrl_still_signs_in_and_lands_locally",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_rate_limited_request_carries_Retry_After_and_an_announceable_body",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.A_sign_in_is_audited_under_the_users_own_directory_not_anon",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningIntegrationTests.The_error_route_exists_and_is_anonymous",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_key_ring_directory_is_created_when_missing",
+   "AccessibleTrader.Tests.WebHost.WebHostSecurityHardeningTests.The_key_ring_directory_is_tightened_to_owner_only",
+   "AccessibleTrader.Tests.WebHost.WebHostTwoFactorIntegrationTests.Enable2fa_requires_a_signed_in_user",
+   "AccessibleTrader.Tests.WebHost.WebHostTwoFactorIntegrationTests.LoginWith2fa_visited_cold_redirects_back_to_login",
+   "AccessibleTrader.Tests.WebHost.WebHostTwoFactorIntegrationTests.Totp_enrollment_then_2fa_login_then_recovery_code_login"
+  ],
+  "status": "CAUGHT",
+  "seconds": 215
+ },
+ {
+  "id": "O37",
+  "area": "secure-storage files are named by the raw key",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSecureStorageService.cs",
+  "breaks": "a key containing '../' writes outside secrets/, and names leak what is stored",
+  "occurrences": 1,
+  "failed": 3,
+  "passed": 8085,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSecureStorageServiceTests.CorruptBlobReturnsNullInsteadOfThrowing",
+   "AccessibleTrader.Tests.WebHost.WebHostSecureStorageServiceTests.KeysWithPathSeparatorsAndUnusualCharsStayInSecretsDir",
+   "AccessibleTrader.Tests.WebHost.WebHostSecureStorageServiceTests.SetThenGetRoundtripsTheValue"
+  ],
+  "status": "CAUGHT",
+  "seconds": 220
+ },
+ {
+  "id": "O38",
+  "area": "PowerShell literals stop doubling quotes",
+  "file": "AccessibleTrader.WebHost/Services/DesktopDeliveryPlan.cs",
+  "breaks": "an alert or symbol text with an apostrophe breaks out of the toast/speech command on Windows",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.DesktopDeliveryPlanTests.An_apostrophe_in_a_symbol_survives_into_the_windows_toast_command",
+   "AccessibleTrader.Tests.WebHost.DesktopDeliveryPlanTests.PowerShell_literals_double_the_apostrophe_and_expand_nothing_else"
+  ],
+  "status": "CAUGHT",
+  "seconds": 218
+ },
+ {
+  "id": "O39",
+  "area": "the live region stays on under Orca/spd-say",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "every phrase heard twice \u2014 the 2026-07-23 double-speech restored",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSpeechManagerBackendSelectionTests.ServerSideBackends_DisableTheLiveRegion_RegardlessOfMode"
+  ],
+  "status": "CAUGHT",
+  "seconds": 223
+ },
+ {
+  "id": "O40",
+  "area": "'screen reader' mode still speaks through the browser voice",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "the user who chose their screen reader hears the browser voice on top of it",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.SpeechOutputModeTests.ScreenReader_mode_keeps_the_live_region_but_never_publishes_browser_speech"
+  ],
+  "status": "CAUGHT",
+  "seconds": 222
+ },
+ {
+  "id": "O41",
+  "area": "spd-say preferred over Orca",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "the user's Orca voice, rate and pitch are bypassed whenever spd-say exists",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSpeechManagerBackendSelectionTests.PrefersOrcaWhenGdbusAndOrcaAvailable"
+  ],
+  "status": "CAUGHT",
+  "seconds": 213
+ },
+ {
+  "id": "O42",
+  "area": "speech switched off still speaks",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "muting speech mutes the live region but Orca/browser voice keep talking",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.WebHostSpeechManagerForwardingTests.SpeakWhenSpeechDisabledStillInvokesInnerButSkipsPublish"
+  ],
+  "status": "CAUGHT",
+  "seconds": 213
+ },
+ {
+  "id": "O43",
+  "area": "the live-region fallback leaves the region ON",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "after one failed Orca call every later phrase is spoken twice",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 210
+ },
+ {
+  "id": "O44",
+  "area": "the Orca interrupt is not awaited",
+  "file": "AccessibleTrader.WebHost/Services/WebHostSpeechManager.cs",
+  "breaks": "the cancel can land after the message and clip the utterance it cleared the way for",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.SpeechCancelIsAwaitedTests.The_interrupt_cancel_is_waited_for"
+  ],
+  "status": "CAUGHT",
+  "seconds": 209
+ },
+ {
+  "id": "O45",
+  "area": "the browser audio path treats every buffer as silence",
+  "file": "AccessibleTrader.WebHost/Services/WebHostAudioDriver.cs",
+  "breaks": "the demo and every host without a local PCM sink hear no sonification at all",
+  "occurrences": 1,
+  "failed": 0,
+  "passed": 8088,
+  "failing_tests": [],
+  "status": "SURVIVED",
+  "seconds": 238
+ },
+ {
+  "id": "O46",
+  "area": "a headless order rejection drops its reason",
+  "file": "AccessibleTrader.WebHost/Services/HeadlessOrderAnnouncer.cs",
+  "breaks": "'Order rejected for BTC.' \u2014 and not why",
+  "occurrences": 1,
+  "failed": 1,
+  "passed": 8087,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.Every_order_outcome_is_announced_in_the_in_session_wording"
+  ],
+  "status": "CAUGHT",
+  "seconds": 294
+ },
+ {
+  "id": "O47",
+  "area": "headless announces exactly the venues a browser is covering",
+  "file": "AccessibleTrader.WebHost/Services/HeadlessOrderAnnouncer.cs",
+  "breaks": "fills said twice while a tab is open, and never once it closes",
+  "occurrences": 1,
+  "failed": 24,
+  "passed": 8064,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.A_PAPER_fill_is_the_circuits_whenever_a_circuit_is_open",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.A_PAPER_fill_with_no_browser_open_is_still_announced",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.A_fill_on_a_venue_the_open_circuit_never_hooked_is_still_announced",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.A_headless_fill_raises_ONE_toast_even_with_the_desktop_fill_switch_on",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.A_machine_with_no_audio_and_no_toast_daemon_still_SPEAKS_the_fill",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.An_unattributed_fill_is_announced_rather_than_dropped",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.Every_order_outcome_is_announced_in_the_in_session_wording",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.Every_order_outcome_is_silent_when_the_circuit_owns_that_venue",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.With_a_circuit_announcing_that_venue_the_headless_side_says_nothing",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.With_a_circuit_owning_the_venue_a_headless_fill_raises_NO_toast_at_all",
+   "AccessibleTrader.Tests.WebHost.HeadlessOrderWatchTests.With_the_browser_closed_a_fill_is_sounded_toasted_and_spoken_exactly_once"
+  ],
+  "status": "CAUGHT",
+  "seconds": 338
+ },
+ {
+  "id": "O48",
+  "area": "a dropped connection keeps its coverage",
+  "file": "AccessibleTrader.WebHost/Services/WebHostBrowserCircuitHandler.cs",
+  "breaks": "a laptop lid closes and the headless monitor still thinks the tab is speaking alerts",
+  "occurrences": 1,
+  "failed": 2,
+  "passed": 8086,
+  "failing_tests": [
+   "AccessibleTrader.Tests.WebHost.CircuitCoverageHandoffTests.A_dropped_connection_hands_the_symbols_to_the_headless_side_at_once",
+   "AccessibleTrader.Tests.WebHost.CircuitCoverageHandoffTests.Registering_twice_holds_one_registration_not_two"
+  ],
+  "status": "CAUGHT",
+  "seconds": 314
+ }
+]
