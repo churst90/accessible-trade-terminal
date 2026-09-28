@@ -359,8 +359,8 @@ edge.
 - **The declaration.** `ComponentCausality { Undeclared, Causal, Lookahead }` in
   `AccessibleTrader.Sdk/Models/ComponentCausality.cs`. An indicator declares once via
   `IndicatorMetadata.Causality`; a component overrides via the nullable
-  `IndicatorComponentMetadata.Causality`. `CausalityContract.Effective / IsPublishable /
-  RefusalReason` resolves the pair. `Undeclared` is the default **and publishes nothing** — a new
+  `IndicatorComponentMetadata.Causality`. `CausalityContract.Effective / RefusalReason`
+  resolves the pair. `Undeclared` is the default **and publishes nothing** — a new
   component is invisible to the strategy builder until someone decides, because silence is the one
   answer that cannot be wrong by accident.
 - **The gate.** `SignalCatalog.All` carries only `Causal` descriptors. The rest go to `Excluded`,

@@ -61,14 +61,6 @@ namespace AccessibleTrader.Sdk.Models
         }
 
         /// <summary>
-        /// True when the component may be offered to the strategy builder as a leaf.
-        /// Only <see cref="ComponentCausality.Causal"/> qualifies — <see cref="ComponentCausality.Undeclared"/>
-        /// is refused rather than assumed, because the assumption is what produces the fake edge.
-        /// </summary>
-        public static bool IsPublishable(IndicatorMetadata indicator, IndicatorComponentMetadata component) =>
-            Effective(indicator, component) == ComponentCausality.Causal;
-
-        /// <summary>
         /// The causality a scripted indicator declared for the component at
         /// <paramref name="componentIndex"/>. Follows the same "shorter array repeats its last
         /// entry" rule as <c>ICustomIndicator.DisplayTypes</c>, and an empty array means the script

@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **A withdrawal address for the wrong network is refused, not called verified.** A Bitcoin
+  address offered for a Litecoin withdrawal used to be announced as verified, because only its
+  checksum was checked. The terminal now also reads which network the address was made for.
+  It says "this is not a Litecoin address" (or Tron, or Bitcoin), or that the address is the
+  wrong length.
 - **A corrupt Bitcoin or Litecoin withdrawal address is no longer called verified.** A native
   SegWit address carrying the wrong kind of checksum (one of the two that BIP-350 says must
   never be mixed) used to be announced as verified. It is now refused as corrupt. A wallet

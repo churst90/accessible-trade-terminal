@@ -254,6 +254,55 @@ namespace AccessibleTrader.Tests
             Assert.False(r.IsDisplayable);
         }
 
+        // ── The version byte, not just the checksum (2026-09-28) ──────────────
+        //
+        // base58check proves the string was not mistyped. It does not prove WHICH network the
+        // string belongs to; the version byte inside it does, and until 2026-09-28 nothing read
+        // it. A Bitcoin "1…" address offered for a Litecoin withdrawal came back VERIFIED: the
+        // Litecoin path passed no prefix and the checksum is valid. So did a "T…" string whose
+        // version byte is not Tron's, and a "1…" string carrying a 19-byte hash.
+        //
+        // The look-alikes cannot be published vectors, because nobody publishes a valid-checksum
+        // address with the wrong version. They were built with an independent encoder (Python
+        // hashlib + base58, not this validator) from the version byte and the hash 01 02 … 14.
+
+        // The USDT contract on Tron: version 0x41.
+        private const string TronReal = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+        // The Bitcoin wiki's P2SH example: version 0x05.
+        private const string BtcP2sh = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";
+        // Litecoin legacy P2PKH (0x30, 'L') and P2SH (0x32, 'M').
+        private const string LtcLegacy = "LVg2kJoFNg45Nbpy53h7Fe1wKyeXVRhMH9";
+        private const string LtcP2sh = "MGxNPPB7eBoWPUaprtX9v9CXJZoD2465zN";
+
+        [Theory]
+        [InlineData(TronReal, "TRC20")]
+        [InlineData(BtcP2sh, "Bitcoin")]
+        [InlineData(LtcLegacy, "Litecoin")]
+        [InlineData(LtcP2sh, "LTC")]
+        // Litecoin kept Bitcoin's 0x05 for legacy P2SH, so a "3…" address is valid on both.
+        [InlineData(BtcP2sh, "Litecoin")]
+        public void Real_addresses_with_their_networks_own_version_byte_verify(string address, string network)
+        {
+            Assert.Equal(AddressCheck.Verified, CryptoAddressValidator.Validate(address, network).Result);
+        }
+
+        [Theory]
+        // A Bitcoin P2PKH (0x00) is not a Litecoin address, however valid its checksum.
+        [InlineData(BtcLegacy, "Litecoin", "not a Litecoin address")]
+        // Starts with T, checksum valid, version 0x42 — not Tron's 0x41.
+        [InlineData("TZQ9596PFNVSh3tEsypax47Hdff4DKLkmj", "TRC20", "not a Tron address")]
+        // Starts with 3, checksum valid, version 0x06 — not Bitcoin's 0x05.
+        [InlineData("3R7wzdD6eYgsd3X3QoqTrXn5sQCTXRdsDn", "Bitcoin", "not a Bitcoin address")]
+        // Starts with 1, version 0x00, checksum valid, but a 19-byte hash: nothing can spend it.
+        [InlineData("12D2adLM3UKy4Z4giRbReR6gjWx1w6Dz", "Bitcoin", "wrong length")]
+        public void A_valid_checksum_on_the_wrong_network_or_length_is_refused(string address, string network, string says)
+        {
+            var r = CryptoAddressValidator.Validate(address, network);
+
+            Assert.Equal(AddressCheck.Malformed, r.Result);
+            Assert.Contains(says, r.Detail, StringComparison.OrdinalIgnoreCase);
+        }
+
         [Fact]
         public void Every_outcome_says_something_a_user_can_act_on()
         {

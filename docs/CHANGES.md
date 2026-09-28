@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2p's decisions: the heartbeat seam, `IsPublishable` deleted, base58 addresses checked for their network (2026-09-28)
+
+- **Heartbeat seam (Cody: "add the hook").** `ReconnectingWebSocket.HeartbeatWriter`, internal,
+  always `SendFrameAsync` in production, lets a test fail pings on a socket that stays open.
+  Two tests against the loopback server: the socket is declared dead on the THIRD consecutive
+  failure and a new connection follows, and a ping that gets through resets the count (the
+  sixth attempt, not the third, condemns 2 fail / 1 ok / 3 fail). Proven red: W04 (`>=` → `>`),
+  the reset removed, and the dead socket kept. Removing only `_ws = null` is equivalent, because
+  the dispose alone makes the receive loop reconnect.
+- **`CausalityContract.IsPublishable` deleted (Cody).** It had no caller; `SignalCatalog` asks
+  `RefusalReason`, which is now what the contract test pins (proven red with Undeclared published).
+  `ICustomIndicatorRegistry.IsPublishable` in Core is a different method and stays.
+- **Base58 addresses: the version byte and length are now checked. Four live defects,
+  demonstrated then fixed.** The checksum only proves a string was not mistyped. The genesis
+  Bitcoin address offered for a **Litecoin** withdrawal came back **Verified**, as did a `T…`
+  string with version 0x42 (Tron is 0x41), a `3…` with version 0x06, and a `1…` carrying a
+  19-byte hash. `Base58Check` now requires a 21-byte payload and one of the network's own
+  version bytes: Tron 0x41; Bitcoin 0x00/0x05; Litecoin 0x30/0x32/0x05 (Litecoin kept Bitcoin's
+  P2SH byte, so a `3…` address is valid on both). Real vectors for the valid cases (Tron's USDT
+  contract, the wiki P2SH example, two Litecoin addresses). The look-alikes were built with an
+  independent Python encoder, since no one publishes a valid-checksum wrong-version address.
+  Proven red three ways (version check, length check, Litecoin accepting 0x00).
+- **The `_sendLock` comment was wrong on every platform, not just Linux.** It said an overlapping
+  send throws; on .NET 10 the runtime's `ManagedWebSocket` queues it behind its own `_sendMutex`.
+  The Windows and Linux 10.0.9 runtime assemblies ship that same managed implementation (no
+  WinHTTP path), so this was checked by inspection, not a Windows run. The lock stays (it keeps
+  the class inside the documented one-send-at-a-time contract) and the comment now says so.
+- Suite 8,243 → 8,254, all green.
+
 ### A2p: the Sdk mutated; a corrupt SegWit address no longer reads as verified (2026-09-25)
 
 Run in its own worktree, three mutants at a time in separate tree copies. Full write-up:

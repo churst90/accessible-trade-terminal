@@ -145,6 +145,79 @@ namespace AccessibleTrader.Tests
             Assert.Equal(keepalive, await received.Task.WaitAsync(Ceiling));
         }
 
+        /// <summary>A socket that stays open and never says anything: the half-open connection
+        /// the heartbeat rule exists for. Counts the connections it is handed.</summary>
+        private static LoopbackWsServer SilentServer(Action<int> connected) =>
+            new(async (n, ctx, stop) =>
+            {
+                await Accept(ctx);
+                connected(n);
+                await Task.Delay(Timeout.Infinite, stop);
+            });
+
+        [Fact]
+        public async Task Three_failed_pings_in_a_row_declare_the_socket_dead_and_it_reconnects()
+        {
+            // The rule: one failure can be a transient buffer issue, three in a row is a
+            // half-open connection after a NAT timeout. On a user-data stream that is the
+            // difference between hearing about your fills and silently missing them, so
+            // "three" is the contract, not "eventually". Every ping fails here, on a socket
+            // that stays open, which only the HeartbeatWriter seam can arrange.
+            var secondConnection = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var server = SilentServer(n => { if (n == 2) secondConnection.TrySetResult(); });
+
+            int attempts = 0;
+            var pingsWhenDeclaredDead = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var client = new ReconnectingWebSocket(server.Url,
+                heartbeatInterval: TimeSpan.FromMilliseconds(20),
+                reconnectBaseDelay: TimeSpan.FromMilliseconds(10));
+            client.HeartbeatWriter = (_, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                throw new IOException("simulated: the send never reaches the far end");
+            };
+            client.OnError(msg =>
+            {
+                if (msg.StartsWith("Heartbeat failed", StringComparison.Ordinal))
+                    pingsWhenDeclaredDead.TrySetResult(Volatile.Read(ref attempts));
+            });
+            await client.ConnectAsync();
+
+            Assert.Equal(ReconnectingWebSocket.MaxConsecutiveHeartbeatFailures,
+                await pingsWhenDeclaredDead.Task.WaitAsync(Ceiling));
+            Assert.Equal(3, ReconnectingWebSocket.MaxConsecutiveHeartbeatFailures);
+            // …and "declared dead" means the socket is dropped and a new one is made.
+            await secondConnection.Task.WaitAsync(Ceiling);
+        }
+
+        [Fact]
+        public async Task A_ping_that_gets_through_resets_the_count()
+        {
+            // Failures that are not CONSECUTIVE must never add up to a dead verdict: two
+            // failures, a success, two more failures is a working connection. The sixth
+            // attempt is the third failure in a row, and only that one may condemn it.
+            await using var server = SilentServer(_ => { });
+
+            int attempts = 0;
+            var pingsWhenDeclaredDead = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using var client = new ReconnectingWebSocket(server.Url,
+                heartbeatInterval: TimeSpan.FromMilliseconds(20));
+            client.HeartbeatWriter = (_, _) =>
+            {
+                int n = Interlocked.Increment(ref attempts);
+                if (n == 3) return Task.CompletedTask;           // the one that gets through
+                throw new IOException($"simulated failure on ping {n}");
+            };
+            client.OnError(msg =>
+            {
+                if (msg.StartsWith("Heartbeat failed", StringComparison.Ordinal))
+                    pingsWhenDeclaredDead.TrySetResult(Volatile.Read(ref attempts));
+            });
+            await client.ConnectAsync();
+
+            Assert.Equal(6, await pingsWhenDeclaredDead.Task.WaitAsync(Ceiling));
+        }
+
         // ── Reads ────────────────────────────────────────────────────────────
 
         [Fact]

@@ -51,11 +51,9 @@ namespace AccessibleTrader.Tests
 
     /// <summary>
     /// <b>A component nobody has vetted is never offered as a strategy leaf.</b>
-    /// A2p CC1: making <c>CausalityContract.IsPublishable</c> accept Undeclared left the suite green.
-    /// In this repo nothing calls it — <c>SignalCatalog</c> asks <c>RefusalReason</c> — but it is
-    /// public SDK surface for plugin authors, and the two answering differently is exactly the
-    /// "assume causal" fake-edge the contract exists to refuse. So: Undeclared and Lookahead are
-    /// refused by BOTH, Causal is accepted by both.
+    /// A2p CC1 mutated <c>CausalityContract.IsPublishable</c>, which had no caller; it was deleted
+    /// on 2026-09-28. <c>RefusalReason</c> is the question <c>SignalCatalog</c> actually asks, so
+    /// that is what is pinned: Undeclared and Lookahead are refused, Causal is accepted.
     /// </summary>
     public class CausalityPublicationContractTests
     {
@@ -63,13 +61,12 @@ namespace AccessibleTrader.Tests
         [InlineData(ComponentCausality.Undeclared, false)]
         [InlineData(ComponentCausality.Lookahead, false)]
         [InlineData(ComponentCausality.Causal, true)]
-        public void Only_a_declared_causal_component_is_publishable_and_both_questions_agree(
+        public void Only_a_declared_causal_component_is_publishable(
             ComponentCausality declared, bool publishable)
         {
             var indicator = new IndicatorMetadata { Causality = declared };
             var component = new IndicatorComponentMetadata();
 
-            Assert.Equal(publishable, CausalityContract.IsPublishable(indicator, component));
             Assert.Equal(publishable, CausalityContract.RefusalReason(indicator, component) == null);
         }
     }

@@ -69,14 +69,14 @@ namespace AccessibleTrader.Sdk.Trading
             // Lightning" contains "BTC" and sent lnbc1… invoices to the 1/3/bc1
             // check. Kraken explicitly issues both.
             if (Looks(net, "LIGHTNING", "LNBC"))     return Lightning(address);
-            if (Looks(net, "TRON", "TRC20"))         return Base58Check(address, "a Tron address", expectPrefix: "T");
+            if (Looks(net, "TRON", "TRC20"))         return Base58Check(address, "a Tron address", TronBase58, expectPrefix: "T");
             // Bitcoin Cash tokenizes to {BITCOIN, CASH, BCH} — caught before the
             // BITCOIN family so a CashAddr is not misjudged by the wrong rules.
             if (Looks(net, "BCH"))
                 return new(AddressCheck.Unknown,
                     "no local format check exists for Bitcoin Cash — verify the address against the venue itself");
             if (Looks(net, "BITCOIN", "BTC", "XBT")) return Bitcoin(address);
-            if (Looks(net, "LITECOIN", "LTC"))       return Bech32Or58(address, "ltc", "the Litecoin network");
+            if (Looks(net, "LITECOIN", "LTC"))       return Bech32Or58(address, "ltc", "a Litecoin address", LitecoinBase58);
 
             if (Looks(net, "ETH", "ERC20", "ETHEREUM", "BASE", "ARBITRUM", "OPTIMISM",
                            "POLYGON", "MATIC", "BSC", "BEP20", "AVAX", "AVALANCHE"))
@@ -107,15 +107,15 @@ namespace AccessibleTrader.Sdk.Trading
             if (a.StartsWith("bc1", StringComparison.OrdinalIgnoreCase))
                 return Bech32(a, "bc");
             if (a.StartsWith('1') || a.StartsWith('3'))
-                return Base58Check(a, "a Bitcoin address");
+                return Base58Check(a, "a Bitcoin address", BitcoinBase58);
             return new(AddressCheck.Malformed,
                 "not a Bitcoin address — it should start with 1, 3 or bc1");
         }
 
-        private static AddressValidation Bech32Or58(string a, string hrp, string what) =>
+        private static AddressValidation Bech32Or58(string a, string hrp, string what, Base58Network network) =>
             a.StartsWith(hrp + "1", StringComparison.OrdinalIgnoreCase)
                 ? Bech32(a, hrp)
-                : Base58Check(a, what);
+                : Base58Check(a, what, network);
 
         private static AddressValidation EvmHex(string a, string net)
         {
@@ -247,7 +247,25 @@ namespace AccessibleTrader.Sdk.Trading
 
         private const string Base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-        internal static AddressValidation Base58Check(string address, string what, string? expectPrefix = null)
+        /// <summary>
+        /// Which version bytes a network's base58check addresses may carry. The checksum proves
+        /// a string was not mistyped; only the version byte says which network it belongs to.
+        /// Until 2026-09-28 nothing read it, so a Bitcoin "1…" address offered for a Litecoin
+        /// withdrawal was announced as VERIFIED. Every address here carries a 20-byte hash, so
+        /// the payload (version + hash) is 21 bytes.
+        /// </summary>
+        internal sealed record Base58Network(string Name, params byte[] Versions);
+
+        private static readonly Base58Network TronBase58 = new("Tron", 0x41);
+        private static readonly Base58Network BitcoinBase58 = new("Bitcoin", 0x00, 0x05);
+        // Litecoin P2PKH 'L' (0x30), P2SH 'M' (0x32), and the legacy P2SH '3' (0x05) it kept
+        // from Bitcoin, which some venues still issue; a '3' address is valid on both networks.
+        private static readonly Base58Network LitecoinBase58 = new("Litecoin", 0x30, 0x32, 0x05);
+
+        private const int Base58PayloadBytes = 21;
+
+        internal static AddressValidation Base58Check(string address, string what, Base58Network network,
+            string? expectPrefix = null)
         {
             if (expectPrefix != null && !address.StartsWith(expectPrefix, StringComparison.Ordinal))
                 return new(AddressCheck.Malformed, $"{what} should start with '{expectPrefix}'");
@@ -264,10 +282,20 @@ namespace AccessibleTrader.Sdk.Trading
             byte[] given = decoded[^4..];
             byte[] want = SHA256.HashData(SHA256.HashData(payload))[..4];
 
-            return given.SequenceEqual(want)
-                ? new(AddressCheck.Verified, $"base58check checksum verified for {what}")
-                : new(AddressCheck.Malformed,
+            if (!given.SequenceEqual(want))
+                return new(AddressCheck.Malformed,
                     "the base58 checksum does not match — this address is corrupt or was mistyped");
+
+            if (payload.Length != Base58PayloadBytes)
+                return new(AddressCheck.Malformed,
+                    $"{what} has the wrong length — the checksum is valid but no {network.Name} address is this size");
+
+            if (!network.Versions.Contains(payload[0]))
+                return new(AddressCheck.Malformed,
+                    $"this is not a {network.Name} address — its version byte belongs to another network. "
+                  + "Check you picked the right network");
+
+            return new(AddressCheck.Verified, $"base58check checksum and version verified for {what}");
         }
 
         private static byte[]? DecodeBase58(string s)

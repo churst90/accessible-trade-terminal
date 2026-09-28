@@ -36,15 +36,23 @@ namespace AccessibleTrader.Sdk.Services
         /// Serialises every write to the socket.
         ///
         /// <para>
-        /// <see cref="ClientWebSocket.SendAsync(ArraySegment{byte}, WebSocketMessageType, bool, CancellationToken)"/>
-        /// does not permit overlapping calls — the second throws
-        /// <c>InvalidOperationException("There is already one outstanding 'SendAsync' call")</c>.
-        /// This class has two independent writers: <see cref="HeartbeatLoopAsync"/> on its own
-        /// timer, and whatever caller is sending a subscribe. A symbol switch that lands on the
-        /// heartbeat tick therefore lost the subscribe — and the exception surfaced on the
-        /// caller's path, not the socket's, so the symptom was a chart that simply never
-        /// updated. The class doc used to claim <see cref="SendAsync"/> was "safe to call from
-        /// any thread", which made the bug harder to find than no comment at all.
+        /// <see cref="ClientWebSocket"/>'s documented contract allows one outstanding send at a
+        /// time, and this class has two independent writers: <see cref="HeartbeatLoopAsync"/> on
+        /// its own timer, and whatever caller is sending a subscribe. This lock keeps the class
+        /// inside that contract.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>Corrected 2026-09-28.</b> This comment used to say an overlapping send THROWS
+        /// ("There is already one outstanding 'SendAsync' call") and that a subscribe landing on
+        /// a heartbeat tick was lost that way. On .NET 10 it does not throw. A2p held eight 2 MB
+        /// sends in flight against a server that was not reading and removed this lock: nothing
+        /// failed, because the runtime's <c>ManagedWebSocket</c> queues a second send behind
+        /// its own <c>_sendMutex</c> (<c>SendFrameFallbackAsync</c>). The Windows and Linux .NET
+        /// 10.0.9 runtimes ship that same managed implementation (checked in the assemblies,
+        /// with no WinHTTP path), so the answer is the same on Windows, though only Linux was
+        /// run. The queueing is an implementation detail and the documented contract is not, so
+        /// the lock stays. It costs nothing measurable.
         /// </para>
         /// </summary>
         private readonly SemaphoreSlim _sendLock = new(1, 1);
@@ -62,6 +70,16 @@ namespace AccessibleTrader.Sdk.Services
         // format (MEXC spot: {"method":"PING"}) override it so idle sockets aren't
         // dropped for sending an unrecognised frame.
         private string _heartbeatMessage = "ping";
+
+        /// <summary>
+        /// How the heartbeat writes its keepalive. Always <see cref="SendFrameAsync"/> in
+        /// production; nothing outside tests assigns it. It exists because the "three failed
+        /// pings and the socket is presumed dead" rule is otherwise untestable: a real socket
+        /// cannot be made to fail sends while staying open, and a closed one never reaches the
+        /// heartbeat's send at all. A2p's W04 (declaring death one failure late) survived for
+        /// exactly that reason.
+        /// </summary>
+        internal Func<byte[], CancellationToken, Task> HeartbeatWriter;
 
         /// <summary>Current connection state.</summary>
         public bool IsConnected => _ws?.State == WebSocketState.Open;
@@ -83,6 +101,7 @@ namespace AccessibleTrader.Sdk.Services
             _heartbeatInterval = heartbeatInterval == default ? TimeSpan.FromSeconds(30) : heartbeatInterval;
             _reconnectBaseDelay = reconnectBaseDelay == default ? TimeSpan.FromSeconds(2) : reconnectBaseDelay;
             _maxReconnectAttempts = maxReconnectAttempts;
+            HeartbeatWriter = SendFrameAsync;
         }
 
         /// <summary>Register a callback invoked after each (re)connection succeeds. Use to send auth/subscribe messages.</summary>
@@ -174,9 +193,9 @@ namespace AccessibleTrader.Sdk.Services
         }
 
         /// <summary>
-        /// Send a text message. Safe to call from any thread — writes are serialised through
-        /// <see cref="_sendLock"/>, without which an overlapping heartbeat would make this
-        /// throw and the message would silently never go. See that field for the full story.
+        /// Send a text message. Safe to call from any thread: writes are serialised through
+        /// <see cref="_sendLock"/>, which keeps an overlapping heartbeat within the socket's
+        /// one-send-at-a-time contract. See that field.
         /// </summary>
         public async Task SendAsync(string message, CancellationToken ct = default)
         {
@@ -352,7 +371,7 @@ namespace AccessibleTrader.Sdk.Services
                         // (an earlier bug) produced an empty frame that some exchanges treat
                         // as a no-op; idle sockets would then time out and force a reconnect.
                         var pingBytes = Encoding.UTF8.GetBytes(_heartbeatMessage);
-                        await SendFrameAsync(pingBytes, ct).ConfigureAwait(false);
+                        await HeartbeatWriter(pingBytes, ct).ConfigureAwait(false);
                         consecutiveFailures = 0;
                     }
                 }

@@ -120,13 +120,26 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > **START HERE (current as of 2026-09-25, EIGHTY-FIRST pass — THE LOAD-ONLY FLAKES, THEN A2p.)**
 > Suite **8,238** listed (8,243 run), browser **232**, 0 failing. CHANGES `[Unreleased]` has both entries.
 >
-> **A2p, the Sdk: honest 24/48 (50.0%), 23/24 survivors closed, no flake catches.** One real defect
-> fixed (a SegWit v0 address with the taproot checksum read as Verified). **Decisions for Cody:**
-> (1) W04, the heartbeat's "three failed pings" rule, needs a production test seam to be testable:
-> add one, or accept it untested? (2) `CausalityContract.IsPublishable` has no caller: keep or
-> delete? **Unverified:** the `_sendLock` comment says overlapping sends throw (false on .NET 10 /
-> Linux, Windows unchecked); Tron's version byte is not checked. **Not yet mutated:** StrategyLab
-> (25,804 lines), `Services/Accessibility` beyond A2j.
+> **A2p, the Sdk: honest 24/48 (50.0%), 24/24 survivors closed, no flake catches.** Cody's
+> decisions done 09-28: the heartbeat seam is in (W04 closed); `CausalityContract.IsPublishable`
+> is deleted; base58 addresses now check version byte and length (four live defects, incl. a
+> Bitcoin address VERIFIED for a Litecoin withdrawal); the `_sendLock` comment is corrected
+> (the Windows runtime ships the same managed WebSocket, checked by inspection).
+>
+> **NEXT: A2q, `Services/Accessibility`. The target list is in `scratchpad/a2q_SURVEY.md`.**
+> - Scale: 49 files, 15,902 lines, 26 files never mutated.
+> - Five files have no direct test at all: NavigationEngine, ViewportManager,
+>   SeriesNavigationRegistry, NotificationHub, HistoryBufferCoordinator.
+> - The survey lists 49 ranked mutants, with the unguarded alert delivery and chart-edge silence
+>   at the top.
+> - **Two defects confirmed by reading, not yet demonstrated:** a monthly chart is described as
+>   "1 minute" (`ChartLayoutDescriber.SpokenTimeframe`), and the detail key's Bollinger-squeeze
+>   and MACD-cross facts are always empty (they read `Upper`/`Lower`/`MACD`, but providers emit
+>   `UpperBand`/`LowerBand`/`Macd`).
+> - **Decision for Cody:** QUICKSTART says F2 silences what you asked for and Shift+F2 silences
+>   narration, but the code's F2 also silences bar-close narration. Which is intended?
+>
+> **Not yet mutated:** StrategyLab (25,804 lines).
 >
 > **Done:** three flake causes, each forced to fail on demand, fixed and guarded. (1) bUnit's
 > synchronous triggers returned before the handler ran whenever the renderer was busy. All 204
