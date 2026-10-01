@@ -248,6 +248,10 @@ namespace AccessibleTrader.Core.Services.Accessibility.Dotpad
             {
                 DotPadDiagnostics.Log($"Display reset threw (non-fatal): {ex.GetType().Name}: {ex.Message}");
             }
+            // The strip is blank now, whatever it showed before an unplug, so the first text sent
+            // must not be skipped as a repeat of what the device no longer shows (A2q, 2026-10-01;
+            // BrailleDisplayKeysAndToggleTests).
+            _lastBrailleText = null;
 
             // Ask the device for its friendly name so the connect announcement can
             // use it. The reply arrives asynchronously via the message callback

@@ -1,0 +1,9 @@
+{
+ "commit": "87a4c257",
+ "date": "2026-10-01",
+ "csharp_total": 8289,
+ "csharp_failed": 0,
+ "browser_total": 233,
+ "browser_failed": 0,
+ "source": "scratchpad/a2q_baseline.sh on the unmutated worktree; logs a2q_baseline_csharp.log / a2q_baseline_browser.log"
+}

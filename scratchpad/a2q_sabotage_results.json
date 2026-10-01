@@ -1,0 +1,262 @@
+[
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 2,
+   "passed": 8287,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)",
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)"
+   ],
+   "messages": {
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)": "Assert.Empty() Failure: Collection was not empty",
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)": "Assert.Empty() Failure: Collection was not empty"
+   },
+   "no_match": false,
+   "status": "CAUGHT"
+  },
+  "status": "CAUGHT",
+  "layer": "C#",
+  "id": "C01",
+  "area": "new-bar sentence back on Event (Shift+F2) instead of Narration (F2)",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);\n\n            // Reset intra-bar debounce",
+  "replace": "                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);\n\n            // Reset intra-bar debounce",
+  "rationale": "F2 no longer silences new-bar announcements and Shift+F2 does \u2014 the decision reversed",
+  "tree": "t1",
+  "seconds": 251,
+  "attempt": 0
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 2,
+   "passed": 8287,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration",
+    "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent"
+   ],
+   "messages": {
+    "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration": "Assert.Single() Failure: The collection was empty",
+    "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent": "Assert.Equal() Failure: Values differ"
+   },
+   "no_match": false,
+   "status": "CAUGHT"
+  },
+  "status": "CAUGHT",
+  "layer": "C#",
+  "id": "C02",
+  "area": "bar-close narration utterance on Event instead of Narration",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AutoNarrationService.cs",
+  "find": "_speechRouter.Speak(whole, interrupt: false, channel: SpeechChannel.Narration);",
+  "replace": "_speechRouter.Speak(whole, interrupt: false, channel: SpeechChannel.Event);",
+  "rationale": "signals on bar close keep talking under F2 and are muted by Shift+F2",
+  "tree": "t2",
+  "seconds": 240,
+  "attempt": 0
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 0,
+   "passed": 8289,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 233,
+   "skipped": 0,
+   "total": 233,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "status": "SURVIVED",
+  "id": "C03",
+  "area": "forming candle commentary on Event instead of Narration",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "                    _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Narration);",
+  "replace": "                    _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);",
+  "rationale": "'forming hammer' commentary talks through F2",
+  "tree": "t3",
+  "seconds": 602,
+  "attempt": 0
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 0,
+   "passed": 8289,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 233,
+   "skipped": 0,
+   "total": 233,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "status": "SURVIVED",
+  "id": "C04",
+  "area": "forming chart formation on Chart (loses narration priority)",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "            _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);\n            return true;",
+  "replace": "            _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Chart);\n            return true;",
+  "rationale": "the next arrow key cuts a forming double-top sentence off mid-word",
+  "tree": "t2",
+  "seconds": 588,
+  "attempt": 0
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 0,
+   "passed": 8289,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 233,
+   "skipped": 0,
+   "total": 233,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "status": "SURVIVED",
+  "id": "C05",
+  "area": "an ordinary price alert spoken on Chart (F2) instead of Event",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "channel: pierce ? SpeechChannel.Critical : SpeechChannel.Event);",
+  "replace": "channel: pierce ? SpeechChannel.Critical : SpeechChannel.Chart);",
+  "rationale": "muting chart navigation with F2 also silences every price alert",
+  "tree": "t1",
+  "seconds": 582,
+  "attempt": 0
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 0,
+   "passed": 8289,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [],
+   "messages": {},
+   "no_match": false,
+   "status": "SURVIVED"
+  },
+  "browser": {
+   "failed": 2,
+   "passed": 231,
+   "skipped": 0,
+   "total": 233,
+   "failing": [
+    "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced",
+    "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so"
+   ],
+   "messages": {
+    "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced": "F2 said:  | My Data does not offer 1h; timeframe set to 1d.",
+    "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so": "Assert.Contains() Failure: Filter not matched in collection"
+   },
+   "no_match": false,
+   "status": "CAUGHT"
+  },
+  "status": "CAUGHT",
+  "layer": "browser",
+  "id": "C06",
+  "area": "'Chart speech off' confirmation on Chart \u2014 muted by itself",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "\"Chart speech on\" : \"Chart speech off\",\n                    interrupt: true, channel: SpeechChannel.Critical);",
+  "replace": "\"Chart speech on\" : \"Chart speech off\",\n                    interrupt: true, channel: SpeechChannel.Chart);",
+  "rationale": "pressing F2 is answered by silence: the user cannot tell muted from a dead key",
+  "tree": "t3",
+  "seconds": 534,
+  "attempt": 0
+ },
+ {
+  "id": "C07",
+  "area": "'Alerts and events muted' confirmation on Event \u2014 muted by itself",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "\"Alerts and events on\" : \"Alerts and events muted\",\n                    interrupt: true, channel: SpeechChannel.Critical);",
+  "replace": "\"Alerts and events on\" : \"Alerts and events muted\",\n                    interrupt: true, channel: SpeechChannel.Event);",
+  "rationale": "Shift+F2 is answered by silence",
+  "tree": "t2",
+  "status": "INTERRUPTED",
+  "note": "2026-10-01 ~00:50: run killed mid-mutant on the coordinator's instruction (test runs were playing sound on Cody's desktop). Tree file restored from its byte backup by a2q_restore_trees.py. Not scored; re-queued on resume."
+ },
+ {
+  "occurrences": 1,
+  "csharp": {
+   "failed": 1,
+   "passed": 8288,
+   "skipped": 0,
+   "total": 8289,
+   "failing": [
+    "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon"
+   ],
+   "messages": {
+    "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon": "Assert.Equal() Failure: Values differ"
+   },
+   "no_match": false,
+   "status": "CAUGHT"
+  },
+  "status": "CAUGHT",
+  "layer": "C#",
+  "id": "C08",
+  "area": "'chart failed to load' on Chart",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "_speechRouter.Speak(failMsg, interrupt: true, channel: SpeechChannel.Critical);",
+  "replace": "_speechRouter.Speak(failMsg, interrupt: true, channel: SpeechChannel.Chart);",
+  "rationale": "with F2 on, a chart that fails to load says nothing",
+  "tree": "t1",
+  "seconds": 238,
+  "attempt": 0
+ },
+ {
+  "id": "C09",
+  "area": "'Removed X' confirmation on Chart instead of Interface",
+  "file": "AccessibleTrader.Core/Services/Accessibility/NavigationEngine.cs",
+  "find": "$\"Removed {s.Name}\", Channel: SpeechChannel.Interface));",
+  "replace": "$\"Removed {s.Name}\"));",
+  "rationale": "Delete on a series under F2 removes it silently",
+  "tree": "t1",
+  "status": "INTERRUPTED",
+  "note": "2026-10-01 ~00:50: run killed mid-mutant on the coordinator's instruction (test runs were playing sound on Cody's desktop). Tree file restored from its byte backup by a2q_restore_trees.py. Not scored; re-queued on resume."
+ },
+ {
+  "id": "C10",
+  "area": "margin/liquidation warning on Event (Shift+F2) instead of OrderEvent",
+  "file": "AccessibleTrader.Core/Services/Accessibility/AccessibilityFeedbackCoordinator.cs",
+  "find": "_speechRouter.Speak(e.Message, interrupt: true, channel: SpeechChannel.OrderEvent);",
+  "replace": "_speechRouter.Speak(e.Message, interrupt: true, channel: SpeechChannel.Event);",
+  "rationale": "Shift+F2 mutes the warning that a leveraged position is near liquidation",
+  "tree": "t3",
+  "status": "INTERRUPTED",
+  "note": "2026-10-01 ~00:50: run killed mid-mutant on the coordinator's instruction (test runs were playing sound on Cody's desktop). Tree file restored from its byte backup by a2q_restore_trees.py. Not scored; re-queued on resume."
+ }
+]

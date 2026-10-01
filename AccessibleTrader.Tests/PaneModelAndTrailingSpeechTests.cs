@@ -74,6 +74,28 @@ public sealed class PaneModelAndTrailingSpeechTests
         Assert.Equal(new[] { "candles", "price" }, panes[0].Series.Select(s => s.Id).ToArray());
     }
 
+    /// <summary>
+    /// Exactly three panes with Main declared LAST — the one shape the test above does not have.
+    /// A2q survey §4 item 7, suspected 2026-09-28 and demonstrated 2026-10-01: the Main-first
+    /// sort was <c>List.Sort</c>, which is unstable, and for three elements .NET sorts with a
+    /// fixed compare-and-swap network that exchanges the first and third. "Main first" held,
+    /// and the two indicator panes came out SWAPPED: Page Down from the candles went to MACD
+    /// before RSI while the chart drew RSI above MACD, and Shift+F1 called RSI "3 of 3".
+    /// </summary>
+    [Fact]
+    public void Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order()
+    {
+        var series = ImmutableList.Create(
+            Series("rsi", "RSI", "Pane_RSI", ("RSI", null)),
+            Series("macd", "MACD", "Pane_MACD", ("MACD", null)),
+            Series("candles", "Candles", "Main", ("Close", null)));
+
+        Assert.Equal(new[] { "Main", "Pane_RSI", "Pane_MACD" },
+            ChartPaneModel.Panes(series).Select(p => p.Key).ToArray());
+        Assert.Equal(new[] { "candles", "rsi", "macd" },
+            ChartPaneModel.SeriesInVisualOrder(series).Select(s => s.Id).ToArray());
+    }
+
     [Fact]
     public void Series_in_visual_order_puts_both_Main_series_before_the_indicator()
     {

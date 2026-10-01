@@ -86,16 +86,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 bucket.Add(s);
             }
 
-            // Main is drawn first whether or not it was declared first.
-            order.Sort((a, b) =>
-            {
-                bool aMain = a.Equals(MainPaneKey, StringComparison.OrdinalIgnoreCase);
-                bool bMain = b.Equals(MainPaneKey, StringComparison.OrdinalIgnoreCase);
-                if (aMain == bMain) return 0;
-                return aMain ? -1 : 1;
-            });
-
+            // Main is drawn first whether or not it was declared first, and every other pane keeps
+            // its first-appearance order. OrderBy, not List.Sort: List.Sort is unstable, and with
+            // exactly three panes and Main declared last it swapped the other two (A2q, 2026-10-01;
+            // PaneModelAndTrailingSpeechTests).
             return order
+                .OrderBy(k => k.Equals(MainPaneKey, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
                 .Select(k => new PaneInfo(k, DisplayName(k, groups[k]), groups[k]))
                 .ToList();
         }

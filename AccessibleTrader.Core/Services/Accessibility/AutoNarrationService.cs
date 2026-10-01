@@ -74,6 +74,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         private void OnStateChanged(WorkspaceState state)
         {
+            // Before seeding: a series switched on in this same emission is seeded in the NEW
+            // indexing and must not be shifted again.
+            NoteOlderHistoryPrepended(state);
+
             var currentIds = new HashSet<string>(
                 state.ActiveSeries.Where(s => s.IsAutoNarrated).Select(s => s.Id));
 
@@ -90,6 +94,53 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 _scanner.Forget(id);
 
             _prevNarratedIds = currentIds;
+        }
+
+        // ── Older history arriving in front ──────────────────────────────────────
+
+        private ChartIdentity _lastIdentity;
+        private DateTime? _firstBarDate;
+
+        /// <summary>
+        /// Older bars were loaded IN FRONT of the chart (a scroll-back backfill), so every bar
+        /// index moved right by the number that arrived. Tell the scanner, whose memory of what
+        /// it has said is kept by index, and move the bar count the next scan compares against.
+        ///
+        /// <para>
+        /// Found by A2q (2026-10-01), suspected by its survey. Nothing did this: the scanner's
+        /// <c>ShiftIndices</c> existed for the headless buffer, which trims from the front, and
+        /// the in-session store was assumed only ever to grow at the END. It also grows at the
+        /// front. The redraw after the backfill took the jump in count for a bar close and
+        /// narrated a bar from deep in the loaded history as though it had just closed, and the
+        /// next real close re-announced the signal the user had already heard, under its new
+        /// index. HistoryBackfillNarrationTests.
+        /// </para>
+        ///
+        /// <para>
+        /// Same chart only. A new symbol or timeframe can start earlier too, and its bars are not
+        /// these bars moved.
+        /// </para>
+        /// </summary>
+        private void NoteOlderHistoryPrepended(WorkspaceState state)
+        {
+            var data = state.Data;
+            DateTime? first = data is { Count: > 0 } ? data[0].Date : null;
+
+            if (state.Identity == _lastIdentity && first.HasValue && _firstBarDate.HasValue
+                && first.Value < _firstBarDate.Value)
+            {
+                int added = -1;
+                for (int i = 0; i < data!.Count; i++)
+                    if (data[i].Date == _firstBarDate.Value) { added = i; break; }
+                if (added > 0)
+                {
+                    _scanner.ShiftIndices(-added);
+                    if (_lastDataCount > 0) _lastDataCount += added;
+                }
+            }
+
+            _lastIdentity = state.Identity;
+            _firstBarDate = first;
         }
 
         // ── RedrawEvent: scan for new signals ────────────────────────────────────
