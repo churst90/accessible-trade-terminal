@@ -91,6 +91,20 @@ public sealed class ErrorAndStatusAnnouncementTests
         Assert.Contains("Order placed: buy 0.1 BTCUSD.", h.Spoken);
     }
 
+    // ── A leveraged position near liquidation ────────────────────────────────
+
+    [Fact]
+    public void A_margin_warning_is_heard_with_alerts_and_events_muted()
+    {
+        // Money about to be taken. Shift+F2 quietens alerts and monitoring; a position drifting
+        // toward liquidation is an order outcome, which breaks through both mutes by default.
+        var h = new Harness(chartSpeech: false, eventSpeech: false);
+        h.Bus.Publish(new MarginWarningEvent("BTCUSD", 0.12,
+            "Margin warning for BTCUSD. Liquidation is 3 percent away."));
+
+        Assert.Contains("Margin warning for BTCUSD. Liquidation is 3 percent away.", h.Spoken);
+    }
+
     // ── Connection status ────────────────────────────────────────────────────
 
     [Fact]

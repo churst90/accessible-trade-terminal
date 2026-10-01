@@ -41,7 +41,13 @@ OUT = os.path.join(REPO, "scratchpad", "a2q_sabotage_results.json")
 BASELINE_OUT = os.path.join(REPO, "scratchpad", "a2q_tree_baseline.json")
 CONTROL_OUT = os.path.join(REPO, "scratchpad", "a2q_control.json")
 TREES_ROOT = "/home/cody/.cache/a2q-trees"
-BASE_COMMIT = "87a4c257"
+BASE_COMMIT = "522e02d4"
+# The trees are copied from an archive export of BASE_COMMIT, NOT from the worktree: the
+# worktree carries this campaign's new tests and production fixes, and mutants must be scored
+# against the suite as it stood. (Resumed 2026-10-01 after the pause; 87a4c257 before it.)
+SOURCE = "/home/cody/.cache/a2q-trees/src"
+QUIET_FILTER = "FullyQualifiedName~QuietDesktopTests"
+QUIET_EXPECTED = 5
 N_TREES = 3
 SUMMARY_RE = re.compile(r"Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+),\s+Total:\s+(\d+)")
 FAILED_LINE_RE = re.compile(r"^\s+Failed (.+?) \[[^\]]*\]\s*$", re.M)
@@ -110,7 +116,7 @@ def bpath(i, rel):
     return os.path.join(backup_dir(i), rel.replace("/", "__"))
 
 
-def verify(root=REPO):
+def verify(root=SOURCE):
     ok = True
     for mid, area, rel, find, repl, _ in MUTANTS:
         path = os.path.join(root, rel)
@@ -139,7 +145,7 @@ def setup():
         t = tree_path(i)
         os.makedirs(t, exist_ok=True)
         code, out = run(f"rsync -a --delete --exclude bin/ --exclude obj/ --exclude .git "
-                        f"--exclude scratchpad/ ./ {t}/", REPO)
+                        f"--exclude scratchpad/ ./ {t}/", SOURCE)
         assert code == 0, out
         os.makedirs(os.path.join(t, "scratchpad"), exist_ok=True)
         rec = {}
@@ -147,6 +153,15 @@ def setup():
         if not ok:
             with lock: results[i] = {'build': False, 'log': log[-2000:]}
             return
+        # The silence guard FIRST: never run a suite in a tree that would play sound on the
+        # desktop (the 2026-10-01 pause).
+        q = parse(test(t, QUIET_FILTER)[1])
+        rec['quiet'] = {k: q[k] for k in ('failed', 'passed', 'total', 'no_match')}
+        if q['failed'] != 0 or q['passed'] != QUIET_EXPECTED or q['no_match']:
+            with lock: results[i] = rec
+            print(f"tree t{i}: QuietDesktopTests NOT {QUIET_EXPECTED}/{QUIET_EXPECTED}: {rec['quiet']} — STOP", flush=True)
+            return
+        print(f"tree t{i}: QuietDesktopTests {q['passed']}/{q['total']} pass", flush=True)
         p = parse(test(t)[1])
         rec['csharp'] = {k: p[k] for k in ('failed', 'passed', 'skipped', 'total', 'failing')}
         ok, log = build(t, BR_PROJ)
@@ -165,7 +180,7 @@ def setup():
     for th in ths: th.join()
     json.dump({'worktree_csharp_total': cs_total, 'worktree_browser_total': br_total, 'trees': results},
               open(BASELINE_OUT, 'w'), indent=1)
-    good = all('browser' in r and r['csharp']['failed'] == 0 and r['csharp']['total'] == cs_total
+    good = len(results) == N_TREES and all('browser' in r and r['csharp']['failed'] == 0 and r['csharp']['total'] == cs_total
                and r['browser']['failed'] == 0 and r['browser']['total'] == br_total
                for r in results.values())
     print("all trees baselined green" if good else "BASELINE PROBLEM", flush=True)
@@ -177,7 +192,7 @@ def score_run(out, baseline_total, filt):
     rec = {k: p[k] for k in ('failed', 'passed', 'skipped', 'total', 'failing', 'messages', 'no_match')}
     if p['failed'] < 0:
         rec['status'] = 'UNPARSED'; rec['log'] = out[-2000:]
-    elif filt is None and p['failed'] + p['passed'] < baseline_total:
+    elif filt is None and p['failed'] + p['passed'] + p['skipped'] < baseline_total:
         rec['status'] = 'ABORTED'; rec['log'] = out[-2000:]
     elif filt is not None and p['no_match']:
         rec['status'] = 'NO_MATCH'
@@ -295,10 +310,9 @@ def control_and_restore_check():
         same = True
         for rel in sorted({m[2] for m in MUTANTS}):
             a = os.path.join(t, rel)
-            # Against the COMMITTED source (87a4c257), not the worktree: the worktree carries
+            # Against the exported source (BASE_COMMIT), not the worktree: the worktree carries
             # this campaign's production fixes, the trees deliberately do not.
-            head = subprocess.run(["git", "-C", REPO, "show", f"{BASE_COMMIT}:{rel}"],
-                                  capture_output=True).stdout
+            head = open(os.path.join(SOURCE, rel), 'rb').read()
             if open(a, 'rb').read() != head:
                 same = False; print(f"t{i}: {rel} DIFFERS from {BASE_COMMIT}")
             b = bpath(i, rel)
