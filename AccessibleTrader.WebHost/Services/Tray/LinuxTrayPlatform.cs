@@ -22,11 +22,12 @@ namespace AccessibleTrader.WebHost.Services.Tray
         public LinuxTrayPlatform(ILogger logger)
         {
             _logger = logger;
-            _gdbus = WebHostSpeechManager.FindOnPath("gdbus", File.Exists);
-            _spdSay = WebHostSpeechManager.FindOnPath("spd-say", File.Exists);
-            _clip = WebHostSpeechManager.FindOnPath("wl-copy", File.Exists)
-                 ?? WebHostSpeechManager.FindOnPath("xclip", File.Exists)
-                 ?? WebHostSpeechManager.FindOnPath("xsel", File.Exists);
+            var probe = DesktopOutput.FileProbe;
+            _gdbus = WebHostSpeechManager.FindOnPath("gdbus", probe);
+            _spdSay = WebHostSpeechManager.FindOnPath("spd-say", probe);
+            _clip = WebHostSpeechManager.FindOnPath("wl-copy", probe)
+                 ?? WebHostSpeechManager.FindOnPath("xclip", probe)
+                 ?? WebHostSpeechManager.FindOnPath("xsel", probe);
         }
 
         public bool Initialize(TrayModel model)
@@ -92,6 +93,7 @@ namespace AccessibleTrader.WebHost.Services.Tray
 
         private bool Run(string file, params string[] args)
         {
+            if (DesktopOutput.Suppressed) return false;   // xdg-open would raise a real browser
             try
             {
                 var psi = new ProcessStartInfo { FileName = file, UseShellExecute = false, CreateNoWindow = true };

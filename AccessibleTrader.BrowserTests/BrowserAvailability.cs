@@ -61,6 +61,23 @@ internal static class BrowserAvailability
 /// A <see cref="FactAttribute"/> that skips when this machine has no Chromium, so the browser
 /// sweep degrades to "did not run" instead of "failed 40 times for one reason".
 /// </summary>
+/// <summary>
+/// A browser test that attaches the machine's real assistive technology (Orca) to the page. Skipped
+/// unless <c>ATT_PROBE_WITH_SCREEN_READER=1</c>: run in the ordinary suite it hijacks the
+/// developer's screen reader and keyboard focus while they work.
+/// </summary>
+internal sealed class ScreenReaderProbeFactAttribute : FactAttribute
+{
+    public const string Variable = "ATT_PROBE_WITH_SCREEN_READER";
+
+    public ScreenReaderProbeFactAttribute()
+    {
+        if (BrowserAvailability.SkipReason is { } reason) Skip = reason;
+        else if (Environment.GetEnvironmentVariable(Variable) != "1")
+            Skip = $"Attaches your running screen reader to a hidden browser. Set {Variable}=1 to run it on purpose.";
+    }
+}
+
 internal sealed class BrowserFactAttribute : FactAttribute
 {
     public BrowserFactAttribute()

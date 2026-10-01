@@ -126,6 +126,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > Bitcoin address VERIFIED for a Litecoin withdrawal); the `_sendLock` comment is corrected
 > (the Windows runtime ships the same managed WebSocket, checked by inspection).
 >
+> **2026-10-01: test runs are silent on the desktop** (`DesktopOutput` switch, muted test Chromium,
+> the Orca-attaching probe opt-in via `ATT_PROBE_WITH_SCREEN_READER=1`). Any NEW code that launches a
+> local tool must take its probe from `DesktopOutput.FileProbe`. Still open: the browser probes
+> rewrite `scratchpad/` files on every run.
+>
 > **2026-10-01: F2 is the chart's mute (Cody's rule), and the two read-confirmed defects are fixed**
 > ("1M" spoken as minutes; the BB/MACD detail facts always empty). See CHANGES. **Ask Cody** whether
 > any Interface/Event/OrderEvent classification in that entry should move. In the survey's

@@ -48,7 +48,9 @@ public sealed class TerminalBrowserFixture : IAsyncLifetime
             // Chromium's sandbox needs user namespaces, which are not universally available on
             // developer boxes or CI containers. The page under test is a localhost app this
             // process just started, so there is nothing here the sandbox is protecting against.
-            Args = new[] { "--no-sandbox", "--disable-dev-shm-usage" },
+            // --mute-audio: headless Chromium still plays to the desktop's sound server, and the
+            // chart's tones reach it through the WebAudio fallback. A test run must be silent.
+            Args = new[] { "--no-sandbox", "--disable-dev-shm-usage", "--mute-audio" },
             // No AT-SPI bridge. Headless Chromium connects to the desktop's accessibility bus
             // when an assistive technology is running, and on a box where Orca is up — the
             // author's — Orca then READS the page it is handed: whenever focus falls to <body>

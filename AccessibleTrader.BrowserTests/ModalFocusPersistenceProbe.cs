@@ -326,7 +326,15 @@ public sealed class ModalFocusPersistenceProbe
     /// files side by side is the finding.
     /// </para>
     /// </summary>
-    [BrowserFact]
+    ///
+    /// <para>
+    /// <b>Opt-in since 2026-10-01</b> (<c>ATT_PROBE_WITH_SCREEN_READER=1</c>). With the bridge on,
+    /// the developer's own running Orca attaches to this invisible browser and follows its focus,
+    /// which on Cody's machine pulled his screen reader and keyboard away from whatever he was
+    /// doing every time the suite ran. A measurement that needs the user's screen reader is run on
+    /// purpose, not on every build.
+    /// </para>
+    [ScreenReaderProbeFact]
     public Task Where_is_focus_when_the_AT_SPI_bridge_is_left_ON() =>
         BridgeRunAsync(suppressBridge: false, "modal_focus_persistence_atspi");
 
@@ -363,7 +371,7 @@ public sealed class ModalFocusPersistenceProbe
             // NO_AT_BRIDGE is the ONE thing that varies between this run and its control.
             // --force-renderer-accessibility is passed by both, so Chromium builds the same full
             // AX tree either way and the only remaining difference is whether a client can attach.
-            Args = new[] { "--no-sandbox", "--disable-dev-shm-usage", "--force-renderer-accessibility" },
+            Args = new[] { "--no-sandbox", "--disable-dev-shm-usage", "--force-renderer-accessibility", "--mute-audio" },
             Env = suppressBridge
                 ? new Dictionary<string, string> { ["NO_AT_BRIDGE"] = "1" }
                 : null,

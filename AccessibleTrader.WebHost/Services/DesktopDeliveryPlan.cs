@@ -89,7 +89,7 @@ namespace AccessibleTrader.WebHost.Services
             : DesktopOs.Unknown;
 
         /// <summary>Build the plan for this machine.</summary>
-        public static DesktopDeliveryPlan ForCurrentMachine() => For(CurrentOs, File.Exists);
+        public static DesktopDeliveryPlan ForCurrentMachine() => For(CurrentOs, DesktopOutput.FileProbe);
 
         /// <summary>
         /// Build the plan for <paramref name="os"/>, asking <paramref name="fileExists"/> about
