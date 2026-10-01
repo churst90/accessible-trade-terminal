@@ -78,7 +78,7 @@ KILLS = [
     ("N02", "ChartKeyboardNavigationTests.Walking_left_near_the_start_of_the_loaded_data_asks_for_older_history"),
     ("N03", "ChartKeyboardNavigationTests.Page_Down_on_the_bottom_series_stays_there"),
     ("N04", "ChartKeyboardNavigationTests.Delete_on_the_candles_refuses_and_says_why"),
-    ("N05", "ChartKeyboardNavigationTests.Moving_to_another_series_starts_Up_and_Down_at_its_first_component"),
+    ("N05", "ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body"),
     ("V01", "ChartKeyboardNavigationTests.Pan_left_shows_earlier_bars_and_pan_right_shows_later_ones"),
     ("R01", "ChartKeyboardNavigationTests.Up_and_Down_on_a_volume_profile_walk_its_price_bins"),
     ("H01", "HistoryBackfillCoordinatorTests.Loading_another_chart_lets_backfill_work_again_after_no_more_history"),

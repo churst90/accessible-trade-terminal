@@ -244,6 +244,29 @@ public sealed class ChartKeyboardNavigationTests
         Assert.Equal(0, h.Store.State.FocusedComponentIndex);
     }
 
+    [Fact]
+    public void Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body()
+    {
+        // The engine's documented rule: after a series switch the Up/Down cycle starts at the
+        // FIRST component. The candles are the one series where that differs from the series
+        // reducer's own default (the Body), because their components are, top to bottom, upper
+        // wick, body, lower wick (CoreIndicatorProvider). A2q's N05 deleted the engine's reset
+        // and the cursor landed on the body instead; nothing noticed, because no test used the
+        // real candle roles. The two rules disagree: see "Decisions for Cody" in the A2q report.
+        var h = new Harness();
+        var cfg = h.Store.State.ActiveSeries.First(s => s.Id == "candles").Config;
+        cfg.Components.Clear();
+        foreach (var (name, role) in new[] { ("upper_wick", ComponentRole.PriceAction), ("body", ComponentRole.Body), ("lower_wick", ComponentRole.PriceAction) })
+            cfg.Components.Add(new ComponentConfig { Name = name, DisplayName = name, Role = role, IsVisible = true, IsEnabled = true });
+        h.AddSeries("rsi", "RSI 14", "Pane_RSI", "RSI");
+        h.Store.Dispatch(new SelectSeriesAction("rsi"));
+
+        h.Press("NAV_SERIES_PREV");
+
+        Assert.Equal("candles", h.Store.State.FocusedSeriesId);
+        Assert.Equal(0, h.Store.State.FocusedComponentIndex);
+    }
+
     // ── Delete ───────────────────────────────────────────────────────────────
 
     [Fact]

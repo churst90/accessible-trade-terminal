@@ -992,20 +992,24 @@
  {
   "id": "N05",
   "area": "series switch keeps the stale component index",
-  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Moving_to_another_series_starts_Up_and_Down_at_its_first_component",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body",
   "tree": "t1",
-  "mutant_status": "SURVIVED_CSHARP_ONLY",
-  "mutant_failed": 0,
-  "mutant_passed": 1,
-  "mutant_failing": [],
-  "mutant_messages": {},
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body": "Assert.Equal() Failure: Values differ"
+  },
   "mutant_no_match": false,
   "mutant_log": null,
   "control_failed": 0,
   "control_passed": 1,
   "control_failing": [],
   "control_no_match": false,
-  "status": "NOT_PROVED"
+  "status": "PROVED"
  },
  {
   "id": "P01",
