@@ -1,0 +1,68 @@
+{
+ "t1": {
+  "build": true,
+  "csharp": {
+   "failed": 0,
+   "passed": 8375,
+   "total": 8375,
+   "failing": []
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 232,
+   "skipped": 1,
+   "total": 233,
+   "failing": []
+  },
+  "quiet": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "restored_byte_identical": true
+ },
+ "t3": {
+  "build": true,
+  "csharp": {
+   "failed": 0,
+   "passed": 8375,
+   "total": 8375,
+   "failing": []
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 232,
+   "skipped": 1,
+   "total": 233,
+   "failing": []
+  },
+  "quiet": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "restored_byte_identical": true
+ },
+ "t2": {
+  "build": true,
+  "csharp": {
+   "failed": 0,
+   "passed": 8375,
+   "total": 8375,
+   "failing": []
+  },
+  "browser": {
+   "failed": 0,
+   "passed": 232,
+   "skipped": 1,
+   "total": 233,
+   "failing": []
+  },
+  "quiet": {
+   "failed": 0,
+   "passed": 5,
+   "total": 5
+  },
+  "restored_byte_identical": true
+ }
+}
