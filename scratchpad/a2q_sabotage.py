@@ -303,25 +303,28 @@ def control_and_restore_check():
 
     def one(i):
         t = tree_path(i)
+        # The control runs on the FINAL source: after the prove-kills the trees hold the worktree
+        # (main + this campaign's tests and fixes), so that is what "unmutated" means here, and it
+        # is what every tree is byte-compared against (rsync checksum dry-run: no file may differ).
+        code, diff = run(f"rsync -anc --exclude bin/ --exclude obj/ --exclude .git --exclude scratchpad/ "
+                         f"--out-format='%n' ./ {t}/", REPO)
+        changed = [l for l in diff.splitlines() if l and not l.endswith('/')]
+        same = code == 0 and not changed
+        for l in changed:
+            print(f"t{i}: {l} DIFFERS from the worktree")
         ok, _ = build(t)
+        q = parse(test(t, QUIET_FILTER)[1])
+        if q['failed'] != 0 or q['passed'] != QUIET_EXPECTED or q['no_match']:
+            print(f"t{i}: QuietDesktopTests {q} — control NOT run", flush=True)
+            return
         p = parse(test(t)[1])
         okb, _ = build(t, BR_PROJ)
         pb = parse(test(t, proj=BR_PROJ)[1])
-        same = True
-        for rel in sorted({m[2] for m in MUTANTS}):
-            a = os.path.join(t, rel)
-            # Against the exported source (BASE_COMMIT), not the worktree: the worktree carries
-            # this campaign's production fixes, the trees deliberately do not.
-            head = open(os.path.join(SOURCE, rel), 'rb').read()
-            if open(a, 'rb').read() != head:
-                same = False; print(f"t{i}: {rel} DIFFERS from {BASE_COMMIT}")
-            b = bpath(i, rel)
-            if os.path.exists(b) and not filecmp.cmp(a, b, shallow=False):
-                same = False; print(f"t{i}: {rel} DIFFERS from its backup")
         with lock:
             ctrl[f"t{i}"] = {'build': ok and okb,
                              'csharp': {k: p[k] for k in ('failed', 'passed', 'total', 'failing')},
-                             'browser': {k: pb[k] for k in ('failed', 'passed', 'total', 'failing')},
+                             'browser': {k: pb[k] for k in ('failed', 'passed', 'skipped', 'total', 'failing')},
+                             'quiet': {k: q[k] for k in ('failed', 'passed', 'total')},
                              'restored_byte_identical': same}
         print(f"CONTROL t{i}: build_ok={ok and okb} C# {p['failed']}F/{p['passed']}P/{p['total']}  "
               f"browser {pb['failed']}F/{pb['passed']}P/{pb['total']}  "
