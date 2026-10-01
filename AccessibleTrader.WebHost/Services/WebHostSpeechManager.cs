@@ -48,8 +48,8 @@ namespace AccessibleTrader.WebHost.Services
             IEventBus eventBus,
             ILogger<WebHostSpeechManager> logger)
             : this(inner, eventBus, logger,
-                   spdSayPath:    FindOnPath("spd-say", File.Exists),
-                   gdbusPath:     FindOnPath("gdbus",    File.Exists),
+                   spdSayPath:    FindOnPath("spd-say", DesktopOutput.FileProbe),
+                   gdbusPath:     FindOnPath("gdbus",    DesktopOutput.FileProbe),
                    orcaAvailable: false /* probed below */ )
         {
             _orcaAvailable = _gdbusPath != null && ProbeOrca(_gdbusPath, _logger);

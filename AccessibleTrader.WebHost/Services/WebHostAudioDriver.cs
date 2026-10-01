@@ -57,6 +57,10 @@ namespace AccessibleTrader.WebHost.Services
         // circuit is subscribed.
         private readonly bool _browserMode;
 
+        /// <summary>True when no local player was started and tones stream to the browser instead.
+        /// Read by QuietDesktopTests: a test host must never start pw-cat / pacat / aplay.</summary>
+        internal bool IsBrowserMode => _browserMode;
+
         public event Action<int>? PointReached;
         public int SampleRate => _engine.SampleRate;
         public int Channels   => _engine.Channels;
@@ -72,7 +76,7 @@ namespace AccessibleTrader.WebHost.Services
 
         public WebHostAudioDriver(ILogger<WebHostAudioDriver> logger, WebHostBrowserAudioSink browserSink,
             Microsoft.Extensions.Hosting.IHostApplicationLifetime? lifetime = null)
-            : this(logger, browserSink, lifetime, File.Exists)
+            : this(logger, browserSink, lifetime, DesktopOutput.FileProbe)
         {
         }
 

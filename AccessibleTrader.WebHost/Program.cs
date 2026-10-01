@@ -857,6 +857,9 @@ await app.WaitForShutdownAsync();
 
 static void OpenBrowser(string url)
 {
+    // A test host must never raise a real browser window on the developer's desktop: it takes
+    // focus, and for a screen-reader user the keyboard with it. See DesktopOutput.
+    if (AccessibleTrader.WebHost.Services.DesktopOutput.Suppressed) return;
     try
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))

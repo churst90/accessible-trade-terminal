@@ -201,6 +201,22 @@ internal sealed class TerminalPage : IAsyncDisposable
     {
         await Page.AddInitScriptAsync(@"
             (function () {
+                // The browser's own voice, silenced. On Linux Chromium's speechSynthesis goes to
+                // speech-dispatcher, so every sentence a test made the terminal say was spoken
+                // aloud on the developer's desktop. Utterances are kept on __synthSpoken and their
+                // start/end events still fire, so the app's own bookkeeping runs as it would.
+                if (window.speechSynthesis) {
+                    window.__synthSpoken = [];
+                    const silent = function (u) {
+                        window.__synthSpoken.push(String(u && u.text));
+                        setTimeout(function () {
+                            try { if (u && u.onstart) u.onstart(new Event('start')); } catch (e) { }
+                            try { if (u && u.onend) u.onend(new Event('end')); } catch (e) { }
+                        }, 0);
+                    };
+                    try { Object.defineProperty(window.speechSynthesis, 'speak', { configurable: true, value: silent }); }
+                    catch (e) { window.speechSynthesis.speak = silent; }
+                }
                 window.__spoken = [];
                 let obj;
                 function hook(o) {

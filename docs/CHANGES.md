@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Test runs no longer play sounds, speak, or take the keyboard on the developer's desktop (2026-10-01)
+
+Cody: running the suites played the chart's tones, spoke over his screen reader, and grabbed his
+keyboard while he worked. A process watch during the A2q campaign found the causes.
+
+- **Chart tones.** The WebHost's audio driver started `pacat` (or `pw-cat`/`aplay`) to the
+  local sound server, in the browser-test host AND in the C# suite's integration hosts.
+- **Speech.**
+  - The browser recorder passed every sentence through to `speechSynthesis`, which on Linux
+    Chromium is speech-dispatcher.
+  - Hosts not pinned by hand could choose spd-say or Orca.
+- **Keyboard and focus.** `ModalFocusPersistenceProbe.Where_is_focus_when_the_AT_SPI_bridge_is_left_ON`
+  ran in every browser suite with the accessibility bridge on, so the developer's running Orca
+  attached to an invisible browser and followed its focus.
+- **The fix, one switch.** `DesktopOutput` (`ACCESSIBLETRADER_NO_DESKTOP_OUTPUT=1`) is read at
+  every local-tool probe:
+  - the audio driver (browser mode instead);
+  - the speech manager (browser speech);
+  - the notification plan (no `notify-send`, `paplay` or `spd-say`);
+  - the tray's tools;
+  - the startup `xdg-open`.
+
+  A module initializer in each test project sets it before any test runs. Never set in
+  production.
+- **The browser side.**
+  - The test Chromium gets `--mute-audio`.
+  - The speech recorder replaces `speechSynthesis.speak` with a silent stub that still fires
+    start/end.
+  - The bridge-on probe is opt-in (`ATT_PROBE_WITH_SCREEN_READER=1`, `ScreenReaderProbeFact`).
+- **Verified.**
+  - Both full suites ran with a watcher recording any player, speech or notification tool,
+    or `xdg-open`, whose ancestry is a test host: **zero**.
+  - The watcher itself was proven: with the switch off, a browser run's `pacat` appears.
+  - `QuietDesktopTests` (5) go red with the switch disengaged.
+  - **Not covered by the watcher:** sub-second probes (`gdbus` asking whether Orca runs). The
+    unit tests cover those by showing every probe finds nothing.
+- **Still not silent:** the probes in `AccessibleTrader.BrowserTests` still rewrite
+  `scratchpad/` JSON and screenshots on every run (harmless, but they dirty the tree).
+
 ### F2 silences only the chart and its narration; two detail-key defects fixed (2026-10-01)
 
 **Cody, 2026-09-30: "F2 should silence just chart navigation and narration."** Narration is
