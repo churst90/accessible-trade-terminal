@@ -1,0 +1,22 @@
+{
+ "phase": "A2q phase 2 — equivalence calls on every survivor (after the false-catch audit, a2q_audit_results.json)",
+ "audit_outcome": {
+  "honest_catches": ["C01", "C02", "C06", "C08", "S01"],
+  "proxy_catch_scored_survivor": {
+   "E02": "Caught only by EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord, and only by its note-COUNT assertion (Assert.Equal(3, delays.Count) for PlayStopHit): the mutant played the take-profit's FOUR staggered notes. A stop motif swapped for any rising three-note phrase passes that test, and its natural repair is to change the expected count. Nothing tells a stop from a take profit by shape. Scored a survivor."
+  },
+  "flake_scored_survivor": {
+   "N06": "Caught only by the browser theory row ModalBrowserContractTests.Tab_never_escapes_an_open_dialog(routeName: \"AIAnalystModal via toolbar\"), message: \"AIAnalystModal reports 2 focusable controls but Tab only ever reached 1 of them. Either the trap is pinning focus, or this test is proving nothing — both are worth failing over.\" Re-run 3x with the mutant alone and 3x clean: passed all six times. The mutant (Home's cursor target) cannot reach the AI Analyst dialog's Tab order. FLAKE."
+  }
+ },
+ "equivalent": {
+  "N06": "SetCursorAction(ViewportStartIndex) -> SetCursorAction(0). The reducer (ViewportReducer.CursorOnlyJump) computes Math.Clamp(target, state.ViewportStartIndex, rightLimit); ViewportStartIndex >= 0, so a target of 0 and a target of ViewportStartIndex clamp to the same bar (or throw identically if the range were inverted). No state, speech or earcon can differ. Excluded from the denominator."
+ },
+ "not_equivalent_with_reason": {
+  "AN2": "Not equivalent, though narrow: when a bar closes between seeding and the narrator's FIRST redraw, the mutant's first scan returns nothing (scanIndex -1) and the marker on that bar is held back to a later redraw. Closed by FormingBarNarrationTests.A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw.",
+  "AN3": "Not equivalent. With the router muting Narration under F2, deleting the scanner's own F2 gate changes nothing DURING the mute, but the scan still runs and marks every signal it finds as announced into a muted channel, so after F2 is turned back on a signal that printed during the mute is never heard. With the gate (which Cody confirmed is intended) it is heard at the next close inside the 20-bar look-back. Closed by FormingBarNarrationTests.A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on; flagged under Decisions for Cody because the source comment calls the catch-up only 'arguably' worth hearing.",
+  "D02": "Not equivalent on 522e02d4: for three-point tools the mutant names the stop loss as the last point. (On two-point tools the ORIGINAL was wrong — 'point 3' — which this campaign fixed; D02 is proved on the fixed code as D02f.)",
+  "all_others": "Every other survivor changes what is said, on which channel, whether it interrupts, which earcon plays, or a navigation result a key produces; none is on the survey's dead-code list."
+ },
+ "denominator": "50 run, 1 equivalent (N06) -> 49. Honest catches 5/49 = 10.2% before closing."
+}

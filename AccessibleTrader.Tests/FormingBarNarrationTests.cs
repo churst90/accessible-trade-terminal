@@ -78,4 +78,56 @@ public sealed class FormingBarNarrationTests
         bus.Publish(new RedrawEvent());
         Assert.Contains("Triple confluence buy", Assert.Single(spoken), StringComparison.OrdinalIgnoreCase);
     }
+
+    private sealed class Rig : IDisposable
+    {
+        public MockWorkspaceStore Store { get; } = new();
+        public SpyEventBus Bus { get; } = new();
+        public List<string> Spoken { get; } = new();
+        private readonly AutoNarrationService _narrator;
+
+        public Rig()
+        {
+            var router = new SpeechFeedbackRouter(new CounterSpeechManager { OnSpeak = t => Spoken.Add(t) },
+                new SpeechFormatter(), Store);
+            _narrator = new AutoNarrationService(Store, Bus, router, new IndicatorContextAnalyzer());
+        }
+
+        public void Redraw(WorkspaceState s) { Store.EmitState(s); Bus.Publish(new RedrawEvent()); }
+        public void Dispose() => _narrator.Dispose();
+    }
+
+    [Fact]
+    public void A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw()
+    {
+        // N pressed with bar 99 forming; bar 99 closes with a gold dot before any recalculation
+        // has reached the narrator. The first redraw it sees must speak it — the one bar the user
+        // switched narration on to hear — not hold it back for a redraw that may be a minute away.
+        using var rig = new Rig();
+        rig.Store.EmitState(State(100));             // seeded on bar 99; no redraw yet
+
+        rig.Redraw(State(101, 99));
+
+        Assert.Contains("Triple confluence buy", Assert.Single(rig.Spoken), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on()
+    {
+        // F2 silences narration (Cody, 2026-09-30) and the narrator does not run while it is off
+        // (AutoNarrationService's speech gate, which Cody confirmed is intended). What that buys
+        // the user: a signal that printed during the mute is still news when they unmute, inside
+        // the scanner's twenty-bar look-back, rather than having been "said" into a muted channel
+        // and forgotten.
+        using var rig = new Rig();
+        rig.Redraw(State(100));                                        // seeded on bar 99
+
+        rig.Redraw(State(101, 99) with { IsSpeechEnabled = false });   // bar 99 closes, F2 off
+        rig.Redraw(State(102, 99) with { IsSpeechEnabled = false });   // and bar 100
+        Assert.Empty(rig.Spoken);
+
+        rig.Redraw(State(103, 99));                                    // F2 back on; bar 101 closes
+
+        Assert.Contains(rig.Spoken, s => s.Contains("Triple confluence buy", StringComparison.OrdinalIgnoreCase));
+    }
 }

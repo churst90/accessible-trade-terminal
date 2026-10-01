@@ -100,7 +100,11 @@ KILLS = [
     ("HC1", "HeadlessChartTests.After_a_reseed_the_alerts_have_no_pre_gap_value_to_compare_against"),
     ("HF1", "HeadlessChartTests.The_signature_changes_when_an_indicators_period_is_edited"),
     ("AN1", "FormingBarNarrationTests.A_signal_flickering_on_the_forming_bar_is_not_announced_until_the_bar_closes"),
-    ("FIX1","HistoryBackfillNarrationTests.A_signal_already_heard_is_not_said_again_after_older_history_loads"),
+    ("AN2", "FormingBarNarrationTests.A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw"),
+    ("AN3", "FormingBarNarrationTests.A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on"),
+    # E02 was caught in the campaign only by a note-COUNT assertion (proxy; see the audit).
+    ("E02", "OrderEarconShapeTests.A_stop_loss_descends"),
+    ("FIX1", "HistoryBackfillNarrationTests.A_signal_already_heard_is_not_said_again_after_older_history_loads"),
     ("FIX2", "PaneModelAndTrailingSpeechTests.Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order"),
     ("FIX3", "DrawingPlacementSpeechTests.Completing_a_trend_line_names_its_second_point"),
     ("FIX4a", "BrailleDisplayKeysAndToggleTests.After_braille_is_switched_off_and_on_again_the_strip_is_sent_again"),
