@@ -1,0 +1,1146 @@
+[
+ {
+  "id": "A01",
+  "area": "speech-only alerts are silent",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FiredAlertDeliveryTests.An_alert_set_to_speech_is_spoken",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.An_alert_set_to_speech_is_spoken"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.An_alert_set_to_speech_is_spoken": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A02",
+  "area": "break-through alert no longer pierces (always Event)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_spoken_through_Shift_F2",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_spoken_through_Shift_F2"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_spoken_through_Shift_F2": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A03",
+  "area": "break-through alert's earcon obeys the earcon mute",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_sounded_with_earcons_muted",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_sounded_with_earcons_muted"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.A_break_through_alert_is_sounded_with_earcons_muted": "a break-through alert's earcon was silenced by the earcon mute"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A04",
+  "area": "forming-pattern debounce deleted",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.A_second_pattern_within_five_seconds_waits",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.A_second_pattern_within_five_seconds_waits"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.A_second_pattern_within_five_seconds_waits": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A05",
+  "area": "forming commentary without the candles' N flag",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.Without_N_on_the_candles_there_is_no_running_commentary",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.Without_N_on_the_candles_there_is_no_running_commentary"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.Without_N_on_the_candles_there_is_no_running_commentary": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A06",
+  "area": "forming candle pattern repeated (change gate dropped)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.The_same_forming_pattern_is_not_said_again_after_the_debounce",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.The_same_forming_pattern_is_not_said_again_after_the_debounce"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.The_same_forming_pattern_is_not_said_again_after_the_debounce": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A07",
+  "area": "forming formation re-announced (identity memory ignored)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.A_forming_formation_is_announced_once_not_every_five_seconds",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.A_forming_formation_is_announced_once_not_every_five_seconds"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.A_forming_formation_is_announced_once_not_every_five_seconds": "Assert.DoesNotContain() Failure: Filter matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "A09",
+  "area": "Sound on/off confirmation inverted",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.MuteToggleConfirmationTests.F3_says_sound_off_when_it_turns_sound_off_and_on_when_on",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.F3_says_sound_off_when_it_turns_sound_off_and_on_when_on"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.F3_says_sound_off_when_it_turns_sound_off_and_on_when_on": "Assert.Equal() Failure: Collections differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "AN1",
+  "area": "intra-bar scan includes the forming bar",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_flickering_on_the_forming_bar_is_not_announced_until_the_bar_closes",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_flickering_on_the_forming_bar_is_not_announced_until_the_bar_closes"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_flickering_on_the_forming_bar_is_not_announced_until_the_bar_closes": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "AN2",
+  "area": "the first redraw is treated as a bar close",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingBarNarrationTests.A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_bar_that_closed_before_the_narrators_first_redraw_is_announced_at_that_redraw": "Assert.Single() Failure: The collection was empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "AN3",
+  "area": "the narrator's F2 gate deleted",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingBarNarrationTests.A_signal_that_printed_while_chart_speech_was_off_is_heard_after_F2_turns_it_back_on": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C03",
+  "area": "forming candle commentary on Event instead of Narration",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.F2_silences_the_forming_commentary",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.F2_silences_the_forming_commentary"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.F2_silences_the_forming_commentary": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C04",
+  "area": "forming chart formation on Chart (loses narration priority)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FormingPatternCommentaryTests.An_arrow_key_does_not_cut_off_a_forming_formation_mid_sentence",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.An_arrow_key_does_not_cut_off_a_forming_formation_mid_sentence"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FormingPatternCommentaryTests.An_arrow_key_does_not_cut_off_a_forming_formation_mid_sentence": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C05",
+  "area": "an ordinary price alert spoken on Chart (F2) instead of Event",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.FiredAlertDeliveryTests.F2_muting_the_chart_does_not_silence_an_alert",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.F2_muting_the_chart_does_not_silence_an_alert"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.FiredAlertDeliveryTests.F2_muting_the_chart_does_not_silence_an_alert": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C06",
+  "area": "'Chart speech off' confirmation on Chart \u2014 muted by itself",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.MuteToggleConfirmationTests.F2_turning_chart_speech_off_is_confirmed_out_loud",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.F2_turning_chart_speech_off_is_confirmed_out_loud"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.F2_turning_chart_speech_off_is_confirmed_out_loud": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C07",
+  "area": "'Alerts and events muted' confirmation on Event \u2014 muted by itself",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.MuteToggleConfirmationTests.Shift_F2_muting_alerts_and_events_is_confirmed_out_loud",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.Shift_F2_muting_alerts_and_events_is_confirmed_out_loud"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.MuteToggleConfirmationTests.Shift_F2_muting_alerts_and_events_is_confirmed_out_loud": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C09",
+  "area": "'Removed X' confirmation on Chart instead of Interface",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_an_indicator_removes_it_and_says_so_even_with_chart_speech_off",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_an_indicator_removes_it_and_says_so_even_with_chart_speech_off"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_an_indicator_removes_it_and_says_so_even_with_chart_speech_off": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C10",
+  "area": "margin/liquidation warning on Event (Shift+F2) instead of OrderEvent",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_margin_warning_is_heard_with_alerts_and_events_muted",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_margin_warning_is_heard_with_alerts_and_events_muted"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_margin_warning_is_heard_with_alerts_and_events_muted": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C11",
+  "area": "strategy order success back on the default Chart channel",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_strategy_order_placed_is_heard_with_chart_speech_off",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_strategy_order_placed_is_heard_with_chart_speech_off"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_strategy_order_placed_is_heard_with_chart_speech_off": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C12",
+  "area": "connection-lost retry published as Info (chart channel) not Alert",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.Connection_lost_is_heard_with_chart_speech_off",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.Connection_lost_is_heard_with_chart_speech_off"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.Connection_lost_is_heard_with_chart_speech_off": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "C15",
+  "area": "NotificationHub advisory pierces Shift+F2 (Event\u2192Critical)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.An_indicator_advisory_is_silenced_by_Shift_F2",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.An_indicator_advisory_is_silenced_by_Shift_F2"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.An_indicator_advisory_is_silenced_by_Shift_F2": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D01",
+  "area": "the 3-point prompt names the wrong next point",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.DrawingPlacementSpeechTests.After_the_stop_loss_is_set_risk_reward_asks_for_the_take_profit",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.After_the_stop_loss_is_set_risk_reward_asks_for_the_take_profit"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.After_the_stop_loss_is_set_risk_reward_asks_for_the_take_profit": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D02f",
+  "area": "completion names the wrong point (D02, on the fixed code: every index one lower)",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_risk_reward_names_the_take_profit_as_the_last_point",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_risk_reward_names_the_take_profit_as_the_last_point"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_risk_reward_names_the_take_profit_as_the_last_point": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "D03",
+  "area": "range summary direction inverted",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.DrawingPlacementSpeechTests.Measuring_from_the_cursor_to_a_later_higher_bar_says_up",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Measuring_from_the_cursor_to_a_later_higher_bar_says_up"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Measuring_from_the_cursor_to_a_later_higher_bar_says_up": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "DP1",
+  "area": "hardware pan keys reversed",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.The_Dot_Pads_left_panning_key_pans_the_chart_left",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.The_Dot_Pads_left_panning_key_pans_the_chart_left"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.The_Dot_Pads_left_panning_key_pans_the_chart_left": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 1 call matching:"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "E01",
+  "area": "buy and sell fill motifs swapped",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.OrderEarconShapeTests.A_buy_fill_rises",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_buy_fill_rises"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_buy_fill_rises": "buy fill notes: 294, 294, 196"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "E02",
+  "area": "stop hit plays the take-profit arpeggio",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends": "stop-loss notes: 523, 659, 784, 1046"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "E02",
+  "area": "stop hit plays the take-profit arpeggio",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.OrderEarconShapeTests.A_stop_loss_descends": "stop-loss notes: 523, 659, 784, 1046"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "F01",
+  "area": "every message takes the in-flight slot",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.SpeechPriorityTimingTests.Key_repeat_does_not_cut_off_an_order_rejection_on_the_second_or_third_press",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.SpeechPriorityTimingTests.Key_repeat_does_not_cut_off_an_order_rejection_on_the_second_or_third_press"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.SpeechPriorityTimingTests.Key_repeat_does_not_cut_off_an_order_rejection_on_the_second_or_third_press": "Assert.DoesNotContain() Failure: Item found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "F02",
+  "area": "every message protected for the 4 s cap",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.SpeechPriorityTimingTests.A_short_alert_stops_holding_off_the_arrow_keys_once_it_has_been_said",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.SpeechPriorityTimingTests.A_short_alert_stops_holding_off_the_arrow_keys_once_it_has_been_said"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.SpeechPriorityTimingTests.A_short_alert_stops_holding_off_the_arrow_keys_once_it_has_been_said": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX1",
+  "area": "revert: older history prepended is not noticed by the narrator",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.HistoryBackfillNarrationTests.A_signal_already_heard_is_not_said_again_after_older_history_loads",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.HistoryBackfillNarrationTests.A_signal_already_heard_is_not_said_again_after_older_history_loads"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.HistoryBackfillNarrationTests.A_signal_already_heard_is_not_said_again_after_older_history_loads": "the gold dot on day 99 was announced when day 99 closed; one scroll back into history later the next bar close announced it again: \"Close 200.50 on April 10 2026, Spinning top. New bar: Open 201.00 Triple confluence buy, strong confirmation.\""
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX2",
+  "area": "revert: Main-first pane order by the unstable List.Sort again",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.PaneModelAndTrailingSpeechTests.Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.PaneModelAndTrailingSpeechTests.Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.PaneModelAndTrailingSpeechTests.Three_panes_with_Main_declared_last_keep_the_other_two_in_first_appearance_order": "Assert.Equal() Failure: Collections differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX3",
+  "area": "revert: the completed drawing's last point index",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_a_trend_line_names_its_second_point",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_a_trend_line_names_its_second_point"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.DrawingPlacementSpeechTests.Completing_a_trend_line_names_its_second_point": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX4a",
+  "area": "revert: coordinator keeps its strip dedup memory across a reconnect",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.After_braille_is_switched_off_and_on_again_the_strip_is_sent_again",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.After_braille_is_switched_off_and_on_again_the_strip_is_sent_again"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.After_braille_is_switched_off_and_on_again_the_strip_is_sent_again": "the display reconnected blank and the strip (\"no chart loaded...\") was never sent to it again"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "FIX4b",
+  "area": "revert: driver keeps its strip dedup memory across a reconnect",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.A_replugged_display_is_sent_the_strip_text_again",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.A_replugged_display_is_sent_the_strip_text_again"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.A_replugged_display_is_sent_the_strip_text_again": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "G01",
+  "area": "a critical error loses 'CRITICAL'",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_critical_error_is_announced_as_critical",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_critical_error_is_announced_as_critical"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ErrorAndStatusAnnouncementTests.A_critical_error_is_announced_as_critical": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "H01",
+  "area": "history exhaustion never reset",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.Loading_another_chart_lets_backfill_work_again_after_no_more_history",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.Loading_another_chart_lets_backfill_work_again_after_no_more_history"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.Loading_another_chart_lets_backfill_work_again_after_no_more_history": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "H02",
+  "area": "'No more history' never said",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.When_the_provider_has_nothing_older_the_user_is_told_so",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.When_the_provider_has_nothing_older_the_user_is_told_so"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.HistoryBackfillCoordinatorTests.When_the_provider_has_nothing_older_the_user_is_told_so": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "HC1",
+  "area": "re-seed after a gap keeps the pre-gap values",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.HeadlessChartTests.After_a_reseed_the_alerts_have_no_pre_gap_value_to_compare_against",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.HeadlessChartTests.After_a_reseed_the_alerts_have_no_pre_gap_value_to_compare_against"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.HeadlessChartTests.After_a_reseed_the_alerts_have_no_pre_gap_value_to_compare_against": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "HF1",
+  "area": "parameter edits do not change the chart signature",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.HeadlessChartTests.The_signature_changes_when_an_indicators_period_is_edited",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.HeadlessChartTests.The_signature_changes_when_an_indicators_period_is_edited"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.HeadlessChartTests.The_signature_changes_when_an_indicators_period_is_edited": "Assert.NotEqual() Failure: Strings are equal"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "I01",
+  "area": "a bearish crossover reported as bullish",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_MACD_line_falling_through_its_signal_is_narrated_as_a_bearish_crossover",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_MACD_line_falling_through_its_signal_is_narrated_as_a_bearish_crossover"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_MACD_line_falling_through_its_signal_is_narrated_as_a_bearish_crossover": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "N01",
+  "area": "no boundary earcon at the chart's left/right edge",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Right_on_the_last_bar_plays_the_boundary_earcon",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Right_on_the_last_bar_plays_the_boundary_earcon"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Right_on_the_last_bar_plays_the_boundary_earcon": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "N02",
+  "area": "history backfill requested walking RIGHT",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Walking_left_near_the_start_of_the_loaded_data_asks_for_older_history",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Walking_left_near_the_start_of_the_loaded_data_asks_for_older_history"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Walking_left_near_the_start_of_the_loaded_data_asks_for_older_history": "Left at bar 10 of 300 did not ask for older history: walking left reaches the start of what was loaded and stops there for good"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "N03",
+  "area": "Page Up/Down wraps instead of clamping",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Down_on_the_bottom_series_stays_there",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Down_on_the_bottom_series_stays_there"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Down_on_the_bottom_series_stays_there": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "N04",
+  "area": "Delete may remove the candles",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_the_candles_refuses_and_says_why",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_the_candles_refuses_and_says_why"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Delete_on_the_candles_refuses_and_says_why": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "N05",
+  "area": "series switch keeps the stale component index",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Page_Up_onto_the_candles_starts_at_their_first_component_not_the_body": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "P01",
+  "area": "value-area high and low named backwards",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ShapeAndDirectionNamingTests.The_highest_value_area_bin_is_called_value_area_high_and_the_lowest_value_area_low",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.The_highest_value_area_bin_is_called_value_area_high_and_the_lowest_value_area_low"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.The_highest_value_area_bin_is_called_value_area_high_and_the_lowest_value_area_low": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "R01",
+  "area": "a volume profile navigated as points",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Up_and_Down_on_a_volume_profile_walk_its_price_bins",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Up_and_Down_on_a_volume_profile_walk_its_price_bins"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Up_and_Down_on_a_volume_profile_walk_its_price_bins": "Assert.IsType() Failure: Value is not the exact type"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "S01",
+  "area": "a daily bar's close stamped with a clock time",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BarCloseStampTests.A_daily_bar_closes_on_a_date_not_at_a_clock_time",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BarCloseStampTests.A_daily_bar_closes_on_a_date_not_at_a_clock_time"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BarCloseStampTests.A_daily_bar_closes_on_a_date_not_at_a_clock_time": "Assert.Contains() Failure: Sub-string not found"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "SC1",
+  "area": "dragonfly and gravestone doji swapped",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_doji_with_a_long_lower_shadow_and_no_upper_one_is_a_dragonfly",
+  "tree": "t3",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_doji_with_a_long_lower_shadow_and_no_upper_one_is_a_dragonfly"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ShapeAndDirectionNamingTests.A_doji_with_a_long_lower_shadow_and_no_upper_one_is_a_dragonfly": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "T01",
+  "area": "F4 never turns braille on",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.F4_with_braille_off_turns_it_on_and_says_so",
+  "tree": "t1",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.F4_with_braille_off_turns_it_on_and_says_so"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.BrailleDisplayKeysAndToggleTests.F4_with_braille_off_turns_it_on_and_says_so": "Assert.Contains() Failure: Item not found in collection"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ },
+ {
+  "id": "V01",
+  "area": "pan direction reversed",
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.ChartKeyboardNavigationTests.Pan_left_shows_earlier_bars_and_pan_right_shows_later_ones",
+  "tree": "t2",
+  "mutant_status": "CAUGHT",
+  "mutant_failed": 1,
+  "mutant_passed": 0,
+  "mutant_failing": [
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Pan_left_shows_earlier_bars_and_pan_right_shows_later_ones"
+  ],
+  "mutant_messages": {
+   "AccessibleTrader.Tests.ChartKeyboardNavigationTests.Pan_left_shows_earlier_bars_and_pan_right_shows_later_ones": "pan LEFT moved the window from bar 110 to bar 120"
+  },
+  "mutant_no_match": false,
+  "mutant_log": null,
+  "control_failed": 0,
+  "control_passed": 1,
+  "control_failing": [],
+  "control_no_match": false,
+  "status": "PROVED"
+ }
+]

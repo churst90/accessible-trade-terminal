@@ -322,6 +322,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // catch-up, the strip stays blank until the user navigates.
                 try
                 {
+                    // A display that has just (re)connected is blank, so the strip is sent even if
+                    // it says what was last sent before a disconnect — the dedup below would
+                    // otherwise skip it as a repeat and leave the strip empty until the value
+                    // changed (A2q, 2026-10-01; BrailleDisplayKeysAndToggleTests).
+                    _lastStripText = null;
                     string text = BuildStripText(_store.State, showXValue: false);
                     SafelyRenderStrip(text);
                 }

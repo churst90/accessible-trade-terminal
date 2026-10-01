@@ -1,0 +1,72 @@
+{
+ "worktree_csharp_total": 8294,
+ "worktree_browser_total": 233,
+ "trees": {
+  "3": {
+   "quiet": {
+    "failed": 0,
+    "passed": 5,
+    "total": 5,
+    "no_match": false
+   },
+   "csharp": {
+    "failed": 0,
+    "passed": 8294,
+    "skipped": 0,
+    "total": 8294,
+    "failing": []
+   },
+   "browser": {
+    "failed": 0,
+    "passed": 232,
+    "skipped": 1,
+    "total": 233,
+    "failing": []
+   }
+  },
+  "2": {
+   "quiet": {
+    "failed": 0,
+    "passed": 5,
+    "total": 5,
+    "no_match": false
+   },
+   "csharp": {
+    "failed": 0,
+    "passed": 8294,
+    "skipped": 0,
+    "total": 8294,
+    "failing": []
+   },
+   "browser": {
+    "failed": 0,
+    "passed": 232,
+    "skipped": 1,
+    "total": 233,
+    "failing": []
+   }
+  },
+  "1": {
+   "quiet": {
+    "failed": 0,
+    "passed": 5,
+    "total": 5,
+    "no_match": false
+   },
+   "csharp": {
+    "failed": 0,
+    "passed": 8294,
+    "skipped": 0,
+    "total": 8294,
+    "failing": []
+   },
+   "browser": {
+    "failed": 0,
+    "passed": 232,
+    "skipped": 1,
+    "total": 233,
+    "failing": []
+   }
+  }
+ }
+}

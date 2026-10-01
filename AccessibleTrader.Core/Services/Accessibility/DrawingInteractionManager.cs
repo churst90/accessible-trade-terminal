@@ -989,6 +989,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             _                            => new[] { "first point", "second point", "third point" },
         };
 
+        /// <summary>The tools placed with three points; every other multi-point tool takes two.</summary>
+        private static bool IsThreePoint(DrawingType type) =>
+            type is DrawingType.FibExtension or DrawingType.RiskReward or DrawingType.AndrewsPitchfork;
+
         /// <summary>The name of the point about to be placed, or a positional fallback.</summary>
         private static string AnchorName(DrawingType type, int index)
         {
@@ -1109,7 +1113,13 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var placedType = _pendingDrawingType;
             string label = FriendlyName(placedType);
             double fromPrice = _anchorPrice1 ?? priceFinal;
-            string lastPoint = AnchorName(placedType, _anchorDate2 == null ? 1 : 2);
+            // The point that finished it: the second of a two-point tool, the third of a
+            // three-point one. This was `_anchorDate2 == null ? 1 : 2`, and on every keyboard
+            // placement of a two-point tool the second anchor is already set when this runs, so a
+            // trend line finished with "Trend line placed, point 3 at …" — a point it does not
+            // have (A2q, 2026-10-01; DrawingPlacementSpeechTests).
+            int lastIndex = _anchorDate2 == null ? 0 : IsThreePoint(placedType) ? 2 : 1;
+            string lastPoint = AnchorName(placedType, lastIndex);
 
             string feedback = Math.Abs(priceFinal - fromPrice) > 0.001
                 ? $"{label} placed, {lastPoint} at {SpeechPriceFormatter.FormatPrice(priceFinal)}, from {SpeechPriceFormatter.FormatPrice(fromPrice)}."

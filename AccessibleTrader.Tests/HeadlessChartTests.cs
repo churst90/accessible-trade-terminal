@@ -236,6 +236,39 @@ public sealed class HeadlessChartTests
     }
 
     [Fact]
+    public async Task After_a_reseed_the_alerts_have_no_pre_gap_value_to_compare_against()
+    {
+        // A2q (2026-10-01). PreviousValues is what the alert evaluator compares THIS poll
+        // against. After a gap (the laptop slept for fifty hours) the last values held belong to
+        // a bar fifty hours old, and comparing the first post-gap reading against them reports a
+        // cross that happened at some unknown time in the gap as if it had just happened. The
+        // reseed forgets them; the campaign's mutant that kept them survived.
+        var n = Stack().Create(Btc, new[] { SavedVolume() });
+        var warm = await Full(n, Window(0, 99));
+        Assert.NotNull(warm.State);
+        await CatchUp(n, Window(98, 100));      // a normal close: values are now held
+
+        await CatchUp(n, Window(150, 152));     // the gap
+        var reseeded = await Full(n, Window(103, 152));
+
+        Assert.NotNull(reseeded.PreviousValues);
+        Assert.Empty(reseeded.PreviousValues!);
+    }
+
+    [Fact]
+    public async Task Without_a_gap_the_alerts_compare_against_the_previous_poll()
+    {
+        // The partner: an observation that never carried previous values would pass the test
+        // above, and every cross alert in the background would go dead.
+        var n = Stack().Create(Btc, new[] { SavedVolume() });
+        await Full(n, Window(0, 99));
+        var next = await CatchUp(n, Window(98, 100));
+
+        Assert.NotNull(next.PreviousValues);
+        Assert.NotEmpty(next.PreviousValues!);
+    }
+
+    [Fact]
     public async Task The_buffer_is_trimmed_and_the_reading_stays_on_the_right_bar()
     {
         // Volume needs MinBars (50); the first window is twice that, so the first append tips
@@ -269,6 +302,18 @@ public sealed class HeadlessChartTests
 
         Assert.True(HeadlessChartFactory.HasNarratedSeries(new[] { a }));
         Assert.False(HeadlessChartFactory.HasNarratedSeries(new[] { SavedVolume(narrated: false) }));
+    }
+
+    [Fact]
+    public void The_signature_changes_when_an_indicators_period_is_edited()
+    {
+        // A2q (2026-10-01). Editing EMA 20 to EMA 50 and saving must rebuild the background
+        // narrator; with the parameters left out of the signature, the browser-closed monitor kept
+        // narrating crosses of the EMA 20 the user no longer has on the chart.
+        string ema20 = HeadlessChartFactory.Signature(new[] { SavedEma("ema", 20, narrated: true) });
+        string ema50 = HeadlessChartFactory.Signature(new[] { SavedEma("ema", 50, narrated: true) });
+
+        Assert.NotEqual(ema20, ema50);
     }
 
     // ── The scanner's indices after a trim ────────────────────────────────────

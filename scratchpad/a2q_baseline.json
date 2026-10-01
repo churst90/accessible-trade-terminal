@@ -1,0 +1,8 @@
+{
+ "commit": "522e02d4",
+ "date": "2026-10-01",
+ "csharp_total": 8294,
+ "browser_total": 233,
+ "browser_skipped": 1,
+ "source": "Totals of the unmutated 522e02d4 suite as given by the coordinator on resume (C# 8,294 run / 8,289 listed; browser 233 with 1 skipped). Confirmed per tree by a2q_sabotage.py --setup (a2q_tree_baseline.json). The pre-pause baseline (87a4c257: C# 8,289, browser 233) is in a2q_baseline_*.log and a2q_tree_baseline_prepause.json."
+}

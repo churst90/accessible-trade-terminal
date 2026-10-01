@@ -198,10 +198,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// marker in the 20-bar window (the announced set is a set of INDICES) and stop honouring
         /// the seed. Shifting is the alternative to re-seeding, which would lose an in-flight
         /// pivot confirmation for no reason.</para>
+        ///
+        /// <para>A NEGATIVE <paramref name="by"/> is the other direction: that many bars were
+        /// loaded in FRONT (an in-session scroll-back backfill), so every remembered bar moved
+        /// right. <see cref="AutoNarrationService"/> passes it; see its
+        /// <c>NoteOlderHistoryPrepended</c>.</para>
         /// </summary>
         public void ShiftIndices(int by)
         {
-            if (by <= 0) return;
+            if (by == 0) return;
             foreach (var k in _seedBarCounts.Keys.ToList())
                 _seedBarCounts[k] = Math.Max(0, _seedBarCounts[k] - by);
             foreach (var k in _announcedMarkers.Keys.ToList())

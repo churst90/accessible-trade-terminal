@@ -1,0 +1,323 @@
+[
+ {
+  "id": "C01",
+  "layer": "C#",
+  "campaign_failing": [
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration",
+  "campaign_messages": {
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)": "Assert.Empty() Failure: Collection was not empty",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)": "Assert.Empty() Failure: Collection was not empty"
+  },
+  "mutant_runs": [
+   {
+    "failed": 2,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)",
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)"
+    ],
+    "messages": {
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)": "Assert.Empty() Failure: Collection was not empty",
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)": "Assert.Empty() Failure: Collection was not empty"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 2,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: False)",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.F2_SilencesTheBarCloseAndItsNarration(narrated: True)"
+  ]
+ },
+ {
+  "id": "C02",
+  "layer": "C#",
+  "campaign_failing": [
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration",
+  "campaign_messages": {
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent": "Assert.Equal() Failure: Values differ",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration": "Assert.Single() Failure: The collection was empty"
+  },
+  "mutant_runs": [
+   {
+    "failed": 2,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration",
+     "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent"
+    ],
+    "messages": {
+     "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration": "Assert.Single() Failure: The collection was empty",
+     "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent": "Assert.Equal() Failure: Values differ"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 2,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.Tests.AutoNarrationUtteranceTests.TheComposedUtteranceIsStillANonInterruptingEvent",
+   "AccessibleTrader.Tests.NewBarNarrationCompositionTests.ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration"
+  ]
+ },
+ {
+  "id": "C06",
+  "layer": "browser",
+  "campaign_failing": [
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced",
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so|FullyQualifiedName~AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced",
+  "campaign_messages": {
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced": "F2 said:  | My Data does not offer 1h; timeframe set to 1d.",
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so": "Assert.Contains() Failure: Filter not matched in collection"
+  },
+  "mutant_runs": [
+   {
+    "failed": 2,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced",
+     "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so"
+    ],
+    "messages": {
+     "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced": "F2 said:  | My Data does not offer 1h; timeframe set to 1d.",
+     "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so": "Assert.Contains() Failure: Filter not matched in collection"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 2,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.With_chart_speech_off_opening_a_dialog_is_still_announced",
+   "AccessibleTrader.BrowserTests.SpeechBrowserTests.Turning_speech_off_still_says_so"
+  ]
+ },
+ {
+  "id": "C08",
+  "layer": "C#",
+  "campaign_failing": [
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon",
+  "campaign_messages": {
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_runs": [
+   {
+    "failed": 1,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon"
+    ],
+    "messages": {
+     "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon": "Assert.Equal() Failure: Values differ"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 1,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.Tests.PaneAndLoadFailureAnnouncementTests.AChartLoadFailure_IsAnnouncedOnTheCriticalChannel_WithAnEarcon"
+  ]
+ },
+ {
+  "id": "E02",
+  "layer": "C#",
+  "campaign_failing": [
+   "AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord",
+  "campaign_messages": {
+   "AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord": "Assert.Equal() Failure: Values differ"
+  },
+  "mutant_runs": [
+   {
+    "failed": 1,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord"
+    ],
+    "messages": {
+     "AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord": "Assert.Equal() Failure: Values differ"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 1,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.Tests.EarconServiceTests.Sequence_earcons_stagger_their_notes_instead_of_playing_a_chord"
+  ]
+ },
+ {
+  "id": "N06",
+  "layer": "browser",
+  "campaign_failing": [
+   "AccessibleTrader.BrowserTests.ModalBrowserContractTests.Tab_never_escapes_an_open_dialog(routeName: \"AIAnalystModal via toolbar\")"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.BrowserTests.ModalBrowserContractTests.Tab_never_escapes_an_open_dialog",
+  "campaign_messages": {
+   "AccessibleTrader.BrowserTests.ModalBrowserContractTests.Tab_never_escapes_an_open_dialog(routeName: \"AIAnalystModal via toolbar\")": "AIAnalystModal reports 2 focusable controls but Tab only ever reached 1 of them. Either the trap is pinning focus, or this test is proving nothing \u2014 both are worth failing over."
+  },
+  "mutant_runs": [
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   },
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   },
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   },
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   },
+   {
+    "failed": 0,
+    "passed": 24,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "FLAKE",
+  "red_again": []
+ },
+ {
+  "id": "S01",
+  "layer": "C#",
+  "campaign_failing": [
+   "AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock",
+   "AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn",
+   "AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken",
+   "AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose"
+  ],
+  "filter": "FullyQualifiedName~AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose|FullyQualifiedName~AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken",
+  "campaign_messages": {
+   "AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock": "Assert.DoesNotContain() Failure: Sub-string found",
+   "AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen": "Assert.Equal() Failure: Strings differ",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose": "Assert.Equal() Failure: Strings differ"
+  },
+  "mutant_runs": [
+   {
+    "failed": 6,
+    "passed": 0,
+    "no_match": false,
+    "failing": [
+     "AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing",
+     "AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn",
+     "AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken",
+     "AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen",
+     "AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose",
+     "AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock"
+    ],
+    "messages": {
+     "AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing": "Assert.Equal() Failure: Strings differ",
+     "AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn": "Assert.Equal() Failure: Strings differ",
+     "AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken": "Assert.Equal() Failure: Strings differ",
+     "AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen": "Assert.Equal() Failure: Strings differ",
+     "AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose": "Assert.Equal() Failure: Strings differ",
+     "AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock": "Assert.DoesNotContain() Failure: Sub-string found"
+    }
+   }
+  ],
+  "clean_runs": [
+   {
+    "failed": 0,
+    "passed": 6,
+    "no_match": false,
+    "failing": [],
+    "messages": {}
+   }
+  ],
+  "verdict": "HONEST",
+  "red_again": [
+   "AccessibleTrader.Tests.DesktopNotificationServiceTests.ADailyChart_SaysTheDate_NotAMidnightClock",
+   "AccessibleTrader.Tests.NewBarNarrationTests.APatternResolvingOnSomeOtherBarSaysNothing",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TheClosedBarsCandlePatternIsNamedWhenDescribeCandlePatternsIsOn",
+   "AccessibleTrader.Tests.NewBarNarrationTests.WithPatternDescriptionsOff_TheOutcomeIsNotSpoken",
+   "AccessibleTrader.Tests.NewBarNarrationTests.AChartPatternConfirmedOnTheClosedBarIsSpokenBetweenCloseAndOpen",
+   "AccessibleTrader.Tests.NewBarNarrationTests.TurningDescribeCandlePatternsOff_DropsTheClauseAndKeepsTheClose"
+  ]
+ }
+]

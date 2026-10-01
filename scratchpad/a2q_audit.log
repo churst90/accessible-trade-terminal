@@ -1,0 +1,11 @@
+t1: 522e02d4, QuietDesktopTests 5/5
+t2: 522e02d4, QuietDesktopTests 5/5
+t3: 522e02d4, QuietDesktopTests 5/5
+C02: HONEST  mutant runs failed=[2] clean runs failed=[0]  red again: 2/2
+C01: HONEST  mutant runs failed=[2] clean runs failed=[0]  red again: 2/2
+C06: HONEST  mutant runs failed=[2] clean runs failed=[0]  red again: 2/2
+C08: HONEST  mutant runs failed=[1] clean runs failed=[0]  red again: 1/1
+E02: HONEST  mutant runs failed=[1] clean runs failed=[0]  red again: 1/1
+S01: HONEST  mutant runs failed=[6] clean runs failed=[0]  red again: 6/6
+N06: FLAKE  mutant runs failed=[0, 0, 0] clean runs failed=[0, 0, 0]  red again: 0/1
+restored byte-identical
