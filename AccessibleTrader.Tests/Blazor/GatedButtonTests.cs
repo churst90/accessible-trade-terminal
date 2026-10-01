@@ -202,7 +202,7 @@ public sealed class GatedButtonTests
     [Fact]
     public void A_money_button_can_raise_the_refusal_above_the_speech_mute()
     {
-        // FeedbackType.Boundary speaks on SpeechChannel.Manual, which F2 silences. That is
+        // FeedbackType.Boundary speaks on SpeechChannel.Chart, which F2 silences. That is
         // right for "no more signals in this direction" and wrong for a refused order: a
         // muted terminal would answer the money button with an earcon and no account of
         // why, on a screen with no visual channel to fall back on. Same shape as the
@@ -220,11 +220,12 @@ public sealed class GatedButtonTests
     }
 
     [Fact]
-    public void An_ordinary_refusal_keeps_the_default_channel()
+    public void An_ordinary_refusal_speaks_on_the_interface_channel()
     {
         // The control for the test above: without this, a component that hard-coded
-        // Critical everywhere would pass it, and every "choose a list first" would
-        // shout through a mute the user asked for.
+        // Critical everywhere would pass it. An ordinary refusal is the INTERFACE, which no
+        // mute silences since 2026-09-30 (F2 is the chart's mute, Cody), so a refused dialog
+        // button still says why with chart speech off.
         var (ctx, _, spoken) = NewContext();
         using var _c = ctx;
 
@@ -233,7 +234,7 @@ public sealed class GatedButtonTests
             .AddChildContent("Delete list"));
 
         cut.Find("button").Click();
-        Assert.Null(Assert.Single(spoken).Channel);
+        Assert.Equal(SpeechChannel.Interface, Assert.Single(spoken).Channel);
     }
 
     [Fact]

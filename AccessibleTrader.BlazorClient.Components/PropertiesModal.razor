@@ -1186,7 +1186,7 @@
         SeriesManager.PersistWorkspace();
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{_series.FriendlyName} properties applied"));
+            $"{_series.FriendlyName} properties applied", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         
         // Trigger a recalculation if parameters changed
         EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
@@ -1241,7 +1241,7 @@
         SeriesManager.PersistWorkspace();
         EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{_series.FriendlyName} reset to defaults"));
+            $"{_series.FriendlyName} reset to defaults", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         StateHasChanged();
     }
@@ -1264,7 +1264,7 @@
 
         SeriesManager.PersistWorkspace();
         EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{level.Name} removed"));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{level.Name} removed", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
     }
 
@@ -1302,7 +1302,7 @@
 
         SeriesManager.PersistWorkspace();
         EventBus.Publish(new IndicatorUpdatedEvent(_series.Id));
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, reason));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, reason, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
     }
 
@@ -1354,7 +1354,7 @@
         }
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Defaults saved for {_series.FriendlyName}"));
+            $"Defaults saved for {_series.FriendlyName}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     // Speech template helpers
@@ -1464,7 +1464,7 @@
 
         _series.Config.Name = name;
         _series.Config.FriendlyName = name;
-        EventBus.Publish(new AnnouncementEvent($"Renamed to {name}.", true));
+        EventBus.Publish(new AnnouncementEvent($"Renamed to {name}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     // Fields whose last edit was REJECTED. `aria-invalid` is the signal the 2026-09-03 error-state
@@ -1584,7 +1584,7 @@
         if (_rejectedCoordinates.Contains(fieldId))
         {
             EventBus.Publish(new AnnouncementEvent(
-                $"{label} not changed. The value was not accepted.", true));
+                $"{label} not changed. The value was not accepted.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
 
@@ -1593,14 +1593,14 @@
             var p = AnchorPrice(slot);
             if (p is null) return;
             EventBus.Publish(new AnnouncementEvent(
-                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(p.Value)}.", true));
+                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechPriceFormatter.FormatPrice(p.Value)}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
         else
         {
             var d = AnchorDate(slot);
             if (d is null) return;
             EventBus.Publish(new AnnouncementEvent(
-                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.Format(d.Value, "MMMM dd, HH:mm")}.", true));
+                $"{label} {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.Format(d.Value, "MMMM dd, HH:mm")}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
     }
 

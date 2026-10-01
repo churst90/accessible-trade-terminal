@@ -180,7 +180,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                 int tabs = config.IsMultiTab ? config.Tabs.Count : 1;
                 _eventBus.Publish(new AnnouncementEvent(tabs <= 1
                     ? "Resumed your last session."
-                    : $"Resumed your last session: {tabs} tabs."));
+                    : $"Resumed your last session: {tabs} tabs.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 _logger.LogInformation("Resumed last session ({Tabs} tab(s)).", tabs);
                 return true;
             }

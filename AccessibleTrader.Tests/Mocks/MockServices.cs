@@ -190,7 +190,7 @@ namespace AccessibleTrader.Tests.Mocks
 
     public class MockSpeechRouter : ISpeechFeedbackRouter
     {
-        public void Speak(string text, bool interrupt = false, SpeechChannel channel = SpeechChannel.Manual) { }
+        public void Speak(string text, bool interrupt = false, SpeechChannel channel = SpeechChannel.Chart) { }
         public void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "") { }
         public void SpeakProfile(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int binIndex, string prefix = "") { }
         public void SpeakHeatmap(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int dataIndex, int binIndex, string prefix = "") { }

@@ -90,11 +90,11 @@
     /// other "why did that key do nothing" message uses — for ordinary controls.
     ///
     /// <para>
-    /// Pass <c>SpeechChannel.Critical</c> for anything that spends money.
-    /// <c>FeedbackType.Boundary</c> speaks on Manual, which F2 silences, so a muted
-    /// terminal would answer a refused order button with an earcon and no account of
-    /// why — the same shape as the live-order readback that F2 silenced until
-    /// 2026-09-01, on a screen with no visual channel to fall back to.
+    /// Pass <c>SpeechChannel.Critical</c> for anything that spends money. Left null, a refusal
+    /// speaks on <c>SpeechChannel.Interface</c>, which no mute silences: F2 is the chart's
+    /// mute since 2026-09-30, and a dialog button is not the chart. (Before that it spoke on
+    /// Manual, which F2 silenced, and a muted terminal answered a refused order button with
+    /// an earcon and no account of why.)
     /// </para>
     /// </summary>
     [Parameter] public SpeechChannel? Channel { get; set; }
@@ -171,10 +171,12 @@
         if (reason is not null)
         {
             // Boundary, not Error: nothing has gone wrong, the user has arrived at the
-            // edge of what this control will do. Same channel and same earcon as every
-            // other refusal in the app, unless the call site raised it.
+            // edge of what this control will do. Same earcon as every other refusal in the
+            // app. Interface channel unless the call site raised it: a dialog button is not the
+            // chart, and F2 silences only the chart and its narration (Cody, 2026-09-30).
             EventBus.Publish(new FeedbackRequestEvent(
-                FeedbackType.Boundary, reason, Channel: Channel));
+                FeedbackType.Boundary, reason,
+                Channel: Channel ?? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
         await OnClick.InvokeAsync();

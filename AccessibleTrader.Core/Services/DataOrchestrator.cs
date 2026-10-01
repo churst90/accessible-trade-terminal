@@ -160,7 +160,7 @@ namespace AccessibleTrader.Core.Services
                             _logger.LogInformation("CIRCUIT RESET [{Provider}]: Connection restored.", pid);
                             _eventBus.Publish(new ConnectionStatusEvent(pid, ConnectionState.Connected, $"{pid} connection restored."));
                             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{pid} connection restored.",
-                                Interrupt: false, IsUserInitiated: false));
+                                Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
                             _stateMachine.Fire(DataTrigger.Reset);
                         },
                         onHalfOpen: () =>
@@ -189,7 +189,7 @@ namespace AccessibleTrader.Core.Services
                         {
                             _logger.LogInformation("RATE LIMIT CLEARED [{Provider}].", pid);
                             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, $"{pid} rate limit cleared.",
-                                Interrupt: false, IsUserInitiated: false));
+                                Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
                         });
 
                 // No backoff on the retry: it runs on the chart-load path, and a blind
@@ -413,7 +413,7 @@ namespace AccessibleTrader.Core.Services
                 
                 if (isMajorTransition || newState == DataState.Faulted)
                 {
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Data link: {newState}"));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Data link: {newState}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
                 }
             }
         }

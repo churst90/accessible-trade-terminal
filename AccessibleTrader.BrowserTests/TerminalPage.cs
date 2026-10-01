@@ -255,6 +255,22 @@ internal sealed class TerminalPage : IAsyncDisposable
         return await SpokenAsync();
     }
 
+    /// <summary>
+    /// Waits until an utterance matching <paramref name="match"/> has been spoken, or gives up.
+    /// Returns everything spoken either way. Use it where other speech can arrive first (a fresh
+    /// page says things about its data while it loads), which the plain wait would return on.
+    /// </summary>
+    public async Task<IReadOnlyList<Utterance>> WaitForSpeechAsync(Func<Utterance, bool> match, int timeoutMs = 5_000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (true)
+        {
+            var spoken = await SpokenAsync();
+            if (spoken.Any(match) || DateTime.UtcNow >= deadline) return spoken;
+            await Task.Delay(50);
+        }
+    }
+
     // ── focus ────────────────────────────────────────────────────────────────
 
     /// <summary>The browser's own <c>document.activeElement</c>, not a record of a focus call.</summary>

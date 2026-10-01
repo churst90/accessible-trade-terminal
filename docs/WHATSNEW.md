@@ -8,6 +8,17 @@
 
 ## Unreleased
 
+- **F2 now silences only the chart.** F2 quiets what the chart says as you move through it and
+  all narration, including new-bar announcements, and says "Chart speech off". Dialogs, the
+  toolbar and settings keep speaking, so you always hear what you just did. Shift+F2 now covers
+  alerts, monitoring and connection status only. If you used Shift+F2 to quiet new bars, use
+  F2, or turn off Announce new bars in Settings → Narration to keep hearing the chart as you
+  move. Orders placed, cancelled or closed now speak through both mutes, like fills.
+- **A monthly chart is described as monthly.** The pane description (Alt+Shift+/) called a
+  1-month chart "1 minute per bar".
+- **The detail key explains Bollinger squeezes and MACD crosses again.** Ctrl+Shift+D on
+  Bollinger Bands says whether the bands are squeezing or expanding, and on MACD whether it just
+  crossed its signal line. Both had been silent on every real chart.
 - **A withdrawal address for the wrong network is refused, not called verified.** A Bitcoin
   address offered for a Litecoin withdrawal used to be announced as verified, because only its
   checksum was checked. The terminal now also reads which network the address was made for.

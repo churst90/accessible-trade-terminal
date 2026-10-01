@@ -425,7 +425,7 @@
             unwatchableReason == null
                 ? $"Alert {def.Name} added."
                 : $"Alert {def.Name} added. It works while this chart is open, but background " +
-                  $"and server-side monitoring cannot watch it: {unwatchableReason}."));
+                  $"and server-side monitoring cannot watch it: {unwatchableReason}.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         _newAlertName = "";
         _newAlertThreshold = 0;
         if (_advancedCondition) _advancedSpec = new Core.Services.Strategies.EditableStrategySpec();
@@ -467,7 +467,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _activeAlerts.Count == 0
                 ? $"Alert {name} deleted. No active alerts remain."
-                : $"Alert {name} deleted."));
+                : $"Alert {name} deleted.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         await Task.Yield();
         // The row that took this one's place, or the last row when the deleted alert was at

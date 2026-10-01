@@ -108,6 +108,31 @@ public sealed class SpeechBrowserTests
     }
 
     /// <summary>
+    /// F2 silences the chart and its narration, not the interface (Cody, 2026-09-30). Until then
+    /// it silenced "Object tree dialog opened" too, so a user who muted chart chatter lost track
+    /// of where focus had gone.
+    /// </summary>
+    [BrowserFact]
+    public async Task With_chart_speech_off_opening_a_dialog_is_still_announced()
+    {
+        await using var t = await _fixture.NewPageAsync();
+        await t.PressAsync("F2");
+        var confirmation = await t.WaitForSpeechAsync(
+            u => u.Text.Contains("Chart speech off", StringComparison.OrdinalIgnoreCase));
+        Assert.True(confirmation.Any(u => u.Text.Contains("Chart speech off", StringComparison.OrdinalIgnoreCase)),
+            "F2 said: " + string.Join(" | ", confirmation.Select(u => u.Text)));
+        await t.ClearSpokenAsync();
+
+        await t.PressAsync("Alt+o");
+        await t.WaitForDialogAsync();
+        var spoken = await t.WaitForSpeechAsync(u => u.Text.Contains("opened", StringComparison.OrdinalIgnoreCase));
+
+        Assert.True(spoken.Any(u => u.Text.Contains("Object tree", StringComparison.OrdinalIgnoreCase)
+                                 && u.Text.Contains("opened", StringComparison.OrdinalIgnoreCase)),
+            "With chart speech off, opening the Object tree said: " + string.Join(" | ", spoken.Select(u => u.Text)));
+    }
+
+    /// <summary>
     /// Turning speech off has to be audible, which is a rule with an obvious failure mode: check
     /// the flag first and the confirmation is the announcement that never happens.
     /// </summary>

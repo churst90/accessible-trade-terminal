@@ -187,7 +187,7 @@
     {
         Close();
         HoverTracker.Toggle();
-        Speech.Speak(HoverTracker.IsEnabled ? "Crosshair on." : "Crosshair off.", interrupt: false);
+        Speech.Speak(HoverTracker.IsEnabled ? "Crosshair on." : "Crosshair off.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     private bool GetBool(string key)
@@ -203,7 +203,7 @@
         Settings.SaveSettings();
         Close();
         Speech.Speak(next ? "Magnet snap on. Drawing anchors snap to open, high, low, or close."
-                          : "Magnet snap off.", interrupt: false);
+                          : "Magnet snap off.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     /// <summary>Quiet hover sonification (persisted, default off): a soft pitch tick
@@ -214,7 +214,7 @@
         Settings.SetSetting(AccessibleTrader.BlazorClient.Services.ChartHoverTracker.HoverSonificationKey, next);
         Settings.SaveSettings();
         Close();
-        Speech.Speak(next ? "Hover sound on." : "Hover sound off.", interrupt: false);
+        Speech.Speak(next ? "Hover sound on." : "Hover sound off.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     // ── Per-series actions ───────────────────────────────────────────────────
@@ -276,7 +276,7 @@
         if (s == null || !CanRemove(s)) return;
         var name = s.FriendlyName;
         EventBus.Publish(new DeleteSeriesEvent(s.Id));
-        Speech.Speak($"{name} removed.", interrupt: false);
+        Speech.Speak($"{name} removed.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     public void Dispose() { _sub?.Dispose(); _closeSub?.Dispose(); }

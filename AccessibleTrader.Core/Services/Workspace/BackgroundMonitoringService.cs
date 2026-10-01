@@ -209,7 +209,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                         $"Background monitoring on: watching {_monitors.Count} " +
                         $"{(_monitors.Count == 1 ? "workspace" : "workspaces")}.",
-                        Interrupt: false, IsUserInitiated: false));
+                        Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
                 }
             }
         }
@@ -237,7 +237,7 @@ namespace AccessibleTrader.Core.Services.Workspace
             _monitors.Clear();
             if (announce)
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                    "Background monitoring off.", Interrupt: false, IsUserInitiated: false));
+                    "Background monitoring off.", Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
         }
 
         /// <summary>
@@ -287,7 +287,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                         ? "Watching other tabs is off, and no positions are open. Enable it in Settings, General."
                         : "Watching other tabs is not available on this host.")
                     + BrowserClosedClause(),
-                    Interrupt: true));
+                    Interrupt: true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 return;
             }
 
@@ -298,7 +298,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                     $"{(monitors.Count == 1 ? "chart is" : "charts are")} watched for open paper positions and orders: " +
                     string.Join(", ", monitors.Select(m => m.SymbolDisplayName).OrderBy(s => s)) + "."
                     + BrowserClosedClause(),
-                    Interrupt: true));
+                    Interrupt: true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 return;
             }
 
@@ -343,7 +343,7 @@ namespace AccessibleTrader.Core.Services.Workspace
 
             sb.Append(BrowserClosedClause().TrimStart());
 
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, sb.ToString().TrimEnd(), Interrupt: true));
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, sb.ToString().TrimEnd(), Interrupt: true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
 
         public void Dispose()

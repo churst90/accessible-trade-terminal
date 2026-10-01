@@ -284,8 +284,8 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 
 | Key | Action | Speech Feedback |
 |-----|--------|-----------------|
-| F2 | Toggle interactive speech (navigation values, zoom/pan, summaries — everything you asked for) | "Speech on/off" |
-| Shift+F2 | Toggle event speech (alerts, monitoring, new bars — everything that happens to you). Order fills and stops break through unless you opt them in (Settings → Speech) | "Alerts and events on/muted" |
+| F2 | Toggle chart speech: navigating the chart (values, zoom/pan, summaries of the chart) and narration, including new bars. Dialogs, the toolbar and settings still speak | "Chart speech on/off" |
+| Shift+F2 | Toggle event speech (alerts, monitoring, connection status). Narration and new bars are F2's. Order fills and stops break through unless you opt them in (Settings → Speech) | "Alerts and events on/muted" |
 | F3 | Toggle chart sonification (navigation tones, playback) | "Sound on/off" |
 | Shift+F3 | Toggle earcons. Order-outcome and error earcons break through | "Earcons on/muted" |
 | F4 | Toggle braille / tactile display output ("Braille not available on this platform" where unsupported) | "Braille on/off" |

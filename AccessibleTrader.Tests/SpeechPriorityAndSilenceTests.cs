@@ -66,7 +66,7 @@ namespace AccessibleTrader.Tests
             speech.Calls.Clear();
 
             // The next keystroke, immediately.
-            router.Speak("61,240. 14:05.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240. 14:05.", interrupt: true, SpeechChannel.Chart);
 
             Assert.DoesNotContain("SILENCE", speech.Calls);
             Assert.Contains(speech.Calls, c => c.StartsWith("QUEUE:", StringComparison.Ordinal));
@@ -81,7 +81,7 @@ namespace AccessibleTrader.Tests
                 interrupt: true, SpeechChannel.Critical);
             speech.Calls.Clear();
 
-            router.Speak("61,240.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240.", interrupt: true, SpeechChannel.Chart);
 
             Assert.DoesNotContain("SILENCE", speech.Calls);
         }
@@ -108,7 +108,7 @@ namespace AccessibleTrader.Tests
             // reading is exactly what interrupt is for.
             var (router, speech) = Build();
 
-            router.Speak("61,240. 14:05.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240. 14:05.", interrupt: true, SpeechChannel.Chart);
             speech.Calls.Clear();
 
             router.Speak("Order rejected.", interrupt: true, SpeechChannel.OrderEvent);
@@ -124,10 +124,10 @@ namespace AccessibleTrader.Tests
             // user has to sit through, which is a worse bug than the one being fixed.
             var (router, speech) = Build();
 
-            router.Speak("61,240.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240.", interrupt: true, SpeechChannel.Chart);
             speech.Calls.Clear();
 
-            router.Speak("61,250.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,250.", interrupt: true, SpeechChannel.Chart);
 
             Assert.Contains("SILENCE", speech.Calls);
         }
@@ -141,7 +141,7 @@ namespace AccessibleTrader.Tests
             router.ResetSpeechPriorityForTests();   // as if its estimated duration had elapsed
             speech.Calls.Clear();
 
-            router.Speak("61,240.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240.", interrupt: true, SpeechChannel.Chart);
 
             Assert.Contains("SILENCE", speech.Calls);
         }
@@ -156,7 +156,7 @@ namespace AccessibleTrader.Tests
             router.Speak("Order rejected.", interrupt: true, SpeechChannel.OrderEvent);
             speech.Calls.Clear();
 
-            router.Speak("61,240.", interrupt: true, SpeechChannel.Manual);
+            router.Speak("61,240.", interrupt: true, SpeechChannel.Chart);
 
             Assert.Contains(speech.Calls, c => c.EndsWith("61,240.", StringComparison.Ordinal));
         }

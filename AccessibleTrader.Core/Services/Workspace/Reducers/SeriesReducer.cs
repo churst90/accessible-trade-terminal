@@ -221,7 +221,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             eventBus.Publish(new AnnouncementEvent(
                 changed == 0
                     ? (unhide ? "Nothing was hidden." : "Nothing was muted.")
-                    : $"{changed} {(changed == 1 ? "item" : "items")} {what}.", true));
+                    : $"{changed} {(changed == 1 ? "item" : "items")} {what}.", true, Channel: SpeechChannel.Interface));
 
             return changed == 0 ? state : state with { ActiveSeries = newList };
         }
@@ -252,7 +252,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
             eventBus.Publish(new AnnouncementEvent(
                 !anyChange ? "Nothing was narrating."
                 : seriesOff == 0 ? "Narration off. Component selections cleared."
-                : $"Narration off for {seriesOff} series.", true));
+                : $"Narration off for {seriesOff} series.", true, Channel: SpeechChannel.Interface));
 
             return anyChange ? state with { ActiveSeries = newList } : state;
         }
@@ -431,7 +431,7 @@ namespace AccessibleTrader.Core.Services.Workspace.Reducers
                 return updated;
             }).ToImmutableList();
 
-            if (msg != null) eventBus.Publish(new AnnouncementEvent(msg, true));
+            if (msg != null) eventBus.Publish(new AnnouncementEvent(msg, true, Channel: SpeechChannel.Interface));
 
             return state with { ActiveSeries = newList };
         }

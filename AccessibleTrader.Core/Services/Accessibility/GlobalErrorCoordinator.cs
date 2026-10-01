@@ -118,7 +118,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
         public void ReportSuccess(string message)
         {
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, false, IsUserInitiated: false, IncludeSonification: true));
+            // OrderEvent: both callers report an order going through ("Order placed…", "OCO pair
+            // placed…"). On the default channel F2 silenced them, so with chart speech off a
+            // strategy's order was announced only if it FAILED (2026-09-30 review).
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, false, IsUserInitiated: false,
+                IncludeSonification: true, Channel: SpeechChannel.OrderEvent));
         }
 
         public void PlayEarcon(EarconType type)

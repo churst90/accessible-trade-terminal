@@ -56,7 +56,7 @@ public class AutoNarrationUtteranceTests
         public List<(string Text, bool Interrupt, SpeechChannel Channel)> Calls { get; } = new();
         public List<string> Spoken => Calls.Select(c => c.Text).ToList();
 
-        public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Manual)
+        public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Chart)
             => Calls.Add((message, interrupt, channel));
         public void SpeakPoint(WorkspaceState s, WorkspaceState? p, ChartSeries ser, Ohlcv pt, string pfx = "") { }
         public void SpeakProfile(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int bin, string pfx = "") { }
@@ -316,16 +316,17 @@ public class AutoNarrationUtteranceTests
     }
 
     /// <summary>
-    /// That one call is still on the channel F2 mutes and still does not interrupt. A composed
-    /// utterance is longer than any of the clauses it replaced, so making it interrupting would
-    /// talk over more of whatever the user asked for, not less.
+    /// That one call is on the Narration channel and does not interrupt. A composed utterance
+    /// is longer than any of the clauses it replaced, so making it interrupting would talk over
+    /// more of whatever the user asked for, not less. Narration, not Event, since 2026-09-30:
+    /// F2 silences the chart and its narration, Shift+F2 only alerts and monitoring (Cody).
     /// </summary>
     [Fact]
     public void TheComposedUtteranceIsStillANonInterruptingEvent()
     {
         var call = Assert.Single(RunCrowdedScan().Calls);
 
-        Assert.Equal(SpeechChannel.Event, call.Channel);
+        Assert.Equal(SpeechChannel.Narration, call.Channel);
         Assert.False(call.Interrupt);
     }
 

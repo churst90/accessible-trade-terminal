@@ -251,7 +251,7 @@
         // keyboard-only user knows the deletion took effect. ModalStateChangedEvent
         // already speaks "Drawing context menu dialog closed" when Close() runs;
         // this layer adds the action result on top.
-        Speech.Speak($"{name} deleted.", interrupt: false);
+        Speech.Speak($"{name} deleted.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     private void OnDuplicate()
@@ -299,7 +299,7 @@
         SeriesManager.PersistWorkspace();
         EventBus.Publish(new RedrawEvent());
         // Confirm the duplicate landed; silent-failure rule.
-        Speech.Speak($"{newConfig.FriendlyName} created.", interrupt: false);
+        Speech.Speak($"{newConfig.FriendlyName} created.", interrupt: false, channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface);
     }
 
     private void OnProperties()

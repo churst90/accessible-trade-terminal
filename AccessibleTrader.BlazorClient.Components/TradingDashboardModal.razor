@@ -1103,7 +1103,7 @@
         if (_orderInFlight)
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"Still working on the previous order. {what} was not sent — wait for the result.", true));
+                $"Still working on the previous order. {what} was not sent — wait for the result.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return false;
         }
         _orderInFlight = true;
@@ -1317,7 +1317,7 @@
         if (e.Key == "Escape")
         {
             _editing = null;
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Left unchanged."));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Left unchanged.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             StateHasChanged();
             return;
         }
@@ -1432,7 +1432,7 @@
         await LoadAccountDataAsync();
 
         EventBus.Publish(placement.Succeeded
-            ? new FeedbackRequestEvent(FeedbackType.StateChange, check.Message)
+            ? new FeedbackRequestEvent(FeedbackType.StateChange, check.Message, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface)
             // Say what still stands, not only what failed: after a refusal the user needs to know
             // whether they are protected, and "order rejected" alone does not answer that.
             : new FeedbackRequestEvent(FeedbackType.Error,
@@ -1727,7 +1727,7 @@
         else
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                EnvironmentSentence(provider, inUse), true));
+                EnvironmentSentence(provider, inUse), true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
 
         await LoadAccountDataAsync();
@@ -1789,7 +1789,7 @@
             "Balances"  => _balances.Count(r => r.Balance.Free > 0 || r.Balance.Locked > 0),
             _           => 0
         };
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{tab}, {count}", true));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{tab}, {count}", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
     }
 
@@ -2053,7 +2053,7 @@
             EventBus.Publish(new FeedbackRequestEvent(
                 ok ? FeedbackType.StateChange : FeedbackType.Error,
                 ok ? $"Order canceled. {symbol} on {row.Account.DisplayName}."
-                   : $"Cancel failed for {symbol} on {row.Account.DisplayName}.", true));
+                   : $"Cancel failed for {symbol} on {row.Account.DisplayName}.", true, Channel: ok ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent : null));
 
             if (ok) await LoadAccountDataAsync();
         }
@@ -2099,7 +2099,7 @@
             string why = equity <= 0 && _stopLoss > 0 && price > 0 && _riskPct > 0
                 ? "No cash balance to size from — the account holds no currency this sizer recognises."
                 : "Set a stop loss, a price, and a risk percent first.";
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, why, true));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, why, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
         // Round DOWN, not to nearest: rounding half-away-from-zero can put the sized
@@ -2113,12 +2113,12 @@
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 $"{_riskPct} percent of {PriceFormatter.FormatPrice(equity)} {chosen.Asset} over that stop distance "
-                + "is less than the smallest size this sizer can express. Widen the risk or move the stop closer.", true));
+                + "is less than the smallest size this sizer can express. Widen the risk or move the stop closer.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Sized {PriceFormatter.FormatQuantity(_orderQty)} from {_riskPct} percent risk on "
-            + $"{PriceFormatter.FormatPrice(equity)} {chosen.Asset}.", true));
+            + $"{PriceFormatter.FormatPrice(equity)} {chosen.Asset}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     // ── OCO pair state + submit ─────────────────────────────────────────────
@@ -2200,7 +2200,7 @@
             ? $"OCO pair resting: {_ocoSide} {PriceFormatter.FormatQuantity(_ocoQty)} {symbol} — " +
               $"limit {PriceFormatter.FormatPrice(_ocoLimitPrice)}, stop {PriceFormatter.FormatPrice(_ocoStopPrice)}. {message}"
             : message;
-        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.Info : FeedbackType.Error, _ocoStatus, true));
+        EventBus.Publish(new FeedbackRequestEvent(ok ? FeedbackType.Info : FeedbackType.Error, _ocoStatus, true, Channel: ok ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent : null));
         if (ok) await LoadAccountDataAsync();
     }
 
@@ -2236,7 +2236,7 @@
             // one is reached — a stale snapshot between refreshes — saying so beats
             // a button that does nothing.
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"{p.Symbol} is already flat — nothing to close.", true));
+                $"{p.Symbol} is already flat — nothing to close.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
         if (!BeginOrderAction($"Close {p.Symbol}")) return;
@@ -2306,7 +2306,7 @@
                       + $"{PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))} {p.Symbol} "
                       + $"at limit {PriceFormatter.FormatPrice(lp)}. The position is still open until it fills."
                     : $"Closing {p.Symbol}. {(side == OrderSide.Sell ? "Sell" : "Buy")} {PriceFormatter.FormatQuantity(Math.Abs(p.Quantity))}.",
-            true));
+            true, Channel: err ? null : AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
         if (!err) await LoadAccountDataAsync();
     }
 
@@ -2349,7 +2349,7 @@
         {
             _closingAtLimit = null;
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"Left open. No close order was placed for {row.Position.Symbol}."));
+                $"Left open. No close order was placed for {row.Position.Symbol}.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             StateHasChanged();
             return;
         }
@@ -2500,7 +2500,7 @@
         // not share a verb in a dialog that spends money.
         _orderStatus = $"{what} changed. The review no longer matches — nothing was sent. "
                      + $"Press Submit {_orderSide} Order to review again.";
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
     }
 
@@ -2556,7 +2556,7 @@
     {
         ResetLiveReview();
         _orderStatus = "Order canceled before submit.";
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, _orderStatus, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private string GetLastPrice()

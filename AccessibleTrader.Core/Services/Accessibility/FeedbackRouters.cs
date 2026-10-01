@@ -11,14 +11,23 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Which mute tier a spoken message belongs to. The 2026-07-21 redesign: the
     /// gate lives HERE, at the router, not at call sites — per-call-site
     /// IsSpeechEnabled checks are exactly how the F2 bypasses crept in.
+    ///
+    /// <para><b>2026-09-30, Cody: "F2 should silence just chart navigation and narration."</b>
+    /// Before that, F2 silenced everything you asked for anywhere: a dialog's confirmations,
+    /// "Settings dialog opened", a refused button's reason. Shift+F2 silenced narration. Now F2
+    /// is the chart's mute (<see cref="Chart"/> and <see cref="Narration"/>), Shift+F2 is
+    /// alerts and monitoring (<see cref="Event"/>), and what the rest of the interface says
+    /// (<see cref="Interface"/>) is muted by neither. New-bar announcements are narration (his
+    /// call, the same day).</para>
     /// </summary>
     public enum SpeechChannel
     {
-        /// <summary>Response to something the user just did (navigation values,
-        /// zoom/pan, context summary, status). Muted by F2.</summary>
-        Manual,
-        /// <summary>Something that happened to the user (alerts, monitoring,
-        /// new bars, auto-narration). Muted by Shift+F2.</summary>
+        /// <summary>Reading the chart: navigation values, zoom/pan, the detail key, summaries of
+        /// the chart, playback, drawing. Muted by F2. The default for a Speak that names no
+        /// channel, so a publisher that forgets to choose behaves as it always did.</summary>
+        Chart,
+        /// <summary>Something that happened to the user that is NOT narration: alerts,
+        /// monitoring, connection status. Muted by Shift+F2.</summary>
         Event,
         /// <summary>Order-execution outcomes (fills, stops, take-profits).
         /// Break through BOTH mutes by default — the manual's "the one feedback
@@ -29,11 +38,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Never muted: "Speech off" must be heard, and silent failures are
         /// forbidden by the feedback contract.</summary>
         Critical,
+        /// <summary>Narration: bar closes and new bars, signals on bar close, patterns and
+        /// formations as they form. Muted by F2 alone. It keeps <see cref="Event"/>'s priority,
+        /// which is the reason it is its own channel and not <see cref="Chart"/>: an arrow
+        /// press must not cut a bar-close sentence off mid-word.</summary>
+        Narration,
+        /// <summary>What the interface says outside the chart: dialogs, the toolbar, settings,
+        /// confirmations of changes you make (hide, mute, delete, toggles). Muted by neither F2
+        /// nor Shift+F2.</summary>
+        Interface,
     }
 
     public interface ISpeechFeedbackRouter
     {
-        void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual);
+        void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart);
         void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "");
         void SpeakProfile(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int binIndex, string prefix = "");
         void SpeakHeatmap(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int dataIndex, int binIndex, string prefix = "");
@@ -104,7 +122,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             SpeechChannel.Critical   => 3,
             SpeechChannel.OrderEvent => 2,
             SpeechChannel.Event      => 1,
-            _                        => 0,   // Manual
+            SpeechChannel.Narration  => 1,
+            _                        => 0,   // Chart, Interface
         };
 
         /// <summary>
@@ -163,7 +182,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
         }
 
-        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
+        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
         {
             if (string.IsNullOrEmpty(message)) return;
             if (!IsChannelAudible(channel)) return;
@@ -175,8 +194,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var state = _store.State;
             return channel switch
             {
-                SpeechChannel.Manual => state.IsSpeechEnabled,
+                SpeechChannel.Chart => state.IsSpeechEnabled,
+                SpeechChannel.Narration => state.IsSpeechEnabled,
                 SpeechChannel.Event => state.IsEventSpeechEnabled,
+                SpeechChannel.Interface => true,
                 // Order outcomes break through unless the user explicitly opted
                 // them into the event mute (Settings → speech.muteIncludesOrderEvents).
                 SpeechChannel.OrderEvent =>

@@ -207,7 +207,7 @@
             _levels = levels;
             _mas = mas;
             _summary = summary;
-            EventBus.Publish(new AnnouncementEvent(_summary, true));
+            EventBus.Publish(new AnnouncementEvent(_summary, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
         catch (Exception ex)
         {
@@ -223,7 +223,7 @@
     private void SpeakSummary()
     {
         if (!string.IsNullOrEmpty(_summary))
-            EventBus.Publish(new AnnouncementEvent(_summary, true));
+            EventBus.Publish(new AnnouncementEvent(_summary, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private static string Num(double v) => double.IsNaN(v) ? "—" : v.ToString("0.####");

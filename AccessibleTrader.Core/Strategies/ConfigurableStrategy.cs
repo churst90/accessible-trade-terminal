@@ -332,7 +332,7 @@ public class ConfigurableStrategy : BaseStrategy
                     _eventBus.Publish(new FeedbackRequestEvent(
                         FeedbackType.Info,
                         $"Strategy '{_spec.Name}': indicators warming up — {history.Count} of " +
-                        $"{_liveWarmupBars} bars loaded. Signals begin once warm."));
+                        $"{_liveWarmupBars} bars loaded. Signals begin once warm.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
             }
             return null;
         }
@@ -350,7 +350,7 @@ public class ConfigurableStrategy : BaseStrategy
                 if (publishEvents)
                     _eventBus.Publish(new FeedbackRequestEvent(
                         FeedbackType.Info,
-                        $"Strategy '{_spec.Name}': higher-timeframe data still warming up. Setups will begin firing once cache is ready."));
+                        $"Strategy '{_spec.Name}': higher-timeframe data still warming up. Setups will begin firing once cache is ready.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
             }
             return null;
         }

@@ -294,7 +294,7 @@
         string text = _headline;
 
         // Path 1: the app's own speech engine (native TTS / browser voice / journal mirror).
-        EventBus.Publish(new AnnouncementEvent(text, true));
+        EventBus.Publish(new AnnouncementEvent(text, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         // Path 2: force the aria-live region to change, for a screen reader reading the DOM.
         _headline = "";

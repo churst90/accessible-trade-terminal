@@ -39,9 +39,9 @@ namespace AccessibleTrader.Core.Models
         ToggleFocusMode,    // Alt+Z: hide the toolbar, tab bar and indicator bar so the chart gets the window
         
         // Accessibility Toggles
-        ToggleSpeech,        // F2: interactive/command speech
+        ToggleSpeech,        // F2: chart speech and narration (dialogs always speak)
         ToggleSonification,  // F3: chart sonification (nav tones, playback)
-        ToggleEventSpeech,   // Shift+F2: ambient/event speech (alerts, monitoring, new bars)
+        ToggleEventSpeech,   // Shift+F2: event speech (alerts, monitoring, connection status)
         ToggleEarcons,       // Shift+F3: earcons (order-outcome + error earcons break through)
         ToggleBraille,       // F4: braille / tactile display output on/off
         OpenBrailleSettings, // Shift+F4: braille display settings (Settings dialog)

@@ -651,7 +651,7 @@
             if (!CanLoad)
             {
                 EventBus.Publish(new AnnouncementEvent(
-                    "Cannot load yet. Choose a market, provider, and symbol first.", true));
+                    "Cannot load yet. Choose a market, provider, and symbol first.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 return;
             }
             await LoadChart();

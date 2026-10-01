@@ -32,7 +32,11 @@ namespace AccessibleTrader.Core.Models
     public record RequestHistoryEvent();
     public record DeactivateEvent();
     public record SeriesStateChangedEvent(string Name, bool IsVisible, bool IsMuted);
-    public record AnnouncementEvent(string Message, bool Interrupt = true);
+    /// <summary>A sentence to speak. <paramref name="Channel"/> names its mute tier; null means
+    /// <see cref="Services.Accessibility.SpeechChannel.Chart"/>, which F2 silences, so anything
+    /// said OUTSIDE the chart names <see cref="Services.Accessibility.SpeechChannel.Interface"/>.</summary>
+    public record AnnouncementEvent(string Message, bool Interrupt = true,
+        Services.Accessibility.SpeechChannel? Channel = null);
 
     public enum FeedbackType { Navigation, SeriesSelection, ComponentSelection, PointFocus, Error, Alert, Info, StateChange, VolumeChange, ViewportChange, Boundary }
     public record FeedbackRequestEvent(

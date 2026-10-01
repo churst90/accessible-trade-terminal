@@ -202,7 +202,7 @@
                 summary += " Warnings: " + string.Join(" ", warnings.Take(3));
 
             _status = summary;
-            EventBus.Publish(new AnnouncementEvent(summary, true));
+            EventBus.Publish(new AnnouncementEvent(summary, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             _pasted = "";
             _fileContent = null;
             _name = "";
@@ -211,7 +211,7 @@
         catch (FormatException ex)
         {
             _error = ex.Message;
-            EventBus.Publish(new AnnouncementEvent($"Import failed. {ex.Message}", true));
+            EventBus.Publish(new AnnouncementEvent($"Import failed. {ex.Message}", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
         catch (Exception ex)
         {
@@ -228,7 +228,7 @@
         if (_store == null) return;
         await _store.DeleteAsync(ds.Id);
         _status = $"Deleted {ds.Name}.";
-        EventBus.Publish(new AnnouncementEvent(_status, true));
+        EventBus.Publish(new AnnouncementEvent(_status, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         await MarketOrchestrator.RefreshSymbolsAsync();
     }
 

@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Indicators;
 using System.Collections.Immutable;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Core.Services.Accessibility;
@@ -458,17 +459,81 @@ namespace AccessibleTrader.Tests
                 lower[i] = 100 - half;
             }
 
-            var cfg = new SeriesConfig { Id = "bb", Name = "Bollinger Bands", IndicatorCode = "BB", Pane = "Main" };
-            cfg.Components.Add(new ComponentConfig { Name = "Upper", DisplayName = "Upper", IsVisible = true });
-            cfg.Components.Add(new ComponentConfig { Name = "Lower", DisplayName = "Lower", IsVisible = true });
-            var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
-            buf.ComponentData["Upper"] = upper;
-            buf.ComponentData["Lower"] = lower;
-            var series = new ChartSeries(cfg, buf);
+            // The code and the component names come from the REAL Bollinger provider, never typed
+            // here. This fixture used to name them "BB", "Upper" and "Lower", the same names the
+            // service looked up, so test and service agreed with each other while every real
+            // chart (whose components are "UpperBand" and "LowerBand") got no clause at all.
+            var meta = RealIndicator(new SkenderBandProvider().GetIndicators(), "Bollinger Bands");
+            string upperName = meta.Components.Single(c => c.Name.StartsWith("Upper", StringComparison.Ordinal)).Name;
+            string lowerName = meta.Components.Single(c => c.Name.StartsWith("Lower", StringComparison.Ordinal)).Name;
+
+            var series = RealSeries(meta, (upperName, upper), (lowerName, lower));
 
             var bus = new SpyEventBus();
             new BarDetailService(bus).AnnounceDetails(StateAtIndex(series, bars - 1));
             return LastAnnouncement(bus);
+        }
+
+        // ── The MACD crossover clause ──────────────────────────────────────
+        //
+        // Never tested until 2026-09-30, and dead on every real chart: the service read the
+        // components "MACD" and "Signal", the real MACD's are "Macd" and "Signal", and the lookup
+        // is case-sensitive.
+
+        [Fact]
+        public void BarDetail_MacdCrossingAboveItsSignal_AnnouncesABullishCross()
+        {
+            string said = MacdDetail(macdBefore: -1, signalBefore: 0, macdNow: 1, signalNow: 0);
+
+            Assert.Contains("crossed above signal", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void BarDetail_MacdCrossingBelowItsSignal_AnnouncesABearishCross()
+        {
+            string said = MacdDetail(macdBefore: 1, signalBefore: 0, macdNow: -1, signalNow: 0);
+
+            Assert.Contains("crossed below signal", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void BarDetail_MacdThatStaysAboveItsSignal_SaysNoCross()
+        {
+            string said = MacdDetail(macdBefore: 1, signalBefore: 0, macdNow: 2, signalNow: 0);
+
+            Assert.DoesNotContain("crossed", said, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string MacdDetail(double macdBefore, double signalBefore, double macdNow, double signalNow)
+        {
+            var meta = RealIndicator(new SkenderZeroCrossProvider().GetIndicators(), "MACD");
+            string macdName = meta.Components.Single(c => c.Name.Equals("Macd", StringComparison.OrdinalIgnoreCase)).Name;
+            string signalName = meta.Components.Single(c => c.Name.Equals("Signal", StringComparison.OrdinalIgnoreCase)).Name;
+
+            var series = RealSeries(meta,
+                (macdName, new[] { macdBefore, macdNow }),
+                (signalName, new[] { signalBefore, signalNow }));
+
+            var bus = new SpyEventBus();
+            new BarDetailService(bus).AnnounceDetails(StateAtIndex(series, 1));
+            return LastAnnouncement(bus);
+        }
+
+        private static IndicatorMetadata RealIndicator(IEnumerable<IndicatorMetadata> all, string name) =>
+            all.Single(m => m.Name == name);
+
+        /// <summary>A series shaped as the real provider declares it: its code, and components
+        /// carrying the provider's own names.</summary>
+        private static ChartSeries RealSeries(IndicatorMetadata meta, params (string Name, double[] Values)[] components)
+        {
+            var cfg = new SeriesConfig { Id = meta.Code.ToLowerInvariant(), Name = meta.Name, IndicatorCode = meta.Code, Pane = "Main" };
+            var buf = new SeriesDataBuffer { SeriesId = cfg.Id };
+            foreach (var (name, values) in components)
+            {
+                cfg.Components.Add(new ComponentConfig { Name = name, DisplayName = name, IsVisible = true });
+                buf.ComponentData[name] = values;
+            }
+            return new ChartSeries(cfg, buf);
         }
 
         private static WorkspaceState BaseState() => WorkspaceState.Initial;

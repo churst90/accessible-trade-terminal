@@ -250,7 +250,7 @@ namespace AccessibleTrader.Tests
         }
 
         [Fact]
-        public void WithTheOptInOn_theBarCloseIsSpoken_onTheEventChannel_withoutInterrupting()
+        public void WithTheOptInOn_theBarCloseIsSpoken_onTheNarrationChannel_withoutInterrupting()
         {
             using var h = new Harness();
             h.SpeechOptIn(true);
@@ -262,7 +262,7 @@ namespace AccessibleTrader.Tests
             h.Speech.Received(1).Speak(
                 Arg.Is<string>(s => s.Contains("ETH/USD")),
                 interrupt: false,
-                channel: SpeechChannel.Event);
+                channel: SpeechChannel.Narration);   // new bars are narration: F2, not Shift+F2
         }
 
         // ── Wording ──────────────────────────────────────────────────────────

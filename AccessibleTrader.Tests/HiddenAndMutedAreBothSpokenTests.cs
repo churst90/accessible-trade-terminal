@@ -151,7 +151,7 @@ public sealed class HiddenAndMutedAreBothSpokenTests
     private sealed class CapturingSpeechRouter : ISpeechFeedbackRouter
     {
         public List<string> Said { get; } = new();
-        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
+        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
             => Said.Add(message);
         public void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "")
             => Said.Add(new SpeechFormatter().FormatPointFeedback(state, false, true, series, point, prefix));

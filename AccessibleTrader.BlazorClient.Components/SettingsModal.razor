@@ -490,7 +490,7 @@
                     <legend style="font-weight:700; color:var(--text-on-surface); padding:0 6px;">Speech</legend>
 
                     <div class="modal-row">
-                        <label for="s-speech-enabled">Speech enabled (F2)</label>
+                        <label for="s-speech-enabled">Chart speech and narration (F2)</label>
                         <input id="s-speech-enabled" type="checkbox"
                                checked="@_speechEnabled"
                                @onchange="e => _speechEnabled = e.Value is bool b ? b : _speechEnabled" />
@@ -1088,9 +1088,9 @@
                             <tr><td>Space</td><td>Play chart</td></tr>
                             <tr><td>Shift+Space</td><td>Play series</td></tr>
                             <tr><td>F1</td><td>Help reference</td></tr>
-                            <tr><td>F2</td><td>Toggle speech</td></tr>
+                            <tr><td>F2</td><td>Toggle chart speech and narration</td></tr>
                             <tr><td>F3</td><td>Toggle sonification</td></tr>
-                            <tr><td>F4</td><td>Context summary</td></tr>
+                            <tr><td>F4</td><td>Toggle the braille display</td></tr>
                             <tr><td>F5 / Shift+F5</td><td>Component volume up / down</td></tr>
                             <tr><td>F6 / Shift+F6</td><td>Series volume up / down</td></tr>
                             <tr><td>F7 / Shift+F7</td><td>Chart volume up / down</td></tr>
@@ -1275,7 +1275,7 @@
         new("Describe chart patterns", "General", "s-chart-patterns", "formation double top triangle head shoulders flag narration new bar playback speech"),
         new("Magnet snap", "General", "s-magnet-snap", "drawing anchors snap open high low close"),
         new("Panning step", "General", "s-granularity", "step scroll viewport granularity"),
-        new("Speech enabled", "Speech", "s-speech-enabled", "voice talk announce tts"),
+        new("Chart speech and narration", "Speech", "s-speech-enabled", "voice talk announce tts mute f2 narration"),
         new("Speak timestamps", "Speech", "s-speak-timestamps", "time date spoken"),
         new("Speak the time", "Speech", "s-timestamp-where", "timestamp when moving through time series"),
         new("Speak the date on every bar", "Speech", "s-date-every-bar", "date day boundary intraday timestamp"),
@@ -1462,7 +1462,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _showPatternVisuals
                 ? "Chart formations will be drawn on the chart."
-                : "Chart formation drawing off.", true));
+                : "Chart formation drawing off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         EventBus.Publish(new RedrawEvent());
     }
 
@@ -1480,7 +1480,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _minimizeToTray
                 ? "Minimize to tray on. Closing the window hides the terminal to the notification area and it keeps running, sending alerts, order fills and bar closes as notifications. Quit from the tray menu."
-                : "Minimize to tray off. Closing the window quits the terminal, and nothing is watched after that.", true));
+                : "Minimize to tray off. Closing the window quits the terminal, and nothing is watched after that.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void OnVisualEarconsChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1489,7 +1489,7 @@
         App.VisualEarcons = _visualEarcons;
         App.Save();
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _visualEarcons ? "Visual earcons on." : "Visual earcons off.", true));
+            _visualEarcons ? "Visual earcons on." : "Visual earcons off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void OnColorVisionChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1501,7 +1501,7 @@
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             _colorVisionSafe ? "Color-vision-safe colors on: up is blue, down is orange."
-                             : "Color-vision-safe colors off.", true));
+                             : "Color-vision-safe colors off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private async Task OnUiScaleChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1513,7 +1513,7 @@
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.setUiScale", _uiScale); }
         catch { /* JS bridge may be absent in tests */ }
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Text size {_uiScale} percent.", true));
+            $"Text size {_uiScale} percent.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void OnHollowCandlesChanged(Microsoft.AspNetCore.Components.ChangeEventArgs e)
@@ -1524,7 +1524,7 @@
         ThemeService.RefreshAccessibilityOverrides();
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _hollowUpCandles ? "Hollow up-candles on." : "Hollow up-candles off.", true));
+            _hollowUpCandles ? "Hollow up-candles on." : "Hollow up-candles off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     /// <summary>
@@ -1539,7 +1539,7 @@
         App.Save();
         await SafeSetToolbarCaptionsAsync(_toolbarCaptions);
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            _toolbarCaptions ? "Toolbar captions on." : "Toolbar captions off.", true));
+            _toolbarCaptions ? "Toolbar captions on." : "Toolbar captions off.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private async Task SafeSetToolbarCaptionsAsync(bool show)
@@ -1688,7 +1688,7 @@
         _selectedTheme = preset.BasedOn.ToString();
         EventBus.Publish(new RedrawEvent());
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Deleted {preset.Name}. Now using {PrettyThemeName(preset.BasedOn)}.", true));
+            $"Deleted {preset.Name}. Now using {PrettyThemeName(preset.BasedOn)}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         await InvokeAsync(StateHasChanged);
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-theme"); }
         catch { /* best-effort, as everywhere else */ }
@@ -1748,7 +1748,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             $"Reset the paper account? This erases the balance, every open position and the "
           + $"whole trade history, back to {Paper.StartingBalance:N0}. It cannot be undone. "
-          + $"Confirm reset, or cancel."));
+          + $"Confirm reset, or cancel.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-paper-reset-confirm"); }
         catch { /* focus is best-effort; both buttons are still one Tab away */ }
@@ -1766,7 +1766,7 @@
         await Task.Yield();
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Cancelled. The paper account was not reset."));
+            "Cancelled. The paper account was not reset.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-paper-reset"); }
         catch { }
@@ -1780,7 +1780,7 @@
         await Task.Yield();
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Paper account reset to {Paper.StartingBalance:N0}. All positions and history cleared.", true));
+            $"Paper account reset to {Paper.StartingBalance:N0}. All positions and history cleared.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         // The button that took the click no longer exists — the row re-rendered back to its
         // single-button form. Without this, focus falls to <body> and the user is returned to
@@ -1820,7 +1820,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             "Warning: all personalization and settings will be lost and the terminal will be "
           + $"reset to factory defaults. This erases {ResetErasedText}. Kept: {ResetSurvivesText}. "
-          + "It cannot be undone. Are you sure? Confirm reset, or cancel."));
+          + "It cannot be undone. Are you sure? Confirm reset, or cancel.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-factory-reset-confirm"); }
         catch { }
@@ -1833,7 +1833,7 @@
         await Task.Yield();
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            "Cancelled. Nothing was reset."));
+            "Cancelled. Nothing was reset.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "s-factory-reset"); }
         catch { }
@@ -1858,7 +1858,7 @@
                 + "re-reads them. Your API keys, paper account and saved workspaces were kept."
                 : $"Reset finished with {failures} problem{(failures == 1 ? "" : "s")}. Some settings "
                 + "may not have been cleared — see the log. Restart the terminal.",
-            true));
+            true, Channel: failures == 0 ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface : null));
 
         // Close, without going through Cancel: Cancel reverts the live-preview controls to the
         // values the dialog OPENED with, which are the pre-reset ones — it would hand back the
@@ -2009,7 +2009,7 @@
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             previewsChanged
                 ? "Settings discarded. Appearance restored."
-                : "Settings discarded.", true));
+                : "Settings discarded.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
     }
 
@@ -2181,7 +2181,7 @@
         EventBus.Publish(new PaperModeToggledEvent(_paperTradingMode));
         if (_paperTradingMode != _paperTradingModeInitial)
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                _paperTradingMode ? "Paper trading enabled." : "Paper trading disabled.", true));
+                _paperTradingMode ? "Paper trading enabled." : "Paper trading disabled.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         // Only signal a braille change when it actually changed — the coordinator
         // connects/disconnects the device in response, so we don't want to churn it
@@ -2190,14 +2190,14 @@
         {
             EventBus.Publish(new BrailleModeToggledEvent(_brailleEnabled));
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                _brailleEnabled ? "Braille output enabled." : "Braille output disabled.", true));
+                _brailleEnabled ? "Braille output enabled." : "Braille output disabled.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
 
         // Saving is the moment the dialog's work becomes real, and for a blind user the
         // announcement IS the evidence the button did anything — the same reason the sound
         // designer's Save Patch and Custom Scripts' Save were given one on 2026-09-04. It is
         // last so that any per-setting sentence above (paper mode, braille) is heard first.
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Settings saved.", true));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "Settings saved.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         _pendingPaperReset = false;   // see Cancel: an armed question must never outlive the dialog
         _pendingFactoryReset = false;
@@ -2306,7 +2306,7 @@
         // way to learn the new key was to read the table.
         string now = _uniqueBindings.FirstOrDefault(b => b.Description == reboundName)?.DisplayString ?? key;
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{reboundName} is now {now}.", false));
+            $"{reboundName} is now {now}.", false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         // Tell the user when this rebind stole another command's only shortcut, so a
         // keyboard-first user learns it went unbound now — not by pressing a dead key
@@ -2316,7 +2316,7 @@
             var names = displaced.Select(c => c.ToString());
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 $"{reboundName} rebound. This removed the only shortcut for {string.Join(", ", names)}; " +
-                "rebind from the Keyboard tab if you still need it.", true));
+                "rebind from the Keyboard tab if you still need it.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
 
         // A rebind that could not be written is still LIVE this session but gone on restart.
@@ -2366,7 +2366,7 @@
         if (!viaTab) _ = InvokeAsync(() => ReturnFocusToRowAsync(name));
         // Not interrupting: after Tab the screen reader is already reading the next control.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Rebind cancelled. {name} keeps its shortcut.", false));
+            $"Rebind cancelled. {name} keeps its shortcut.", false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     public void Dispose()

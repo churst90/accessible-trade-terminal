@@ -529,7 +529,7 @@
                           + "It will be used only by the Withdraw screen, never for trading."
                         : autoActivate
                             ? $"Profile {config.Nickname} saved and activated"
-                            : $"Profile {config.Nickname} saved. Press Activate on it to use it."));
+                            : $"Profile {config.Nickname} saved. Press Activate on it to use it.", Channel: reachedAProvider ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface : null));
         }
         catch (Exception ex)
         {
@@ -553,7 +553,7 @@
                 _keys.FirstOrDefault(k => k.Nickname == nickname)?.Provider ?? ""));
 
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"{nickname} set as active"));
+                $"{nickname} set as active", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         }
         catch (Exception ex)
         {
@@ -583,7 +583,7 @@
         // announcement is what makes that true for everyone else, and it must say what is
         // at stake before it says which keys answer it.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Remove {nickname}? This cannot be undone. Confirm remove, or cancel."));
+            $"Remove {nickname}? This cannot be undone. Confirm remove, or cancel.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "apikey-remove-confirm"); }
         catch { /* focus is best-effort; the buttons are still one Tab away */ }
@@ -604,7 +604,7 @@
         await Task.Yield();
 
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Cancelled. {nickname} was kept."));
+            $"Cancelled. {nickname} was kept.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", $"apikey-remove-{rowIndex}"); }
         catch { }
@@ -630,7 +630,7 @@
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
                 _keys.Count == 0
                     ? $"{nickname} removed. No profiles remain."
-                    : $"{nickname} removed."));
+                    : $"{nickname} removed.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
             await Task.Yield();
             // The row that was focused no longer exists. Land on the row that took its place
@@ -698,7 +698,7 @@
             }
 
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                "Opening Schwab sign-in in browser."));
+                "Opening Schwab sign-in in browser.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
             // The BeginAuthorizationAsync(Action<string>? openBrowser = null, CancellationToken = default)
             // contract: first arg is an optional browser-launch hook; passing null falls
@@ -714,7 +714,7 @@
 
             _formError = null;
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                $"Schwab sign-in complete for {nickname}."));
+                $"Schwab sign-in complete for {nickname}.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             StateHasChanged();
         }
         catch (Exception ex)

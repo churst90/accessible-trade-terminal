@@ -250,7 +250,7 @@
             _focusMode
                 ? "Focus mode on. Toolbar, tabs and indicator bar hidden; press Alt plus Z to show them."
                 : "Focus mode off. Toolbar, tabs and indicator bar shown.",
-            true));
+            true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         // Whatever had focus may be gone now; the chart is the one thing that is still there.
         if (_focusMode) _eventBus.Publish(new RequestChartFocusEvent());
         await Task.CompletedTask;
@@ -331,13 +331,14 @@
                 }
 
                 if (string.IsNullOrEmpty(evt.ModalName)) return;
-                // Respect the F2 speech mute (workspace flag), then route through
+                // NOT gated on F2 since 2026-09-30. F2 silences the chart and its narration
+                // only (Cody); a dialog opening is the interface, and someone who muted chart
+                // chatter still needs to know where focus went. Routed through
                 // SpeechManager.Speak instead of writing the live region directly. The
                 // direct write reached ONLY the live region — which the sink policy disables
                 // for browser-voice-only users, so they heard nothing on modal open/close.
                 // Speak() applies ShouldEnableLiveRegion: browser voice → browser TTS,
                 // server backends → their sink, browser-hop → the live region (exactly one).
-                if (!Store.State.IsSpeechEnabled) return;
                 var phrase = evt.IsOpen ? $"{evt.ModalName} dialog opened" : $"{evt.ModalName} dialog closed";
                 SpeechManager.Speak(phrase);
             });
@@ -456,7 +457,7 @@
                 {
                     const string msg = "Security notice: OS-level sandbox not available. Custom indicators run with process-boundary isolation only. Built-in indicators are unaffected.";
                     _layoutLogger.LogWarning(msg);
-                    _eventBus.Publish(new AnnouncementEvent(msg, true));
+                    _eventBus.Publish(new AnnouncementEvent(msg, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                     try { AudioRouter.PlayEarcon(FeedbackType.Alert); }
                     catch { /* earcon is enhancement; message itself is what matters */ }
                 }

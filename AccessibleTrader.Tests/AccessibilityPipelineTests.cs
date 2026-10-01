@@ -13,7 +13,7 @@ namespace AccessibleTrader.Tests
         public List<string> SpokenTexts { get; } = new();
         public int SpeakCallCount { get; private set; }
 
-        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
+        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
         {
             SpeakCallCount++;
             SpokenTexts.Add(message);

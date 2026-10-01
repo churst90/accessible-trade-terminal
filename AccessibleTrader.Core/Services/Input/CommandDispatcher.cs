@@ -404,7 +404,7 @@ namespace AccessibleTrader.Core.Services.Input
                     {
                         _store.Dispatch(new RemoveLevelAction(focusedId, doomed.Name));
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
-                            $"{doomed.Name} removed.", true));
+                            $"{doomed.Name} removed.", true, Channel: SpeechChannel.Interface));
                         return;
                     }
 
@@ -424,7 +424,7 @@ namespace AccessibleTrader.Core.Services.Input
                         bool nowAudible = !ReferenceLevelPlacement.IsAudible(toggleable);
                         _store.Dispatch(new SetLevelAudibleAction(focusedId, toggleable.Name, nowAudible));
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
-                            ReferenceLevelPlacement.ToggleReason(toggleable, nowAudible), true));
+                            ReferenceLevelPlacement.ToggleReason(toggleable, nowAudible), true, Channel: SpeechChannel.Interface));
                         return;
                     }
 
@@ -454,12 +454,12 @@ namespace AccessibleTrader.Core.Services.Input
                         // Info for "already marked" — a fact about today that changes when the
                         // level is removed, not a wall.
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            levelRefused ? FeedbackType.Boundary : FeedbackType.Info, levelReason, true));
+                            levelRefused ? FeedbackType.Boundary : FeedbackType.Info, levelReason, true, Channel: SpeechChannel.Interface));
                         return;
                     }
 
                     _store.Dispatch(new AddLevelAction(focusedId, level));
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, levelReason, true));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, levelReason, true, Channel: SpeechChannel.Interface));
                     return;
                 }
                 case SystemCommand.ToggleSpeech: _store.Dispatch(new ToggleSpeechAction()); return;
@@ -523,7 +523,7 @@ namespace AccessibleTrader.Core.Services.Input
                     _eventBus.Publish(new FeedbackRequestEvent(
                         FeedbackType.Info,
                         "Focus on trading chart area.",
-                        Interrupt: true));
+                        Interrupt: true, Channel: SpeechChannel.Interface));
                     return;
                 // Series focus cycling — works regardless of chart data so the user can
                 // always navigate to a series and then use H/M/volume keys on it.
@@ -575,7 +575,7 @@ namespace AccessibleTrader.Core.Services.Input
                     // Boundary, like every other refusal of a nudge: the key was understood
                     // and has nowhere to go. Error would play the failure earcon and speak on
                     // the channel F2 cannot mute, for a keypress that failed nothing.
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true, Channel: SpeechChannel.Interface));
                 }
                 else if (command is SystemCommand.ToggleIndicatorVisibility
                                  or SystemCommand.ToggleIndicatorAudio
@@ -588,7 +588,7 @@ namespace AccessibleTrader.Core.Services.Input
                     // narration") precisely because it ran before this gate, and moving N here
                     // to sit beside its siblings would otherwise have taken that away.
                     // Boundary, not Error: the key was understood, there is simply no chart.
-                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true));
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No chart loaded.", true, Channel: SpeechChannel.Interface));
                 }
                 return;
             }

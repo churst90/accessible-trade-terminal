@@ -245,7 +245,7 @@ namespace AccessibleTrader.Core.Services
                 _logger.LogInformation("Reconciliation: {Message}", message);
                 _eventBus.Publish(new FeedbackRequestEvent(
                     FeedbackType.StateChange, message,
-                    Interrupt: false, IsUserInitiated: false));
+                    Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
             }
         }
 
@@ -438,7 +438,7 @@ namespace AccessibleTrader.Core.Services
             _logger.LogInformation("Reconciliation: {Message}", message);
             _eventBus.Publish(new FeedbackRequestEvent(
                 FeedbackType.StateChange, message,
-                Interrupt: false, IsUserInitiated: false));
+                Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent));
         }
 
         public void Dispose()

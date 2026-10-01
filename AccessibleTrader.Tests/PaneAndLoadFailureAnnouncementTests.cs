@@ -194,7 +194,7 @@ namespace AccessibleTrader.Tests
         private sealed class ChannelRecordingRouter : ISpeechFeedbackRouter
         {
             public List<Utterance> Utterances { get; } = new();
-            public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Manual)
+            public void Speak(string message, bool interrupt = false, SpeechChannel channel = SpeechChannel.Chart)
                 => Utterances.Add(new Utterance(message, interrupt, channel));
             public void SpeakPoint(WorkspaceState s, WorkspaceState? p, ChartSeries ser, Ohlcv pt, string pfx = "") { }
             public void SpeakProfile(WorkspaceState s, WorkspaceState? p, ChartSeries ser, int bin, string pfx = "") { }

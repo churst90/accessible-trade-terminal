@@ -126,6 +126,11 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > Bitcoin address VERIFIED for a Litecoin withdrawal); the `_sendLock` comment is corrected
 > (the Windows runtime ships the same managed WebSocket, checked by inspection).
 >
+> **2026-10-01: F2 is the chart's mute (Cody's rule), and the two read-confirmed defects are fixed**
+> ("1M" spoken as minutes; the BB/MACD detail facts always empty). See CHANGES. **Ask Cody** whether
+> any Interface/Event/OrderEvent classification in that entry should move. In the survey's
+> "Suspected live defects", items 1 and 2 are DONE and item 4 (F2 and narration) is DECIDED.
+>
 > **NEXT: A2q, `Services/Accessibility`. The target list is in `scratchpad/a2q_SURVEY.md`.**
 > - Scale: 49 files, 15,902 lines, 26 files never mutated.
 > - Five files have no direct test at all: NavigationEngine, ViewportManager,

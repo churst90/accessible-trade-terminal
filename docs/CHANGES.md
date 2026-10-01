@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### F2 silences only the chart and its narration; two detail-key defects fixed (2026-10-01)
+
+**Cody, 2026-09-30: "F2 should silence just chart navigation and narration."** Narration is
+F2's alone (no longer also Shift+F2's), and new bars count as narration (his answers to the two
+open edges).
+
+- **Channels.**
+  - `SpeechChannel.Manual` is renamed `Chart`. It is still the default, so anything that
+    names no channel behaves as before.
+  - New `Narration`: muted by F2, and it keeps Event's priority, so an arrow press does not
+    cut off a bar-close sentence.
+  - New `Interface`: muted by neither key.
+  - `Event` is Shift+F2's: alerts, monitoring, connection status.
+  - `AnnouncementEvent` gained the same `Channel` override `FeedbackRequestEvent` has.
+- **What moved.**
+  - **Narration, now F2:** bar-close narration, the new-bar sentence, forming patterns and
+    formations, and background-tab bar closes.
+  - **Interface (about 90 publishers):**
+    - every dialog, the toolbar and the context menus;
+    - changes you make from the keyboard: hide, mute, delete, reference levels, tabs,
+      session resume;
+    - provider/timeframe coercion, and "X dialog opened/closed" (`MainLayout` no longer
+      checks F2).
+  - **Event:** data-link and rate-limit status, the monitoring on/off sentence (it repeats on
+    symbol switches), the order book's large-order radar, a strategy's repeated-signal note,
+    and a strategy warming up.
+  - **OrderEvent (money):**
+    - order placed and OCO placed (`ReportSuccess`);
+    - the dashboard's cancel / OCO / close successes (failures stay Critical);
+    - a strategy's closes and resumes;
+    - "while you were away" reconciliation.
+
+    These were already silenced by F2 before this change; under "chart speech" that is wrong.
+- **Wording.**
+  - F2 now confirms "Chart speech on/off".
+  - The Settings checkbox is "Chart speech and narration (F2)".
+  - Help and Settings rows are updated. Two were stale already: Help's Shift+F2 row quoted
+    "Event speech on/off", and Settings' table listed F4 as "Context summary".
+  - QUICKSTART, USER_MANUAL, SHORTCUTS and README now state the new rule.
+- **Review.** An accessibility review of the first pass found the money successes still muted
+  and three repeating messages made unmutable. It also found `ok ? StateChange : Error`
+  publishes and direct `Speech.Speak` calls in two context menus that the tagging had missed.
+  All are fixed.
+- **Guards.**
+  - `F2ChartOnlyMuteTests`: a channel × mute table written as the policy; narration keeps
+    priority; dialog vs chart through the real coordinator.
+  - A scan requiring every component publish, and every component's direct router `Speak`,
+    to name its channel.
+  - Two new-bar tests: Shift+F2 does not silence the bar close, F2 does.
+  - A browser test: with chart speech off, opening the Object Tree is still announced.
+  - Twelve sabotages, each proven red.
+- **Monthly charts were described as "1 minute".** `ChartLayoutDescriber.SpokenTimeframe`
+  lower-cased before matching, so "1M" became minutes. "1y" was spoken as the bare code. Both
+  were demonstrated failing first, then fixed.
+- **The detail key's Bollinger-squeeze and MACD-cross facts were always silent.**
+  - They read the components "Upper"/"Lower"/"MACD", but the providers emit
+    "UpperBand"/"LowerBand"/"Macd".
+  - The lookup is case-sensitive and a missing component reads as empty, so the facts never
+    appeared.
+  - The test that closed A2j's J48 used the same wrong names. The fixture now takes its names
+    from the real providers' metadata, and MACD gained its first tests.
+  - Demonstrated failing first, then fixed; the old names are kept as fallbacks.
+- **Caveat.** `Interface` has no mute. Screen-reader users have their reader's speech mode;
+  browser-voice-only users have "Speech output on this device". The classification is a
+  judgement per publisher (reading the chart is Chart; changing something is Interface;
+  something that happens to you is Event), and any line of it can be moved.
+- Suite 8,254 → 8,289 run (8,284 listed), browser 232 → 233.
+
 ### A2p's decisions: the heartbeat seam, `IsPublishable` deleted, base58 addresses checked for their network (2026-09-28)
 
 - **Heartbeat seam (Cody: "add the hook").** `ReconnectingWebSocket.HeartbeatWriter`, internal,

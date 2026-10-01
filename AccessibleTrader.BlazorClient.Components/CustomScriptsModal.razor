@@ -346,7 +346,7 @@
         // workspace, properties, API keys and watchlists all announce — and for a blind user the
         // announcement IS the evidence that the button did anything.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{updated.Name} saved.", true));
+            $"{updated.Name} saved.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private async Task CompileScript()

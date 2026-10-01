@@ -36,7 +36,7 @@ namespace AccessibleTrader.Tests
             public List<(string Text, bool Interrupt, SpeechChannel Channel)> Calls { get; } = new();
             public IEnumerable<string> Texts => Calls.Select(c => c.Text);
 
-            public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
+            public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
                 => Calls.Add((message, interrupt, channel));
             public void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "") { }
             public void SpeakProfile(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, int binIndex, string prefix = "") { }

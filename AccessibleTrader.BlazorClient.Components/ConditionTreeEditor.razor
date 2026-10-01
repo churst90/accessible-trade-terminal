@@ -467,7 +467,7 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             Spec.SelectedNode = land;
         }
 
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Deleted {label}.", true));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Deleted {label}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         StateHasChanged();
         await Task.Yield();
         try

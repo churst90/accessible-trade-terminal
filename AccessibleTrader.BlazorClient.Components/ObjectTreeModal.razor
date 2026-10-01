@@ -472,7 +472,7 @@
         if (s == null) return;
 
         Store.Dispatch(new RemoveSeriesAction(id));
-        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.Name} removed"));
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.Name} removed", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         try { await JSRuntime.InvokeVoidAsync("accessibleTrader.focusElement", "objtree-title"); } catch { }
     }
 

@@ -446,6 +446,6 @@
     private void Announce(string message)
     {
         _status = message;
-        EventBus.Publish(new AnnouncementEvent(message, true));
+        EventBus.Publish(new AnnouncementEvent(message, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 }

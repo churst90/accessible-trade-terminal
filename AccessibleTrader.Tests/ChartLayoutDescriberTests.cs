@@ -287,6 +287,13 @@ namespace AccessibleTrader.Tests
         [InlineData("15m", "15 minutes")]
         [InlineData("1w", "1 week")]
         [InlineData("3d", "3 days")]
+        // Capital M is MONTH and lower-case m is minute; they are different timeframes the
+        // terminal offers side by side (My Data lists "1m" and "1M"). The describer lower-cased
+        // before matching, so a monthly chart was described as "1 minute per bar". 2026-09-30.
+        [InlineData("1M", "1 month")]
+        [InlineData("3M", "3 months")]
+        [InlineData("1m", "1 minute")]
+        [InlineData("1y", "1 year")]
         public void TimeframesAreSpokenAsWordsNotCodes(string code, string spoken)
         {
             // "one d" is what a screen reader makes of "1d".

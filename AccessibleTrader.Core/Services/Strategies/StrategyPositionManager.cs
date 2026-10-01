@@ -643,7 +643,11 @@ namespace AccessibleTrader.Core.Services.Strategies
         private void Announce(FeedbackType type, string message)
         {
             _logger.LogInfo(message, nameof(StrategyPositionManager));
-            _eventBus.Publish(new FeedbackRequestEvent(type, message, true));
+            // A strategy's positions are money: what it closed, what it resumed, what it found
+            // flat. Info rides OrderEvent, which breaks through both mutes like any fill; on the
+            // default channel F2 (chart speech) silenced it. Errors keep Critical, Alerts Event.
+            _eventBus.Publish(new FeedbackRequestEvent(type, message, true,
+                Channel: type == FeedbackType.Info ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.OrderEvent : null));
         }
 
         private static string Word(OrderSide side) => side == OrderSide.Buy ? "long" : "short";

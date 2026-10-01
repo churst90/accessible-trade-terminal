@@ -371,7 +371,7 @@
             _wavImportSuccess = ok;
             if (ok && id != null) _wavRemoveId = id;
             EventBus.Publish(new FeedbackRequestEvent(
-                ok ? FeedbackType.StateChange : FeedbackType.Error, message, true));
+                ok ? FeedbackType.StateChange : FeedbackType.Error, message, true, Channel: ok ? AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface : null));
         }
         catch (Exception ex)
         {
@@ -386,7 +386,7 @@
         if (string.IsNullOrEmpty(_wavRemoveId)) return;
         Wavetables.Remove(_wavRemoveId);
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"Deleted {_wavRemoveId}.", true));
+            $"Deleted {_wavRemoveId}.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         _wavRemoveId = Wavetables.WavetableIds.FirstOrDefault()
                        ?? Wavetables.SampleIds.FirstOrDefault() ?? "";
         StateHasChanged();
@@ -513,7 +513,7 @@
         // API keys and watchlists all announce — and in a dialog whose whole subject is sound,
         // the one thing that made no sound was the confirmation that the button worked.
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-            $"{updated.Name} saved.", true));
+            $"{updated.Name} saved.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void PreviewPatch()

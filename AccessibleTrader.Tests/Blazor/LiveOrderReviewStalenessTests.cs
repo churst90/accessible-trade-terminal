@@ -259,7 +259,7 @@ public class LiveOrderReviewStalenessTests
     /// the tier F2 silences.
     ///
     /// <para>
-    /// It did: <c>FeedbackType.StateChange</c> routes to <c>SpeechChannel.Manual</c>. With
+    /// It did: <c>FeedbackType.StateChange</c> routes to <c>SpeechChannel.Chart</c>. With
     /// speech off, arming a live order said nothing at all while a REJECTION — Error, hence
     /// Critical — was still spoken, so the terminal announced every refusal and no
     /// confirmation. Every asynchronous order outcome in the app already uses

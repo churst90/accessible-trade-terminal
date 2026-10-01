@@ -154,7 +154,7 @@ public class FeedbackTypeCoverageTests
 
         h.Bus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "zoomed to 120 bars"));
 
-        Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.Manual);
+        Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.Chart);
     }
 
     /// <summary>An alert earcons as well as speaks — the immediate cue, like the Error branch.</summary>
@@ -268,7 +268,7 @@ public class FeedbackTypeCoverageTests
         public List<string> SpokenTexts { get; } = new();
         public List<SpeechChannel> Channels { get; } = new();
 
-        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual)
+        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
         {
             SpokenTexts.Add(message);
             Channels.Add(channel);

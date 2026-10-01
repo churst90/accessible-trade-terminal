@@ -296,13 +296,18 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (!int.TryParse(t[..i], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) return t;
 
-            string unit = t[i..].ToLowerInvariant() switch
+            // Capital M is month and lower-case m is minute, so it is matched BEFORE the case is
+            // folded. The "M" arm used to sit inside the lower-cased switch, where it could never
+            // match, and a monthly chart was described as "1 minute per bar".
+            string suffix = t[i..];
+            string unit = suffix == "M" ? "month" : suffix.ToLowerInvariant() switch
             {
                 "m"  => "minute",
                 "h"  => "hour",
                 "d"  => "day",
                 "w" or "wk" => "week",
-                "mo" or "M" => "month",
+                "mo" => "month",
+                "y"  => "year",
                 _    => null!,
             };
             if (unit == null) return t;

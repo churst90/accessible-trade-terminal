@@ -643,7 +643,7 @@ namespace AccessibleTrader.Core.Services
                 // is stated in full — and speaking it is better than making the user go and read
                 // a dropdown to find out why the chart will not load.
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                    $"{_selectedProvider}: {ApiKeyRequiredHelp}", true));
+                    $"{_selectedProvider}: {ApiKeyRequiredHelp}", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
 
                 _pipelineUpdated.OnNext(Unit.Default);
                 return;
@@ -732,7 +732,7 @@ namespace AccessibleTrader.Core.Services
                         _availableTimeframes.Count == 1
                             ? $"{_selectedProvider} provides {coerced} data only; timeframe set to {coerced}."
                             : $"{_selectedProvider} does not offer {_selectedTimeframe}; timeframe set to {coerced}.",
-                        Interrupt: false, IsUserInitiated: false));
+                        Interrupt: false, IsUserInitiated: false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                 }
                 _selectedTimeframe = coerced;
             }

@@ -309,7 +309,7 @@ namespace AccessibleTrader.Core.Services
                     if (plan.Message != null)
                     {
                         _logger.LogInfo(plan.Message, nameof(StrategyEngine));
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, plan.Message, false));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, plan.Message, false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
                     }
 
                     if (plan.Disposition == Strategies.StrategyEntryDisposition.AlreadyOpen)

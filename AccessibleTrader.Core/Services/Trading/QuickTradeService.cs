@@ -460,7 +460,7 @@ namespace AccessibleTrader.Core.Services.Trading
         }
 
         private void Say(string message) =>
-            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, true));
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, true, Channel: SpeechChannel.Interface));
 
         private static string Trim(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
         private static string Money(double v) => "$" + v.ToString("N2", CultureInfo.InvariantCulture);

@@ -140,7 +140,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // Legacy support for specific manual events
             _subscriptions.Add(_eventBus.Subscribe<FeedbackRequestEvent>(OnFeedbackRequest));
-            _subscriptions.Add(_eventBus.Subscribe<AnnouncementEvent>(e => _speechRouter.Speak(e.Message, e.Interrupt)));
+            _subscriptions.Add(_eventBus.Subscribe<AnnouncementEvent>(e =>
+                _speechRouter.Speak(e.Message, e.Interrupt, e.Channel ?? SpeechChannel.Chart)));
             // Shift+F1. Its own event so that no subscriber has to recognise a sentinel to
             // avoid speaking one — see ContextSummaryRequestEvent.
             _subscriptions.Add(_eventBus.Subscribe<ContextSummaryRequestEvent>(_ => SpeakContextSummary()));
@@ -312,7 +313,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (state.IsSpeechEnabled != _previousState.IsSpeechEnabled)
             {
                 _audioRouter.PlayEarcon(FeedbackType.Info);
-                _speechRouter.Speak(state.IsSpeechEnabled ? "Speech on" : "Speech off",
+                // "Chart speech", not "Speech": since 2026-09-30 F2 silences only the chart and its
+                // narration, and a dialog still speaks with it off, so "Speech off" would be a lie.
+                _speechRouter.Speak(state.IsSpeechEnabled ? "Chart speech on" : "Chart speech off",
                     interrupt: true, channel: SpeechChannel.Critical);
             }
             if (state.IsSonificationEnabled != _previousState.IsSonificationEnabled)
@@ -665,7 +668,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (_autoNarration.WillNarrateBarClose())
                 _autoNarration.DeferBarCloseSentence(sentence);
             else
-                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
+                _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);
 
             // Reset intra-bar debounce for the new bar.
             _lastAnnouncedPattern = CandlePattern.None;
@@ -765,7 +768,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 string msg = CandlePatternSpeech.Forming(analysis.Type, analysis.Pattern);
                 if (!string.IsNullOrEmpty(msg))
                 {
-                    _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Event);
+                    _speechRouter.Speak(msg, interrupt: false, channel: SpeechChannel.Narration);
                     _lastAnnouncedPattern    = analysis.Pattern;
                     _lastAnnouncedType       = analysis.Type;
                     _lastPatternAnnouncement = DateTime.UtcNow;
@@ -846,7 +849,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             _lastFormingPattern = candidate.Identity;
             _lastPatternAnnouncement = DateTime.UtcNow;
-            _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
+            _speechRouter.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);
             return true;
         }
 
@@ -991,7 +994,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             {
                 case FeedbackType.StateChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 case FeedbackType.Navigation:
@@ -1018,7 +1021,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
                 case FeedbackType.VolumeChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: false, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: false, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 case FeedbackType.Error:
@@ -1047,7 +1050,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     // broken binding — the exact failure the feedback contract forbids.
                     _audioRouter.PlayEarcon(FeedbackType.Boundary);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 // Alert had no arm at all, so every FeedbackRequestEvent(Alert) was constructed,
@@ -1077,12 +1080,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 case FeedbackType.PointFocus:
                 case FeedbackType.ViewportChange:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 case FeedbackType.Info:
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 // Every member of FeedbackType is handled above, and FeedbackTypeCoverageTests
@@ -1094,7 +1097,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         "[AccessibilityFeedbackCoordinator] Unhandled FeedbackType {Type} — message '{Message}' has no routing arm.",
                         e.Type, e.Message);
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Manual));
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Chart));
                     break;
             }
         }

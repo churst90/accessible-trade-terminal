@@ -134,6 +134,44 @@ public sealed class NewBarNarrationCompositionTests
             $"the new-bar sentence must lead — got \"{one}\"");
     }
 
+    // ── Which mute silences it (Cody, 2026-09-30) ─────────────────────────────
+    //
+    // "F2 should silence just chart navigation and narration", and new bars are narration.
+    // Until that day this sentence rode the Event channel, so Shift+F2 silenced it and F2 did not.
+
+    [Fact]
+    public void ShiftF2_DoesNotSilenceTheBarCloseOrItsNarration()
+    {
+        var (_, build) = MarkerSeries(99);
+        var h = new Harness();
+        h.Store.EmitState(State(build(100), 100) with { IsEventSpeechEnabled = false });
+        h.Bus.Publish(new RedrawEvent());
+
+        var said = h.CloseBar(State(build(101), 101) with { IsEventSpeechEnabled = false },
+            Bars(101)[99], Bars(101)[100]);
+
+        string one = Assert.Single(said);
+        Assert.Contains("Close 199.50", one, StringComparison.Ordinal);
+        Assert.Contains("Triple confluence buy", one, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(true)]    // a narrated series: the composed sentence
+    [InlineData(false)]   // nothing narrating: the new-bar sentence alone
+    public void F2_SilencesTheBarCloseAndItsNarration(bool narrated)
+    {
+        var (cfg, build) = MarkerSeries(99);
+        cfg.IsAutoNarrated = narrated;
+        var h = new Harness();
+        h.Store.EmitState(State(build(100), 100) with { IsSpeechEnabled = false });
+        h.Bus.Publish(new RedrawEvent());
+
+        var said = h.CloseBar(State(build(101), 101) with { IsSpeechEnabled = false },
+            Bars(101)[99], Bars(101)[100]);
+
+        Assert.Empty(said);
+    }
+
     [Fact]
     public void TheFirstBarToCloseAfterSwitchingNarrationOn_Speaks()
     {

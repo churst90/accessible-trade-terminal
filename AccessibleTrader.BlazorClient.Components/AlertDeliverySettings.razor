@@ -560,7 +560,7 @@
             "denied"      => "The browser refused notification permission. Allow notifications for this site and try again.",
             "unsupported" => "This browser does not support push notifications.",
             _             => "Could not enable browser notifications. Try again.",
-        }, true));
+        }, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private async Task DisableWebPush()
@@ -572,6 +572,6 @@
         {
             "disabled" => "Browser notifications off for this browser.",
             _          => "Could not disable browser notifications here. You can also revoke the permission in browser settings.",
-        }, true));
+        }, true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 }

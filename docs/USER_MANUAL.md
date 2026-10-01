@@ -1112,12 +1112,15 @@ arrive, and nothing plays underneath them.
 
 ### Choosing what you hear
 
-You are always in command of the output layers, and the F-key row follows one
-rule: **the plain key controls what you asked for, and Shift controls what
-happens to you.** F2 toggles interactive speech — navigation values, zoom and
-pan announcements, summaries; with it off, your commands run silently.
-Shift+F2 toggles event speech — alerts, monitoring reports, new-bar
-announcements. F3 toggles chart sonification — the navigation tones and
+You are always in command of the output layers. **F2 toggles chart speech:**
+everything the chart says as you move through it (values, zoom and pan, summaries
+of the chart, playback) and all narration, including new-bar announcements. It
+says "Chart speech off". With it off you can still work: dialogs, the toolbar
+and settings always say what they did, and no key silences them; your screen
+reader's own speech mode does that if you need it. **Shift+F2 toggles event
+speech:** alerts, monitoring reports and connection status. To quiet new bars
+while still hearing the chart as you move, turn off Announce new bars or
+narration in Settings → Narration rather than pressing a mute. F3 toggles chart sonification — the navigation tones and
 playback; Shift+F3 toggles earcons. Two things refuse to be silenced: errors,
 and your order outcomes — fills, stop hits, take profits speak and sound
 through every mute, because missing a stop firing costs real money. (If you

@@ -119,7 +119,7 @@ namespace AccessibleTrader.Core.Services
 
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new FeedbackRequestEvent(
-                        FeedbackType.VolumeChange, $"{targetName} volume {direction} to {volume:P0}"));
+                        FeedbackType.VolumeChange, $"{targetName} volume {direction} to {volume:P0}", Channel: SpeechChannel.Interface));
                 }
                 catch (Exception ex)
                 {
@@ -149,7 +149,7 @@ namespace AccessibleTrader.Core.Services
                         // the user back to press m again — see VisibilityStateSpeech.
                         string stillHidden = Accessibility.VisibilityStateSpeech.OtherFlagClause(
                             !(newC?.IsVisible ?? true), "hidden");
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowMuted ? "muted" : "unmuted")}{stillHidden}"));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowMuted ? "muted" : "unmuted")}{stillHidden}", Channel: SpeechChannel.Interface));
                     }
                     else
                     {
@@ -158,7 +158,7 @@ namespace AccessibleTrader.Core.Services
                         bool nowMuted = newS?.IsMuted ?? false;
                         string stillHiddenS = Accessibility.VisibilityStateSpeech.OtherFlagClause(
                             !(newS?.IsVisible ?? true), "hidden");
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowMuted ? "muted" : "unmuted")}{stillHiddenS}"));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowMuted ? "muted" : "unmuted")}{stillHiddenS}", Channel: SpeechChannel.Interface));
                     }
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());
@@ -191,7 +191,7 @@ namespace AccessibleTrader.Core.Services
                         // terminal announce "visible" for something that stays silent.
                         string stillMuted = Accessibility.VisibilityStateSpeech.OtherFlagClause(
                             newC?.IsMuted ?? false, "muted");
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowHidden ? "hidden" : "visible")}{stillMuted}"));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName}: {(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)} {(nowHidden ? "hidden" : "visible")}{stillMuted}", Channel: SpeechChannel.Interface));
                     }
                     else
                     {
@@ -200,7 +200,7 @@ namespace AccessibleTrader.Core.Services
                         bool nowHidden = !(newS?.IsVisible ?? true);
                         string stillMutedS = Accessibility.VisibilityStateSpeech.OtherFlagClause(
                             newS?.IsMuted ?? false, "muted");
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowHidden ? "hidden" : "visible")}{stillMutedS}"));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{s.FriendlyName} {(nowHidden ? "hidden" : "visible")}{stillMutedS}", Channel: SpeechChannel.Interface));
                     }
                     // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
                     _eventBus.Publish(new RedrawEvent());
@@ -285,7 +285,7 @@ namespace AccessibleTrader.Core.Services
                             }));
 
                         // Workspace save is now explicit (Ctrl+Alt+Shift+W) — no auto-persist.
-                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{series.Name} deleted"));
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"{series.Name} deleted", Channel: SpeechChannel.Interface));
                         _eventBus.Publish(new RedrawEvent());
                     }
                 }
@@ -307,10 +307,10 @@ namespace AccessibleTrader.Core.Services
                     string? what = _undo.NextUndoDescription;
                     if (_undo.Undo())
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.StateChange, $"Undone: {what}."));
+                            FeedbackType.StateChange, $"Undone: {what}.", Channel: SpeechChannel.Interface));
                     else
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.StateChange, "Nothing to undo."));
+                            FeedbackType.StateChange, "Nothing to undo.", Channel: SpeechChannel.Interface));
                 }
                 catch (Exception ex)
                 {
@@ -325,10 +325,10 @@ namespace AccessibleTrader.Core.Services
                     string? what = _undo.NextRedoDescription;
                     if (_undo.Redo())
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.StateChange, $"Redone: {what}."));
+                            FeedbackType.StateChange, $"Redone: {what}.", Channel: SpeechChannel.Interface));
                     else
                         _eventBus.Publish(new FeedbackRequestEvent(
-                            FeedbackType.StateChange, "Nothing to redo."));
+                            FeedbackType.StateChange, "Nothing to redo.", Channel: SpeechChannel.Interface));
                 }
                 catch (Exception ex)
                 {
@@ -354,7 +354,7 @@ namespace AccessibleTrader.Core.Services
                         else
                         {
                             _seriesManager.RegisterSeries(CoreSeriesIds.Heatmap, "Liquidity Heatmap", new List<string> { "Liquidity" });
-                            _eventBus.Publish(new AnnouncementEvent("Heatmap added. Note: Only live data will populate heatmap bars."));
+                            _eventBus.Publish(new AnnouncementEvent("Heatmap added. Note: Only live data will populate heatmap bars.", Channel: SpeechChannel.Interface));
                         }
                     }
                 }

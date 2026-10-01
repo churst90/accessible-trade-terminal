@@ -33,7 +33,7 @@ paper trade, and gives you the keys you will look up most. The
 on the web host) speaks exact values: prices, indicator readings, dialog labels, confirmations.
 The built-in audio engine plays the shape of the market: pitch for value, timbre for character,
 bells for events. The terminal calls this the Hybrid Voice model. You can run either alone
-(F2 for speech, F3 for sound) or both together.
+(F2 for chart speech, F3 for sound) or both together.
 
 On the **Windows desktop client** the terminal talks to NVDA and JAWS directly, because the
 chart there is a native canvas your screen reader cannot read through the page. Nothing to set
@@ -220,9 +220,11 @@ landmarks during playback.
 a **system notification**, behind one switch that is on by default: Alt+J → Delivery settings →
 **Events you cannot see**.
 
-**Two mutes, one rule.** F2 silences what you asked for (navigation, summaries); Shift+F2
-silences what happens to you (alerts, new bars, narration). Errors and money (fills, stops,
-take-profits) speak through both. Alerts ignore every narration switch.
+**Two mutes.** F2 silences the chart: navigating it, and narration, including new bars.
+Shift+F2 silences alerts, monitoring and connection status. Neither silences the rest of
+the terminal: dialogs, the toolbar and settings always say what they did. Errors and money
+(fills, stops, take-profits, orders placed or cancelled) speak through both. Alerts ignore
+every narration switch.
 
 ---
 
@@ -237,7 +239,7 @@ take-profits) speak through both. Alerts ignore every narration switch.
 | H | Hide / show it (hidden things leave navigation too) |
 | N | Narrate it on bar closes |
 | Ctrl+Alt+Shift+K / U / O | Show everything hidden / unmute everything / narration off everywhere |
-| F2 / Shift+F2 | Interactive speech / event speech |
+| F2 / Shift+F2 | Chart speech and narration / alerts and events |
 | F3 / Shift+F3 | Chart sound / earcons |
 | F4 / Shift+F4 | Tactile display / its Settings tab |
 
@@ -495,7 +497,7 @@ Windows.
 
 | Key | Action |
 |---|---|
-| F2 / Shift+F2 | Interactive speech / event speech |
+| F2 / Shift+F2 | Chart speech and narration / alerts and events |
 | F3 / Shift+F3 | Chart sonification / earcons |
 | F4 / Shift+F4 | Tactile display on/off / open its Settings tab |
 | F5 / Shift+F5 | Component volume up / down |

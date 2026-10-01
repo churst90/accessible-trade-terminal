@@ -189,7 +189,7 @@
         var reason = Gate?.Invoke();
         if (reason is not null)
         {
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, reason));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, reason, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             return;
         }
         await OnClick.InvokeAsync();

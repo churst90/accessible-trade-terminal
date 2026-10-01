@@ -150,7 +150,7 @@
             // Restore the full workspace (all tabs, series, display toggles).
             WorkspaceInit.RestoreWorkspace(config);
 
-            EventBus.Publish(new AnnouncementEvent($"Workspace loaded: {name}"));
+            EventBus.Publish(new AnnouncementEvent($"Workspace loaded: {name}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             Close();
         }
         catch (Exception ex)
@@ -197,7 +197,7 @@
         if (_selectedIndex >= _profiles.Count) _selectedIndex = _profiles.Count - 1;
         _statusMessage = $"'{name}' deleted.";
         _isError = false;
-        EventBus.Publish(new AnnouncementEvent($"Workspace deleted: {name}"));
+        EventBus.Publish(new AnnouncementEvent($"Workspace deleted: {name}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void Close()

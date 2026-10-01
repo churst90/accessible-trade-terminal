@@ -110,7 +110,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                             if (s != null)
                             {
                                 _store.Dispatch(new RemoveSeriesAction(id));
-                                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Removed {s.Name}"));
+                                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, $"Removed {s.Name}", Channel: SpeechChannel.Interface));
                                 _eventBus.Publish(new RedrawEvent());
                             }
                         }

@@ -61,7 +61,7 @@ public sealed class DrawingSpeechContractTests
     private sealed class CapturingRouter : ISpeechFeedbackRouter
     {
         public List<string> Said = new();
-        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Manual) => Said.Add(message);
+        public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart) => Said.Add(message);
         public void SpeakPoint(WorkspaceState s, WorkspaceState? p, ChartSeries se, Ohlcv pt, string prefix = "") { }
         public void SpeakProfile(WorkspaceState s, WorkspaceState? p, ChartSeries se, int b, string prefix = "") { }
         public void SpeakHeatmap(WorkspaceState s, WorkspaceState? p, ChartSeries se, int d, int b, string prefix = "") { }

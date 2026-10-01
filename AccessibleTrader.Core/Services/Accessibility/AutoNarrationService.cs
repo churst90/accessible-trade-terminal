@@ -137,7 +137,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
             if (whole.Length == 0) return;
 
-            _speechRouter.Speak(whole, interrupt: false, channel: SpeechChannel.Event);
+            _speechRouter.Speak(whole, interrupt: false, channel: SpeechChannel.Narration);
         }
 
         /// <summary>What this scan found, or null. Speaks nothing itself — see the caller.</summary>

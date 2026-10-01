@@ -139,7 +139,7 @@
             Library.SaveWorkspaceProfile(safeName, Store);
             _statusMessage = $"Workspace '{safeName}' saved.";
             _isError = false;
-            EventBus.Publish(new AnnouncementEvent($"Workspace saved: {safeName}"));
+            EventBus.Publish(new AnnouncementEvent($"Workspace saved: {safeName}", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
             // Auto-close after a brief moment so the user hears the announcement.
             Close();
         }

@@ -252,7 +252,7 @@ namespace AccessibleTrader.Core.Services
                     {
                         string label = TabReducer.GetTabLabel(newState.Identity);
                         _eventBus.Publish(new AnnouncementEvent(
-                            $"Tab {newState.ActiveTabIndex + 1}: {label}", true));
+                            $"Tab {newState.ActiveTabIndex + 1}: {label}", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
                     }
 
                     // Publish TabSwitchedEvent so audio engine, sonification, and data services

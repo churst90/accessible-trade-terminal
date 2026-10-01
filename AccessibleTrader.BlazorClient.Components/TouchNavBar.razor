@@ -91,7 +91,7 @@
         catch { /* JS not ready — the flag simply stays off engine-side */ }
         EventBus.Publish(new AnnouncementEvent(_exploreMode
             ? "Explore mode on. Drag a finger across the chart to hear each bar; lift to stop. Panning is paused."
-            : "Explore mode off. Dragging pans the chart again.", true));
+            : "Explore mode off. Dragging pans the chart again.", true, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private bool IsPlaying => Store.State.IsPlaying || Store.State.IsPaused;

@@ -182,11 +182,12 @@ namespace AccessibleTrader.Core.Services.Feeds
 
                 // Speech, opt-in. Named symbol first: this is by definition about a chart the
                 // user is not looking at, so an announcement that opened with a price would be
-                // unattributable. Never interrupting, on the Event channel — the same tier the
-                // focused bar close uses, so Shift+F2 silences both. ONE utterance, ladder
+                // unattributable. Never interrupting, on the Narration channel — the same tier the
+                // focused bar close uses, so F2 silences both (Shift+F2 did until 2026-09-30,
+                // when Cody made new bars narration). ONE utterance, ladder
                 // included, as in-session and as headless.
                 if (SpeakEnabled())
-                    _speech.Speak(sentence, interrupt: false, channel: SpeechChannel.Event);
+                    _speech.Speak(sentence, interrupt: false, channel: SpeechChannel.Narration);
             }
             catch (Exception ex)
             {

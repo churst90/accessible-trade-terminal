@@ -354,7 +354,7 @@
         if (msg != null)
         {
             _lastAnnounceUtc = DateTime.UtcNow;
-            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, msg, false));
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, msg, false, Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Event));
         }
     }
 

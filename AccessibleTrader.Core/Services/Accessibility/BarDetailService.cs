@@ -278,13 +278,12 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// Returns "band squeezing" / "band expanding" / empty when current BB width is
         /// materially (±10 %) tighter or wider than the 20-bar rolling-average width. Falls back
         /// to a directional hint ("band narrowing" / "band widening") for smaller changes.
-        /// Requires Upper and Lower component arrays with at least 21 non-NaN samples in view.
+        /// Requires UpperBand and LowerBand component arrays with at least 21 non-NaN samples in view.
         /// </summary>
         private static string BollingerSqueezeExpansionFact(ChartSeries series, int index)
         {
-            var upper = series.GetComponentData("Upper");
-            var lower = series.GetComponentData("Lower");
-            if (upper == null || lower == null) return string.Empty;
+            var upper = ComponentNamed(series, "UpperBand", "Upper");
+            var lower = ComponentNamed(series, "LowerBand", "Lower");
             if (index < 20 || index >= upper.Length || index >= lower.Length) return string.Empty;
 
             double curWidth = upper[index] - lower[index];
@@ -313,7 +312,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         }
 
         /// <summary>
-        /// Detects a MACD-vs-Signal crossover on the current bar. Reads the "MACD" and "Signal"
+        /// Detects a MACD-vs-Signal crossover on the current bar. Reads the "Macd" and "Signal"
         /// component arrays (standard Skender MACD layout) and compares prev-bar vs current-bar
         /// sign of (MACD − Signal). Empty string when no crossover or when component data is
         /// missing / NaN.
@@ -321,9 +320,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private static string MacdCrossoverFact(ChartSeries series, int index)
         {
             if (index < 1) return string.Empty;
-            var macd   = series.GetComponentData("MACD");
-            var signal = series.GetComponentData("Signal");
-            if (macd == null || signal == null) return string.Empty;
+            var macd   = ComponentNamed(series, "Macd", "MACD");
+            var signal = ComponentNamed(series, "Signal");
             if (index >= macd.Length || index >= signal.Length) return string.Empty;
 
             double m  = macd[index];
@@ -337,5 +335,25 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return string.Empty;
         }
 
+
+        /// <summary>
+        /// The first of <paramref name="names"/> the series carries, matched exactly; an empty array
+        /// when it carries none (which every caller already treats as "no fact").
+        ///
+        /// <para>
+        /// The real names come FIRST. Until 2026-09-30 these facts asked for "Upper", "Lower" and
+        /// "MACD"; the Bollinger and MACD providers name their components "UpperBand",
+        /// "LowerBand" and "Macd", the lookup is case-sensitive, and a missing component reads as
+        /// an empty array. So both clauses were silent on every real chart, and their only tests
+        /// used the same wrong names. The old spellings stay as fallbacks for a plugin that
+        /// uses them.
+        /// </para>
+        /// </summary>
+        private static double[] ComponentNamed(ChartSeries series, params string[] names)
+        {
+            foreach (var name in names)
+                if (series.Data.ComponentData.TryGetValue(name, out var values)) return values;
+            return Array.Empty<double>();
+        }
     }
 }
