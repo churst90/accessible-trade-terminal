@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### A2q: `Services/Accessibility` mutated; four defects in what a blind user hears and feels, fixed (2026-10-01)
+
+Run in its own worktree, three mutants at a time. It was paused mid-run because test runs were
+making noise on Cody's desktop, and re-run from scratch on the silence fix. Full write-up:
+`scratchpad/a2q_REPORT.md`; target list: `scratchpad/a2q_SURVEY.md`.
+
+- **50 mutants over a folder of 49 files, 26 of them never mutated before. Honest catch rate
+  5/49 (10.2%), the lowest of any campaign; raw 7/50.**
+  - The five files with no direct test (NavigationEngine, ViewportManager,
+    SeriesNavigationRegistry, NotificationHub, HistoryBufferCoordinator) caught nothing.
+  - Neither did fired-alert delivery, the forming-pattern gates, the order earcons or the
+    pane model.
+  - The browser suite was run on every C# survivor, and it made one of the five catches (C06).
+- **Two catches scored as not honest.**
+  - N06 (Home jumps to bar 0) is equivalent: the reducer clamps the cursor anyway. Its only
+    catch was a flake.
+  - E02 was caught only by a count of stop-loss notes, which cannot tell a stop from a take
+    profit.
+- **The Tab-trap flake, finally caught with its message.**
+  - Test: `ModalBrowserContractTests.Tab_never_escapes_an_open_dialog(routeName: "AIAnalystModal via toolbar")`.
+  - Message: "AIAnalystModal reports 2 focusable controls but Tab only ever reached 1 of them".
+  - It passed 3/3 with the mutant and 3/3 clean. No root cause yet.
+- **All 44 survivors closed** with behaviour tests, each proven red on its mutant and green clean
+  (51/51 in `a2q_prove_kills_results.json`, including guards for the four fixes). 81 new cases.
+- **Four production defects, each demonstrated by a failing test first:**
+  1. After a scroll-back loaded older history, narration spoke an old bar as if it had just
+     closed, and the next close repeated a signal already heard. Index memory is now shifted
+     when bars arrive in front (`AutoNarrationService`, `NarrationScanner.ShiftIndices`).
+  2. With exactly three panes and Main declared last, `ChartPaneModel` swapped the other two:
+     `List.Sort` is unstable. It is now a stable order.
+  3. Finishing a two-point drawing from the keyboard said "Trend line placed, point 3 at …".
+     The anchored VWAP named the wrong point too.
+  4. After the Dot Pad reconnected, its braille strip stayed blank until the value changed:
+     both the coordinator and the driver skipped the first text as a repeat.
+- **Re-checked on merge.** Both suites green (8,375 C#; 232 + 1 skipped browser), and fix 3 red
+  with the old line put back.
+- **Decisions for Cody, and what is still unverified,** are in TODO.
+
 ### Test runs no longer play sounds, speak, or take the keyboard on the developer's desktop (2026-10-01)
 
 Cody: running the suites played the chart's tones, spoke over his screen reader, and grabbed his

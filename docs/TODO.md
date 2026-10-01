@@ -126,6 +126,27 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 > Bitcoin address VERIFIED for a Litecoin withdrawal); the `_sendLock` comment is corrected
 > (the Windows runtime ships the same managed WebSocket, checked by inspection).
 >
+> **2026-10-01: A2q merged (Services/Accessibility, honest 10.2%, 44/44 survivors closed, four
+> defects fixed).** **Decisions for Cody:**
+> 1. Where should Page Up/Down land on the candles? The engine says component 0 (upper wick),
+>    the reducer's default is the body, and the tests pin component 0.
+> 2. A signal that printed while F2 was on is heard after unmuting. Is that wanted?
+> 3. Fix 1 also treats a same-chart reload that returns more history as history loaded in front.
+>    Is that OK?
+> 4. The survey's §4 item 8 design questions are still open.
+>
+> **The Tab-trap flake now has a message:** AIAnalystModal "reports 2 focusable controls but Tab
+> only ever reached 1". Root-cause it.
+>
+> **Unverified:**
+> - Dot Pad shows values below 0.001 as "0" (confirmed by reading only).
+> - `dotpad.log` growth.
+> - Drawing survey item 6.
+> - The Dot Pad fixes on hardware.
+> - All wording by ear.
+>
+> **Not yet mutated:** StrategyLab (25,804 lines).
+>
 > **2026-10-01: test runs are silent on the desktop** (`DesktopOutput` switch, muted test Chromium,
 > the Orca-attaching probe opt-in via `ATT_PROBE_WITH_SCREEN_READER=1`). Any NEW code that launches a
 > local tool must take its probe from `DesktopOutput.FileProbe`. Still open: the browser probes

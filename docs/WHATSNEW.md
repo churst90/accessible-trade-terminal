@@ -8,6 +8,15 @@
 
 ## Unreleased
 
+- **Scrolling back no longer replays old news.** When moving left loaded older history, narration
+  could announce an old bar as if it had just closed, and then repeat a signal you had already
+  heard. Fixed.
+- **Panes keep their order.** On a chart with three panes, the two below the price pane could be
+  read in the wrong order. Fixed.
+- **Drawing tools name the right point.** Finishing a trend line from the keyboard said "point 3",
+  a point it does not have. It now names the second point.
+- **The Dot Pad's braille strip comes back after a reconnect.** It used to stay blank until the
+  value changed.
 - **F2 now silences only the chart.** F2 quiets what the chart says as you move through it and
   all narration, including new-bar announcements, and says "Chart speech off". Dialogs, the
   toolbar and settings keep speaking, so you always hear what you just did. Shift+F2 now covers
