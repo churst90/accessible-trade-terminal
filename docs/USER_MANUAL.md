@@ -148,35 +148,37 @@ signals — they are not written to the Journal, and none of them changes with y
 strategy setup. If you hear one lone high beep while arrowing across an RSI, that is
 the approach ping.
 
-**Adding a level of your own.** Press `0` with a series focused and the terminal drops a reference
-line on it. What it does depends on which pane you are on, because a level only means something in
-the units of the thing it sits on.
+**Adding a level of your own.** Press `0` with an indicator focused that sits in its own pane, and
+the terminal puts a reference line on that pane's **neutral** — the value the reading swings about.
+For MACD, momentum and the other zero-centred readings that is zero. For RSI, Stochastic and MFI,
+which run 0 to 100, it is **50**. For Williams %R, which runs −100 to 0, it is **−50**. Where the
+indicator already declares its own midline — RSI ships one at 50 — `0` switches that line on or off
+rather than adding a second one at the same value.
 
-On the price chart there is no meaningful constant at all, so the line goes at **the price of the
-bar under your cursor**: arrow to the level you care about, press `0`, and you have marked it.
+`0` does nothing on the price chart (candles, the price line, and lines drawn over price such as a
+moving average) or on an indicator that declares no neutral; you hear *"No reference level applies
+to"* and the series name. To mark a price, draw a horizontal line.
 
-On an oscillator the line goes on that pane's **neutral** — the value the reading actually swings
-about. For MACD, momentum and the other zero-centred readings that is zero. For RSI, Stochastic and
-MFI, which run 0 to 100, it is **50**. For Williams %R, which runs −100 to 0, it is **−50**. This
-used to be zero everywhere, which put a line on the floor of every 0–100 oscillator — a value RSI
-never visits, so a line that could never be crossed and could never make a sound. Where the
-indicator already declares its own midline — RSI ships one at 50 — you are told so and nothing is
-added, because two lines at one value would report every crossing twice. And on a pane where
-nothing declares a neutral, the key says so rather than guessing.
+You will hear which one you got — *"Zero line added"* or *"Midpoint added at 50"*. From then on that
+line speaks and pings like any other, so you can hear the reading approach and cross it. Ctrl+Left and
+Ctrl+Right jump to those crossings too: the midline is one of the places that key stops, alongside
+the overbought and oversold lines.
 
-You will hear which one you got — *"Zero line added"*, *"Midpoint added at 50"* or *"Level added at
-63,920.11"*. From then on that line speaks and pings like any other, so you can hear price approach
-and cross the level you chose — from either direction, straight away, without visiting any
-settings. Ctrl+Left and Ctrl+Right jump to those crossings too: the midline is one of the places
-that key stops, alongside the overbought and oversold lines.
+**Removing one.** Press `0` again on the same pane and the line comes off. Levels an indicator
+declared for itself — an RSI's 30 and 70 lines — are never removed this way, because they are part of
+what the indicator is; those live in Properties. Properties also gives every level a Remove button, a
+colour, a line style, a thickness, and a choice of which crossings to report: either direction, only
+rising through, or only falling through. All of it is saved with the workspace and survives a
+restart, and "Reset to defaults" restores the indicator's own levels while leaving yours alone.
+Levels placed on the price chart by earlier versions are kept, and can be removed in Properties.
 
-**Removing one.** Press `0` again on the same bar and the level comes off; you will hear "Level
-removed". Levels an indicator declared for itself — an RSI's 30 and 70 lines — are never removed this
-way, because they are part of what the indicator is; those live in Properties. Properties also gives
-every level a Remove button, a colour, a line style, a thickness, and a choice of which crossings to
-report: either direction, only rising through, or only falling through. All of it is saved with the
-workspace and survives a restart, and "Reset to defaults" restores the indicator's own levels while
-leaving yours alone.
+**Horizontal and vertical lines you draw** play the same crossing chirp. A horizontal line chirps
+when you move to a bar whose close is on the other side of it from the bar before (rising for an
+upward cross, falling for a downward one). A vertical line chirps when you move onto its bar or jump
+past it. Hidden drawings are silent, and F3 silences them with the other chart sounds. On the candles
+or the price line, Ctrl+Left and Ctrl+Right stop at those crossings and at vertical lines, together
+with trend-line crossings, nearest first: *"Price crosses above horizontal line at 64,250"*,
+*"Vertical line at"* and the time. With a horizontal line focused, the keys walk that line's crossings.
 
 Two more cues round out the picture. Stereo position places you in time: the
 leftmost visible bar plays hard in the left channel and the rightmost hard in the
@@ -1570,7 +1572,10 @@ Nothing is hidden either way.
 The cycle covers **every** formation over the bar you are standing on, container and
 contained alike — a range, the double bottom inside it, and the flag inside that are three
 presses apart, and a fourth press wraps back to the first. Each announcement says which of
-how many you are on ("2 of 3"), so you always know the size of the set you are walking.
+how many you are on ("2 of 3"), so you always know the size of the set you are walking. The first
+press moves to the *second* formation, because the first is the one already being read, and the
+announcement names the larger formation the one you picked sits inside. Only formations you can
+reach with `;` at that bar are named as the larger one. A choice survives new bars arriving.
 
 **While one is chosen, `,` and `.` walk that formation's edges only** — its start and its
 ending, nothing else. Choosing a shape and then being carried to a different one's break bar
@@ -2240,8 +2245,8 @@ know whether it is listening. Hiding a series or a component (H), or muting it (
 takes it out of narration for as long as it is hidden or muted — on bar closes and in
 playback alike — without touching the N flag, so showing it again brings its narration
 straight back. Flag a series with nothing to narrate and the terminal says so instead of
-promising: "{Series} has no signals to narrate. Press 0 to add a reference level and its
-crossings will speak." (The former Ctrl+Alt+Shift+N alias is gone; N is the switch, and it
+promising: "{Series} has no signals to narrate." — followed, on an indicator where `0` applies,
+by "Press 0 to add a reference level and its crossings will speak." (The former Ctrl+Alt+Shift+N alias is gone; N is the switch, and it
 needs the chart focused.)
 
 **N follows your cursor, exactly like H and M.** With the cursor on a series it switches the
@@ -2899,13 +2904,35 @@ exploratory, as the in-app banner says — but the alerts are an everyday conven
 ### Alerts
 
 Press Alt+J for the alerts manager. The top of the dialog is a short form for adding
-one: a **Name** (the placeholder suggests "e.g. Price crosses 50000"), a **Target**
-of Price, Candle, Indicator, or POC, a **Condition** — crosses above, crosses below,
-enters a zone, exits a zone, or changes direction — a **Price Level** to test
-against, and a **Delivery** choice of Speech, Earcon, or Both. Fill it in and activate
-"Add Alert"; the alert joins the "Active Alerts" list above, where each shows its
-name, target, condition, and level with a Delete button. There is no separate edit
-step — to change an alert, delete it and add a new one. At the bottom of the dialog,
+one, read top to bottom, each choice narrowing the next:
+
+- **Target**: Price, Candle or Indicator.
+- **Indicator** and **Component** (indicator alerts): every indicator on the chart is listed
+  separately, so an SMA 20 and an SMA 50 are two choices.
+- **Condition**: Crosses above, Crosses below and **Touches** for every target. Candle adds
+  Changes direction (the candle colour flips); Indicator adds Changes direction (the line turns
+  up or down). Enters zone and Exits zone appear only for an indicator that has its own
+  overbought or oversold lines, such as RSI, and only those zones are offered.
+- **Compare with**: a number, or a line on the chart — "price touches the SMA 50" is a Price
+  alert compared with the SMA 50 line. An alert compares on the timeframe of the chart it was set
+  on, so set a 50-week SMA alert from the weekly chart, or use the Advanced editor below.
+- **Price level** or **Value**: filled in with the current price or reading when you choose the
+  target, indicator or component. A number you type yourself is kept until you add the alert.
+
+**Touches** means the bar's range reached the level, wick included, from either side, once per
+bar. On an indicator it means the reading reached or crossed the level in either direction. If a
+choice stops making sense after you change one above it, the form says what it changed, and puts
+your choice back when it fits again. The Add button says what is still missing, and an alert that
+could never fire (a zone on an indicator that has none, a line no longer on the chart) is refused
+with the reason rather than added. Adding one says what it will do — *"Alert Fifty added: BTC/USD
+price touches SMA 50."* — and the "Active Alerts" list reads each alert the same way, with a
+Delete button. There is no separate edit step — to change an alert, delete it and add a new one.
+
+**Advanced** swaps the form for the condition-tree editor, which combines conditions with AND, OR
+and NOT. It can compare one line with another ("Crosses above another line": price close against
+an SMA, or an SMA 20 against an SMA 50), and either line can be read on a higher timeframe, so a
+daily chart can watch price crossing the weekly SMA 50. A higher timeframe that has not loaded yet
+holds the alert back rather than letting it fire on missing data. At the bottom of the dialog,
 beside Close, is **Delivery settings** — the email, Telegram, webhook and browser-
 notification channels that carry alerts to you when you are away from the terminal.
 It opens as a second view of the same dialog, so Escape still closes one thing; "Back
@@ -2918,7 +2945,7 @@ and shows its browser-notification (Web Push) controls instead.
 
 When an alert fires it reaches you immediately. Per its Delivery setting it speaks,
 interrupting whatever is being said — "{name}: crossed above {level}. Current value
-{value}." — and/or plays an alert earcon, and the event is written to the Journal so
+{value}." (or "touched", or "crossed above {line} at {level}") — and/or plays an alert earcon, and the event is written to the Journal so
 you can read it back. Alerts are never gated by your speech or sonification toggles —
 a condition you asked to be told about will always tell you. If you have set up email,
 Telegram, or webhooks under **Delivery settings** in this same dialog, fired alerts are

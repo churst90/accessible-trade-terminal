@@ -82,7 +82,8 @@ see the move has no way to detect.
 
 | Focused Component Type | Jump Target |
 |------------------------|-------------|
-| Price candle or candle wick | Next bar where price crosses a drawn trendline |
+| Price candle or candle wick, or the price line | Next bar where price crosses a drawn trend line or horizontal line, or a vertical line's bar — nearest first. "Price crosses above horizontal line at 64,250" / "Vertical line at …" |
+| A horizontal line drawing | Next bar where price crosses that line |
 | Sparse marker (Dot, Diamond, Cross, Arrow, TriangleUp, TriangleDown, Square, ZeroDot) | Next bar where that component has a non-NaN signal value |
 | Zero-crossing oscillator (MACD, Momentum, ZeroArea etc.) | Next bar where the oscillator crosses its **midline** — zero on a zero-centred reading, 50 on a bounded one. Recognised by the line's role, so all four spellings providers use for it (Zero, Midpoint, Midline, Neutral) are reached |
 | Threshold oscillator (RSI, MFI, Stoch, CCI — any indicator with OB/OS levels) | Next bar where the indicator enters or leaves the overbought/oversold zone. A level you have hidden is not a target |
@@ -116,7 +117,7 @@ while reading a chart, and they are chart-scoped, so they remain typable everywh
 | `,` | Previous formation edge |
 | `.` | Next formation edge |
 
-| `;` | Choose which overlapping formation leads the readout (press again for the next) |
+| `;` | Choose which overlapping formation leads the readout. The first press moves to the second (the first is already leading); press again for the next. The announcement names the larger formation it sits inside |
 | `Shift+;` | Stop choosing; go back to largest-first |
 
 Both pin keys reach the terminal from the browser as of 2.11.0. Before that they were bound,
@@ -318,7 +319,7 @@ F2 mutes all of it, and F3 silences the tones while leaving the words — playba
 | H | Toggle visibility of focused series or component | "{Series/Component} visible/hidden" |
 | M | Toggle mute of focused series or component | "{Series/Component} active/muted" |
 | N | Narrate the focused series or component — speak its signals unprompted. N picks WHAT may speak; Settings → Narration decides WHEN (bar close, playback); the scope you played decides WHICH of them. (The former Ctrl+Alt+Shift+N alias was removed on 2026-09-11.) | "{Series}, narrating" / "{Component}, narrating" (the component alone; "{Component} only, narrating" when it is the first one picked out) |
-| 0 (zero) | Add or remove a reference line on the focused series. On an **oscillator** pane the line goes on that pane's **neutral** — zero for MACD and the other zero-centred readings, **50** for RSI, Stochastic and MFI, **−50** for Williams %R — because zero is only the meaningful constant where the value actually swings about it. Where the indicator already declares its own midline (RSI ships one at 50) you are told so and nothing is added. On the **price** pane there is no meaningful constant at all, so the line goes at the price under the cursor. Press `0` again where one of **your** levels sits and it is removed — indicator-declared levels are never removed this way. New levels report crossings from either direction straight away. | "Level added at 63,920.11, audible on crossing." / "Midpoint added at 50, audible on crossing." / "Midpoint already marks 50 on this pane." / "Level removed." / "Nothing on this pane declares a neutral line, so there is no level to add." |
+| 0 (zero) | Add, remove, or switch on and off the midline of the focused indicator — only on an indicator in its own pane that declares a neutral. The line goes on that pane's **neutral**: zero for MACD and the other zero-centred readings, **50** for RSI, Stochastic and MFI, **−50** for Williams %R. Where the indicator already declares its own midline (RSI ships one at 50) the key switches that line on or off. On the price pane (candles, price line, overlays such as a moving average) and on an indicator with no neutral the key does nothing but say so. Indicator-declared levels are never removed this way. | "Midpoint added at 50, audible on crossing." / "No reference level applies to Candles." |
 | Delete | Remove the focused indicator series (candles are protected) | Confirmation |
 | Ctrl+Z | Undo the last chart edit — a moved drawing anchor or a deleted series | Says what was undone, or "Nothing to undo" |
 | Ctrl+Y | Redo the last undone chart edit | Says what was redone, or "Nothing to redo" |
