@@ -21,7 +21,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
     /// Format strings stay at the call site — a heatmap column wants "HH:mm" and the layout
     /// description wants a date — but the *instant* they describe is now resolved in one place.
     ///
-    /// <para><b>A bar of a day or longer is named by its OWN date</b> — <see cref="ToBarDisplay"/>.
+    /// <para><b>A bar of a day or longer is named by its OWN date</b> — <see cref="ToBarDisplay(DateTime, int)"/>.
     /// Reported by Cody, 2026-10-09, in America/Chicago: on the 9th the daily chart's newest
     /// bar read "October 8". The bar is stamped 2026-10-09T00:00Z; converted to Chicago that is
     /// 19:00 on the 8th, and the date of that local instant is not the date the bar is FOR.
@@ -93,7 +93,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return DateTime.SpecifyKind(utc.Date, DateTimeKind.Unspecified);
         }
 
-        /// <summary>Formats a bar's stamp by the bar rule (<see cref="ToBarDisplay"/>).</summary>
+        /// <summary>Formats a bar's stamp by the bar rule (<see cref="ToBarDisplay(DateTime, int)"/>).</summary>
         public static string FormatBar(DateTime stamp, int barSeconds, string format)
             => ToBarDisplay(stamp, barSeconds).ToString(format, CultureInfo.InvariantCulture);
 
