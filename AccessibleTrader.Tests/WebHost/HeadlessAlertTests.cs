@@ -292,4 +292,51 @@ public sealed class HeadlessAlertTests : IDisposable
         Assert.Contains("Under the 3", one, StringComparison.Ordinal);
         Assert.Contains(condition == AlertCondition.Touches ? "touched" : "crossed below", one, StringComparison.Ordinal);
     }
+
+    // ── An alert whose instance has left the tab watches NOTHING in its place ──
+
+    [Fact]
+    public async Task An_indicator_alert_whose_instance_is_gone_is_not_answered_by_the_indicators_defaults()
+    {
+        // The alert was set on an "ema50" that is no longer saved anywhere. The default EMA 9
+        // the factory used to build in its place crosses 110 on the step (it lands at 120), so
+        // the old fallback FIRED — about a series that was never on the chart.
+        var alert = EmaAbove(110, "Fifty up") with { SeriesId = "ema50" };
+        using var h = new HeadlessMonitorHarness(Array.Empty<SeriesConfig>(), alerts: new[] { alert }, priceAt: Step);
+        h.OnlyAlerts();
+
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+
+        string said = h.Single();   // said ONCE across three polls, and nothing fired
+        Assert.Contains("Fifty up", said, StringComparison.Ordinal);
+        Assert.Contains("no longer on this chart", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("crossed", said, StringComparison.Ordinal);
+
+        // And no stand-in was even BUILT: a chart computing a default EMA would have asked for
+        // its warmup history; with nothing to compute the monitor fetches only the newest bars.
+        Assert.All(h.RequestedLimits, limit => Assert.Equal(LocalBackgroundMonitor.MinFetch, limit));
+    }
+
+    [Fact]
+    public async Task A_line_alert_whose_line_is_gone_is_not_answered_by_another_series_with_the_same_code()
+    {
+        // The tab still has an EMA 3, which the dip crosses; the EMA 9 the alert names is gone.
+        // The old fallback answered "crosses below the EMA 9" from the EMA 3 and fired.
+        var alert = PriceVsLine("Under the 9", AlertCondition.CrossesBelow, "ema9");
+        using var h = new HeadlessMonitorHarness(new[] { SavedEma(3) }, alerts: new[] { alert }, priceAt: ClimbThenDip);
+        h.OnlyAlerts();
+
+        await h.PollAsync();
+        h.CloseABar();
+        await h.PollAsync();
+
+        string said = h.Single();
+        Assert.Contains("Under the 9", said, StringComparison.Ordinal);
+        Assert.Contains("not on this chart", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("crossed", said, StringComparison.Ordinal);
+    }
 }
