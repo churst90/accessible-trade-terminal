@@ -993,8 +993,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
             switch (e.Type)
             {
                 case FeedbackType.StateChange:
+                    // The publisher's Interrupt is honoured. This arm used to hard-code
+                    // `interrupt: true`, so every caller that passed false — the rebind
+                    // confirmation spoken after Tab has already moved on, the reconciliation
+                    // "while you were away" reports, background monitoring on/off, a provider
+                    // coercing the timeframe, and a dialog saying a choice was replaced while the
+                    // screen reader is still reading the option the user landed on — cut off
+                    // whatever was being said, and the flag read like a guarantee it was not.
+                    // The default stays true, so a publisher that does not say keeps the old
+                    // behaviour.
                     if (!string.IsNullOrEmpty(e.Message))
-                        _speechRouter.Speak(e.Message, interrupt: true, channel: Ch(SpeechChannel.Chart));
+                        _speechRouter.Speak(e.Message, interrupt: e.Interrupt, channel: Ch(SpeechChannel.Chart));
                     break;
 
                 case FeedbackType.Navigation:

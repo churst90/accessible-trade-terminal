@@ -349,6 +349,8 @@ public class AlertsModalTests
         // The picker's value is the series ID since 2026-10-09: two SMAs are two choices.
         cut.WaitForElement("select#alert-indicator").Change("rsi-1");
         cut.WaitForElement("select#alert-component").Change("Rsi");
+        // This chart has no bars, so nothing pre-fills the value; an empty level is refused.
+        cut.Find("input#alert-threshold").Change("70");
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();
@@ -384,10 +386,13 @@ public class AlertsModalTests
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();
 
+        // Refused on the BUTTON now, in words that name the field to go back to — not after
+        // the click in record language ("it targets an indicator but names no indicator and
+        // component"). WhyUnfireable still backs it up behind the gate.
         cut.WaitForAssertion(() =>
         {
             Assert.Empty(orch.Added);
-            Assert.Contains(spoken, m => m.Contains("not added", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(spoken, m => m.Contains("Choose an indicator first.", StringComparison.Ordinal));
         });
     }
 
@@ -430,6 +435,7 @@ public class AlertsModalTests
 
         var cut = OpenModal(ctx, bus);
         cut.Find("input#alert-name").Change("Big BTC move");
+        cut.Find("input#alert-threshold").Change("50000");   // no bars here, so no pre-fill
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
         cut.Find("button[aria-label='Add alert']").Click();
