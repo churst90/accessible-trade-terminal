@@ -253,9 +253,13 @@ namespace AccessibleTrader.Core.Services.Feeds
             // entry gets a clean one.
             var watch = _watch.GetOrAdd(identity, _ => new LiveFeedWatch());
             watch.LastTickMs = Environment.TickCount64;
+            // One source per subscription: the provider's consolidator lives exactly as long as
+            // this handle (its own socket reconnects keep it), and its bars are running buckets
+            // that must CONTINUE the fetched forming bar, not replace it (LiveStreamSource).
+            var source = Models.LiveStreamSource.Create(provider.LiveTickStyle);
             var subscription = await provider.SubscribeLiveAsync(
                 identity.Market, identity.Symbol, identity.Timeframe,
-                bar => { StampTick(identity); feed.ApplyLiveTick(bar); }).ConfigureAwait(false);
+                bar => { StampTick(identity); feed.ApplyLiveTick(bar, source); }).ConfigureAwait(false);
 
             if (!_feedSubscriptions.TryAdd(identity, subscription))
             {
@@ -529,7 +533,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                                 tick.Identity, target.Identity);
                             continue;
                         }
-                        target.ApplyLiveTick(tick.Bar);
+                        target.ApplyLiveTick(tick.Bar, tick.Source);
                     }
                 }
                 catch (OperationCanceledException) { /* normal stop */ }

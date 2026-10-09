@@ -66,6 +66,9 @@ namespace AccessibleTrader.Core.Services
         private BarBucketConsolidator? _consolidator;
         private string? _consolidatorTimeframe;
         private LiveTickStyle _consolidatorStyle;
+        // Born with the consolidator and kept as long as it is: the feed measures each bar's
+        // volume growth against the last bar of the SAME consolidator (see LiveStreamSource).
+        private LiveStreamSource _consolidatorSource;
 
         internal enum WatchdogAction { None, AnnounceQuiet, Reconnect, GiveUp }
 
@@ -200,8 +203,10 @@ namespace AccessibleTrader.Core.Services
                 _consolidator = new BarBucketConsolidator(timeframe, provider.LiveTickStyle);
                 _consolidatorTimeframe = timeframe;
                 _consolidatorStyle = provider.LiveTickStyle;
+                _consolidatorSource = LiveStreamSource.Create(provider.LiveTickStyle);
             }
             var consolidator = _consolidator;
+            var source = _consolidatorSource;
             // Captured, not read from the mutable _current* fields: this closure
             // outlives the next StartLiveStreamAsync by however long it takes the
             // outgoing socket to stop delivering, and a tick from the OLD socket
@@ -217,7 +222,7 @@ namespace AccessibleTrader.Core.Services
 
                 var bar = consolidator.Apply(tick);
                 if (bar.HasValue)
-                    _liveStreamChannel.Writer.TryWrite(new LiveTick(identity, bar.Value));
+                    _liveStreamChannel.Writer.TryWrite(new LiveTick(identity, bar.Value, source));
             });
         }
 
