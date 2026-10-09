@@ -33,6 +33,12 @@ namespace AccessibleTrader.Core.Services.Input
     /// </para>
     ///
     /// <para>
+    /// Since 2026-10-09 that price-pane placement is reached only from the Properties dialog's
+    /// "Add a level at the cursor" button. The <c>0</c> KEY does nothing on a price pane — see
+    /// <see cref="Applies"/>.
+    /// </para>
+    ///
+    /// <para>
     /// ── The same defect, one level down (2026-09-06) ───────────────────────────
     /// "On an oscillator pane the meaningful constant is zero" was the original rule, and it is
     /// only true of oscillators that swing about zero. RSI runs 0–100 and swings about 50; so do
@@ -58,6 +64,47 @@ namespace AccessibleTrader.Core.Services.Input
         /// <summary>Panes whose values are prices, and therefore have no meaningful zero.</summary>
         public static bool IsPricePane(string? pane) =>
             string.IsNullOrEmpty(pane) || pane.Equals("Main", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Whether the <c>0</c> key has anything to do on this series: an indicator in its own pane
+        /// that DECLARES the line it swings about — a component's <see cref="ComponentConfig.ReferenceLevel"/>,
+        /// or a provider's own midline.
+        ///
+        /// <para>
+        /// ── Not on the price pane (Cody, 2026-10-09) ──────────────────────────────
+        /// <i>"the 0 key should simply not work on series that they don't apply to."</i> On the
+        /// candles, the price line and every overlay on the price pane the key used to drop a
+        /// "Level" at the cursor's close, and a second press removed it. That is a horizontal line
+        /// drawing by another name, and it made <c>0</c> mean two unrelated things depending on
+        /// where focus sat. A price pane has no neutral — so a component there that happens to
+        /// carry a ReferenceLevel does not qualify — and neither does a drawing or a pane that
+        /// declares nothing. On those the key changes nothing at all; the caller says so.
+        /// </para>
+        ///
+        /// <para>
+        /// A level of your own does not count as a declaration: only a provider's line or a
+        /// component's stated value says where this pane's neutral is.
+        /// </para>
+        /// </summary>
+        public static bool Applies(ChartSeries series)
+        {
+            if (series.IsDrawing || IsPricePane(series.Pane)) return false;
+            return series.Components.Any(c => c.ReferenceLevel.HasValue && double.IsFinite(c.ReferenceLevel.Value))
+                || series.Levels.Any(l => l.EffectiveRole == LevelRole.Neutral && !l.IsUserDefined);
+        }
+
+        /// <summary>
+        /// What the key says where it does not apply. Short, names the series, and points at no
+        /// other key — Cody asked for no suggestion here.
+        /// </summary>
+        public static string NotApplicableReason(ChartSeries series)
+        {
+            string name = series.FriendlyName;
+            if (string.IsNullOrWhiteSpace(name)) name = series.Name;
+            return string.IsNullOrWhiteSpace(name)
+                ? "No reference level applies to this series."
+                : $"No reference level applies to {name}.";
+        }
 
         /// <summary>
         /// How close an existing level has to be, as a fraction of the value, for the key to treat it

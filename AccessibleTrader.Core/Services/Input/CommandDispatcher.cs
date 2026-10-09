@@ -357,12 +357,30 @@ namespace AccessibleTrader.Core.Services.Input
                     // in the workspace. See ReferenceLevelPlacement for the full account.
                     var focusedId = _store.State.FocusedSeriesId ?? string.Empty;
                     var focused = _store.State.ActiveSeries.FirstOrDefault(s => s.Id == focusedId);
-                    if (focused == null || focused.IsDrawing)
+                    if (focused == null)
                     {
                         // Never silently: to a screen-reader user this is indistinguishable from an
                         // unbound key.
                         _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
                             "Focus a series first — a reference level belongs to a series.", true));
+                        return;
+                    }
+
+                    // ONLY WHERE A REFERENCE LEVEL APPLIES (Cody, 2026-10-09): "the 0 key should
+                    // simply not work on series that they don't apply to." The candles, the price
+                    // line, every price-pane overlay, a drawing, and a pane that declares no
+                    // neutral: nothing is added, nothing removed, nothing switched. Before this
+                    // the price pane got a "Level" at the cursor's close — a horizontal line by
+                    // another name — and a second press removed one of yours. Levels already saved
+                    // on the price pane are left alone; Properties still removes them.
+                    //
+                    // Boundary, as the no-neutral refusal below already was: the key was understood
+                    // and has nowhere to go. A drawing used to get the Error above, which is the one
+                    // earcon Shift+F3 cannot mute, for a keypress that failed nothing.
+                    if (!ReferenceLevelPlacement.Applies(focused))
+                    {
+                        _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary,
+                            ReferenceLevelPlacement.NotApplicableReason(focused), true, Channel: SpeechChannel.Interface));
                         return;
                     }
 

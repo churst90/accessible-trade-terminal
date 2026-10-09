@@ -510,7 +510,14 @@
                                         <button type="button" class="btn-secondary" @onclick="AddLevelHere">
                                             Add a level at the cursor
                                         </button>
-                                        <span>Or press 0 on the chart. Pressing 0 again where one of your levels sits removes it.</span>
+                                        @* The 0 key only works where a reference level applies
+                                           (ReferenceLevelPlacement.Applies) — not on the price pane,
+                                           a drawing, or a pane that declares no neutral — so it is
+                                           only offered there. *@
+                                        @if (AccessibleTrader.Core.Services.Input.ReferenceLevelPlacement.Applies(_series))
+                                        {
+                                            <span>Or press 0 on the chart to switch this pane's midline on or off.</span>
+                                        }
                                     </div>
                                 </fieldset>
 

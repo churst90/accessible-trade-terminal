@@ -15,6 +15,7 @@ namespace AccessibleTrader.Tests
                 => Notes.Add((freq, dur, wave, vol, pan));
 
             public void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f) { }
+            public void PlayCrossEarcon(int direction, float pan) { }
 
             public void SyncNavigationSlots(WorkspaceState state) { }
             public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1) { }

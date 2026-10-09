@@ -1,3 +1,4 @@
+using AccessibleTrader.Core.Services.Drawing;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Audio
@@ -13,7 +14,9 @@ namespace AccessibleTrader.Core.Services.Audio
     ///
     /// Tier 2 (crossing): handled by the existing per-level <c>PlayEarcon</c> path
     ///   in <see cref="AccessibleTrader.Core.Services.Accessibility.EarconService"/>
-    ///   and the sonification strategy. Not re-implemented here.
+    ///   and the sonification strategy. Not re-implemented here — EXCEPT for horizontal
+    ///   and vertical line drawings, which have no levels for that path to read; their
+    ///   crossing earcon is played here (see <c>LineDrawingCrosses</c>).
     ///
     /// Tier 3 (sustained): once the value has been past the level for
     ///   <see cref="LevelCrossingMonitor.SustainedBarsThreshold"/> + 1 consecutive bars, fire a single
@@ -98,12 +101,24 @@ namespace AccessibleTrader.Core.Services.Audio
             return true;
         }
 
-        public void Reset() => _states.Clear();
+        /// <summary>The bar the previous call was on, so a vertical line can tell a jump OVER it
+        /// from a move that never reached it. −1 until the first bar and after <see cref="Reset"/>.</summary>
+        private int _lastIndex = -1;
+
+        public void Reset()
+        {
+            _states.Clear();
+            _lastIndex = -1;
+        }
 
         public void OnBarNavigated(WorkspaceState state)
         {
             int idx = state.CurrentDataIndex;
             if (idx < 0 || state.Data == null || idx >= state.Data.Count) return;
+
+            int from = _lastIndex;
+            _lastIndex = idx;
+            LineDrawingCrosses(state, from, idx);
 
             foreach (var series in state.ActiveSeries)
             {
@@ -135,6 +150,52 @@ namespace AccessibleTrader.Core.Services.Audio
                     ProcessLevel(state, series, lc, val, lc.EffectiveCrossDirection);
                 }
             }
+        }
+
+        /// <summary>
+        /// Tier 2 for horizontal and vertical line DRAWINGS — the crossing earcon itself.
+        ///
+        /// <para>
+        /// Cody, 2026-10-09: <i>"vertical and horizontals should play the crossing earcon when price
+        /// crosses them."</i> A level's crossing chirp is computed by the sonification strategy for
+        /// the FOCUSED component against its own series' levels, and a drawing has no levels — so a
+        /// price someone marked with a horizontal line was crossed in silence. Here, rather than in
+        /// that path, because a line on the chart is crossed whichever series holds focus, exactly
+        /// as a level's approach ping above is heard for every visible series.
+        /// </para>
+        ///
+        /// <para>
+        /// Same earcon (<see cref="INavigationSonifier.PlayCrossEarcon"/>), same rule
+        /// (<see cref="LevelCross"/>: the bar landed on and the bar before straddle the line, so it
+        /// sounds arrowing either way onto the crossing bar), same direction (up if price rose).
+        /// A vertical line is crossed by the CURSOR — onto its bar or over it in one jump — and
+        /// chirps up moving right, down moving left. Only the crossing earcon: no approach ping, no
+        /// sustained tone, which were not asked for. Hidden or muted (M) drawings are silent; F3
+        /// and playback are gated by the caller, as they are for levels.
+        /// </para>
+        ///
+        /// <para>
+        /// One chirp per bar however many lines it crosses: the chirp owns two fixed voice slots,
+        /// so a second call would only restart the first.
+        /// </para>
+        /// </summary>
+        private void LineDrawingCrosses(WorkspaceState state, int from, int idx)
+        {
+            int direction = 0;
+            foreach (var series in state.ActiveSeries)
+            {
+                if (!LineDrawingCrossings.IsCrossable(series) || series.IsMuted) continue;
+
+                if (LineDrawingCrossings.HorizontalPrice(series) is double price)
+                    direction = LineDrawingCrossings.HorizontalCrossAt(state.Data, idx, price);
+                else if (from >= 0
+                         && LineDrawingCrossings.VerticalCrossed(from, idx, LineDrawingCrossings.VerticalBar(series, state.Data)))
+                    direction = idx > from ? 1 : -1;
+
+                if (direction != 0) break;
+            }
+
+            if (direction != 0) _sonifier.PlayCrossEarcon(direction, ComputePan(state));
         }
 
         private void ProcessLevel(WorkspaceState state, ChartSeries series, LevelConfig lc,

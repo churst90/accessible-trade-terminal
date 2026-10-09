@@ -39,7 +39,7 @@ public class CrossingMessageTests
         engine.HandleCrossJump(SystemCommand.NavLeftJump);
 
         var f = Assert.Single(spoken);
-        Assert.Equal("Candles has no crossings to jump to. Draw a trend line and this key finds where price crosses it.", f.Message);
+        Assert.Equal("Candles has no crossings to jump to. Draw a line on the chart and this key finds where price crosses it.", f.Message);
         Assert.DoesNotContain("trendlines found", f.Message, StringComparison.OrdinalIgnoreCase);
     }
 

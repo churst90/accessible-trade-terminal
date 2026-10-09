@@ -258,6 +258,7 @@ namespace AccessibleTrader.Tests.Mocks
         public void SyncNavigationSlots(WorkspaceState state) { }
         public void SonifyProfile(ChartSeries series, int binIndex, float masterVolume = 1.0f) { }
         public void SonifyHeatmap(ChartSeries series, int dataIndex, int binIndex, float masterVolume = 1.0f) { }
+        public void PlayCrossEarcon(int direction, float pan) { }
         public Task FireClusterTicksAsync(WorkspaceState state, int dataIndex, string excludeSeriesId, int excludeComponentIndex, bool crossSeriesMode = false) => Task.CompletedTask;
     }
 
