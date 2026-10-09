@@ -553,7 +553,8 @@ namespace AccessibleTrader.Core.Services.Input
         private void DoTrendlineCrossJump(WorkspaceState state, ChartSeries? focusedSeries, System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)
         {
             var lines = state.ActiveSeries
-                .Where(s => s.IsVisible && (s.Drawing?.Type == DrawingType.TrendLine || LineDrawingCrossings.IsCrossable(s)))
+                .Where(s => s.IsVisible
+                         && s.Drawing?.Type is DrawingType.TrendLine or DrawingType.HorizontalLine or DrawingType.VerticalLine)
                 .ToList();
 
             if (!lines.Any())

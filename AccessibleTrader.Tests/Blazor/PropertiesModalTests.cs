@@ -215,6 +215,37 @@ public class PropertiesModalTests
         });
     }
 
+    /// <summary>
+    /// The Levels tab mentions the 0 key only where the key does something (2026-10-09). It used
+    /// to say "Or press 0 on the chart" on every series, the candles included — where the key now
+    /// answers "No reference level applies".
+    /// </summary>
+    [Theory]
+    [InlineData("Main", null, false)]          // a price-pane series
+    [InlineData("Pane_Obv", null, false)]      // its own pane, but no declared neutral
+    [InlineData("Pane_Rsi", 50.0, true)]       // its own pane, swinging about 50
+    public void PropertiesModal_LevelsTab_OffersTheZeroKey_OnlyWhereItApplies(string pane, double? neutral, bool offered)
+    {
+        using var h = new BlazorTestHarness();
+        var series = NewSeries("s-1", "Series");
+        series.Config.Pane = pane;
+        series.Config.Components.Add(new ComponentConfig
+        {
+            Name = "Value", DisplayName = "Value", DisplayType = ComponentDisplayType.Line, IsVisible = true, ReferenceLevel = neutral,
+        });
+        SeedActiveSeries(h, series);
+
+        var cut = OpenProperties(h);
+        cut.WaitForElement("button#props-tab-levels").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            string panel = cut.Find("#props-tabpanel").TextContent;
+            Assert.Contains("Add a level at the cursor", panel);   // the tab rendered
+            Assert.Equal(offered, panel.Contains("press 0", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
     [Fact]
     public void PropertiesModal_ApplyButton_PresentWhenOpen()
     {
