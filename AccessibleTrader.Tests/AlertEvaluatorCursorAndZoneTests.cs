@@ -138,6 +138,10 @@ namespace AccessibleTrader.Tests
             buffer.ComponentData["Rsi"] = Enumerable.Repeat(value, count).ToArray();
             var config = new SeriesConfig { Id = "rsi-1", Name = "RSI", IndicatorCode = "RSI" };
             config.Components.Add(new ComponentConfig { Name = "Rsi", DisplayName = "RSI" });
+            // RSI's declared lines. Zones are read from them since 2026-10-09 (AlertZones); with
+            // none, every zone test below would pass because nothing could ever be in a zone.
+            config.Levels.Add(new LevelConfig { Name = "Overbought", Value = 70 });
+            config.Levels.Add(new LevelConfig { Name = "Oversold", Value = 30 });
 
             var bars = Enumerable.Range(0, count).Select(i => Bar(100 + i, i)).ToArray();
 

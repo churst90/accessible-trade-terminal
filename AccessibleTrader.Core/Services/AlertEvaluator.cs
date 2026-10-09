@@ -170,6 +170,10 @@ namespace AccessibleTrader.Core.Services
             double currentValue;
             double prevValue;
 
+            // The LIVE BAR, not the navigation cursor — see AlertOrchestrator.EvaluateAlerts for
+            // the full account. Every read below that indexes a series uses this.
+            int live = (state.Data?.Count ?? 0) - 1;
+
             if (alert.Target == AlertTarget.Price)
             {
                 currentValue = newBar.Close;
@@ -177,19 +181,15 @@ namespace AccessibleTrader.Core.Services
             }
             else if (alert.Target == AlertTarget.Indicator && alert.IndicatorCode != null && alert.ComponentName != null)
             {
-                string key = $"{alert.IndicatorCode}.{alert.ComponentName}";
-                var series = state.ActiveSeries.FirstOrDefault(s =>
-                    s.IndicatorCode.Equals(alert.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+                // An indicator alert must watch the market, not wherever the user's arrow keys
+                // have left the reading cursor.
+                var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
                 var comp = series?.Components.FirstOrDefault(c =>
                     c.Name.Equals(alert.ComponentName, StringComparison.OrdinalIgnoreCase));
 
-                // The LIVE BAR, not the navigation cursor — see AlertOrchestrator.EvaluateAlerts
-                // for the full account. An indicator alert must watch the market, not wherever
-                // the user's arrow keys have left the reading cursor.
-                int idx = (state.Data?.Count ?? 0) - 1;
-                if (series == null || comp == null || idx < 0 || idx >= series.GetComponentData(comp.Name).Length) return null;
-                currentValue = series.GetComponentData(comp.Name)[idx];
-                prevValue    = previousValues.TryGetValue(key, out var pv) ? pv : double.NaN;
+                if (series == null || comp == null || live < 0 || live >= series.GetComponentData(comp.Name).Length) return null;
+                currentValue = series.GetComponentData(comp.Name)[live];
+                prevValue    = PreviousValue(previousValues, series, comp.Name);
                 if (double.IsNaN(currentValue)) return null;
             }
             else if (alert.Target == AlertTarget.Candle)
@@ -215,15 +215,63 @@ namespace AccessibleTrader.Core.Services
             }
             else return null;
 
+            // The LEVEL: the number the user typed, or — for "price touches the 50-week SMA" —
+            // the line's value on the bar being evaluated. A crossing of a moving line compares
+            // like with like: the previous close against the line's previous value, the
+            // current close against its current one. A level that does not move is the same
+            // number on both sides, which is exactly the fixed-threshold rule this used to be.
+            double level     = alert.Threshold ?? 0;
+            double prevLevel = level;
+            string? lineName = null;
+            if (alert.ComparesToLine() && alert.Target != AlertTarget.Poc
+                && alert.Condition is AlertCondition.CrossesAbove or AlertCondition.CrossesBelow or AlertCondition.Touches)
+            {
+                var line = FindSeries(state, alert.LineIndicatorCode!, alert.LineSeriesId);
+                var lineComp = line?.Components.FirstOrDefault(c =>
+                    c.Name.Equals(alert.LineComponentName, StringComparison.OrdinalIgnoreCase));
+                if (line == null || lineComp == null)
+                {
+                    Degrade(alert, $"the line it compares against, {alert.LineIndicatorCode} {alert.LineComponentName}, is not on this chart");
+                    return null;
+                }
+                var lineData = line.GetComponentData(lineComp.Name);
+                if (live < 1 || live >= lineData.Length || double.IsNaN(lineData[live])) return null;
+                level = lineData[live];
+                // An indicator's previous value is the previous TICK's (the crossover memory);
+                // price's is the previous BAR's close. The line's previous value follows suit.
+                prevLevel = alert.Target == AlertTarget.Indicator
+                    ? PreviousValue(previousValues, line, lineComp.Name)
+                    : lineData[live - 1];
+                lineName = Alerts.AlertDescriptions.LineName(line, lineComp);
+                // So the repeat test and the spoken description read the line's value.
+                alert = alert with { Threshold = level };
+            }
+
+            bool known = !double.IsNaN(prevValue) && !double.IsNaN(prevLevel);
             bool triggered = alert.Condition switch
             {
-                AlertCondition.CrossesAbove   => !double.IsNaN(prevValue) && prevValue < (alert.Threshold ?? 0) && currentValue >= (alert.Threshold ?? 0),
-                AlertCondition.CrossesBelow   => !double.IsNaN(prevValue) && prevValue > (alert.Threshold ?? 0) && currentValue <= (alert.Threshold ?? 0),
+                AlertCondition.CrossesAbove   => known && prevValue < prevLevel && currentValue >= level,
+                AlertCondition.CrossesBelow   => known && prevValue > prevLevel && currentValue <= level,
+                AlertCondition.Touches        => alert.Target == AlertTarget.Indicator
+                                                     // A value has no range: it touches by reaching or crossing, either way.
+                                                     ? known && ((prevValue < prevLevel && currentValue >= level)
+                                                              || (prevValue > prevLevel && currentValue <= level))
+                                                     // A bar does: a wick through the level is a touch, from either side.
+                                                     // So is a GAP over it — the previous close on one side, this
+                                                     // bar wholly on the other — because the level was passed.
+                                                     : (newBar.Low <= level && level <= newBar.High)
+                                                       || (known && ((prevValue < prevLevel && newBar.Low > level)
+                                                                  || (prevValue > prevLevel && newBar.High < level))),
                 AlertCondition.PatternDetected => EvaluatePattern(alert, newBar, previousBar, state),
-                AlertCondition.ChangesDirection => EvaluateDirectionChange(newBar, previousBar),
-                AlertCondition.TrendChange    => EvaluateTrendChange(alert, state, newBar),
-                AlertCondition.EntersZone     => EvaluateZone(alert, state, currentValue, prevValue, entering: true),
-                AlertCondition.ExitsZone      => EvaluateZone(alert, state, currentValue, prevValue, entering: false),
+                // On an indicator, "changes direction" is the INDICATOR turning. It used to be the
+                // candle-colour test below for every target, so an "SMA changes direction" alert
+                // fired on every red candle after a green one and never when the SMA turned.
+                AlertCondition.ChangesDirection => alert.Target == AlertTarget.Indicator
+                                                     ? EvaluateComponentTurn(alert, state, live)
+                                                     : EvaluateDirectionChange(newBar, previousBar),
+                AlertCondition.TrendChange    => EvaluateTrendChange(alert, state, live),
+                AlertCondition.EntersZone     => EvaluateZone(alert, state, live, entering: true),
+                AlertCondition.ExitsZone      => EvaluateZone(alert, state, live, entering: false),
                 _                             => false
             };
 
@@ -264,7 +312,7 @@ namespace AccessibleTrader.Core.Services
             _lastSimpleFire[alert.Id] = DateTime.UtcNow;
             _lastFiredBar[alert.Id]   = newBar.Date;
 
-            string speechText = $"{alert.Name}: {DescribeCondition(alert, currentValue)}. Current value {currentValue:F6}";
+            string speechText = $"{alert.Name}: {DescribeCondition(alert, lineName)}. Current value {currentValue:F6}";
             return new AlertFired(alert, currentValue, double.IsNaN(prevValue) ? null : prevValue, speechText);
         }
 
@@ -313,13 +361,17 @@ namespace AccessibleTrader.Core.Services
             return curBull != prevBull;
         }
 
-        private bool EvaluateTrendChange(AlertDefinition alert, WorkspaceState state, Ohlcv newBar)
+        private bool EvaluateTrendChange(AlertDefinition alert, WorkspaceState state, int live)
         {
+            // Not offered by the alerts dialog — "changes direction" on an indicator is the same
+            // question asked of the component itself, and is what the dialog offers. Kept for
+            // alerts written by an older build or by hand. It reads the component the alert
+            // names, at the live bar: Analyze read the first registered component at the
+            // reading cursor.
             if (alert.IndicatorCode == null) return false;
-            var series = state.ActiveSeries.FirstOrDefault(s =>
-                s.IndicatorCode.Equals(alert.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
             if (series == null) return false;
-            var ctx = _contextAnalyzer.Analyze(series, state);
+            var ctx = _contextAnalyzer.AnalyzeAt(series, alert.ComponentName, live);
             if (ctx == null) return false;
 
             // Only fire when trend direction actually changes (not simply "is non-flat").
@@ -329,24 +381,54 @@ namespace AccessibleTrader.Core.Services
             return ctx.Trend != TrendDirection.Flat && ctx.Trend != prevTrend;
         }
 
-        private bool EvaluateZone(AlertDefinition alert, WorkspaceState state, double current, double prev, bool entering)
+        /// <summary>
+        /// The component's own direction turned on the live bar: its last step went the other
+        /// way from the step before it. Flat steps are skipped rather than counted as a turn, so
+        /// an SMA that rises, holds for a bar, and rises again has not changed direction.
+        /// </summary>
+        private static bool EvaluateComponentTurn(AlertDefinition alert, WorkspaceState state, int live)
+        {
+            if (alert.IndicatorCode == null || alert.ComponentName == null) return false;
+            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            if (series == null) return false;
+            var data = series.GetComponentData(alert.ComponentName);
+            if (live < 2 || live >= data.Length) return false;
+
+            double now = data[live] - data[live - 1];
+            if (double.IsNaN(now) || now == 0) return false;
+            // The last step that went anywhere. Bounded: a component that has been flat for
+            // longer than this is not "turning", it is starting.
+            for (int i = live - 1, steps = 0; i >= 1 && steps < 50; i--, steps++)
+            {
+                double before = data[i] - data[i - 1];
+                if (double.IsNaN(before)) return false;
+                if (before != 0) return Math.Sign(before) != Math.Sign(now);
+            }
+            return false;
+        }
+
+        private bool EvaluateZone(AlertDefinition alert, WorkspaceState state, int live, bool entering)
         {
             if (alert.IndicatorCode == null) return false;
-            var series = state.ActiveSeries.FirstOrDefault(s =>
-                s.IndicatorCode.Equals(alert.IndicatorCode, StringComparison.OrdinalIgnoreCase));
+            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
             if (series == null) return false;
 
-            var curCtx = _contextAnalyzer.Analyze(series, state);
-            if (curCtx == null) return false;
-
-            bool inZone = alert.Zone switch
+            // The zone is where the indicator's OWN overbought / oversold line says it is — the
+            // levels it declares, as edited in Properties — read through the same helper the
+            // alerts dialog offers zones from. It used to be IndicatorContextAnalyzer's
+            // hardcoded table, at the reading cursor, for the first component it had a row for.
+            string? comp = Alerts.AlertZones.ResolveComponent(series.Config, alert.ComponentName);
+            double? threshold = alert.Zone is { } z && comp != null
+                ? Alerts.AlertZones.Threshold(series.Config, comp, z)
+                : null;
+            if (threshold == null)
             {
-                AlertZone.Overbought => curCtx.Zone == ZoneStatus.Overbought,
-                AlertZone.Oversold   => curCtx.Zone == ZoneStatus.Oversold,
-                AlertZone.UpperBand  => curCtx.Zone == ZoneStatus.AtUpperBand,
-                AlertZone.LowerBand  => curCtx.Zone == ZoneStatus.AtLowerBand,
-                _                    => false
-            };
+                Degrade(alert, $"{series.FriendlyName} has no {DescribeZone(alert.Zone)} line, so this zone alert cannot fire");
+                return false;
+            }
+            var data = series.GetComponentData(comp!);
+            if (live < 0 || live >= data.Length || double.IsNaN(data[live])) return false;
+            bool inZone = Alerts.AlertZones.IsIn(alert.Zone!.Value, data[live], threshold.Value);
 
             // A TRANSITION, not a level test.
             //
@@ -360,9 +442,7 @@ namespace AccessibleTrader.Core.Services
             // all; any alert restored from an older alerts.json with one set would storm.
             //
             // Prior zone status is tracked per alert+series, exactly as EvaluateTrendChange
-            // tracks prior trend. The value parameters remain unused because the ZONE is what
-            // matters here, not the raw reading — but the state that makes it a transition is
-            // now real.
+            // tracks prior trend.
             string key = $"{alert.Id}|{series.Id}";
             bool hadPrior = _previousZones.TryGetValue(key, out bool wasInZone);
             _previousZones[key] = inZone;
@@ -374,6 +454,59 @@ namespace AccessibleTrader.Core.Services
 
             return entering ? (inZone && !wasInZone) : (!inZone && wasInZone);
         }
+
+        private static string DescribeZone(AlertZone? zone) => zone switch
+        {
+            AlertZone.Overbought => "overbought",
+            AlertZone.Oversold   => "oversold",
+            AlertZone.UpperBand  => "upper band zone",
+            AlertZone.LowerBand  => "lower band zone",
+            null                 => "zone",
+            _                    => zone.ToString()!.ToLowerInvariant() + " zone",
+        };
+
+        /// <summary>
+        /// Says ONCE per alert that it cannot fire — the line it compares against has left the
+        /// chart, or the indicator has no such zone. Silence is otherwise indistinguishable from
+        /// a market that never got there. Same gate the tree alerts' degradation uses.
+        /// </summary>
+        private void Degrade(AlertDefinition alert, string reason)
+        {
+            if (_reportedDegradations.TryAdd(alert.Id, 0))
+                EvaluationDegraded?.Invoke(alert, reason);
+        }
+
+        /// <summary>
+        /// The series an alert names: the instance it was written against when that is still on
+        /// the chart, else the first with the code — the rule every alert followed before an
+        /// alert could name an instance, and the one an older alerts.json still gets.
+        /// </summary>
+        internal static ChartSeries? FindSeries(WorkspaceState state, string code, string? seriesId)
+        {
+            if (!string.IsNullOrEmpty(seriesId))
+            {
+                var exact = state.ActiveSeries.FirstOrDefault(s =>
+                    s.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase)
+                    && s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+                if (exact != null) return exact;
+            }
+            return state.ActiveSeries.FirstOrDefault(s =>
+                s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// The crossover memory's key for ONE instance of an indicator. The code-keyed entry
+        /// (<c>"Sma.Sma"</c>) is shared by an SMA 20 and an SMA 50 — whichever the snapshot
+        /// wrote last wins — so an alert on the SMA 20 would compare its value against the SMA
+        /// 50's previous one and announce a crossing that never happened. Every snapshot site
+        /// writes this key beside the code key; the code key stays for older callers.
+        /// </summary>
+        public static string InstanceKey(ChartSeries series, string componentName) => $"#{series.Id}.{componentName}";
+
+        private static double PreviousValue(IReadOnlyDictionary<string, double> previous, ChartSeries series, string componentName) =>
+            previous.TryGetValue(InstanceKey(series, componentName), out var byInstance) ? byInstance
+            : previous.TryGetValue($"{series.IndicatorCode}.{componentName}", out var byCode) ? byCode
+            : double.NaN;
 
         /// <summary>
         /// Prior in-zone status per alert+series, so EnterZone/ExitsZone detect an actual
@@ -409,16 +542,22 @@ namespace AccessibleTrader.Core.Services
             return best;
         }
 
-        private static string DescribeCondition(AlertDefinition alert, double value) => alert.Condition switch
+        private static string DescribeCondition(AlertDefinition alert, string? lineName)
         {
-            AlertCondition.CrossesAbove    => $"crossed above {alert.Threshold:F6}",
-            AlertCondition.CrossesBelow    => $"crossed below {alert.Threshold:F6}",
-            AlertCondition.PatternDetected => $"pattern {alert.Pattern} detected",
-            AlertCondition.ChangesDirection => "direction changed",
-            AlertCondition.TrendChange     => "trend changed",
-            AlertCondition.EntersZone      => $"entered {alert.Zone} zone",
-            AlertCondition.ExitsZone       => $"exited {alert.Zone} zone",
-            _                              => alert.Condition.ToString()
-        };
+            string level = Alerts.AlertDescriptions.FormatForSpeech(alert.Threshold ?? 0);
+            string at = lineName != null ? $"{lineName} at {level}" : level;
+            return alert.Condition switch
+            {
+                AlertCondition.CrossesAbove    => lineName != null ? $"crossed above {at}" : $"crossed above {alert.Threshold:F6}",
+                AlertCondition.CrossesBelow    => lineName != null ? $"crossed below {at}" : $"crossed below {alert.Threshold:F6}",
+                AlertCondition.Touches         => $"touched {at}",
+                AlertCondition.PatternDetected => $"pattern {alert.Pattern} detected",
+                AlertCondition.ChangesDirection => "direction changed",
+                AlertCondition.TrendChange     => "trend changed",
+                AlertCondition.EntersZone      => $"entered {alert.Zone} zone",
+                AlertCondition.ExitsZone       => $"exited {alert.Zone} zone",
+                _                              => alert.Condition.ToString()
+            };
+        }
     }
 }

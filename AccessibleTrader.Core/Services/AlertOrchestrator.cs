@@ -163,7 +163,10 @@ namespace AccessibleTrader.Core.Services
                         if (data == null || idx < 0 || idx >= data.Length) continue;
                         double val = data[idx];
                         if (!double.IsNaN(val))
+                        {
                             seed[$"{series.IndicatorCode}.{comp.Name}"] = val;
+                            seed[AlertEvaluator.InstanceKey(series, comp.Name)] = val;
+                        }
                     }
                 }
                 _previousValues = seed;
@@ -201,7 +204,11 @@ namespace AccessibleTrader.Core.Services
                     if (data == null || idx < 0 || idx >= data.Length) continue;
                     double val = data[idx];
                     if (!double.IsNaN(val))
+                    {
                         next[$"{series.IndicatorCode}.{comp.Name}"] = val;
+                        // Per instance too: an SMA 20 and an SMA 50 share the code key.
+                        next[AlertEvaluator.InstanceKey(series, comp.Name)] = val;
+                    }
                 }
             }
             _previousValues = next;

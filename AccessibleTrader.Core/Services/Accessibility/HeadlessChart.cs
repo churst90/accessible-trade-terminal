@@ -310,6 +310,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     var data = series.GetComponentData(comp.Name);
                     if (data == null || idx < 0 || idx >= data.Length) continue;
                     next[$"{series.IndicatorCode}.{comp.Name}"] = data[idx];
+                    next[AlertEvaluator.InstanceKey(series, comp.Name)] = data[idx];
                 }
             }
             _lastValues = next;

@@ -100,6 +100,26 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public IndicatorContext? Analyze(ChartSeries series, WorkspaceState state)
             => AnalyzeAll(series, state).FirstOrDefault();
 
+        /// <inheritdoc />
+        public IndicatorContext? AnalyzeAt(ChartSeries series, string? componentName, int dataIndex)
+        {
+            if (series == null || series.Components.Count == 0) return null;
+
+            ComponentConfig? comp = componentName != null
+                ? series.Components.FirstOrDefault(c => c.Name.Equals(componentName, StringComparison.OrdinalIgnoreCase))
+                // Analyze's own choice: the first registered definition on the series, else the
+                // first visible component.
+                : _defs.Values
+                      .Where(d => d.IndicatorCode.Equals(series.IndicatorCode, StringComparison.OrdinalIgnoreCase))
+                      .Select(d => series.Components.FirstOrDefault(c => c.Name.Equals(d.ComponentName, StringComparison.OrdinalIgnoreCase)))
+                      .FirstOrDefault(c => c != null)
+                  ?? series.Components.FirstOrDefault(c => c.IsVisible && !c.IsMuted);
+            if (comp == null) return null;
+
+            _defs.TryGetValue($"{series.IndicatorCode.ToUpperInvariant()}|{comp.Name.ToUpperInvariant()}", out var def);
+            return AnalyzeComponent(series, comp, def, dataIndex);
+        }
+
         public IEnumerable<IndicatorContext> AnalyzeAll(ChartSeries series, WorkspaceState state)
         {
             if (series == null || series.Components.Count == 0) yield break;
@@ -113,7 +133,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                     c.Name.Equals(kv.Value.ComponentName, StringComparison.OrdinalIgnoreCase));
                 if (comp == null) continue;
 
-                var ctx = AnalyzeComponent(series, state, comp, kv.Value);
+                var ctx = AnalyzeComponent(series, comp, kv.Value, state.CurrentDataIndex);
                 if (ctx != null) { anyMatched = true; yield return ctx; }
             }
 
@@ -125,17 +145,16 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 {
                     string defKey = $"{series.IndicatorCode.ToUpperInvariant()}|{comp.Name.ToUpperInvariant()}";
                     _defs.TryGetValue(defKey, out var def);
-                    var ctx = AnalyzeComponent(series, state, comp, def);
+                    var ctx = AnalyzeComponent(series, comp, def, state.CurrentDataIndex);
                     if (ctx != null) yield return ctx;
                 }
             }
         }
 
-        private IndicatorContext? AnalyzeComponent(ChartSeries series, WorkspaceState state,
-            ComponentConfig comp, IndicatorContextDefinition? def)
+        private IndicatorContext? AnalyzeComponent(ChartSeries series,
+            ComponentConfig comp, IndicatorContextDefinition? def, int dataIndex)
         {
             var data = series.GetComponentData(comp.Name);
-            int dataIndex = state.CurrentDataIndex;
             if (dataIndex < 0 || dataIndex >= (data?.Length ?? 0)) return null;
             double currentValue = data![dataIndex];
             if (double.IsNaN(currentValue)) return null;
@@ -146,7 +165,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             int lookback = def?.TrendLookbackBars ?? 3;
             var (trend, trendBars) = DetectTrend(data, dataIndex, lookback);
-            ZoneStatus zone = DetermineZone(currentValue, prevValue, def, series, state, dataIndex);
+            ZoneStatus zone = DetermineZone(currentValue, def);
 
             CrossoverStatus crossover = CrossoverStatus.None;
             if (def?.CrossoverComponentA != null && def.CrossoverComponentB != null)
@@ -194,8 +213,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             return (TrendDirection.Flat, 0);
         }
 
-        private static ZoneStatus DetermineZone(double value, double? prevValue,
-            IndicatorContextDefinition? def, ChartSeries series, WorkspaceState state, int dataIndex)
+        private static ZoneStatus DetermineZone(double value, IndicatorContextDefinition? def)
         {
             if (def == null) return ZoneStatus.Normal;
 
@@ -204,12 +222,10 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (def.OversoldThreshold.HasValue && value <= def.OversoldThreshold.Value)
                 return ZoneStatus.Oversold;
 
-            // For Bollinger: check component name
-            if (def.ComponentName.Equals("Upper", StringComparison.OrdinalIgnoreCase))
-                return ZoneStatus.AtUpperBand;
-            if (def.ComponentName.Equals("Lower", StringComparison.OrdinalIgnoreCase))
-                return ZoneStatus.AtLowerBand;
-
+            // A Bollinger arm used to sit here — "Upper"/"Lower" by component name, returning
+            // AtUpperBand/AtLowerBand. Bollinger's components are UpperBand/LowerBand and their
+            // definitions were deleted (see the constructor), so it could never be reached. A
+            // band is a LINE, and an alert on one is now "price crosses / touches the line".
             return ZoneStatus.Normal;
         }
 
