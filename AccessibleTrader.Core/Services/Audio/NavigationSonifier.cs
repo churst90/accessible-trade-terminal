@@ -15,6 +15,13 @@ namespace AccessibleTrader.Core.Services.Audio
         /// actually reach the engine, and multi-oscillator patches sound all their layers.
         /// </summary>
         void PlayPatch(AccessibleTrader.Sdk.Models.SoundPatch patch, float volumeScale = 1f, float pan = 0f);
+        /// <summary>
+        /// The crossing earcon — the directional chirp a reference level plays when the focused
+        /// value crosses it, or the user's Sound Designer override for it. +1 rising, −1 falling,
+        /// 0 nothing. One entry point so a line drawing's crossing (<see cref="LevelCrossingMonitor"/>)
+        /// cannot come to sound different from a level's.
+        /// </summary>
+        void PlayCrossEarcon(int direction, float pan);
         // SonifySeries/SonifyComponent were removed on 2026-08-25. They were a second way to
         // write voice slot 0, exported all the way up through IAudioFeedbackRouter and
         // ISonificationManager, and called by nothing in production. SyncNavigationSlots is
@@ -370,13 +377,18 @@ namespace AccessibleTrader.Core.Services.Audio
             // Directional cross earcon: fires when the focused component's value crossed a
             // reference / OB / OS level between the previous bar and this one — so it sounds whether
             // you arrowed forward or backward onto the cross bar.
-            if (audioPt.CrossDirection != 0
-                && !EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
-                    audioPt.CrossDirection > 0 ? EarconPatchPlayer.CrossUpKey : EarconPatchPlayer.CrossDownKey,
-                    1f, pan))
-                CrossEarcon.Fire(_audioDriver, audioPt.CrossDirection, 1f, pan);
+            PlayCrossEarcon(audioPt.CrossDirection, pan);
 
             for (int i = 2; i < 8; i++) _audioDriver.StopVoice(SLOT_NAV_START + i);
+        }
+
+        public void PlayCrossEarcon(int direction, float pan)
+        {
+            if (direction == 0) return;
+            if (!EarconPatchPlayer.TryPlayOverride(_patchLibrary, _audioDriver,
+                    direction > 0 ? EarconPatchPlayer.CrossUpKey : EarconPatchPlayer.CrossDownKey,
+                    1f, pan))
+                CrossEarcon.Fire(_audioDriver, direction, 1f, pan);
         }
 
         /// <summary>

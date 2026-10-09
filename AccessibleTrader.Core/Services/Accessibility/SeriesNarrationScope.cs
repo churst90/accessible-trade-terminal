@@ -113,8 +113,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
         ///
         /// <para><b>And it names the way out, only where the way out works.</b> A level crossing
         /// is narratable on any non-price pane (<c>AutoNarrationService.ScanLevelCrosses</c>), but
-        /// only against a component that has a reading — a line, bar or histogram. The advice to
-        /// press 0 is given only when both hold, because a refusal that names a way out which
+        /// only against a component that has a reading — a line, bar or histogram — and the 0 key only
+        /// adds a level where the series declares its neutral. The advice to press 0 is given only
+        /// when all of that holds, because a refusal that names a way out which
         /// does not work is worse than one that names none.</para>
         /// </summary>
         public static string? WhyNothingToNarrate(ChartSeries series)
@@ -141,7 +142,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             if (hasMarker || hasOscillator || hasOverlay || (!isPricePane && hasLevels && hasReading)) return null;
 
-            return !isPricePane && hasReading
+            // ...and only where the 0 key does something. Since 2026-10-09 it adds or switches a
+            // DECLARED neutral and nothing else (ReferenceLevelPlacement.Applies), so on an OBV —
+            // which declares none — "press 0" would name a key that answers "no reference level
+            // applies". Advice that does not work is worse than none.
+            return hasReading && Input.ReferenceLevelPlacement.Applies(series)
                 ? $"{series.FriendlyName} has no signals to narrate. Press 0 to add a reference level and its crossings will speak."
                 : $"{series.FriendlyName} has no signals to narrate.";
         }

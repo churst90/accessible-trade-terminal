@@ -1,4 +1,6 @@
 using AccessibleTrader.Core.Models;
+using AccessibleTrader.Core.Services.Accessibility;
+using AccessibleTrader.Core.Services.Drawing;
 using AccessibleTrader.Sdk.Models;
 
 namespace AccessibleTrader.Core.Services.Input
@@ -49,6 +51,19 @@ namespace AccessibleTrader.Core.Services.Input
                 && focusedSeries.Drawing?.Type == DrawingType.TrendLine)
             {
                 DoFocusedTrendlineCrossJump(state, focusedSeries, data, count, current, jumpRight);
+                return;
+            }
+
+            // The same for a focused HORIZONTAL line: walk price across that line only. It used to
+            // fall to the generic path and say "No points of interest on Line" — about the drawing
+            // whose only point of interest is where price crosses it. A focused vertical line keeps
+            // the sparse-signal jump, which already lands on its bar.
+            if (focusedSeries != null && LineDrawingCrossings.HorizontalPrice(focusedSeries) is double focusedPrice)
+            {
+                var stops = new List<(int Index, string Message)>();
+                AddHorizontalStops(stops, data, current, jumpRight, focusedPrice);
+                if (!AnnounceNearest(state, stops, jumpRight))
+                    _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Boundary, "No crossing against focused horizontal line"));
                 return;
             }
 
@@ -517,22 +532,54 @@ namespace AccessibleTrader.Core.Services.Input
             }
         }
 
+        /// <summary>
+        /// Ctrl+Left/Right on the candles and the price line: every place price crosses a line drawn
+        /// on the chart.
+        ///
+        /// <para>
+        /// Trend lines only, until 2026-10-09. Cody: <i>"crosses should be found with ctrl left/right
+        /// arrows too"</i> — of horizontal and vertical lines, which now also play the crossing
+        /// earcon. A horizontal line is a stop where the close crosses it, by the rule that earcon
+        /// uses (<see cref="LineDrawingCrossings"/>), so the key lands on the bar where the chirp
+        /// sounds; a vertical line is a stop at its bar. All of them merge, nearest first in the
+        /// direction of travel, and lines crossed on the same bar are named together.
+        /// </para>
+        ///
+        /// <para>
+        /// Hidden drawings are not stops — trend lines included, which used to be stopped at while
+        /// hidden. Hiding a line says you are not interested in it, as switching off a level does.
+        /// </para>
+        /// </summary>
         private void DoTrendlineCrossJump(WorkspaceState state, ChartSeries? focusedSeries, System.Collections.Generic.IReadOnlyList<Ohlcv> data, int count, int current, bool jumpRight)
         {
-            var trendlines = state.ActiveSeries
-                .Where(s => s.IsDrawing && s.Drawing?.Type == DrawingType.TrendLine)
+            var lines = state.ActiveSeries
+                .Where(s => s.IsVisible && (s.Drawing?.Type == DrawingType.TrendLine || LineDrawingCrossings.IsCrossable(s)))
                 .ToList();
 
-            if (!trendlines.Any())
+            if (!lines.Any())
             {
                 _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation,
                     NoTrendlinesMessage(focusedSeries)));
                 return;
             }
 
-            int foundIndex = -1;
-            foreach (var series in trendlines)
+            var stops = new List<(int Index, string Message)>();
+            foreach (var series in lines)
             {
+                if (LineDrawingCrossings.HorizontalPrice(series) is double price)
+                {
+                    AddHorizontalStops(stops, data, current, jumpRight, price);
+                    continue;
+                }
+
+                if (series.Drawing!.Type == DrawingType.VerticalLine)
+                {
+                    int bar = LineDrawingCrossings.VerticalBar(series, data);
+                    if (bar >= 0 && (jumpRight ? bar > current : bar < current))
+                        stops.Add((bar, $"Vertical line at {FormatTimestamp(state, bar)}"));
+                    continue;
+                }
+
                 var drawing = series.Drawing!;
                 if (!drawing.AnchorDate1.HasValue || !drawing.AnchorPrice1.HasValue ||
                     !drawing.AnchorDate2.HasValue || !drawing.AnchorPrice2.HasValue)
@@ -547,6 +594,7 @@ namespace AccessibleTrader.Core.Services.Input
                 double m  = (p2 - p1) / (i2 - i1);
                 double b  = p1 - (m * i1);
 
+                int foundIndex = -1;
                 for (int i = 1; i < count; i++)
                 {
                     bool above     = data[i].Close     >= (m * i)       + b;
@@ -555,14 +603,41 @@ namespace AccessibleTrader.Core.Services.Input
                     if (!jumpRight && i < current  && (foundIndex < 0 || i > foundIndex)) foundIndex = i;
                     else if (jumpRight && i > current && (foundIndex < 0 || i < foundIndex)) foundIndex = i;
                 }
+                if (foundIndex >= 0) stops.Add((foundIndex, "Trendline crossing"));
             }
 
-            if (foundIndex >= 0)
+            if (!AnnounceNearest(state, stops, jumpRight))
+                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing found"));
+        }
+
+        /// <summary>The nearest bar in the direction of travel where the close crosses
+        /// <paramref name="price"/>, worded with the way it went.</summary>
+        private static void AddHorizontalStops(List<(int Index, string Message)> stops,
+            System.Collections.Generic.IReadOnlyList<Ohlcv> data, int current, bool jumpRight, double price)
+        {
+            int step = jumpRight ? 1 : -1;
+            for (int i = current + step; i >= 1 && i < data.Count; i += step)
             {
-                _store.Dispatch(new NavigateAction(foundIndex));
-                _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, "Trendline crossing"));
+                int dir = LineDrawingCrossings.HorizontalCrossAt(data, i, price);
+                if (dir == 0) continue;
+                stops.Add((i, $"Price crosses {(dir > 0 ? "above" : "below")} horizontal line at {SpeechPriceFormatter.FormatPrice(price)}"));
+                return;
             }
-            else _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Navigation, "No crossing found"));
+        }
+
+        /// <summary>Moves to the nearest stop and says what is there — every line crossed on that
+        /// bar, in one sentence. False when there is no stop in this direction.</summary>
+        private bool AnnounceNearest(WorkspaceState state, List<(int Index, string Message)> stops, bool jumpRight)
+        {
+            if (stops.Count == 0) return false;
+            int found = jumpRight ? stops.Min(s => s.Index) : stops.Max(s => s.Index);
+            string message = string.Join(". ", stops.Where(s => s.Index == found).Select(s => s.Message).Distinct());
+
+            _store.Dispatch(new NavigateAction(found));
+            // Interrupting, as every other stop on this key does: the arrival is the news, and the
+            // previous bar's readout should not hold it up.
+            _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info, message, true));
+            return true;
         }
 
         /// <summary>
@@ -576,7 +651,9 @@ namespace AccessibleTrader.Core.Services.Input
         {
             string? name = focusedSeries?.FriendlyName;
             if (string.IsNullOrWhiteSpace(name)) name = focusedSeries?.Name ?? "This series";
-            return $"{name} has no crossings to jump to. Draw a trend line and this key finds where price crosses it.";
+            // "a line", not "a trend line", since 2026-10-09: horizontal and vertical lines are
+            // stops too, and naming one kind would send the user to only that one.
+            return $"{name} has no crossings to jump to. Draw a line on the chart and this key finds where price crosses it.";
         }
 
         /// <summary>

@@ -221,9 +221,10 @@ namespace AccessibleTrader.Core.Services.Audio
             bool triggerClick = false;
             if (comp.TriggerBoundaryClick && prevVal.HasValue)
             {
+                // LevelCross is the one crossing rule — shared with the line drawings' earcon and
+                // Ctrl+Left/Right, so all three agree on which bar a crossing belongs to.
                 if (comp.ReferenceLevel.HasValue &&
-                    ((prevVal.Value < comp.ReferenceLevel.Value && val >= comp.ReferenceLevel.Value) ||
-                     (prevVal.Value >= comp.ReferenceLevel.Value && val < comp.ReferenceLevel.Value)))
+                    LevelCross.Direction(prevVal.Value, val, comp.ReferenceLevel.Value) != 0)
                 {
                     // Fire the reference-level click only when the matching "Zero" level has PlayEarcon,
                     // or when no "Zero" level exists in Config.Levels (preserves old behaviour).
@@ -245,8 +246,7 @@ namespace AccessibleTrader.Core.Services.Audio
                         if (!lc.IsVisible || !lc.PlayEarcon) continue;
                         // Gate on component's level subscription filter.
                         if (!AudioZoneHelper.ComponentSubscribesTo(comp, lc.Name)) continue;
-                        if ((prevVal.Value < lc.Value && val >= lc.Value) ||
-                            (prevVal.Value >= lc.Value && val < lc.Value))
+                        if (LevelCross.Direction(prevVal.Value, val, lc.Value) != 0)
                         {
                             triggerClick = true;
                             // TODO: lc.EarconVolume is available for scaled click volume — requires

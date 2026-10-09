@@ -106,7 +106,11 @@ namespace AccessibleTrader.Tests
         public void APlainLineOffThePricePane_reportsThatItHasNothingToNarrate_andNamesTheWayOut()
         {
             // The case that remains a dead switch: a line in its own pane with no level to cross.
+            // Since 2026-10-09 the 0 key only places a DECLARED neutral, so the way out is named
+            // only where one is declared — here, a component that swings about zero. Without it
+            // see ZeroKeyOnlyWhereALevelAppliesTests: the sentence names no key.
             var obv = Series("OBV", "OBV", Comp("OBV", ComponentDisplayType.Line));
+            obv.Components[0].ReferenceLevel = 0;
 
             string? why = SeriesNarrationScope.WhyNothingToNarrate(obv);
 
@@ -209,7 +213,9 @@ namespace AccessibleTrader.Tests
             dispatcher.Dispatch(SystemCommand.AddReferenceLevel);
 
             var refusal = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>());
-            Assert.Contains("neutral", refusal.Message ?? "", StringComparison.OrdinalIgnoreCase);
+            // The wording changed 2026-10-09 ("No reference level applies to …", one sentence for
+            // every series the key does not apply to); the classification below is the point.
+            Assert.Contains("no reference level applies", refusal.Message ?? "", StringComparison.OrdinalIgnoreCase);
             // Boundary, not Error: the key was understood and has nowhere to go. Error is the one
             // classification that pierces Shift+F3, and a routine "not applicable on this pane"
             // must not be the sound a user cannot mute.
