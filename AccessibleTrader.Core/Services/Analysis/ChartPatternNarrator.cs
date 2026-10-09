@@ -317,10 +317,20 @@ namespace AccessibleTrader.Core.Services.Analysis
         /// bottom" could be any of several and the date is what lets a user go and find it. It is
         /// also the one piece of information that makes the relationship checkable by ear.
         /// </para>
+        ///
+        /// <para>
+        /// <b>The container is drawn from <see cref="AtBar"/>, never from the whole chart.</b> The
+        /// first version searched every formation the detector found, while semicolon can only
+        /// cycle the ones at this bar — so the readout could name a parent the user could not
+        /// select, and worse, one not yet knowable here: standing in a flag at bar 70 it said
+        /// "inside a larger double bottom" whose second low printed at bar 120. That is the
+        /// lookahead <see cref="AtBar"/> exists to refuse, and the projection is taken here, from
+        /// the bar, so no caller can hand this a wider set by mistake.
+        /// </para>
         /// </summary>
-        public static string DescribeContainment(ChartPattern p, IEnumerable<ChartPattern> candidates)
+        public static string DescribeContainment(ChartPattern p, IReadOnlyList<ChartPattern> all, int barIndex)
         {
-            var container = ContainerOf(p, candidates);
+            var container = ContainerOf(p, AtBar(all, barIndex));
             if (container == null) return "";
 
             string when = container.StartTime == default

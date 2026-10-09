@@ -598,13 +598,44 @@ public class ChartPatternPositionTests
     public void ASmallFormationInsideALargerOneReportsItsContainer()
     {
         var big = P(kind: ChartPatternKind.DoubleBottom, start: 0, end: 200, known: 205);
-        var small = P(kind: ChartPatternKind.AscendingTriangle, start: 50, end: 90, known: 95);
+        var small = P(kind: ChartPatternKind.AscendingTriangle, start: 150, end: 190, known: 210);
 
         Assert.Equal(big.Key, ChartPatternNarrator.ContainerOf(small, new[] { big, small })!.Key);
         Assert.Null(ChartPatternNarrator.ContainerOf(big, new[] { big, small }));
 
-        string clause = ChartPatternNarrator.DescribeContainment(small, new[] { big, small });
+        // Bar 220: both are knowable and neither has resolved.
+        string clause = ChartPatternNarrator.DescribeContainment(small, new[] { big, small }, 220);
         Assert.Contains("Inside a larger double bottom", clause);
+    }
+
+    /// <summary>
+    /// The containment clause must not see the future. This flag is knowable at bar 95; the
+    /// double bottom that geometrically contains it is not knowable until bar 205, because its
+    /// second low has not printed yet. At bar 100 the clause used to say "inside a larger double
+    /// bottom" anyway — it searched every formation on the chart, not the ones visible at the bar.
+    /// </summary>
+    [Fact]
+    public void AContainerNotYetKnowableAtTheBarIsNotNamed()
+    {
+        var big = P(kind: ChartPatternKind.DoubleBottom, start: 0, end: 200, known: 205);
+        var small = P(kind: ChartPatternKind.AscendingTriangle, start: 50, end: 90, known: 95);
+
+        Assert.Equal("", ChartPatternNarrator.DescribeContainment(small, new[] { big, small }, 100));
+    }
+
+    /// <summary>
+    /// Nor the past: a container that has already resolved is no longer in the set semicolon can
+    /// cycle, so naming it would describe a parent the user cannot select from here.
+    /// </summary>
+    [Fact]
+    public void AContainerThatHasAlreadyResolvedIsNotNamed()
+    {
+        var big = P(kind: ChartPatternKind.DoubleBottom, start: 0, end: 60, known: 62, completed: 64);
+        var small = P(kind: ChartPatternKind.BullFlag, start: 30, end: 58, known: 63, expires: 120);
+
+        Assert.Contains("Inside a larger double bottom",
+            ChartPatternNarrator.DescribeContainment(small, new[] { big, small }, 63));   // positive control
+        Assert.Equal("", ChartPatternNarrator.DescribeContainment(small, new[] { big, small }, 70));
     }
 
     /// <summary>
@@ -651,8 +682,8 @@ public class ChartPatternPositionTests
 
         Assert.Equal(big.Key, focus.Apply("chart", ranked)[0].Key);   // size ranking by default
 
-        focus.CycleAt("chart", ranked);                                // pins the first
-        focus.CycleAt("chart", ranked);                                // …then the second
+        // The leader is already current, so one press moves to the second.
+        focus.CycleAt("chart", ranked);
         Assert.Equal(small.Key, focus.Apply("chart", ranked)[0].Key);
 
         // Everything is still present — pinning reorders, it does not filter.
@@ -720,6 +751,36 @@ public class ChartPatternPositionTests
 
         Assert.False(focus.IsPinned("BTC"));
         Assert.True(focus.IsPinned("TAO"));
+    }
+
+    /// <summary>
+    /// A pin has to survive every index on the chart moving. A live feed at its growth cap sheds
+    /// its oldest bar on each new one, and a history backfill prepends; both re-detect with every
+    /// formation one or more indices away from where it was. The pin was held by bar indices, so
+    /// afterwards it matched nothing: the pinned shape stopped leading and the next semicolon
+    /// started over at "2 of 2". Measured on the BTC/USDT daily snapshot at the 2,000-bar cap.
+    /// </summary>
+    [Fact]
+    public void APinSurvivesTheIndicesShiftingUnderIt()
+    {
+        var focus = new ChartPatternFocus();
+        var big = new ChartPattern(ChartPatternKind.Rectangle, ChartPatternState.Forming, 100, 300, 305, 110,
+            new DateTime(2025, 1, 1), new DateTime(2025, 7, 20));
+        var small = new ChartPattern(ChartPatternKind.BullFlag, ChartPatternState.Forming, 250, 290, 295, 101,
+            new DateTime(2025, 6, 8), new DateTime(2025, 7, 18));
+
+        focus.CycleAt("chart", new List<ChartPattern> { big, small });       // pins the flag
+
+        // The oldest bar is shed: the same two formations, one index earlier each.
+        static ChartPattern Shed(ChartPattern p) => p with
+        {
+            StartBarIndex = p.StartBarIndex - 1, EndBarIndex = p.EndBarIndex - 1, KnownAtIndex = p.KnownAtIndex - 1
+        };
+        var shifted = new List<ChartPattern> { Shed(big), Shed(small) };
+
+        Assert.Equal(ChartPatternKind.BullFlag, focus.Apply("chart", shifted)[0].Kind);   // still leads
+        Assert.Equal(ChartPatternKind.BullFlag, focus.PinnedIn("chart", shifted)?.Kind);  // still scopes the jumps
+        Assert.Equal(ChartPatternKind.Rectangle, focus.CycleAt("chart", shifted)!.Kind);  // and the walk continues
     }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────

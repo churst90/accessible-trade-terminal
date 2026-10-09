@@ -68,8 +68,8 @@ namespace AccessibleTrader.Core.Services.Analysis
             }
 
             int idx = state.CurrentDataIndex;
-            var here = ChartPatternNarrator.ByDominance(
-                ChartPatternNarrator.AtBar(_patterns.For(state.Identity, data), idx)).ToList();
+            var all = _patterns.For(state.Identity, data);
+            var here = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(all, idx)).ToList();
 
             if (here.Count == 0)
             {
@@ -88,10 +88,14 @@ namespace AccessibleTrader.Core.Services.Analysis
             var picked = _focus.CycleAt(chartKey, here);
             if (picked == null) return;
 
+            // The containment clause is what tells nested formations apart by ear: "2 of 3" alone
+            // does not say whether the shape now leading is the parent or a piece of it. Reported
+            // from live use 2026-10-09 ("I can't tell which formation is being changed").
             int position = here.FindIndex(p => p.Key.Equals(picked.Key)) + 1;
             _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Info,
                 $"Leading with {ChartPatternNarrator.Name(picked.Kind)}, {position} of {here.Count}. "
-              + ChartPatternNarrator.Describe(picked, SpeechPriceFormatter.FormatPrice)));
+              + ChartPatternNarrator.Describe(picked, SpeechPriceFormatter.FormatPrice)
+              + ChartPatternNarrator.DescribeContainment(picked, all, idx)));
         }
 
         /// <summary>Shift+semicolon — drop the pin and go back to the size ranking.</summary>
