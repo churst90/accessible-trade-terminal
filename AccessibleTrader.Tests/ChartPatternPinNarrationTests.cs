@@ -246,10 +246,12 @@ public sealed class ChartPatternPinNarrationTests
             led.Add(string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message)));
         }
 
-        Assert.Contains("range", led[0]);
-        Assert.Contains("double bottom", led[1]);
-        Assert.Contains("bull flag", led[2]);
-        Assert.Contains("range", led[3]);          // wraps rather than stopping at the innermost
+        // The range leads before any press, so the first press moves OFF it. "Leading with" is
+        // matched because the containment clause names the parent too ("inside a larger range").
+        Assert.Contains("Leading with double bottom", led[0]);
+        Assert.Contains("Leading with bull flag", led[1]);
+        Assert.Contains("Leading with range", led[2]);    // wraps rather than stopping at the innermost
+        Assert.Contains("Leading with double bottom", led[3]);
         Assert.All(led, l => Assert.Contains("of 3", l));   // and always says how many there are
     }
 
@@ -372,8 +374,115 @@ public sealed class ChartPatternPinNarrationTests
             said.Add(string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message)));
         }
 
-        Assert.Contains("range, 1 of 3", said[0]);
-        Assert.Contains("double bottom, 2 of 3", said[1]);
-        Assert.Contains("bull flag, 3 of 3", said[2]);
+        // The first press moves off the leader (see TheFirstPressMovesOffTheFormationAlreadyLeading),
+        // so the walk reads 2, 3, then wraps to 1 — and 1 is still spoken as one, not zero.
+        Assert.Contains("double bottom, 2 of 3", said[0]);
+        Assert.Contains("bull flag, 3 of 3", said[1]);
+        Assert.Contains("range, 1 of 3", said[2]);
+    }
+
+    /// <summary>
+    /// Reported from live use (2026-10-09): "it also doesn't seem to change the more I press ;".
+    /// With nothing pinned, the first press pinned the formation ALREADY leading and announced it
+    /// as "1 of 2" — the shape the user had just heard, so the key appeared to do nothing. The
+    /// unpinned state is "the leader is current"; the first press must move to the second.
+    /// </summary>
+    [Fact]
+    public void TheFirstPressMovesOffTheFormationAlreadyLeading()
+    {
+        var h = Build(Big, Small);
+        StandOn(h, 70);
+        string chartKey = ChartPatternCache.KeyFor(h.Store.State.Identity);
+        var ranked = ChartPatternNarrator.ByDominance(ChartPatternNarrator.AtBar(new[] { Big, Small }, 70)).ToList();
+        Assert.Equal(Big.Key, h.Focus.Apply(chartKey, ranked)[0].Key);   // the double bottom leads unpinned
+
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();
+        string said = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+
+        Assert.Contains("Leading with ascending triangle, 2 of 2", said);
+        Assert.Equal(Small.Key, h.Focus.Apply(chartKey, ranked)[0].Key);   // and the readout follows
+
+        // Every press changes what leads: the next one wraps back to the double bottom.
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();
+        said = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+        Assert.Contains("Leading with double bottom, 1 of 2", said);
+    }
+
+    // Nested formations with real start dates, so the containment clause has something to say.
+    private static readonly ChartPattern DatedRange = new(
+        Kind: ChartPatternKind.Rectangle, State: ChartPatternState.Forming,
+        StartBarIndex: 0, EndBarIndex: 60, KnownAtIndex: 62,
+        TriggerLevel: 110, StartTime: new DateTime(2026, 1, 1), EndTime: new DateTime(2026, 3, 2),
+        ExpiresAtIndex: 125, SecondaryLevel: 90);
+
+    private static readonly ChartPattern DatedFlag = new(
+        Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Forming,
+        StartBarIndex: 40, EndBarIndex: 58, KnownAtIndex: 63,
+        TriggerLevel: 101, StartTime: new DateTime(2026, 2, 10), EndTime: new DateTime(2026, 2, 28),
+        ExpiresAtIndex: 125);
+
+    /// <summary>
+    /// "1 of 2, 2 of 2" is a count, not an identity. When the shape now leading sits inside a
+    /// larger one, the pin announcement names the parent and when it began — the same clause the
+    /// navigation readout uses — so the user can tell which level of the nest they chose.
+    /// </summary>
+    [Fact]
+    public void ThePinAnnouncementNamesTheContainerOfTheFormationNowLeading()
+    {
+        var h = Build(DatedRange, DatedFlag);
+        StandOn(h, 70);
+
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();   // range led; the flag now does
+        string flag = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+
+        h.Bus.Log.Clear();
+        h.Navigator.CycleFocus();   // back to the range, which is inside nothing
+        string range = string.Join(" ", h.Bus.Log.OfType<FeedbackRequestEvent>().Select(e => e.Message));
+
+        Assert.Contains("Leading with bull flag, 2 of 2", flag);
+        Assert.Contains("Inside a larger range that began 1 January.", flag);
+        Assert.Contains("Leading with range, 1 of 2", range);
+        Assert.DoesNotContain("Inside a larger", range);
+    }
+
+    /// <summary>
+    /// Containment must come from the formations at THIS bar — the set semicolon cycles — not from
+    /// every formation on the chart. Here the double bottom geometrically contains the flag but is
+    /// not knowable until bar 125, when its second low has printed. Standing on the flag's first
+    /// bar (65), the readout said "inside a larger double bottom" about a shape nobody standing
+    /// there could have seen, and that semicolon could not select ("only one formation here").
+    /// </summary>
+    [Fact]
+    public void ContainmentNeverNamesAFormationNotYetKnowableAtTheBar()
+    {
+        var futureParent = new ChartPattern(
+            Kind: ChartPatternKind.DoubleBottom, State: ChartPatternState.Forming,
+            StartBarIndex: 20, EndBarIndex: 120, KnownAtIndex: 125,
+            TriggerLevel: 100, StartTime: new DateTime(2026, 1, 21), EndTime: default, ExpiresAtIndex: 300);
+        var flag = new ChartPattern(
+            Kind: ChartPatternKind.BullFlag, State: ChartPatternState.Forming,
+            StartBarIndex: 40, EndBarIndex: 60, KnownAtIndex: 65,
+            TriggerLevel: 101, StartTime: new DateTime(2026, 2, 10), EndTime: default, ExpiresAtIndex: 120);
+
+        var h = Build(futureParent, flag);
+
+        Move(h, 64);
+        string stepped = Move(h, 65);    // the step path: entering the flag's first bar
+        Assert.Contains("bull flag", stepped);
+        Assert.DoesNotContain("double bottom", stepped);
+
+        Move(h, 30);
+        string jumped = Move(h, 65);     // the jump path: landing on the flag's first bar
+        Assert.Contains("bull flag", jumped);
+        Assert.DoesNotContain("double bottom", jumped);
+
+        // Positive control: the same parent, knowable before the flag, IS named on the same bar —
+        // so the silence above is the knowability rule and not a clause that never speaks.
+        var knowable = Build(futureParent with { KnownAtIndex = 62 }, flag);
+        Move(knowable, 64);
+        Assert.Contains("Inside a larger double bottom that began 21 January.", Move(knowable, 65));
     }
 }

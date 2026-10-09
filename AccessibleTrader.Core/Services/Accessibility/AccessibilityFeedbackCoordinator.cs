@@ -1267,7 +1267,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 var landedOnStart = here.FirstOrDefault(p => p.KnownAtIndex == idx);
                 if (landedOnStart != null)
                     return ChartPatternNarrator.DescribeEntry(landedOnStart, idx, SpeechPriceFormatter.FormatPrice)
-                         + ChartPatternNarrator.DescribeContainment(landedOnStart, all)
+                         + ChartPatternNarrator.DescribeContainment(landedOnStart, all, idx)
                          + OverlapNote(here.Count);
 
                 var landedOnEnd = here.FirstOrDefault(p => p.ResolvesAt == idx);
@@ -1310,7 +1310,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Containment is appended to the LEADER only. Saying "inside a larger X" after every
                 // one of three overlapping shapes would restate the same parent three times.
                 parts.Add(ChartPatternNarrator.DescribeEntry(entered[0], idx, SpeechPriceFormatter.FormatPrice)
-                        + ChartPatternNarrator.DescribeContainment(entered[0], all));
+                        + ChartPatternNarrator.DescribeContainment(entered[0], all, idx));
                 if (entered.Count > 1) parts.Add(OverlapNote(entered.Count).TrimStart());
             }
 

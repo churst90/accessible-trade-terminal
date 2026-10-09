@@ -18,10 +18,19 @@ namespace AccessibleTrader.Core.Services.Analysis
     /// </para>
     ///
     /// <para>
-    /// The pin is held as a <see cref="ChartPattern.Key"/> rather than a record, because the record
-    /// is re-derived on every bar (the narrator projects each formation to the state it held at the
-    /// bar being described) while the Key is stable across those projections and across a
-    /// re-detection triggered by a new live bar.
+    /// The pin is held as a <see cref="ChartPattern.Identity"/> rather than a record, because the
+    /// record is re-derived on every bar (the narrator projects each formation to the state it held
+    /// at the bar being described) while the Identity is stable across those projections.
+    /// </para>
+    ///
+    /// <para>
+    /// It used to be the <see cref="ChartPattern.Key"/>, which is built from bar INDICES and so is
+    /// not stable across a re-detection that moves them. A live feed at its growth cap sheds its
+    /// oldest bar on every new one, and a history backfill prepends; either shifts every index on
+    /// the chart, the pinned Key matched nothing afterwards, and the pin was silently gone — the
+    /// next semicolon started over and said "2 of 2" again. Measured on the BTC/USDT daily
+    /// snapshot at the 2,000-bar live cap. The Identity is the formation's kind and its two dates,
+    /// which no index shift touches.
     /// </para>
     /// </summary>
     public interface IChartPatternFocus
@@ -30,8 +39,10 @@ namespace AccessibleTrader.Core.Services.Analysis
         IReadOnlyList<ChartPattern> Apply(string chartKey, IReadOnlyList<ChartPattern> ranked);
 
         /// <summary>
-        /// Pin the next formation in the ranked order, wrapping around. Returns the newly pinned
-        /// pattern, or null when there is nothing at this bar to pin.
+        /// Pin the next formation in the ranked order, wrapping around. "Next" is counted from the
+        /// one currently leading: the pinned formation if it is in <paramref name="ranked"/>,
+        /// otherwise the first. Returns the newly pinned pattern, or null when there is nothing at
+        /// this bar to pin.
         /// </summary>
         ChartPattern? CycleAt(string chartKey, IReadOnlyList<ChartPattern> ranked);
 
@@ -61,7 +72,7 @@ namespace AccessibleTrader.Core.Services.Analysis
     {
         // Per chart, for the same reason the detection cache is per chart: a pin is a statement
         // about one instrument's structure and means nothing on another.
-        private readonly Dictionary<string, (ChartPatternKind, int, int, int)> _pinned = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, (ChartPatternKind, DateTime, DateTime)> _pinned = new(StringComparer.Ordinal);
         private readonly object _gate = new();
 
         public IReadOnlyList<ChartPattern> Apply(string chartKey, IReadOnlyList<ChartPattern> ranked)
@@ -74,7 +85,7 @@ namespace AccessibleTrader.Core.Services.Analysis
 
                 int i = -1;
                 for (int n = 0; n < ranked.Count; n++)
-                    if (ranked[n].Key.Equals(key)) { i = n; break; }
+                    if (ranked[n].Identity.Equals(key)) { i = n; break; }
 
                 // A pinned formation that is not at this bar is not an error and must not clear the
                 // pin: the user is simply somewhere else on the chart, and walking back should find
@@ -94,13 +105,17 @@ namespace AccessibleTrader.Core.Services.Analysis
 
             lock (_gate)
             {
-                int current = -1;
+                // With nothing pinned here, the LEADER is current — it is the one the readout is
+                // already naming. Starting from "none" made the first press pin the leader and say
+                // "1 of 2": the formation the user had just heard, so the key appeared to do
+                // nothing. The first press now moves to the second formation, as "next" promises.
+                int current = 0;
                 if (_pinned.TryGetValue(chartKey, out var key))
                     for (int n = 0; n < ranked.Count; n++)
-                        if (ranked[n].Key.Equals(key)) { current = n; break; }
+                        if (ranked[n].Identity.Equals(key)) { current = n; break; }
 
                 int next = (current + 1) % ranked.Count;
-                _pinned[chartKey] = ranked[next].Key;
+                _pinned[chartKey] = ranked[next].Identity;
                 return ranked[next];
             }
         }
@@ -121,7 +136,7 @@ namespace AccessibleTrader.Core.Services.Analysis
             {
                 if (!_pinned.TryGetValue(chartKey, out var key)) return null;
                 foreach (var c in candidates)
-                    if (c.Key.Equals(key)) return c;
+                    if (c.Identity.Equals(key)) return c;
                 return null;
             }
         }

@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using AccessibleTrader.Core.Services;
+using AccessibleTrader.Core.Services.Input;
 using AccessibleTrader.Core.Models;
 using AccessibleTrader.Sdk.Models;
 
@@ -60,15 +61,26 @@ namespace AccessibleTrader.BlazorClient.Services
         public bool TryProcessKey(string key, bool shift, bool ctrl, bool alt)
         {
             if (string.IsNullOrEmpty(key)) return false;
+
+            // Compared on the key the SHORTCUT LOOKUP will see, not on the spelling that arrived.
+            // The two pipelines do not spell every key alike: keyboard.js sends OEM1 for ';' and
+            // ':', while ChartArea's @onkeydown passes the raw character through. Compared raw,
+            // "OEM1" and ";" were two different keys, so one press of semicolon on the focused
+            // chart ran the pin command twice — forward one formation and straight back — and the
+            // user heard the same "1 of 2" on every press with the readout never changing.
+            // Reported from live use 2026-10-09; see ChartFormationKeyBrowserTests. Folding
+            // through the normaliser ShortcutManager matches on makes "the same press" mean "the
+            // same binding", whatever either side calls the key.
+            string canonical = KeyNormalizationService.NormalizeKey(key);
             lock (_dedupeLock)
             {
                 var now = DateTime.UtcNow;
-                if (_lastKey == key && _lastShift == shift && _lastCtrl == ctrl && _lastAlt == alt
+                if (_lastKey == canonical && _lastShift == shift && _lastCtrl == ctrl && _lastAlt == alt
                     && (now - _lastStamp) <= DedupeWindow)
                 {
                     return false;
                 }
-                _lastKey = key;
+                _lastKey = canonical;
                 _lastShift = shift;
                 _lastCtrl = ctrl;
                 _lastAlt = alt;
@@ -151,6 +163,11 @@ namespace AccessibleTrader.BlazorClient.Services
         /// value to the upper-case token ShortcutManager recognises. Mirrors the
         /// mapping in wwwroot/js/keyboard.js so the element-level Blazor fallback
         /// feeds the pipeline in the exact same vocabulary as the window JS path.
+        /// <para>
+        /// Not exactly: keyboard.js folds ';' ':' '/' '?' to OEM1/OEM2 and this leaves them
+        /// raw. That drift is why <see cref="TryProcessKey"/> dedupes on the normalised
+        /// binding key rather than trusting the two spellings to agree.
+        /// </para>
         /// </summary>
         public static string NormalizeKey(string key) => key switch
         {
