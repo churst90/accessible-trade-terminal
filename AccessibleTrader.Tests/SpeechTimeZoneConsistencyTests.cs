@@ -130,13 +130,20 @@ namespace AccessibleTrader.Tests
             // vertical-line confirmation) were not in the filed report at all — this scan is
             // what found them. A tenth site is a matter of time; this makes it a red test
             // rather than a silent third opinion about what time it is.
-            string dir = Path.Combine(RepoRoot(), "AccessibleTrader.Core", "Services", "Accessibility");
-            Assert.True(Directory.Exists(dir), $"scan target missing: {dir}");
+            // Input/ joined 2026-10-09: IndicatorCrossingEngine spoke a crossing's bar as
+            // Date.ToString("t") — UTC, culture-shaped, and "12:00 AM" on every daily bar —
+            // from outside the one directory this scan looked in.
+            string[] dirs =
+            {
+                Path.Combine(RepoRoot(), "AccessibleTrader.Core", "Services", "Accessibility"),
+                Path.Combine(RepoRoot(), "AccessibleTrader.Core", "Services", "Input"),
+            };
+            foreach (var d in dirs) Assert.True(Directory.Exists(d), $"scan target missing: {d}");
 
             var offenders = new List<string>();
             var banned = new Regex(@"\.ToLocalTime\(\)|\.Date\.ToString\(", RegexOptions.Compiled);
 
-            foreach (string file in Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories))
+            foreach (string file in dirs.SelectMany(d => Directory.EnumerateFiles(d, "*.cs", SearchOption.AllDirectories)))
             {
                 // The one file allowed to do the conversion is the one that defines it.
                 if (Path.GetFileName(file) == "SpeechTimeFormatter.cs") continue;

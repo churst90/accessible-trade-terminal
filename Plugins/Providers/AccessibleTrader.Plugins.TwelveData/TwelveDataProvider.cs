@@ -44,8 +44,6 @@ namespace AccessibleTrader.Plugins.TwelveData
         private ReconnectingWebSocket? _ws;
         private string? _currentSymbol;
         private string? _currentTimeframe;
-        private Ohlcv? _lastCandle;
-        private DateTime? _lastCandleStart;
 
         public override string Name => "Twelve Data";
         public override string Description => "Global Stocks, Forex, Crypto & Indices";
@@ -191,30 +189,14 @@ namespace AccessibleTrader.Plugins.TwelveData
                     long ts = json["timestamp"]?.Value<long>() ?? 0;
                     var now = ts <= 0 ? DateTime.UtcNow : TimestampParser.Parse(ts);
 
-                    if (_lastCandle.HasValue && _lastCandleStart.HasValue)
-                    {
-                        var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
-                        if (now >= _lastCandleStart.Value.Add(interval))
-                        {
-                            var newStart = _lastCandleStart.Value;
-                            while (now >= newStart.Add(interval)) newStart = newStart.Add(interval);
-                            _lastCandleStart = newStart;
-                            _lastCandle = new Ohlcv(newStart, price, price, price, price, 0);
-                        }
-                        else
-                        {
-                            var tick = new Ohlcv(now, price, price, price, price, 0);
-                            _lastCandle = _lastCandle.Value.UpdateWith(tick);
-                        }
-                        _liveStream.OnNext(_lastCandle.Value);
-                    }
-                    else
-                    {
-                        // Initialize first candle
-                        _lastCandleStart = now;
-                        _lastCandle = new Ohlcv(now, price, price, price, price, 0);
-                        _liveStream.OnNext(_lastCandle.Value);
-                    }
+                    // ONE price tick, no volume (the event carries no trade size). This used
+                    // to re-emit a running candle seeded from whichever fetch ran last — its
+                    // fetched volume included — under the default TradeDeltas style, so the
+                    // consolidator added that whole volume again on every tick; without a fetch
+                    // it started flat at the first tick's instant, off the period grid.
+                    // Bucketing and continuing the fetched bar are the consolidator's and the
+                    // chart feed's job (Cody, 2026-10-09: the forming bar "starts flat").
+                    _liveStream.OnNext(new Ohlcv(now, price, price, price, price, 0));
                 }
             }
             catch (Exception ex)
@@ -228,8 +210,6 @@ namespace AccessibleTrader.Plugins.TwelveData
             if (_ws != null) { await _ws.DisconnectAsync(); _ws.Dispose(); _ws = null; }
             _currentSymbol = null;
             _currentTimeframe = null;
-            _lastCandle = null;
-            _lastCandleStart = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -287,12 +267,6 @@ namespace AccessibleTrader.Plugins.TwelveData
                     })
                     .OrderBy(x => x.Date)
                     .ToList();
-
-                    if (ohlcvList.Any())
-                    {
-                        _lastCandle = ohlcvList.Last();
-                        _lastCandleStart = _lastCandle.Value.Date;
-                    }
 
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
@@ -445,21 +419,6 @@ namespace AccessibleTrader.Plugins.TwelveData
             "1w"  => "1week",
             "1M"  => "1month",
             _     => "1h"
-        };
-
-        private static TimeSpan MapTimeframeToTimeSpan(string tf) => tf switch
-        {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "30m" => TimeSpan.FromMinutes(30),
-            "1h"  => TimeSpan.FromHours(1),
-            "2h"  => TimeSpan.FromHours(2),
-            "4h"  => TimeSpan.FromHours(4),
-            "1d"  => TimeSpan.FromDays(1),
-            "1w"  => TimeSpan.FromDays(7),
-            "1M"  => TimeSpan.FromDays(30),
-            _     => TimeSpan.FromHours(1)
         };
 
         protected override void Dispose(bool disposing)

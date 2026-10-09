@@ -37,7 +37,7 @@ namespace AccessibleTrader.BlazorClient.Services
         private readonly ISonificationManager? _sonification;
         private readonly ISettingsManager? _settings;
         // Optional (touch Explore mode): spoken bar readout as the finger slides.
-        private readonly Core.Services.Accessibility.ISpeechFeedbackRouter? _speech;
+        private readonly AccessibleTrader.Core.Services.Accessibility.ISpeechFeedbackRouter? _speech;
         private int _lastSonifiedIndex = -1;
         private int _lastSpokenIndex = -1;
 
@@ -62,7 +62,7 @@ namespace AccessibleTrader.BlazorClient.Services
 
         public ChartHoverTracker(IInputService input, IWorkspaceStore store,
             ISonificationManager? sonification = null, ISettingsManager? settings = null,
-            Core.Services.Accessibility.ISpeechFeedbackRouter? speech = null,
+            AccessibleTrader.Core.Services.Accessibility.ISpeechFeedbackRouter? speech = null,
             Core.Services.Rendering.IPaneLayoutService? paneLayout = null)
         {
             _input = input;
@@ -139,7 +139,7 @@ namespace AccessibleTrader.BlazorClient.Services
 
             Current = new ChartHoverInfo(
                 x, y, barX,
-                DateText: FormatBarDate(bar.Date),
+                DateText: FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state)),
                 PriceText: PriceFormatter.FormatPrice(price),
                 OhlcText: $"O {PriceFormatter.FormatPrice(bar.Open)}  H {PriceFormatter.FormatPrice(bar.High)}  " +
                           $"L {PriceFormatter.FormatPrice(bar.Low)}  C {PriceFormatter.FormatPrice(bar.Close)}");
@@ -174,17 +174,25 @@ namespace AccessibleTrader.BlazorClient.Services
             if (explore && index != _lastSpokenIndex)
             {
                 _lastSpokenIndex = index;
-                _speech?.Speak($"{PriceFormatter.FormatPrice(bar.Close)}, {FormatBarDate(bar.Date)}",
+                _speech?.Speak($"{PriceFormatter.FormatPrice(bar.Close)}, {FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state))}",
                     interrupt: true);
             }
         }
 
-        public static string FormatBarDate(DateTime d)
-            // Intraday bars carry a meaningful time; daily-and-up bars are midnight —
-            // dropping the redundant 00:00 keeps the readout compact.
-            => d.TimeOfDay == TimeSpan.Zero
-                ? d.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
-                : d.ToString("MMM d, yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        /// <summary>
+        /// The hover readout's date, and the bar slider's. Daily-and-up bars are named by their
+        /// own date with no time (it is the same midnight on every one); intraday bars by date
+        /// and clock time in the user's zone.
+        ///
+        /// <para>This used to format the stored UTC stamp directly, the one bar readout that
+        /// skipped SpeechTimeFormatter: on an intraday chart in Chicago the hover said 19:30
+        /// where the arrow keys said 14:30, and the slider and the arrow keys could name
+        /// different days for the same bar. It goes through the same rule now
+        /// (SpeechTimeFormatter.ToBarDisplay), so the slider and the arrows agree.</para>
+        /// </summary>
+        public static string FormatBarDate(DateTime d, int barSeconds)
+            => AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatBar(d, barSeconds,
+                barSeconds >= 86400 ? "MMM d, yyyy" : "MMM d, yyyy HH:mm");
 
         private void Clear()
         {

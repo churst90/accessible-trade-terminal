@@ -171,10 +171,14 @@ public sealed class NavigationTimestampTests
 
         var said = Read(State("1d", daily), 0, 1);
 
-        Assert.StartsWith(SpeechTimeFormatter.FormatLongDate(daily[0]) + ".", said[0]);
+        // The bar's OWN date, as a literal: a daily bar is a calendar day in every zone. This
+        // used to expect FormatLongDate(bar) — the date of the local instant — which in Chicago
+        // is "September 4" for the bar of the 5th, and the test agreed with the defect (Cody,
+        // 2026-10-09: "the daily chart's newest bar reads October 8" on the 9th).
+        Assert.StartsWith("September 5 2026.", said[0]);
         // "00:00" on every bar of a daily chart is a time that tells the user nothing.
         Assert.DoesNotContain("00:00", said[0]);
-        Assert.StartsWith(SpeechTimeFormatter.FormatLongDate(daily[1]) + ".", said[1]);
+        Assert.StartsWith("September 6 2026.", said[1]);
     }
 
     // ── The explicit orders still win ───────────────────────────────────────────

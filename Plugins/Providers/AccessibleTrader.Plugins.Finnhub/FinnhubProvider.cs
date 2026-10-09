@@ -37,8 +37,6 @@ namespace AccessibleTrader.Plugins.Finnhub
         private ReconnectingWebSocket? _ws;
         private string? _currentSymbol;
         private string? _currentTimeframe;
-        private Ohlcv? _lastCandle;
-        private DateTime? _lastCandleStart;
 
         public override string Name => "Finnhub";
         public override string Description => "Finnhub — Global Stocks, Forex, Crypto & Commodities";
@@ -51,12 +49,9 @@ namespace AccessibleTrader.Plugins.Finnhub
         public override bool RequiresApiKey => true;
         public override bool IsConfigured => !string.IsNullOrEmpty(_apiKey);
         public override bool SupportsLiveUpdates => true;
-        // The live path builds a candle client-side and re-emits the SAME bar each
-        // trade with cumulative volume (see the trade handler / UpdateWith) —
-        // cumulative, not per-tick deltas. Without this the consumer's consolidator
-        // re-accumulates volume and inflates it (same fix as Kraken/MEXC).
-        public override AccessibleTrader.Sdk.Plugins.LiveTickStyle LiveTickStyle =>
-            AccessibleTrader.Sdk.Plugins.LiveTickStyle.CumulativeBars;
+        // Each live tick is ONE trade with its own size (see TryParseTrades), so the default
+        // TradeDeltas is the truth. It said CumulativeBars while the live path built its own
+        // running candle client-side; that candle is gone (see HandleWebSocketMessage).
         public override ProviderEnvironment Environment => ProviderEnvironment.Live;
         public override int MaxBarsPerRequest => 1000;
 
@@ -130,8 +125,6 @@ namespace AccessibleTrader.Plugins.Finnhub
 
             _currentSymbol = symbol;
             _currentTimeframe = timeframe;
-            _lastCandle = null;
-            _lastCandleStart = null;
 
             if (_ws != null) { await _ws.DisconnectAsync(); _ws.Dispose(); }
 
@@ -153,50 +146,41 @@ namespace AccessibleTrader.Plugins.Finnhub
         {
             try
             {
-                var json = JObject.Parse(msg);
-                if (json["type"]?.ToString() != "trade") return;
+                foreach (var trade in TryParseTrades(JObject.Parse(msg), DateTime.UtcNow))
+                    _liveStream.OnNext(trade);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Finnhub] Malformed feed frame skipped: {ex.GetType().Name}"); }
+        }
 
-                var data = json["data"] as JArray;
-                if (data == null || data.Count == 0) return;
-
-                // Process the latest trade
-                var trade = data.Last!;
+        /// <summary>
+        /// Every trade in a trade frame, each as ONE trade tick: its price on all four legs, its
+        /// own size, its own exchange time (<c>t</c>, ms; <paramref name="receivedUtc"/> when
+        /// absent). Internal for direct testing.
+        ///
+        /// <para>The old handler kept only the frame's LAST trade, so a busy frame's other trades
+        /// never reached the bar's volume or range, and folded it into a running candle of its
+        /// own: cleared on every subscribe (the flat-start bar, Cody 2026-10-09), started at the
+        /// first trade's instant instead of a period boundary (so a daily bar rolled over at
+        /// whatever time the chart was opened), and otherwise seeded from whichever fetch ran
+        /// last — another symbol's, if a watchlist or background chart fetched in between.</para>
+        /// </summary>
+        internal static List<Ohlcv> TryParseTrades(JObject json, DateTime receivedUtc)
+        {
+            var trades = new List<Ohlcv>();
+            if (json["type"]?.ToString() != "trade" || json["data"] is not JArray data) return trades;
+            foreach (var trade in data)
+            {
                 double price = trade["p"]?.Value<double>() ?? 0;
                 double volume = trade["v"]?.Value<double>() ?? 0;
                 long tsMs = trade["t"]?.Value<long>() ?? 0;
+                if (price <= 0) continue;
 
-                if (price <= 0) return;
-
-                var tradeTime = tsMs > 0
-                    ? DateTimeOffset.FromUnixTimeMilliseconds(tsMs).UtcDateTime
-                    : DateTime.UtcNow;
-
-                var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
-
-                if (_lastCandle.HasValue && _lastCandleStart.HasValue)
-                {
-                    if (tradeTime >= _lastCandleStart.Value.Add(interval))
-                    {
-                        var newStart = _lastCandleStart.Value;
-                        while (tradeTime >= newStart.Add(interval)) newStart = newStart.Add(interval);
-                        _lastCandleStart = newStart;
-                        _lastCandle = new Ohlcv(newStart, price, price, price, price, volume);
-                    }
-                    else
-                    {
-                        var tick = new Ohlcv(tradeTime, price, price, price, price, volume);
-                        _lastCandle = _lastCandle.Value.UpdateWith(tick);
-                    }
-                }
-                else
-                {
-                    _lastCandleStart = tradeTime;
-                    _lastCandle = new Ohlcv(tradeTime, price, price, price, price, volume);
-                }
-
-                _liveStream.OnNext(_lastCandle.Value);
+                var tradeTime = tsMs > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(tsMs).UtcDateTime : receivedUtc;
+                trades.Add(new Ohlcv(tradeTime, price, price, price, price, Math.Max(0, volume)));
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Finnhub] Malformed feed frame skipped: {ex.GetType().Name}"); }
+            // A frame batches trades; the bar is built oldest first.
+            trades.Sort((a, b) => a.Date.CompareTo(b.Date));
+            return trades;
         }
 
         public override async Task DisconnectAsync()
@@ -204,8 +188,6 @@ namespace AccessibleTrader.Plugins.Finnhub
             if (_ws != null) { await _ws.DisconnectAsync(); _ws.Dispose(); _ws = null; }
             _currentSymbol = null;
             _currentTimeframe = null;
-            _lastCandle = null;
-            _lastCandleStart = null;
             _connectionStateStream.OnNext(ConnectionState.Disconnected);
         }
 
@@ -272,12 +254,6 @@ namespace AccessibleTrader.Plugins.Finnhub
 
                     int limit = Math.Min(request.Limit, ohlcvList.Count);
                     ohlcvList = ohlcvList.TakeLast(limit).ToList();
-
-                    if (ohlcvList.Any())
-                    {
-                        _lastCandle = ohlcvList.Last();
-                        _lastCandleStart = _lastCandle.Value.Date;
-                    }
 
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
@@ -389,19 +365,6 @@ namespace AccessibleTrader.Plugins.Finnhub
             "1w"  => "W",
             "1M"  => "M",
             _     => "60"
-        };
-
-        private static TimeSpan MapTimeframeToTimeSpan(string tf) => tf switch
-        {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "30m" => TimeSpan.FromMinutes(30),
-            "1h"  => TimeSpan.FromHours(1),
-            "1d"  => TimeSpan.FromDays(1),
-            "1w"  => TimeSpan.FromDays(7),
-            "1M"  => TimeSpan.FromDays(30),
-            _     => TimeSpan.FromHours(1)
         };
 
         protected override void Dispose(bool disposing)

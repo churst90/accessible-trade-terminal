@@ -147,8 +147,11 @@ namespace AccessibleTrader.Core.Services.Feeds
 
             if (recent == null || !recent.Any()) return false;
 
+            // SamePeriod, not equality: a live bar appended at the UTC bucket start (00:00Z) and
+            // the provider's own stamp for that day (04:00Z for Alpaca or Polygon stocks) are
+            // one bar, and appending the fetched one beside it would chart the day twice.
             var gapBars = recent
-                .Where(b => b.Date > lastKnownDate)
+                .Where(b => b.Date > lastKnownDate && !SamePeriod(b.Date, lastKnownDate))
                 .OrderBy(b => b.Date)
                 .ToList();
 
@@ -200,7 +203,8 @@ namespace AccessibleTrader.Core.Services.Feeds
                         // a live subscription may have appended past this fetched
                         // bar while the fetch was in flight, and appending an
                         // older bar after a newer one breaks buffer ordering.
-                        if (_cache.Count > 0 && bar.Date <= _cache[_cache.Count - 1].Date) continue;
+                        if (_cache.Count > 0 && (bar.Date <= _cache[_cache.Count - 1].Date
+                                                 || SamePeriod(bar.Date, _cache[_cache.Count - 1].Date))) continue;
                         _cache = _cache.Append(bar);
                         appended++;
                         if (_cache.Count > MaxBarsInCache)
@@ -217,7 +221,7 @@ namespace AccessibleTrader.Core.Services.Feeds
                 var latest = recent.Last();
                 lock (_cacheLock)
                 {
-                    if (latest.Date == lastKnownDate
+                    if (SamePeriod(latest.Date, lastKnownDate)
                         && _cache.Count > 0 && _cache[_cache.Count - 1].Date == lastKnownDate)
                         _cache = _cache.ReplaceLast(latest);
                 }
@@ -293,7 +297,12 @@ namespace AccessibleTrader.Core.Services.Feeds
         /// lock is still held, matching the original pipeline's dispatch-before-
         /// release ordering so a prepend can never begin between merge and notify.
         /// </summary>
-        public bool ApplyLiveTick(Ohlcv tick)
+        /// <param name="tick">The consolidated bar for the tick's period.</param>
+        /// <param name="source">The consolidator that built it — see <see cref="Models.LiveStreamSource"/>.
+        /// With a source, a bar for the period the buffer already holds CONTINUES that bar
+        /// (its open, its range, its volume plus only what this stream added since); null
+        /// replaces the last bar outright, for a caller holding a complete candle.</param>
+        public bool ApplyLiveTick(Ohlcv tick, Models.LiveStreamSource? source = null)
         {
             if (_disposed) return false;
             try
@@ -314,16 +323,44 @@ namespace AccessibleTrader.Core.Services.Feeds
                 FeedUpdateKind kind;
                 lock (_cacheLock)
                 {
-                    var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
-                    if (_cache.Count == 0 || tick.Date > lastBar.Date)
+                    // A subscription OLDER than one this feed has already heard from is a
+                    // superseded socket still draining (a retarget overlaps the old stream by
+                    // a moment). Its bucket counts the same trades as the newer one, so letting
+                    // both add growth would count them twice.
+                    if (source is { } superseded && superseded.StreamId < _streamId)
                     {
+                        _logger.LogDebug("ChartFeed: live tick from superseded stream {Old} (current {Current}) for {Symbol} — dropped.",
+                            superseded.StreamId, _streamId, Identity.Symbol);
+                        return false;
+                    }
+
+                    var lastBar = _cache.Count > 0 ? _cache[_cache.Count - 1] : default;
+                    // Which period the bar is for, relative to the one held. A live bucket is
+                    // stamped at the period's UTC start; several providers stamp their own bars
+                    // elsewhere in the same period — Alpaca, Polygon and Schwab daily bars at
+                    // US-Eastern or US-Central midnight (04:00Z/05:00Z), Polygon weeks on the
+                    // Sunday. Compared for EQUALITY, every live bucket on those charts was
+                    // "older" than the bar it belonged to and was dropped, so a stock's daily
+                    // candle never moved. Nearest period instead. Only for a sourced bar: a
+                    // caller handing over complete candles keeps the exact comparison.
+                    int relation = _cache.Count == 0 ? 1
+                        : source is null ? tick.Date.CompareTo(lastBar.Date)
+                        : SamePeriod(tick.Date, lastBar.Date) ? 0
+                        : tick.Date.CompareTo(lastBar.Date);
+                    if (relation > 0)
+                    {
+                        // A period the buffer has never seen: the bucket IS the bar. When the
+                        // stream crossed the boundary itself it holds every trade since the
+                        // period opened; when it did not, it is the best there is until a
+                        // fetch supplies the provider's own bar.
                         _cache = _cache.Append(tick);
                         if (_cache.Count > LiveGrowthCap) _cache = _cache.RemoveFirst();
                         kind = FeedUpdateKind.LiveAppend;
                     }
-                    else if (tick.Date == lastBar.Date)
+                    else if (relation == 0)
                     {
-                        _cache = _cache.ReplaceLast(tick);
+                        var merged = source is { } src ? ContinueFormingBar(lastBar, tick, src) : tick;
+                        _cache = _cache.ReplaceLast(merged);
                         kind = FeedUpdateKind.LiveReplace;
                     }
                     else
@@ -336,6 +373,15 @@ namespace AccessibleTrader.Core.Services.Feeds
                             tick.Date, lastBar.Date, Identity.Symbol);
                         return false;
                     }
+
+                    // Only once the bar is APPLIED: a tick dropped above (busy, or older) must
+                    // leave the baseline where it was, so the next one's growth still includes it.
+                    if (source is { } applied)
+                    {
+                        _streamId = applied.StreamId;
+                        _streamPeriod = tick.Date;
+                        _streamVolume = tick.Volume;
+                    }
                 }
                 Touch();
                 Updated?.Invoke(this, kind);
@@ -346,6 +392,62 @@ namespace AccessibleTrader.Core.Services.Feeds
                 try { _prependLock.Release(); }
                 catch (ObjectDisposedException) { /* evicted mid-operation — nothing left to release */ }
             }
+        }
+
+        // The live stream this feed last applied a bar from, the period that bar was for, and
+        // the bucket volume it carried — the baseline the next bar's growth is measured from.
+        // Guarded by _cacheLock with the buffer they describe.
+        private long _streamId;
+        private DateTime _streamPeriod;
+        private double _streamVolume;
+
+        /// <summary>
+        /// The forming bar the buffer holds, carried forward by one live bucket from the same
+        /// period. Caller holds <c>_cacheLock</c>.
+        ///
+        /// <para>The bar already held is the authority on everything before this stream's
+        /// latest bucket — it is the provider's fetched forming bar, or that bar as earlier
+        /// ticks already advanced it. So: its Open stands; High and Low widen to anything the
+        /// bucket saw; Close is the latest tick; Volume grows by what the bucket ADDED since this
+        /// stream's previous bar. A re-fetch landing mid-stream needs no special case: it
+        /// replaces the bar, and the stream's baseline (what it had delivered before the fetch
+        /// returned) is exactly the volume that fetch already counts.</para>
+        ///
+        /// <para>The floor of the bucket's own volume keeps a stream that delivers the provider's
+        /// COMPLETE forming candle (Binance, MEXC and Kraken klines; Schwab's polled bar) where it
+        /// always was: such a candle is never below what the feed holds, so it wins outright and
+        /// nothing is counted twice.</para>
+        /// </summary>
+        private Ohlcv ContinueFormingBar(Ohlcv held, Ohlcv bucket, Models.LiveStreamSource source)
+        {
+            double added;
+            if (source.StreamId == _streamId && _streamPeriod == bucket.Date)
+                added = Math.Max(0, bucket.Volume - _streamVolume);
+            else
+                // This stream's first bucket of the period. Trades it holds arrived after we
+                // subscribed, so they are new; a cumulative source bar carries its running
+                // total from before we subscribed, which the held bar already counts.
+                added = source.Style == Sdk.Plugins.LiveTickStyle.TradeDeltas ? bucket.Volume : 0;
+
+            return new Ohlcv(
+                held.Date,
+                held.Open > 0 ? held.Open : bucket.Open,
+                Math.Max(held.High, bucket.High),
+                held.Low > 0 ? Math.Min(held.Low, bucket.Low) : bucket.Low,
+                bucket.Close,
+                Math.Max(held.Volume + added, bucket.Volume));
+        }
+
+        /// <summary>
+        /// True when two stamps name the same bar of this feed's timeframe: closer together
+        /// than half a bar. Equal stamps always are; an unparseable timeframe falls back to
+        /// equality.
+        /// </summary>
+        private bool SamePeriod(DateTime a, DateTime b)
+        {
+            if (a == b) return true;
+            long barMs = Sdk.Models.TimeframeUtility.ToMilliseconds(Identity.Timeframe);
+            return barMs > 0 && Math.Abs((a - b).TotalMilliseconds) < barMs / 2.0;
         }
 
         private void Touch() => LastUpdateUtc = DateTime.UtcNow;

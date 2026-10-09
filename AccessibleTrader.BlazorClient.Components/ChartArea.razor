@@ -496,7 +496,7 @@
         if (state.Data == null || state.Data.Count == 0) return "No data";
         int i = Math.Clamp(state.CurrentDataIndex, 0, state.Data.Count - 1);
         var bar = state.Data[i];
-        return $"Bar {i + 1} of {state.Data.Count}. {ChartHoverTracker.FormatBarDate(bar.Date)}, close {PriceFormatter.FormatPrice(bar.Close)}";
+        return $"Bar {i + 1} of {state.Data.Count}. {ChartHoverTracker.FormatBarDate(bar.Date, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(state))}, close {PriceFormatter.FormatPrice(bar.Close)}";
     }
 
     /// <summary>

@@ -83,7 +83,13 @@ public class ChartAreaBarSliderTests
         var valueText = cut.Find("#chart-bar-slider").GetAttribute("aria-valuetext") ?? "";
         Assert.Contains("Bar 11 of 50", valueText);
         Assert.Contains("close", valueText);
-        Assert.Contains("2026", valueText);
+        // One-minute bars, so the bar is an instant read on the user's clock — the arrow keys'
+        // reading of the same bar. This asserted "2026" of the raw UTC stamp, which held only
+        // because the slider skipped the formatter; in Chicago the bar is 18:10 on 31 December
+        // 2025. Derived through the BCL, not the formatter under test.
+        var bar = new System.DateTime(2026, 1, 1, 0, 10, 0, System.DateTimeKind.Utc);
+        Assert.Contains(System.TimeZoneInfo.ConvertTimeFromUtc(bar, System.TimeZoneInfo.Local)
+            .ToString("MMM d, yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture), valueText);
     }
 
     [Fact]

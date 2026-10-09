@@ -301,10 +301,12 @@ namespace AccessibleTrader.Tests
             [Fact]
             public void SecondTradeInSameBar_UpdatesHighLow()
             {
-                // Two trades inside one aggregation window: the second updates the
-                // forming candle rather than opening a new one.
+                // Two trades inside one bar. Each is emitted as ITSELF; the bar they make is
+                // the consolidator's, under the style the provider declares. (This used to
+                // assert the provider's own running candle — the candle that was cleared on
+                // every subscribe and started the forming bar flat, Cody 2026-10-09.)
                 var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
-                long tsMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                long tsMs = new DateTimeOffset(2026, 10, 9, 14, 5, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
                 var first  = "{\"type\":\"trade\",\"data\":[{\"p\":50000.0,\"v\":0.1,\"t\":" + tsMs + "}]}";
                 var second = "{\"type\":\"trade\",\"data\":[{\"p\":50100.0,\"v\":0.2,\"t\":" + (tsMs + 1000) + "}]}";
 
@@ -315,9 +317,37 @@ namespace AccessibleTrader.Tests
                 });
 
                 Assert.Equal(2, emitted.Count);
-                Assert.Equal(50000.0, emitted[1].Open);    // open preserved from first trade
-                Assert.Equal(50100.0, emitted[1].High);    // high lifted by second trade
-                Assert.Equal(50100.0, emitted[1].Close);
+                var consolidator = new AccessibleTrader.Sdk.Models.BarBucketConsolidator("1h", p.LiveTickStyle);
+                consolidator.Apply(emitted[0]);
+                var bar = consolidator.Apply(emitted[1])!.Value;
+                Assert.Equal(new DateTime(2026, 10, 9, 14, 0, 0, DateTimeKind.Utc), bar.Date);
+                Assert.Equal(50000.0, bar.Open);    // open from the first trade
+                Assert.Equal(50100.0, bar.High);    // high lifted by the second
+                Assert.Equal(50100.0, bar.Close);
+                Assert.Equal(0.3, bar.Volume, 9);   // each trade's size once
+            }
+
+            [Fact]
+            public void Every_trade_in_a_batched_frame_reaches_the_bar()
+            {
+                // Finnhub batches trades into one frame. The handler kept only the LAST, so
+                // the others' sizes and prices never reached the bar.
+                var p = new AccessibleTrader.Plugins.Finnhub.FinnhubProvider();
+                long tsMs = new DateTimeOffset(2026, 10, 9, 14, 5, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+                var frame = "{\"type\":\"trade\",\"data\":["
+                          + "{\"p\":50000.0,\"v\":0.1,\"t\":" + tsMs + "},"
+                          + "{\"p\":49900.0,\"v\":0.4,\"t\":" + (tsMs + 10) + "},"
+                          + "{\"p\":50050.0,\"v\":0.2,\"t\":" + (tsMs + 20) + "}]}";
+
+                var emitted = Capture(p.LiveStream, () => DispatchFrame(p, frame));
+
+                var consolidator = new AccessibleTrader.Sdk.Models.BarBucketConsolidator("1h", p.LiveTickStyle);
+                AccessibleTrader.Sdk.Models.Ohlcv? bar = null;
+                foreach (var tick in emitted) bar = consolidator.Apply(tick);
+                Assert.NotNull(bar);
+                Assert.Equal(0.7, bar!.Value.Volume, 9);
+                Assert.Equal(49900.0, bar.Value.Low);
+                Assert.Equal(50050.0, bar.Value.Close);
             }
         }
     }

@@ -111,13 +111,14 @@ public sealed class NewBarNarrationTests
         bus.Publish(new NewBarEvent(Bars[^2], Bars[^1]));   // bar 98 closed, bar 99 opened
 
     /// <summary>
-    /// How the announcement names the bar that closed. Daily bars here, so it is the date — and
-    /// it is BUILT rather than written out, because the stamp is rendered in the user's zone and
-    /// a hard-coded "April 9 2026" fails for anyone west of UTC (these bars sit at midnight).
+    /// How the announcement names the bar that closed. Daily bars here, so it is the date — the
+    /// bar's OWN date, in every zone. This used to be built from FormatLongDate (the local
+    /// date of the midnight stamp) because "April 9 2026" failed west of UTC — the test was
+    /// agreeing with the defect Cody reported 2026-10-09 ("the daily chart's newest bar reads
+    /// October 8" on the 9th). Bar 98 is 1 January 2026 plus 98 days.
     /// Added 2026-09-05: Cody asked for the closing bar's timestamp, which nothing carried.
     /// </summary>
-    private static readonly string ClosedBarStamp =
-        " on " + AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(Bars[^2].Date);
+    private const string ClosedBarStamp = " on April 9 2026";
 
     /// <summary>
     /// Cody, 2026-09-05: <i>"if I'm on a 1 minute chart and hear a new bar… the timestamp of the

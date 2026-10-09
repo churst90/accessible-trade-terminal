@@ -266,17 +266,20 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </summary>
         private string NavigationTimestamp(WorkspaceState state, DateTime stamp)
         {
+            // Daily bars and coarser are named by their own date, not by the local date of
+            // their UTC-midnight stamp — see SpeechTimeFormatter.ToBarDisplay.
+            int barSeconds = PlaybackNarration.BarSeconds(state);
             if (state.SpeechOrder.Contains("TimeOnly"))
                 return SpeechTimeFormatter.FormatTime(stamp);
             if (state.SpeechOrder.Contains("DateOnly"))
-                return SpeechTimeFormatter.Format(stamp, SpeechTimeFormatter.DateFormat);
+                return SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.DateFormat);
 
-            var day = SpeechTimeFormatter.ToDisplay(stamp).Date;
+            var day = SpeechTimeFormatter.ToBarDisplay(stamp, barSeconds).Date;
             bool dayChanged = _lastSpokenBarDay != day;
             _lastSpokenBarDay = day;
 
-            if (PlaybackNarration.BarSeconds(state) >= 86400)
-                return SpeechTimeFormatter.FormatLongDate(stamp);
+            if (barSeconds >= 86400)
+                return SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.LongDateFormat);
 
             return dayChanged || state.SpeakDateOnEveryBar
                 ? $"{SpeechTimeFormatter.Format(stamp, SpeechTimeFormatter.DateFormat)}, {SpeechTimeFormatter.FormatTime(stamp)}"
@@ -336,7 +339,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             bool shouldSpeakTimestamp = state.SpeakTimestamps && isXMove
                 && state.Data != null && state.CurrentDataIndex >= 0 && state.CurrentDataIndex < state.Data.Count;
             string timestamp = shouldSpeakTimestamp
-                ? SpeechTimeFormatter.FormatTime(state.Data![state.CurrentDataIndex].Date) + ". "
+                ? SpeechTimeFormatter.FormatBarClock(state.Data![state.CurrentDataIndex].Date, PlaybackNarration.BarSeconds(state)) + ". "
                 : "";
 
             return timestamp + prefixMessage + dataMsg;
@@ -362,11 +365,11 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int cursorIdx = cursorDataIndex >= 0 ? cursorDataIndex : dataIndex;
             string timeLabel = "";
             if (state.Data != null && cursorIdx >= 0 && cursorIdx < state.Data.Count)
-                timeLabel = SpeechTimeFormatter.FormatTime(state.Data[cursorIdx].Date) + ", ";
+                timeLabel = SpeechTimeFormatter.FormatBarClock(state.Data[cursorIdx].Date, PlaybackNarration.BarSeconds(state)) + ", ";
 
             string borrowedLabel = "";
             if (cursorIdx != dataIndex && state.Data != null && dataIndex >= 0 && dataIndex < state.Data.Count)
-                borrowedLabel = $"no book here, showing {SpeechTimeFormatter.FormatTime(state.Data[dataIndex].Date)}, ";
+                borrowedLabel = $"no book here, showing {SpeechTimeFormatter.FormatBarClock(state.Data[dataIndex].Date, PlaybackNarration.BarSeconds(state))}, ";
 
             string dataMsg;
             if (binIndex < 0 || binIndex >= bar.Count)

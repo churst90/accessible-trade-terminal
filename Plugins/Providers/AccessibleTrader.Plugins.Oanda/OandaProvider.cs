@@ -32,8 +32,6 @@ namespace AccessibleTrader.Plugins.Oanda
         private CancellationTokenSource? _streamCts;
         private string? _currentSymbol;
         private string? _currentTimeframe;
-        private Ohlcv? _lastCandle;
-        private DateTime? _lastCandleStart;
 
         // Streams
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
@@ -211,8 +209,6 @@ namespace AccessibleTrader.Plugins.Oanda
             _streamCts?.Dispose();
             _currentSymbol = instrument;
             _currentTimeframe = timeframe;
-            _lastCandle = null;
-            _lastCandleStart = null;
 
             _streamCts = new CancellationTokenSource();
             _ = Task.Run(() => StreamPricingAsync(instrument, _streamCts.Token));
@@ -254,58 +250,8 @@ namespace AccessibleTrader.Plugins.Oanda
                             var json = JObject.Parse(line);
                             var type = json["type"]?.ToString();
 
-                            if (type == "PRICE")
-                            {
-                                // Extract best bid/ask and compute midpoint
-                                var bids = json["bids"] as JArray;
-                                var asks = json["asks"] as JArray;
-                                double bid = bids?.FirstOrDefault()?["price"]?.Value<double>() ?? 0;
-                                double ask = asks?.FirstOrDefault()?["price"]?.Value<double>() ?? 0;
-                                if (bid <= 0 || ask <= 0) continue;
-
-                                double mid = (bid + ask) / 2.0;
-                                var now = DateTime.UtcNow;
-
-                                // Try parse timestamp from OANDA. TimestampParser
-                                // handles both spellings the API can send: fractional
-                                // unix seconds (AcceptDatetimeFormat: UNIX) and
-                                // RFC3339 — the inline version this replaces silently
-                                // kept UtcNow for the RFC3339 case.
-                                var tsStr = json["time"]?.ToString();
-                                if (!string.IsNullOrEmpty(tsStr))
-                                {
-                                    var parsed = TimestampParser.Parse(tsStr);
-                                    // Compare against the parser's own constant sentinel, not
-                                    // against MinValue.ToUniversalTime() — that converts from the
-                                    // machine's zone, so the value this test used to compare with
-                                    // differed between a London box and a New York one.
-                                    if (parsed > TimestampParser.Invalid) now = parsed;
-                                }
-
-                                var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
-
-                                if (_lastCandle.HasValue && _lastCandleStart.HasValue)
-                                {
-                                    if (now >= _lastCandleStart.Value.Add(interval))
-                                    {
-                                        var newStart = _lastCandleStart.Value;
-                                        while (now >= newStart.Add(interval)) newStart = newStart.Add(interval);
-                                        _lastCandleStart = newStart;
-                                        _lastCandle = new Ohlcv(newStart, mid, mid, mid, mid, 0);
-                                    }
-                                    else
-                                    {
-                                        var tick = new Ohlcv(now, mid, mid, mid, mid, 0);
-                                        _lastCandle = _lastCandle.Value.UpdateWith(tick);
-                                    }
-                                }
-                                else
-                                {
-                                    _lastCandleStart = now;
-                                    _lastCandle = new Ohlcv(now, mid, mid, mid, mid, 0);
-                                }
-                                _liveStream.OnNext(_lastCandle.Value);
-                            }
+                            if (type == "PRICE" && TryParsePrice(json, DateTime.UtcNow, out var quote))
+                                _liveStream.OnNext(quote);
                             // HEARTBEAT type — just keep alive, no action needed
                         }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[OANDA] Malformed pricing line skipped: {ex.GetType().Name}"); }
@@ -491,8 +437,6 @@ namespace AccessibleTrader.Plugins.Oanda
             _txnStreamCts = null;
             _currentSymbol = null;
             _currentTimeframe = null;
-            _lastCandle = null;
-            _lastCandleStart = null;
 
             // Drop the live-money Bearer token from both HTTP clients and the fields
             // so a crash dump after disconnect can't recover it (every other provider
@@ -523,7 +467,13 @@ namespace AccessibleTrader.Plugins.Oanda
             string from = hasFrom ? DateTimeOffset.FromUnixTimeMilliseconds(request.Since!.Value).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : "";
             string to   = hasTo   ? DateTimeOffset.FromUnixTimeMilliseconds(request.Until!.Value).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : "";
 
-            string url = $"{_restUrl}/instruments/{instrument}/candles?granularity={granularity}&price=M";
+            // UTC days and Monday weeks, like every other provider and like the live bucket.
+            // Oanda's defaults are a 17:00 America/New_York day (a bar stamped 21:00Z the day
+            // BEFORE the date it is for) and a Friday week; against the consolidator's 00:00Z
+            // buckets the live ticks of a day's last three hours went into the bar that had
+            // already closed, and every weekly tick landed in the wrong week.
+            string url = $"{_restUrl}/instruments/{instrument}/candles?granularity={granularity}&price=M"
+                       + "&dailyAlignment=0&alignmentTimezone=UTC&weeklyAlignment=Monday";
             if (hasFrom && hasTo)
                 url += $"&from={from}&to={to}";
             else
@@ -568,12 +518,6 @@ namespace AccessibleTrader.Plugins.Oanda
                         })
                         .OrderBy(x => x.Date)
                         .ToList();
-
-                    if (ohlcvList.Any())
-                    {
-                        _lastCandle = ohlcvList.Last();
-                        _lastCandleStart = _lastCandle.Value.Date;
-                    }
 
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });
@@ -1045,23 +989,42 @@ namespace AccessibleTrader.Plugins.Oanda
             _                 => OrderType.Market
         };
 
-        private static TimeSpan MapTimeframeToTimeSpan(string tf) => tf switch
+        /// <summary>
+        /// One PRICE line as one quote tick: the bid/ask midpoint on all four legs, no volume
+        /// (a quote is not a trade), stamped with Oanda's own <c>time</c> when it parses, else
+        /// <paramref name="receivedUtc"/>. Internal for direct testing.
+        ///
+        /// <para>This used to fold quotes into a running candle of its own, cleared on every
+        /// subscribe and started at the first quote's instant — so the forming bar began flat at
+        /// whatever the price was when the chart opened (Cody, 2026-10-09), and because its start
+        /// was that instant rather than a period boundary, it rolled over hours late on a daily
+        /// chart. Bucketing and continuing the fetched bar are the consolidator's and the feed's
+        /// job.</para>
+        /// </summary>
+        internal static bool TryParsePrice(JObject json, DateTime receivedUtc, out Ohlcv quote)
         {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "30m" => TimeSpan.FromMinutes(30),
-            "1h"  => TimeSpan.FromHours(1),
-            "2h"  => TimeSpan.FromHours(2),
-            "4h"  => TimeSpan.FromHours(4),
-            "6h"  => TimeSpan.FromHours(6),
-            "8h"  => TimeSpan.FromHours(8),
-            "12h" => TimeSpan.FromHours(12),
-            "1d"  => TimeSpan.FromDays(1),
-            "1w"  => TimeSpan.FromDays(7),
-            "1M"  => TimeSpan.FromDays(30),
-            _     => TimeSpan.FromHours(1)
-        };
+            quote = default;
+            var bids = json["bids"] as JArray;
+            var asks = json["asks"] as JArray;
+            double bid = bids?.FirstOrDefault()?["price"]?.Value<double>() ?? 0;
+            double ask = asks?.FirstOrDefault()?["price"]?.Value<double>() ?? 0;
+            if (bid <= 0 || ask <= 0) return false;
+
+            // TimestampParser handles both spellings the API can send: fractional unix seconds
+            // (AcceptDatetimeFormat: UNIX) and RFC3339. Compared against the parser's own
+            // sentinel, not MinValue.ToUniversalTime(), which depends on the machine's zone.
+            var at = receivedUtc;
+            var tsStr = json["time"]?.ToString();
+            if (!string.IsNullOrEmpty(tsStr))
+            {
+                var parsed = TimestampParser.Parse(tsStr);
+                if (parsed > TimestampParser.Invalid) at = parsed;
+            }
+
+            double mid = (bid + ask) / 2.0;
+            quote = new Ohlcv(at, mid, mid, mid, mid, 0);
+            return true;
+        }
 
         protected override void Dispose(bool disposing)
         {

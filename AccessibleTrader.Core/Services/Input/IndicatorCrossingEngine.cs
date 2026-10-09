@@ -762,7 +762,7 @@ namespace AccessibleTrader.Core.Services.Input
         private static string FormatTimestamp(WorkspaceState state, int dataIndex)
         {
             if (state.Data == null || dataIndex < 0 || dataIndex >= state.Data.Count) return string.Empty;
-            return state.Data[dataIndex].Date.ToString("t");
+            return Accessibility.SpeechTimeFormatter.FormatBarClock(state.Data[dataIndex].Date, Accessibility.PlaybackNarration.BarSeconds(state));
         }
     }
 }

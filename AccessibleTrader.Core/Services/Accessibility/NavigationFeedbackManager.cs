@@ -111,7 +111,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             // ── Coordinate Entry mode: always speak price + timestamp regardless of other settings ──
             if (state.IsCoordinateEntryMode)
             {
-                string ts = SpeechTimeFormatter.FormatTime(pt.Date);
+                string ts = SpeechTimeFormatter.FormatBarClock(pt.Date, PlaybackNarration.BarSeconds(state));
                 string ceMsg = $"{SpeechPriceFormatter.FormatPrice(pt.Close)}, {ts}";
 
                 // When anchor 1 is already confirmed, also speak the change from that anchor.

@@ -20,6 +20,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
     ///
     /// Format strings stay at the call site — a heatmap column wants "HH:mm" and the layout
     /// description wants a date — but the *instant* they describe is now resolved in one place.
+    ///
+    /// <para><b>A bar of a day or longer is named by its OWN date</b> — <see cref="ToBarDisplay(DateTime, int)"/>.
+    /// Reported by Cody, 2026-10-09, in America/Chicago: on the 9th the daily chart's newest
+    /// bar read "October 8". The bar is stamped 2026-10-09T00:00Z; converted to Chicago that is
+    /// 19:00 on the 8th, and the date of that local instant is not the date the bar is FOR.
+    /// Weekly bars, which begin on a Monday at 00:00Z, read as the Sunday before. A daily bar
+    /// is a calendar day, not an instant, so it is labelled the way exchanges and TradingView
+    /// label it: by its own date, in every zone. Intraday bars ARE instants and keep the
+    /// user's local clock. Every bar readout — arrow keys, bar-close announcements, playback,
+    /// the layout description, the hover readout, the bar slider and the chart's own axis —
+    /// goes through this, so what is shown and what is spoken name the same day.</para>
     /// </summary>
     public static class SpeechTimeFormatter
     {
@@ -47,6 +58,44 @@ namespace AccessibleTrader.Core.Services.Accessibility
             DateTimeKind.Utc => stamp.ToLocalTime(),
             _ => DateTime.SpecifyKind(stamp, DateTimeKind.Utc).ToLocalTime(),
         };
+
+        /// <summary>
+        /// The instant a BAR's stamp is read as on a chart with <paramref name="barSeconds"/>
+        /// between bars: its own calendar date (<see cref="BarDate"/>) for daily bars and
+        /// coarser, the user's local clock (<see cref="ToDisplay"/>) for intraday ones.
+        /// </summary>
+        public static DateTime ToBarDisplay(DateTime stamp, int barSeconds)
+            => barSeconds >= SecondsPerDay ? BarDate(stamp) : ToDisplay(stamp);
+
+        /// <summary><see cref="ToBarDisplay(DateTime, int)"/> in a zone named explicitly rather than
+        /// inherited from the machine — so a test proves the rule on a UTC build agent too.</summary>
+        internal static DateTime ToBarDisplay(DateTime stamp, int barSeconds, TimeZoneInfo zone)
+        {
+            if (barSeconds >= SecondsPerDay) return BarDate(stamp);
+            var utc = stamp.Kind == DateTimeKind.Local ? stamp.ToUniversalTime() : DateTime.SpecifyKind(stamp, DateTimeKind.Utc);
+            return TimeZoneInfo.ConvertTimeFromUtc(utc, zone);
+        }
+
+        /// <summary>
+        /// The calendar date a daily-or-coarser bar is for: its UTC calendar date, at 00:00,
+        /// Kind Unspecified (a date, not an instant — nothing downstream may convert it again).
+        ///
+        /// <para>Every provider's daily stamp falls on the date it is for: crypto venues and
+        /// Tradier, Twelve Data, FMP and CSV dates at 00:00Z; Alpaca and Polygon at midnight
+        /// New York (04:00Z/05:00Z); Schwab at midnight Chicago. Oanda's DEFAULT day (17:00 New
+        /// York) stamped the bar for the 9th at 21:00Z on the 8th — the one that did not — and
+        /// is requested on UTC days instead (OandaProvider.FetchOhlcvAsync), which also lines
+        /// its bars up with the live bucket.</para>
+        /// </summary>
+        public static DateTime BarDate(DateTime stamp)
+        {
+            var utc = stamp.Kind == DateTimeKind.Local ? stamp.ToUniversalTime() : stamp;
+            return DateTime.SpecifyKind(utc.Date, DateTimeKind.Unspecified);
+        }
+
+        /// <summary>Formats a bar's stamp by the bar rule (<see cref="ToBarDisplay(DateTime, int)"/>).</summary>
+        public static string FormatBar(DateTime stamp, int barSeconds, string format)
+            => ToBarDisplay(stamp, barSeconds).ToString(format, CultureInfo.InvariantCulture);
 
         /// <summary>Formats a stamp in the user's zone with an invariant culture.</summary>
         public static string Format(DateTime stamp, string format)
@@ -83,7 +132,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// </para>
         /// </summary>
         public static string FormatBarClock(DateTime stamp, int barSeconds)
-            => barSeconds < SecondsPerDay ? FormatTime(stamp) : FormatLongDate(stamp);
+            => FormatBar(stamp, barSeconds, barSeconds < SecondsPerDay ? TimeFormat : LongDateFormat);
 
         /// <summary>
         /// A range of bars — "January 5 2024 to March 15 2024", or on an intraday chart
@@ -98,7 +147,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         public static string FormatBarRange(DateTime start, DateTime end, int barSeconds)
         {
             if (barSeconds >= SecondsPerDay)
-                return $"{FormatLongDate(start)} to {FormatLongDate(end)}";
+                return $"{FormatBar(start, barSeconds, LongDateFormat)} to {FormatBar(end, barSeconds, LongDateFormat)}";
 
             return ToDisplay(start).Date == ToDisplay(end).Date
                 ? $"{FormatLongDate(start)}, {FormatTime(start)} to {FormatTime(end)}"
