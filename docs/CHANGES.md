@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Cody's four questions: live candles, bar dates, formation pinning, the 0 key, alerts (2026-10-09)
+
+Cody asked why the forming candle starts flat, why today's daily bar reads "October 8", what `;`
+does, why `0` works on price, and why the alert form's choices don't fit together. Each answer
+turned out to be a defect. Fixed in five parallel streams; every fix has a behaviour test proven
+red with the defect put back. **Nothing here has been heard by ear yet.**
+
+- **The forming candle is the provider's, not a flat one.** The live feed started a fresh bar from
+  the first trade after subscribing and `ChartFeed` replaced the provider's real forming bar with
+  it: open = high = low = close = one trade, volume = one trade. Bitstamp (the default) and most
+  trade-tick providers; Binance, MEXC and Schwab were fine. A live bar now continues the fetched
+  one (provider's open, widened high/low, latest close, volume plus only new volume) per stream
+  (`LiveStreamSource`); full-candle streams still replace without double counting.
+  - **Stock daily candles never moved live.** Alpaca/Polygon/Schwab stamp daily bars at 04:00 or
+    05:00 UTC; live buckets were matched by exact date and dropped. Now matched to the nearest period.
+  - **Per-provider defects found on the way:** Tradier re-added running volume on every trade;
+    Finnhub kept one trade per batched frame and rolled its day over at chart-open time; Twelve Data
+    and Coinbase re-added the fetched bar's volume on every tick (Coinbase also had no 4h/1w mapping);
+    Oanda days were 17:00 New York (now UTC days, Monday weeks); Kraken's `timestamp` is the interval's
+    END (every live bar a period late) and Kraken weeks start Thursday (1w is now resampled into Monday
+    weeks); Polygon minute bars used the window end; Bitstamp's 250 ms throttle discarded trades between
+    kept ones (now folded).
+- **Daily and longer bars are named by their own date.** Bars stamped at UTC midnight were converted
+  to local time, so in Chicago today's bar read "October 8" and weekly bars read as Sunday. One rule,
+  `SpeechTimeFormatter.ToBarDisplay`: bars of a day or longer use their UTC date, intraday keeps the
+  local clock. Every readout uses it — arrows, bar-close announcements, playback, Ctrl+Shift+D, the
+  layout description, drawings, the tactile strip, crossings, the canvas axis, and the hover readout
+  and bar slider, which had skipped the formatter and disagreed with the arrow keys.
+- **`;` pins the formation you asked for.** One press ran the command TWICE: keyboard.js sends `;` as
+  `OEM1` and ChartArea's fallback sends `;`, and the 50 ms duplicate check compared the raw spellings
+  — so every press pinned forward and straight back ("1 of 2" forever). `GlobalInputService` now dedupes
+  on the normalised key (also covers `/` and `?`). Reproduced in the browser suite. Also: the first press
+  moves to the second formation (the first is already leading); the announcement names the containing
+  formation; containment names only formations `;` can reach at that bar (it used to name parents not
+  yet knowable there); a pin survives index shifts from the live cap and backfill.
+- **`0` works only where a reference level applies** — an indicator in its own pane with a declared
+  neutral. On the price pane it said "Level added at <close>", a duplicate of a horizontal line; now it
+  says "No reference level applies to {series}." Levels already saved on price panes are kept.
+- **Horizontal and vertical line drawings play the crossing chirp** a level plays, and Ctrl+Left/Right on
+  the candles or price line stops at their crossings with the trend-line ones. Hidden trend lines are no
+  longer stops.
+- **The simple alert form.** Conditions now depend on the target (no zones for Price); zones come from
+  the indicator's own overbought/oversold levels — one source for the dialog and the evaluator, so an SMA
+  zone alert (accepted, never fired) is refused; the dead Upper/Lower band zones are gone. New **Touches**
+  (bar range reaches the level). Compare with a **line** ("price touches SMA 50"). Value prefilled with the
+  current reading. Zone and direction alerts read the live bar, not the reading cursor; Cipher B alerts read
+  the component they name; indicator Changes direction is the line turning, not the candle colour. An alert
+  on an instance removed from the chart is never answered by another series (it was watched as SMA 20).
+  Fire speech says "64,250", not "64250.000000".
+- **The Advanced editor** offers "Crosses above/below another line" (price close vs a line, SMA 20 vs
+  SMA 50), binds a leaf to the instance it names, and loads higher-timeframe data in the alert path, so a
+  daily chart can watch the weekly SMA 50. An HTF indicator leaf used to test the weekly CLOSE instead.
+  Leaves that can never be true are refused at creation.
+- **Accessibility review of both alert forms** (forms, live-region and keyboard specialists): 18 findings,
+  all fixed. Arrowing a closed select no longer loses choices further down; every replaced choice is
+  spoken without cutting off the option being read (the coordinator's StateChange now honours
+  `Interrupt`); a typed value is kept; Add says what is missing; operators and tree rows are plain words.
+- **CI:** `tests.yml` also runs on `fix/**` branches; full suites run on GitHub, not the desktop.
+- Suite 8,564 listed. Decisions for Cody and what is unverified are in TODO.
+
 ### A2q: `Services/Accessibility` mutated; four defects in what a blind user hears and feels, fixed (2026-10-01)
 
 Run in its own worktree, three mutants at a time. It was paused mid-run because test runs were

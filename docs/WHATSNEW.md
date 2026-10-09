@@ -8,6 +8,24 @@
 
 ## Unreleased
 
+- **The newest candle is the real one.** The candle still forming used to restart flat when you
+  opened a chart, as if the day or week began when you arrived. It now continues the exchange's
+  candle from its real open, high and low. Live stock daily candles, which didn't move at all, now do.
+- **Today's bar is called today.** Daily and weekly bars are named by their own date, so the bar
+  forming on October 9 is "October 9", not "October 8", and a week starts on Monday. Intraday bars
+  still use your local clock. The bar slider and the arrow keys now always agree.
+- **Semicolon chooses a formation.** Each press of `;` moves to the next overlapping formation ("2
+  of 2", then "1 of 2") and says which larger formation it sits inside. It used to land back where
+  it started on every press.
+- **`0` is for indicators.** On an indicator in its own pane it adds or switches its midline. On the
+  price chart it now does nothing and says so; draw a horizontal line to mark a price.
+- **Drawn lines chirp when price crosses them.** Horizontal and vertical lines play the same crossing
+  sound as levels, and Ctrl+Left and Ctrl+Right on the candles stop at those crossings.
+- **The alert form makes sense.** Conditions match the target (no zones on price), the value starts
+  at the current price or reading, and there is a new **Touches** condition. You can compare price
+  with a line on the chart, such as the SMA 50. Alerts that could never fire are refused with the
+  reason, and fired alerts speak plain numbers. The Advanced editor can watch one line crossing
+  another, including a weekly line from a daily chart.
 - **Scrolling back no longer replays old news.** When moving left loaded older history, narration
   could announce an old bar as if it had just closed, and then repeat a signal you had already
   heard. Fixed.

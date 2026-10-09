@@ -117,6 +117,40 @@ The tests-that-should-exist list is now CLOSED — items 5, 6 and 7 went in on 2
 
 ### What to do next, and why that order
 
+> **START HERE (2026-10-09 — Cody's four questions fixed: live candles, bar dates, `;`, `0`,
+> alerts; see CHANGES).** Suite **8,564** listed. Full suites now run on GitHub (`tests.yml` on push),
+> not locally. **NOTHING BELOW HAS BEEN HEARD** — ask Cody to try the forming candle, the dates, `;`,
+> `0`, the drawing chirps and both alert forms before the next release prose.
+>
+> **Decisions for Cody:**
+> 1. Kraken weekly is now Monday weeks resampled from daily — consistent, but REST caps at 720 daily
+>    candles, so ~2 years of weekly history instead of ~13 with Kraken's native Thursday weeks.
+> 2. Oanda daily bars are now UTC days, not the forex 17:00 New York close (the live bar cannot line up
+>    otherwise). Bars already in the on-disk store keep 21:00 UTC stamps until they age out.
+> 3. Pinning: should a parent formation that has already resolved still be named as context? It is
+>    dropped now because `;` cannot select it.
+> 4. Drawings: vertical-line chirp follows direction of travel — or one neutral sound? Drawing chirps
+>    sound whatever is focused — or only with candles/price focused? Shift+F3 silences neither level
+>    nor drawing chirps (only F3) — should it? Hidden trend lines are no longer Ctrl+Left/Right stops.
+>    `0` on a focused drawing is now a Boundary, not an Error. Properties "Add a level at the cursor"
+>    still places price-pane levels — keep?
+> 5. Alerts: Price and Candle now differ only by Candle's colour-flip condition — merge? Touches also
+>    fires when price GAPS over the level between bars — keep, or require the wick to reach it? Hidden
+>    levels still count as zones. Should Price get a close-to-close direction-turn condition?
+> 6. Advanced editor: should Touches be a real tree operator (today an OR of two crosses)? A period field
+>    for HTF leaves (today the period comes only from an instance on the chart)?
+>
+> **Found, NOT fixed (each changes strategy/backtest results — Cody decides):**
+> - `HtfLastClosedIndexExclusive` treats the still-forming higher-timeframe bar as closed: LOOK-AHEAD in
+>   backtests that use HTF leaves.
+> - With no MTF service (StrategyLab passes none), HTF leaves read the chart timeframe instead of refusing.
+>
+> **Unverified:** Oanda alignment parameters (no key); Polygon weeks starting Sunday (handled either way);
+> canvas axis labels (read, not drawn by a test); Kraken resampled weekly against the live API; production
+> DI filling `IConditionEvaluator` into `AlertOrchestrator` (composition tests pass); whether NVDA/Orca read
+> the landed-on option and then the queued replacement sentence in that order. Date tests that use the
+> machine's zone pass vacuously on UTC CI; the explicit-zone `BarDateRuleTests` are the ones that bite there.
+>
 > **START HERE (current as of 2026-09-25, EIGHTY-FIRST pass — THE LOAD-ONLY FLAKES, THEN A2p.)**
 > Suite **8,238** listed (8,243 run), browser **232**, 0 failing. CHANGES `[Unreleased]` has both entries.
 >
