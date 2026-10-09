@@ -384,6 +384,20 @@ namespace AccessibleTrader.Tests
             Assert.DoesNotContain(bus.Log.OfType<FeedbackRequestEvent>(), e => e.Type == FeedbackType.Error);
         }
 
+        [Fact]
+        public void The_real_catalog_offers_price_and_says_which_bar_column_each_line_is()
+        {
+            // The price lines a cross can use come from CoreIndicatorProvider — they were always
+            // in the catalog, as "Candles — Body", which does not say "close".
+            var catalog = new SignalCatalog(new AccessibleTrader.Sdk.Interfaces.IIndicatorProvider[]
+                { new AccessibleTrader.Core.Services.Indicators.CoreIndicatorProvider() });
+
+            Assert.Contains("(close)", catalog.GetById("CANDLES.body")?.DisplayLabel ?? "");
+            Assert.Contains("(high)", catalog.GetById("CANDLES.upper_wick")?.DisplayLabel ?? "");
+            Assert.Contains("(low)", catalog.GetById("CANDLES.lower_wick")?.DisplayLabel ?? "");
+            Assert.Contains(catalog.All, d => d.Id == "CANDLES.body");
+        }
+
         // ── refused at creation: leaves that can never be true ───────────────
 
         [Fact]
