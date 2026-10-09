@@ -101,10 +101,16 @@ namespace AccessibleTrader.Core.Services.Alerts
         private static string NameOf(IReadOnlyCollection<ChartSeries> chart, string? code, string? seriesId, string? component)
         {
             if (string.IsNullOrWhiteSpace(code)) return "indicator";
-            var s = (!string.IsNullOrEmpty(seriesId)
-                        ? chart.FirstOrDefault(x => x.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase))
-                        : null)
-                    ?? chart.FirstOrDefault(x => x.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+            // The instance the alert names, or nothing. Falling back to the first series with the
+            // code made a row whose SMA 50 had been removed read "price crosses above SMA 20" —
+            // a series the evaluator refuses to watch in its place, so the list claimed coverage
+            // the alert does not have. An alert naming no instance keeps first-by-code, as the
+            // evaluator does.
+            var s = !string.IsNullOrEmpty(seriesId)
+                ? chart.FirstOrDefault(x => x.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase)
+                                         && x.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase))
+                : chart.FirstOrDefault(x => x.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+            if (s == null && !string.IsNullOrEmpty(seriesId)) return $"{code} (no longer on this chart)";
             var comp = s?.Components.FirstOrDefault(c => c.Name.Equals(component, StringComparison.OrdinalIgnoreCase));
             if (s == null || comp == null) return string.IsNullOrWhiteSpace(component) ? code! : $"{code} {component}";
             return LineName(s, comp);

@@ -95,6 +95,40 @@ namespace AccessibleTrader.Tests
             Assert.Null(BackgroundWatchability.WhyUnwatchableWithoutAChart(a with { LineIndicatorCode = null, LineComponentName = null, Threshold = 5 }));
         }
 
+        // ── Describing an alert whose instance is gone ───────────────────────────
+
+        private static ChartSeries Live(string id, string code, string name)
+        {
+            var c = new SeriesConfig { Id = id, IndicatorCode = code, Name = name, FriendlyName = name };
+            c.Components.Add(new ComponentConfig { Name = code, DisplayName = code });
+            return new ChartSeries(c, new SeriesDataBuffer { SeriesId = id });
+        }
+
+        [Fact]
+        public void A_description_never_names_another_instance_for_one_that_has_gone()
+        {
+            // The alert was set on the SMA 50; only the SMA 20 is left. The evaluator will not
+            // watch the SMA 20 in its place, so the description must not say it does.
+            var chart = new[] { Live("sma-20", "Sma", "SMA 20") };
+            var line = new AlertDefinition
+            {
+                Id = "l", Name = "l", Delivery = AlertDelivery.Speech, Target = AlertTarget.Price,
+                Condition = AlertCondition.CrossesAbove, Symbol = "BTC/USD",
+                LineIndicatorCode = "Sma", LineComponentName = "Sma", LineSeriesId = "sma-50",
+            };
+            var subject = new AlertDefinition
+            {
+                Id = "s", Name = "s", Delivery = AlertDelivery.Speech, Target = AlertTarget.Indicator,
+                Condition = AlertCondition.Touches, Threshold = 100, Symbol = "BTC/USD",
+                IndicatorCode = "Sma", ComponentName = "Sma", SeriesId = "sma-50",
+            };
+
+            Assert.Equal("BTC/USD price crosses above Sma (no longer on this chart)", AlertDescriptions.Describe(line, chart));
+            Assert.Equal("BTC/USD Sma (no longer on this chart) touches 100", AlertDescriptions.Describe(subject, chart));
+            // An alert that names no instance still reads the first by code, as the evaluator does.
+            Assert.Equal("BTC/USD price crosses above SMA 20", AlertDescriptions.Describe(line with { LineSeriesId = null }, chart));
+        }
+
         // ── alerts.json ──────────────────────────────────────────────────────────
 
         private WorkspaceLibraryService Library() =>

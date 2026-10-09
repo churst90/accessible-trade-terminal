@@ -157,6 +157,26 @@ public class FeedbackTypeCoverageTests
         Assert.Contains(h.Speech.Channels, c => c == SpeechChannel.Chart);
     }
 
+    /// <summary>
+    /// A StateChange that asks NOT to interrupt is spoken without interrupting. The arm used to
+    /// hard-code <c>interrupt: true</c>, so every caller that passed false — the rebind
+    /// confirmation after Tab, the reconciliation reports, background monitoring on/off, a
+    /// provider coercing the timeframe, the alerts form saying a choice was replaced — cut off
+    /// whatever the screen reader was saying, and the flag read like a guarantee it was not.
+    /// </summary>
+    [Fact]
+    public void AStateChangeHonoursItsInterruptFlag()
+    {
+        var h = new Harness();
+
+        h.Bus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "queued probe", Interrupt: false));
+        h.Bus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, "default probe"));
+
+        Assert.False(h.Speech.Interrupts[h.Speech.SpokenTexts.IndexOf("queued probe")]);
+        // The default is unchanged: a publisher that does not say still interrupts.
+        Assert.True(h.Speech.Interrupts[h.Speech.SpokenTexts.IndexOf("default probe")]);
+    }
+
     /// <summary>An alert earcons as well as speaks — the immediate cue, like the Error branch.</summary>
     [Fact]
     public void AnAlertAlsoEarcons()
@@ -267,11 +287,13 @@ public class FeedbackTypeCoverageTests
     {
         public List<string> SpokenTexts { get; } = new();
         public List<SpeechChannel> Channels { get; } = new();
+        public List<bool> Interrupts { get; } = new();
 
         public void Speak(string message, bool interrupt = true, SpeechChannel channel = SpeechChannel.Chart)
         {
             SpokenTexts.Add(message);
             Channels.Add(channel);
+            Interrupts.Add(interrupt);
         }
 
         public void SpeakPoint(WorkspaceState state, WorkspaceState? previousState, ChartSeries series, Ohlcv point, string prefix = "") { }

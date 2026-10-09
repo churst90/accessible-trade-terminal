@@ -124,7 +124,7 @@
                    of the ones that appears or disappears. *@
                 <div class="modal-row">
                     <label for="alert-target">Target:</label>
-                    <select id="alert-target" @bind="_newAlertTarget" @bind:after="OnWatchedChanged">
+                    <select id="alert-target" @bind="_newAlertTarget" @bind:after="OnTargetChanged">
                         <option value="@AlertTarget.Price">Price</option>
                         <option value="@AlertTarget.Candle">Candle</option>
                         <option value="@AlertTarget.Indicator">Indicator</option>
@@ -140,27 +140,34 @@
                     <div class="modal-row">
                         <label for="alert-indicator">Indicator:</label>
                         <select id="alert-indicator" @bind="_newAlertSeriesId" @bind:after="OnIndicatorChanged">
-                            <option value="">(choose an indicator)</option>
+                            @* An empty list says WHY it is empty: "(choose an indicator)" alone, on a
+                               chart with nothing on it, reads as a list the user has not opened yet. *@
+                            <option value="">@(IndicatorSeries.Any() ? "(choose an indicator)" : "(no indicators on this chart; add one first)")</option>
                             @foreach (var s in IndicatorSeries)
                             {
                                 <option value="@s.Id">@SeriesLabel(s)</option>
                             }
                         </select>
                     </div>
+                    @* Component, condition, zone, compare-with and line each keep the user's
+                       CHOICE apart from what is shown. Chrome and Firefox commit every option an
+                       arrow key passes in a closed select, so arrowing the indicator list from RSI
+                       through an SMA to Stochastic used to drop "Enters zone" on the SMA and leave
+                       it gone on Stochastic. The choice now survives the pass and comes back. *@
                     <div class="modal-row">
                         <label for="alert-component">Component:</label>
-                        <select id="alert-component" @bind="_newAlertComponentName" @bind:after="OnWatchedChanged">
+                        <select id="alert-component" value="@_newAlertComponentName" @onchange="OnComponentPicked">
                             <option value="">(choose a component)</option>
                             @foreach (var c in ComponentsOfChosenIndicator)
                             {
-                                <option value="@c.Name">@(string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName)</option>
+                                <option value="@c.Name">@ComponentLabel(c)</option>
                             }
                         </select>
                     </div>
                 }
                 <div class="modal-row">
                     <label for="alert-condition">Condition:</label>
-                    <select id="alert-condition" @bind="_newAlertCondition" @bind:after="ReconcileChoicesQuietly">
+                    <select id="alert-condition" value="@_newAlertCondition" @onchange="OnConditionPicked">
                         @foreach (var c in ConditionsOffered)
                         {
                             <option value="@c">@ConditionLabel(c)</option>
@@ -175,7 +182,7 @@
                        offered under "Compare with". *@
                     <div class="modal-row">
                         <label for="alert-zone">Zone:</label>
-                        <select id="alert-zone" @bind="_newAlertZone">
+                        <select id="alert-zone" value="@_newAlertZone" @onchange="OnZonePicked">
                             @foreach (var z in ZonesOffered)
                             {
                                 <option value="@z">@ZoneLabel(z)</option>
@@ -189,7 +196,7 @@
                     {
                         <div class="modal-row">
                             <label for="alert-compare">Compare with:</label>
-                            <select id="alert-compare" @bind="_compareWith" @bind:after="OnCompareWithChanged">
+                            <select id="alert-compare" value="@_compareWith" @onchange="OnCompareWithPicked">
                                 <option value="@CompareNumber">A number</option>
                                 <option value="@CompareLine">A line on the chart</option>
                             </select>
@@ -199,7 +206,7 @@
                     {
                         <div class="modal-row">
                             <label for="alert-line">Line:</label>
-                            <select id="alert-line" @bind="_newAlertLineKey">
+                            <select id="alert-line" value="@_newAlertLineKey" @onchange="OnLinePicked">
                                 @foreach (var l in LinesOffered)
                                 {
                                     <option value="@l.Key">@l.Label</option>
@@ -209,12 +216,22 @@
                     }
                     else
                     {
+                        @* A string, not a double: Blazor formats a bound double with the shortest
+                           round-trip form, which is exponent notation below 0.0001 — a sub-cent
+                           coin's 0.00001234 would read "1.234E-05". The hint says whether the
+                           number is the live reading the form filled in or one the user typed. *@
                         <div class="modal-row">
                             <label for="alert-threshold">@(_newAlertTarget == AlertTarget.Indicator ? "Value:" : "Price level:")</label>
                             <input id="alert-threshold"
                                    type="number"
                                    step="any"
-                                   @bind="_newAlertThreshold" />
+                                   aria-describedby="@(ThresholdHint != null ? "alert-threshold-hint" : null)"
+                                   @bind="_newAlertThresholdText"
+                                   @bind:after="OnThresholdTyped" />
+                            @if (ThresholdHint != null)
+                            {
+                                <span id="alert-threshold-hint" style="font-size:0.85rem; color:var(--text-muted); margin-left:8px;">@ThresholdHint</span>
+                            }
                         </div>
                     }
                 }
@@ -308,27 +325,67 @@
           string.IsNullOrWhiteSpace(_newAlertName) ? "Enter a name for this alert first."
         : _advancedCondition && _advancedSpec.Root == null
             ? "Build at least one condition, or switch back to a simple alert."
+        // On the button, not only after it: the refusal used to come from WhyUnfireable at
+        // click time, in record language ("it targets an indicator but names no indicator and
+        // component"), with nothing on the field to go back to.
+        : !_advancedCondition && _newAlertTarget == AlertTarget.Indicator && ChosenSeries == null
+            ? (IndicatorSeries.Any() ? "Choose an indicator first." : "Add an indicator to the chart first; there is none to alert on.")
+        : !_advancedCondition && _newAlertTarget == AlertTarget.Indicator && string.IsNullOrEmpty(_newAlertComponentName)
+            ? "Choose a component first."
+        : !_advancedCondition && UsesLevel && !CompareToLine && ParsedThreshold == null
+            ? (_newAlertTarget == AlertTarget.Indicator ? "Enter a value first." : "Enter a price level first.")
         : null;
 
     private List<AlertDefinition> _activeAlerts = new();
     private string _newAlertName = "";
     private AlertTarget _newAlertTarget = AlertTarget.Price;
+
+    // EFFECTIVE choices (what the form shows and the alert is built from) and the user's
+    // WANTED ones (what they last picked). The effective one is the wanted one whenever the
+    // list above it offers it, and the list's first entry otherwise — so a choice a passing
+    // indicator could not have is put back when the next one can.
     private AlertCondition _newAlertCondition = AlertCondition.CrossesAbove;
-    private double _newAlertThreshold;
+    private AlertCondition _wantedCondition = AlertCondition.CrossesAbove;
+
+    // The level as TEXT (see the input's comment), whether the user typed it, and the reading
+    // the form last filled in — for the hint beside the field.
+    private string _newAlertThresholdText = "";
+    private bool _thresholdTyped;
+    private double? _currentReading;
 
     // Indicator / component / zone selection. These three fields did not exist, which is
     // why every Target=Indicator and every zone alert was permanently silent. The indicator
     // is held by series ID since 2026-10-09 — by code, the picker could not tell an SMA 20
     // from an SMA 50 and offered only the first.
     private string _newAlertSeriesId = "";
+    private string _chosenSeriesLabel = "";
     private string _newAlertComponentName = "";
+    private string _wantedComponentName = "";
     private AlertZone _newAlertZone = AlertZone.Overbought;
+    private AlertZone _wantedZone = AlertZone.Overbought;
 
     // "Compare with": a number, or one of the chart's lines ("seriesId|component").
     private const string CompareNumber = "number";
     private const string CompareLine = "line";
     private string _compareWith = CompareNumber;
+    private string _wantedCompareWith = CompareNumber;
     private string _newAlertLineKey = "";
+    private string _wantedLineKey = "";
+
+    /// <summary>The typed level, or null when the field is empty or not a number.</summary>
+    private double? ParsedThreshold =>
+        double.TryParse(_newAlertThresholdText, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var v) && double.IsFinite(v)
+            ? v : null;
+
+    /// <summary>
+    /// Said beside the Value field and read with it: whether the number is the live reading the
+    /// form filled in or one the user typed, and what the reading is now. "Value: 55.3, spin
+    /// button" alone cannot tell the two apart.
+    /// </summary>
+    private string? ThresholdHint => _currentReading is not { } now ? null
+        : _thresholdTyped ? $"Current value {AlertDescriptions.FormatForSpeech(now)}."
+        : $"Filled in with the current value, {AlertDescriptions.FormatForSpeech(now)}.";
 
     private bool IsZoneCondition =>
         _newAlertCondition is AlertCondition.EntersZone or AlertCondition.ExitsZone;
@@ -454,62 +511,178 @@
 
     // ── Keeping the cascade consistent ───────────────────────────────────────
 
-    /// <summary>The target or component changed: what is watched is different, so the value
-    /// field starts again at its current value and the lists below are re-checked.</summary>
-    private void OnWatchedChanged()
+    private AlertTarget _lastTarget = AlertTarget.Price;
+
+    private static string TargetLabel(AlertTarget t) => t switch
     {
-        ReconcileChoices(announce: true);
+        AlertTarget.Price => "Price",
+        AlertTarget.Candle => "Candle",
+        AlertTarget.Indicator => "Indicator",
+        _ => t.ToString(),
+    };
+
+    private static string ComponentLabel(ComponentConfig c) =>
+        string.IsNullOrEmpty(c.DisplayName) ? c.Name : c.DisplayName;
+
+    private static string TouchesMeaning(AlertTarget t) => t == AlertTarget.Indicator
+        ? "reaching the level from either side"
+        : "the bar's range reaching the level, wick included";
+
+    private void OnTargetChanged()
+    {
+        // "Touches" is one option whose meaning depends on the target: a bar's range for price,
+        // a reached-or-crossed value for an indicator. The option text changes with the target,
+        // but a selected option's text changing is not announced by anything, so it is SAID.
+        bool touchesMeaningChanged = _newAlertCondition == AlertCondition.Touches
+            && (_lastTarget == AlertTarget.Indicator) != (_newAlertTarget == AlertTarget.Indicator);
+        _lastTarget = _newAlertTarget;
+
+        var said = ReconcileChoices();
+        if (touchesMeaningChanged && _newAlertCondition == AlertCondition.Touches)
+            said.Add($"Touches now means {TouchesMeaning(_newAlertTarget)}.");
         PrefillThreshold();
+        Say(TargetLabel(_newAlertTarget), said);
     }
 
     private void OnIndicatorChanged()
     {
-        // A one-line indicator has nothing to choose; pick it, so an SMA needs no second step.
-        // A many-line one keeps the component it had if the new indicator has it too.
+        _chosenSeriesLabel = ChosenSeries is { } s ? SeriesLabel(s) : "";
+
+        // The component the user picked, if this indicator has it; else its first. A one-line
+        // indicator has nothing to choose, so an SMA needs no second step — and nothing is said.
         var comps = ComponentsOfChosenIndicator.ToList();
-        if (!comps.Any(c => c.Name.Equals(_newAlertComponentName, StringComparison.OrdinalIgnoreCase)))
-            _newAlertComponentName = comps.FirstOrDefault()?.Name ?? "";
-        OnWatchedChanged();
+        string before = _newAlertComponentName;
+        var pick = comps.FirstOrDefault(c => c.Name.Equals(_wantedComponentName, StringComparison.OrdinalIgnoreCase))
+                   ?? comps.FirstOrDefault();
+        _newAlertComponentName = pick?.Name ?? "";
+
+        var said = new List<string>();
+        if (pick != null && comps.Count > 1 && !pick.Name.Equals(before, StringComparison.OrdinalIgnoreCase))
+            said.Add(pick.Name.Equals(_wantedComponentName, StringComparison.OrdinalIgnoreCase)
+                ? $"Component back to {ComponentLabel(pick)}."
+                : $"Component set to {ComponentLabel(pick)}.");
+        said.AddRange(ReconcileChoices());
+        PrefillThreshold();
+        Say(string.IsNullOrEmpty(_chosenSeriesLabel) ? "No indicator" : _chosenSeriesLabel, said);
     }
 
-    private void OnCompareWithChanged() => ReconcileChoices(announce: false);
+    private void OnComponentPicked(ChangeEventArgs e)
+    {
+        _newAlertComponentName = _wantedComponentName = e.Value?.ToString() ?? "";
+        var said = ReconcileChoices();
+        PrefillThreshold();
+        var comp = ComponentsOfChosenIndicator.FirstOrDefault(c => c.Name.Equals(_newAlertComponentName, StringComparison.OrdinalIgnoreCase));
+        Say(comp != null ? ComponentLabel(comp) : "No component", said);
+    }
 
-    private void ReconcileChoicesQuietly() => ReconcileChoices(announce: false);
+    private void OnConditionPicked(ChangeEventArgs e)
+    {
+        if (!Enum.TryParse<AlertCondition>(e.Value?.ToString(), out var c)) return;
+        _newAlertCondition = _wantedCondition = c;
+        Say(ConditionLabel(c), ReconcileChoices());
+    }
+
+    private void OnZonePicked(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AlertZone>(e.Value?.ToString(), out var z)) _newAlertZone = _wantedZone = z;
+    }
+
+    private void OnCompareWithPicked(ChangeEventArgs e)
+    {
+        _compareWith = _wantedCompareWith = e.Value?.ToString() == CompareLine ? CompareLine : CompareNumber;
+        ReconcileChoices();
+    }
+
+    private void OnLinePicked(ChangeEventArgs e) => _newAlertLineKey = _wantedLineKey = e.Value?.ToString() ?? "";
+
+    private void OnThresholdTyped() => _thresholdTyped = true;
 
     /// <summary>
-    /// A choice that the list above it no longer offers is replaced by one it does — and, for
-    /// the condition, the replacement is SAID. Cody uses the form by ear: an option that
-    /// silently changed under him ("Enters zone" becoming "Crosses above" when he moved from RSI
-    /// to an SMA) is a different alert from the one he believes he set.
+    /// Brings every choice into line with the lists above it and returns what CHANGED, one
+    /// sentence each — nothing is replaced silently. Each effective choice is the user's wanted
+    /// one when the list offers it ("… back to …") and the list's first entry when it does not
+    /// ("… changed to …"). Cody uses the form by ear: an option that silently changed under him
+    /// ("Enters zone" becoming "Crosses above" when he moved from RSI to an SMA) is a different
+    /// alert from the one he believes he set.
     /// </summary>
-    private void ReconcileChoices(bool announce)
+    private List<string> ReconcileChoices()
     {
-        if (_newAlertTarget == AlertTarget.Indicator && ChosenSeries == null) _newAlertSeriesId = "";
+        var said = new List<string>();
+
+        if (_newAlertTarget == AlertTarget.Indicator && ChosenSeries == null && _newAlertSeriesId != "")
+        {
+            said.Add($"The indicator you chose, {_chosenSeriesLabel}, is no longer on the chart.");
+            _newAlertSeriesId = "";
+            _newAlertComponentName = "";
+        }
 
         var conditions = ConditionsOffered;
-        if (!conditions.Contains(_newAlertCondition))
+        var condition = conditions.Contains(_wantedCondition) ? _wantedCondition : conditions[0];
+        if (condition != _newAlertCondition)
         {
-            _newAlertCondition = conditions[0];
-            if (announce)
-                EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
-                    $"Condition changed to {ConditionLabel(_newAlertCondition)}.",
-                    Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+            said.Add(condition == _wantedCondition
+                ? $"Condition back to {ConditionLabel(condition)}."
+                : $"Condition changed to {ConditionLabel(condition)}.");
+            _newAlertCondition = condition;
         }
 
         var zones = ZonesOffered;
-        if (zones.Count > 0 && !zones.Contains(_newAlertZone)) _newAlertZone = zones[0];
+        if (zones.Count > 0)
+        {
+            var zone = zones.Contains(_wantedZone) ? _wantedZone : zones[0];
+            if (zone != _newAlertZone)
+            {
+                if (IsZoneCondition)
+                    said.Add(zone == _wantedZone ? $"Zone back to {ZoneLabel(zone)}." : $"Zone changed to {ZoneLabel(zone)}.");
+                _newAlertZone = zone;
+            }
+        }
 
         var lines = LinesOffered;
-        if (lines.Count == 0) _compareWith = CompareNumber;
-        if (!lines.Any(l => l.Key == _newAlertLineKey)) _newAlertLineKey = lines.FirstOrDefault()?.Key ?? "";
+        string compare = lines.Count == 0 ? CompareNumber : _wantedCompareWith;
+        if (compare != _compareWith)
+        {
+            if (UsesLevel)
+                said.Add(compare == CompareLine
+                    ? "Compare with back to a line on the chart."
+                    : "Compare with changed to a number, because there is no line to compare with.");
+            _compareWith = compare;
+        }
+        string lineKey = lines.Any(l => l.Key == _wantedLineKey) ? _wantedLineKey : lines.FirstOrDefault()?.Key ?? "";
+        if (lineKey != _newAlertLineKey)
+        {
+            if (UsesLevel && _compareWith == CompareLine && _newAlertLineKey != "" && lineKey != "")
+            {
+                string label = lines.First(l => l.Key == lineKey).Label;
+                said.Add(lineKey == _wantedLineKey ? $"Line back to {label}." : $"Line changed to {label}.");
+            }
+            _newAlertLineKey = lineKey;
+        }
+        return said;
+    }
+
+    /// <summary>
+    /// One utterance for one change of a select, led by what the user landed on. Not
+    /// interrupting, and complete either way: on the desktop path it queues after the screen
+    /// reader's reading of the option; in the browser, where the live region is assertive and
+    /// may cut that reading off, the sentence itself still says where the user is.
+    /// </summary>
+    private void Say(string? landedOn, List<string> said)
+    {
+        if (said.Count == 0) return;
+        string text = string.Join(" ", said);
+        if (!string.IsNullOrEmpty(landedOn)) text = $"{landedOn}. {text}";
+        EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange, text, Interrupt: false,
+            Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     /// <summary>
     /// The value field starts at what is being watched is worth NOW: the last close for price
     /// and candles, the component's live value for an indicator. It used to start at 0 —
-    /// Cody: "I expect the current price of that indicator to be filled in". Called when the
-    /// dialog opens and when the target, indicator or component changes; a number the user
-    /// typed survives everything else.
+    /// Cody: "I expect the current price of that indicator to be filled in". A number the user
+    /// TYPED is never overwritten — not by a change of target, indicator or component, not by
+    /// reopening the dialog — until an alert is added with it; the hint beside the field still
+    /// reports the current reading.
     /// </summary>
     private void PrefillThreshold()
     {
@@ -529,8 +702,9 @@
         {
             value = state.Data![live].Close;
         }
-        if (double.IsNaN(value) || double.IsInfinity(value)) return;
-        _newAlertThreshold = double.Parse(AlertDescriptions.FormatForInput(value), System.Globalization.CultureInfo.InvariantCulture);
+        _currentReading = double.IsFinite(value) ? value : null;
+        if (_currentReading == null || _thresholdTyped) return;
+        _newAlertThresholdText = AlertDescriptions.FormatForInput(value);
     }
     private AlertDelivery _newAlertDelivery = AlertDelivery.Both;
     private bool _newAlertBreakThrough;
@@ -558,10 +732,13 @@
         RefreshAlerts();
         RefreshChartContext();
         // The chart may have changed since the form was last open — an indicator removed, the
-        // price moved — so the choices are re-checked and the value starts at today's.
-        ReconcileChoices(announce: false);
+        // price moved — so the choices are re-checked and an untyped value starts at today's.
+        // What the re-check replaced is said AFTER the heading has been focused, and without
+        // interrupting it, so the dialog's name is not cut off by its own form.
+        var replaced = ReconcileChoices();
         PrefillThreshold();
         await ShowModalAsync("alerts-title");
+        Say(null, replaced);
     }
 
     private void RefreshChartContext()
@@ -617,7 +794,7 @@
             Condition = _newAlertCondition,
             // A number only where the condition compares against one and no line was chosen —
             // "changes direction 0" in the alert list was the form's leftover, not the rule.
-            Threshold = _advancedCondition || !UsesLevel || line != null ? null : _newAlertThreshold,
+            Threshold = _advancedCondition || !UsesLevel || line != null ? null : ParsedThreshold,
             LineIndicatorCode = line?.Series.IndicatorCode,
             LineComponentName = line?.Component.Name,
             LineSeriesId = line?.Series.Id,
@@ -677,6 +854,8 @@
                 : $"{added} It works while this chart is open, but background " +
                   $"and server-side monitoring cannot watch it: {unwatchableReason}.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         _newAlertName = "";
+        // The typed number has been used; the next alert starts from the live reading again.
+        _thresholdTyped = false;
         PrefillThreshold();
         if (_advancedCondition) _advancedSpec = new Core.Services.Strategies.EditableStrategySpec();
         RefreshAlerts();
