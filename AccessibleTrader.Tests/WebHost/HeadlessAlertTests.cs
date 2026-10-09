@@ -256,4 +256,40 @@ public sealed class HeadlessAlertTests : IDisposable
         var hosted = LocalBackgroundMonitor.DeriveUnwatchable(all, BackgroundWatchability.WhyUnwatchableWithoutAChart);
         Assert.Equal(6, hosted.Count);
     }
+
+    // ── A line instead of a number (Cody, 2026-10-09: "price touches the 50 week") ──
+
+    /// <summary>Price climbs one a bar to 1099 at hour 99, then dips to 1097. The EMA 3 lags a
+    /// bar behind (1098 → 1097.5), so the dip crosses it; the EMA 9 lags four (≈1095 → 1095.4),
+    /// so the dip does not reach it.</summary>
+    private static double ClimbThenDip(int h) => h < 100 ? 1000 + h : 1097;
+
+    private static AlertDefinition PriceVsLine(string name, AlertCondition condition, string lineSeriesId) =>
+        Alert(name, AlertTarget.Price, condition) with
+        {
+            LineIndicatorCode = "Ema", LineComponentName = "Ema", LineSeriesId = lineSeriesId,
+        };
+
+    [Theory]
+    [InlineData(AlertCondition.CrossesBelow)]
+    [InlineData(AlertCondition.Touches)]
+    public async Task A_price_versus_line_alert_fires_headless_against_the_line_it_names(AlertCondition condition)
+    {
+        // The EMA 3 is FIRST on the tab: an alert that read "the first EMA" would answer both
+        // alerts below from it, and the EMA 9 one would fire too.
+        var fast = PriceVsLine("Under the 3", condition, "ema3");
+        var slow = PriceVsLine("Under the 9", condition, "ema9");
+        using var h = new HeadlessMonitorHarness(new[] { SavedEma(3), SavedEma(9) },
+            alerts: new[] { fast, slow }, priceAt: ClimbThenDip);
+        h.OnlyAlerts();
+
+        await h.PollAsync();
+        h.Nothing();
+
+        h.CloseABar();
+        await h.PollAsync();
+        string one = h.Single();
+        Assert.Contains("Under the 3", one, StringComparison.Ordinal);
+        Assert.Contains(condition == AlertCondition.Touches ? "touched" : "crossed below", one, StringComparison.Ordinal);
+    }
 }

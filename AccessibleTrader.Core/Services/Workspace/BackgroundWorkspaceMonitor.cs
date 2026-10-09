@@ -255,6 +255,7 @@ namespace AccessibleTrader.Core.Services.Workspace
                     var data = series.GetComponentData(comp.Name);
                     if (data == null || idx < 0 || idx >= data.Length) continue;
                     _previousValues[$"{series.Config.IndicatorCode}.{comp.Name}"] = data[idx];
+                    _previousValues[AlertEvaluator.InstanceKey(series, comp.Name)] = data[idx];
                 }
             }
         }

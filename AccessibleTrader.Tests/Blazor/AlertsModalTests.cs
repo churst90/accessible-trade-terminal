@@ -62,6 +62,10 @@ public class AlertsModalTests
         // Target=Indicator alert is correctly refused — which is a different test.
         var rsiConfig = new SeriesConfig { Id = "rsi-1", Name = "RSI", IndicatorCode = "RSI" };
         rsiConfig.Components.Add(new ComponentConfig { Name = "Rsi", DisplayName = "RSI" });
+        // RSI's declared lines: a zone alert can only be written on an indicator that HAS a
+        // zone (AlertZones), so without them the zone test below would be refused.
+        rsiConfig.Levels.Add(new LevelConfig { Name = "Overbought", Value = 70 });
+        rsiConfig.Levels.Add(new LevelConfig { Name = "Oversold", Value = 30 });
         var rsi = new ChartSeries(rsiConfig, new SeriesDataBuffer { SeriesId = "rsi-1" });
         store.State.Returns(WorkspaceState.Initial with
         {
@@ -342,7 +346,8 @@ public class AlertsModalTests
         // WaitForElement, not Find: the indicator and component pickers are rendered
         // conditionally BY the Change above, so a bare Find races the re-render. It passed
         // every time locally and failed once in a full-suite run, which is the signature.
-        cut.WaitForElement("select#alert-indicator").Change("RSI");
+        // The picker's value is the series ID since 2026-10-09: two SMAs are two choices.
+        cut.WaitForElement("select#alert-indicator").Change("rsi-1");
         cut.WaitForElement("select#alert-component").Change("Rsi");
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));
@@ -354,6 +359,7 @@ public class AlertsModalTests
             // The fields that make it fireable at all.
             Assert.Equal("RSI", added.IndicatorCode);
             Assert.Equal("Rsi", added.ComponentName);
+            Assert.Equal("rsi-1", added.SeriesId);
             Assert.Contains(spoken, m => m.Contains("added", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(spoken, m => m.Contains("cannot watch", StringComparison.OrdinalIgnoreCase));
         });
@@ -394,8 +400,12 @@ public class AlertsModalTests
 
         var cut = OpenModal(ctx, bus);
         cut.Find("input#alert-name").Change("RSI overbought");
+        // Indicator first, then the condition: zones are offered only once the form knows
+        // which indicator (and whether it has any). Price has none.
+        cut.Find("select#alert-target").Change(AlertTarget.Indicator.ToString());
+        cut.WaitForElement("select#alert-indicator").Change("rsi-1");
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("select#alert-condition option[value='EntersZone']")));
         cut.Find("select#alert-condition").Change(AlertCondition.EntersZone.ToString());
-        cut.WaitForElement("select#alert-indicator").Change("RSI");
         cut.WaitForElement("select#alert-zone").Change(AlertZone.Overbought.ToString());
         cut.WaitForAssertion(() =>
             Assert.False(cut.Find("button[aria-label='Add alert']").HasAttribute("disabled")));

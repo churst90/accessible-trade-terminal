@@ -1,6 +1,7 @@
 @using AccessibleTrader.Sdk.Alerts
 @using AccessibleTrader.Sdk.Interfaces
 @using AccessibleTrader.Core.Services
+@using AccessibleTrader.Core.Services.Alerts
 @inherits ModalBase
 @inject IAlertOrchestrator AlertOrchestrator
 @inject IWorkspaceStore Store
@@ -62,7 +63,9 @@
                             var rowIndex = i;
                             <li role="listitem"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
-                                <span>@alert.Name — @(alert.Symbol ?? "Any") · @(alert.ConditionTree != null ? "Advanced rule" : $"{alert.Target} {alert.Condition}{(alert.Threshold.HasValue ? $" {alert.Threshold:G}" : "")}")@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
+                                @* The same sentence the add confirmation spoke, rather than the enum names
+                                   ("Indicator EntersZone") the row used to show. *@
+                                <span>@alert.Name — @(alert.ConditionTree != null ? $"{alert.Symbol ?? "Any"} · Advanced rule" : AlertDescriptions.Describe(alert, Store.State.ActiveSeries))@(string.IsNullOrEmpty(alert.WebhookTarget) ? "" : $" → {alert.WebhookTarget}")</span>
                                 <button id="alert-delete-@rowIndex"
                                         aria-label="@($"Delete alert: {alert.Name}")"
                                         @onclick="() => DeleteAlert(alert.Id, rowIndex)">
@@ -109,46 +112,44 @@
                 }
                 else
                 {
+                @* ── The simple form, in the order the questions depend on each other ──
+                   WHAT is watched (target, then which indicator and component), then what to
+                   wait for (condition — which depends on what is watched), then what to compare
+                   with. Cody, 2026-10-09: "the cascade here doesn't make a whole lot of sense" —
+                   the condition list came first and was the same for everything, so Price offered
+                   "Enters zone" and an SMA offered "Overbought", neither of which could fire.
+                   Every list below is computed from the choices above it, and a choice a later
+                   list no longer contains is replaced by a valid one and SAID (see
+                   ReconcileChoices). Focus never moves: the control being changed is never one
+                   of the ones that appears or disappears. *@
                 <div class="modal-row">
                     <label for="alert-target">Target:</label>
-                    <select id="alert-target" @bind="_newAlertTarget">
+                    <select id="alert-target" @bind="_newAlertTarget" @bind:after="OnWatchedChanged">
                         <option value="@AlertTarget.Price">Price</option>
                         <option value="@AlertTarget.Candle">Candle</option>
                         <option value="@AlertTarget.Indicator">Indicator</option>
                     </select>
                 </div>
-                <div class="modal-row">
-                    <label for="alert-condition">Condition:</label>
-                    <select id="alert-condition" @bind="_newAlertCondition">
-                        <option value="@AlertCondition.CrossesAbove">Crosses Above</option>
-                        <option value="@AlertCondition.CrossesBelow">Crosses Below</option>
-                        <option value="@AlertCondition.EntersZone">Enters Zone</option>
-                        <option value="@AlertCondition.ExitsZone">Exits Zone</option>
-                        <option value="@AlertCondition.ChangesDirection">Changes Direction</option>
-                    </select>
-                </div>
                 @* The indicator and component pickers. Without these, Target=Indicator built
                    an alert with no IndicatorCode and no ComponentName, which AlertEvaluator's
                    Indicator arm requires — so the alert fell through every arm and could
-                   never fire, while the modal announced that it worked. *@
-                @if (_newAlertTarget == AlertTarget.Indicator || IsZoneCondition || IsTrendCondition)
-                {
-                    <div class="modal-row">
-                        <label for="alert-indicator">Indicator:</label>
-                        <select id="alert-indicator" @bind="_newAlertIndicatorCode">
-                            <option value="">(choose an indicator)</option>
-                            @foreach (var s in IndicatorSeries)
-                            {
-                                <option value="@s.IndicatorCode">@s.FriendlyName</option>
-                            }
-                        </select>
-                    </div>
-                }
+                   never fire, while the modal announced that it worked. The indicator is
+                   chosen by INSTANCE: an SMA 20 and an SMA 50 are two choices, not one "SMA". *@
                 @if (_newAlertTarget == AlertTarget.Indicator)
                 {
                     <div class="modal-row">
+                        <label for="alert-indicator">Indicator:</label>
+                        <select id="alert-indicator" @bind="_newAlertSeriesId" @bind:after="OnIndicatorChanged">
+                            <option value="">(choose an indicator)</option>
+                            @foreach (var s in IndicatorSeries)
+                            {
+                                <option value="@s.Id">@SeriesLabel(s)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="modal-row">
                         <label for="alert-component">Component:</label>
-                        <select id="alert-component" @bind="_newAlertComponentName">
+                        <select id="alert-component" @bind="_newAlertComponentName" @bind:after="OnWatchedChanged">
                             <option value="">(choose a component)</option>
                             @foreach (var c in ComponentsOfChosenIndicator)
                             {
@@ -157,27 +158,65 @@
                         </select>
                     </div>
                 }
+                <div class="modal-row">
+                    <label for="alert-condition">Condition:</label>
+                    <select id="alert-condition" @bind="_newAlertCondition" @bind:after="ReconcileChoicesQuietly">
+                        @foreach (var c in ConditionsOffered)
+                        {
+                            <option value="@c">@ConditionLabel(c)</option>
+                        }
+                    </select>
+                </div>
                 @if (IsZoneCondition)
                 {
+                    @* Only the zones this indicator has — its own overbought / oversold lines, from
+                       the same AlertZones helper the evaluator reads. The Upper band and Lower band
+                       options that sat here matched nothing and never fired; a band is a line,
+                       offered under "Compare with". *@
                     <div class="modal-row">
                         <label for="alert-zone">Zone:</label>
                         <select id="alert-zone" @bind="_newAlertZone">
-                            <option value="@AlertZone.Overbought">Overbought</option>
-                            <option value="@AlertZone.Oversold">Oversold</option>
-                            <option value="@AlertZone.UpperBand">Upper band</option>
-                            <option value="@AlertZone.LowerBand">Lower band</option>
+                            @foreach (var z in ZonesOffered)
+                            {
+                                <option value="@z">@ZoneLabel(z)</option>
+                            }
                         </select>
                     </div>
                 }
-                @if (!IsZoneCondition && _newAlertCondition != AlertCondition.ChangesDirection)
+                @if (UsesLevel)
                 {
-                    <div class="modal-row">
-                        <label for="alert-threshold">@(_newAlertTarget == AlertTarget.Indicator ? "Value:" : "Price Level:")</label>
-                        <input id="alert-threshold"
-                               type="number"
-                               step="any"
-                               @bind="_newAlertThreshold" />
-                    </div>
+                    @if (LinesOffered.Count > 0)
+                    {
+                        <div class="modal-row">
+                            <label for="alert-compare">Compare with:</label>
+                            <select id="alert-compare" @bind="_compareWith" @bind:after="OnCompareWithChanged">
+                                <option value="@CompareNumber">A number</option>
+                                <option value="@CompareLine">A line on the chart</option>
+                            </select>
+                        </div>
+                    }
+                    @if (CompareToLine)
+                    {
+                        <div class="modal-row">
+                            <label for="alert-line">Line:</label>
+                            <select id="alert-line" @bind="_newAlertLineKey">
+                                @foreach (var l in LinesOffered)
+                                {
+                                    <option value="@l.Key">@l.Label</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="modal-row">
+                            <label for="alert-threshold">@(_newAlertTarget == AlertTarget.Indicator ? "Value:" : "Price level:")</label>
+                            <input id="alert-threshold"
+                                   type="number"
+                                   step="any"
+                                   @bind="_newAlertThreshold" />
+                        </div>
+                    }
                 }
                 }
                 <div class="modal-row">
@@ -278,29 +317,221 @@
     private double _newAlertThreshold;
 
     // Indicator / component / zone selection. These three fields did not exist, which is
-    // why every Target=Indicator and every zone alert was permanently silent.
-    private string _newAlertIndicatorCode = "";
+    // why every Target=Indicator and every zone alert was permanently silent. The indicator
+    // is held by series ID since 2026-10-09 — by code, the picker could not tell an SMA 20
+    // from an SMA 50 and offered only the first.
+    private string _newAlertSeriesId = "";
     private string _newAlertComponentName = "";
     private AlertZone _newAlertZone = AlertZone.Overbought;
+
+    // "Compare with": a number, or one of the chart's lines ("seriesId|component").
+    private const string CompareNumber = "number";
+    private const string CompareLine = "line";
+    private string _compareWith = CompareNumber;
+    private string _newAlertLineKey = "";
 
     private bool IsZoneCondition =>
         _newAlertCondition is AlertCondition.EntersZone or AlertCondition.ExitsZone;
 
-    private bool IsTrendCondition => _newAlertCondition == AlertCondition.TrendChange;
+    // (IsTrendCondition used to sit here, showing the indicator picker for TrendChange — a
+    // condition the list never offered, so it could never be true. "Changes direction" on an
+    // indicator is that question now, asked of the component itself.)
 
-    /// <summary>Indicator series currently on the chart — the only ones an alert can read.</summary>
+    /// <summary>Whether the condition compares against a level — a number or a line.</summary>
+    private bool UsesLevel =>
+        _newAlertCondition is AlertCondition.CrossesAbove or AlertCondition.CrossesBelow or AlertCondition.Touches;
+
+    private bool CompareToLine => _compareWith == CompareLine && LinesOffered.Count > 0;
+
+    /// <summary>Codes that ARE the price, not an indicator on it: offering "Candles" as an
+    /// indicator to alert on, or as a line for price to cross, is the price compared with itself.</summary>
+    private static bool IsPriceItself(string code) =>
+        code.ToUpperInvariant() is "CANDLES" or "PRICE" or "HEATMAP";
+
+    /// <summary>Indicator series currently on the chart — the only ones an alert can read. Every
+    /// instance, so two SMAs are two choices. Profiles are left out: their components are bins
+    /// across price, not a value per bar.</summary>
     private IEnumerable<ChartSeries> IndicatorSeries =>
         Store.State.ActiveSeries
             .Where(s => !s.IsDrawing
                      && !string.IsNullOrEmpty(s.IndicatorCode)
-                     && s.Components.Count > 0)
-            .GroupBy(s => s.IndicatorCode, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First());
+                     && !IsPriceItself(s.IndicatorCode)
+                     && !ProfileAnchoring.IsProfileCode(s.IndicatorCode)
+                     && s.Components.Count > 0);
+
+    private ChartSeries? ChosenSeries =>
+        IndicatorSeries.FirstOrDefault(s => s.Id.Equals(_newAlertSeriesId, StringComparison.Ordinal));
 
     private IEnumerable<ComponentConfig> ComponentsOfChosenIndicator =>
-        IndicatorSeries
-            .FirstOrDefault(s => s.IndicatorCode.Equals(_newAlertIndicatorCode, StringComparison.OrdinalIgnoreCase))
-            ?.Components ?? Enumerable.Empty<ComponentConfig>();
+        ChosenSeries?.Components ?? Enumerable.Empty<ComponentConfig>();
+
+    private static string SeriesLabel(ChartSeries s) =>
+        !string.IsNullOrWhiteSpace(s.FriendlyName) ? s.FriendlyName
+        : !string.IsNullOrWhiteSpace(s.Name) ? s.Name : s.IndicatorCode;
+
+    /// <summary>The zones the chosen component has — empty for anything without its own
+    /// overbought / oversold lines (an SMA, a Bollinger band).</summary>
+    private IReadOnlyList<AlertZone> ZonesOffered =>
+        _newAlertTarget == AlertTarget.Indicator && ChosenSeries is { } s && !string.IsNullOrEmpty(_newAlertComponentName)
+            ? AlertZones.For(s.Config, _newAlertComponentName)
+            : Array.Empty<AlertZone>();
+
+    /// <summary>
+    /// The conditions that mean something for what is being watched. Price and candles cross,
+    /// touch, and (candles) flip colour; they have no zones. An indicator crosses, touches and
+    /// turns, and enters or exits a zone only when it HAS one.
+    /// </summary>
+    private IReadOnlyList<AlertCondition> ConditionsOffered
+    {
+        get
+        {
+            var list = new List<AlertCondition> { AlertCondition.CrossesAbove, AlertCondition.CrossesBelow, AlertCondition.Touches };
+            if (_newAlertTarget is AlertTarget.Candle or AlertTarget.Indicator)
+                list.Add(AlertCondition.ChangesDirection);
+            if (ZonesOffered.Count > 0)
+            {
+                list.Add(AlertCondition.EntersZone);
+                list.Add(AlertCondition.ExitsZone);
+            }
+            return list;
+        }
+    }
+
+    private string ConditionLabel(AlertCondition c) => c switch
+    {
+        AlertCondition.CrossesAbove => "Crosses above",
+        AlertCondition.CrossesBelow => "Crosses below",
+        AlertCondition.Touches => _newAlertTarget == AlertTarget.Indicator
+            ? "Touches (reaches the level from either side)"
+            : "Touches (the bar's range reaches the level, wick included)",
+        AlertCondition.ChangesDirection => _newAlertTarget == AlertTarget.Indicator
+            ? "Changes direction (turns up or down)"
+            : "Changes direction (candle colour flips)",
+        AlertCondition.EntersZone => "Enters zone",
+        AlertCondition.ExitsZone => "Exits zone",
+        _ => c.ToString(),
+    };
+
+    private string ZoneLabel(AlertZone z)
+    {
+        double? at = ChosenSeries is { } s ? AlertZones.Threshold(s.Config, _newAlertComponentName, z) : null;
+        string name = z == AlertZone.Overbought ? "Overbought" : "Oversold";
+        if (at == null) return name;
+        return $"{name}, {AlertDescriptions.FormatForSpeech(at.Value)} and {(z == AlertZone.Overbought ? "above" : "below")}";
+    }
+
+    private sealed record LineChoice(string Key, string Label, ChartSeries Series, ComponentConfig Component);
+
+    /// <summary>What a line component looks like: drawn as a continuous value per bar. Markers,
+    /// histograms and fills have a value but are not a line anything "touches".</summary>
+    private static bool IsLine(ComponentConfig c) => c.DisplayType is
+        ComponentDisplayType.Line or ComponentDisplayType.StepLine or ComponentDisplayType.Area
+        or ComponentDisplayType.Gradient or ComponentDisplayType.Oscillator or ComponentDisplayType.ZeroArea;
+
+    /// <summary>
+    /// The lines a level can be. For price and candles, every line on the PRICE pane — moving
+    /// averages, bands, VWAP — because only those are in price. For an indicator, the chosen
+    /// indicator's own other lines: MACD against its signal, %K against %D.
+    /// </summary>
+    private IReadOnlyList<LineChoice> LinesOffered
+    {
+        get
+        {
+            IEnumerable<(ChartSeries S, ComponentConfig C)> pairs = _newAlertTarget == AlertTarget.Indicator
+                ? (ChosenSeries is { } chosen
+                    ? chosen.Components.Where(c => IsLine(c) && !c.Name.Equals(_newAlertComponentName, StringComparison.OrdinalIgnoreCase))
+                                       .Select(c => (chosen, c))
+                    : Enumerable.Empty<(ChartSeries, ComponentConfig)>())
+                : IndicatorSeries.Where(s => AccessibleTrader.Core.Services.Accessibility.ChartPaneModel.KeyOf(s)
+                                                 == AccessibleTrader.Core.Services.Accessibility.ChartPaneModel.MainPaneKey
+                                             && !s.IndicatorCode.Equals("VOLUME", StringComparison.OrdinalIgnoreCase))
+                                 .SelectMany(s => s.Components.Where(IsLine).Select(c => (s, c)));
+            return pairs.Select(p => new LineChoice($"{p.S.Id}|{p.C.Name}", AlertDescriptions.LineName(p.S, p.C), p.S, p.C)).ToList();
+        }
+    }
+
+    private LineChoice? ChosenLine => LinesOffered.FirstOrDefault(l => l.Key == _newAlertLineKey);
+
+    // ── Keeping the cascade consistent ───────────────────────────────────────
+
+    /// <summary>The target or component changed: what is watched is different, so the value
+    /// field starts again at its current value and the lists below are re-checked.</summary>
+    private void OnWatchedChanged()
+    {
+        ReconcileChoices(announce: true);
+        PrefillThreshold();
+    }
+
+    private void OnIndicatorChanged()
+    {
+        // A one-line indicator has nothing to choose; pick it, so an SMA needs no second step.
+        // A many-line one keeps the component it had if the new indicator has it too.
+        var comps = ComponentsOfChosenIndicator.ToList();
+        if (!comps.Any(c => c.Name.Equals(_newAlertComponentName, StringComparison.OrdinalIgnoreCase)))
+            _newAlertComponentName = comps.FirstOrDefault()?.Name ?? "";
+        OnWatchedChanged();
+    }
+
+    private void OnCompareWithChanged() => ReconcileChoices(announce: false);
+
+    private void ReconcileChoicesQuietly() => ReconcileChoices(announce: false);
+
+    /// <summary>
+    /// A choice that the list above it no longer offers is replaced by one it does — and, for
+    /// the condition, the replacement is SAID. Cody uses the form by ear: an option that
+    /// silently changed under him ("Enters zone" becoming "Crosses above" when he moved from RSI
+    /// to an SMA) is a different alert from the one he believes he set.
+    /// </summary>
+    private void ReconcileChoices(bool announce)
+    {
+        if (_newAlertTarget == AlertTarget.Indicator && ChosenSeries == null) _newAlertSeriesId = "";
+
+        var conditions = ConditionsOffered;
+        if (!conditions.Contains(_newAlertCondition))
+        {
+            _newAlertCondition = conditions[0];
+            if (announce)
+                EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                    $"Condition changed to {ConditionLabel(_newAlertCondition)}.",
+                    Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
+        }
+
+        var zones = ZonesOffered;
+        if (zones.Count > 0 && !zones.Contains(_newAlertZone)) _newAlertZone = zones[0];
+
+        var lines = LinesOffered;
+        if (lines.Count == 0) _compareWith = CompareNumber;
+        if (!lines.Any(l => l.Key == _newAlertLineKey)) _newAlertLineKey = lines.FirstOrDefault()?.Key ?? "";
+    }
+
+    /// <summary>
+    /// The value field starts at what is being watched is worth NOW: the last close for price
+    /// and candles, the component's live value for an indicator. It used to start at 0 —
+    /// Cody: "I expect the current price of that indicator to be filled in". Called when the
+    /// dialog opens and when the target, indicator or component changes; a number the user
+    /// typed survives everything else.
+    /// </summary>
+    private void PrefillThreshold()
+    {
+        var state = Store.State;
+        int live = (state.Data?.Count ?? 0) - 1;
+        double value = double.NaN;
+        if (_newAlertTarget == AlertTarget.Indicator)
+        {
+            if (ChosenSeries is { } s && !string.IsNullOrEmpty(_newAlertComponentName))
+            {
+                var data = s.GetComponentData(_newAlertComponentName);
+                // The live bar — not the reading cursor — or the newest value the series has.
+                if (data.Length > 0) value = live >= 0 && live < data.Length ? data[live] : data[^1];
+            }
+        }
+        else if (live >= 0)
+        {
+            value = state.Data![live].Close;
+        }
+        if (double.IsNaN(value) || double.IsInfinity(value)) return;
+        _newAlertThreshold = double.Parse(AlertDescriptions.FormatForInput(value), System.Globalization.CultureInfo.InvariantCulture);
+    }
     private AlertDelivery _newAlertDelivery = AlertDelivery.Both;
     private bool _newAlertBreakThrough;
 
@@ -326,6 +557,10 @@
         _view = View.Alerts;
         RefreshAlerts();
         RefreshChartContext();
+        // The chart may have changed since the form was last open — an indicator removed, the
+        // price moved — so the choices are re-checked and the value starts at today's.
+        ReconcileChoices(announce: false);
+        PrefillThreshold();
         await ShowModalAsync("alerts-title");
     }
 
@@ -371,6 +606,8 @@
         // Symbol on the record, DeriveWatches had nothing to fetch by, so an
         // alert created here was never watchable with the browser closed at all.
         var identity = Store.State.Identity;
+        var chosen = _newAlertTarget == AlertTarget.Indicator && !_advancedCondition ? ChosenSeries : null;
+        var line = !_advancedCondition && UsesLevel && CompareToLine ? ChosenLine : null;
 
         var def = new AlertDefinition
         {
@@ -378,7 +615,12 @@
             Name = _newAlertName,
             Target = _newAlertTarget,
             Condition = _newAlertCondition,
-            Threshold = _advancedCondition ? null : _newAlertThreshold,
+            // A number only where the condition compares against one and no line was chosen —
+            // "changes direction 0" in the alert list was the form's leftover, not the rule.
+            Threshold = _advancedCondition || !UsesLevel || line != null ? null : _newAlertThreshold,
+            LineIndicatorCode = line?.Series.IndicatorCode,
+            LineComponentName = line?.Component.Name,
+            LineSeriesId = line?.Series.Id,
             Delivery = _newAlertDelivery,
             // Scope to the current chart (null = any) and route to the chosen webhook.
             Symbol = _newAlertScopeToSymbol ? _currentSymbol : null,
@@ -392,15 +634,17 @@
             // IndicatorCode and ComponentName, and EvaluateZone returns false immediately for
             // a null IndicatorCode — so every Target=Indicator and every zone alert built here
             // was permanently silent while the modal said it worked.
-            IndicatorCode = string.IsNullOrWhiteSpace(_newAlertIndicatorCode) ? null : _newAlertIndicatorCode,
-            ComponentName = string.IsNullOrWhiteSpace(_newAlertComponentName) ? null : _newAlertComponentName,
-            Zone = IsZoneCondition ? _newAlertZone : null,
+            IndicatorCode = chosen?.IndicatorCode,
+            ComponentName = chosen == null || string.IsNullOrWhiteSpace(_newAlertComponentName) ? null : _newAlertComponentName,
+            SeriesId = chosen?.Id,
+            Zone = IsZoneCondition && !_advancedCondition ? _newAlertZone : null,
         };
 
         // REFUSE an alert that cannot fire, rather than adding it and calling it live.
         // "Your alert is watching the market" is the single claim this app must never make
-        // falsely, because a user who believes it stops watching themselves.
-        var unfireable = AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnfireable(def);
+        // falsely, because a user who believes it stops watching themselves. Against THIS
+        // chart, so "SMA enters overbought" — no SMA has an overbought line — is refused too.
+        var unfireable = BackgroundWatchability.WhyUnfireable(def, Store.State.ActiveSeries.Select(s => s.Config));
         if (unfireable != null)
         {
             EventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
@@ -421,13 +665,19 @@
             ? AccessibleTrader.Core.Services.Alerts.BackgroundWatchability.WhyUnwatchable(
                 def, Store.State.ActiveSeries.Select(s => s.Config))
             : null;
+        // Says what the alert WILL DO, not only that it exists: "Alert Big move added: BTC/USD
+        // price touches SMA 50." The form is filled in by ear, and this sentence is the one
+        // check that the cascade of choices landed where the user meant.
+        string added = def.ConditionTree != null
+            ? $"Alert {def.Name} added."
+            : $"Alert {def.Name} added: {AlertDescriptions.Describe(def, Store.State.ActiveSeries)}.";
         EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
             unwatchableReason == null
-                ? $"Alert {def.Name} added."
-                : $"Alert {def.Name} added. It works while this chart is open, but background " +
+                ? added
+                : $"{added} It works while this chart is open, but background " +
                   $"and server-side monitoring cannot watch it: {unwatchableReason}.", Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
         _newAlertName = "";
-        _newAlertThreshold = 0;
+        PrefillThreshold();
         if (_advancedCondition) _advancedSpec = new Core.Services.Strategies.EditableStrategySpec();
         RefreshAlerts();
         StateHasChanged();

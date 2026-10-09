@@ -112,7 +112,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             if (alerts != null)
             {
                 foreach (var a in alerts.Where(a => a.IsActive).OrderBy(a => a.Id, StringComparer.Ordinal))
-                    parts.Add($"a:{a.Id}|{a.Target}|{a.IndicatorCode}|{a.ComponentName}|{a.Condition}|{(a.ConditionTree == null ? "" : a.ConditionTree.Id)}");
+                    parts.Add($"a:{a.Id}|{a.Target}|{a.IndicatorCode}|{a.ComponentName}|{a.SeriesId}|{a.Condition}|{(a.ConditionTree == null ? "" : a.ConditionTree.Id)}"
+                              + $"|{a.LineIndicatorCode}|{a.LineComponentName}|{a.LineSeriesId}");
             }
             return string.Join("\n", parts);
         }
@@ -186,6 +187,24 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Add(built.Id)) template.Add(built);
             }
 
+            // 3. The INSTANCE an alert names, when it is not the first of its code. A tab with an
+            //    SMA 20 and an SMA 50 built only the SMA 20 above, and "price touches the SMA 50"
+            //    would have been answered by the wrong line. The evaluator finds a series by id
+            //    first, so the instance has to exist under its saved id.
+            foreach (var id in alerts.Where(a => a.IsActive && a.ConditionTree == null)
+                                     .SelectMany(a => new[] { a.SeriesId, a.LineSeriesId })
+                                     .Where(id => !string.IsNullOrWhiteSpace(id)))
+            {
+                if (builtIds.Contains(id!)) continue;
+                var config = saved.FirstOrDefault(s => s.Drawing == null
+                    && string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
+                if (config == null) continue;   // gone from the tab: the evaluator falls back to the code
+                var built = Build(identity, config, saved, allMeta);
+                if (built == null) continue;
+                built.Config.IsAutoNarrated = false;
+                if (builtIds.Add(built.Id)) template.Add(built);
+            }
+
             return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing);
         }
 
@@ -211,6 +230,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (a.Target == AlertTarget.Indicator
                     || a.Condition is AlertCondition.TrendChange or AlertCondition.EntersZone or AlertCondition.ExitsZone)
                     Add(a.IndicatorCode);
+                // "Price touches the 50-week SMA": the line is a series too.
+                if (a.ComparesToLine())
+                    Add(a.LineIndicatorCode);
                 if (a.Target == AlertTarget.Poc)
                     foreach (var s in saved.Where(s => s.Drawing == null && ProfileAnchoring.IsProfileCode(s.IndicatorCode)))
                         Add(s.IndicatorCode);
