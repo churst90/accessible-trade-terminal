@@ -64,9 +64,13 @@ namespace AccessibleTrader.Core.Services
                 concrete.EvaluationDegraded += (alert, reason) =>
                 {
                     _logger.LogWarning("Alert '{Name}' ({Id}) is degraded: {Reason}", alert.Name, alert.Id, reason);
+                    // The remedy comes from the evaluator when it has one: "check the chart" is the
+                    // right advice for a missing indicator and the wrong one for a weekly series the
+                    // provider did not serve. Read on the same call that raised this event.
+                    string remedy = _conditionEvaluator?.LastDegradationRemedy
+                        ?? "Check the indicator it references is on this chart.";
                     _eventBus.Publish(new FeedbackRequestEvent(FeedbackType.Error,
-                        $"Alert '{alert.Name}' can't be fully evaluated and may stay silent: {reason}. " +
-                        "Check the indicator it references is on this chart.",
+                        $"Alert '{alert.Name}' can't be fully evaluated and may stay silent: {reason}. {remedy}",
                         true));
                 };
             }

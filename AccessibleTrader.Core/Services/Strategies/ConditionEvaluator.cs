@@ -39,6 +39,16 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// </summary>
         public string? LastDegradation { get; private set; }
 
+        /// <inheritdoc/>
+        public string? LastDegradationRemedy { get; private set; }
+
+        // What the user can do about each kind of unanswerable leaf. The alerts path used to close
+        // every degradation with "Check the indicator it references is on this chart" — wrong for
+        // a weekly series the provider did not serve, which no chart change fixes.
+        private const string EditRemedy = "Edit the condition in the Alerts dialog.";
+        private static string LoadRemedy(string tf) =>
+            $"Its {tf} data could not be loaded from the provider; it will keep trying.";
+
         public ConditionEvaluator(
             ISignalCatalog catalog,
             IMultiTimeframeDataService? mtf = null,
@@ -58,6 +68,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             double score = 0.0;
             double maxScore = 0.0;
             LastDegradation = null;
+            LastDegradationRemedy = null;
 
             bool overall = EvaluateNode(root, history, state, leafResults, ref score, ref maxScore);
 
@@ -175,6 +186,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             string refusal = _catalog.RefusalReason(desc.Id)
                 ?? $"{desc.Id} is not available as a strategy signal: it is declared {desc.Causality}.";
             LastDegradation = refusal;
+            LastDegradationRemedy = null;
             if (_htfWarningsEmitted.TryAdd($"causality|{desc.Id}", 0))
                 System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {refusal} The leaf evaluates false at every bar.");
             return true;
@@ -697,7 +709,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             // SMA 60 — is not a quiet market. Say which instance is missing.
             if (series == null && parameters is { Count: > 0 })
                 Degrade($"instance|{desc.Id}|{DescribeParameters(parameters)}",
-                    $"{desc.DisplayLabel} with {DescribeParameters(parameters)} is not on this chart");
+                    $"{desc.DisplayLabel} with {DescribeParameters(parameters)} is not on this chart",
+                    "Add that indicator back to the chart, or edit the condition in the Alerts dialog.");
             return null;
         }
 
@@ -731,6 +744,7 @@ namespace AccessibleTrader.Core.Services.Strategies
                 ? $"{what} has not been computed on the {timeframe} timeframe"
                 : $"the {timeframe} data for {what} has not loaded";
             LastDegradation = msg;
+            LastDegradationRemedy = LoadRemedy(timeframe);
             if (_htfWarningsEmitted.TryAdd($"{leaf.Id}|{timeframe}|{desc.Id}", 0))
                 System.Diagnostics.Debug.WriteLine(
                     $"[ConditionEvaluator] HTF leaf '{leaf.Id}' on timeframe '{timeframe}': {msg}. " +
@@ -739,9 +753,10 @@ namespace AccessibleTrader.Core.Services.Strategies
         }
 
         /// <summary>Records a reason a leaf could not be answered, logging it once per key.</summary>
-        private void Degrade(string key, string message)
+        private void Degrade(string key, string message, string? remedy = EditRemedy)
         {
             LastDegradation = message;
+            LastDegradationRemedy = remedy;
             if (_htfWarningsEmitted.TryAdd(key, 0))
                 System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {message}. The leaf evaluates false.");
         }
@@ -950,7 +965,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             string tf = leaf.SecondTimeframe!;
             if (_mtf == null)
             {
-                Degrade($"nomtf|{leaf.Id}", $"nothing here can load {tf} data for {secondDesc.DisplayLabel}");
+                Degrade($"nomtf|{leaf.Id}", $"nothing here can load {tf} data for {secondDesc.DisplayLabel}",
+                    "Higher-timeframe data is not available in this part of the app.");
                 return false;
             }
             if (IsLowerTimeframe(tf, state.Identity.Timeframe))
@@ -969,7 +985,8 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (htfBars.Count == 0)
             {
                 // Values with no bars to date them cannot be lined up with the chart's bars.
-                Degrade($"{leaf.Id}|{tf}|bars", $"the {tf} bars for {secondDesc.DisplayLabel} have not loaded");
+                Degrade($"{leaf.Id}|{tf}|bars", $"the {tf} bars for {secondDesc.DisplayLabel} have not loaded",
+                    LoadRemedy(tf));
                 return false;
             }
 

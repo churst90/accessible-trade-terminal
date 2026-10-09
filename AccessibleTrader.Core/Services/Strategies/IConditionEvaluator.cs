@@ -35,6 +35,13 @@ namespace AccessibleTrader.Core.Services.Strategies
         string? LastDegradation { get; }
 
         /// <summary>
+        /// What the user can do about <see cref="LastDegradation"/>, as one sentence, or null
+        /// when this evaluator has nothing more specific to say than its caller's default. A
+        /// higher-timeframe series that did not load is not fixed by checking the chart.
+        /// </summary>
+        string? LastDegradationRemedy => null;
+
+        /// <summary>
         /// Starts — and, once their data has aged, restarts — the higher-timeframe loads this
         /// tree's leaves need for <paramref name="identity"/>, and says whether every one of them
         /// has finished at least once. The evaluator reads HTF data synchronously from a cache
