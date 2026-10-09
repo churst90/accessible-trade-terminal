@@ -60,6 +60,11 @@ namespace AccessibleTrader.Tests
             p.Configure(new Dictionary<string, string> { ["ApiKey"] = "test" });
             HttpClientSwap.ReplaceAll(p, h);
             await p.FetchOhlcvAsync(new MarketDataRequest("Stock", "AAPL", "1d", 10));
+            // A daily chart's subscription, without opening a socket: the old running candle
+            // rolled by this timeframe, so it must be the chart's for the seed to be reached.
+            typeof(AccessibleTrader.Plugins.TwelveData.TwelveDataProvider)
+                .GetField("_currentTimeframe", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(p, "1d");
 
             long ts = new DateTimeOffset(2026, 10, 9, 15, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds();
             var ticks = Capture(p, () =>
