@@ -949,7 +949,7 @@
         {
             // An anchored profile has a start and no end: it runs to the newest bar.
             var start = DateTimeOffset.FromUnixTimeSeconds((long)since).UtcDateTime;
-            _anchorRangeText = $"Anchored at {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatLongDate(start)}, "
+            _anchorRangeText = $"Anchored at {AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.FormatBar(start, AccessibleTrader.Core.Services.Accessibility.PlaybackNarration.BarSeconds(Store.State), AccessibleTrader.Core.Services.Accessibility.SpeechTimeFormatter.LongDateFormat)}, "
                              + "running to the newest bar and growing as bars arrive. The anchor was captured from the "
                              + "bar you were on when this profile was added; to start from a different bar, add a new "
                              + "anchored profile while on it.";

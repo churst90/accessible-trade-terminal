@@ -560,7 +560,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string format = order.Contains("TimeOnly") ? SpeechTimeFormatter.TimeFormat
                           : order.Contains("DateOnly") ? SpeechTimeFormatter.DateFormat
                           : SpeechTimeFormatter.DateTimeFormat;
-            string text = SpeechTimeFormatter.Format(stamp, format);
+            string text = SpeechTimeFormatter.FormatBar(stamp, PlaybackNarration.BarSeconds(state), format);
             var data = state.Data;
             if (data != null && data.Count > 0 && stamp > data[^1].Date)
             {

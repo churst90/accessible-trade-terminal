@@ -187,12 +187,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>
         /// The landmark to speak when playback steps from <paramref name="previous"/> to
         /// <paramref name="current"/>, or null when no boundary of <paramref name="unit"/> was
-        /// crossed. Compared in the user's zone, the same instant the arrow keys read.
+        /// crossed. Compared the way the arrow keys read the same bars: the user's zone for
+        /// intraday bars, the bar's own date for daily bars and coarser (<paramref name="barSeconds"/>
+        /// at a day or more — see SpeechTimeFormatter.ToBarDisplay). Without it a weekly bar
+        /// starting Monday 1 June 00:00Z crossed into "May" for anyone west of Greenwich.
         /// </summary>
-        public static string? Landmark(DateTime previous, DateTime current, LandmarkUnit unit)
+        public static string? Landmark(DateTime previous, DateTime current, LandmarkUnit unit, int barSeconds = 0)
         {
-            var p = SpeechTimeFormatter.ToDisplay(previous);
-            var c = SpeechTimeFormatter.ToDisplay(current);
+            var p = SpeechTimeFormatter.ToBarDisplay(previous, barSeconds);
+            var c = SpeechTimeFormatter.ToBarDisplay(current, barSeconds);
 
             switch (unit)
             {
@@ -232,8 +235,9 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int from = previous.CurrentDataIndex, to = current.CurrentDataIndex;
             if (from == to || from < 0 || to < 0 || from >= data.Count || to >= data.Count) return null;
 
-            var unit = UnitFor(BarSeconds(current), current.PlaybackSpeed);
-            return Landmark(data[from].Date, data[to].Date, unit);
+            int barSeconds = BarSeconds(current);
+            var unit = UnitFor(barSeconds, current.PlaybackSpeed);
+            return Landmark(data[from].Date, data[to].Date, unit, barSeconds);
         }
 
         // ── Signals while playing ───────────────────────────────────────────────────
@@ -611,9 +615,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
         /// <summary>A bar's date the way the viewport description reads it, with the time of
         /// day added only when bars are closer together than a day.</summary>
         public static string DateText(DateTime stamp, int barSeconds)
-            => barSeconds < 86400
-                ? SpeechTimeFormatter.Format(stamp, SpeechTimeFormatter.DateTimeFormat)
-                : SpeechTimeFormatter.FormatLongDate(stamp);
+            => SpeechTimeFormatter.FormatBar(stamp, barSeconds,
+                barSeconds < 86400 ? SpeechTimeFormatter.DateTimeFormat : SpeechTimeFormatter.LongDateFormat);
 
         private static string CursorDateText(WorkspaceState state)
         {

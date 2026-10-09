@@ -51,7 +51,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             var first = bars[start];
             var last = bars[end];
             parts.Add($"X axis, time: {length} bars in view of {bars.Count.ToString("N0", CultureInfo.InvariantCulture)} loaded, " +
-                      $"{SpeechTimeFormatter.FormatLongDate(first.Date)} to {SpeechTimeFormatter.FormatLongDate(last.Date)}.");
+                      $"{BarDate(first.Date, state, timeframe)} to {BarDate(last.Date, state, timeframe)}.");
 
             // ── Y axis: the range, and the step between gridlines ─────────
             var (min, max) = state.ViewportRange;
@@ -177,8 +177,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
             string step = string.IsNullOrWhiteSpace(timeframe)
                 ? "one bar"
                 : SpokenTimeframe(timeframe!);
-            parts.Add($"X axis, time: {SpeechTimeFormatter.FormatLongDate(bars[start].Date)} to " +
-                      $"{SpeechTimeFormatter.FormatLongDate(bars[end].Date)}, {length} bars at {step} each.");
+            parts.Add($"X axis, time: {BarDate(bars[start].Date, state, timeframe)} to " +
+                      $"{BarDate(bars[end].Date, state, timeframe)}, {length} bars at {step} each.");
 
             // ── What is in it ─────────────────────────────────────────────
             parts.Add($"{Count(pane.Series.Count, "series")}: " +
@@ -282,6 +282,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         : fraction < 7.5 ? 5
                         : 10;
             return step * magnitude;
+        }
+
+        /// <summary>A bar's date by the bar rule (SpeechTimeFormatter.ToBarDisplay): the timeframe
+        /// passed in when it parses, else the state's own.</summary>
+        private static string BarDate(DateTime stamp, WorkspaceState state, string? timeframe)
+        {
+            int barSeconds = TimeframeUtility.ToSeconds(timeframe ?? "");
+            if (barSeconds <= 0) barSeconds = PlaybackNarration.BarSeconds(state);
+            return SpeechTimeFormatter.FormatBar(stamp, barSeconds, SpeechTimeFormatter.LongDateFormat);
         }
 
         /// <summary>"1d" → "1 day"; "4h" → "4 hours". Bare codes read as spelling aloud.</summary>

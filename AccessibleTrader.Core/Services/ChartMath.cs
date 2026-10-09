@@ -160,6 +160,24 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
+        /// Seconds between bars, inferred from the bars themselves — for the x axis, which is
+        /// not told the timeframe but must name bars by the same rule the speech does.
+        /// </summary>
+        public static int BarSecondsOf(IReadOnlyList<Ohlcv> bars)
+        {
+            // The SMALLEST gap between neighbours, not the average: weekends and overnight
+            // sessions stretch a stock chart's average gap, and an hourly chart averaged across
+            // a weekend would be taken for a daily one.
+            double min = double.MaxValue;
+            for (int i = 1; i < bars.Count; i++)
+            {
+                double gap = (bars[i].Date - bars[i - 1].Date).TotalSeconds;
+                if (gap > 0 && gap < min) min = gap;
+            }
+            return min == double.MaxValue ? 86400 : (int)Math.Min(int.MaxValue, min);
+        }
+
+        /// <summary>
         /// The date format the x axis uses for a visible span, and whether it should call out
         /// midnight.
         ///

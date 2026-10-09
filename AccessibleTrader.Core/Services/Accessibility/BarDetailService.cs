@@ -176,7 +176,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
         private string GetBarDetailFact(WorkspaceState state, ChartSeries series, Ohlcv bar, int index)
         {
             var sb = new StringBuilder();
-            sb.Append($"{SpeechTimeFormatter.FormatTime(bar.Date)}: ");
+            sb.Append($"{SpeechTimeFormatter.FormatBarClock(bar.Date, PlaybackNarration.BarSeconds(state))}: ");
 
             // If it's the primary candle series, add candle pattern details
             // Pattern/type details only apply to true OHLCV series. Price-line primary

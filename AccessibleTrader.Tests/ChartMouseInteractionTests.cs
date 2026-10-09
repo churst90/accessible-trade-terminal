@@ -374,9 +374,14 @@ public sealed class ChartMouseInteractionTests
     [Fact]
     public void BarDate_formatting_drops_midnight_time_but_keeps_intraday_time()
     {
+        // A daily bar is named by its own date, in every zone — no time.
         Assert.Equal("Mar 5, 2026",
-            ChartHoverTracker.FormatBarDate(new System.DateTime(2026, 3, 5, 0, 0, 0)));
-        Assert.Equal("Mar 5, 2026 14:30",
-            ChartHoverTracker.FormatBarDate(new System.DateTime(2026, 3, 5, 14, 30, 0)));
+            ChartHoverTracker.FormatBarDate(new System.DateTime(2026, 3, 5, 0, 0, 0, System.DateTimeKind.Utc), 86400));
+        // An intraday bar keeps its clock time, in the user's zone like the arrow keys
+        // (derived through the BCL, not through the formatter under test).
+        var utc = new System.DateTime(2026, 3, 5, 14, 30, 0, System.DateTimeKind.Utc);
+        Assert.Equal(System.TimeZoneInfo.ConvertTimeFromUtc(utc, System.TimeZoneInfo.Local)
+                         .ToString("MMM d, yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+            ChartHoverTracker.FormatBarDate(utc, 3600));
     }
 }

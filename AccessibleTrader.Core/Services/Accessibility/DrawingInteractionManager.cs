@@ -559,10 +559,15 @@ namespace AccessibleTrader.Core.Services.Accessibility
             int bars = hi - lo + 1;
             string dir = change >= 0 ? "up" : "down";
             _eventBus.Publish(new AnnouncementEvent(
-                $"Range: {bars} bars, {SpeechTimeFormatter.Format(state.Data[lo].Date, "MMM d HH:mm")} to {SpeechTimeFormatter.Format(state.Data[hi].Date, "MMM d HH:mm")}. " +
+                $"Range: {bars} bars, {SpeechTimeFormatter.FormatBar(state.Data[lo].Date, PlaybackNarration.BarSeconds(state), RangeStampFormat(state))} to {SpeechTimeFormatter.FormatBar(state.Data[hi].Date, PlaybackNarration.BarSeconds(state), RangeStampFormat(state))}. " +
                 $"High {SpeechPriceFormatter.FormatPrice(high)}, low {SpeechPriceFormatter.FormatPrice(low)}. " +
                 $"Change {dir} {SpeechPriceFormatter.FormatPrice(Math.Abs(change))}, {Math.Abs(pct).ToString("0.##", CultureInfo.InvariantCulture)} percent."));
         }
+
+        /// <summary>A range end as the bar rule names it: the day alone on a daily chart (its
+        /// time is the same midnight on every bar), day and clock time intraday.</summary>
+        private static string RangeStampFormat(WorkspaceState state)
+            => PlaybackNarration.BarSeconds(state) >= 86400 ? "MMM d yyyy" : "MMM d HH:mm";
 
         /// <summary>
         /// Walk every drawing series in the workspace and find the nearest anchor handle
@@ -1196,7 +1201,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
             else if (dType == DrawingType.VerticalLine)
             {
                 CreateDrawingSeries("Vertical", new DrawingData { Type = DrawingType.VerticalLine, AnchorDate1 = pt.Date }, chartData);
-                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {SpeechTimeFormatter.Format(pt.Date, "MMMM dd, HH:mm")}"));
+                _eventBus.Publish(new AnnouncementEvent($"Vertical line added at {SpeechTimeFormatter.FormatBar(pt.Date, PlaybackNarration.BarSeconds(state), PlaybackNarration.BarSeconds(state) >= 86400 ? SpeechTimeFormatter.LongDateFormat : "MMMM dd, HH:mm")}"));
             }
             else if (dType == DrawingType.TextLabel)
             {

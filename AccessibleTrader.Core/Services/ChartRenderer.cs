@@ -660,6 +660,14 @@ namespace AccessibleTrader.Core.Services
             var (primaryFormat, markDateBoundaries) =
                 ChartMath.XAxisFormat(visibleData[^1].Date - visibleData[0].Date);
 
+            // The axis names bars by the same rule as every spoken readout
+            // (SpeechTimeFormatter.ToBarDisplay): a daily-or-coarser bar by its own date,
+            // an intraday bar by the user's clock. It used to print the raw UTC stamp, so an
+            // intraday axis in Chicago read five hours ahead of the arrow keys, and what a
+            // sighted helper read off the screen was not what the screen reader said.
+            int barSeconds = ChartMath.BarSecondsOf(visibleData);
+            DateTime Shown(DateTime stamp) => Accessibility.SpeechTimeFormatter.ToBarDisplay(stamp, barSeconds);
+
             // A label is a claim that a bar sits above it. The slots are laid at fixed fractions
             // of the strip, and a slot to the right of the last bar used to clamp its bar index
             // to the last one — so a chart zoomed in past its final bar read "07/19 07/19 07/19"
@@ -680,7 +688,7 @@ namespace AccessibleTrader.Core.Services
                 int dIdx = (int)(barX / Math.Max(itemWidth, 1f));
                 if (dIdx >= visibleData.Count) break;
                 dIdx = Math.Max(0, dIdx);
-                var d = visibleData[dIdx].Date;
+                var d = Shown(visibleData[dIdx].Date);
 
                 string label = d.ToString(primaryFormat);
                 if (markDateBoundaries && prevLabelDate.HasValue && d.Date != prevLabelDate.Value.Date)
@@ -703,7 +711,7 @@ namespace AccessibleTrader.Core.Services
             if (lastIndex > lastLabelledIndex)
             {
                 float lastBarRight = Math.Min(rect.Right, rect.Left + (lastIndex + 1) * itemWidth);
-                var d = visibleData[lastIndex].Date;
+                var d = Shown(visibleData[lastIndex].Date);
                 string label = d.ToString(primaryFormat);
                 if (markDateBoundaries && prevLabelDate.HasValue && d.Date != prevLabelDate.Value.Date)
                     label = d.ToString("MM/dd ") + label;

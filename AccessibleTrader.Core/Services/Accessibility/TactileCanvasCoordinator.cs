@@ -891,7 +891,8 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 // Timestamp of the bar at cursor. Lowercase + abbreviated month is
                 // tactile-readable on a 20-cell strip and avoids relying on the
                 // Grade-2 translator's capitalization indicator.
-                return SpeechTimeFormatter.Format(state.Data[idx].Date, "MMM d HH:mm")
+                return SpeechTimeFormatter.FormatBar(state.Data[idx].Date, PlaybackNarration.BarSeconds(state),
+                                                     PlaybackNarration.BarSeconds(state) >= 86400 ? "MMM d yyyy" : "MMM d HH:mm")
                                           .ToLowerInvariant();
             }
 
