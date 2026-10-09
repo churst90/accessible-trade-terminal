@@ -79,6 +79,9 @@ namespace AccessibleTrader.Tests
                 new SignalDescriptor("CANDLES.lower_wick", "CANDLES", "lower_wick", SignalKind.Line, "Candles — Lower Wick (low)"),
                 new SignalDescriptor("Sma.Sma", "Sma", "Sma", SignalKind.Line, "SMA — Sma"),
                 new SignalDescriptor("Ema.Ema", "Ema", "Ema", SignalKind.Line, "EMA — Ema"),
+                // Never on the editor tests' chart: a line and a marker, for operator reconcile.
+                new SignalDescriptor("Cipher.Wave", "Cipher", "Wave", SignalKind.Line, "Cipher — Wave"),
+                new SignalDescriptor("Cipher.Buy", "Cipher", "Buy", SignalKind.MarkerFire, "Cipher — Buy"),
             };
             public SignalDescriptor? GetById(string id) => All.FirstOrDefault(d => d.Id == id);
             public IReadOnlyList<SignalDescriptor> GetForIndicator(string code) =>
@@ -396,6 +399,32 @@ namespace AccessibleTrader.Tests
             Assert.Contains("(high)", catalog.GetById("CANDLES.upper_wick")?.DisplayLabel ?? "");
             Assert.Contains("(low)", catalog.GetById("CANDLES.lower_wick")?.DisplayLabel ?? "");
             Assert.Contains(catalog.All, d => d.Id == "CANDLES.body");
+        }
+
+        [Fact]
+        public void A_higher_timeframe_load_failure_is_not_blamed_on_the_chart()
+        {
+            // The weekly SMA never arrives. The spoken reason must say so — not "check the
+            // indicator it references is on this chart", which no chart change fixes.
+            var conditions = new ConditionEvaluator(new Catalog(), new Mtf());
+            var evaluator = new AlertEvaluator(
+                Substitute.For<ISdkCandlePatternAnalyzer>(), Substitute.For<IIndicatorContextAnalyzer>(),
+                levels: null, conditionEvaluator: conditions);
+            var bus = new SpyEventBus();
+            var store = new MockWorkspaceStore();
+            var library = Substitute.For<IWorkspaceLibraryService>();
+            library.LoadAlerts().Returns(new List<AlertDefinition> { WeeklySmaAlert() });
+            var orch = new AlertOrchestrator(store, evaluator, bus, library,
+                NullLogger<AlertOrchestrator>.Instance, conditions);
+            orch.Start();
+
+            store.EmitState(State(Daily(new double[] { 90, 95 }, T0.AddDays(1))));
+            store.EmitState(State(Daily(new double[] { 90, 95, 96 }, T0.AddDays(1))));
+
+            var error = Assert.Single(bus.Log.OfType<FeedbackRequestEvent>(), e => e.Type == FeedbackType.Error);
+            Assert.Contains("1w data", error.Message);
+            Assert.Contains("could not be loaded", error.Message);
+            Assert.DoesNotContain("on this chart", error.Message);
         }
 
         // ── refused at creation: leaves that can never be true ───────────────

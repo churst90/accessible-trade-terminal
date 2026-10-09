@@ -57,7 +57,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                     if (string.Equals(l.SignalDescriptorId, l.SecondSignalDescriptorId, StringComparison.OrdinalIgnoreCase)
                         && SameParameters(l.Parameters, l.SecondParameters)
                         && string.Equals(l.Timeframe ?? "", secondTf ?? "", StringComparison.Ordinal))
-                        return "a crosses-line condition crosses a line with itself";
+                        return "a crosses-line condition crosses a line with itself, and a line never crosses itself: " +
+                               "choose another line, or give it a different timeframe under Line's timeframe";
 
                     if (!string.IsNullOrEmpty(l.Timeframe) && !string.IsNullOrEmpty(l.SecondTimeframe)
                         && !string.Equals(l.Timeframe, l.SecondTimeframe, StringComparison.Ordinal))
