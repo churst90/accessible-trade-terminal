@@ -14,8 +14,11 @@ name: xunit
 on:
   pull_request:
     branches: [ main ]
+  # fix/** too: work branches get the full suite on GitHub's runners instead of
+  # on the maintainer's desktop, where a full run competes with the screen
+  # reader and the app he is using (2026-10-09).
   push:
-    branches: [ main ]
+    branches: [ main, 'fix/**' ]
   workflow_dispatch:
 
 concurrency:
