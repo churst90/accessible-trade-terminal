@@ -320,9 +320,12 @@ namespace AccessibleTrader.Tests
             { "Kraken",             LiveTickStyle.CumulativeBars },
             { "Alpaca",             LiveTickStyle.CumulativeBars },
             { "Polygon",            LiveTickStyle.CumulativeBars },
-            { "Finnhub",            LiveTickStyle.CumulativeBars },
             { "Schwab",             LiveTickStyle.CumulativeBars },
             // Trade-tick feeds: each message is one execution, so volume accumulates.
+            // Finnhub moved here 2026-10-09: it used to emit a client-side running candle
+            // (hence CumulativeBars); it now emits each trade and leaves bucketing to the
+            // consolidator, as Tradier, Oanda, Coinbase and Twelve Data now do too.
+            { "Finnhub",            LiveTickStyle.TradeDeltas },
             { "Bitstamp",           LiveTickStyle.TradeDeltas },
             { "Coinbase",           LiveTickStyle.TradeDeltas },
             { "Oanda",              LiveTickStyle.TradeDeltas },

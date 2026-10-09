@@ -23,6 +23,10 @@ namespace AccessibleTrader.Plugins.Bitstamp
         private bool _isSubscribed;
         private DateTime _lastTickTime = DateTime.MinValue;
         private readonly TimeSpan _tickThrottle = TimeSpan.FromMilliseconds(250);
+        // Trades that arrived inside the throttle window, folded into one tick (see OnTrade).
+        private readonly object _pendingLock = new();
+        private Ohlcv? _pendingTrades;
+        private Timer? _pendingFlush;
 
 
         private string? _apiKey;
@@ -255,6 +259,53 @@ namespace AccessibleTrader.Plugins.Bitstamp
             return ws; // ReconnectingWebSocket is IAsyncDisposable — disposal closes the socket
         }
 
+        /// <summary>
+        /// The focused chart's trade path, throttled to one tick per 250 ms WITHOUT losing a
+        /// trade. The throttle used to DISCARD every trade inside the window, so on a busy book
+        /// most of the live bar's volume, and any high or low printed between two kept trades,
+        /// never reached the chart. Trades inside the window are now folded into one pending
+        /// tick (first price, range, last price, summed size — still one tick of trade-delta
+        /// volume to the consolidator) and sent when the window closes.
+        /// </summary>
+        internal void OnTrade(Ohlcv trade)
+        {
+            Ohlcv? emit = null;
+            lock (_pendingLock)
+            {
+                var merged = _pendingTrades is { } p ? p.UpdateWith(trade) with { Date = trade.Date } : trade;
+                var now = DateTime.UtcNow;
+                if (now - _lastTickTime >= _tickThrottle)
+                {
+                    _lastTickTime = now;
+                    _pendingTrades = null;
+                    emit = merged;
+                }
+                else
+                {
+                    _pendingTrades = merged;
+                    // A quiet spell must not strand the last trades: flush when the window ends.
+                    var due = _tickThrottle - (now - _lastTickTime);
+                    if (_pendingFlush == null)
+                        _pendingFlush = new Timer(_ => FlushPendingTrades(), null, due, Timeout.InfiniteTimeSpan);
+                    else
+                        _pendingFlush.Change(due, Timeout.InfiniteTimeSpan);
+                }
+            }
+            if (emit.HasValue) _liveStream.OnNext(emit.Value);
+        }
+
+        private void FlushPendingTrades()
+        {
+            Ohlcv? emit;
+            lock (_pendingLock)
+            {
+                emit = _pendingTrades;
+                _pendingTrades = null;
+                if (emit.HasValue) _lastTickTime = DateTime.UtcNow;
+            }
+            if (emit.HasValue) _liveStream.OnNext(emit.Value);
+        }
+
         /// <summary>Routes a raw websocket frame to the trade / order-book /
         /// private-order handlers. Internal so tests can drive the private-order
         /// mapping through the real channel-matching path.</summary>
@@ -269,13 +320,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
                 if (ev == "trade")
                 {
                     if (!TryParseTrade(json, out var bar)) return;
-
-                    var now = DateTime.UtcNow;
-                    if (now - _lastTickTime >= _tickThrottle)
-                    {
-                        _lastTickTime = now;
-                        _liveStream.OnNext(bar);
-                    }
+                    OnTrade(bar);
                 }
                 else if (ev == "data" && channel != null && channel.StartsWith("diff_order_book_"))
                 {
@@ -391,6 +436,8 @@ namespace AccessibleTrader.Plugins.Bitstamp
 
             _currentChannel = newChannel;
             _orderBookChannel = newBookChannel;
+            // Trades held back by the throttle belong to the outgoing market.
+            lock (_pendingLock) _pendingTrades = null;
 
             if (_ws != null)
             {
@@ -778,6 +825,7 @@ namespace AccessibleTrader.Plugins.Bitstamp
             {
                 _httpClient?.Dispose();
                 _ws?.Dispose();
+                _pendingFlush?.Dispose();
                 _orderUpdateSubject?.Dispose();
                 _orderBookSubject?.Dispose();
             }

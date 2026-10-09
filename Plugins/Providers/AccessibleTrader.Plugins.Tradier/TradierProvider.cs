@@ -31,8 +31,6 @@ namespace AccessibleTrader.Plugins.Tradier
         private CancellationTokenSource? _streamCts;
         private string? _currentSymbol;
         private string? _currentTimeframe;
-        private Ohlcv? _lastCandle;
-        private DateTime? _lastCandleStart;
 
         // Streams
         private readonly Subject<OrderUpdate> _orderUpdateSubject = new();
@@ -304,8 +302,6 @@ namespace AccessibleTrader.Plugins.Tradier
             _streamCts?.Dispose();
             _currentSymbol = symbol;
             _currentTimeframe = timeframe;
-            _lastCandle = null;
-            _lastCandleStart = null;
 
             _streamCts = new CancellationTokenSource();
             _ = Task.Run(() => StreamEventsAsync(symbol, _streamCts.Token));
@@ -413,53 +409,8 @@ namespace AccessibleTrader.Plugins.Tradier
                             var json = JObject.Parse(line);
                             var type = json["type"]?.ToString();
 
-                            if (type == "trade")
-                            {
-                                double price = json["price"]?.Value<double>() ?? 0;
-                                double vol = json["size"]?.Value<double>() ?? 0;
-                                if (price <= 0) continue;
-
-                                var now = DateTime.UtcNow;
-                                var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
-
-                                if (_lastCandle.HasValue && _lastCandleStart.HasValue)
-                                {
-                                    if (now >= _lastCandleStart.Value.Add(interval))
-                                    {
-                                        var newStart = _lastCandleStart.Value;
-                                        while (now >= newStart.Add(interval)) newStart = newStart.Add(interval);
-                                        _lastCandleStart = newStart;
-                                        _lastCandle = new Ohlcv(newStart, price, price, price, price, vol);
-                                    }
-                                    else
-                                    {
-                                        var tick = new Ohlcv(now, price, price, price, price, vol);
-                                        _lastCandle = _lastCandle.Value.UpdateWith(tick);
-                                    }
-                                }
-                                else
-                                {
-                                    // Floor to the PERIOD BOUNDARY, not the wall clock.
-                                    //
-                                    // This used to seed `_lastCandleStart = now`, and the
-                                    // roll-forward above then advanced by exactly `interval`
-                                    // from that seed. A 5-minute subscription started at
-                                    // 10:03:47 emitted bars stamped 10:03:47, 10:08:47,
-                                    // 10:13:47 — none of which line up with the REST timesales
-                                    // bars at 10:00, 10:05, 10:10 that FetchIntradayAsync
-                                    // returns from the same provider. The live bar then never
-                                    // merged with the historical buffer; it appended as a
-                                    // phantom bar at the wrong timestamp and every indicator
-                                    // recomputed across it. This is the call that every other
-                                    // provider's keyed feeds already make via
-                                    // BarBucketConsolidator.
-                                    var start = TimeframeUtility.GetPeriodStart(
-                                        now, _currentTimeframe ?? "1h");
-                                    _lastCandleStart = start;
-                                    _lastCandle = new Ohlcv(start, price, price, price, price, vol);
-                                }
-                                _liveStream.OnNext(_lastCandle.Value);
-                            }
+                            if (type == "trade" && TryParseTrade(json, DateTime.UtcNow, out var trade))
+                                _liveStream.OnNext(trade);
                         }
                         catch { /* malformed line */ }
                     }
@@ -499,8 +450,6 @@ namespace AccessibleTrader.Plugins.Tradier
             _streamCts = null;
             _currentSymbol = null;
             _currentTimeframe = null;
-            _lastCandle = null;
-            _lastCandleStart = null;
 
             // Tear the account websocket down before scrubbing, so its reconnect cannot
             // re-authenticate on the way out with a token we are about to drop.
@@ -1265,16 +1214,35 @@ namespace AccessibleTrader.Plugins.Tradier
             _            => OrderType.Market
         };
 
-        private static TimeSpan MapTimeframeToTimeSpan(string tf) => tf switch
+        /// <summary>
+        /// One trade event as ONE trade: its price on all four legs, its own size as volume,
+        /// stamped with the exchange's trade time (<c>date</c>, epoch milliseconds) when the
+        /// event carries one, else <paramref name="receivedUtc"/>. Internal for direct testing.
+        ///
+        /// <para>This provider used to build its own running candle here and emit THAT on
+        /// every trade, while declaring the default <see cref="LiveTickStyle.TradeDeltas"/> —
+        /// so the consolidator added the candle's running volume-so-far on every trade (10,
+        /// then 10+15, then 10+15+22...), and the candle itself began at the first trade after
+        /// subscribing, cleared on every subscribe: the flat-start bar Cody reported
+        /// 2026-10-09. Its roll-forward also stepped by a fixed TimeSpan (a month as 30 days).
+        /// Bucketing, period alignment and continuing the fetched forming bar all belong to
+        /// <see cref="BarBucketConsolidator"/> and the chart feed; a provider's job is the
+        /// trade.</para>
+        /// </summary>
+        internal static bool TryParseTrade(JObject json, DateTime receivedUtc, out Ohlcv trade)
         {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "1d"  => TimeSpan.FromDays(1),
-            "1w"  => TimeSpan.FromDays(7),
-            "1M"  => TimeSpan.FromDays(30),
-            _     => TimeSpan.FromHours(1)
-        };
+            trade = default;
+            double price = json["price"]?.Value<double>() ?? 0;
+            double size = json["size"]?.Value<double>() ?? 0;
+            if (price <= 0) return false;
+
+            var at = receivedUtc;
+            if (long.TryParse(json["date"]?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long ms) && ms > 0)
+                at = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime;
+
+            trade = new Ohlcv(at, price, price, price, price, Math.Max(0, size));
+            return true;
+        }
 
         protected override void Dispose(bool disposing)
         {

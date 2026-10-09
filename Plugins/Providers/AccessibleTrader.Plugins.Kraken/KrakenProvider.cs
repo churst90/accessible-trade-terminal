@@ -101,7 +101,13 @@ namespace AccessibleTrader.Plugins.Kraken
         {
             StandardTimeframes.OneMinute, StandardTimeframes.FiveMinutes, StandardTimeframes.FifteenMinutes,
             StandardTimeframes.ThirtyMinutes, StandardTimeframes.OneHour, StandardTimeframes.FourHours,
-            StandardTimeframes.OneDay, StandardTimeframes.OneWeek
+            StandardTimeframes.OneDay,
+            // NOT OneWeek: Kraken's weekly candles begin on THURSDAY 00:00 UTC (epoch-aligned —
+            // REST and WebSocket both, checked live 2026-10-09), and the app's weeks begin on
+            // Monday. Native weekly history gave Thursday bars, and the live bucket for the
+            // same week (Monday) was older than the bar it belonged to and was dropped. Weekly
+            // is now resampled from daily into Monday weeks, as Bitstamp's is, and live weekly
+            // subscribes daily candles (MapWsInterval).
         };
 
         public KrakenProvider()
@@ -348,18 +354,53 @@ namespace AccessibleTrader.Plugins.Kraken
             double vol   = item["volume"]?.Value<double>() ?? 0;
             if (open == 0 && high == 0 && low == 0 && close == 0) return false;
 
-            // AdjustToUniversal, NOT RoundtripKind + ToUniversalTime: the old
-            // combination round-tripped through the machine's LOCAL zone, so on
-            // any non-UTC box every live Kraken bar landed hours in the future —
-            // breaking period bucketing and buffer merges. (Found by the parse
-            // test the 2026-07-22 multi-live enrollment added.)
-            var ts = item["timestamp"]?.ToString();
+            // The candle's START is `interval_begin`. This read `timestamp`, which the v2 docs
+            // mark deprecated and which is the interval's END: probed live 2026-10-09, a 5m
+            // BTC/USD candle carried interval_begin 17:40:00 and timestamp 17:45:00, and the
+            // forming weekly candle interval_begin 2026-10-08 and timestamp 2026-10-15. Every
+            // live bar was therefore stamped one period ahead of the bar it was — a phantom
+            // future bar on the chart, and the bucket the consolidator diffed volume against
+            // was the wrong one. `timestamp` minus `interval` is the fallback for a message
+            // without interval_begin.
             DateTime date = DateTime.UtcNow;
-            if (!string.IsNullOrEmpty(ts) && DateTime.TryParse(ts, CultureInfo.InvariantCulture,
-                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
-                date = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+            if (TryReadUtc(item["interval_begin"], out var begin))
+                date = begin;
+            else if (TryReadUtc(item["timestamp"], out var end))
+                date = item["interval"]?.Value<int>() is int minutes and > 0 ? end.AddMinutes(-minutes) : end;
 
             bar = new Ohlcv(date, open, high, low, close, vol);
+            return true;
+        }
+
+        /// <summary>
+        /// An RFC3339 field as UTC, whichever way Newtonsoft handed it over. JObject.Parse turns
+        /// a date-shaped string into a DateTime on its own, and calling ToString() on that
+        /// formats it in the CURRENT culture — which the old parse then re-read as invariant, so
+        /// a day-first culture could swap day and month. A string is parsed with
+        /// AdjustToUniversal, NOT RoundtripKind + ToUniversalTime: that combination
+        /// round-tripped through the machine's local zone and put every live bar hours in the
+        /// future on a non-UTC box (found by the parse test the 2026-07-22 multi-live enrollment
+        /// added).
+        /// </summary>
+        private static bool TryReadUtc(JToken? token, out DateTime utc)
+        {
+            utc = default;
+            if (token is JValue { Value: DateTime dt })
+            {
+                utc = dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt.ToUniversalTime();
+                return true;
+            }
+            if (token is JValue { Value: DateTimeOffset dto })
+            {
+                utc = dto.UtcDateTime;
+                return true;
+            }
+            var s = token?.Type == JTokenType.String ? token.Value<string>() : null;
+            if (string.IsNullOrEmpty(s)) return false;
+            if (!DateTime.TryParse(s, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
+                return false;
+            utc = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
             return true;
         }
 
@@ -1417,11 +1458,13 @@ namespace AccessibleTrader.Plugins.Kraken
             "1h"  => 60,
             "4h"  => 240,
             "1d"  => 1440,
-            "1w"  => 10080,
+            // A weekly chart consolidates DAILY candles into Monday weeks; Kraken's own weekly
+            // candle runs Thursday to Wednesday and cannot be cut into those.
+            "1w"  => 1440,
             _     => 60
         };
 
-        private static int MapRestInterval(string tf) => MapWsInterval(tf);
+        private static int MapRestInterval(string tf) => tf == "1w" ? 10080 : MapWsInterval(tf);
 
         protected override void Dispose(bool disposing)
         {

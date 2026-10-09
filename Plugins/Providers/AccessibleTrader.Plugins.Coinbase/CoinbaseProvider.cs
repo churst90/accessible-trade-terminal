@@ -53,9 +53,7 @@ namespace AccessibleTrader.Plugins.Coinbase
 
         private string? _currentSymbol;
         private string? _currentTimeframe;
-        private Ohlcv? _lastCandle;
         private ReconnectingWebSocket? _ws;
-        private DateTime? _lastCandleStart;
 
         public override string Name => "Coinbase";
         public override string Description => "Coinbase Advanced Trade Integration";
@@ -212,25 +210,17 @@ namespace AccessibleTrader.Plugins.Coinbase
                         double price = double.Parse(ticker["price"]?.ToString() ?? "0", CultureInfo.InvariantCulture);
                         if (price <= 0) return;
 
-                        if (_lastCandle.HasValue && _lastCandleStart.HasValue)
-                        {
-                            var now = DateTime.UtcNow;
-                            var interval = MapTimeframeToTimeSpan(_currentTimeframe ?? "1h");
-
-                            if (now >= _lastCandleStart.Value.Add(interval))
-                            {
-                                var newStart = _lastCandleStart.Value;
-                                while (now >= newStart.Add(interval)) newStart = newStart.Add(interval);
-                                _lastCandleStart = newStart;
-                                _lastCandle = new Ohlcv(newStart, price, price, price, price, 0);
-                            }
-                            else
-                            {
-                                var tick = new Ohlcv(now, price, price, price, price, 0);
-                                _lastCandle = _lastCandle.Value.UpdateWith(tick);
-                            }
-                            _liveStream.OnNext(_lastCandle.Value);
-                        }
+                        // ONE price tick, no volume: the ticker channel carries no trade size.
+                        //
+                        // This used to re-emit a running candle seeded from whichever REST fetch
+                        // ran LAST — another symbol's, after a watchlist or background chart
+                        // fetch — with that fetch's volume, under the default TradeDeltas style,
+                        // so the consolidator added the whole fetched volume again on every tick.
+                        // Its roll-forward stepped by MapTimeframeToTimeSpan, which had no 4h or
+                        // 1w entry and fell back to an hour, and with no fetch yet it emitted
+                        // nothing at all. Bucketing and continuing the fetched forming bar are
+                        // the consolidator's and the chart feed's job (Cody, 2026-10-09).
+                        _liveStream.OnNext(new Ohlcv(DateTime.UtcNow, price, price, price, price, 0));
                     }
                 }
                 else if (channel == "l2_data" || channel == "level2")
@@ -325,17 +315,6 @@ namespace AccessibleTrader.Plugins.Coinbase
             _           => OrderStatus.Unknown,
         };
 
-        private TimeSpan MapTimeframeToTimeSpan(string tf) => tf.ToLowerInvariant() switch
-        {
-            "1m"  => TimeSpan.FromMinutes(1),
-            "5m"  => TimeSpan.FromMinutes(5),
-            "15m" => TimeSpan.FromMinutes(15),
-            "1h"  => TimeSpan.FromHours(1),
-            "6h"  => TimeSpan.FromHours(6),
-            "1d"  => TimeSpan.FromDays(1),
-            _     => TimeSpan.FromHours(1)
-        };
-
         public override async Task DisconnectAsync()
         {
             if (_ws != null)
@@ -387,12 +366,6 @@ namespace AccessibleTrader.Plugins.Coinbase
                         double.Parse(c["close"]?.ToString()  ?? "0", CultureInfo.InvariantCulture),
                         double.Parse(c["volume"]?.ToString() ?? "0", CultureInfo.InvariantCulture)))
                         .OrderBy(x => x.Date).ToList();
-
-                    if (ohlcvList.Any())
-                    {
-                        _lastCandle = ohlcvList.Last();
-                        _lastCandleStart = _lastCandle.Value.Date;
-                    }
 
                     return (ohlcvList, ohlcvList.Select(x => (new DateTimeOffset(x.Date).ToUnixTimeMilliseconds(), x.Volume)).ToList());
                 });

@@ -46,13 +46,27 @@ namespace AccessibleTrader.Tests
             }
         }
 
+        /// <summary>
+        /// The bar the app charts from Tradier's first live trade: the provider's tick folded
+        /// through the same consolidator LiveStreamManager builds for the provider's declared
+        /// tick style. Bucketing is the consolidator's job; a provider that does its own (and
+        /// declares the wrong style) is what this file exists to catch.
+        /// </summary>
         private static async Task<Ohlcv?> FirstLiveBarAsync(string timeframe)
+        {
+            var (ticks, style) = await LiveTicksAsync(timeframe,
+                """{"type":"trade","symbol":"AAPL","price":101.5,"size":10}""" + "\n");
+            if (ticks.Count == 0) return null;
+            return new BarBucketConsolidator(timeframe, style).Apply(ticks[0]);
+        }
+
+        private static async Task<(List<Ohlcv> Ticks, AccessibleTrader.Sdk.Plugins.LiveTickStyle Style)> LiveTicksAsync(
+            string timeframe, string body, int expected = 1)
         {
             var h = new FakeHttpMessageHandler()
                 .Post(@"/markets/events/session", """{"stream":{"sessionid":"SID","url":"x"}}""")
-                // One trade line, then the body ends.
-                .Post(@"stream\.tradier\.com|/markets/events",
-                      """{"type":"trade","symbol":"AAPL","price":101.5,"size":10}""" + "\n");
+                // The trade lines, then the body ends.
+                .Post(@"stream\.tradier\.com|/markets/events", body);
 
             var p = new AccessibleTrader.Plugins.Tradier.TradierProvider();
             p.Configure(new Dictionary<string, string>
@@ -62,15 +76,42 @@ namespace AccessibleTrader.Tests
             });
             SwapBothClients(p, h);
 
-            var seen = new TaskCompletionSource<Ohlcv>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var sub = p.LiveStream.Subscribe(bar => seen.TrySetResult(bar));
+            var ticks = new List<Ohlcv>();
+            var seen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var sub = p.LiveStream.Subscribe(bar =>
+            {
+                lock (ticks) { ticks.Add(bar); if (ticks.Count >= expected) seen.TrySetResult(); }
+            });
 
             await p.SetSubscriptionAsync("Stock", "AAPL", timeframe);
 
-            var completed = await Task.WhenAny(seen.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+            await Task.WhenAny(seen.Task, Task.Delay(TimeSpan.FromSeconds(10)));
             await p.DisconnectAsync();
 
-            return completed == seen.Task ? seen.Task.Result : null;
+            lock (ticks) return (ticks.Take(expected).ToList(), p.LiveTickStyle);
+        }
+
+        [Fact]
+        public async Task Each_trade_reaches_the_bar_once_with_its_own_size()
+        {
+            // Tradier emitted its own RUNNING candle on every trade while declaring TradeDeltas,
+            // so the consolidator added the running total each time: trades of 10 and 5 charted
+            // as 10 + 15 = 25. Two trades are two trades' worth of volume.
+            var (ticks, style) = await LiveTicksAsync("1h",
+                """{"type":"trade","symbol":"AAPL","price":101.5,"size":10,"date":"1791554400000"}""" + "\n"
+                + """{"type":"trade","symbol":"AAPL","price":101.0,"size":5,"date":"1791554460000"}""" + "\n",
+                expected: 2);
+
+            Assert.Equal(2, ticks.Count);
+            var consolidator = new BarBucketConsolidator("1h", style);
+            consolidator.Apply(ticks[0]);
+            var bar = consolidator.Apply(ticks[1])!.Value;
+
+            Assert.Equal(15, bar.Volume);
+            Assert.Equal(101.5, bar.Open);
+            Assert.Equal(101.0, bar.Close);
+            // Stamped with the exchange's trade time, not the moment it was read.
+            Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1791554400000).UtcDateTime, ticks[0].Date);
         }
 
         [Theory]

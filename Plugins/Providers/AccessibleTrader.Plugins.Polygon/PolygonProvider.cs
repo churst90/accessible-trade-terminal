@@ -166,8 +166,16 @@ namespace AccessibleTrader.Plugins.Polygon
                         double c = item["c"]?.Value<double>() ?? 0;
                         if (o == 0 && h == 0 && l == 0 && c == 0) continue;
 
+                        // `s`, the aggregate window's START — what the REST bars' `t` is. This
+                        // read `e`, the window's END, so every live minute was stamped one
+                        // minute late: on a 1m chart it appended as the NEXT bar, and on any
+                        // chart the 23:59 minute counted toward tomorrow. `e` minus a minute
+                        // is the fallback for a frame without `s`.
+                        long startMs = item["s"]?.Value<long>() ?? 0;
+                        if (startMs <= 0 && (item["e"]?.Value<long>() ?? 0) is long endMs and > 0)
+                            startMs = endMs - 60_000;
                         _liveStream.OnNext(new Ohlcv(
-                            DateTimeOffset.FromUnixTimeMilliseconds(item["e"]?.Value<long>() ?? 0).UtcDateTime,
+                            DateTimeOffset.FromUnixTimeMilliseconds(startMs).UtcDateTime,
                             o, h, l, c,
                             item["v"]?.Value<double>() ?? 0));
                     }
