@@ -156,8 +156,17 @@ namespace AccessibleTrader.Core.Services.Accessibility
 
             // 2. The series the alerts read. One per indicator code — the evaluator takes the
             //    first series with the code, so a second instance would never be read.
+            //
+            //    NOT for a code every alert reaches through a named INSTANCE. Those are built
+            //    under their saved id in step 3 or not at all: the evaluator answers an alert that
+            //    names an instance from that instance only, and says once when it is gone. This
+            //    step's two stand-ins — the first saved series with the code, or the indicator's
+            //    DEFAULTS when the tab has none — would otherwise be a different series answering
+            //    for it: an "SMA 50" alert whose SMA 50 was removed watched as an SMA 20.
+            var instanceOnly = CodesReachedOnlyThroughInstances(alerts);
             foreach (var code in ReferencedIndicatorCodes(alerts, saved))
             {
+                if (instanceOnly.Contains(code)) continue;
                 if (template.Any(t => string.Equals(t.IndicatorCode, code, StringComparison.OrdinalIgnoreCase))) continue;
 
                 var config = saved.FirstOrDefault(s => s.Drawing == null
@@ -198,7 +207,7 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Contains(id!)) continue;
                 var config = saved.FirstOrDefault(s => s.Drawing == null
                     && string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
-                if (config == null) continue;   // gone from the tab: the evaluator falls back to the code
+                if (config == null) continue;   // gone from the tab: the evaluator says so, and watches nothing in its place
                 var built = Build(identity, config, saved, allMeta);
                 if (built == null) continue;
                 built.Config.IsAutoNarrated = false;
@@ -238,6 +247,34 @@ namespace AccessibleTrader.Core.Services.Accessibility
                         Add(s.IndicatorCode);
             }
             return codes;
+        }
+
+        /// <summary>
+        /// The codes that NO simple alert reads by code alone — every reference to them names the
+        /// instance (<see cref="AlertDefinition.SeriesId"/> for the subject,
+        /// <see cref="AlertDefinition.LineSeriesId"/> for a line). A code a tree or a code-only
+        /// alert also reads is not in the set: those still read the first series with the code.
+        /// </summary>
+        private HashSet<string> CodesReachedOnlyThroughInstances(IEnumerable<AlertDefinition> alerts)
+        {
+            var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var byCode = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var a in alerts.Where(a => a.IsActive))
+            {
+                if (a.ConditionTree != null)
+                {
+                    CollectTreeCodes(a.ConditionTree, c => { if (!string.IsNullOrWhiteSpace(c)) byCode.Add(c!); });
+                    continue;
+                }
+                bool readsSubject = a.Target == AlertTarget.Indicator
+                    || a.Condition is AlertCondition.TrendChange or AlertCondition.EntersZone or AlertCondition.ExitsZone;
+                if (readsSubject && !string.IsNullOrWhiteSpace(a.IndicatorCode))
+                    (string.IsNullOrWhiteSpace(a.SeriesId) ? byCode : named).Add(a.IndicatorCode!);
+                if (a.ComparesToLine())
+                    (string.IsNullOrWhiteSpace(a.LineSeriesId) ? byCode : named).Add(a.LineIndicatorCode!);
+            }
+            named.ExceptWith(byCode);
+            return named;
         }
 
         private void CollectTreeCodes(ConditionNode node, Action<string?> add)

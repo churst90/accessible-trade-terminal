@@ -374,6 +374,46 @@ namespace AccessibleTrader.Tests
             Assert.Single(Eval(NewEvaluator(), alert, s, prev));
         }
 
+        [Fact]
+        public void An_alert_on_an_instance_that_has_left_the_chart_does_not_read_another_one()
+        {
+            // Set on the SMA 50; only the SMA 20 remains, and the SMA 20 crosses 100. Reading it
+            // would announce a crossing of a line the user did not ask about.
+            var ev = NewEvaluator();
+            var said = new List<string>();
+            ev.EvaluationDegraded += (_, why) => said.Add(why);
+            var bars = new[] { Bar(0, 1, 1, 1, 1), Bar(1, 1, 1, 1, 1), Bar(2, 1, 1, 1, 1) };
+            var s = State(bars, 0, Series("sma-20", "Sma", "Main", null, ("Sma", new[] { 0.0, 99, 101 })));
+            var prev = new Dictionary<string, double> { ["Sma.Sma"] = 99 };
+            var alert = new AlertDefinition
+            {
+                Id = "gone", Name = "fifty", Delivery = AlertDelivery.Speech, Target = AlertTarget.Indicator,
+                Condition = AlertCondition.CrossesAbove, Threshold = 100,
+                IndicatorCode = "Sma", ComponentName = "Sma", SeriesId = "sma-50",
+            };
+
+            Assert.Empty(Eval(ev, alert, s, prev));
+            Assert.Empty(Eval(ev, alert, s, prev));
+            Assert.Contains("no longer on this chart", Assert.Single(said));
+
+            // Vacuity: an alert that names no instance still reads the first by code, and fires.
+            Assert.Single(Eval(NewEvaluator(), alert with { Id = "code-only", SeriesId = null }, s, prev));
+        }
+
+        [Fact]
+        public void A_numeric_alert_fires_speaking_its_numbers_the_way_the_confirmation_did()
+        {
+            var ev = NewEvaluator();
+            var alert = new AlertDefinition
+            {
+                Id = "n", Name = "Up", Delivery = AlertDelivery.Speech, Target = AlertTarget.Price,
+                Condition = AlertCondition.CrossesAbove, Threshold = 64_250,
+            };
+            var fired = EvalBars(ev, alert, Bar(0, 64_200, 64_210, 64_190, 64_200), Bar(1, 64_200, 64_260, 64_190, 64_251.5));
+
+            Assert.Equal("Up: crossed above 64,250. Current value 64,251.5", Assert.Single(fired).SpeechText);
+        }
+
         // ── Zones come from the indicator's own lines ────────────────────────────
 
         [Fact]

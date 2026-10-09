@@ -149,11 +149,12 @@ namespace AccessibleTrader.Core.Services.Alerts
             return null;
         }
 
-        /// <summary>The instance named, else the first with the code — <c>AlertEvaluator.FindSeries</c>'s rule.</summary>
+        /// <summary>The instance named, and only that one; else, for an alert that names no
+        /// instance, the first with the code — <c>AlertEvaluator.FindSeries</c>'s rule.</summary>
         private static SeriesConfig? Find(IReadOnlyList<SeriesConfig> chart, string code, string? seriesId) =>
-            (string.IsNullOrEmpty(seriesId) ? null
-                : chart.FirstOrDefault(s => s.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase)
-                                         && s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase)))
-            ?? chart.FirstOrDefault(s => s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+            !string.IsNullOrEmpty(seriesId)
+                ? chart.FirstOrDefault(s => s.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase)
+                                         && s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase))
+                : chart.FirstOrDefault(s => s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
     }
 }

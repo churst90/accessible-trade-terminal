@@ -183,7 +183,7 @@ namespace AccessibleTrader.Core.Services
             {
                 // An indicator alert must watch the market, not wherever the user's arrow keys
                 // have left the reading cursor.
-                var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+                var series = SubjectSeries(alert, state);
                 var comp = series?.Components.FirstOrDefault(c =>
                     c.Name.Equals(alert.ComponentName, StringComparison.OrdinalIgnoreCase));
 
@@ -312,7 +312,9 @@ namespace AccessibleTrader.Core.Services
             _lastSimpleFire[alert.Id] = DateTime.UtcNow;
             _lastFiredBar[alert.Id]   = newBar.Date;
 
-            string speechText = $"{alert.Name}: {DescribeCondition(alert, lineName)}. Current value {currentValue:F6}";
+            // Numbers as the add confirmation spoke them ("64,250.5"), not to six fixed decimals
+            // ("64250.500000") — the alert must sound like the alert the user was told they set.
+            string speechText = $"{alert.Name}: {DescribeCondition(alert, lineName)}. Current value {Alerts.AlertDescriptions.FormatForSpeech(currentValue)}";
             return new AlertFired(alert, currentValue, double.IsNaN(prevValue) ? null : prevValue, speechText);
         }
 
@@ -368,8 +370,7 @@ namespace AccessibleTrader.Core.Services
             // alerts written by an older build or by hand. It reads the component the alert
             // names, at the live bar: Analyze read the first registered component at the
             // reading cursor.
-            if (alert.IndicatorCode == null) return false;
-            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            var series = SubjectSeries(alert, state);
             if (series == null) return false;
             var ctx = _contextAnalyzer.AnalyzeAt(series, alert.ComponentName, live);
             if (ctx == null) return false;
@@ -386,10 +387,10 @@ namespace AccessibleTrader.Core.Services
         /// way from the step before it. Flat steps are skipped rather than counted as a turn, so
         /// an SMA that rises, holds for a bar, and rises again has not changed direction.
         /// </summary>
-        private static bool EvaluateComponentTurn(AlertDefinition alert, WorkspaceState state, int live)
+        private bool EvaluateComponentTurn(AlertDefinition alert, WorkspaceState state, int live)
         {
-            if (alert.IndicatorCode == null || alert.ComponentName == null) return false;
-            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            if (alert.ComponentName == null) return false;
+            var series = SubjectSeries(alert, state);
             if (series == null) return false;
             var data = series.GetComponentData(alert.ComponentName);
             if (live < 2 || live >= data.Length) return false;
@@ -409,8 +410,7 @@ namespace AccessibleTrader.Core.Services
 
         private bool EvaluateZone(AlertDefinition alert, WorkspaceState state, int live, bool entering)
         {
-            if (alert.IndicatorCode == null) return false;
-            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            var series = SubjectSeries(alert, state);
             if (series == null) return false;
 
             // The zone is where the indicator's OWN overbought / oversold line says it is — the
@@ -477,21 +477,38 @@ namespace AccessibleTrader.Core.Services
         }
 
         /// <summary>
-        /// The series an alert names: the instance it was written against when that is still on
-        /// the chart, else the first with the code — the rule every alert followed before an
-        /// alert could name an instance, and the one an older alerts.json still gets.
+        /// The series an alert names. An alert that names an INSTANCE gets that instance or
+        /// nothing — never "another series with the same code". The first version of this fell
+        /// back to the first by code, so an alert on the SMA 50 whose series had been removed
+        /// quietly watched the SMA 20 instead, and the background monitor (which builds an
+        /// indicator's DEFAULTS when the tab no longer has it) watched an SMA 20 that was never
+        /// on the chart at all: a different market from the one the user asked about, spoken as
+        /// if it were theirs. Saved series keep their id across a reload
+        /// (<c>RestoreSeriesFromSaved</c> passes <c>restoreId: config.Id</c>), so a strict match
+        /// costs nothing on an ordinary restart. An alert that names only a code — every alert
+        /// written before instances existed — keeps the first-by-code rule it was written under.
         /// </summary>
         internal static ChartSeries? FindSeries(WorkspaceState state, string code, string? seriesId)
         {
             if (!string.IsNullOrEmpty(seriesId))
-            {
-                var exact = state.ActiveSeries.FirstOrDefault(s =>
+                return state.ActiveSeries.FirstOrDefault(s =>
                     s.Id.Equals(seriesId, StringComparison.OrdinalIgnoreCase)
                     && s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
-                if (exact != null) return exact;
-            }
             return state.ActiveSeries.FirstOrDefault(s =>
                 s.IndicatorCode.Equals(code, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// The series the alert's SUBJECT reads, saying once when the instance it names is gone
+        /// — the same once-only announcement a lost line or a missing zone gets.
+        /// </summary>
+        private ChartSeries? SubjectSeries(AlertDefinition alert, WorkspaceState state)
+        {
+            if (alert.IndicatorCode == null) return null;
+            var series = FindSeries(state, alert.IndicatorCode, alert.SeriesId);
+            if (series == null && !string.IsNullOrEmpty(alert.SeriesId))
+                Degrade(alert, $"the {alert.IndicatorCode} it was set on is no longer on this chart, and a different {alert.IndicatorCode} will not be watched in its place");
+            return series;
         }
 
         /// <summary>
@@ -548,8 +565,8 @@ namespace AccessibleTrader.Core.Services
             string at = lineName != null ? $"{lineName} at {level}" : level;
             return alert.Condition switch
             {
-                AlertCondition.CrossesAbove    => lineName != null ? $"crossed above {at}" : $"crossed above {alert.Threshold:F6}",
-                AlertCondition.CrossesBelow    => lineName != null ? $"crossed below {at}" : $"crossed below {alert.Threshold:F6}",
+                AlertCondition.CrossesAbove    => $"crossed above {at}",
+                AlertCondition.CrossesBelow    => $"crossed below {at}",
                 AlertCondition.Touches         => $"touched {at}",
                 AlertCondition.PatternDetected => $"pattern {alert.Pattern} detected",
                 AlertCondition.ChangesDirection => "direction changed",
