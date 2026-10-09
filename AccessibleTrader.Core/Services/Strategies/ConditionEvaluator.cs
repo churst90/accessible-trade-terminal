@@ -8,9 +8,12 @@ namespace AccessibleTrader.Core.Services.Strategies
     /// <see cref="ISignalCatalog"/> + the workspace's active series, applies the leaf operator,
     /// then folds results up the tree using AND/OR/NOT semantics.
     ///
-    /// Multi-timeframe leaves (those with <see cref="ConditionLeaf.Timeframe"/> set) currently
-    /// fall through to the active-TF series — Session B will plug the multi-timeframe data
-    /// service in here and route HTF leaves to a different series source.
+    /// Multi-timeframe leaves (those with <see cref="ConditionLeaf.Timeframe"/> set) read the
+    /// pre-warmed cache of <see cref="IMultiTimeframeDataService"/>, and only the line they name:
+    /// missing data is false and recorded on <see cref="LastDegradation"/>, never another series.
+    /// With no timeframe service at all (the StrategyLab passes none) they still read the
+    /// active-TF series. That is the same wrong-series defect, left in place on purpose in 2026-10
+    /// because fixing it changes StrategyLab results; it is Cody's call, not a quiet edit.
     /// </summary>
     public class ConditionEvaluator : IConditionEvaluator
     {
@@ -198,11 +201,10 @@ namespace AccessibleTrader.Core.Services.Strategies
                 string prov = state.Identity.Provider ?? string.Empty;
                 string sym  = state.Identity.Symbol   ?? string.Empty;
 
-                // First: try the pre-warmed HTF indicator cache. ConfigurableStrategy.Initialize
-                // is expected to have called PrewarmIndicatorAsync for every unique (Timeframe,
-                // IndicatorCode) pair in the spec, so by the time evaluation runs the indicator
-                // result arrays are sitting in MultiTimeframeDataService's cache. This is what
-                // makes indicator-based HTF leaves work — sync read on the hot path.
+                // The pre-warmed HTF cache. ConfigurableStrategy.Initialize — and, for an alert,
+                // PrepareTimeframes — loads every HTF line the tree reads, so by the time
+                // evaluation runs the arrays are sitting in MultiTimeframeDataService's cache:
+                // a sync read on the hot path.
                 // Determine the last CLOSED HTF bar at the strategy's current main-TF time.
                 // Without this clip the HTF cache leaks future values — at main-TF bar 100 we'd
                 // otherwise read htfData[^1] (the final HTF value in the entire cached series).
@@ -211,51 +213,28 @@ namespace AccessibleTrader.Core.Services.Strategies
                     ? HtfLastClosedIndexExclusive(htfBars, history[^1].Date)
                     : htfBars.Count;
 
-                var cachedInd = _mtf.GetCachedIndicator(prov, sym, leaf.Timeframe, desc.IndicatorCode);
-                if (cachedInd != null && cachedInd.TryGetValue(desc.ComponentName, out var htfData) && htfData.Length > 0)
-                {
-                    int clip = htfBars.Count > 0
-                        ? Math.Min(htfEndExclusive, htfData.Length)
-                        : htfData.Length;
-                    return EvaluateHtfIndicatorLeaf(leaf, htfData, clip);
-                }
+                // The line the leaf names, on its timeframe — and ONLY that line. Until 2026-10 an
+                // indicator leaf whose indicator had not been computed fell through to the raw
+                // HTF bars and tested the weekly CLOSE: "1w SMA 50 > 100" came back true because
+                // price was above 100. No data is false and said; a different series is never
+                // substituted. Price itself (Candles / Price) is read from the HTF bars.
+                var htfData = HtfLine(leaf, desc, leaf.Parameters, leaf.Timeframe, prov, sym, htfBars);
+                if (htfData == null) return false;
 
-                // Second: fall through to the price-only HTF path. Works for any leaf whose
-                // operator is one of the price-comparison primitives (GreaterThan, LessThan,
-                // CrossesAbove, etc.) tested against the HTF close.
-                if (htfBars.Count > 0)
-                {
-                    return EvaluateHtfPriceLeaf(leaf, htfBars, htfEndExclusive);
-                }
+                int clip = htfBars.Count > 0
+                    ? Math.Min(htfEndExclusive, htfData.Length)
+                    : htfData.Length;
 
-                // Neither cached indicator nor cached bars are available for this HTF leaf.
-                // The previous behaviour was to fall through to active-timeframe data here,
-                // silently degrading the strategy — a backtest on a 1h/daily spec would run
-                // the daily leaf against 1h bars and report wrong results with no warning.
-                //
-                // New behaviour: return FALSE and record the degradation. The leaf does not
-                // evaluate true until HTF data arrives. Strategies will simply not fire until
-                // pre-warm completes, which is conservative and correct.
-                string msg = $"HTF leaf '{leaf.Id}' on timeframe '{leaf.Timeframe}' has no cached data — leaf returning false until pre-warm completes.";
-                LastDegradation = msg;
-                string warningKey = $"{leaf.Id}|{leaf.Timeframe}";
-                if (_htfWarningsEmitted.TryAdd(warningKey, 0))
-                {
-                    System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {msg} Fire IMultiTimeframeDataService PrewarmIndicatorAsync from the strategy's Initialize to resolve.");
-                }
-                return false;
+                if (leaf.Operator is LeafOperator.CrossesAboveLine or LeafOperator.CrossesBelowLine)
+                    return CrossesLineOnHtf(leaf, htfData, clip, htfBars, htfEndExclusive, prov, sym,
+                        above: leaf.Operator == LeafOperator.CrossesAboveLine);
+
+                return EvaluateHtfIndicatorLeaf(leaf, htfData, clip);
             }
 
-            // Resolve component data from the workspace's active series.
-            // Case-insensitive match because indicator providers may register their codes in
-            // different casing than the catalog or the chart series (e.g. "CipherB" vs "CIPHER_B").
-            // Without this comparison, a leaf can silently fail to find its data and the strategy
-            // never fires — exactly the symptom users hit when they wire up an indicator that
-            // *is* on the chart but with a casing variant.
-            var series = state.ActiveSeries.FirstOrDefault(s =>
-                string.Equals(s.IndicatorCode, desc.IndicatorCode, StringComparison.OrdinalIgnoreCase));
-            if (series == null) return false;
-            var data = series.GetComponentData(desc.ComponentName);
+            // Resolve component data from the workspace's active series — the instance the leaf
+            // is bound to, or the first with its code for a leaf bound to none.
+            var data = ChartLine(desc, leaf.Parameters, history, state);
             if (data == null || data.Length == 0) return false;
 
             // Future-leak fix: in backtest mode the strategy walks history bar-by-bar but the
@@ -278,8 +257,8 @@ namespace AccessibleTrader.Core.Services.Strategies
                 LeafOperator.Between       => !double.IsNaN(cur) && cur >= leaf.Value && cur <= (leaf.Value2 ?? double.PositiveInfinity),
                 LeafOperator.CrossesAbove  => !double.IsNaN(cur) && !double.IsNaN(prev) && prev <= leaf.Value && cur >  leaf.Value,
                 LeafOperator.CrossesBelow  => !double.IsNaN(cur) && !double.IsNaN(prev) && prev >= leaf.Value && cur <  leaf.Value,
-                LeafOperator.CrossesAboveLine => CrossesLine(history, state, leaf, cur, prev, above: true),
-                LeafOperator.CrossesBelowLine => CrossesLine(history, state, leaf, cur, prev, above: false),
+                LeafOperator.CrossesAboveLine => CrossesLine(history, state, leaf, curIdx, cur, prev, above: true),
+                LeafOperator.CrossesBelowLine => CrossesLine(history, state, leaf, curIdx, cur, prev, above: false),
                 LeafOperator.ChangesDirection => DirectionChanged(data, history.Count),
                 LeafOperator.AboveCloud      => PriceVsCloud(history, state, desc, +1),
                 LeafOperator.BelowCloud      => PriceVsCloud(history, state, desc, -1),
@@ -390,10 +369,18 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (desc == null) return false;
             if (RefusedForCausality(desc)) return false;
 
-            var series = state.ActiveSeries.FirstOrDefault(s =>
-                string.Equals(s.IndicatorCode, desc.IndicatorCode, StringComparison.OrdinalIgnoreCase));
-            if (series == null) return false;
-            var data = series.GetComponentData(desc.ComponentName);
+            // This walk reads the chart's own bars, one index at a time, and has no notion of a
+            // second timeframe. It used to ignore Timeframe altogether, so a "1w" leaf inside a
+            // Sequence quietly read the chart-timeframe series of the same indicator. Refused
+            // and said instead: never a different series than the one the leaf names.
+            if (!string.IsNullOrEmpty(leaf.Timeframe) || !string.IsNullOrEmpty(leaf.SecondTimeframe))
+            {
+                Degrade($"seq|{leaf.Id}",
+                    $"a higher-timeframe condition ({desc.DisplayLabel}, {leaf.Timeframe ?? leaf.SecondTimeframe}) cannot be part of a Sequence group");
+                return false;
+            }
+
+            var data = ChartLine(desc, leaf.Parameters, history, state);
             if (data == null || data.Length == 0) return false;
             int idx = Math.Min(barIndex, data.Length - 1);
             if (idx < 0) return false;
@@ -621,29 +608,192 @@ namespace AccessibleTrader.Core.Services.Strategies
             return lo;
         }
 
-        /// <summary>
-        /// Evaluate the subset of leaf operators that work directly on raw HTF Ohlcv without
-        /// requiring an indicator computation pass. Currently: GreaterThan / LessThan / Between /
-        /// CrossesAbove / CrossesBelow against the close price. Returns false for any operator
-        /// that needs indicator data — those use the EvaluateHtfIndicatorLeaf path above.
-        /// </summary>
-        private static bool EvaluateHtfPriceLeaf(ConditionLeaf leaf, IReadOnlyList<Ohlcv> htfBars, int endExclusive)
-        {
-            int upTo = Math.Min(endExclusive, htfBars.Count);
-            if (upTo <= 0) return false;
-            double cur = htfBars[upTo - 1].Close;
-            double prev = upTo >= 2 ? htfBars[upTo - 2].Close : double.NaN;
+        // ── Which series a line is ──────────────────────────────────────────────
 
-            return leaf.Operator switch
+        /// <summary>
+        /// The chart's pseudo-indicators whose components are columns of the bars themselves —
+        /// the same projection <see cref="Indicators.OfflineWorkspaceBuilder"/> and the live
+        /// orchestrator make. Kept in step with <c>CoreIndicatorProvider</c>'s component names.
+        /// </summary>
+        public static bool IsPriceCode(string? code) =>
+            code != null && (code.Equals("CANDLES", StringComparison.OrdinalIgnoreCase)
+                          || code.Equals("PRICE", StringComparison.OrdinalIgnoreCase)
+                          || code.Equals("VOLUME", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>The bar column a price descriptor names, projected over <paramref name="bars"/>;
+        /// null for a component this projection does not know.</summary>
+        private static double[]? ProjectPrice(SignalDescriptor desc, IReadOnlyList<Ohlcv> bars)
+        {
+            Func<Ohlcv, double>? column = (desc.IndicatorCode.ToUpperInvariant(), desc.ComponentName.ToLowerInvariant()) switch
             {
-                LeafOperator.GreaterThan  => cur > leaf.Value,
-                LeafOperator.LessThan     => cur < leaf.Value,
-                LeafOperator.Between      => cur >= leaf.Value && cur <= (leaf.Value2 ?? double.PositiveInfinity),
-                LeafOperator.CrossesAbove => !double.IsNaN(prev) && prev <= leaf.Value && cur >  leaf.Value,
-                LeafOperator.CrossesBelow => !double.IsNaN(prev) && prev >= leaf.Value && cur <  leaf.Value,
-                _ => false // indicator-dependent operators need Session-C HTF indicator runner
+                ("CANDLES", "body")       => b => b.Close,
+                ("CANDLES", "upper_wick") => b => b.High,
+                ("CANDLES", "lower_wick") => b => b.Low,
+                ("PRICE", "line")         => b => b.Close,
+                ("VOLUME", "volume")      => b => b.Volume,
+                _ => null
             };
+            if (column == null) return null;
+            var data = new double[bars.Count];
+            for (int i = 0; i < data.Length; i++) data[i] = column(bars[i]);
+            return data;
         }
+
+        /// <summary>
+        /// The series a leaf line reads on the chart: the one whose code matches and, when the
+        /// leaf is bound to an instance, whose parameters match too. A leaf bound to none keeps the
+        /// rule every leaf had before 2026-10 — the first series with the code — which is also what
+        /// made "SMA 20 crosses SMA 50" impossible: both were "Sma", so both were the SMA 20.
+        /// </summary>
+        private static ChartSeries? FindSeries(WorkspaceState state, string code, IReadOnlyDictionary<string, double>? parameters)
+        {
+            // Case-insensitive match because indicator providers may register their codes in
+            // different casing than the catalog or the chart series (e.g. "CipherB" vs "CIPHER_B").
+            if (parameters == null || parameters.Count == 0)
+                return state.ActiveSeries.FirstOrDefault(s =>
+                    string.Equals(s.IndicatorCode, code, StringComparison.OrdinalIgnoreCase));
+            return state.ActiveSeries.FirstOrDefault(s =>
+                string.Equals(s.IndicatorCode, code, StringComparison.OrdinalIgnoreCase)
+                && ParametersMatch(s.Parameters, parameters));
+        }
+
+        /// <summary>Every parameter the leaf names is on the series with the same value.</summary>
+        public static bool ParametersMatch(IReadOnlyDictionary<string, double> series, IReadOnlyDictionary<string, double> wanted)
+        {
+            foreach (var kv in wanted)
+            {
+                var hit = series.FirstOrDefault(s => string.Equals(s.Key, kv.Key, StringComparison.OrdinalIgnoreCase));
+                if (hit.Key == null || Math.Abs(hit.Value - kv.Value) > 1e-9) return false;
+            }
+            return true;
+        }
+
+        /// <summary>"lookbackPeriods 50" — the parameters a leaf is bound to, for speech.</summary>
+        public static string DescribeParameters(IReadOnlyDictionary<string, double>? parameters) =>
+            parameters == null || parameters.Count == 0
+                ? string.Empty
+                : string.Join(", ", parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
+                    .Select(p => $"{p.Key} {p.Value.ToString("G", System.Globalization.CultureInfo.InvariantCulture)}"));
+
+        /// <summary>
+        /// One line's values on the chart's timeframe, or null. Price lines fall back to the bars
+        /// themselves when no Candles / Price series carries them: the background tab monitor
+        /// recomputes every series through the indicator engine, where the pseudo-indicators
+        /// produce nothing, so "close crosses the SMA" was dead in a background tab. Where a
+        /// series does carry them, it is read exactly as before.
+        /// </summary>
+        private double[]? ChartLine(SignalDescriptor desc, IReadOnlyDictionary<string, double>? parameters,
+            IReadOnlyList<Ohlcv> history, WorkspaceState state)
+        {
+            var series = FindSeries(state, desc.IndicatorCode, parameters);
+            if (series != null)
+            {
+                var data = series.GetComponentData(desc.ComponentName);
+                if (data != null && data.Length > 0) return data;
+            }
+            if (IsPriceCode(desc.IndicatorCode)) return ProjectPrice(desc, history);
+
+            // A leaf bound to an instance that is no longer on the chart — the SMA 50 became an
+            // SMA 60 — is not a quiet market. Say which instance is missing.
+            if (series == null && parameters is { Count: > 0 })
+                Degrade($"instance|{desc.Id}|{DescribeParameters(parameters)}",
+                    $"{desc.DisplayLabel} with {DescribeParameters(parameters)} is not on this chart");
+            return null;
+        }
+
+        /// <summary>
+        /// One line's values on a higher timeframe, or null with the reason recorded. Price lines
+        /// come from the HTF bars; indicator lines only from the indicator computed on those bars
+        /// with the leaf's parameters. Nothing else stands in for a missing line.
+        /// </summary>
+        private double[]? HtfLine(ConditionLeaf leaf, SignalDescriptor desc, IReadOnlyDictionary<string, double>? parameters,
+            string timeframe, string prov, string sym, IReadOnlyList<Ohlcv> htfBars)
+        {
+            if (IsPriceCode(desc.IndicatorCode))
+            {
+                var projected = htfBars.Count > 0 ? ProjectPrice(desc, htfBars) : null;
+                if (projected != null) return projected;
+            }
+            else
+            {
+                var cached = _mtf!.GetCachedIndicator(prov, sym, timeframe, desc.IndicatorCode, parameters);
+                if (cached != null && cached.TryGetValue(desc.ComponentName, out var data) && data.Length > 0)
+                    return data;
+            }
+
+            // Strategies simply do not fire until pre-warm completes, which is conservative and
+            // correct; an alert does not evaluate until PrepareTimeframes says it has landed, so
+            // reaching here there means the load itself failed.
+            string what = string.IsNullOrEmpty(DescribeParameters(parameters))
+                ? desc.DisplayLabel
+                : $"{desc.DisplayLabel} ({DescribeParameters(parameters)})";
+            string msg = htfBars.Count > 0 && !IsPriceCode(desc.IndicatorCode)
+                ? $"{what} has not been computed on the {timeframe} timeframe"
+                : $"the {timeframe} data for {what} has not loaded";
+            LastDegradation = msg;
+            if (_htfWarningsEmitted.TryAdd($"{leaf.Id}|{timeframe}|{desc.Id}", 0))
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ConditionEvaluator] HTF leaf '{leaf.Id}' on timeframe '{timeframe}': {msg}. " +
+                    "The leaf returns false until IMultiTimeframeDataService has the data (strategy Initialize or PrepareTimeframes).");
+            return null;
+        }
+
+        /// <summary>Records a reason a leaf could not be answered, logging it once per key.</summary>
+        private void Degrade(string key, string message)
+        {
+            LastDegradation = message;
+            if (_htfWarningsEmitted.TryAdd(key, 0))
+                System.Diagnostics.Debug.WriteLine($"[ConditionEvaluator] {message}. The leaf evaluates false.");
+        }
+
+        /// <summary>The value an HTF line had as of a chart bar that opened at <paramref name="asOf"/> —
+        /// its last bar closed by then, by the same rule as <see cref="HtfLastClosedIndexExclusive"/>.</summary>
+        private static double HtfValueAsOf(double[] data, IReadOnlyList<Ohlcv> htfBars, DateTime asOf)
+        {
+            int n = Math.Min(HtfLastClosedIndexExclusive(htfBars, asOf), data.Length);
+            return n > 0 ? data[n - 1] : double.NaN;
+        }
+
+        /// <summary>
+        /// Cross above: previous value was at-or-below the other line, current value is above.
+        /// Cross below: previous at-or-above, current below. Standard MA-cross semantics — the one
+        /// boundary every line cross in this class uses, whatever timeframe each line is on.
+        /// </summary>
+        private static bool Crossed(double prev, double cur, double otherPrev, double otherCur, bool above)
+        {
+            if (double.IsNaN(cur) || double.IsNaN(prev) ||
+                double.IsNaN(otherCur) || double.IsNaN(otherPrev))
+                return false;
+            return above
+                ? prev <= otherPrev && cur > otherCur
+                : prev >= otherPrev && cur < otherCur;
+        }
+
+        /// <summary>Minutes in a timeframe code ("15m", "4h", "1w", "1M"); null when it is not one.</summary>
+        public static double? TimeframeMinutes(string? tf)
+        {
+            if (string.IsNullOrWhiteSpace(tf) || tf.Length < 2) return null;
+            char unit = tf[^1];
+            if (!double.TryParse(tf[..^1], System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out var n) || n <= 0)
+                return null;
+            double per = unit switch
+            {
+                'm' => 1, 'h' => 60, 'H' => 60, 'd' => 1440, 'D' => 1440,
+                'w' => 10080, 'W' => 10080, 'M' => 43200, 'y' => 525600, 'Y' => 525600,
+                _ => double.NaN
+            };
+            return double.IsNaN(per) ? null : n * per;
+        }
+
+        private static bool SameTimeframe(string? a, string? b) =>
+            string.Equals(a ?? string.Empty, b ?? string.Empty, StringComparison.Ordinal)
+            || (TimeframeMinutes(a) is { } x && TimeframeMinutes(b) is { } y && Math.Abs(x - y) < 1e-9);
+
+        /// <summary>The line a crosses-line leaf crosses is on a LOWER timeframe than its first line,
+        /// which no path here can align honestly. Unknown timeframes are not refused.</summary>
+        public static bool IsLowerTimeframe(string? candidate, string? than) =>
+            TimeframeMinutes(candidate) is { } c && TimeframeMinutes(than) is { } t && c < t - 1e-9;
 
         /// <summary>
         /// Temporal confluence helper: returns true when data[i] is on the requested side of
@@ -743,7 +893,7 @@ namespace AccessibleTrader.Core.Services.Strategies
             return s1 != 0 && s2 != 0 && s1 != s2;
         }
 
-        private bool CrossesLine(IReadOnlyList<Ohlcv> history, WorkspaceState state, ConditionLeaf leaf, double cur, double prev, bool above)
+        private bool CrossesLine(IReadOnlyList<Ohlcv> history, WorkspaceState state, ConditionLeaf leaf, int primaryIdx, double cur, double prev, bool above)
         {
             // Resolve the second descriptor (the line being crossed). If unset, the operator
             // degrades to false — same behavior as the original stub but with the path now wired.
@@ -752,10 +902,12 @@ namespace AccessibleTrader.Core.Services.Strategies
             if (secondDesc == null) return false;
             if (RefusedForCausality(secondDesc)) return false;
 
-            var series = state.ActiveSeries.FirstOrDefault(s =>
-                string.Equals(s.IndicatorCode, secondDesc.IndicatorCode, StringComparison.OrdinalIgnoreCase));
-            if (series == null) return false;
-            var data = series.GetComponentData(secondDesc.ComponentName);
+            // The crossed line on a higher timeframe than the chart: "daily close crosses above
+            // the 50-week SMA". Its own path — a step line read as of each chart bar.
+            if (!string.IsNullOrEmpty(leaf.SecondTimeframe))
+                return CrossesHigherTimeframeLine(history, state, leaf, secondDesc, primaryIdx, cur, prev, above);
+
+            var data = ChartLine(secondDesc, leaf.SecondParameters, history, state);
             if (data == null || data.Length == 0) return false;
 
             // Same future-leak protection as the main path, and it has to be the SAME clip —
@@ -784,6 +936,194 @@ namespace AccessibleTrader.Core.Services.Strategies
                 return prev <= otherPrev && cur > otherCur;
             else
                 return prev >= otherPrev && cur < otherCur;
+        }
+
+        /// <summary>
+        /// A chart-timeframe line crossing a higher-timeframe one. The HTF line is a step: at each
+        /// chart bar it holds the value of its last bar closed by that bar's open, the rule every
+        /// HTF read here uses. The cross compares the two lines at the current and previous chart
+        /// bars, so it fires on the chart bar where price actually crosses — not once a week.
+        /// </summary>
+        private bool CrossesHigherTimeframeLine(IReadOnlyList<Ohlcv> history, WorkspaceState state, ConditionLeaf leaf,
+            SignalDescriptor secondDesc, int primaryIdx, double cur, double prev, bool above)
+        {
+            string tf = leaf.SecondTimeframe!;
+            if (_mtf == null)
+            {
+                Degrade($"nomtf|{leaf.Id}", $"nothing here can load {tf} data for {secondDesc.DisplayLabel}");
+                return false;
+            }
+            if (IsLowerTimeframe(tf, state.Identity.Timeframe))
+            {
+                Degrade($"lowertf|{leaf.Id}",
+                    $"{secondDesc.DisplayLabel} is on {tf}, lower than this chart's {state.Identity.Timeframe}; the line crossed must be on the chart's timeframe or higher");
+                return false;
+            }
+            if (primaryIdx < 1 || primaryIdx >= history.Count) return false;
+
+            string prov = state.Identity.Provider ?? string.Empty;
+            string sym  = state.Identity.Symbol   ?? string.Empty;
+            var htfBars = _mtf.GetCachedBars(prov, sym, tf);
+            var other = HtfLine(leaf, secondDesc, leaf.SecondParameters, tf, prov, sym, htfBars);
+            if (other == null) return false;
+            if (htfBars.Count == 0)
+            {
+                // Values with no bars to date them cannot be lined up with the chart's bars.
+                Degrade($"{leaf.Id}|{tf}|bars", $"the {tf} bars for {secondDesc.DisplayLabel} have not loaded");
+                return false;
+            }
+
+            double otherCur  = HtfValueAsOf(other, htfBars, history[primaryIdx].Date);
+            double otherPrev = HtfValueAsOf(other, htfBars, history[primaryIdx - 1].Date);
+            return Crossed(prev, cur, otherPrev, otherCur, above);
+        }
+
+        /// <summary>
+        /// A crosses-line leaf on a higher timeframe: both lines on that timeframe, compared at
+        /// its last two closed bars — the same reading every other HTF operator makes. Before
+        /// 2026-10 this operator fell to the HTF switch's default and was false on every bar.
+        /// </summary>
+        private bool CrossesLineOnHtf(ConditionLeaf leaf, double[] htfData, int clip, IReadOnlyList<Ohlcv> htfBars,
+            int htfEndExclusive, string prov, string sym, bool above)
+        {
+            if (string.IsNullOrEmpty(leaf.SecondSignalDescriptorId)) return false;
+            var secondDesc = _catalog.GetById(leaf.SecondSignalDescriptorId);
+            if (secondDesc == null) return false;
+            if (RefusedForCausality(secondDesc)) return false;
+
+            string tf = leaf.Timeframe!;
+            if (!string.IsNullOrEmpty(leaf.SecondTimeframe) && !SameTimeframe(leaf.SecondTimeframe, tf))
+            {
+                // A weekly line against a daily one, both off the chart's own timeframe, has no
+                // single grid to compare them on. Put the lower-timeframe line on the chart instead.
+                Degrade($"mixedtf|{leaf.Id}",
+                    $"a {tf} condition can only cross a line on {tf}; {secondDesc.DisplayLabel} is on {leaf.SecondTimeframe}");
+                return false;
+            }
+
+            var other = HtfLine(leaf, secondDesc, leaf.SecondParameters, tf, prov, sym, htfBars);
+            if (other == null) return false;
+            int otherClip = htfBars.Count > 0 ? Math.Min(htfEndExclusive, other.Length) : other.Length;
+            int upTo = Math.Min(clip, otherClip);
+            if (upTo < 2) return false;
+            return Crossed(htfData[upTo - 2], htfData[upTo - 1], other[upTo - 2], other[upTo - 1], above);
+        }
+
+        // ── Loading what HTF leaves read (the alert path) ─────────────────────
+
+        /// <summary>One higher-timeframe line a tree reads.</summary>
+        /// <param name="IsCrossedLine">True for the line a crosses-line leaf crosses — the half a
+        /// strategy's own pre-warm did not cover before 2026-10.</param>
+        public sealed record TimeframeNeed(
+            string Timeframe,
+            SignalDescriptor Descriptor,
+            IReadOnlyDictionary<string, double>? Parameters,
+            bool IsCrossedLine);
+
+        /// <summary>Every higher-timeframe line the tree's leaves read, once each.</summary>
+        public static IReadOnlyList<TimeframeNeed> TimeframeNeeds(ConditionNode root, ISignalCatalog catalog)
+        {
+            var needs = new List<TimeframeNeed>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            void Add(string? tf, string? descId, IReadOnlyDictionary<string, double>? p, bool crossed)
+            {
+                if (string.IsNullOrEmpty(tf) || string.IsNullOrEmpty(descId)) return;
+                var desc = catalog.GetById(descId);
+                if (desc == null) return;
+                if (seen.Add($"{tf}|{desc.IndicatorCode}|{DescribeParameters(p)}|{(IsPriceCode(desc.IndicatorCode) ? "" : desc.ComponentName)}"))
+                    needs.Add(new TimeframeNeed(tf, desc, p, crossed));
+            }
+            void Walk(ConditionNode n)
+            {
+                switch (n)
+                {
+                    case ConditionLeaf l:
+                        Add(l.Timeframe, l.SignalDescriptorId, l.Parameters, false);
+                        if (l.Operator is LeafOperator.CrossesAboveLine or LeafOperator.CrossesBelowLine)
+                            Add(l.SecondTimeframe ?? l.Timeframe, l.SecondSignalDescriptorId, l.SecondParameters, true);
+                        break;
+                    case ConditionGroup g:
+                        foreach (var c in g.Children) Walk(c);
+                        break;
+                }
+            }
+            Walk(root);
+            return needs;
+        }
+
+        private sealed class HtfLoad
+        {
+            public Task Task = Task.CompletedTask;
+            public DateTime StartedUtc;
+            public bool Landed;
+        }
+
+        // One entry per (provider, symbol, timeframe, indicator, parameters): the load in flight
+        // or last finished, and whether ANY load for it has finished — after the first, a refresh
+        // runs behind the old data instead of blanking it.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, HtfLoad> _htfLoads =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        /// <inheritdoc/>
+        public bool PrepareTimeframes(ConditionNode root, ChartIdentity identity, int barCount)
+        {
+            if (_mtf == null) return true;   // nothing can load; the leaves say so when evaluated
+            bool ready = true;
+            int count = Math.Max(200, barCount);
+            foreach (var need in TimeframeNeeds(root, _catalog))
+                if (!EnsureLoaded(need, identity, count)) ready = false;
+            return ready;
+        }
+
+        private bool EnsureLoaded(TimeframeNeed need, ChartIdentity identity, int count)
+        {
+            bool price = IsPriceCode(need.Descriptor.IndicatorCode);
+            string key = $"{identity.Provider}|{identity.Symbol}|{need.Timeframe}|" +
+                         (price ? "bars" : $"{need.Descriptor.IndicatorCode}|{DescribeParameters(need.Parameters)}");
+            var now = DateTime.UtcNow;
+            var load = _htfLoads.GetOrAdd(key, _ => new HtfLoad { Task = StartLoad(need, identity, count), StartedUtc = now });
+            if (load.Task.IsCompleted) load.Landed = true;
+
+            // A live alert outlives a strategy's one pre-warm: refresh on the timeframe's own
+            // cadence so the weekly SMA moves when a new week closes.
+            if (load.Task.IsCompleted && now - load.StartedUtc >= RefreshInterval(need.Timeframe))
+                _htfLoads.TryUpdate(key,
+                    new HtfLoad { Task = StartLoad(need, identity, count), StartedUtc = now, Landed = true }, load);
+
+            return load.Landed;
+        }
+
+        private Task StartLoad(TimeframeNeed need, ChartIdentity identity, int count)
+        {
+            string market = identity.Market   ?? string.Empty;
+            string prov   = identity.Provider ?? string.Empty;
+            string sym    = identity.Symbol   ?? string.Empty;
+            try
+            {
+                if (IsPriceCode(need.Descriptor.IndicatorCode))
+                    return _mtf!.GetBarsAsync(market, prov, sym, need.Timeframe, count);
+                var parameters = new Dictionary<string, object>();
+                if (need.Parameters != null)
+                    foreach (var kv in need.Parameters) parameters[kv.Key] = kv.Value;
+                return _mtf!.RefreshIndicatorAsync(market, prov, sym, need.Timeframe,
+                    need.Descriptor.IndicatorCode, parameters, count);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException(ex);
+            }
+        }
+
+        /// <summary>How long loaded HTF data is used before it is reloaded — the same scale as
+        /// the timeframe service's bar TTL.</summary>
+        private static TimeSpan RefreshInterval(string timeframe)
+        {
+            double minutes = TimeframeMinutes(timeframe) ?? 0;
+            if (minutes >= 10080) return TimeSpan.FromMinutes(15);
+            if (minutes >= 1440)  return TimeSpan.FromMinutes(5);
+            if (minutes >= 60)    return TimeSpan.FromSeconds(60);
+            if (minutes > 0)      return TimeSpan.FromSeconds(15);
+            return TimeSpan.FromSeconds(30);
         }
 
         private bool PriceVsCloud(IReadOnlyList<Ohlcv> history, WorkspaceState state, SignalDescriptor desc, int sign)

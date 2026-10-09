@@ -68,6 +68,31 @@ public sealed class ConfigurableStrategyPrewarmTests
     }
 
     [Fact]
+    public void Initialize_prewarms_a_bound_instance_and_a_crossed_htf_line_with_their_parameters()
+    {
+        // A leaf bound to "the SMA 50" reads only the SMA 50; the loop that prewarms (tf, code)
+        // computes the DEFAULT instance. And the line a crosses-line leaf crosses on 1w was never
+        // prewarmed at all.
+        var p50 = new Dictionary<string, double> { ["lookbackPeriods"] = 50 };
+        var leaves = new List<ConditionNode>
+        {
+            new ConditionLeaf("a", "TEST.Value", LeafOperator.GreaterThan, 0, Timeframe: "1d", Parameters: p50),
+            new ConditionLeaf("b", "TEST.Value", LeafOperator.CrossesAboveLine,
+                SecondSignalDescriptorId: "OTHER.Value", SecondTimeframe: "1w", SecondParameters: p50),
+        };
+        var mtf = new RecordingMtf();
+        var strategy = new ConfigurableStrategy(
+            BuildSpec(new ConditionGroup("root", LogicOperator.And, leaves)),
+            new StubEvaluator(), new StubResolver(), new StubCatalog(), new StubEventBus(),
+            instanceId: "test", mtf: mtf);
+
+        strategy.Initialize(Array.Empty<Ohlcv>(), BuildState(), new Dictionary<string, object>());
+
+        Assert.Contains(mtf.PrewarmParameters, c => c.Timeframe == "1d" && c.IndicatorCode == "TEST" && c.Parameters == "lookbackPeriods=50");
+        Assert.Contains(mtf.PrewarmParameters, c => c.Timeframe == "1w" && c.IndicatorCode == "OTHER" && c.Parameters == "lookbackPeriods=50");
+    }
+
+    [Fact]
     public void Initialize_with_no_htf_leaves_leaves_prewarm_gate_open()
     {
         var spec = BuildSpec(new ConditionLeaf("active-tf", "TEST.Value", LeafOperator.Fired));
@@ -143,6 +168,7 @@ public sealed class ConfigurableStrategyPrewarmTests
     {
         public List<(string Market, string Provider, string Symbol, string Timeframe, string IndicatorCode)> PrewarmCalls { get; } = new();
         public List<(string Market, string Provider, string Symbol, string Timeframe, int Count)> BarCalls { get; } = new();
+        public List<(string Timeframe, string IndicatorCode, string Parameters)> PrewarmParameters { get; } = new();
         public bool HoldPrewarm { get; set; }
         private readonly List<Task> _heldReturned = new();
         private readonly List<TaskCompletionSource<bool>> _heldSources = new();
@@ -170,6 +196,8 @@ public sealed class ConfigurableStrategyPrewarmTests
             string indicatorCode, Dictionary<string, object> parameters, int count)
         {
             PrewarmCalls.Add((market, provider, symbol, timeframe, indicatorCode));
+            PrewarmParameters.Add((timeframe, indicatorCode,
+                string.Join(",", parameters.OrderBy(k => k.Key).Select(k => $"{k.Key}={k.Value}"))));
             if (!HoldPrewarm) return Task.CompletedTask;
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _heldSources.Add(tcs);

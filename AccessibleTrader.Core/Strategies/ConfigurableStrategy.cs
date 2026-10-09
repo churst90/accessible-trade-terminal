@@ -237,6 +237,27 @@ public class ConfigurableStrategy : BaseStrategy
             {
                 _prewarmTasks.Add(_mtf.GetBarsAsync(market, provider, symbol, tf, prewarmCount));
             }
+
+            // What the two loops above never covered (2026-10): a leaf bound to one instance of
+            // its indicator (the SMA 50, by its parameters) — the loop above computes the
+            // DEFAULT instance, which the evaluator will not read for it — and the line a
+            // crosses-line leaf crosses on a higher timeframe. A spec with neither adds nothing
+            // here, so every existing strategy's pre-warm is unchanged.
+            foreach (var need in ConditionEvaluator.TimeframeNeeds(_spec.Conditions, _catalog))
+            {
+                if (need.Parameters is not { Count: > 0 } && !need.IsCrossedLine) continue;
+                if (ConditionEvaluator.IsPriceCode(need.Descriptor.IndicatorCode))
+                {
+                    _prewarmTasks.Add(_mtf.GetBarsAsync(market, provider, symbol, need.Timeframe, prewarmCount));
+                    continue;
+                }
+                var parameters = new Dictionary<string, object>();
+                if (need.Parameters != null)
+                    foreach (var kv in need.Parameters) parameters[kv.Key] = kv.Value;
+                _prewarmTasks.Add(_mtf.PrewarmIndicatorAsync(
+                    market, provider, symbol, need.Timeframe, need.Descriptor.IndicatorCode,
+                    parameters, prewarmCount));
+            }
         }
 
         // If there are no HTF leaves (or no MTF service) the gate is never active.

@@ -14,6 +14,9 @@ namespace AccessibleTrader.Core.Services
         private readonly IEventBus _eventBus;
         private readonly IWorkspaceLibraryService _library;
         private readonly ILogger<AlertOrchestrator> _logger;
+        // The same condition evaluator the alert evaluator holds (one per composition root), so
+        // the HTF data it loads here is the data the tree is evaluated against.
+        private readonly Strategies.IConditionEvaluator? _conditionEvaluator;
         private IDisposable? _sub;
         private readonly List<AlertDefinition> _alerts;
         // Snapshot of indicator component values from the previous tick, keyed by
@@ -28,8 +31,10 @@ namespace AccessibleTrader.Core.Services
             IAlertEvaluator evaluator,
             IEventBus eventBus,
             IWorkspaceLibraryService library,
-            ILogger<AlertOrchestrator> logger)
+            ILogger<AlertOrchestrator> logger,
+            Strategies.IConditionEvaluator? conditionEvaluator = null)
         {
+            _conditionEvaluator = conditionEvaluator;
             _store = store;
             _evaluator = evaluator;
             _eventBus = eventBus;
@@ -178,6 +183,8 @@ namespace AccessibleTrader.Core.Services
                 .Where(a => a.Symbol == null
                          || string.Equals(a.Symbol, state.SymbolDisplayName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+            applicable = Strategies.TreeAlertTimeframes.ReadyToEvaluate(applicable, _conditionEvaluator, state);
 
             var results = _evaluator.EvaluateAlerts(applicable, state, lastBar, prevBar, _previousValues);
 

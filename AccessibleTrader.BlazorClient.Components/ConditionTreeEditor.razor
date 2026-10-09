@@ -57,20 +57,22 @@
 
         <div class="modal-row">
             <label for="leaf-indicator">Indicator:</label>
+            @* One option per indicator code — or, when the chart has two or more instances of
+               it, one per instance ("SMA 20", "SMA 50"): the leaf binds to the instance's
+               parameters, which is what lets "SMA 20 crosses SMA 50" be said at all. *@
             <select id="leaf-indicator"
-                    value="@SelectedIndicatorCode"
+                    value="@PrimarySourceValue"
                     @onchange="OnIndicatorChanged">
                 <option value="">— Select indicator —</option>
-                @foreach (var indCode in IndicatorCodes)
+                @foreach (var opt in SourceOptions(Spec.SelectedNode.SignalDescriptorId, Spec.SelectedNode.Parameters))
                 {
-                    <option value="@indCode">
-                        @indCode @(IsIndicatorLoadedOnChart(indCode) ? "" : "(not on chart)")
-                    </option>
+                    <option value="@opt.Value">@opt.Label</option>
                 }
             </select>
         </div>
 
-        @if (!string.IsNullOrEmpty(SelectedIndicatorCode) && !IsIndicatorLoadedOnChart(SelectedIndicatorCode))
+        @if (!string.IsNullOrEmpty(SelectedIndicatorCode) && !IsIndicatorLoadedOnChart(SelectedIndicatorCode)
+             && string.IsNullOrEmpty(Spec.SelectedNode.Timeframe))
         {
             <div role="alert" aria-live="polite"
                  style="margin: 4px 0 8px 0; padding: 6px 10px; background: #3a2a00; border: 1px solid #aa6; color: #ffd; font-size: 0.85rem;">
@@ -92,22 +94,6 @@
             </select>
         </div>
 
-        @if (NeedsSecondDescriptor)
-        {
-            <div class="modal-row">
-                <label for="leaf-second-component">Crosses against:</label>
-                <select id="leaf-second-component"
-                        value="@(Spec.SelectedNode.SecondSignalDescriptorId ?? string.Empty)"
-                        @onchange="e => Spec.SelectedNode!.SecondSignalDescriptorId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
-                    <option value="">— Select second component —</option>
-                    @foreach (var d in DescriptorsForSelectedIndicator.Where(x => x.Id != Spec.SelectedNode.SignalDescriptorId))
-                    {
-                        <option value="@d.Id">@d.DisplayLabel</option>
-                    }
-                </select>
-            </div>
-        }
-
         <div class="modal-row">
             <label for="leaf-operator">Operator:</label>
             <select id="leaf-operator"
@@ -119,6 +105,56 @@
                 }
             </select>
         </div>
+
+        @* The line a crosses-line leaf crosses. AFTER the operator that reveals it, so the next
+           Tab from the operator lands on it — it used to sit above the operator, where a keyboard
+           user who had just chosen CrossesAboveLine would have to go back to find it. It can be
+           price or any indicator, and on its own timeframe: "close crosses above the 1w SMA 50".
+           Until 2026-10 it was unreachable (the operators were never offered) and could only list
+           other components of the same indicator. *@
+        @if (NeedsSecondDescriptor)
+        {
+            <div class="modal-row">
+                <label for="leaf-second-indicator">Crosses against:</label>
+                <select id="leaf-second-indicator"
+                        value="@SecondSourceValue"
+                        @onchange="OnSecondSourceChanged">
+                    <option value="">— Select line —</option>
+                    @foreach (var opt in SourceOptions(Spec.SelectedNode.SecondSignalDescriptorId, Spec.SelectedNode.SecondParameters))
+                    {
+                        <option value="@opt.Value">@opt.Label</option>
+                    }
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(SecondIndicatorCode))
+            {
+                <div class="modal-row">
+                    <label for="leaf-second-component">Line:</label>
+                    <select id="leaf-second-component"
+                            value="@(Spec.SelectedNode.SecondSignalDescriptorId ?? string.Empty)"
+                            @onchange="e => Spec.SelectedNode!.SecondSignalDescriptorId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                        @foreach (var d in SecondDescriptors)
+                        {
+                            <option value="@d.Id">@d.DisplayLabel</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="modal-row">
+                <label for="leaf-second-tf">Line's timeframe:</label>
+                <select id="leaf-second-tf"
+                        value="@(Spec.SelectedNode.SecondTimeframe ?? string.Empty)"
+                        @onchange="e => Spec.SelectedNode!.SecondTimeframe = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                    <option value="">— Same as this condition —</option>
+                    @foreach (var (tf, name) in Timeframes)
+                    {
+                        <option value="@tf">@name</option>
+                    }
+                </select>
+            </div>
+        }
 
         @if (NeedsValue)
         {
@@ -166,15 +202,21 @@
                     value="@(Spec.SelectedNode.Timeframe ?? string.Empty)"
                     @onchange="e => Spec.SelectedNode!.Timeframe = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
                 <option value="">— Active chart TF —</option>
-                <option value="5m">5 minute</option>
-                <option value="15m">15 minute</option>
-                <option value="30m">30 minute</option>
-                <option value="1h">1 hour</option>
-                <option value="4h">4 hour</option>
-                <option value="1d">1 day</option>
-                <option value="1w">1 week</option>
+                @foreach (var (tf, name) in Timeframes)
+                {
+                    <option value="@tf">@name</option>
+                }
             </select>
         </div>
+
+        @if (!string.IsNullOrEmpty(Spec.SelectedNode.Timeframe) && Spec.SelectedNode.Parameters == null
+             && !string.IsNullOrEmpty(SelectedIndicatorCode) && !ConditionEvaluator.IsPriceCode(SelectedIndicatorCode))
+        {
+            <p id="leaf-tf-defaults" style="color:var(--text-muted); font-size:0.8rem;">
+                On @Spec.SelectedNode.Timeframe this uses @SelectedIndicatorCode's default settings.
+                To set its period, add that instance to the chart and choose it under Indicator.
+            </p>
+        }
 
         <div class="modal-row">
             <label for="leaf-score">Score weight (0..1):</label>
@@ -248,18 +290,154 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             ? SignalCatalog.GetById(id)?.IndicatorCode ?? string.Empty
             : string.Empty;
 
+    // Price first: it is what "close crosses the SMA" crosses, and it is always there — the
+    // evaluator reads it from the bars when no Candles series carries it.
     private IEnumerable<string> IndicatorCodes =>
         SignalCatalog.All
             .Select(d => d.IndicatorCode)
             .Where(c => !string.IsNullOrEmpty(c))
             .Distinct(System.StringComparer.OrdinalIgnoreCase)
-            .OrderBy(c => c);
+            .OrderBy(c => ConditionEvaluator.IsPriceCode(c) ? 0 : 1)
+            .ThenBy(c => c);
 
     private bool IsIndicatorLoadedOnChart(string code)
     {
         if (string.IsNullOrEmpty(code)) return false;
+        if (ConditionEvaluator.IsPriceCode(code)) return true;
         return Store.State.ActiveSeries.Any(s =>
             string.Equals(s.IndicatorCode, code, System.StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static readonly (string Tf, string Name)[] Timeframes =
+    {
+        ("5m", "5 minute"), ("15m", "15 minute"), ("30m", "30 minute"), ("1h", "1 hour"),
+        ("4h", "4 hour"), ("1d", "1 day"), ("1w", "1 week"),
+    };
+
+    // ── Which series a line is: code, or instance ─────────────────────────────
+
+    private sealed record SourceOption(string Value, string Label);
+
+    /// <summary>The chart's indicator series with this code, in chart order.</summary>
+    private List<ChartSeries> InstancesOf(string code) =>
+        Store.State.ActiveSeries
+            .Where(s => !s.IsDrawing && string.Equals(s.IndicatorCode, code, System.StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private static string InstanceName(ChartSeries s) =>
+        !string.IsNullOrWhiteSpace(s.FriendlyName) ? s.FriendlyName
+        : !string.IsNullOrWhiteSpace(s.Name) ? s.Name : s.IndicatorCode;
+
+    private static string CodeLabel(string code) => code.ToUpperInvariant() switch
+    {
+        "CANDLES" => "Price (close, high, low)",
+        "PRICE"   => "Price line (close)",
+        "VOLUME"  => "Volume",
+        _ => code
+    };
+
+    /// <summary>
+    /// The options for an indicator picker. An instance option's value is "@" + the series id;
+    /// a code option's value is the code. A code with two or more instances on the chart lists
+    /// the instances instead — plus the bare code when the leaf being edited is bound to none,
+    /// so a leaf saved before instances existed still shows what it reads (the first).
+    /// </summary>
+    private IEnumerable<SourceOption> SourceOptions(string? currentDescriptorId, IReadOnlyDictionary<string, double>? currentParameters)
+    {
+        string? currentCode = string.IsNullOrEmpty(currentDescriptorId) ? null : SignalCatalog.GetById(currentDescriptorId)?.IndicatorCode;
+        foreach (var code in IndicatorCodes)
+        {
+            var instances = ConditionEvaluator.IsPriceCode(code) ? new List<ChartSeries>() : InstancesOf(code);
+            if (instances.Count >= 2)
+            {
+                if (currentParameters == null && string.Equals(code, currentCode, System.StringComparison.OrdinalIgnoreCase))
+                    yield return new SourceOption(code, $"{code} (first on chart)");
+                foreach (var s in instances)
+                    yield return new SourceOption("@" + s.Id, InstanceName(s));
+                continue;
+            }
+            yield return new SourceOption(code,
+                CodeLabel(code) + (IsIndicatorLoadedOnChart(code) ? "" : " (not on chart)"));
+        }
+    }
+
+    /// <summary>The picker value that shows a line's current source.</summary>
+    private string SourceValue(string? descriptorId, IReadOnlyDictionary<string, double>? parameters)
+    {
+        if (string.IsNullOrEmpty(descriptorId)) return string.Empty;
+        string code = SignalCatalog.GetById(descriptorId)?.IndicatorCode ?? string.Empty;
+        if (string.IsNullOrEmpty(code) || parameters == null) return code;
+        var instances = InstancesOf(code);
+        if (instances.Count < 2) return code;
+        var match = instances.FirstOrDefault(s => ConditionEvaluator.ParametersMatch(s.Parameters, parameters));
+        return match != null ? "@" + match.Id : code;
+    }
+
+    private string PrimarySourceValue => SourceValue(Spec.SelectedNode?.SignalDescriptorId, Spec.SelectedNode?.Parameters);
+    private string SecondSourceValue => SourceValue(Spec.SelectedNode?.SecondSignalDescriptorId, Spec.SelectedNode?.SecondParameters);
+
+    /// <summary>
+    /// What a picker value names: the code, and the parameters to bind. An instance binds its
+    /// own; a code with exactly one instance on the chart binds that one (the one an unbound leaf
+    /// reads anyway — and on a higher timeframe the only way its period travels with it); a code
+    /// with none, or price, binds nothing.
+    /// </summary>
+    private (string Code, IReadOnlyDictionary<string, double>? Parameters) ResolveSource(string value)
+    {
+        if (value.StartsWith('@'))
+        {
+            var s = Store.State.ActiveSeries.FirstOrDefault(x => x.Id == value[1..]);
+            if (s == null) return (string.Empty, null);
+            return (s.IndicatorCode, Copy(s.Parameters));
+        }
+        if (ConditionEvaluator.IsPriceCode(value)) return (value, null);
+        var instances = InstancesOf(value);
+        return (value, instances.Count == 1 ? Copy(instances[0].Parameters) : null);
+    }
+
+    private static IReadOnlyDictionary<string, double>? Copy(IReadOnlyDictionary<string, double> p) =>
+        p.Count == 0 ? null : new Dictionary<string, double>(p);
+
+    private string SecondIndicatorCode =>
+        Spec.SelectedNode?.SecondSignalDescriptorId is { Length: > 0 } id
+            ? SignalCatalog.GetById(id)?.IndicatorCode ?? string.Empty
+            : string.Empty;
+
+    /// <summary>The components the crossed line can be — every one of its indicator's, less the
+    /// exact line the leaf already is (same component, instance and timeframe).</summary>
+    private IEnumerable<SignalDescriptor> SecondDescriptors
+    {
+        get
+        {
+            var n = Spec.SelectedNode;
+            if (n == null || string.IsNullOrEmpty(SecondIndicatorCode)) return Enumerable.Empty<SignalDescriptor>();
+            return SignalCatalog.GetForIndicator(SecondIndicatorCode).Where(d => !IsSameLine(n, d.Id));
+        }
+    }
+
+    private static bool IsSameLine(EditableConditionNode n, string secondId) =>
+        string.Equals(n.SignalDescriptorId, secondId, System.StringComparison.OrdinalIgnoreCase)
+        && SameParameters(n.Parameters, n.SecondParameters)
+        && string.Equals(n.Timeframe ?? "", n.SecondTimeframe ?? n.Timeframe ?? "", System.StringComparison.Ordinal);
+
+    private static bool SameParameters(IReadOnlyDictionary<string, double>? a, IReadOnlyDictionary<string, double>? b) =>
+        (a == null || a.Count == 0) ? (b == null || b.Count == 0)
+        : b != null && a.Count == b.Count && ConditionEvaluator.ParametersMatch(a, b);
+
+    /// <summary>"SMA 50 [1w]" — a line as the tree reads it aloud.</summary>
+    private string LineLabel(string? descriptorId, IReadOnlyDictionary<string, double>? parameters, string? timeframe)
+    {
+        var desc = string.IsNullOrEmpty(descriptorId) ? null : SignalCatalog.GetById(descriptorId);
+        string label = desc?.DisplayLabel ?? "(unset)";
+        if (desc != null && parameters is { Count: > 0 })
+        {
+            var instance = InstancesOf(desc.IndicatorCode)
+                .FirstOrDefault(s => ConditionEvaluator.ParametersMatch(s.Parameters, parameters));
+            label = instance != null
+                ? $"{InstanceName(instance)} — {desc.ComponentName}"
+                : $"{label} ({ConditionEvaluator.DescribeParameters(parameters)})";
+        }
+        return string.IsNullOrEmpty(timeframe) ? label : $"{label} [{timeframe}]";
     }
 
     private IEnumerable<SignalDescriptor> DescriptorsForSelectedIndicator
@@ -280,11 +458,18 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
             var desc = SignalCatalog.GetById(Spec.SelectedNode.SignalDescriptorId);
             var kind = desc?.Kind;
 
+            // The line-cross operators — "crosses another line", price or any indicator's — are
+            // offered wherever the signal is a number. The evaluator has handled them since the
+            // second descriptor existed; this list never named them, so the "Crosses against"
+            // picker below was unreachable and "close crosses above the SMA" could not be built.
+            // Not for markers: a marker is a pulse (a value or NaN), not a line.
             var fire = new[] { LeafOperator.Fired, LeafOperator.FiredWithin };
             var num  = new[] { LeafOperator.GreaterThan, LeafOperator.LessThan, LeafOperator.Between,
                                LeafOperator.CrossesAbove, LeafOperator.CrossesBelow,
+                               LeafOperator.CrossesAboveLine, LeafOperator.CrossesBelowLine,
                                LeafOperator.ChangesDirection };
-            var cloud = new[] { LeafOperator.AboveCloud, LeafOperator.BelowCloud, LeafOperator.InsideCloud };
+            var cloud = new[] { LeafOperator.AboveCloud, LeafOperator.BelowCloud, LeafOperator.InsideCloud,
+                                LeafOperator.CrossesAboveLine, LeafOperator.CrossesBelowLine };
             var level = new[] { LeafOperator.PriceRejectsLevel, LeafOperator.PriceBreaksLevel,
                                 LeafOperator.PriceInsideValueArea, LeafOperator.PriceOutsideValueArea,
                                 LeafOperator.BarClosesAbovePoc, LeafOperator.BarClosesBelowPoc,
@@ -401,11 +586,13 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
         {
             return $"{node.Logic} group ({node.Children.Count})";
         }
-        var desc = SignalCatalog.GetById(node.SignalDescriptorId);
-        string descPart = desc?.DisplayLabel ?? "(unset)";
+        // A crosses-line leaf names the line it crosses: "Candles — Body (close) — CrossesAboveLine
+        // SMA 50 — Sma [1w]". Without it, arrowing through the tree said only "CrossesAboveLine".
+        string first = LineLabel(node.SignalDescriptorId, node.Parameters, node.Timeframe);
         string opPart = node.Operator.ToString();
-        string tfPart = string.IsNullOrEmpty(node.Timeframe) ? "" : $" [{node.Timeframe}]";
-        return $"{descPart} — {opPart}{tfPart}";
+        if (node.Operator is LeafOperator.CrossesAboveLine or LeafOperator.CrossesBelowLine)
+            return $"{first} — {opPart} {LineLabel(node.SecondSignalDescriptorId, node.SecondParameters, node.SecondTimeframe ?? node.Timeframe)}";
+        return $"{first} — {opPart}";
     }
 
     // ── Tree mutation ────────────────────────────────────────────────────────
@@ -507,12 +694,30 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
     private void OnIndicatorChanged(ChangeEventArgs e)
     {
         if (Spec.SelectedNode == null) return;
-        string code = e.Value?.ToString() ?? string.Empty;
+        var (code, parameters) = ResolveSource(e.Value?.ToString() ?? string.Empty);
         var first = SignalCatalog.GetForIndicator(code).FirstOrDefault();
         Spec.SelectedNode.SignalDescriptorId = first?.Id ?? string.Empty;
-        Spec.SelectedNode.Operator = first?.Kind == SignalKind.MarkerFire
-            ? LeafOperator.Fired
-            : LeafOperator.GreaterThan;
+        Spec.SelectedNode.Parameters = parameters;
+        // Keep a line cross a line cross when the new indicator can still be one — picking the
+        // other SMA should not throw away the line it was crossing.
+        bool keepCross = first != null && first.Kind != SignalKind.MarkerFire && NeedsSecondDescriptor;
+        if (!keepCross)
+            Spec.SelectedNode.Operator = first?.Kind == SignalKind.MarkerFire
+                ? LeafOperator.Fired
+                : LeafOperator.GreaterThan;
+    }
+
+    private void OnSecondSourceChanged(ChangeEventArgs e)
+    {
+        var n = Spec.SelectedNode;
+        if (n == null) return;
+        var (code, parameters) = ResolveSource(e.Value?.ToString() ?? string.Empty);
+        n.SecondParameters = parameters;
+        if (string.IsNullOrEmpty(code)) { n.SecondSignalDescriptorId = null; return; }
+        // The first component that is not the leaf's own line: "SMA 50" against itself is no cross.
+        n.SecondSignalDescriptorId = SignalCatalog.GetForIndicator(code)
+            .Select(d => d.Id)
+            .FirstOrDefault(id => !IsSameLine(n, id));
     }
 
     private void OnComponentChanged(ChangeEventArgs e)
@@ -524,8 +729,15 @@ else if (Spec.SelectedNode != null && Spec.SelectedNode.IsGroup)
     private void OnOperatorChanged(ChangeEventArgs e)
     {
         if (Spec.SelectedNode == null) return;
-        if (Enum.TryParse<LeafOperator>(e.Value?.ToString(), out var op))
-            Spec.SelectedNode.Operator = op;
+        if (!Enum.TryParse<LeafOperator>(e.Value?.ToString(), out var op)) return;
+        bool wasCross = NeedsSecondDescriptor;
+        Spec.SelectedNode.Operator = op;
+        // The pickers for the crossed line appear after this one. Focus stays here; say where
+        // they are, so the change is heard and not just rendered.
+        if (NeedsSecondDescriptor && !wasCross)
+            EventBus.Publish(new FeedbackRequestEvent(FeedbackType.StateChange,
+                "Choose the line it crosses: Crosses against, next.", false,
+                Channel: AccessibleTrader.Core.Services.Accessibility.SpeechChannel.Interface));
     }
 
     private void OnScoreThresholdChanged(ChangeEventArgs e)

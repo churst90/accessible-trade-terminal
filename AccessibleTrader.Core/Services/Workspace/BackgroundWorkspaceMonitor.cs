@@ -50,6 +50,8 @@ namespace AccessibleTrader.Core.Services.Workspace
         private readonly TimeSpan _pollInterval;
         private readonly int _barsToFetch;
         private readonly Strategies.IStrategyPositionManager? _positions;
+        // Loads the higher-timeframe data advanced alerts read; null = none can be loaded here.
+        private readonly Strategies.IConditionEvaluator? _conditionEvaluator;
 
         private readonly CancellationTokenSource _cts = new();
         private Task? _loop;
@@ -81,9 +83,11 @@ namespace AccessibleTrader.Core.Services.Workspace
             ILogger logger,
             TimeSpan pollInterval,
             int barsToFetch = 400,
-            Strategies.IStrategyPositionManager? positions = null)
+            Strategies.IStrategyPositionManager? positions = null,
+            Strategies.IConditionEvaluator? conditionEvaluator = null)
         {
             _positions = positions;
+            _conditionEvaluator = conditionEvaluator;
             _identity = identity;
             _symbolDisplayName = string.IsNullOrWhiteSpace(symbolDisplayName)
                 ? identity.Symbol : symbolDisplayName;
@@ -229,7 +233,10 @@ namespace AccessibleTrader.Core.Services.Workspace
                 return;
             }
 
-            foreach (var fired in _alertEvaluator.EvaluateAlerts(applicable, state, lastBar, prevBar, _previousValues))
+            // A tree alert whose higher-timeframe data is still loading waits a poll.
+            var ready = Strategies.TreeAlertTimeframes.ReadyToEvaluate(applicable, _conditionEvaluator, state);
+
+            foreach (var fired in _alertEvaluator.EvaluateAlerts(ready, state, lastBar, prevBar, _previousValues))
             {
                 // The symbol prefix makes background alerts self-identifying in speech;
                 // delivery channels get the structured Symbol field as usual.

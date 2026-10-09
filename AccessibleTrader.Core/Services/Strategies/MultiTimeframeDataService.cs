@@ -87,20 +87,31 @@ namespace AccessibleTrader.Core.Services.Strategies
             _indCache.Clear();
         }
 
-        public async Task PrewarmIndicatorAsync(
+        public Task PrewarmIndicatorAsync(
             string market, string provider, string symbol, string timeframe,
             string indicatorCode, Dictionary<string, object> parameters, int count)
+            => ComputeIndicatorAsync(market, provider, symbol, timeframe, indicatorCode, parameters, count, force: false);
+
+        /// <inheritdoc/>
+        public Task RefreshIndicatorAsync(
+            string market, string provider, string symbol, string timeframe,
+            string indicatorCode, Dictionary<string, object> parameters, int count)
+            => ComputeIndicatorAsync(market, provider, symbol, timeframe, indicatorCode, parameters, count, force: true);
+
+        private async Task ComputeIndicatorAsync(
+            string market, string provider, string symbol, string timeframe,
+            string indicatorCode, Dictionary<string, object> parameters, int count, bool force)
         {
             if (_indicatorEngine == null) return;
             if (string.IsNullOrEmpty(indicatorCode)) return;
 
-            string key = MakeIndicatorKey(provider, symbol, timeframe, indicatorCode);
+            string key = MakeIndicatorKey(provider, symbol, timeframe, indicatorCode) + ParameterSuffix(parameters);
 
             // Cheap idempotence: if a non-empty entry already exists, skip the recompute. The
             // cache is dropped explicitly via Clear(); inside a single strategy lifetime the HTF
             // indicator state is stable enough that one compute per strategy add is sufficient.
-            // Future enhancement: TTL refresh per bar-close on the HTF, mirroring TtlFor().
-            if (_indCache.TryGetValue(key, out var existing) && existing.Count > 0) return;
+            // A live alert is not a strategy lifetime: it refreshes (force) on the HTF's TTL.
+            if (!force && _indCache.TryGetValue(key, out var existing) && existing.Count > 0) return;
 
             try
             {
@@ -113,9 +124,14 @@ namespace AccessibleTrader.Core.Services.Strategies
                 // HTF leaves want defaults anyway. Without this lookup the indicator runs with
                 // whatever the engine's zero-param fallback is, which for some indicators is a
                 // pathological empty-window compute that produces all-NaN output.
-                var effectiveParams = (parameters == null || parameters.Count == 0)
-                    ? BuildDefaultParameters(indicatorCode)
-                    : parameters;
+                //
+                // Named parameters are laid OVER the defaults rather than replacing them: a leaf
+                // bound to "the SMA 50" carries its numeric parameters only, and an indicator
+                // with a string or switch parameter it did not name must still get that
+                // parameter's default rather than the engine's zero-param fallback.
+                var effectiveParams = BuildDefaultParameters(indicatorCode);
+                if (parameters != null)
+                    foreach (var kv in parameters) effectiveParams[kv.Key] = kv.Value;
 
                 var results = await _indicatorEngine.CalculateAsync(
                     indicatorCode, bars, effectiveParams, default).ConfigureAwait(false);
@@ -137,6 +153,51 @@ namespace AccessibleTrader.Core.Services.Strategies
         {
             string key = MakeIndicatorKey(provider, symbol, timeframe, indicatorCode);
             return _indCache.TryGetValue(key, out var results) ? results : null;
+        }
+
+        /// <inheritdoc/>
+        public Dictionary<string, double[]>? GetCachedIndicator(
+            string provider, string symbol, string timeframe, string indicatorCode,
+            IReadOnlyDictionary<string, double>? parameters)
+        {
+            string suffix = parameters == null
+                ? string.Empty
+                : ParameterSuffix(parameters.ToDictionary(k => k.Key, k => (object)k.Value));
+            string key = MakeIndicatorKey(provider, symbol, timeframe, indicatorCode) + suffix;
+            return _indCache.TryGetValue(key, out var results) ? results : null;
+        }
+
+        /// <summary>
+        /// The parameters' share of a cache key: empty for none, so every caller from before
+        /// 2026-10 (all of which pass an empty map) keeps its key; otherwise the sorted
+        /// name=value pairs. Numbers go through one formatting whatever their boxed type, so a
+        /// prewarm handed <c>50</c> and a lookup handed <c>50.0</c> find the same entry.
+        /// </summary>
+        private static string ParameterSuffix(IReadOnlyDictionary<string, object>? parameters)
+        {
+            if (parameters == null || parameters.Count == 0) return string.Empty;
+            var parts = parameters
+                .Where(kv => !kv.Key.StartsWith("__", StringComparison.Ordinal))
+                .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(kv => $"{kv.Key.ToLowerInvariant()}={FormatParameter(kv.Value)}");
+            string joined = string.Join(",", parts);
+            return joined.Length == 0 ? string.Empty : "|" + joined;
+        }
+
+        private static string FormatParameter(object? value)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            switch (value)
+            {
+                case null: return string.Empty;
+                case bool b: return b ? "1" : "0";
+                case string str: return str;
+                default:
+                    string raw = Convert.ToString(value, inv) ?? string.Empty;
+                    return double.TryParse(raw, System.Globalization.NumberStyles.Any, inv, out var d)
+                        ? d.ToString("R", inv)
+                        : raw;
+            }
         }
 
         private static string MakeIndicatorKey(string provider, string symbol, string timeframe, string indicatorCode) =>

@@ -194,7 +194,12 @@ namespace AccessibleTrader.Core.Services.Strategies
             ? new ConditionGroup(n.Id, n.Logic, n.Children.Select(ToConditionNode).ToList(), n.ScoreThreshold)
             : new ConditionLeaf(n.Id, n.SignalDescriptorId, n.Operator, n.Value, n.Value2,
                                 n.WithinNBars, n.Score, n.Timeframe, n.SecondSignalDescriptorId,
-                                n.MinLevelStrength);
+                                n.MinLevelStrength,
+                                Copy(n.Parameters), Copy(n.SecondParameters), n.SecondTimeframe);
+
+        // Copied so a saved leaf never shares a dictionary with the editor that goes on mutating it.
+        private static IReadOnlyDictionary<string, double>? Copy(IReadOnlyDictionary<string, double>? p) =>
+            p == null || p.Count == 0 ? null : new Dictionary<string, double>(p);
 
         private static EditableConditionNode FromConditionNode(ConditionNode n) => n switch
         {
@@ -218,7 +223,10 @@ namespace AccessibleTrader.Core.Services.Strategies
                 Score = l.Score,
                 Timeframe = l.Timeframe,
                 SecondSignalDescriptorId = l.SecondSignalDescriptorId,
-                MinLevelStrength = l.MinLevelStrength
+                MinLevelStrength = l.MinLevelStrength,
+                Parameters = Copy(l.Parameters),
+                SecondParameters = Copy(l.SecondParameters),
+                SecondTimeframe = l.SecondTimeframe
             },
             _ => new EditableConditionNode()
         };
@@ -249,6 +257,11 @@ namespace AccessibleTrader.Core.Services.Strategies
         public string? SecondSignalDescriptorId; // for CrossesAboveLine / CrossesBelowLine
         // v7 pivot-strength gate for PriceRejectsLevel / PriceBreaksLevel. 0.0 = no filter.
         public double MinLevelStrength;
+        // Which instance of the indicator each line reads (the SMA 50, not the first SMA), and
+        // the crossed line's own timeframe (null = the leaf's). See ConditionLeaf.
+        public IReadOnlyDictionary<string, double>? Parameters;
+        public IReadOnlyDictionary<string, double>? SecondParameters;
+        public string? SecondTimeframe;
     }
 
     /// <summary>Mutable mirror of <see cref="TpLadderRung"/>.</summary>

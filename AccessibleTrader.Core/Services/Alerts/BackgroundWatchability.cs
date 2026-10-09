@@ -83,8 +83,11 @@ namespace AccessibleTrader.Core.Services.Alerts
         /// </summary>
         public static string? WhyUnfireable(AlertDefinition a)
         {
-            // A tree alert carries its own conditions and does not use these fields.
-            if (a.ConditionTree != null) return null;
+            // A tree alert carries its own conditions and does not use these fields — but a
+            // tree can hold a leaf that can never be true (no line to cross, a line crossed with
+            // itself), and "added" would be the same false claim. See ConditionTreeChecks.
+            if (a.ConditionTree != null)
+                return Strategies.ConditionTreeChecks.WhyUnfireable(a.ConditionTree, a.Timeframe);
 
             if (a.Target == AlertTarget.Indicator
                 && (string.IsNullOrWhiteSpace(a.IndicatorCode) || string.IsNullOrWhiteSpace(a.ComponentName)))

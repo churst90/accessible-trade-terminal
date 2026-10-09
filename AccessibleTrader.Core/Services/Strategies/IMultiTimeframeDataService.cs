@@ -61,5 +61,31 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// </summary>
         System.Collections.Generic.Dictionary<string, double[]>? GetCachedIndicator(
             string provider, string symbol, string timeframe, string indicatorCode);
+
+        /// <summary>
+        /// The pre-warmed indicator computed with THESE parameters — the SMA 50, not the SMA
+        /// with default parameters. Two instances of one indicator on one timeframe used to share
+        /// a cache entry keyed by code alone, so whichever computed first answered for both.
+        /// Null or empty parameters mean the defaults, exactly as the four-argument overload.
+        /// </summary>
+        /// <remarks>Defaulted so a stub that never models parameters only answers the default
+        /// instance; <see cref="MultiTimeframeDataService"/> overrides it.</remarks>
+        System.Collections.Generic.Dictionary<string, double[]>? GetCachedIndicator(
+            string provider, string symbol, string timeframe, string indicatorCode,
+            System.Collections.Generic.IReadOnlyDictionary<string, double>? parameters)
+            => parameters == null || parameters.Count == 0
+                ? GetCachedIndicator(provider, symbol, timeframe, indicatorCode)
+                : null;
+
+        /// <summary>
+        /// Recomputes an HTF indicator even when a cached result exists, re-fetching bars whose
+        /// TTL has expired. <see cref="PrewarmIndicatorAsync"/> computes once and never again,
+        /// which suits a backtest and starves a live alert: a weekly SMA computed when the alert
+        /// was armed would still be that week's value a month later.
+        /// </summary>
+        Task RefreshIndicatorAsync(
+            string market, string provider, string symbol, string timeframe,
+            string indicatorCode, System.Collections.Generic.Dictionary<string, object> parameters, int count)
+            => PrewarmIndicatorAsync(market, provider, symbol, timeframe, indicatorCode, parameters, count);
     }
 }

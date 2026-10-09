@@ -33,5 +33,18 @@ namespace AccessibleTrader.Core.Services.Strategies
         /// Cleared at the start of every Evaluate, so it describes the last call only.
         /// </summary>
         string? LastDegradation { get; }
+
+        /// <summary>
+        /// Starts — and, once their data has aged, restarts — the higher-timeframe loads this
+        /// tree's leaves need for <paramref name="identity"/>, and says whether every one of them
+        /// has finished at least once. The evaluator reads HTF data synchronously from a cache
+        /// that only these loads fill; a strategy fills it from <c>Initialize</c>, and until
+        /// 2026-10 nothing in the alert path filled it at all, so every HTF leaf in an advanced
+        /// alert was false forever. False means "still loading — do not evaluate yet": a NOT
+        /// over an unloaded leaf would otherwise be TRUE and fire.
+        /// </summary>
+        /// <remarks>Defaulted to "nothing to load" for evaluators that have no timeframe
+        /// service.</remarks>
+        bool PrepareTimeframes(ConditionNode root, ChartIdentity identity, int barCount) => true;
     }
 }

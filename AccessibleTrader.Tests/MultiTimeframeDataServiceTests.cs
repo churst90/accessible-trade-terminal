@@ -96,5 +96,54 @@ namespace AccessibleTrader.Tests
             Assert.Equal(20, used!["Period"]);
             Assert.NotNull(svc.GetCachedIndicator("Kraken", "BTC/USD", "1d", "SMA"));
         }
+
+        [Fact]
+        public async Task Two_instances_of_one_indicator_on_one_timeframe_are_two_cache_entries()
+        {
+            // "1w SMA 50" beside "1w SMA 20": keyed by code alone, the first computed answered for
+            // both — and the default instance answered for a leaf that named the SMA 50.
+            var engine = Substitute.For<IIndicatorEngine>();
+            var provider = Substitute.For<IIndicatorProvider>();
+            provider.GetIndicators().Returns(new List<IndicatorMetadata>
+            {
+                new()
+                {
+                    Code = "SMA", Name = "SMA",
+                    Parameters = new List<IndicatorParameterMetadata>
+                    {
+                        new() { Name = "Period", DefaultValue = 20 },
+                        new() { Name = "Source", DefaultValue = "close" },
+                    },
+                },
+            });
+            engine.GetProvider("SMA").Returns(provider);
+            var computed = new List<Dictionary<string, object>>();
+            engine.CalculateAsync("SMA", Arg.Any<IReadOnlyList<Ohlcv>>(), Arg.Any<Dictionary<string, object>>(), Arg.Any<CancellationToken>())
+                  .Returns(ci =>
+                  {
+                      var p = ci.ArgAt<Dictionary<string, object>>(2);
+                      computed.Add(p);
+                      double period = Convert.ToDouble(p["Period"], System.Globalization.CultureInfo.InvariantCulture);
+                      return Task.FromResult(new Dictionary<string, double[]> { ["SMA"] = new[] { period } });
+                  });
+            var svc = new MultiTimeframeDataService(Orchestrator(n => Bars(n), new List<int?>()), Substitute.For<IAppLogger>(), engine);
+
+            await svc.PrewarmIndicatorAsync("Spot", "Kraken", "BTC/USD", "1w", "SMA", new Dictionary<string, object>(), 300);
+            await svc.PrewarmIndicatorAsync("Spot", "Kraken", "BTC/USD", "1w", "SMA", new Dictionary<string, object> { ["Period"] = 50.0 }, 300);
+
+            var p50 = new Dictionary<string, double> { ["Period"] = 50 };
+            Assert.Equal(20, svc.GetCachedIndicator("Kraken", "BTC/USD", "1w", "SMA")!["SMA"][0]);
+            Assert.Equal(50, svc.GetCachedIndicator("Kraken", "BTC/USD", "1w", "SMA", p50)!["SMA"][0]);
+            Assert.Null(svc.GetCachedIndicator("Kraken", "BTC/USD", "1w", "SMA", new Dictionary<string, double> { ["Period"] = 60 }));
+
+            // The named parameter is laid over the defaults: Source still arrives.
+            Assert.Equal("close", computed[1]["Source"]);
+
+            // Prewarm is compute-once; Refresh recomputes (a live alert's weekly SMA must move).
+            await svc.PrewarmIndicatorAsync("Spot", "Kraken", "BTC/USD", "1w", "SMA", new Dictionary<string, object> { ["Period"] = 50.0 }, 300);
+            Assert.Equal(2, computed.Count);
+            await svc.RefreshIndicatorAsync("Spot", "Kraken", "BTC/USD", "1w", "SMA", new Dictionary<string, object> { ["Period"] = 50.0 }, 300);
+            Assert.Equal(3, computed.Count);
+        }
     }
 }
