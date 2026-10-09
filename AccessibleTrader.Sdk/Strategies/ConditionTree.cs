@@ -131,6 +131,20 @@ public abstract record ConditionNode(string Id);
 /// descriptor's value series — e.g. "Cipher A WT Momentum crosses above WT Signal" pairs two
 /// components of the same indicator. When null, the cross-line operators degrade to false.
 /// </param>
+/// <param name="MinLevelStrength">Pivot-strength floor for the level operators (0 = no filter).</param>
+/// <param name="Parameters">
+/// Which INSTANCE of the indicator the leaf reads, by its numeric parameters — the SMA 50 rather
+/// than whichever SMA is first on the chart. Null (every leaf saved before 2026-10) keeps the
+/// old rule: the first series with the indicator code. On a higher timeframe the indicator is
+/// computed with these parameters over the defaults; without them it runs with the defaults,
+/// which is how "1w SMA 50" used to be evaluated as a 1w SMA 20.
+/// </param>
+/// <param name="SecondParameters">The same, for the line a crosses-line leaf crosses.</param>
+/// <param name="SecondTimeframe">
+/// The timeframe of the line a crosses-line leaf crosses; null = the leaf's own
+/// <paramref name="Timeframe"/>. Lets a leaf on the chart's timeframe cross a higher-timeframe
+/// line — "daily close crosses above the 50-week SMA".
+/// </param>
 public record ConditionLeaf(
     string Id,
     string SignalDescriptorId,
@@ -141,7 +155,10 @@ public record ConditionLeaf(
     double Score = 1.0,
     string? Timeframe = null,
     string? SecondSignalDescriptorId = null,
-    double MinLevelStrength = 0.0
+    double MinLevelStrength = 0.0,
+    IReadOnlyDictionary<string, double>? Parameters = null,
+    IReadOnlyDictionary<string, double>? SecondParameters = null,
+    string? SecondTimeframe = null
 ) : ConditionNode(Id);
 
 /// <summary>

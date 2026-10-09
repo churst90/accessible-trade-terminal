@@ -106,6 +106,9 @@ namespace AccessibleTrader.WebHost.Services
         // alert is nothing without one). Until 2026-09-11 it was built with neither, which was
         // consistent with the blank state it was handed and just as useless.
         private AlertEvaluator? _evaluator;
+        // The condition evaluator _evaluator was built with: the HTF data advanced alerts read is
+        // loaded through it, so the load and the read share one timeframe cache.
+        private IConditionEvaluator? _conditionEvaluator;
         private readonly HashSet<string> _reportedFailures = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -336,8 +339,11 @@ namespace AccessibleTrader.WebHost.Services
                 // no Data, no series, no memory — see docs/BACKGROUND_MONITOR_PHASE3_SCOPE.md F3.
                 var state = observed?.State ?? BareState(watch, bars);
                 var previous = observed?.PreviousValues ?? new Dictionary<string, double>();
-                var fired = Evaluator(services).EvaluateAlerts(
-                    watch.Alerts, state, bars[^1], bars[^2], previous).ToList();
+                var evaluator = Evaluator(services);
+                // A tree alert whose higher-timeframe data is still loading waits a poll.
+                var ready = TreeAlertTimeframes.ReadyToEvaluate(watch.Alerts.ToList(), _conditionEvaluator, state);
+                var fired = evaluator.EvaluateAlerts(
+                    ready, state, bars[^1], bars[^2], previous).ToList();
 
                 foreach (var f in fired) Deliver(f, watch.Symbol);
             }
@@ -367,10 +373,11 @@ namespace AccessibleTrader.WebHost.Services
         private AlertEvaluator Evaluator(IServiceProvider services)
         {
             if (_evaluator != null) return _evaluator;
+            _conditionEvaluator = services.GetService<IConditionEvaluator>();
             _evaluator = new AlertEvaluator(
                 new SdkCandlePatternAnalyzer(), new IndicatorContextAnalyzer(),
                 services.GetService<ILevelService>(),
-                services.GetService<IConditionEvaluator>());
+                _conditionEvaluator);
             _evaluator.EvaluationDegraded += (alert, why) =>
                 Announce($"Alert {alert.Name} cannot be fully evaluated in the background: {why}.");
             _evaluator.EvaluationFailed += (alert, ex) =>

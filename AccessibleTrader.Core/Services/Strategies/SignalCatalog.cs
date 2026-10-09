@@ -87,6 +87,11 @@ namespace AccessibleTrader.Core.Services.Strategies
                         string id = $"{ind.Code}.{comp.Name}";
                         var kind = ClassifyKind(comp.DisplayType.ToString());
                         string label = $"{ind.Name} — {comp.DisplayName ?? comp.Name}";
+                        // A component that IS a bar column says which one. "Candles — Body" is the
+                        // close, and nothing in that label said so to someone choosing the line
+                        // "close crosses above the SMA" should cross.
+                        if (!string.IsNullOrEmpty(comp.DataMapping))
+                            label += $" ({comp.DataMapping})";
 
                         var descriptor = new SignalDescriptor(
                             Id: id,

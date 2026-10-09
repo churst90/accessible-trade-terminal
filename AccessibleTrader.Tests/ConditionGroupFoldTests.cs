@@ -26,7 +26,10 @@ namespace AccessibleTrader.Tests
     ///
     /// <para>
     /// The leaves are higher-timeframe price leaves because those resolve from a stub with no
-    /// indicator engine in the way — the point under test is the fold, not the leaf.
+    /// indicator engine in the way — the point under test is the fold, not the leaf. They are
+    /// CANDLES.body (the close) since 2026-10: they were "TEST.Value", an INDICATOR descriptor,
+    /// and resolved to the HTF close only through the fallthrough that let an uncomputed
+    /// indicator leaf test the close instead — the defect, not a fixture convenience.
     /// </para>
     /// </summary>
     public class ConditionGroupFoldTests
@@ -34,7 +37,7 @@ namespace AccessibleTrader.Tests
         private const string Tf = "1d";
 
         private static ConditionLeaf Leaf(string id, double threshold, double score) =>
-            new(id, "TEST.Value", LeafOperator.GreaterThan, Value: threshold, Score: score, Timeframe: Tf);
+            new(id, "CANDLES.body", LeafOperator.GreaterThan, Value: threshold, Score: score, Timeframe: Tf);
 
         /// <summary>Two leaves against an HTF close of 500: "above 100" is true, "above 1000" is not.</summary>
         private static (ConditionEvaluator Eval, IReadOnlyList<Ohlcv> History, WorkspaceState State) Fixture()
@@ -140,7 +143,7 @@ namespace AccessibleTrader.Tests
         private sealed class StubCatalog : ISignalCatalog
         {
             public IReadOnlyList<SignalDescriptor> All { get; }
-                = new[] { new SignalDescriptor("TEST.Value", "TEST", "Value", SignalKind.Line, "Test Value") };
+                = new[] { new SignalDescriptor("CANDLES.body", "CANDLES", "body", SignalKind.Line, "Candles — Body (close)") };
             public SignalDescriptor? GetById(string id) => All.FirstOrDefault(d => d.Id == id);
             public IReadOnlyList<SignalDescriptor> GetForIndicator(string code)
                 => All.Where(d => d.IndicatorCode == code).ToList();

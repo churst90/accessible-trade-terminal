@@ -123,8 +123,11 @@ namespace AccessibleTrader.Tests
 
             Assert.False(result.OverallTrue);
             Assert.NotNull(eval.LastDegradation);
-            Assert.Contains("leafA", eval.LastDegradation!);
+            // Spoken to the user by the alerts path, so it names the signal and the timeframe —
+            // not the leaf's GUID, which it read aloud until 2026-10.
+            Assert.Contains("Test Value", eval.LastDegradation!);
             Assert.Contains("1h", eval.LastDegradation!);
+            Assert.DoesNotContain("leafA", eval.LastDegradation!);
         }
 
         [Fact]
@@ -168,7 +171,7 @@ namespace AccessibleTrader.Tests
 
             // LastDegradation is overwritten each Evaluate — the most recent call wins.
             Assert.NotNull(eval.LastDegradation);
-            Assert.Contains("leafB", eval.LastDegradation!);
+            Assert.Contains("4h", eval.LastDegradation!);
         }
 
         [Fact]
@@ -176,7 +179,9 @@ namespace AccessibleTrader.Tests
         {
             // Price leaf, no indicator cache, HTF bars with close = 500. Main-TF bar is after
             // all HTF bars, so endExclusive = htfBars.Count and the evaluator reads close=500.
-            // Leaf: close > 100 → true.
+            // Leaf: close > 100 → true. The leaf is CANDLES.body — the close. Until 2026-10 it
+            // was TEST.Value, an indicator, and passed only because an uncomputed indicator
+            // fell through to the close (ConditionTreeLineCrossTests pins that it no longer does).
             var catalog = new StubCatalog();
             var mtf = new StubMtf();
             mtf.CachedBars[("binance", "BTC/USDT", "1d")] = new List<Ohlcv>
@@ -187,7 +192,7 @@ namespace AccessibleTrader.Tests
             };
 
             var eval = new ConditionEvaluator(catalog, mtf, levels: null);
-            var leaf = new ConditionLeaf("priceLeaf", "TEST.Value", LeafOperator.GreaterThan, Value: 100, Timeframe: "1d");
+            var leaf = new ConditionLeaf("priceLeaf", "CANDLES.body", LeafOperator.GreaterThan, Value: 100, Timeframe: "1d");
 
             // Main-TF history ends AFTER all HTF bars → binary search returns HTF count.
             var history = new List<Ohlcv>
@@ -216,7 +221,7 @@ namespace AccessibleTrader.Tests
             };
 
             var eval = new ConditionEvaluator(catalog, mtf, levels: null);
-            var leaf = new ConditionLeaf("priceLeaf", "TEST.Value", LeafOperator.GreaterThan, Value: 0, Timeframe: "1d");
+            var leaf = new ConditionLeaf("priceLeaf", "CANDLES.body", LeafOperator.GreaterThan, Value: 0, Timeframe: "1d");
 
             var history = new List<Ohlcv>
             {
@@ -286,7 +291,11 @@ namespace AccessibleTrader.Tests
         private sealed class StubCatalog : ISignalCatalog
         {
             public IReadOnlyList<SignalDescriptor> All { get; }
-                = new[] { new SignalDescriptor("TEST.Value", "TEST", "Value", SignalKind.Line, "Test Value") };
+                = new[]
+                {
+                    new SignalDescriptor("TEST.Value", "TEST", "Value", SignalKind.Line, "Test Value"),
+                    new SignalDescriptor("CANDLES.body", "CANDLES", "body", SignalKind.Line, "Candles — Body (close)"),
+                };
             public SignalDescriptor? GetById(string id) => All.FirstOrDefault(d => d.Id == id);
             public IReadOnlyList<SignalDescriptor> GetForIndicator(string code)
                 => All.Where(d => d.IndicatorCode == code).ToList();

@@ -214,6 +214,40 @@ namespace AccessibleTrader.Core.Services.Accessibility
                 if (builtIds.Add(built.Id)) template.Add(built);
             }
 
+            // 4. The instances a tree leaf is bound to by its parameters (2026-10). Step 2 builds
+            //    one series per code because an unbound leaf reads the first; a leaf bound to the
+            //    SMA 50 reads only an SMA 50, so a tab with an SMA 20 first and an SMA 50 second
+            //    — or with no SMA 50 at all — would leave that leaf nothing to read headless.
+            //    The saved instance with those parameters when there is one, else the defaults
+            //    with the leaf's parameters written over them.
+            foreach (var (code, parameters) in ReferencedInstances(alerts))
+            {
+                if (template.Any(t => string.Equals(t.IndicatorCode, code, StringComparison.OrdinalIgnoreCase)
+                                   && ConditionEvaluator.ParametersMatch(t.Parameters, parameters))) continue;
+
+                var config = saved.FirstOrDefault(s => s.Drawing == null
+                    && string.Equals(s.IndicatorCode, code, StringComparison.OrdinalIgnoreCase)
+                    && ConditionEvaluator.ParametersMatch(s.Parameters, parameters));
+                if (config == null)
+                {
+                    var meta = allMeta.FirstOrDefault(m => m.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+                    if (meta == null) { missing.Add(code); continue; }
+                    config = new SeriesConfig
+                    {
+                        Id = $"alert-{code}-{ConditionEvaluator.DescribeParameters(parameters)}",
+                        IndicatorCode = meta.Code, Name = meta.Name, FriendlyName = meta.Name,
+                        Pane = PaneAssignmentService.PaneFor(meta), IsVisible = true, IsAutoNarrated = false,
+                    };
+                    ApplyDefaultParameters(config, meta);
+                    foreach (var kv in parameters) config.Parameters[kv.Key] = kv.Value;
+                }
+
+                var built = Build(identity, config, saved, allMeta);
+                if (built == null) { missing.Add(code); continue; }
+                built.Config.IsAutoNarrated = false;
+                if (builtIds.Add(built.Id)) template.Add(built);
+            }
+
             return new HeadlessChart(identity, template, _engine, _mapper, _analyzer, _logger, _profiles, missing);
         }
 
@@ -275,6 +309,38 @@ namespace AccessibleTrader.Core.Services.Accessibility
             }
             named.ExceptWith(byCode);
             return named;
+        }
+
+        /// <summary>The (indicator code, parameters) pairs tree-alert leaves are bound to on the
+        /// chart's own timeframe — a higher-timeframe line is computed from HTF bars, not read
+        /// from this chart.</summary>
+        private IReadOnlyList<(string Code, IReadOnlyDictionary<string, double> Parameters)> ReferencedInstances(
+            IEnumerable<AlertDefinition> alerts)
+        {
+            var found = new List<(string, IReadOnlyDictionary<string, double>)>();
+            if (_catalog == null) return found;
+            void Add(string? descId, IReadOnlyDictionary<string, double>? p, string? tf)
+            {
+                if (p == null || p.Count == 0 || !string.IsNullOrEmpty(tf) || string.IsNullOrEmpty(descId)) return;
+                var code = _catalog.GetById(descId)?.IndicatorCode;
+                if (!string.IsNullOrEmpty(code)) found.Add((code, p));
+            }
+            void Walk(ConditionNode n)
+            {
+                switch (n)
+                {
+                    case ConditionLeaf l:
+                        Add(l.SignalDescriptorId, l.Parameters, l.Timeframe);
+                        Add(l.SecondSignalDescriptorId, l.SecondParameters, l.SecondTimeframe ?? l.Timeframe);
+                        break;
+                    case ConditionGroup g:
+                        foreach (var c in g.Children) Walk(c);
+                        break;
+                }
+            }
+            foreach (var a in alerts)
+                if (a.IsActive && a.ConditionTree != null) Walk(a.ConditionTree);
+            return found;
         }
 
         private void CollectTreeCodes(ConditionNode node, Action<string?> add)
