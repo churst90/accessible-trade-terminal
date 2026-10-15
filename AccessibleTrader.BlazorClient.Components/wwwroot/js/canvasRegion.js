@@ -15,6 +15,10 @@ window.canvasRegion = (function () {
         const top = Math.max(0, rect.top);
         const bottom = Math.max(0, window.innerHeight - rect.bottom);
         dotnetRef.invokeMethodAsync('OnCanvasRegionChanged', top, bottom);
+        // The full rect too, for the hover readout: a parked mouse over a chart that was just
+        // resized (Alt+Z, a window resize) or scrolled is no longer over the spot it was sampled
+        // at, so ChartHoverTracker drops the sample instead of describing the wrong bar.
+        dotnetRef.invokeMethodAsync('OnChartGeometryChanged', rect.left, rect.top, rect.width, rect.height);
     }
 
     function scheduleReport() {

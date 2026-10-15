@@ -114,10 +114,13 @@ public class ChartAreaBrowserCanvasBranchTests
             harness.EventBus,
             harness.WorkspaceStore));
 
-        // ChartHoverTracker (Phase B crosshair) — concrete class injected by ChartArea;
-        // no mouse events flow in these render-branch tests.
+        // ChartHoverTracker (Phase B crosshair) — concrete class injected by ChartArea.
+        // No mouse events flow in the render-branch tests; its input is registered as
+        // BlazorInputService (ChartArea does not inject that type) so a hover test can drive it.
+        var hoverInput = new BlazorInputService();
+        harness.Ctx.Services.AddSingleton(hoverInput);
         harness.Ctx.Services.AddSingleton(new ChartHoverTracker(
-            Substitute.For<IInputService>(),
+            hoverInput,
             harness.WorkspaceStore));
 
         // ChartRenderer — concrete class, only called inside
