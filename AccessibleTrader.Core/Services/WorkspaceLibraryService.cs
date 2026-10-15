@@ -26,6 +26,13 @@ namespace AccessibleTrader.Core.Services
         /// </summary>
         void SaveWorkspaceProfile(string name, IWorkspaceStore store);
 
+        /// <summary>
+        /// The configuration <see cref="SaveWorkspaceProfile"/> would write for the store's
+        /// current state, without writing it. Session autosave compares two of these to tell a
+        /// change the user made from a tick that changed nothing a resume would give back.
+        /// </summary>
+        WorkspaceConfiguration CaptureWorkspace(IWorkspaceStore store);
+
         /// <summary>Persists the current alert definitions to disk.</summary>
         void SaveAlerts(IEnumerable<AlertDefinition> alerts);
         /// <summary>Loads saved alert definitions from disk. Returns an empty list if none saved.</summary>
@@ -160,7 +167,10 @@ namespace AccessibleTrader.Core.Services
             }
         }
 
-        public void SaveWorkspaceProfile(string name, IWorkspaceStore store)
+        public void SaveWorkspaceProfile(string name, IWorkspaceStore store) =>
+            SaveProfile(name, CaptureWorkspace(store));
+
+        public WorkspaceConfiguration CaptureWorkspace(IWorkspaceStore store)
         {
             var state = store.State;
 
@@ -217,7 +227,7 @@ namespace AccessibleTrader.Core.Services
             // position is the rank of ActiveTabIndex among the live indices.
             config.ActiveTabIndex = indexedTabs.Keys.ToList().IndexOf(state.ActiveTabIndex);
 
-            SaveProfile(name, config);
+            return config;
         }
 
         /// <summary>Drawing anchors live on the runtime ChartSeries; sync them into
