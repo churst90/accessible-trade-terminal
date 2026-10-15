@@ -7,17 +7,20 @@ window.canvasRegion = (function () {
     let dotnetRef = null;
     let ro = null;
     let rafHandle = 0;
+    // The rect last sent as OnChartGeometryChanged, so syncRect can tell whether it is stale.
+    let lastRect = null;
 
     function report() {
         const el = document.getElementById('chart-interact-zone');
         if (!el || !dotnetRef) return;
         const rect = el.getBoundingClientRect();
+        lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
         const top = Math.max(0, rect.top);
         const bottom = Math.max(0, window.innerHeight - rect.bottom);
         dotnetRef.invokeMethodAsync('OnCanvasRegionChanged', top, bottom);
         // The full rect too, for the hover readout: a parked mouse over a chart that was just
-        // resized (Alt+Z, a window resize) or scrolled is no longer over the spot it was sampled
-        // at, so ChartHoverTracker drops the sample instead of describing the wrong bar.
+        // resized (Alt+Z, a window resize) or scrolled is at a new spot on the chart, and
+        // ChartHoverTracker re-maps it from the rect the sample was measured against to this one.
         dotnetRef.invokeMethodAsync('OnChartGeometryChanged', rect.left, rect.top, rect.width, rect.height);
     }
 
@@ -30,6 +33,21 @@ window.canvasRegion = (function () {
     }
 
     return {
+        /**
+         * Report the rect NOW if it differs from the last one reported. The mouse handler calls
+         * this just before it sends a move: the move is measured against the element's current
+         * rect, and the hover tracker pairs each move with the last rect it was told about, so
+         * that rect must not lag behind (the scheduled report waits for the next frame, and a
+         * chart that moves without resizing or scrolling schedules none).
+         */
+        syncRect: function () {
+            const el = document.getElementById('chart-interact-zone');
+            if (!el || !dotnetRef) return;
+            const r = el.getBoundingClientRect();
+            if (lastRect && lastRect.left === r.left && lastRect.top === r.top
+                && lastRect.width === r.width && lastRect.height === r.height) return;
+            report();
+        },
         start: function (ref) {
             if (started) return;
             started = true;
@@ -62,6 +80,7 @@ window.canvasRegion = (function () {
             window.removeEventListener('scroll', scheduleReport, { capture: true });
             if (ro) { try { ro.disconnect(); } catch (e) { } ro = null; }
             dotnetRef = null;
+            lastRect = null;
         }
     };
 })();

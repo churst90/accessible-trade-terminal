@@ -95,8 +95,8 @@ test('a burst of resizes in one frame is one report', () => {
 });
 
 test('reports the full chart rect for the hover readout, and again when it resizes', () => {
-  // ChartHoverTracker drops a parked mouse's sample when this rect changes (Alt+Z, a window
-  // resize, a scroll): the pointer is no longer over the spot it was sampled at.
+  // ChartHoverTracker re-maps a parked mouse's sample when this rect changes (Alt+Z, a window
+  // resize, a scroll): the pointer is at the same spot on screen, a new spot on the chart.
   const h = makeHarness();
   h.setRect({ left: 10, top: 120, bottom: 700, width: 1280, height: 580 });
   h.api.start(h.ref);
@@ -106,6 +106,27 @@ test('reports the full chart rect for the hover readout, and again when it resiz
   h.fire('resize');
   h.flush();
   assert.deepEqual(h.geometry().at(-1), ['OnChartGeometryChanged', 0, 40, 1300, 720]);
+});
+
+test('syncRect reports a moved rect at once, and nothing when the rect is the last one reported', () => {
+  // The mouse handler calls it just before sending a move, so the hover tracker pairs the move
+  // with the rect it was measured against. A chart that moved without resizing or scrolling
+  // (so no scheduled report) or in the same frame as the move must not lag a report behind.
+  const h = makeHarness();
+  h.setRect({ left: 10, top: 120, bottom: 700, width: 1280, height: 580 });
+  h.api.syncRect();
+  assert.equal(h.reports.length, 0, 'reported before start: there is no .NET side yet');
+  h.api.start(h.ref);
+  h.flush();
+  const n = h.geometry().length;
+  h.api.syncRect();
+  assert.equal(h.geometry().length, n, 'the same rect again: nothing to sync');
+  h.setRect({ left: 10, top: 60, bottom: 640, width: 1280, height: 580 });
+  h.api.syncRect();                                   // no flush: it must not wait for a frame
+  assert.deepEqual(h.geometry().at(-1), ['OnChartGeometryChanged', 10, 60, 1280, 580]);
+  assert.deepEqual(h.region().at(-1), ['OnCanvasRegionChanged', 60, 160]);
+  h.api.syncRect();
+  assert.equal(h.geometry().length, n + 1, 'synced once, then up to date');
 });
 
 test('start is idempotent and stop removes the listeners', () => {

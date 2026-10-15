@@ -191,49 +191,281 @@ public sealed class ChartHoverStillMouseTests
         speech.DidNotReceive().Speak(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<SpeechChannel>());
     }
 
-    // ── A size change clears ─────────────────────────────────────────────────
+    // ── The chart moving on screen re-maps ───────────────────────────────────
+    //
+    // A scroll, a window resize or focus mode moves the CHART, not the pointer. Cody's decision
+    // (2026-10-15): the readout follows the pointer's unchanged spot on screen onto the chart's
+    // new layout, rather than clearing until the next mouse move. The pointer here starts at
+    // element (X, Y) = (320, 200) in a chart whose rect is at (0, 120), so on screen at (320, 320).
 
-    [Fact]
-    public void Resizing_the_chart_under_a_still_mouse_clears_the_readout_until_the_mouse_moves()
+    private const double Left0 = 0, Top0 = 120;
+
+    /// <summary>What a fresh mouse event at element position (x, y) of a w×h chart reads.</summary>
+    private static ChartHoverInfo? FreshAt(Harness h, ChartHoverTracker t, double x, double y, double w, double hh)
     {
-        // The pointer's position relative to the element is stale once the element is resized;
-        // the readout hides rather than naming a bar the pointer may not be on.
+        h.Input.ProcessMouse(x, y, "MouseMove", w, hh);
+        return t.Current;
+    }
+
+    private static string Describe(ChartHoverInfo? i)
+        => i == null ? "nothing" : $"'{i.DateText} {i.PriceText} / {i.OhlcText}' (hairline x {i.BarX:F1})";
+
+    [Theory]
+    [InlineData("sideways", -200.0, Top0, true)]
+    [InlineData("up", Left0, 20.0, false)]
+    public void Scrolling_the_chart_under_a_still_mouse_re_maps_the_readout_to_the_spot_now_under_it(
+        string direction, double newLeft, double newTop, bool barChanges)
+    {
         var h = new Harness();
         using var t = h.Tracker();
-        t.OnChartGeometryChanged(0, 120, W, H);     // first report: just recorded
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Move();
+        var before = t.Current;
+        Assert.NotNull(before);
+
+        t.OnChartGeometryChanged(newLeft, newTop, W, H);
+        var still = t.Current;
+
+        double nx = Left0 + X - newLeft, ny = Top0 + Y - newTop;
+        var fresh = FreshAt(h, t, nx, ny, W, H);
+        Assert.NotNull(fresh);
+        // Vacuity: the scroll moved the pointer onto a different bar (sideways) or a different
+        // price (up), so a readout that did not follow cannot pass.
+        if (barChanges) Assert.NotEqual(before!.DateText, fresh!.DateText);
+        else Assert.NotEqual(before!.PriceText, fresh!.PriceText);
+        Assert.True(Equals(fresh, still),
+            $"After scrolling the chart {direction} under a still mouse the readout said {Describe(still)}, " +
+            $"but a mouse event at the same spot on screen (element {nx}, {ny}) reads {Describe(fresh)}. " +
+            $"Before the scroll it said {Describe(before)}.");
+    }
+
+    [Fact]
+    public void Resizing_the_chart_under_a_still_mouse_re_maps_the_readout()
+    {
+        // Narrower and further right (a side panel opened), taller: the same screen point is at
+        // a different fraction of the plot, so on a different bar.
+        var h = new Harness();
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Move();
+        var before = t.Current;
+        Assert.NotNull(before);
+
+        const double newLeft = 100, newTop = 60, newW = W - 300, newH = H + 100;
+        t.OnChartGeometryChanged(newLeft, newTop, newW, newH);
+        var still = t.Current;
+
+        var fresh = FreshAt(h, t, Left0 + X - newLeft, Top0 + Y - newTop, newW, newH);
+        Assert.NotNull(fresh);
+        Assert.NotEqual(before!.DateText, fresh!.DateText);
+        Assert.True(Equals(fresh, still),
+            $"After the resize the still readout said {Describe(still)}; the bar now under the pointer is {Describe(fresh)}.");
+    }
+
+    [Fact]
+    public void After_a_re_map_later_chart_changes_read_from_the_new_spot()
+    {
+        // The stored sample moves with the re-map, so a pan after a scroll reads the bar under
+        // the pointer's new element position, not the one it had before the scroll.
+        var h = new Harness();
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Move();
+        t.OnChartGeometryChanged(-200, Top0, W, H);
+
+        h.Store.Dispatch(new PanAction(-20));
+        var still = t.Current;
+
+        var atOldSpot = FreshAt(h, t, X, Y, W, H);
+        var fresh = FreshAt(h, t, X + 200, Y, W, H);
+        Assert.NotEqual(atOldSpot, fresh); // vacuity: the two spots read differently
+        Assert.True(Equals(fresh, still),
+            $"A pan after the scroll read {Describe(still)}; the pointer's spot reads {Describe(fresh)} " +
+            $"(the pre-scroll element position would read {Describe(atOldSpot)}).");
+    }
+
+    public static TheoryData<string, double, double, double, double> PointerOffTheChart => new()
+    {
+        // name, new left, new top, new width, new height. The pointer is on screen at (320, 320).
+        { "scrolled down below the pointer", Left0, 400, W, H },
+        { "moved right past the pointer", 400, Top0, W, H },
+        { "moved left past the pointer", -1000, Top0, W, H },
+        { "scrolled up past the pointer", Left0, -600, W, H },
+        { "shrank away from the pointer", Left0, Top0, 200, H },
+    };
+
+    [Theory]
+    [MemberData(nameof(PointerOffTheChart))]
+    public void A_chart_that_moves_out_from_under_a_still_mouse_clears_the_readout(
+        string how, double newLeft, double newTop, double newW, double newH)
+    {
+        var h = new Harness();
+        // Panned back from the latest bar, so there ARE bars to the right of the viewport and a
+        // missed bounds check would name one of them rather than come out empty by accident.
+        h.Store.Dispatch(new PanAction(-60));
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
         h.Move();
         Assert.NotNull(t.Current);
 
-        t.OnChartGeometryChanged(0, 120, W, H);     // the same rect again (a scroll elsewhere)
-        Assert.NotNull(t.Current);
+        t.OnChartGeometryChanged(newLeft, newTop, newW, newH);
+        Assert.True(t.Current == null,
+            $"The chart {how}; the pointer is no longer on it, but the readout still says {Describe(t.Current)}.");
 
-        t.OnChartGeometryChanged(0, 40, W, H + 200); // focus mode: taller, higher
+        // The sample is gone, not just hidden: a chart change does not bring it back ...
+        h.Store.Dispatch(new PanAction(-5));
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
         Assert.Null(t.Current);
-
-        // ... and a later chart change does not bring the old sample back.
-        h.Store.Dispatch(new PanAction(-20));
-        Assert.Null(t.Current);
-
+        // ... and the next real move does.
         h.Move();
         Assert.NotNull(t.Current);
     }
 
     [Fact]
-    public void Focus_mode_clears_the_readout_until_the_mouse_moves()
+    public void Focus_mode_hides_the_readout_until_the_new_rect_arrives_then_re_maps_it()
     {
+        // Alt+Z re-lays the chart out; its new rect arrives in a later report. In between, the
+        // old mapping must not be shown over the new layout, not even by a chart change.
         var h = new Harness();
         using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
         h.Move();
-        Assert.NotNull(t.Current);
+        var before = t.Current;
+        Assert.NotNull(before);
 
         h.Bus.Publish(new FocusModeChangedEvent(true));
-        Assert.Null(t.Current);
+        Assert.True(t.Current == null, $"Focus mode is laying the chart out again, but the readout still says {Describe(t.Current)}.");
         h.Store.Dispatch(new PanAction(-20));
-        Assert.Null(t.Current);
+        Assert.True(t.Current == null, $"A pan before the new rect arrived showed {Describe(t.Current)} from the old layout.");
+
+        const double newTop = 40, newH = H + 200;
+        t.OnChartGeometryChanged(Left0, newTop, W, newH);
+        var still = t.Current;
+
+        var fresh = FreshAt(h, t, X, Top0 + Y - newTop, W, newH);
+        Assert.NotNull(fresh);
+        Assert.NotEqual(before, fresh);
+        Assert.True(Equals(fresh, still),
+            $"Once focus mode's rect arrived the readout said {Describe(still)}; the pointer is on {Describe(fresh)}.");
     }
 
     [Fact]
-    public void ChartArea_hands_the_chart_rect_to_the_tracker_and_the_readout_disappears_on_resize()
+    public void Focus_mode_that_leaves_the_chart_rect_unchanged_shows_the_readout_again_on_the_next_report()
+    {
+        var h = new Harness();
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Move();
+        var before = t.Current;
+
+        h.Bus.Publish(new FocusModeChangedEvent(false));
+        Assert.Null(t.Current);
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        Assert.Equal(before, t.Current);
+    }
+
+    [Fact]
+    public void A_sample_taken_before_any_chart_rect_was_known_is_cleared_rather_than_guessed()
+    {
+        // Without the rect the pointer was measured against, its spot on screen is unknown, so
+        // there is nothing to re-map from.
+        var h = new Harness();
+        using var t = h.Tracker();
+        h.Move();
+        Assert.NotNull(t.Current);
+
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        Assert.True(t.Current == null, $"With no known origin the readout was re-mapped to {Describe(t.Current)}.");
+        h.Store.Dispatch(new PanAction(-20));
+        Assert.Null(t.Current);
+
+        // Focus mode on such a sample clears it too, and the report that follows does not revive it.
+        var h2 = new Harness();
+        using var t2 = h2.Tracker();
+        h2.Move();
+        h2.Bus.Publish(new FocusModeChangedEvent(true));
+        Assert.Null(t2.Current);
+        t2.OnChartGeometryChanged(Left0, 40, W, H + 200);
+        Assert.Null(t2.Current);
+    }
+
+    [Fact]
+    public void A_sample_whose_size_disagrees_with_the_last_reported_rect_is_cleared_on_the_next_rect()
+    {
+        // The mouse handler reports a changed rect before the move measured against it, so a
+        // move whose size disagrees with the last report came from an older script or a lost
+        // report: its origin is unknown, and it is not re-mapped from the wrong one.
+        var h = new Harness();
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Input.ProcessMouse(X, Y, "MouseMove", W - 100, H);
+        Assert.NotNull(t.Current);
+
+        t.OnChartGeometryChanged(Left0, Top0, W - 100, H);
+        Assert.True(t.Current == null, $"A sample with no trustworthy origin was re-mapped to {Describe(t.Current)}.");
+    }
+
+    [Fact]
+    public void The_same_rect_reported_again_changes_nothing()
+    {
+        // canvasRegion.js reports on every scroll anywhere on the page; most do not move the chart.
+        var h = new Harness();
+        using var t = h.Tracker();
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        h.Move();
+        var before = t.Current;
+        int raised = 0;
+        t.Changed += () => raised++;
+
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+        t.OnChartGeometryChanged(Left0 + 0.2, Top0 - 0.3, W, H); // sub-pixel jitter
+
+        Assert.Equal(0, raised);
+        Assert.Same(before, t.Current);
+    }
+
+    [Theory]
+    [InlineData("MouseMove")]
+    [InlineData("TouchExplore")]
+    public void A_re_map_after_a_scroll_resize_or_focus_mode_makes_no_sound_and_no_speech(string type)
+    {
+        var h = new Harness();
+        var sonify = Substitute.For<ISonificationManager>();
+        var speech = Substitute.For<ISpeechFeedbackRouter>();
+        var settings = Substitute.For<ISettingsManager>();
+        settings.GetSetting(ChartHoverTracker.HoverSonificationKey, Arg.Any<Newtonsoft.Json.Linq.JToken?>())
+            .Returns(new Newtonsoft.Json.Linq.JValue(true));
+        using var t = h.Tracker(sonify, settings, speech);
+        t.OnChartGeometryChanged(Left0, Top0, W, H);
+
+        h.Move(type);
+        // Vacuity: the pointer's own move IS audible in this configuration.
+        sonify.Received(1).PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+        if (type == "TouchExplore")
+            speech.Received(1).Speak(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<SpeechChannel>());
+        var before = t.Current;
+        sonify.ClearReceivedCalls();
+        speech.ClearReceivedCalls();
+
+        t.OnChartGeometryChanged(-200, Top0, W, H);                // scroll sideways
+        var afterScroll = t.Current;
+        t.OnChartGeometryChanged(100, 60, W - 300, H + 100);       // resize
+        h.Bus.Publish(new FocusModeChangedEvent(true));
+        t.OnChartGeometryChanged(0, 40, W, H + 200);               // focus mode's rect
+
+        // The re-maps happened and moved to another bar ...
+        Assert.NotNull(afterScroll);
+        Assert.NotEqual(before!.DateText, afterScroll!.DateText);
+        Assert.NotNull(t.Current);
+        // ... and none of them made a sound.
+        sonify.DidNotReceive().PlayNote(Arg.Any<double>(), Arg.Any<double>(), Arg.Any<string>(),
+            Arg.Any<float>(), Arg.Any<float>(), Arg.Any<double>(), Arg.Any<bool>());
+        speech.DidNotReceive().Speak(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<SpeechChannel>());
+    }
+
+    [Fact]
+    public void ChartArea_hands_the_chart_rect_to_the_tracker_and_the_readout_follows_a_scroll()
     {
         // The wire from canvasRegion.js: ChartArea's [JSInvokable] OnChartGeometryChanged.
         var bars = new List<Ohlcv>();
@@ -253,16 +485,27 @@ public sealed class ChartHoverStillMouseTests
         var input = harness.Ctx.Services.GetRequiredService<BlazorInputService>();
         var tracker = harness.Ctx.Services.GetRequiredService<ChartHoverTracker>();
 
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 120, W, H)).GetAwaiter().GetResult();
+        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(Left0, Top0, W, H)).GetAwaiter().GetResult();
         cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H)).GetAwaiter().GetResult();
         var shown = tracker.Current;
         Assert.NotNull(shown);
         cut.WaitForAssertion(() => Assert.Contains(shown!.OhlcText, cut.Markup));
 
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 40, W, H + 200)).GetAwaiter().GetResult();
+        // Scrolled sideways by 200px: the pointer is over another bar now, and the markup says so.
+        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, Top0, W, H)).GetAwaiter().GetResult();
+        var remapped = tracker.Current;
+        Assert.NotNull(remapped);
+        Assert.NotEqual(shown!.OhlcText, remapped!.OhlcText);
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains(remapped.OhlcText, cut.Markup);
+            Assert.DoesNotContain(shown.OhlcText, cut.Markup);
+        });
 
+        // Scrolled so the chart is below the pointer: nothing is named.
+        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(-200, 800, W, H)).GetAwaiter().GetResult();
         Assert.Null(tracker.Current);
-        cut.WaitForAssertion(() => Assert.DoesNotContain(shown!.OhlcText, cut.Markup));
+        cut.WaitForAssertion(() => Assert.DoesNotContain(remapped.OhlcText, cut.Markup));
     }
 
     // ── Throttle and the off switch ──────────────────────────────────────────
