@@ -253,13 +253,13 @@ public sealed class ChartHoverStillMouseTests
         var input = harness.Ctx.Services.GetRequiredService<BlazorInputService>();
         var tracker = harness.Ctx.Services.GetRequiredService<ChartHoverTracker>();
 
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 120, W, H));
-        cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H));
+        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 120, W, H)).GetAwaiter().GetResult();
+        cut.InvokeAsync(() => input.ProcessMouse(X, Y, "MouseMove", W, H)).GetAwaiter().GetResult();
         var shown = tracker.Current;
         Assert.NotNull(shown);
         cut.WaitForAssertion(() => Assert.Contains(shown!.OhlcText, cut.Markup));
 
-        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 40, W, H + 200));
+        cut.InvokeAsync(() => cut.Instance.OnChartGeometryChanged(0, 40, W, H + 200)).GetAwaiter().GetResult();
 
         Assert.Null(tracker.Current);
         cut.WaitForAssertion(() => Assert.DoesNotContain(shown!.OhlcText, cut.Markup));
